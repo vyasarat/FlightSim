@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#79c8f2">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Little Pilot</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #79c8f2;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    touch-action: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+(() => {
+"use strict";
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const TUNE = {
+  forwardSpeed: 330,
+  seekGain: 7.0,
+  seekResponse: 9,
+  maxSeekSpeed: 650,
+  glideGravity: 240,
+  maxGlideSpeed: 290,
+  pitchMax: 0.5,
+  pitchSmooth: 8,
+  bounceVelocity: 360,
+  bounceCooldown: 0.22
+};
+
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+let W = 0, H = 0, dpr = 1;
+let groundY = 0, groundH = 0;
+let skyGrad = null;
+
+let seed = 12345;
+function rnd() {
+  seed = (seed * 1664525 + 1013904223) >>> 0;
+  return seed / 4294967296;
+}
+function hash01(n) {
+  let x = (n | 0) * 2654435761;
+  x = (x ^ (x >>> 13)) >>> 0;
+  return (x % 1000) / 1000;
+}
+
+const plane = { x: 0, y: 0, vy: 0, pitch: 0, squash: 0 };
+let propAngle = 0;
+let worldX = 0;
+let touching = false;
+let targetY = 0;
+let activePointerId = null;
+let bounceTimer = 0;
+let clouds = [];
+
+let audioCtx = null;
+let masterGain = null;
+
+function unlockAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (!audioCtx) {
+    audioCtx = new AC();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.5;
+    masterGain.connect(audioCtx.destination);
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
+function boing() {
+  if (!audioCtx || audioCtx.state !== "running") return;
+  const t = audioCtx.currentTime;
+  const mk = (type, f0, f1, peak) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + 0.28);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+    o.connect(g);
+    g.connect(masterGain);
+    o.start(t);
+    o.stop(t + 0.36);
+  };
+  mk("triangle", 300, 75, 0.5);
+  mk("sine", 600, 150, 0.18);
+}
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  groundH = Math.max(64, H * 0.11);
+  groundY = H - groundH;
+  plane.x = W * 0.27;
+  plane.y = clamp(plane.y || H * 0.45, 34, groundY - 14);
+  skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+  skyGrad.addColorStop(0, "#79c8f2");
+  skyGrad.addColorStop(0.75, "#b8e4fa");
+  skyGrad.addColorStop(1, "#e2f4fd");
+}
+
+function update(dt) {
+  worldX += TUNE.forwardSpeed * dt;
+  propAngle += dt * 34;
+  bounceTimer = Math.max(0, bounceTimer - dt);
+  plane.squash = Math.max(0, plane.squash - dt * 3.2);
+
+  const minY = 34;
+  const maxY = groundY - 14;
+
+  if (touching) {
+    targetY = clamp(targetY, minY, maxY);
+    const wantVy = clamp((targetY - plane.y) * TUNE.seekGain, -TUNE.maxSeekSpeed, TUNE.maxSeekSpeed);
+    plane.vy += (wantVy - plane.vy) * Math.min(1, TUNE.seekResponse * dt);
+  } else {
+    plane.vy = Math.min(plane.vy + TUNE.glideGravity * dt, TUNE.maxGlideSpeed);
+  }
+
+  plane.y += plane.vy * dt;
+
+  if (plane.y > maxY) {
+    plane.y = maxY;
+    if (plane.vy > 0 && bounceTimer <= 0) {
+      plane.vy = -TUNE.bounceVelocity;
+      plane.squash = 1;
+      bounceTimer = TUNE.bounceCooldown;
+      boing();
+    } else if (plane.vy > 0) {
+      plane.vy = 0;
+    }
+  }
+  if (plane.y < minY) {
+    plane.y = minY;
+    if (plane.vy < 0) plane.vy = 0;
+  }
+
+  const targetPitch = clamp(Math.atan2(plane.vy, TUNE.forwardSpeed * 1.7), -TUNE.pitchMax, TUNE.pitchMax);
+  plane.pitch += (targetPitch - plane.pitch) * Math.min(1, TUNE.pitchSmooth * dt);
+
+  const span = W + 500;
+  for (const c of clouds) {
+    if (c.wx - worldX < -260 * c.s) {
+      c.wx = worldX + span * (0.7 + rnd() * 0.5);
+      c.y = 40 + rnd() * (groundY * 0.62);
+      c.s = 0.6 + rnd() * 0.9;
+    }
+  }
+}
+
+function drawCloud(x, y, s) {
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.beginPath();
+  ctx.arc(x, y, 26 * s, 0, Math.PI * 2);
+  ctx.arc(x + 30 * s, y - 12 * s, 20 * s, 0, Math.PI * 2);
+  ctx.arc(x + 58 * s, y, 24 * s, 0, Math.PI * 2);
+  ctx.arc(x + 30 * s, y + 10 * s, 22 * s, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawGround() {
+  ctx.fillStyle = "#78c95f";
+  ctx.fillRect(0, groundY, W, groundH);
+  ctx.fillStyle = "#5fb04a";
+  ctx.fillRect(0, groundY, W, 6);
+  ctx.strokeStyle = "#57a344";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  const spacing = 130;
+  const i0 = Math.floor(worldX / spacing) - 1;
+  const count = Math.ceil(W / spacing) + 3;
+  ctx.beginPath();
+  for (let i = i0; i < i0 + count; i++) {
+    const h1 = hash01(i);
+    const h2 = hash01(i * 7 + 3);
+    const gx = i * spacing - worldX + h1 * 80;
+    const gh = 8 + h2 * 10;
+    ctx.moveTo(gx, groundY + 4);
+    ctx.lineTo(gx - 4, groundY + 4 - gh);
+    ctx.moveTo(gx + 6, groundY + 4);
+    ctx.lineTo(gx + 9, groundY + 3 - gh * 0.7);
+  }
+  ctx.stroke();
+}
+
+function drawShadow() {
+  const alt = clamp((groundY - plane.y) / (groundY * 0.9), 0, 1);
+  const k = 1 - alt * 0.65;
+  ctx.fillStyle = `rgba(20,60,20,${0.16 * k + 0.04})`;
+  ctx.beginPath();
+  ctx.ellipse(plane.x, groundY + 10, 58 * k + 18, 10 * k + 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPlane() {
+  const u = clamp(H * 0.062, 30, 54);
+  const sq = plane.squash;
+  ctx.save();
+  ctx.translate(plane.x, plane.y);
+  ctx.rotate(plane.pitch);
+  ctx.scale(1 - 0.16 * sq, 1 + 0.22 * sq);
+
+  ctx.lineWidth = Math.max(2, u * 0.07);
+  ctx.strokeStyle = "#7a3327";
+  ctx.lineJoin = "round";
+
+  ctx.fillStyle = "#e9d3ab";
+  ctx.beginPath();
+  ctx.ellipse(0.02 * u, -0.20 * u, 0.50 * u, 0.11 * u, -0.10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#d63a2f";
+  ctx.beginPath();
+  ctx.moveTo(-0.98 * u, 0.02 * u);
+  ctx.lineTo(-0.60 * u, 0.00);
+  ctx.lineTo(-0.86 * u, -0.62 * u);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#ffe9c9";
+  ctx.beginPath();
+  ctx.ellipse(-0.86 * u, 0.10 * u, 0.30 * u, 0.09 * u, 0.06, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#ef4b3f";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, u, 0.38 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#ffe9c9";
+  ctx.beginPath();
+  ctx.ellipse(0.06 * u, 0.16 * u, 0.60 * u, 0.13 * u, -0.10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#bfeaff";
+  ctx.beginPath();
+  ctx.arc(0.34 * u, -0.07 * u, 0.16 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.beginPath();
+  ctx.arc(0.39 * u, -0.12 * u, 0.05 * u, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#8a5a44";
+  ctx.beginPath();
+  ctx.arc(1.02 * u, 0, 0.10 * u, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(210,215,225,0.30)";
+  ctx.beginPath();
+  ctx.ellipse(1.08 * u, 0, 0.05 * u, 0.46 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const blade = 0.18 + 0.82 * Math.abs(Math.sin(propAngle));
+  ctx.fillStyle = "rgba(70,70,85,0.75)";
+  ctx.beginPath();
+  ctx.ellipse(1.08 * u, 0, 0.045 * u, 0.46 * u * blade, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function draw() {
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, groundY + 2);
+
+  const sunX = W * 0.84;
+  const sunY = H * 0.16;
+  ctx.fillStyle = "rgba(255,238,180,0.45)";
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, 74, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffdf8f";
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, 44, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (const c of clouds) drawCloud(c.wx - worldX, c.y, c.s);
+
+  drawGround();
+  drawShadow();
+  drawPlane();
+}
+
+canvas.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  unlockAudio();
+  if (activePointerId === null) {
+    activePointerId = e.pointerId;
+    touching = true;
+    targetY = e.clientY;
+  }
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (e.pointerId === activePointerId) targetY = e.clientY;
+});
+const release = (e) => {
+  if (e.pointerId === activePointerId) {
+    activePointerId = null;
+    touching = false;
+  }
+};
+canvas.addEventListener("pointerup", release);
+canvas.addEventListener("pointercancel", release);
+window.addEventListener("gesturestart", (e) => e.preventDefault());
+window.addEventListener("resize", resize);
+
+let wakeLock = null;
+async function grabWakeLock() {
+  try { wakeLock = await navigator.wakeLock.request("screen"); } catch (err) {}
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") grabWakeLock();
+});
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
+resize();
+plane.y = H * 0.45;
+for (let i = 0; i < 6; i++) {
+  clouds.push({
+    wx: rnd() * (W + 500),
+    y: 40 + rnd() * (groundY * 0.6),
+    s: 0.6 + rnd() * 0.9
+  });
+}
+grabWakeLock();
+
+let last = performance.now();
+function frame(now) {
+  let dt = (now - last) / 1000;
+  last = now;
+  if (dt > 1 / 30) dt = 1 / 30;
+  if (dt <= 0) dt = 1 / 120;
+  update(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
