@@ -546,6 +546,10 @@ const TUNE = {
   routeLength: 12000,
   continentCompression: 1.0,
 
+  spaceAltitude: 900,
+  spaceBlendBand: 260,
+  otherVehicleCeiling: 520,
+
   explodeDescentRate: 26,
   explodeAngleDeg: 20,
   explodeBuildingSpeed: 34,
@@ -553,12 +557,12 @@ const TUNE = {
   reassembleDelay: 2.0,
 
   vehicles: {
-    prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, hoverSpeed: 0 },
-    helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6 },
-    rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 48, bankLimitDeg: 40, accel: 26, hoverSpeed: 0 },
-    airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0 },
-    airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0 },
-    airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0 }
+    prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, hoverSpeed: 0, capped: true },
+    helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6, capped: true },
+    rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 48, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false },
+    airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true },
+    airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true },
+    airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true }
   },
 
   vehicleColors: {
@@ -765,6 +769,7 @@ const skyMat = new THREE.ShaderMaterial({
     }
   `
 });
+const skyUniforms = skyMat.uniforms;
 const skyDome = new THREE.Mesh(skyGeo, skyMat);
 scene.add(skyDome);
 
@@ -772,6 +777,78 @@ scene.add(new THREE.HemisphereLight(TUNE.hemiSkyColor, TUNE.hemiGroundColor, TUN
 const sunLight = new THREE.DirectionalLight(0xfff3d6, TUNE.sunIntensity);
 sunLight.position.set(400, 1000, 250);
 scene.add(sunLight);
+
+const SPACE_TOP = new THREE.Color(0x04050d);
+const SPACE_HOR = new THREE.Color(0x0b1024);
+const SKY_TOP_BASE = new THREE.Color(TUNE.skyTopColor);
+const SKY_HOR_BASE = new THREE.Color(TUNE.skyHorizonColor);
+
+const starsGeo = new THREE.BufferGeometry();
+{
+  const pts = new Float32Array(700 * 3);
+  for (let i = 0; i < 700; i++) {
+    const th = Math.random() * Math.PI * 2;
+    const ph = Math.acos(Math.random());
+    const r = 2700;
+    pts[i * 3] = r * Math.sin(ph) * Math.cos(th);
+    pts[i * 3 + 1] = Math.abs(r * Math.cos(ph)) * 0.9 + 60;
+    pts[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+  }
+  starsGeo.setAttribute("position", new THREE.BufferAttribute(pts, 3));
+}
+const starsMat = new THREE.PointsMaterial({
+  color: 0xffffff, size: 2.2, sizeAttenuation: false,
+  transparent: true, opacity: 0, fog: false
+});
+const stars = new THREE.Points(starsGeo, starsMat);
+skyDome.add(stars);
+
+const earthMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(3200, 32, 24),
+  new THREE.MeshBasicMaterial({ color: 0x2a66c9, transparent: true, opacity: 0, fog: false })
+);
+scene.add(earthMesh);
+
+const astronaut = new THREE.Group();
+{
+  const suit = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 5, 10), lamSafe(0xf2f4f7));
+  astronaut.add(suit);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(1.8, 10, 8), lamSafe(0xf2f4f7));
+  helmet.position.y = 4;
+  astronaut.add(helmet);
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(1.3, 10, 8), new THREE.MeshBasicMaterial({ color: 0x20262e }));
+  visor.position.set(0, 4, 0.95);
+  astronaut.add(visor);
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(3.6, 4.6, 1.8), lamSafe(0xd8dde4));
+  pack.position.set(0, 0.6, -2);
+  astronaut.add(pack);
+}
+astronaut.position.set(420, TUNE.spaceAltitude + 320, -900 * ROUTE_SCALE() || -900);
+astronaut.visible = false;
+scene.add(astronaut);
+
+const station = new THREE.Group();
+{
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 20, 12), lamSafe(0xcfd6df));
+  station.add(core);
+  for (const sy of [-6.5, 6.5]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(30, 1.4, 5), lamSafe(0x9aa2ad));
+    arm.position.y = sy;
+    station.add(arm);
+    for (const sx of [-10.5, 10.5]) {
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(13, 0.5, 7.5), lamSafe(0x2a4f9e));
+      panel.position.set(sx, sy, 0);
+      station.add(panel);
+    }
+  }
+}
+station.position.set(-380, TUNE.spaceAltitude + 520, -1400 * (ROUTE_SCALE() || 1));
+station.visible = false;
+scene.add(station);
+
+function lamSafe(color) {
+  return new THREE.MeshLambertMaterial({ color });
+}
 
 const waterMat = new THREE.MeshLambertMaterial({ color: 0x3f7fbf });
 const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), waterMat);
@@ -1755,6 +1832,7 @@ const state = {
   approachLatch: false,
   exploding: false,
   explodeTimer: 0,
+  spaceF: 0,
   vehicleKey: "prop",
   vp: null,
   dirIdx: 0,
@@ -2199,6 +2277,44 @@ function update(dt) {
       state.bounceTimer = Math.max(0, state.bounceTimer - dt);
     }
   }
+
+  const aglSpace = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+  let spaceTarget = 0;
+  if (!state.vp.capped && state.phase === "AIRBORNE") {
+    spaceTarget = clamp((aglSpace - TUNE.spaceAltitude) / TUNE.spaceBlendBand, 0, 1);
+  }
+  state.spaceF += (spaceTarget - state.spaceF) * Math.min(1, 1.4 * dt);
+  if (state.vp.capped && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY")) {
+    if (state.y > TUNE.otherVehicleCeiling) {
+      state.y = TUNE.otherVehicleCeiling;
+      if (state.pitch > -2) state.pitch -= 20 * dt;
+    }
+  }
+  const sf = state.spaceF;
+  if (sf > 0.001) {
+    skyUniforms.topColor.value.copy(SKY_TOP_BASE).lerp(SPACE_TOP, sf);
+    skyUniforms.horizonColor.value.copy(SKY_HOR_BASE).lerp(SPACE_HOR, sf);
+    scene.fog.color.copy(skyUniforms.horizonColor.value);
+    scene.fog.near = lerp(TUNE.fogNear, 2600, sf);
+    scene.fog.far = lerp(TUNE.fogFar, 5400, sf);
+  } else if (skyUniforms.topColor.value.getHex() !== TUNE.skyTopColor) {
+    skyUniforms.topColor.value.copy(SKY_TOP_BASE);
+    skyUniforms.horizonColor.value.copy(SKY_HOR_BASE);
+    scene.fog.color.copy(skyUniforms.horizonColor.value);
+    scene.fog.near = TUNE.fogNear;
+    scene.fog.far = TUNE.fogFar;
+  }
+  stars.material.opacity = sf;
+  earthMesh.material.opacity = sf * 0.96;
+  earthMesh.position.set(state.x, state.y - 3600, state.z);
+  earthMesh.visible = sf > 0.02;
+  astronaut.visible = station.visible = sf > 0.05;
+  if (astronaut.visible) {
+    astronaut.rotation.y += dt * 0.4;
+    astronaut.rotation.x += dt * 0.12;
+    station.rotation.y += dt * 0.16;
+  }
+  waterMesh.visible = sf < 0.9;
 
   updateChunks(state.x, state.z);
   updateScenery(state.x, state.z, false);

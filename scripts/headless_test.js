@@ -320,6 +320,70 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-D space ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); });
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    let air = false, simSecs = 0;
+    while (simSecs < 30 && !air) {
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.85));
+      await pump(page, 0.5); simSecs += 0.5;
+      if (canRot) {
+        air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+        if (air) await page.evaluate(() => window.__lp.api.setStick(0, 0.85));
+      }
+    }
+    check("space: rocket climbs with stick held", air);
+    let inSpace = false;
+    while (simSecs < 90 && !inSpace) {
+      inSpace = await page.evaluate(() => window.__lp.state.spaceF > 0.9);
+      if (!inSpace) await pump(page, 1); simSecs += 1;
+    }
+    check("space: rocket reaches space blend", inSpace,
+      `spaceF=${(await page.evaluate(() => window.__lp.state.spaceF)).toFixed(2)}`);
+    await page.evaluate(() => window.__lp.api.clearStick());
+    await pump(page, 3);
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.7));
+    let back = false;
+    while (simSecs < 150 && !back) {
+      back = await page.evaluate(() => window.__lp.state.spaceF < 0.15);
+      if (!back) await pump(page, 1); simSecs += 1;
+    }
+    check("space: dive returns to sky", back);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
+    await page.close();
+  }
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.setVehicle("prop"); window.__lp.api.placeOnRunway(); });
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    let air = false, simSecs = 0;
+    while (simSecs < 30 && !air) {
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.9));
+      await pump(page, 0.5); simSecs += 0.5;
+      if (canRot) {
+        air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+        if (air) await page.evaluate(() => window.__lp.api.setStick(0, 0.9));
+      }
+    }
+    let maxY = 0, capped = true;
+    while (simSecs < 90) {
+      await pump(page, 1); simSecs += 1;
+      maxY = Math.max(maxY, await page.evaluate(() => window.__lp.state.y - Math.max(window.__lp.terrainEff(window.__lp.state.x, window.__lp.state.z), window.__lp.TUNE.waterLevel)));
+      capped = await page.evaluate(() =>
+        window.__lp.state.y <= window.__lp.TUNE.otherVehicleCeiling + 6 && window.__lp.state.spaceF < 0.35);
+      if (simSecs > 40 && !capped) break;
+    }
+    check("space: non-rocket capped below space", capped, `maxAgl=${maxY.toFixed(0)} ceiling=${await page.evaluate(() => window.__lp.TUNE.otherVehicleCeiling)}`);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
+    await page.close();
+  }
+
   // ---------- T-A explosions ----------
   {
     const { page } = await newPage(1180, 820);
