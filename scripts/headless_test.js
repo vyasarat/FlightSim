@@ -490,6 +490,29 @@ function check(name, ok, extra) {
     await b.page.close();
   }
 
+  // ---------- T-E route strip ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.spawnAt(0, 0); });
+    await pump(page, 1);
+    const dots = await page.evaluate(() => document.querySelectorAll("#progressStrip .dot").length);
+    check("strip: landmark dots rendered", dots === 12, `dots=${dots}`);
+
+    await page.evaluate(() => { window.__lp.api.teleportAirborne(-5400, 0, 80, Math.PI); });
+    await pump(page, 1.2);
+    const mid = await page.evaluate(() => {
+      const m = document.getElementById("progressStrip");
+      const marker = m.querySelector(".marker");
+      const passed = m.querySelectorAll(".dot.passed").length;
+      return { left: marker.style.left, passed };
+    });
+    check("strip: marker moves and dots pass en-route",
+      mid.left !== "" && parseFloat(mid.left) > 30 && parseFloat(mid.left) < 95 && mid.passed >= 3,
+      JSON.stringify(mid));
+    await page.close();
+  }
+
   // ---------- T9 home indicator ----------
   {
     const { page } = await newPage(1180, 820);
