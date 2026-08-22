@@ -991,11 +991,16 @@ function startEngine() {
   engineNodes = { o, lfo, g };
 }
 
+let lastEngineNorm = 1;
 function setEngine(speedNorm) {
+  lastEngineNorm = speedNorm;
   if (!engineNodes || !audioCtx || audioCtx.state !== "running") return;
   const t = audioCtx.currentTime;
-  engineNodes.o.frequency.setTargetAtTime(lerp(TUNE.engineFreqIdle, TUNE.engineFreqMax, speedNorm), t, 0.12);
-  engineNodes.g.gain.setTargetAtTime(lerp(TUNE.engineGainIdle, TUNE.engineGainMax, speedNorm), t, 0.12);
+  const off = speedNorm <= 0.02;
+  const gainTarget = off ? 0.0004 : lerp(TUNE.engineGainIdle, TUNE.engineGainMax, speedNorm);
+  const freqTarget = off ? TUNE.engineFreqIdle * 0.55 : lerp(TUNE.engineFreqIdle, TUNE.engineFreqMax, speedNorm);
+  engineNodes.o.frequency.setTargetAtTime(freqTarget, t, 0.18);
+  engineNodes.g.gain.setTargetAtTime(gainTarget, t, 0.22);
 }
 
 function synthBlip(type, f0, f1, dur, peak, when) {
@@ -1503,6 +1508,13 @@ function update(dt) {
           state.y = gnd;
         }
       }
+      if (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") {
+        const floorNow = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+        if (state.y < floorNow + 0.6) {
+          state.y = floorNow + 0.6;
+          if (state.airVy !== null && state.airVy < 0) state.airVy = null;
+        }
+      }
       state.bounceTimer = Math.max(0, state.bounceTimer - dt);
     }
   }
@@ -1563,7 +1575,7 @@ function updateHomeArrow() {
 function updateHud() {
   const asiFrac = clamp(state.speed / TUNE.asiMaxSpeed, 0, 1);
   el.asiNeedle.style.transform = `rotate(${-120 + asiFrac * 240}deg)`;
-  const altM = Math.max(0, state.y - RWY_ELEV);
+  const altM = Math.max(0, state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel));
   const altFrac = clamp(altM / TUNE.altMaxMeters, 0, 1);
   el.altNeedle.style.transform = `rotate(${-120 + altFrac * 240}deg)`;
   el.altDigits.textContent = String(Math.round(altM));
@@ -1577,7 +1589,8 @@ for (const c of clouds) respawnCloud(c, state.x, state.y, state.z, 0, -1, false)
 grabWakeLock();
 
 window.__lp = {
-  TUNE, state, flags, update,
+  TUNE, state, flags, update, terrainEff,
+  get engineNorm() { return lastEngineNorm; },
   api: {
     setThrottle(v) { state.throttleHeld = !!v; },
     setStick(bank, pitch) {
