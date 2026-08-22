@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#79c8f2">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>Little Pilot</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #79c8f2;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    touch-action: none;
+  }
+</style>
+</head>
+<body>
+<script src="three.min.js"></script>
+<script>
+(() => {
+"use strict";
+
+const TUNE = {
+  speed: 60,
+  fov: 72,
+  maxPixelRatio: 1.75,
+
+  pitchLimitDeg: 30,
+  bankLimitDeg: 45,
+  dragRangeX: 0.42,
+  dragRangeY: 0.38,
+  controlResponse: 4.0,
+  autoLevelResponse: 1.6,
+
+  turnRateAtFullBankDeg: 18,
+
+  terrainClearance: 8,
+  bounceImpulse: 26,
+  bounceGravity: 30,
+  bouncePitchDeg: 14,
+  bounceHoldTime: 0.25,
+
+  hillAmplitude: 18,
+  hillWavelength: 350,
+  midAmplitude: 6,
+  midWavelength: 120,
+  microAmplitude: 1.5,
+  microWavelength: 40,
+
+  chunkSize: 320,
+  chunkSegments: 24,
+  chunkRadius: 5,
+
+  fogNear: 700,
+  fogFar: 1450,
+  skyTopColor: 0x4a90d9,
+  skyHorizonColor: 0xcfe8f7,
+  skyCurveExponent: 0.55,
+
+  sunIntensity: 0.75,
+  hemiIntensity: 0.85,
+  hemiSkyColor: 0xbfd9ff,
+  hemiGroundColor: 0x6f8f57,
+
+  colorLow: 0x7cbf58,
+  colorMid: 0x67a34e,
+  colorHigh: 0xa8a06b,
+  colorLowHeight: -4,
+  colorHighHeight: 10,
+  colorJitter: 0.06,
+
+  cloudCount: 14,
+  cloudAltitudeMin: 120,
+  cloudAltitudeMax: 260,
+  cloudRespawnAhead: [900, 1500],
+  cloudLateralSpread: 800,
+
+  engineVolume: 0.05,
+  engineFrequency: 52,
+  engineFilterFreq: 260,
+  engineLfoRate: 9,
+  boingVolume: 0.5
+};
+
+const DEG = Math.PI / 180;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+function hash2(ix, iz) {
+  let n = Math.imul(ix, 374761393) + Math.imul(iz, 668265263);
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  n = (n ^ (n >>> 16)) >>> 0;
+  return n / 4294967295;
+}
+
+function valueNoise(x, z) {
+  const ix = Math.floor(x), iz = Math.floor(z);
+  const fx = x - ix, fz = z - iz;
+  const ux = fx * fx * (3 - 2 * fx);
+  const uz = fz * fz * (3 - 2 * fz);
+  const a = hash2(ix, iz), b = hash2(ix + 1, iz);
+  const c = hash2(ix, iz + 1), d = hash2(ix + 1, iz + 1);
+  return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
+}
+
+function terrainHeight(x, z) {
+  return valueNoise(x / TUNE.hillWavelength, z / TUNE.hillWavelength) * TUNE.hillAmplitude
+       + valueNoise(x / TUNE.midWavelength + 37.2, z / TUNE.midWavelength + 91.7) * TUNE.midAmplitude
+       + valueNoise(x / TUNE.microWavelength + 512.1, z / TUNE.microWavelength + 77.3) * TUNE.microAmplitude
+       - TUNE.hillAmplitude * 0.5;
+}
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(TUNE.skyHorizonColor, TUNE.fogNear, TUNE.fogFar);
+
+const camera = new THREE.PerspectiveCamera(TUNE.fov, window.innerWidth / window.innerHeight, 0.05, 6000);
+camera.rotation.order = "YXZ";
+scene.add(camera);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const skyGeo = new THREE.SphereGeometry(3000, 24, 12);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  depthWrite: false,
+  uniforms: {
+    topColor: { value: new THREE.Color(TUNE.skyTopColor) },
+    horizonColor: { value: new THREE.Color(TUNE.skyHorizonColor) },
+    exponent: { value: TUNE.skyCurveExponent }
+  },
+  vertexShader: `
+    varying vec3 vWorldPosition;
+    void main() {
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = wp.xyz;
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 topColor;
+    uniform vec3 horizonColor;
+    uniform float exponent;
+    varying vec3 vWorldPosition;
+    void main() {
+      vec3 dir = normalize(vWorldPosition - cameraPosition);
+      float h = max(dir.y, 0.0);
+      gl_FragColor = vec4(mix(horizonColor, topColor, pow(h, exponent)), 1.0);
+    }
+  `
+});
+const skyDome = new THREE.Mesh(skyGeo, skyMat);
+scene.add(skyDome);
+
+scene.add(new THREE.HemisphereLight(TUNE.hemiSkyColor, TUNE.hemiGroundColor, TUNE.hemiIntensity));
+const sun = new THREE.DirectionalLight(0xfff3d6, TUNE.sunIntensity);
+sun.position.set(400, 1000, 250);
+scene.add(sun);
+
+const terrainMat = new THREE.MeshStandardMaterial({
+  vertexColors: true,
+  flatShading: true,
+  roughness: 1.0,
+  metalness: 0.0
+});
+
+const cLow = new THREE.Color(TUNE.colorLow);
+const cMid = new THREE.Color(TUNE.colorMid);
+const cHigh = new THREE.Color(TUNE.colorHigh);
+const tmpColor = new THREE.Color();
+
+function buildChunk(cx, cz) {
+  const cs = TUNE.chunkSize;
+  const geo = new THREE.PlaneGeometry(cs, cs, TUNE.chunkSegments, TUNE.chunkSegments);
+  geo.rotateX(-Math.PI / 2);
+  const ox = cx * cs, oz = cz * cs;
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setY(i, terrainHeight(pos.getX(i) + ox, pos.getZ(i) + oz));
+  }
+
+  const flat = geo.toNonIndexed();
+  geo.dispose();
+  const fp = flat.attributes.position;
+  const colors = new Float32Array(fp.count * 3);
+  const hSpan = TUNE.colorHighHeight - TUNE.colorLowHeight;
+  for (let f = 0; f < fp.count; f += 3) {
+    const hy = (fp.getY(f) + fp.getY(f + 1) + fp.getY(f + 2)) / 3;
+    const t = clamp((hy - TUNE.colorLowHeight) / hSpan, 0, 1);
+    if (t < 0.5) tmpColor.copy(cLow).lerp(cMid, t * 2);
+    else tmpColor.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
+    const j = 1 + (hash2(Math.round(fp.getX(f)), Math.round(fp.getZ(f))) - 0.5) * 2 * TUNE.colorJitter;
+    for (let v = 0; v < 3; v++) {
+      colors[(f + v) * 3] = tmpColor.r * j;
+      colors[(f + v) * 3 + 1] = tmpColor.g * j;
+      colors[(f + v) * 3 + 2] = tmpColor.b * j;
+    }
+  }
+  flat.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  flat.computeVertexNormals();
+
+  const mesh = new THREE.Mesh(flat, terrainMat);
+  mesh.position.set(ox, 0, oz);
+  mesh.matrixAutoUpdate = false;
+  mesh.updateMatrix();
+  return mesh;
+}
+
+const chunks = new Map();
+let lastCellX = null, lastCellZ = null;
+
+function updateChunks(px, pz) {
+  const cs = TUNE.chunkSize;
+  const ccx = Math.round(px / cs), ccz = Math.round(pz / cs);
+  if (ccx === lastCellX && ccz === lastCellZ) return;
+  lastCellX = ccx;
+  lastCellZ = ccz;
+
+  const need = new Set();
+  for (let dx = -TUNE.chunkRadius; dx <= TUNE.chunkRadius; dx++) {
+    for (let dz = -TUNE.chunkRadius; dz <= TUNE.chunkRadius; dz++) {
+      const k = (ccx + dx) + "," + (ccz + dz);
+      need.add(k);
+      if (!chunks.has(k)) {
+        const m = buildChunk(ccx + dx, ccz + dz);
+        chunks.set(k, m);
+        scene.add(m);
+      }
+    }
+  }
+  for (const [k, m] of chunks) {
+    if (!need.has(k)) {
+      scene.remove(m);
+      m.geometry.dispose();
+      chunks.delete(k);
+    }
+  }
+}
+
+const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+function makeCloud() {
+  const g = new THREE.Group();
+  const puffs = 3 + Math.floor(rnd() * 3);
+  for (let i = 0; i < puffs; i++) {
+    const r = 18 + rnd() * 26;
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), cloudMat);
+    puff.position.set((rnd() - 0.5) * 70, (rnd() - 0.5) * 14, (rnd() - 0.5) * 50);
+    puff.scale.y = 0.55;
+    g.add(puff);
+  }
+  return g;
+}
+
+let seed = 987654321;
+function rnd() {
+  seed = (seed * 1664525 + 1013904223) >>> 0;
+  return seed / 4294967296;
+}
+
+const clouds = [];
+for (let i = 0; i < TUNE.cloudCount; i++) clouds.push(makeCloud());
+
+function respawnCloud(c, px, pz, hx, hz, ahead) {
+  const d = TUNE.cloudRespawnAhead[0] + rnd() * (TUNE.cloudRespawnAhead[1] - TUNE.cloudRespawnAhead[0]);
+  const lat = (rnd() - 0.5) * 2 * TUNE.cloudLateralSpread;
+  const base = ahead ? d : rnd() * TUNE.fogFar;
+  c.position.set(
+    px + hx * base - hz * lat,
+    TUNE.cloudAltitudeMin + rnd() * (TUNE.cloudAltitudeMax - TUNE.cloudAltitudeMin),
+    pz + hz * base + hx * lat
+  );
+}
+
+const cockpit = new THREE.Group();
+{
+  const frameMat = new THREE.MeshBasicMaterial({ color: 0x23282f });
+  const darkMat = new THREE.MeshBasicMaterial({ color: 0x1d2127 });
+  const lipMat = new THREE.MeshBasicMaterial({ color: 0x39404b });
+  const accentMat = new THREE.MeshBasicMaterial({ color: 0xe0483e });
+
+  const addBox = (mat, w, h, d, x, y, z, rx, ry, rz) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    m.rotation.set(rx || 0, ry || 0, rz || 0);
+    cockpit.add(m);
+    return m;
+  };
+
+  addBox(darkMat, 2.7, 0.55, 0.14, 0, -0.82, -0.82, 0.30, 0, 0);
+  addBox(frameMat, 2.7, 0.14, 0.90, 0, -0.55, -0.92, -0.12, 0, 0);
+  addBox(lipMat, 2.7, 0.06, 0.22, 0, -0.50, -1.24, -0.28, 0, 0);
+  addBox(frameMat, 2.7, 0.20, 0.26, 0, 0.64, -0.98, 0.30, 0, 0);
+  addBox(accentMat, 2.7, 0.05, 0.27, 0, 0.56, -0.95, 0.30, 0, 0);
+  addBox(frameMat, 0.15, 2.0, 0.18, -0.90, 0.02, -0.90, 0, -0.06, 0.16);
+  addBox(frameMat, 0.15, 2.0, 0.18, 0.90, 0.02, -0.90, 0, 0.06, -0.16);
+  addBox(frameMat, 0.13, 0.13, 1.5, -0.97, -0.34, -0.42, 0, 0, 0);
+  addBox(frameMat, 0.13, 0.13, 1.5, 0.97, -0.34, -0.42, 0, 0, 0);
+}
+camera.add(cockpit);
+
+let audioCtx = null;
+let masterGain = null;
+let engineNodes = null;
+
+function unlockAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (!audioCtx) {
+    audioCtx = new AC();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 1;
+    masterGain.connect(audioCtx.destination);
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  startEngine();
+}
+
+function startEngine() {
+  if (engineNodes || !audioCtx || audioCtx.state !== "running") return;
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  o.type = "sawtooth";
+  o.frequency.value = TUNE.engineFrequency;
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = TUNE.engineFilterFreq;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(TUNE.engineVolume, t + 1.5);
+  const lfo = audioCtx.createOscillator();
+  lfo.frequency.value = TUNE.engineLfoRate;
+  const lfoG = audioCtx.createGain();
+  lfoG.gain.value = TUNE.engineVolume * 0.25;
+  lfo.connect(lfoG);
+  lfoG.connect(g.gain);
+  o.connect(lp);
+  lp.connect(g);
+  g.connect(masterGain);
+  o.start(t);
+  lfo.start(t);
+  engineNodes = { o, lfo, g };
+}
+
+function boing() {
+  if (!audioCtx || audioCtx.state !== "running") return;
+  const t = audioCtx.currentTime;
+  const mk = (type, f0, f1, peak) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + 0.28);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+    o.connect(g);
+    g.connect(masterGain);
+    o.start(t);
+    o.stop(t + 0.36);
+  };
+  mk("triangle", 300, 75, TUNE.boingVolume);
+  mk("sine", 600, 150, TUNE.boingVolume * 0.36);
+}
+
+const state = {
+  x: 0, y: 0, z: 0,
+  pitch: 0, bank: 0, heading: 0,
+  ctrlBank: 0, ctrlPitch: 0,
+  touching: false,
+  startX: 0, startY: 0,
+  airVy: null,
+  bounceTimer: 0
+};
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
+}
+
+canvasPointerHandlers();
+
+function canvasPointerHandlers() {
+  const el = renderer.domElement;
+  el.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    unlockAudio();
+    if (!state.touching) {
+      state.touching = true;
+      state.startX = e.clientX;
+      state.startY = e.clientY;
+    }
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!state.touching) return;
+    const span = Math.min(window.innerWidth, window.innerHeight);
+    state.ctrlBank = clamp((e.clientX - state.startX) / (span * TUNE.dragRangeX), -1, 1);
+    state.ctrlPitch = clamp(-(e.clientY - state.startY) / (span * TUNE.dragRangeY), -1, 1);
+  });
+  const release = () => { state.touching = false; };
+  el.addEventListener("pointerup", release);
+  el.addEventListener("pointercancel", release);
+}
+
+window.addEventListener("gesturestart", (e) => e.preventDefault());
+window.addEventListener("resize", resize);
+
+let wakeLock = null;
+async function grabWakeLock() {
+  try { wakeLock = await navigator.wakeLock.request("screen"); } catch (err) {}
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") grabWakeLock();
+});
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
+state.x = 0;
+state.z = 0;
+state.y = terrainHeight(0, 0) + 60;
+updateChunks(state.x, state.z);
+for (const c of clouds) respawnCloud(c, state.x, state.z, 0, -1, false);
+grabWakeLock();
+
+const forward = new THREE.Vector3();
+
+function update(dt) {
+  let targetBank = 0, targetPitch = 0;
+  if (state.touching) {
+    targetBank = state.ctrlBank * TUNE.bankLimitDeg;
+    targetPitch = state.ctrlPitch * TUNE.pitchLimitDeg;
+  }
+  if (state.bounceTimer > 0) {
+    state.bounceTimer -= dt;
+    targetPitch = TUNE.bouncePitchDeg;
+  }
+
+  const resp = state.touching ? TUNE.controlResponse : TUNE.autoLevelResponse;
+  const k = Math.min(1, resp * dt);
+  state.bank += (targetBank - state.bank) * k;
+  state.pitch += (targetPitch - state.pitch) * k;
+  state.bank = clamp(state.bank, -TUNE.bankLimitDeg, TUNE.bankLimitDeg);
+  state.pitch = clamp(state.pitch, -TUNE.pitchLimitDeg, TUNE.pitchLimitDeg);
+
+  state.heading -= TUNE.turnRateAtFullBankDeg * DEG * (state.bank / TUNE.bankLimitDeg) * dt;
+
+  const pr = state.pitch * DEG;
+  const hr = state.heading;
+  const cp = Math.cos(pr);
+  forward.set(-Math.sin(hr) * cp, Math.sin(pr), -Math.cos(hr) * cp);
+
+  state.x += forward.x * TUNE.speed * dt;
+  state.z += forward.z * TUNE.speed * dt;
+  state.y += forward.y * TUNE.speed * dt;
+
+  const ground = terrainHeight(state.x, state.z) + TUNE.terrainClearance;
+  if (state.y <= ground) {
+    state.y = ground;
+    if (state.bounceTimer <= 0) {
+      state.airVy = TUNE.bounceImpulse;
+      state.bounceTimer = TUNE.bounceHoldTime;
+      boing();
+    }
+  }
+  if (state.airVy !== null) {
+    state.airVy -= TUNE.bounceGravity * dt;
+    state.y += state.airVy * dt;
+    if (state.airVy <= forward.y * TUNE.speed && state.y > ground) {
+      state.airVy = null;
+    } else if (state.y <= ground) {
+      state.y = ground;
+    }
+  }
+
+  updateChunks(state.x, state.z);
+  skyDome.position.set(state.x, state.y, state.z);
+
+  const hx = -Math.sin(hr), hz = -Math.cos(hr);
+  for (const c of clouds) {
+    const dx = c.position.x - state.x, dz = c.position.z - state.z;
+    if (dx * dx + dz * dz > TUNE.fogFar * TUNE.fogFar * 1.44) {
+      respawnCloud(c, state.x, state.z, hx, hz, true);
+    }
+  }
+
+  camera.position.set(state.x, state.y, state.z);
+  camera.rotation.set(pr, hr, -state.bank * DEG);
+}
+
+let last = performance.now();
+function frame(now) {
+  let dt = (now - last) / 1000;
+  last = now;
+  if (dt > 1 / 30) dt = 1 / 30;
+  if (dt <= 0) dt = 1 / 120;
+  update(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
