@@ -543,6 +543,9 @@ const TUNE = {
   homeIndicatorDistance: 300,
   homeIndicatorSize: 96,
 
+  routeLength: 12000,
+  continentCompression: 1.0,
+
   explodeDescentRate: 26,
   explodeAngleDeg: 20,
   explodeBuildingSpeed: 34,
@@ -617,17 +620,107 @@ function rawHeight(x, z) {
        - TUNE.hillAmplitude * 0.5;
 }
 
-function flattenMask(x, z) {
-  const nx = Math.max(Math.abs(x) - TUNE.runwayWidth * 0.5 - 40, 0) / TUNE.flattenMargin;
-  const nz = Math.max(Math.abs(z) - TUNE.runwayLength * 0.5 - 60, 0) / TUNE.flattenMargin;
-  return 1 - smoothstep(0, 1, Math.max(nx, nz));
+const ROUTE_HALF = () => TUNE.routeLength / 2;
+const ROUTE_SCALE = () => TUNE.routeLength / 12000;
+const pFromNY = z => clamp((ROUTE_HALF() - z) / TUNE.routeLength, -0.3, 1.3);
+
+function mountainGauss(z) {
+  const zc = -1500 * ROUTE_SCALE();
+  const w = 430 * ROUTE_SCALE();
+  const d = (z - zc) / w;
+  return Math.exp(-d * d);
 }
 
-const RWY_ELEV = Math.max(rawHeight(0, 0), TUNE.waterLevel + 2);
+function canyonT(z) {
+  const zc = -3800 * ROUTE_SCALE();
+  const half = 150 * ROUTE_SCALE();
+  return clamp(1 - Math.abs(z - zc) / half, 0, 1);
+}
+
+function lakeShape(x, z) {
+  const cx = -350 * ROUTE_SCALE(), cz = 1800 * ROUTE_SCALE();
+  const rx = 640 * ROUTE_SCALE(), rz = 420 * ROUTE_SCALE();
+  const nx = (x - cx) / rx, nz = (z - cz) / rz;
+  return (nx * nx + nz * nz < 1) ? smoothstep(0.3, 1, nx * nx + nz * nz) : 0;
+}
+
+function coastDrop(z) {
+  const edge = ROUTE_HALF() + 500 * ROUTE_SCALE();
+  const over = Math.max(z - edge, -(z + edge));
+  return over <= 0 ? 0 : smoothstep(0, 700 * ROUTE_SCALE(), over) * 16;
+}
+
+function desertMask(z) {
+  const p = pFromNY(z);
+  return smoothstep(0.05, 0.09, p) * (1 - smoothstep(0.12, 0.17, p));
+}
+
+function farmMask(z) {
+  const p = pFromNY(z);
+  return smoothstep(0.58, 0.68, p) * (1 - smoothstep(0.82, 0.92, p));
+}
+
+function plainsMask(z) {
+  const p = pFromNY(z);
+  return smoothstep(0.30, 0.38, p) * (1 - smoothstep(0.50, 0.56, p));
+}
+
+function shapedTerrain(x, z) {
+  let h = rawHeight(x, z);
+  h *= 1 - desertMask(z) * 0.62;
+  if (mountainGauss(z) > 0.01) {
+    h += mountainGauss(z) * (48 + valueNoise(x / 460 + 91, z / 260) * 78) * TUNE.continentCompression;
+  }
+  const ct = canyonT(z);
+  if (ct > 0) {
+    h -= ct * ct * 72 * TUNE.continentCompression;
+    h += valueNoise(x / 90 + 7, z / 55) * ct * 6;
+  }
+  const lk = lakeShape(x, z);
+  if (lk > 0) h -= lk * 14;
+  h -= coastDrop(z);
+  const harborZ = ROUTE_HALF() - 420;
+  if (Math.abs(x) < 2400 && Math.abs(z - harborZ) < 320) {
+    const hd = Math.max(0, 1 - Math.abs(Math.abs(z - harborZ) - 60) / 130);
+    h -= hd * 9;
+  }
+  return h;
+}
+
+const AIRPORTS = [
+  { cz: ROUTE_HALF(), elev: Math.max(shapedTerrain(0, ROUTE_HALF()), TUNE.waterLevel + 2) },
+  { cz: -ROUTE_HALF(), elev: Math.max(shapedTerrain(0, -ROUTE_HALF()), TUNE.waterLevel + 2) }
+];
+
+function flattenMask(x, z) {
+  let m = 0;
+  for (let i = 0; i < AIRPORTS.length; i++) {
+    const nx = Math.max(Math.abs(x) - TUNE.runwayWidth * 0.5 - 40, 0) / TUNE.flattenMargin;
+    const dzAbs = Math.abs(z - AIRPORTS[i].cz);
+    const nz = Math.max(TUNE.runwayLength * 0.5 + 60 - dzAbs, 0) / TUNE.flattenMargin;
+    m = Math.max(m, 1 - smoothstep(0, 1, Math.max(nx, nz)));
+  }
+  return m;
+}
+
+function onAnyRunwayRect(x, z) {
+  for (let i = 0; i < AIRPORTS.length; i++) {
+    if (Math.abs(x) <= TUNE.runwayWidth / 2 + 12 &&
+        Math.abs(z - AIRPORTS[i].cz) <= TUNE.runwayLength / 2 + 12) return true;
+  }
+  return false;
+}
 
 function terrainEff(x, z) {
   const m = flattenMask(x, z);
-  return rawHeight(x, z) * (1 - m) + RWY_ELEV * m;
+  if (m <= 0.001) return shapedTerrain(x, z);
+  let best = AIRPORTS[0];
+  let bd = Math.abs(z - AIRPORTS[0].cz);
+  for (let i = 1; i < AIRPORTS.length; i++) {
+    const d = Math.abs(z - AIRPORTS[i].cz);
+    if (d < bd) { bd = d; best = AIRPORTS[i]; }
+  }
+  return shapedTerrain(x, z) * (1 - m) + best.elev * m;
 }
 
 const scene = new THREE.Scene();
@@ -689,41 +782,49 @@ scene.add(waterMesh);
 {
   const asphaltMat = new THREE.MeshLambertMaterial({ color: TUNE.runwaySurfaceColor });
   const paintMat = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
-  const surface = new THREE.Mesh(
-    new THREE.BoxGeometry(TUNE.runwayWidth, 0.4, TUNE.runwayLength),
-    asphaltMat
-  );
-  surface.position.set(0, RWY_ELEV + 0.05, 0);
-  scene.add(surface);
-
   const dashCount = Math.floor(TUNE.runwayLength / 95) - 1;
-  const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.08, 20), paintMat, dashCount);
-  const dummy = new THREE.Object3D();
-  for (let i = 0; i < dashCount; i++) {
-    dummy.position.set(0, RWY_ELEV + 0.32, TUNE.runwayLength / 2 - 60 - i * 95);
-    dummy.updateMatrix();
-    dashes.setMatrixAt(i, dummy.matrix);
-  }
-  scene.add(dashes);
-
-  const stripeGeo = new THREE.BoxGeometry(2.6, 0.08, 24);
   const stripesPerEnd = 6;
-  const stripes = new THREE.InstancedMesh(stripeGeo, paintMat, stripesPerEnd * 2);
-  let si = 0;
-  for (const endZ of [TUNE.runwayLength / 2 - 26, -TUNE.runwayLength / 2 + 26]) {
-    for (let k = 0; k < stripesPerEnd; k++) {
-      dummy.position.set((k - (stripesPerEnd - 1) / 2) * 8, RWY_ELEV + 0.32, endZ);
+  for (const ap of AIRPORTS) {
+    const surface = new THREE.Mesh(
+      new THREE.BoxGeometry(TUNE.runwayWidth, 0.4, TUNE.runwayLength),
+      asphaltMat
+    );
+    surface.position.set(0, ap.elev + 0.05, ap.cz);
+    scene.add(surface);
+
+    const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.08, 20), paintMat, dashCount);
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < dashCount; i++) {
+      dummy.position.set(0, ap.elev + 0.32, ap.cz + TUNE.runwayLength / 2 - 60 - i * 95);
       dummy.updateMatrix();
-      stripes.setMatrixAt(si++, dummy.matrix);
+      dashes.setMatrixAt(i, dummy.matrix);
     }
+    scene.add(dashes);
+
+    const stripeGeo = new THREE.BoxGeometry(2.6, 0.08, 24);
+    const stripes = new THREE.InstancedMesh(stripeGeo, paintMat, stripesPerEnd * 2);
+    let si = 0;
+    for (const endZ of [ap.cz + TUNE.runwayLength / 2 - 26, ap.cz - TUNE.runwayLength / 2 + 26]) {
+      for (let k = 0; k < stripesPerEnd; k++) {
+        dummy.position.set((k - (stripesPerEnd - 1) / 2) * 8, ap.elev + 0.32, endZ);
+        dummy.updateMatrix();
+        stripes.setMatrixAt(si++, dummy.matrix);
+      }
+    }
+    scene.add(stripes);
   }
-  scene.add(stripes);
 }
 
 const cLow = new THREE.Color(TUNE.colorLow);
 const cMid = new THREE.Color(TUNE.colorMid);
 const cHigh = new THREE.Color(TUNE.colorHigh);
 const cSand = new THREE.Color(TUNE.sandColor);
+const cSnow = new THREE.Color(0xf4f8fb);
+const cRock = new THREE.Color(0xb5522e);
+const cFarmA = new THREE.Color(0x9ec46a);
+const cFarmB = new THREE.Color(0xc9b978);
+const cPlains = new THREE.Color(0xc4b478);
+const cDesert = new THREE.Color(0xe0c48f);
 const tmpColor = new THREE.Color();
 
 const terrainMat = new THREE.MeshStandardMaterial({
@@ -759,7 +860,21 @@ function buildChunk(cx, cz) {
       if (t < 0.5) tmpColor.copy(cLow).lerp(cMid, t * 2);
       else tmpColor.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
     }
+    const wx = ox + fp.getX(f), wz = oz + fp.getZ(f);
     const j = 1 + (hash2(Math.round(fp.getX(f)), Math.round(fp.getZ(f))) - 0.5) * 2 * TUNE.colorJitter;
+    if (mountainGauss(wz) > 0.3 && hy > 46) {
+      tmpColor.lerp(cSnow, smoothstep(46, 66, hy));
+    }
+    const ct = canyonT(wz);
+    if (ct > 0.1) tmpColor.lerp(cRock, Math.min(0.9, ct * 1.6));
+    const fm = farmMask(wz);
+    if (fm > 0 && hy > TUNE.waterLevel + 2) {
+      tmpColor.lerp(valueNoise(wx / 260 + 55, wz / 200) > 0.5 ? cFarmA : cFarmB, fm * 0.75);
+    }
+    const pm = plainsMask(wz);
+    if (pm > 0 && hy > TUNE.waterLevel + 2) tmpColor.lerp(cPlains, pm * 0.55);
+    const dm = desertMask(wz);
+    if (dm > 0) tmpColor.lerp(cDesert, dm * 0.8);
     for (let v = 0; v < 3; v++) {
       colors[(f + v) * 3] = tmpColor.r * j;
       colors[(f + v) * 3 + 1] = tmpColor.g * j;
@@ -808,6 +923,8 @@ function updateChunks(px, pz) {
 }
 
 const rings = [];
+const ringsGroup = new THREE.Group();
+scene.add(ringsGroup);
 {
   const ringMat = new THREE.MeshBasicMaterial({
     color: 0x36e0ff,
@@ -816,14 +933,19 @@ const rings = [];
     fog: false
   });
   const ringGeo = new THREE.TorusGeometry(TUNE.ringRadius, 2.4, 8, 26);
-  const thz = TUNE.runwayLength / 2;
   for (let i = 0; i < TUNE.ringCount; i++) {
     const s = i / (TUNE.ringCount - 1);
     const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.set(0, RWY_ELEV + 3 + TUNE.ringStartAltitude * Math.pow(1 - s, 1.35), thz + TUNE.ringStartDistance * (1 - s));
-    scene.add(ring);
+    ring.position.set(0, 3 + TUNE.ringStartAltitude * Math.pow(1 - s, 1.35), TUNE.ringStartDistance * (1 - s));
+    ringsGroup.add(ring);
     rings.push(ring);
   }
+}
+
+function placeRings() {
+  const ap = AIRPORTS[state.destIdx];
+  ringsGroup.position.set(0, ap.elev, ap.cz + TUNE.runwayLength / 2);
+  ringsGroup.rotation.y = state.dirIdx === 0 ? 0 : Math.PI;
 }
 
 const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
@@ -855,8 +977,13 @@ function respawnCloud(c, px, py, pz, hx, hz, ahead) {
 }
 
 function inCorridor(x, z, extra) {
-  return Math.abs(x) < TUNE.runwayWidth / 2 + 35 + extra
-      && Math.abs(z) < TUNE.runwayLength / 2 + TUNE.ringStartDistance + extra;
+  for (let i = 0; i < AIRPORTS.length; i++) {
+    if (Math.abs(x) < TUNE.runwayWidth / 2 + 35 + extra
+      && Math.abs(z - AIRPORTS[i].cz) < TUNE.runwayLength / 2 + (i === 0 ? TUNE.ringStartDistance : 200) + extra) {
+      return true;
+    }
+  }
+  return false;
 }
 
 const trunkInst = new THREE.InstancedMesh(
@@ -1007,14 +1134,22 @@ function rebuildTrees(px, pz) {
         if (inCorridor(wx, wz, -80)) continue;
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.6) continue;
+        const palm = pFromNY(wz) < 0.055;
         const s = 0.8 + hashSalt(cx + k, cz - k, 45) * 0.9;
+        const sy = s * (0.9 + hashSalt(cx, cz, 47) * 0.5) * (palm ? 1.75 : 1);
         dummyObj.position.set(wx, gy - 0.3, wz);
         dummyObj.rotation.set(0, hashSalt(cx, cz, 46) * Math.PI * 2, 0);
-        dummyObj.scale.set(s, s * (0.9 + hashSalt(cx, cz, 47) * 0.5), s);
+        dummyObj.scale.set(palm ? s * 0.5 : s, sy, palm ? s * 0.5 : s);
         dummyObj.updateMatrix();
         trunkInst.setMatrixAt(ti, dummyObj.matrix);
         canopyInst.setMatrixAt(ti, dummyObj.matrix);
-        tmpColor.setHex(TUNE.treeCanopyColor).multiplyScalar(0.82 + hashSalt(cx - k, cz + k, 48) * 0.4);
+        if (palm) {
+          dummyObj.position.y = gy + sy * 4;
+          dummyObj.scale.set(s * 1.2, s * 0.5, s * 1.2);
+          dummyObj.updateMatrix();
+          canopyInst.setMatrixAt(ti, dummyObj.matrix);
+        }
+        tmpColor.setHex(palm ? 0x2f7a3f : TUNE.treeCanopyColor).multiplyScalar(0.82 + hashSalt(cx - k, cz + k, 48) * 0.4);
         canopyInst.setColorAt(ti, tmpColor);
         ti++;
       }
@@ -1082,6 +1217,183 @@ function updateScenery(px, pz, force) {
   rebuildTrees(px, pz);
   rebuildBuildings(px, pz);
   syncLandmarks(px, pz);
+}
+
+const matCache = {};
+function lam(color) {
+  if (!matCache[color]) matCache[color] = new THREE.MeshLambertMaterial({ color });
+  return matCache[color];
+}
+function lmBox(g, w, h, d, color, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(color));
+  m.position.set(x, y, z);
+  g.add(m);
+  return m;
+}
+function lmCyl(g, rT, rB, h, color, x, y, z, seg) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, seg || 8), lam(color));
+  m.position.set(x, y, z);
+  g.add(m);
+  return m;
+}
+
+const ROUTE_LANDMARKS = [];
+function addRouteLandmark(g, x, z) {
+  g.position.set(x, terrainEff(x, z) - 0.5, z);
+  scene.add(g);
+  ROUTE_LANDMARKS.push({ g, x, z });
+}
+
+function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
+  const g = new THREE.Group();
+  for (const sx of [-len / 2 + 55, len / 2 - 55]) {
+    lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, 0);
+    lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, deckW);
+  }
+  lmBox(g, len, 4.5, deckW + 2, 0x9aa2ad, 0, deckY, deckW / 2);
+  for (const sz of [0, deckW]) {
+    lmBox(g, len * 0.44, 1.6, 1.6, cableColor, -len * 0.28, deckY + towerH * 0.4, sz);
+    lmBox(g, len * 0.44, 1.6, 1.6, cableColor, len * 0.28, deckY + towerH * 0.4, sz);
+  }
+  return g;
+}
+
+(function buildRouteLandmarks() {
+  const RS = ROUTE_SCALE();
+  const half = ROUTE_HALF();
+
+  const ny = new THREE.Group();
+  const skylineZ = half - 900 * RS;
+  for (let i = 0; i < 14; i++) {
+    const bx = -160 + hashSalt(i, 7, 201) * 320;
+    const bz = (hashSalt(i, 7, 202) - 0.5) * 300;
+    const bh = 45 + hashSalt(i, 7, 203) * 115;
+    const bw = 20 + hashSalt(i, 7, 204) * 16;
+    lmBox(ny, bw, bh, bw * 0.85, i % 3 === 0 ? 0x5d6b7d : 0x77879a, bx, bh / 2, bz);
+  }
+  lmCyl(ny, 5, 7.5, 165, 0xaebccd, 40, 82.5, 30, 10);
+  lmCyl(ny, 1.4, 2.6, 48, 0xcdd8e4, 40, 178, 30, 8);
+  addRouteLandmark(ny, -140, skylineZ);
+
+  const statue = new THREE.Group();
+  lmCyl(statue, 36, 42, 8, 0x8d9299, 0, 4, 0, 12);
+  lmBox(statue, 12, 15, 12, 0x6d7a70, 0, 15.5, 0);
+  lmCyl(statue, 4.5, 6.5, 24, 0x3f8f5a, 0, 35, 0, 10);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(3.6, 10, 8), lam(0x3f8f5a));
+  head.position.y = 50;
+  statue.add(head);
+  const arm = lmBox(statue, 2.6, 14, 2.6, 0x3f8f5a, 5.5, 53, 0);
+  arm.rotation.z = 0.45;
+  const torch = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd23e }));
+  torch.position.set(11, 60, 0);
+  statue.add(torch);
+  const island = new THREE.Mesh(new THREE.CylinderGeometry(46, 54, 7, 12), lam(0x77c95f));
+  island.position.y = 3.5;
+  statue.add(island);
+  addRouteLandmark(statue, -520, half - 1350 * RS);
+
+  const harborZ = half - 480 * RS;
+  addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 16, 18), -120, harborZ);
+  addRouteLandmark(suspensionBridge(0xd0342c, 540, 52, 16, 16), 420, harborZ - 260 * RS);
+
+  const silosFarm = new THREE.Group();
+  for (let i = 0; i < 6; i++) {
+    lmCyl(silosFarm, 6, 6, 26, i % 2 ? 0xc9ccd4 : 0xb0413a, -80 + i * 34, 13, i % 2 * 20, 10);
+  }
+  addRouteLandmark(silosFarm, 240, half * 0.28);
+
+  const midCity = new THREE.Group();
+  for (let i = 0; i < 9; i++) {
+    const bx = -130 + i * 32 + hashSalt(i, 9, 211) * 12;
+    const bh = 50 + hashSalt(i, 9, 212) * 64;
+    lmBox(midCity, 20 + hashSalt(i, 9, 213) * 10, bh, 18, i % 2 ? 0x5a6470 : 0x6e7a88, bx, bh / 2, (hashSalt(i, 9, 214) - 0.5) * 100);
+  }
+  lmBox(midCity, 22, 155, 22, 0x22262c, 8, 77.5, 0);
+  addRouteLandmark(midCity, -70, half * 0.55);
+
+  const silosPlains = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    lmCyl(silosPlains, 5.5, 5.5, 22, 0xd8cdb4, i * 30 - 45, 11, 0, 10);
+  }
+  addRouteLandmark(silosPlains, 430, -half * 0.18);
+
+  const casinos = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const bh2 = 52 + hashSalt(i, 11, 221) * 50;
+    lmBox(casinos, 24 + i * 2, bh2, 20, [0xd8b04a, 0xc9963f, 0xb87f2f, 0xd8b04a, 0xcf9d3a][i], -95 + i * 47, bh2 / 2, (i % 2) * 26 - 13);
+  }
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(12, 12, 10), lam(0xe8c860));
+  ball.position.set(100, 105, 13);
+  casinos.add(ball);
+  addRouteLandmark(casinos, -160, -half * 0.555);
+
+  const caBridge = suspensionBridge(0xd0342c, 700, 78, 21, 20);
+  addRouteLandmark(caBridge, -80, -half + 380 * RS);
+
+  const letters = new THREE.Group();
+  const hill = new THREE.Mesh(new THREE.CylinderGeometry(140, 200, 42, 14), lam(0x9a8f6a));
+  hill.position.y = 18;
+  letters.add(hill);
+  for (let i = 0; i < 7; i++) {
+    const blk = new THREE.Mesh(new THREE.BoxGeometry(16, 22, 4), lam(0xf4f8fa));
+    blk.position.set(-84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
+    blk.rotation.x = -0.4;
+    letters.add(blk);
+  }
+  addRouteLandmark(letters, 240, -half + 620 * RS);
+
+  const downtown = new THREE.Group();
+  for (let i = 0; i < 10; i++) {
+    const bx = -125 + i * 28 + hashSalt(i, 13, 231) * 10;
+    const bh3 = 55 + hashSalt(i, 13, 232) * 68;
+    lmBox(downtown, 18 + hashSalt(i, 13, 233) * 10, bh3, 18, i % 3 === 0 ? 0x8a97a8 : 0xb8c2cf, bx, bh3 / 2, (hashSalt(i, 13, 234) - 0.5) * 76);
+  }
+  addRouteLandmark(downtown, 110, -half + 1080 * RS);
+})();
+
+const TRAIN_CARS = 22;
+const trainInst = new THREE.InstancedMesh(
+  new THREE.BoxGeometry(7, 9, 15),
+  new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  TRAIN_CARS
+);
+for (let i = 0; i < TRAIN_CARS; i++) {
+  trainInst.setColorAt(i, tmpColor.setHex(i === 0 ? 0xb0413a : (i % 2 ? 0x8a6f52 : 0x5f6b78)));
+}
+trainInst.instanceColor.needsUpdate = true;
+scene.add(trainInst);
+const TRAIN_X = 340;
+const TRAIN_ZMIN = -600, TRAIN_ZMAX = 1600;
+let trainHead = TRAIN_ZMAX;
+
+function updateTrain(dt, px, pz) {
+  const mid = (TRAIN_ZMIN + TRAIN_ZMAX) / 2;
+  if (Math.abs(pz - mid) > 2800 || Math.abs(px - TRAIN_X) > 2800) return;
+  trainHead -= TUNE.trainSpeed * dt;
+  if (trainHead < TRAIN_ZMIN) trainHead = TRAIN_ZMAX;
+  const dummyT = dummyObj;
+  for (let i = 0; i < TRAIN_CARS; i++) {
+    let cz = trainHead + i * 17;
+    if (cz > TRAIN_ZMAX) continue;
+    dummyT.position.set(TRAIN_X, terrainEff(TRAIN_X, cz) + 6, cz);
+    dummyT.rotation.set(0, 0, 0);
+    dummyT.scale.set(1, 1, 1);
+    dummyT.updateMatrix();
+    trainInst.setMatrixAt(i, dummyT.matrix);
+  }
+  trainInst.instanceMatrix.needsUpdate = true;
+}
+
+let cullTimer = 0;
+function cullLandmarks(dt, px, pz) {
+  cullTimer -= dt;
+  if (cullTimer > 0) return;
+  cullTimer = 0.35;
+  const maxD2 = TUNE.fogFar * TUNE.fogFar * 2.1;
+  for (const L of ROUTE_LANDMARKS) {
+    const dx = L.x - px, dz = L.z - pz;
+    L.g.visible = dx * dx + dz * dz < maxD2;
+  }
 }
 
 let audioCtx = null;
@@ -1445,7 +1757,9 @@ const state = {
   explodeTimer: 0,
   vehicleKey: "prop",
   vp: null,
-  dirIdx: 0
+  dirIdx: 0,
+  originIdx: 0,
+  destIdx: 1
 };
 
 const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, bounced: 0, exploded: 0 };
@@ -1460,12 +1774,18 @@ function applyVehicle(key) {
   document.documentElement.style.setProperty("--veh2", cols[1]);
 }
 
-function repositionToStart() {
-  const sgn = state.dirIdx === 0 ? 1 : -1;
+function spawnForTakeoff(originIdx, dirIdx) {
+  if (originIdx === undefined) { originIdx = state.originIdx; }
+  if (dirIdx === undefined) { dirIdx = state.dirIdx; }
+  state.originIdx = originIdx;
+  state.dirIdx = dirIdx;
+  state.destIdx = 1 - originIdx;
+  const ap = AIRPORTS[state.originIdx];
+  const sgn = dirIdx === 0 ? 1 : -1;
   state.x = 0;
-  state.z = sgn * (TUNE.runwayLength / 2 - 50);
-  state.y = RWY_ELEV + TUNE.gearHeight;
-  state.heading = state.dirIdx === 0 ? 0 : Math.PI;
+  state.z = ap.cz + sgn * (TUNE.runwayLength / 2 - 50);
+  state.y = ap.elev + TUNE.gearHeight;
+  state.heading = dirIdx === 0 ? 0 : Math.PI;
   state.pitch = 0;
   state.bank = 0;
   state.speed = 0;
@@ -1487,11 +1807,12 @@ function repositionToStart() {
   state.exploding = false;
   state.explodeTimer = 0;
   state.phase = "TAXI";
+  placeRings();
   flags.repositioned++;
 }
 
 applyVehicle("prop");
-repositionToStart();
+spawnForTakeoff(0, 0);
 
 const glEl = renderer.domElement;
 
@@ -1546,8 +1867,8 @@ document.querySelectorAll(".dirCard").forEach(card => {
   card.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    state.dirIdx = parseInt(card.dataset.d, 10) === 1 ? 1 : 0;
-    repositionToStart();
+    const d = parseInt(card.dataset.d, 10) === 1 ? 1 : 0;
+    spawnForTakeoff(d === 1 ? 1 : 0, d);
     el.screenDir.classList.add("hiddenS");
     unlockAudio();
   });
@@ -1585,12 +1906,13 @@ const forward = new THREE.Vector3();
 function groundPhase(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
   if (!grounded) return;
+  const ap = AIRPORTS[state.originIdx];
   const sgn = state.dirIdx === 0 ? 1 : -1;
   state.x = 0;
   state.pitch += (0 - state.pitch) * Math.min(1, 8 * dt);
   state.bank += (0 - state.bank) * Math.min(1, 8 * dt);
   state.heading = state.dirIdx === 0 ? 0 : Math.PI;
-  state.y = RWY_ELEV + TUNE.gearHeight;
+  state.y = ap.elev + TUNE.gearHeight;
   state.airVy = null;
 
   if (state.phase === "TAXI") {
@@ -1606,6 +1928,7 @@ function groundPhase(dt) {
   }
 
   state.z -= sgn * state.speed * dt;
+  void ap;
 
   if (state.speed >= TUNE.rotateSpeed) {
     state.canRotate = true;
@@ -1623,11 +1946,11 @@ function groundPhase(dt) {
     state.rotatePullTime = 0;
   }
 
-  const pastEnd = sgn * state.z < -(TUNE.runwayLength / 2) - 40;
+  const pastEnd = sgn * (ap.cz - state.z) > TUNE.runwayLength / 2 + 40;
   if (pastEnd || (!state.throttleHeld && state.speed <= 0.01)) {
     if (pastEnd) {
       state.speed = Math.max(state.speed - TUNE.brakeDecel * 2 * dt, 0);
-      if (state.speed <= 0.01) repositionToStart();
+      if (state.speed <= 0.01) spawnForTakeoff(state.originIdx, state.dirIdx);
     } else {
       state.phase = "TAXI";
     }
@@ -1635,12 +1958,12 @@ function groundPhase(dt) {
 }
 
 function updateAssists(dt) {
-  const thz = TUNE.runwayLength / 2;
+  const t = Math.abs(wrapPi(state.heading)) < Math.PI / 2 ? 0 : Math.PI;
+  const thOff = Math.round(Math.cos(t)) * (TUNE.runwayLength / 2);
   const dxr = state.x - 0;
-  const dzr = state.z - thz;
+  const dzr = state.z - (AIRPORTS[state.destIdx].cz + thOff);
   const distHoriz = Math.sqrt(dxr * dxr + dzr * dzr);
 
-  const t = Math.abs(wrapPi(state.heading)) < Math.PI / 2 ? 0 : Math.PI;
   const ft = { x: -Math.sin(t), z: -Math.cos(t) };
   const rt = { x: Math.cos(t), z: -Math.sin(t) };
   const along = dxr * ft.x + dzr * ft.z;
@@ -1753,7 +2076,11 @@ function update(dt) {
       }
       if (state.celebrated) {
         state.celebrateTimer -= dt;
-        if (state.celebrateTimer <= 0) repositionToStart();
+        if (state.celebrateTimer <= 0) {
+          state.originIdx = state.destIdx;
+          state.dirIdx = 1 - state.dirIdx;
+          spawnForTakeoff();
+        }
       }
     } else {
       updateAssists(dt);
@@ -1828,9 +2155,7 @@ function update(dt) {
         state.approachLatch = false;
         state.phase = "CLIMB_AWAY";
         state.climbAwayTimer = TUNE.climbAwayTime;
-      } else if (agl <= TUNE.terrainClearance && !(
-        Math.abs(state.x) <= halfW + 12 && Math.abs(state.z) <= halfL + 12
-      )) {
+      } else if (agl <= TUNE.terrainClearance && !onAnyRunwayRect(state.x, state.z)) {
         const descent = -(Math.sin(state.pitch * DEG) * state.speed);
         const steep =
           descent > TUNE.explodeDescentRate ||
@@ -1877,6 +2202,8 @@ function update(dt) {
 
   updateChunks(state.x, state.z);
   updateScenery(state.x, state.z, false);
+  updateTrain(dt, state.x, state.z);
+  cullLandmarks(dt, state.x, state.z);
   skyDome.position.set(state.x, state.y, state.z);
   waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
 
@@ -1911,10 +2238,10 @@ function updateHomeArrow() {
     el.homeArrow.classList.remove("on");
     return;
   }
-  const thz = TUNE.runwayLength / 2;
+  const thz = AIRPORTS[state.destIdx].cz;
   const rx = -state.x, rz = thz - state.z;
   const dist = Math.sqrt(rx * rx + rz * rz);
-  if (dist <= TUNE.homeIndicatorDistance) {
+  if (dist <= TUNE.homeIndicatorDistance || state.engaged) {
     el.homeArrow.classList.remove("on");
     return;
   }
@@ -1951,7 +2278,7 @@ for (const c of clouds) respawnCloud(c, state.x, state.y, state.z, 0, -1, false)
 grabWakeLock();
 
 window.__lp = {
-  TUNE, state, flags, update, terrainEff,
+  TUNE, state, flags, update, terrainEff, ROUTE_LANDMARKS, wrapPi,
   get engineNorm() { return lastEngineNorm; },
   api: {
     setThrottle(v) { state.throttleHeld = !!v; },
@@ -1961,7 +2288,8 @@ window.__lp = {
       state.ctrlPitch = clamp(pitch, -1, 1);
     },
     clearStick() { state.touching = false; state.ctrlBank = 0; state.ctrlPitch = 0; },
-    placeOnRunway() { repositionToStart(); },
+    placeOnRunway() { spawnForTakeoff(0, 0); },
+    spawnAt(originIdx, dirIdx) { spawnForTakeoff(originIdx, dirIdx); },
     setVehicle(key) { applyVehicle(key); },
     skipScreens() {
       el.screenVehicle.classList.add("hiddenS");
@@ -1969,9 +2297,17 @@ window.__lp = {
     },
     teleportAirborne(distBehind, lateral, alt, headingDeg) {
       state.x = lateral;
-      state.z = TUNE.runwayLength / 2 + distBehind;
-      state.y = RWY_ELEV + alt;
+      state.z = AIRPORTS[0].cz + Math.round(Math.cos(headingDeg * DEG)) * (TUNE.runwayLength / 2 + distBehind);
+      state.y = AIRPORTS[0].elev + alt;
       state.heading = headingDeg * DEG;
+      let bd = Infinity;
+      state.destIdx = 0;
+      for (let i = 0; i < AIRPORTS.length; i++) {
+        const d = Math.abs(state.z - AIRPORTS[i].cz);
+        if (d < bd) { bd = d; state.destIdx = i; }
+      }
+      state.originIdx = 1 - state.destIdx;
+      placeRings();
       state.pitch = 0;
       state.bank = 0;
       state.speed = state.vp.cruiseSpeed;
