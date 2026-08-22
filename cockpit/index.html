@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <title>Little Pilot</title>
 <style>
+  :root { --veh: #e0483e; --veh2: #f2f4f7; }
   html, body {
     margin: 0;
     padding: 0;
@@ -73,7 +74,7 @@
     left: 0;
     right: 0;
     height: clamp(4px, 0.9vh, 9px);
-    background: #e0483e;
+    background: var(--veh);
     border-radius: 0 0 22px 22px;
   }
   #dash {
@@ -98,7 +99,7 @@
     left: 0;
     right: 0;
     height: clamp(4px, 0.9vh, 9px);
-    background: #e0483e;
+    background: var(--veh);
     border-radius: 26px 26px 0 0;
   }
   .dial {
@@ -249,7 +250,7 @@
     width: clamp(96px, 17vmin, 148px);
     height: clamp(96px, 17vmin, 148px);
     border-radius: 50%;
-    border: clamp(4px, 1vmin, 7px) solid #e0483e;
+    border: clamp(4px, 1vmin, 7px) solid var(--veh);
     background: radial-gradient(circle at 36% 30%, #3a414c 0%, #23282f 58%, #161a1f 100%);
     box-shadow: 0 10px 26px rgba(10,20,40,.45), inset 0 3px 6px rgba(255,255,255,.1);
     z-index: 10;
@@ -272,6 +273,34 @@
     inset: 0;
     z-index: 9;
     pointer-events: none;
+  }
+  .screen {
+    position: fixed; inset: 0; z-index: 30;
+    background: radial-gradient(circle at 50% 30%, rgba(36,44,56,.97), rgba(14,17,22,.98));
+    display: flex; flex-wrap: wrap; align-content: center; justify-content: center;
+    gap: clamp(16px, 3vmin, 34px);
+    padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+             calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    overflow-y: auto;
+  }
+  .screen.hiddenS { display: none; }
+  .card {
+    width: clamp(150px, 23vmin, 225px);
+    height: clamp(110px, 16vmin, 158px);
+    border-radius: 22px;
+    background: linear-gradient(165deg, #2e3540 0%, #191d23 100%);
+    border: clamp(4px, 0.9vmin, 7px) solid #39404b;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; outline: none; touch-action: manipulation;
+    transition: transform .08s ease;
+    box-shadow: 0 10px 26px rgba(0,0,0,.4);
+  }
+  .card:active { transform: scale(.94); }
+  .card.sel { border-color: var(--veh); }
+  .card svg { width: 84%; height: 84%; }
+  .dirCard {
+    width: clamp(180px, 30vmin, 270px);
+    height: clamp(140px, 23vmin, 215px);
   }
 </style>
 </head>
@@ -306,6 +335,85 @@
   </svg>
 </button>
 <canvas id="fx"></canvas>
+<div id="screenVehicle" class="screen">
+  <button class="card vehCard" data-v="prop">
+    <svg viewBox="0 0 200 120">
+      <path d="M30 78 L48 44 L92 44 L92 30 L104 30 L104 44 L150 44 Q176 46 178 60 Q176 74 150 76 L48 76 Z" fill="#ef4b3f" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <rect x="88" y="20" width="10" height="26" rx="4" fill="#ffe9c9" stroke="#23282f" stroke-width="4"/>
+      <ellipse cx="93" cy="82" rx="34" ry="7" fill="#ffe9c9" stroke="#23282f" stroke-width="4"/>
+      <line x1="178" y1="60" x2="192" y2="60" stroke="#23282f" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="146" cy="58" r="9" fill="#bfeaff" stroke="#23282f" stroke-width="4"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="helicopter">
+    <svg viewBox="0 0 200 120">
+      <line x1="20" y1="22" x2="180" y2="22" stroke="#23282f" stroke-width="7" stroke-linecap="round"/>
+      <rect x="95" y="18" width="10" height="16" fill="#23282f"/>
+      <path d="M60 60 Q60 38 95 38 Q128 38 132 58 L132 74 Q132 86 112 88 L78 88 Q60 84 60 60 Z" fill="#20a39e" stroke="#23282f" stroke-width="5"/>
+      <rect x="126" y="54" width="54" height="9" rx="4" fill="#20a39e" stroke="#23282f" stroke-width="4"/>
+      <path d="M172 40 L184 40 L178 62 Z" fill="#20a39e" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="88" cy="58" r="11" fill="#bfeaff" stroke="#23282f" stroke-width="4"/>
+      <line x1="70" y1="98" x2="118" y2="98" stroke="#23282f" stroke-width="6" stroke-linecap="round"/>
+      <line x1="82" y1="88" x2="80" y2="98" stroke="#23282f" stroke-width="5"/>
+      <line x1="108" y1="88" x2="110" y2="98" stroke="#23282f" stroke-width="5"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="rocket">
+    <svg viewBox="0 0 200 120">
+      <path d="M100 6 Q122 34 122 62 L122 96 L78 96 L78 62 Q78 34 100 6 Z" fill="#b8bec9" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M78 70 L54 100 L78 96 Z" fill="#d71920" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M122 70 L146 100 L122 96 Z" fill="#d71920" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <circle cx="100" cy="46" r="11" fill="#bfeaff" stroke="#23282f" stroke-width="5"/>
+      <path d="M88 96 Q100 118 112 96 Z" fill="#ffb43a" stroke="#c96a10" stroke-width="4"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="airlinerDelta">
+    <svg viewBox="0 0 200 120">
+      <path d="M22 66 Q60 56 108 56 L138 58 Q162 62 164 70 L138 76 L60 78 Q34 76 22 66 Z" fill="#0b4ea2" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M64 58 L96 20 L116 20 L92 58 Z" fill="#0b4ea2" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 20 L116 20 L110 34 L94 34 Z" fill="#d0342c" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M70 76 L104 96 L124 96 L96 74 Z" fill="#dfe8f2" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M60 58 L96 44 L112 46 L82 58 Z" fill="#dfe8f2" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="airlinerJetblue">
+    <svg viewBox="0 0 200 120">
+      <path d="M22 66 Q60 56 108 56 L138 58 Q162 62 164 70 L138 76 L60 78 Q34 76 22 66 Z" fill="#e8edf4" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M64 58 L96 20 L116 20 L92 58 Z" fill="#1c75bc" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 20 L116 20 L110 34 L94 34 Z" fill="#1c75bc" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M70 76 L104 96 L124 96 L96 74 Z" fill="#1c75bc" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M60 58 L96 44 L112 46 L82 58 Z" fill="#9cc4e4" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="airlinerEmirates">
+    <svg viewBox="0 0 200 120">
+      <path d="M22 66 Q60 56 108 56 L138 58 Q162 62 164 70 L138 76 L60 78 Q34 76 22 66 Z" fill="#f7f3e8" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M64 58 L96 20 L116 20 L92 58 Z" fill="#c9a227" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 20 L116 20 L110 34 L94 34 Z" fill="#d71920" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M70 76 L104 96 L124 96 L96 74 Z" fill="#c9a227" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M60 58 L96 44 L112 46 L82 58 Z" fill="#d71920" opacity=".85" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+  </button>
+</div>
+<div id="screenDir" class="screen hiddenS">
+  <button class="card dirCard" data-d="0">
+    <svg viewBox="0 0 220 160">
+      <rect x="30" y="70" width="26" height="70" fill="#39404b"/><rect x="66" y="40" width="26" height="100" fill="#39404b"/>
+      <rect x="104" y="16" width="30" height="124" fill="#39404b"/><rect x="146" y="52" width="26" height="88" fill="#39404b"/>
+      <rect x="182" y="80" width="22" height="60" fill="#39404b"/><rect x="48" y="56" width="26" height="84" fill="#4a5260"/>
+      <line x1="10" y1="142" x2="212" y2="142" stroke="#57a344" stroke-width="8" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <button class="card dirCard" data-d="1">
+    <svg viewBox="0 0 220 160">
+      <circle cx="168" cy="38" r="22" fill="#ffd23e"/>
+      <path d="M70 142 C70 100 62 78 44 62 M70 142 C70 104 80 84 98 70 M70 142 C70 100 96 92 118 92 M70 142 C70 106 52 96 34 98 M70 142 C71 108 88 104 106 108" fill="none" stroke="#7a5230" stroke-width="9" stroke-linecap="round"/>
+      <path d="M44 62 Q30 48 16 54 Q30 66 44 62 Z M98 70 Q112 52 130 56 Q114 74 98 70 Z M118 92 Q136 80 148 90 Q132 102 118 92 Z M34 98 Q18 90 8 100 Q24 110 34 98 Z M106 108 Q122 96 134 106 Q120 120 106 108 Z" fill="#2f8f4e" stroke="#1d5f33" stroke-width="3"/>
+      <path d="M8 146 Q34 132 60 144 Q86 156 112 144 Q138 132 164 144 Q186 154 212 146 L212 158 L8 158 Z" fill="#3f9bd8" stroke="#2a70a3" stroke-width="3"/>
+      <path d="M8 146 Q34 134 60 145" fill="none" stroke="#e8f4fc" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
 <script src="three.min.js"></script>
 <script>
 (() => {
@@ -439,7 +547,25 @@ const TUNE = {
   explodeAngleDeg: 20,
   explodeBuildingSpeed: 34,
   debrisCount: 26,
-  reassembleDelay: 2.0
+  reassembleDelay: 2.0,
+
+  vehicles: {
+    prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, hoverSpeed: 0 },
+    helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6 },
+    rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 48, bankLimitDeg: 40, accel: 26, hoverSpeed: 0 },
+    airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0 },
+    airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0 },
+    airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0 }
+  },
+
+  vehicleColors: {
+    prop:             ["#e0483e", "#f2f4f7"],
+    helicopter:       ["#20a39e", "#f2f4f7"],
+    rocket:           ["#b8bec9", "#d71920"],
+    airlinerDelta:    ["#0b4ea2", "#d0342c"],
+    airlinerJetblue:  ["#1c75bc", "#e8edf4"],
+    airlinerEmirates: ["#c9a227", "#d71920"]
+  }
 };
 
 const DEG = Math.PI / 180;
@@ -1086,7 +1212,8 @@ function cheer() {
 
 const el = {};
 ["hud", "pillarL", "pillarR", "brow", "dash", "asiDial", "aiDial", "altDial",
- "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow"].forEach(id => {
+ "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow",
+ "screenVehicle", "screenDir"].forEach(id => {
   el[id] = document.getElementById(id);
 });
 el.homeArrow.style.setProperty("--home-sz", TUNE.homeIndicatorSize + "px");
@@ -1315,17 +1442,30 @@ const state = {
   canRotate: false,
   approachLatch: false,
   exploding: false,
-  explodeTimer: 0
+  explodeTimer: 0,
+  vehicleKey: "prop",
+  vp: null,
+  dirIdx: 0
 };
 
 const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, bounced: 0, exploded: 0 };
 const safePos = { x: 0, y: 0, z: 0 };
 
+function applyVehicle(key) {
+  if (!TUNE.vehicles[key]) return;
+  state.vehicleKey = key;
+  state.vp = TUNE.vehicles[key];
+  const cols = TUNE.vehicleColors[key];
+  document.documentElement.style.setProperty("--veh", cols[0]);
+  document.documentElement.style.setProperty("--veh2", cols[1]);
+}
+
 function repositionToStart() {
+  const sgn = state.dirIdx === 0 ? 1 : -1;
   state.x = 0;
-  state.z = TUNE.runwayLength / 2 - 50;
+  state.z = sgn * (TUNE.runwayLength / 2 - 50);
   state.y = RWY_ELEV + TUNE.gearHeight;
-  state.heading = 0;
+  state.heading = state.dirIdx === 0 ? 0 : Math.PI;
   state.pitch = 0;
   state.bank = 0;
   state.speed = 0;
@@ -1344,10 +1484,13 @@ function repositionToStart() {
   state.engaged = false;
   state.canRotate = false;
   state.approachLatch = false;
+  state.exploding = false;
+  state.explodeTimer = 0;
   state.phase = "TAXI";
   flags.repositioned++;
 }
 
+applyVehicle("prop");
 repositionToStart();
 
 const glEl = renderer.domElement;
@@ -1389,6 +1532,27 @@ const releaseThrottle = () => {
 el.throttleBtn.addEventListener("pointerup", releaseThrottle);
 el.throttleBtn.addEventListener("pointercancel", releaseThrottle);
 
+document.querySelectorAll(".vehCard").forEach(card => {
+  card.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    applyVehicle(card.dataset.v);
+    document.querySelectorAll(".vehCard").forEach(c2 => c2.classList.toggle("sel", c2 === card));
+    el.screenVehicle.classList.add("hiddenS");
+    el.screenDir.classList.remove("hiddenS");
+  });
+});
+document.querySelectorAll(".dirCard").forEach(card => {
+  card.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    state.dirIdx = parseInt(card.dataset.d, 10) === 1 ? 1 : 0;
+    repositionToStart();
+    el.screenDir.classList.add("hiddenS");
+    unlockAudio();
+  });
+});
+
 window.addEventListener("gesturestart", (e) => e.preventDefault());
 
 function resize() {
@@ -1421,10 +1585,11 @@ const forward = new THREE.Vector3();
 function groundPhase(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
   if (!grounded) return;
+  const sgn = state.dirIdx === 0 ? 1 : -1;
   state.x = 0;
   state.pitch += (0 - state.pitch) * Math.min(1, 8 * dt);
   state.bank += (0 - state.bank) * Math.min(1, 8 * dt);
-  state.heading = 0;
+  state.heading = state.dirIdx === 0 ? 0 : Math.PI;
   state.y = RWY_ELEV + TUNE.gearHeight;
   state.airVy = null;
 
@@ -1435,12 +1600,12 @@ function groundPhase(dt) {
   }
 
   if (state.throttleHeld) {
-    state.speed = Math.min(state.speed + TUNE.throttleAccel * dt, TUNE.cruiseSpeed * 1.15);
+    state.speed = Math.min(state.speed + state.vp.accel * dt, state.vp.cruiseSpeed * 1.15);
   } else {
     state.speed = Math.max(state.speed - TUNE.brakeDecel * dt, 0);
   }
 
-  state.z -= state.speed * dt;
+  state.z -= sgn * state.speed * dt;
 
   if (state.speed >= TUNE.rotateSpeed) {
     state.canRotate = true;
@@ -1458,7 +1623,7 @@ function groundPhase(dt) {
     state.rotatePullTime = 0;
   }
 
-  const pastEnd = state.z < -(TUNE.runwayLength / 2) - 40;
+  const pastEnd = sgn * state.z < -(TUNE.runwayLength / 2) - 40;
   if (pastEnd || (!state.throttleHeld && state.speed <= 0.01)) {
     if (pastEnd) {
       state.speed = Math.max(state.speed - TUNE.brakeDecel * 2 * dt, 0);
@@ -1528,7 +1693,7 @@ function update(dt) {
       state.x = safePos.x;
       state.y = safePos.y;
       state.z = safePos.z;
-      state.speed = TUNE.cruiseSpeed * 0.6;
+      state.speed = state.vp.cruiseSpeed * 0.6;
       state.pitch = 0;
       state.bank = 0;
       state.airVy = null;
@@ -1541,13 +1706,13 @@ function update(dt) {
   }
   let targetBank = 0, targetPitch = 0;
   if (state.touching) {
-    targetBank = state.ctrlBank * TUNE.bankLimitDeg;
-    targetPitch = state.ctrlPitch * TUNE.pitchLimitDeg;
+    targetBank = state.ctrlBank * state.vp.bankLimitDeg;
+    targetPitch = state.ctrlPitch * state.vp.pitchLimitDeg;
   }
 
   if (state.phase === "TAXI" || state.phase === "ROLL") {
     groundPhase(dt);
-    setEngine(state.speed / TUNE.cruiseSpeed);
+    setEngine(state.speed / state.vp.cruiseSpeed);
     el.throttleBtn.classList.remove("hidden");
     el.rotateArrow.classList.toggle("on",
       state.phase === "ROLL" && state.canRotate);
@@ -1564,7 +1729,7 @@ function update(dt) {
       targetBank = 0;
       resp = TUNE.controlResponse;
       state.assistBias *= Math.max(0, 1 - 3 * dt);
-      state.speed += (TUNE.cruiseSpeed - state.speed) * Math.min(1, 1.2 * dt);
+      state.speed += (state.vp.cruiseSpeed - state.speed) * Math.min(1, 1.2 * dt);
       if (state.climbAwayTimer <= 0) {
         state.phase = "AIRBORNE";
         flags.missed++;
@@ -1599,19 +1764,20 @@ function update(dt) {
       if (state.engaged) {
         targetBank += state.assistBias;
       }
-      targetBank = clamp(targetBank, -TUNE.bankLimitDeg, TUNE.bankLimitDeg);
-      targetPitch = clamp(targetPitch, -TUNE.pitchLimitDeg, TUNE.pitchLimitDeg);
-      const targetSpeed = state.engaged ? TUNE.approachSpeed : TUNE.cruiseSpeed;
-      state.speed += (targetSpeed - state.speed) * Math.min(1, TUNE.autoThrottleResponse * dt);
+      targetBank = clamp(targetBank, -state.vp.bankLimitDeg, state.vp.bankLimitDeg);
+      targetPitch = clamp(targetPitch, -state.vp.pitchLimitDeg, state.vp.pitchLimitDeg);
+      const hover = state.vp.hoverSpeed > 0 && !state.touching;
+      const targetSpeed = hover ? state.vp.hoverSpeed : (state.engaged ? TUNE.approachSpeed : state.vp.cruiseSpeed);
+      state.speed += (targetSpeed - state.speed) * Math.min(1, (hover ? 0.5 : TUNE.autoThrottleResponse) * dt);
     }
 
     const k = Math.min(1, resp * dt);
     state.bank += (targetBank - state.bank) * k;
     state.pitch += (targetPitch - state.pitch) * k;
 
-    const effBank = clamp(state.bank + state.assistBias, -TUNE.bankLimitDeg, TUNE.bankLimitDeg);
+    const effBank = clamp(state.bank + state.assistBias, -state.vp.bankLimitDeg, state.vp.bankLimitDeg);
     if (turnCoupling) {
-      state.heading -= TUNE.turnRateAtFullBankDeg * DEG * (effBank / TUNE.bankLimitDeg) * dt;
+      state.heading -= state.vp.turnRateDeg * DEG * (effBank / state.vp.bankLimitDeg) * dt;
     }
 
     const pr = state.pitch * DEG;
@@ -1622,7 +1788,7 @@ function update(dt) {
     state.z += forward.z * state.speed * dt;
     state.y += forward.y * state.speed * dt;
 
-    setEngine(state.speed / TUNE.cruiseSpeed);
+    setEngine(state.speed / state.vp.cruiseSpeed);
 
     const groundNow = terrainEff(state.x, state.z);
     let contactGround = Math.max(groundNow, TUNE.waterLevel);
@@ -1669,7 +1835,7 @@ function update(dt) {
         const steep =
           descent > TUNE.explodeDescentRate ||
           Math.abs(state.pitch) > TUNE.explodeAngleDeg ||
-          state.speed > TUNE.cruiseSpeed * 1.4;
+          state.speed > state.vp.cruiseSpeed * 1.4;
         if (steep) {
           state.exploding = true;
           state.explodeTimer = TUNE.reassembleDelay;
@@ -1796,6 +1962,11 @@ window.__lp = {
     },
     clearStick() { state.touching = false; state.ctrlBank = 0; state.ctrlPitch = 0; },
     placeOnRunway() { repositionToStart(); },
+    setVehicle(key) { applyVehicle(key); },
+    skipScreens() {
+      el.screenVehicle.classList.add("hiddenS");
+      el.screenDir.classList.add("hiddenS");
+    },
     teleportAirborne(distBehind, lateral, alt, headingDeg) {
       state.x = lateral;
       state.z = TUNE.runwayLength / 2 + distBehind;
@@ -1803,7 +1974,7 @@ window.__lp = {
       state.heading = headingDeg * DEG;
       state.pitch = 0;
       state.bank = 0;
-      state.speed = TUNE.cruiseSpeed;
+      state.speed = state.vp.cruiseSpeed;
       state.airVy = null;
       state.phase = "AIRBORNE";
       state.liftoffTimer = 0;
