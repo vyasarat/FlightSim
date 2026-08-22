@@ -232,6 +232,62 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T9 home indicator ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+
+    await page.evaluate(() => window.__lp.api.teleportAirborne(-1400, 0, 80, 0));
+    await pump(page, 0.5);
+    let r = await page.evaluate(() => {
+      const e = document.getElementById("homeArrow");
+      const b = e.getBoundingClientRect();
+      return { on: e.classList.contains("on"), l: b.left, t: b.top, rgt: b.right, bot: b.bottom, tf: e.style.transform };
+    });
+    check("home: visible when far from runway (incl. behind case)",
+      r.on && r.l >= -2 && r.t >= -2 && r.rgt <= 1182 && r.bot <= 822 && /rotate/.test(r.tf),
+      JSON.stringify(r));
+
+    await page.evaluate(() => window.__lp.api.teleportAirborne(1200, 0, 90, 0));
+    await pump(page, 0.5);
+    const angUp = await page.evaluate(() => {
+      const m = document.getElementById("homeArrow").style.transform.match(/rotate\(([-\d.]+)deg\)/);
+      return m ? parseFloat(m[1]) : null;
+    });
+    const norm = angUp === null ? 999 : ((angUp % 360) + 360) % 360;
+    check("home: points ahead when runway centered", norm <= 30 || norm >= 330, `angle=${angUp}`);
+
+    await page.evaluate(() => window.__lp.api.teleportAirborne(150, 0, 30, 0));
+    await pump(page, 0.5);
+    const hidden = await page.evaluate(() => !document.getElementById("homeArrow").classList.contains("on"));
+    check("home: hides within approach distance", hidden);
+
+    await page.evaluate(() => window.__lp.api.placeOnRunway());
+    await pump(page, 0.3);
+    const hiddenGround = await page.evaluate(() => !document.getElementById("homeArrow").classList.contains("on"));
+    check("home: hidden while parked", hiddenGround);
+    await page.close();
+  }
+
+  // ---------- T10 zero-text audit ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const badText = await page.evaluate(() => {
+      const bad = [];
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      while (w.nextNode()) {
+        const n = w.currentNode;
+        const p = n.parentElement && n.parentElement.tagName;
+        if (p === "SCRIPT" || p === "STYLE") continue;
+        const t = n.nodeValue.trim();
+        if (t && !/^[0-9]+$/.test(t)) bad.push(t.slice(0, 40));
+      }
+      return bad;
+    });
+    check("audit: zero text anywhere in UI (numbers only)", badText.length === 0, JSON.stringify(badText));
+    await page.close();
+  }
+
   // ---------- T7 rendered FPS smoke test ----------
   {
     const { page } = await newPage(1180, 820);
@@ -252,6 +308,13 @@ function check(name, ok, extra) {
       step();
     }));
     check("perf: renders under software GL (informational)", fps > 5, `${fps} fps swiftshader (iPad GPU will be much faster)`);
+    await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.teleportAirborne(1200, 200, 120, 15); });
+    await pump(page, 0.4);
+    await page.evaluate(() => {
+      window.__lp.noRender = false;
+      const q = window.__rafQueue.splice(0);
+      if (q.length) q[q.length - 1](window.__simTime += 1000 / 60);
+    });
     await page.screenshot({ path: path.join(SHOTS, "cockpit-flight.png") });
     await page.close();
   }

@@ -219,6 +219,29 @@
     50%, 100% { opacity: 0.12; transform: translateY(10px); }
   }
   #rotateArrow.on { display: block; animation: blinkArrow .55s infinite; }
+  #homeArrow {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    z-index: 7;
+    pointer-events: none;
+  }
+  #homeArrow svg {
+    display: none;
+    width: var(--home-sz, 96px);
+    height: var(--home-sz, 96px);
+    filter: drop-shadow(0 4px 10px rgba(10,30,60,.5));
+  }
+  #homeArrow.on svg {
+    display: block;
+    animation: homePulse 1.5s ease-in-out infinite;
+  }
+  @keyframes homePulse {
+    0%, 100% { opacity: .82; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+  }
   #throttleBtn {
     position: fixed;
     right: calc(26px + env(safe-area-inset-right));
@@ -269,6 +292,11 @@
 <div id="rotateArrow">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <path d="M50 8 L88 66 L66 66 L66 94 L34 94 L34 66 L12 66 Z" fill="#ffd23e" stroke="#c9971d" stroke-width="4" stroke-linejoin="round"/>
+  </svg>
+</div>
+<div id="homeArrow">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M50 6 L90 74 L64 62 L58 93 L42 93 L36 62 L10 74 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="7" stroke-linejoin="round"/>
   </svg>
 </div>
 <button id="throttleBtn" aria-hidden="true">
@@ -402,7 +430,10 @@ const TUNE = {
 
   hudPitchPixelsPerDeg: 2.2,
   asiMaxSpeed: 80,
-  altMaxMeters: 400
+  altMaxMeters: 400,
+
+  homeIndicatorDistance: 300,
+  homeIndicatorSize: 96
 };
 
 const DEG = Math.PI / 180;
@@ -1031,9 +1062,10 @@ function cheer() {
 
 const el = {};
 ["hud", "pillarL", "pillarR", "brow", "dash", "asiDial", "aiDial", "altDial",
- "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx"].forEach(id => {
+ "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow"].forEach(id => {
   el[id] = document.getElementById(id);
 });
+el.homeArrow.style.setProperty("--home-sz", TUNE.homeIndicatorSize + "px");
 
 (function buildDialTicks() {
   const svgNS = "http://www.w3.org/2000/svg";
@@ -1500,6 +1532,34 @@ function update(dt) {
   updateFx(dt);
 }
 
+function updateHomeArrow() {
+  if (state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY") {
+    el.homeArrow.classList.remove("on");
+    return;
+  }
+  const thz = TUNE.runwayLength / 2;
+  const rx = -state.x, rz = thz - state.z;
+  const dist = Math.sqrt(rx * rx + rz * rz);
+  if (dist <= TUNE.homeIndicatorDistance) {
+    el.homeArrow.classList.remove("on");
+    return;
+  }
+  el.homeArrow.classList.add("on");
+
+  const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
+  const dot = fx * rx + fz * rz;
+  const cross = fx * rz - fz * rx;
+  const theta = Math.atan2(cross, dot);
+
+  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  const radius = Math.min(cx, cy) - TUNE.homeIndicatorSize * 0.75 - 10;
+  const px = cx + Math.sin(theta) * radius;
+  const py = cy - Math.cos(theta) * radius;
+  el.homeArrow.style.left = px + "px";
+  el.homeArrow.style.top = py + "px";
+  el.homeArrow.style.transform = `translate(-50%,-50%) rotate(${theta * 180 / Math.PI}deg)`;
+}
+
 function updateHud() {
   const asiFrac = clamp(state.speed / TUNE.asiMaxSpeed, 0, 1);
   el.asiNeedle.style.transform = `rotate(${-120 + asiFrac * 240}deg)`;
@@ -1508,6 +1568,7 @@ function updateHud() {
   el.altNeedle.style.transform = `rotate(${-120 + altFrac * 240}deg)`;
   el.altDigits.textContent = String(Math.round(altM));
   el.aiBall.style.transform = `rotate(${-state.bank}deg) translateY(${clamp(state.pitch, -40, 40) * TUNE.hudPitchPixelsPerDeg}px)`;
+  updateHomeArrow();
 }
 
 updateChunks(state.x, state.z);
