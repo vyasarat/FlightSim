@@ -433,7 +433,13 @@ const TUNE = {
   altMaxMeters: 400,
 
   homeIndicatorDistance: 300,
-  homeIndicatorSize: 96
+  homeIndicatorSize: 96,
+
+  explodeDescentRate: 26,
+  explodeAngleDeg: 20,
+  explodeBuildingSpeed: 34,
+  debrisCount: 26,
+  reassembleDelay: 2.0
 };
 
 const DEG = Math.PI / 180;
@@ -746,6 +752,8 @@ const buildingInst = new THREE.InstancedMesh(
 );
 buildingInst.setColorAt(0, tmpColor.setHex(0xcfc4ae));
 
+const buildingBoxes = [];
+
 const BUILDING_PALETTE = [0xcfc4ae, 0xc7a186, 0xb9b0a0, 0xd8cdb4, 0xa89880, 0xc2b8a4];
 scene.add(trunkInst, canopyInst, buildingInst);
 
@@ -898,6 +906,7 @@ function rebuildBuildings(px, pz) {
   const R = Math.ceil(TUNE.sceneryRadius / grid);
   const ccx = Math.round(px / grid), ccz = Math.round(pz / grid);
   let bi = 0;
+  buildingBoxes.length = 0;
   for (let dx = -R; dx <= R; dx++) {
     for (let dz = -R; dz <= R; dz++) {
       if (bi >= TUNE.buildingMaxInstances) break;
@@ -926,6 +935,7 @@ function rebuildBuildings(px, pz) {
         buildingInst.setMatrixAt(bi, dummyObj.matrix);
         tmpColor.setHex(BUILDING_PALETTE[Math.floor(hashSalt(cx + k, cz + k, 72) * BUILDING_PALETTE.length)]);
         buildingInst.setColorAt(bi, tmpColor);
+        buildingBoxes.push({ x: wx, z: wz, hw: w / 2, hd: d / 2, top: gy - 0.3 + hgt });
         bi++;
       }
     }
@@ -1055,6 +1065,15 @@ function chirp() {
   synthBlip("sine", 720, 720, 0.09, 0.35, 0.09);
   noiseBurst(0.1, 2400, 0.12, 0);
 }
+function boomSound() {
+  noiseBurst(0.55, 180, 0.65, 0);
+  synthBlip("sawtooth", 130, 26, 0.5, 0.5, 0);
+  synthBlip("sine", 70, 22, 0.6, 0.5, 0.02);
+}
+function whoosh() {
+  synthBlip("sine", 110, 540, 0.28, 0.22, 0);
+  noiseBurst(0.2, 1200, 0.12, 0.02);
+}
 function cheer() {
   const notes = [523, 659, 784, 1047];
   notes.forEach((f, i) => {
@@ -1162,6 +1181,119 @@ function updateFx(dt) {
   confetti = next;
 }
 
+const debrisMesh = new THREE.InstancedMesh(
+  new THREE.BoxGeometry(1, 1, 1),
+  new THREE.MeshBasicMaterial({}),
+  TUNE.debrisCount
+);
+debrisMesh.setColorAt(0, tmpColor.setHex(0xffffff));
+debrisMesh.visible = false;
+debrisMesh.frustumCulled = false;
+scene.add(debrisMesh);
+
+const parts = [];
+const FIRE_COLS = [0xff9a2a, 0xffd23e, 0xff6a1a];
+const SMOKE_COL = 0x565b63;
+const METAL_COL = 0x3a3f46;
+for (let i = 0; i < TUNE.debrisCount; i++) {
+  parts.push({ alive: false, kind: i % 3, life: 0, maxLife: 1, size: 1,
+    px: 0, py: 0, pz: 0, vx: 0, vy: 0, vz: 0,
+    rx: 0, ry: 0, rvx: 0, rvy: 0 });
+}
+
+const fireballs = [];
+for (let i = 0; i < 5; i++) {
+  const fb = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 10, 8),
+    new THREE.MeshBasicMaterial({ color: i % 2 ? 0xff8c2a : 0xffd23e, transparent: true, opacity: 0, fog: false })
+  );
+  fb.visible = false;
+  scene.add(fb);
+  fireballs.push(fb);
+}
+let shakeAmp = 0;
+
+function triggerExplosion(nx, ny, nz, intensity) {
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    p.alive = true;
+    p.kind = i % 3;
+    p.maxLife = (p.kind === 1 ? 1.9 : 1.3) + rnd() * 0.7;
+    p.life = p.maxLife;
+    const sp = (16 + rnd() * 34) * (0.7 + intensity * 0.5);
+    const th = rnd() * Math.PI * 2;
+    const up = p.kind === 1 ? 0.6 + rnd() * 0.5 : rnd() * 1.2 - 0.15;
+    const side = Math.sqrt(Math.max(0, 1 - up * up));
+    p.px = nx; p.py = ny; p.pz = nz;
+    p.vx = Math.cos(th) * side * sp;
+    p.vz = Math.sin(th) * side * sp;
+    p.vy = Math.abs(up) * sp;
+    p.rx = rnd() * Math.PI; p.ry = rnd() * Math.PI;
+    p.rvx = (rnd() - 0.5) * 9; p.rvy = (rnd() - 0.5) * 9;
+    p.size = p.kind === 1 ? 1.6 + rnd() * 1.6 : 0.7 + rnd() * 1.3;
+  }
+  for (const fb of fireballs) {
+    fb.visible = true;
+    fb.position.set(nx, ny + 2, nz);
+    fb.position.x += (rnd() - 0.5) * 8;
+    fb.userData.t = 0;
+    fb.userData.dur = 0.5 + rnd() * 0.25;
+  }
+  debrisMesh.visible = true;
+  shakeAmp = 1;
+  boomSound();
+  flags.exploded++;
+}
+
+function updateExplosion(dt, homePos, seeking) {
+  let anyAlive = false;
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (!p.alive || p.life <= 0) {
+      if (p.alive) p.alive = false;
+      dummyObj.position.set(0, -9999, 0);
+      dummyObj.scale.setScalar(0.001);
+      dummyObj.rotation.set(0, 0, 0);
+      dummyObj.updateMatrix();
+      debrisMesh.setMatrixAt(i, dummyObj.matrix);
+      continue;
+    }
+    anyAlive = true;
+    p.life -= dt;
+    if (seeking && p.life < 0.55) {
+      p.px += (homePos.x - p.px) * Math.min(1, 9 * dt);
+      p.py += (homePos.y - p.py) * Math.min(1, 9 * dt);
+      p.pz += (homePos.z - p.pz) * Math.min(1, 9 * dt);
+    } else {
+      const grav = p.kind === 2 ? -30 : (p.kind === 1 ? 5 : -9);
+      p.vy += grav * dt;
+      p.vx *= 1 - Math.min(1, 1.1 * dt);
+      p.vz *= 1 - Math.min(1, 1.1 * dt);
+      p.px += p.vx * dt; p.py += p.vy * dt; p.pz += p.vz * dt;
+    }
+    p.rx += p.rvx * dt; p.ry += p.rvy * dt;
+    const fade = clamp(p.life / 0.4, 0, 1);
+    dummyObj.position.set(p.px, p.py, p.pz);
+    dummyObj.rotation.set(p.rx, p.ry, 0);
+    dummyObj.scale.setScalar(Math.max(0.01, p.size * (p.kind === 1 ? (2 - p.life / p.maxLife) : fade)));
+    dummyObj.updateMatrix();
+    debrisMesh.setMatrixAt(i, dummyObj.matrix);
+    tmpColor.setHex(p.kind === 0 ? FIRE_COLS[i % FIRE_COLS.length] : (p.kind === 1 ? SMOKE_COL : METAL_COL));
+    debrisMesh.setColorAt(i, tmpColor);
+  }
+  debrisMesh.instanceMatrix.needsUpdate = true;
+  if (debrisMesh.instanceColor) debrisMesh.instanceColor.needsUpdate = true;
+  if (!anyAlive && !seeking) debrisMesh.visible = false;
+  for (const fb of fireballs) {
+    if (!fb.visible) continue;
+    fb.userData.t += dt;
+    const tt = fb.userData.t / fb.userData.dur;
+    if (tt >= 1) { fb.visible = false; fb.material.opacity = 0; continue; }
+    fb.scale.setScalar(3 + tt * 16);
+    fb.material.opacity = 0.9 * (1 - tt);
+  }
+}
+
 const state = {
   x: 0, y: 0, z: 0,
   pitch: 0, bank: 0, heading: 0,
@@ -1181,10 +1313,13 @@ const state = {
   assistBias: 0,
   engaged: false,
   canRotate: false,
-  approachLatch: false
+  approachLatch: false,
+  exploding: false,
+  explodeTimer: 0
 };
 
-const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, bounced: 0 };
+const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, bounced: 0, exploded: 0 };
+const safePos = { x: 0, y: 0, z: 0 };
 
 function repositionToStart() {
   state.x = 0;
@@ -1371,6 +1506,39 @@ function updateAssists(dt) {
 }
 
 function update(dt) {
+  if (state.exploding) {
+    state.explodeTimer -= dt;
+    const seeking = state.explodeTimer <= 0.5;
+    updateExplosion(dt, safePos, seeking);
+    shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
+    setEngine(0.01);
+    updateChunks(state.x, state.z);
+    skyDome.position.set(state.x, state.y, state.z);
+    waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
+    camera.position.set(
+      state.x + (Math.random() - 0.5) * 11 * shakeAmp,
+      state.y + (Math.random() - 0.5) * 9 * shakeAmp,
+      state.z + (Math.random() - 0.5) * 11 * shakeAmp
+    );
+    camera.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
+    updateHud();
+    updateFx(dt);
+    if (state.explodeTimer <= 0) {
+      state.exploding = false;
+      state.x = safePos.x;
+      state.y = safePos.y;
+      state.z = safePos.z;
+      state.speed = TUNE.cruiseSpeed * 0.6;
+      state.pitch = 0;
+      state.bank = 0;
+      state.airVy = null;
+      state.bounceTimer = 0;
+      state.canRotate = false;
+      state.approachLatch = false;
+      whoosh();
+    }
+    return;
+  }
   let targetBank = 0, targetPitch = 0;
   if (state.touching) {
     targetBank = state.ctrlBank * TUNE.bankLimitDeg;
@@ -1457,6 +1625,14 @@ function update(dt) {
     setEngine(state.speed / TUNE.cruiseSpeed);
 
     const groundNow = terrainEff(state.x, state.z);
+    let contactGround = Math.max(groundNow, TUNE.waterLevel);
+    if (groundNow > TUNE.waterLevel + 0.01) contactGround = groundNow;
+    for (let i = 0; i < buildingBoxes.length; i++) {
+      const bb = buildingBoxes[i];
+      if (Math.abs(state.x - bb.x) < bb.hw + 2 && Math.abs(state.z - bb.z) < bb.hd + 2) {
+        if (state.y < bb.top + 4) contactGround = Math.max(contactGround, bb.top);
+      }
+    }
 
     if (state.phase === "LANDED") {
       state.y = groundNow + TUNE.gearHeight;
@@ -1489,12 +1665,26 @@ function update(dt) {
       } else if (agl <= TUNE.terrainClearance && !(
         Math.abs(state.x) <= halfW + 12 && Math.abs(state.z) <= halfL + 12
       )) {
-        state.y = groundNow + TUNE.terrainClearance;
-        if (state.bounceTimer <= 0) {
-          state.airVy = TUNE.bounceImpulse;
-          state.bounceTimer = TUNE.bounceHoldTime;
-          boing();
-          flags.bounced++;
+        const descent = -(Math.sin(state.pitch * DEG) * state.speed);
+        const steep =
+          descent > TUNE.explodeDescentRate ||
+          Math.abs(state.pitch) > TUNE.explodeAngleDeg ||
+          state.speed > TUNE.cruiseSpeed * 1.4;
+        if (steep) {
+          state.exploding = true;
+          state.explodeTimer = TUNE.reassembleDelay;
+          safePos.x = state.x;
+          safePos.z = state.z;
+          safePos.y = Math.max(groundNow, TUNE.waterLevel) + 60;
+          triggerExplosion(state.x, Math.max(state.y - 2, contactGround + 1), state.z, clamp(state.speed / 80, 0, 1));
+        } else {
+          state.y = contactGround + TUNE.terrainClearance;
+          if (state.bounceTimer <= 0) {
+            state.airVy = TUNE.bounceImpulse;
+            state.bounceTimer = TUNE.bounceHoldTime;
+            boing();
+            flags.bounced++;
+          }
         }
       }
 
@@ -1537,11 +1727,17 @@ function update(dt) {
   const blinkOn = Math.sin(performance.now() * 0.004) > -0.3;
   for (const b of blinkers) b.visible = blinkOn;
 
-  camera.position.set(state.x, state.y, state.z);
-  camera.rotation.set(state.pitch * DEG, state.heading, -(state.bank + state.assistBias) * DEG);
+  camera.position.set(
+    state.x + (Math.random() - 0.5) * 11 * shakeAmp,
+    state.y + (Math.random() - 0.5) * 9 * shakeAmp,
+    state.z + (Math.random() - 0.5) * 11 * shakeAmp
+  );
+  camera.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
+  shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
 
   updateHud();
   updateFx(dt);
+  updateExplosion(dt, safePos, false);
 }
 
 function updateHomeArrow() {
