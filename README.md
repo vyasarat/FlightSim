@@ -3,7 +3,14 @@
 A no-reading, no-failing flying game for a 4-year-old. Single-page Canvas 2D game,
 vanilla JS, zero network calls after load. Spec lives outside the repo (Product Spec v1).
 
-**Live:** https://flightsim.138.197.80.104.nip.io
+**Live:**
+- 2D side-scroller: https://flightsim.138.197.80.104.nip.io
+- 3D cockpit build: https://flightsim.138.197.80.104.nip.io/cockpit/
+
+The two builds are independent PWA shells (each has its own manifest/sw.js), so either
+URL can be added to the Home Screen separately for A/B testing.
+3D development happens on the `cockpit-3d` branch and merges into `main` to deploy;
+the branch is kept on origin.
 
 ## Stack & hosting
 
@@ -47,12 +54,9 @@ Bump `CACHE_NAME` in `sw.js` when shipping asset changes.
 
 ## Build stages (per spec)
 
-1. ✅ Flight feel only — finger-position altitude control, pitch-from-velocity, ground bounce
-2. Scrolling background + parallax
-3. Rings, collection, sound effects
-4. Runway landing sequence + stars
-5. Procedural course generation + difficulty scaling
-6. Hangar, plane unlocks, localStorage save
-7. Environments, polish, particles
+2D build (repo root): stages 1 ✅, 2–7 pending.
 
-Tuning knobs live in the `TUNE` object at the top of the script in `index.html`.
+3D cockpit build (`cockpit/`, branch `cockpit-3d`): stage 1 = flight feel only
+(drag = bank/pitch with ±30°/±45° clamps, release auto-levels, constant speed,
+terrain contact bounces). Tuning knobs in the `TUNE` object at the top of the
+script in `cockpit/index.html`. Three.js r128 is vendored — no CDN.
