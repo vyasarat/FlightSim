@@ -210,6 +210,8 @@ function check(name, ok, extra) {
     check("landing: rollout -> celebrate -> reset to takeoff",
       st2.flags.repositioned > repos0 && st2.phase === "TAXI",
       `phase=${st2.phase} repos=${st2.flags.repositioned - repos0}`);
+    const engNorm = await page.evaluate(() => window.__lp.engineNorm);
+    check("engine: cuts to silent when parked", engNorm === 0, `norm=${engNorm}`);
     await page.close();
   }
 
@@ -219,11 +221,26 @@ function check(name, ok, extra) {
     await page.evaluate(() => { window.__lp.noRender = true; });
     await page.evaluate(() => window.__lp.api.teleportAirborne(260, 260, 22, 0));
     let missed = false;
+    let minAgl = Infinity;
     for (let i = 0; i < 90 && !missed; i++) {
+      const agl = await page.evaluate(() => {
+        const s = window.__lp.state;
+        return s.y - Math.max(window.__lp.terrainEff(s.x, s.z), window.__lp.TUNE.waterLevel);
+      });
+      minAgl = Math.min(minAgl, agl);
       missed = await page.evaluate(() => window.__lp.flags.missed > 0);
       if (!missed) await pump(page, 0.5);
     }
     check("landing: miss triggers silent go-around", missed);
+    for (let i = 0; i < 10; i++) {
+      const agl = await page.evaluate(() => {
+        const s = window.__lp.state;
+        return s.y - Math.max(window.__lp.terrainEff(s.x, s.z), window.__lp.TUNE.waterLevel);
+      });
+      minAgl = Math.min(minAgl, agl);
+      await pump(page, 0.5);
+    }
+    check("go-around: never sinks underground", minAgl > -0.5, `minAgl=${minAgl.toFixed(2)}`);
     await pump(page, 5);
     const st = await snapState(page);
     check("go-around: returns to free flight climbing",
