@@ -69,6 +69,7 @@ function check(name, ok, extra) {
     `);
     await page.goto(URL);
     await page.waitForFunction(() => !!window.__lp, null, { timeout: 15000 });
+    await page.evaluate(() => window.__lp.api.skipScreens());
     return { ctx, page, errors };
   }
 
@@ -246,6 +247,76 @@ function check(name, ok, extra) {
     check("go-around: returns to free flight climbing",
       st.phase === "AIRBORNE" && st.y > 45 && st.finite,
       `phase=${st.phase} alt=${st.y}`);
+    await page.close();
+  }
+
+  // ---------- T-B vehicles ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.placeOnRunway(); });
+
+    const bootOk = await page.evaluate(() => {
+      const sv = document.getElementById("screenVehicle");
+      sv.classList.remove("hiddenS");
+      const cards = [...sv.querySelectorAll(".card")];
+      if (cards.length !== 6) return { ok: false, why: "count" };
+      const sized = cards.every(c => {
+        const r = c.getBoundingClientRect();
+        return r.width >= 100 && r.height >= 100;
+      });
+      return { ok: sized, why: "size" };
+    });
+    check("vehicles: picker present at boot, six cards >= 100px", bootOk.ok, bootOk.why);
+
+    const combos = await page.evaluate(() => {
+      const vs = Object.values(window.__lp.TUNE.vehicles);
+      return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
+    });
+    check("vehicles: six defined, airliners share stats by design",
+      combos.n === 6 && combos.uniq === 4, `n=${combos.n} uniq=${combos.uniq}`);
+
+    const vpBefore = await page.evaluate(() => window.__lp.state.vp.cruiseSpeed);
+    await page.evaluate(() => {
+      document.getElementById("screenDir").classList.add("hiddenS");
+      document.getElementById("screenVehicle").classList.remove("hiddenS");
+    });
+    await page.click('[data-v="rocket"]');
+    const dirShown = await page.evaluate(() =>
+      !document.getElementById("screenDir").classList.contains("hiddenS"));
+    check("vehicles: vehicle tap opens direction screen", dirShown);
+
+    await page.click('[data-d="1"]');
+    await pump(page, 0.3);
+    const sel = await page.evaluate(() => ({
+      key: window.__lp.state.vehicleKey,
+      cs: window.__lp.state.vp.cruiseSpeed,
+      heading: window.__lp.state.heading,
+      z: window.__lp.state.z,
+      screensGone: document.getElementById("screenVehicle").classList.contains("hiddenS")
+        && document.getElementById("screenDir").classList.contains("hiddenS"),
+      accent: getComputedStyle(document.documentElement).getPropertyValue("--veh").trim()
+    }));
+    check("vehicles: selection applies (rocket, northbound spawn)",
+      sel.key === "rocket" && sel.cs === 112 && Math.abs(sel.heading - Math.PI) < 0.01 &&
+      sel.z < 0 && sel.screensGone && sel.accent === "#b8bec9",
+      JSON.stringify(sel));
+    void vpBefore;
+
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    let air = false;
+    for (let i = 0; i < 80 && !air; i++) {
+      air = await page.evaluate(() => window.__lp.flags.liftoff > 0);
+      if (!air) await pump(page, 0.25);
+    }
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.5));
+    let spd = 0;
+    for (let i = 0; i < 20; i++) {
+      spd = await page.evaluate(() => window.__lp.state.speed);
+      if (spd > 100) break;
+      await pump(page, 0.5);
+    }
+    check("vehicles: rocket reaches its higher cruise speed", spd > 100, `speed=${spd.toFixed(1)}`);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
     await page.close();
   }
 
