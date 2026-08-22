@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <title>Little Pilot</title>
 <style>
+  :root { --veh: #e0483e; --veh2: #f2f4f7; }
   html, body {
     margin: 0;
     padding: 0;
@@ -73,7 +74,7 @@
     left: 0;
     right: 0;
     height: clamp(4px, 0.9vh, 9px);
-    background: #e0483e;
+    background: var(--veh);
     border-radius: 0 0 22px 22px;
   }
   #dash {
@@ -98,7 +99,7 @@
     left: 0;
     right: 0;
     height: clamp(4px, 0.9vh, 9px);
-    background: #e0483e;
+    background: var(--veh);
     border-radius: 26px 26px 0 0;
   }
   .dial {
@@ -249,7 +250,7 @@
     width: clamp(96px, 17vmin, 148px);
     height: clamp(96px, 17vmin, 148px);
     border-radius: 50%;
-    border: clamp(4px, 1vmin, 7px) solid #e0483e;
+    border: clamp(4px, 1vmin, 7px) solid var(--veh);
     background: radial-gradient(circle at 36% 30%, #3a414c 0%, #23282f 58%, #161a1f 100%);
     box-shadow: 0 10px 26px rgba(10,20,40,.45), inset 0 3px 6px rgba(255,255,255,.1);
     z-index: 10;
@@ -273,6 +274,70 @@
     z-index: 9;
     pointer-events: none;
   }
+  .screen {
+    position: fixed; inset: 0; z-index: 30;
+    background: radial-gradient(circle at 50% 30%, rgba(36,44,56,.97), rgba(14,17,22,.98));
+    display: flex; flex-wrap: wrap; align-content: center; justify-content: center;
+    gap: clamp(16px, 3vmin, 34px);
+    padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+             calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    overflow-y: auto;
+  }
+  .screen.hiddenS { display: none; }
+  .card {
+    width: clamp(150px, 23vmin, 225px);
+    height: clamp(110px, 16vmin, 158px);
+    border-radius: 22px;
+    background: linear-gradient(165deg, #2e3540 0%, #191d23 100%);
+    border: clamp(4px, 0.9vmin, 7px) solid #39404b;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; outline: none; touch-action: manipulation;
+    transition: transform .08s ease;
+    box-shadow: 0 10px 26px rgba(0,0,0,.4);
+  }
+  .card:active { transform: scale(.94); }
+  .card.sel { border-color: var(--veh); }
+  .card svg { width: 84%; height: 84%; }
+  .dirCard {
+    width: clamp(180px, 30vmin, 270px);
+    height: clamp(140px, 23vmin, 215px);
+  }
+  #progressStrip {
+    position: fixed;
+    top: calc(clamp(30px, 6.5vh, 74px) + env(safe-area-inset-top) + 12px);
+    left: 50%;
+    translate: -50% 0;
+    width: min(46vw, 430px);
+    height: 26px;
+    z-index: 6;
+    pointer-events: none;
+  }
+  #progressStrip .rail {
+    position: absolute;
+    top: 12px; left: 0; right: 0;
+    height: 3.5px;
+    background: rgba(20,26,34,.6);
+    border-radius: 3px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.4);
+  }
+  #progressStrip .dot {
+    position: absolute;
+    top: 9.5px;
+    width: 9px; height: 9px;
+    margin-left: -4.5px;
+    border-radius: 50%;
+    background: #39404b;
+    border: 2px solid rgba(240,244,248,.8);
+    transition: background .3s;
+  }
+  #progressStrip .dot.passed { background: var(--veh); }
+  #progressStrip .marker {
+    position: absolute;
+    top: -3px;
+    width: 22px; height: 22px;
+    margin-left: -11px;
+    will-change: transform;
+  }
 </style>
 </head>
 <body>
@@ -294,6 +359,7 @@
     <path d="M50 8 L88 66 L66 66 L66 94 L34 94 L34 66 L12 66 Z" fill="#ffd23e" stroke="#c9971d" stroke-width="4" stroke-linejoin="round"/>
   </svg>
 </div>
+<div id="progressStrip"><div class="rail"></div></div>
 <div id="homeArrow">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <path d="M50 6 L90 74 L64 62 L58 93 L42 93 L36 62 L10 74 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="7" stroke-linejoin="round"/>
@@ -306,6 +372,85 @@
   </svg>
 </button>
 <canvas id="fx"></canvas>
+<div id="screenVehicle" class="screen">
+  <button class="card vehCard" data-v="prop">
+    <svg viewBox="0 0 200 120">
+      <path d="M30 78 L48 44 L92 44 L92 30 L104 30 L104 44 L150 44 Q176 46 178 60 Q176 74 150 76 L48 76 Z" fill="#ef4b3f" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <rect x="88" y="20" width="10" height="26" rx="4" fill="#ffe9c9" stroke="#23282f" stroke-width="4"/>
+      <ellipse cx="93" cy="82" rx="34" ry="7" fill="#ffe9c9" stroke="#23282f" stroke-width="4"/>
+      <line x1="178" y1="60" x2="192" y2="60" stroke="#23282f" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="146" cy="58" r="9" fill="#bfeaff" stroke="#23282f" stroke-width="4"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="helicopter">
+    <svg viewBox="0 0 200 120">
+      <line x1="20" y1="22" x2="180" y2="22" stroke="#23282f" stroke-width="7" stroke-linecap="round"/>
+      <rect x="95" y="18" width="10" height="16" fill="#23282f"/>
+      <path d="M60 60 Q60 38 95 38 Q128 38 132 58 L132 74 Q132 86 112 88 L78 88 Q60 84 60 60 Z" fill="#20a39e" stroke="#23282f" stroke-width="5"/>
+      <rect x="126" y="54" width="54" height="9" rx="4" fill="#20a39e" stroke="#23282f" stroke-width="4"/>
+      <path d="M172 40 L184 40 L178 62 Z" fill="#20a39e" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="88" cy="58" r="11" fill="#bfeaff" stroke="#23282f" stroke-width="4"/>
+      <line x1="70" y1="98" x2="118" y2="98" stroke="#23282f" stroke-width="6" stroke-linecap="round"/>
+      <line x1="82" y1="88" x2="80" y2="98" stroke="#23282f" stroke-width="5"/>
+      <line x1="108" y1="88" x2="110" y2="98" stroke="#23282f" stroke-width="5"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="rocket">
+    <svg viewBox="0 0 200 120">
+      <path d="M100 6 Q122 34 122 62 L122 96 L78 96 L78 62 Q78 34 100 6 Z" fill="#b8bec9" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M78 70 L54 100 L78 96 Z" fill="#d71920" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M122 70 L146 100 L122 96 Z" fill="#d71920" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <circle cx="100" cy="46" r="11" fill="#bfeaff" stroke="#23282f" stroke-width="5"/>
+      <path d="M88 96 Q100 118 112 96 Z" fill="#ffb43a" stroke="#c96a10" stroke-width="4"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="airlinerDelta">
+    <svg viewBox="0 0 200 120">
+      <path d="M22 66 Q60 56 108 56 L138 58 Q162 62 164 70 L138 76 L60 78 Q34 76 22 66 Z" fill="#0b4ea2" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M64 58 L96 20 L116 20 L92 58 Z" fill="#0b4ea2" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 20 L116 20 L110 34 L94 34 Z" fill="#d0342c" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M70 76 L104 96 L124 96 L96 74 Z" fill="#dfe8f2" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M60 58 L96 44 L112 46 L82 58 Z" fill="#dfe8f2" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="airlinerJetblue">
+    <svg viewBox="0 0 200 120">
+      <path d="M22 66 Q60 56 108 56 L138 58 Q162 62 164 70 L138 76 L60 78 Q34 76 22 66 Z" fill="#e8edf4" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M64 58 L96 20 L116 20 L92 58 Z" fill="#1c75bc" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 20 L116 20 L110 34 L94 34 Z" fill="#1c75bc" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M70 76 L104 96 L124 96 L96 74 Z" fill="#1c75bc" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M60 58 L96 44 L112 46 L82 58 Z" fill="#9cc4e4" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="airlinerEmirates">
+    <svg viewBox="0 0 200 120">
+      <path d="M22 66 Q60 56 108 56 L138 58 Q162 62 164 70 L138 76 L60 78 Q34 76 22 66 Z" fill="#f7f3e8" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M64 58 L96 20 L116 20 L92 58 Z" fill="#c9a227" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 20 L116 20 L110 34 L94 34 Z" fill="#d71920" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M70 76 L104 96 L124 96 L96 74 Z" fill="#c9a227" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M60 58 L96 44 L112 46 L82 58 Z" fill="#d71920" opacity=".85" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+  </button>
+</div>
+<div id="screenDir" class="screen hiddenS">
+  <button class="card dirCard" data-d="0">
+    <svg viewBox="0 0 220 160">
+      <rect x="30" y="70" width="26" height="70" fill="#39404b"/><rect x="66" y="40" width="26" height="100" fill="#39404b"/>
+      <rect x="104" y="16" width="30" height="124" fill="#39404b"/><rect x="146" y="52" width="26" height="88" fill="#39404b"/>
+      <rect x="182" y="80" width="22" height="60" fill="#39404b"/><rect x="48" y="56" width="26" height="84" fill="#4a5260"/>
+      <line x1="10" y1="142" x2="212" y2="142" stroke="#57a344" stroke-width="8" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <button class="card dirCard" data-d="1">
+    <svg viewBox="0 0 220 160">
+      <circle cx="168" cy="38" r="22" fill="#ffd23e"/>
+      <path d="M70 142 C70 100 62 78 44 62 M70 142 C70 104 80 84 98 70 M70 142 C70 100 96 92 118 92 M70 142 C70 106 52 96 34 98 M70 142 C71 108 88 104 106 108" fill="none" stroke="#7a5230" stroke-width="9" stroke-linecap="round"/>
+      <path d="M44 62 Q30 48 16 54 Q30 66 44 62 Z M98 70 Q112 52 130 56 Q114 74 98 70 Z M118 92 Q136 80 148 90 Q132 102 118 92 Z M34 98 Q18 90 8 100 Q24 110 34 98 Z M106 108 Q122 96 134 106 Q120 120 106 108 Z" fill="#2f8f4e" stroke="#1d5f33" stroke-width="3"/>
+      <path d="M8 146 Q34 132 60 144 Q86 156 112 144 Q138 132 164 144 Q186 154 212 146 L212 158 L8 158 Z" fill="#3f9bd8" stroke="#2a70a3" stroke-width="3"/>
+      <path d="M8 146 Q34 134 60 145" fill="none" stroke="#e8f4fc" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
 <script src="three.min.js"></script>
 <script>
 (() => {
@@ -433,7 +578,38 @@ const TUNE = {
   altMaxMeters: 400,
 
   homeIndicatorDistance: 300,
-  homeIndicatorSize: 96
+  homeIndicatorSize: 96,
+
+  routeLength: 12000,
+  continentCompression: 1.0,
+
+  spaceAltitude: 900,
+  spaceBlendBand: 260,
+  otherVehicleCeiling: 520,
+
+  explodeDescentRate: 26,
+  explodeAngleDeg: 20,
+  explodeBuildingSpeed: 34,
+  debrisCount: 26,
+  reassembleDelay: 2.0,
+
+  vehicles: {
+    prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, hoverSpeed: 0, capped: true },
+    helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6, capped: true },
+    rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 48, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false },
+    airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true },
+    airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true },
+    airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true }
+  },
+
+  vehicleColors: {
+    prop:             ["#e0483e", "#f2f4f7"],
+    helicopter:       ["#20a39e", "#f2f4f7"],
+    rocket:           ["#b8bec9", "#d71920"],
+    airlinerDelta:    ["#0b4ea2", "#d0342c"],
+    airlinerJetblue:  ["#1c75bc", "#e8edf4"],
+    airlinerEmirates: ["#c9a227", "#d71920"]
+  }
 };
 
 const DEG = Math.PI / 180;
@@ -485,17 +661,107 @@ function rawHeight(x, z) {
        - TUNE.hillAmplitude * 0.5;
 }
 
-function flattenMask(x, z) {
-  const nx = Math.max(Math.abs(x) - TUNE.runwayWidth * 0.5 - 40, 0) / TUNE.flattenMargin;
-  const nz = Math.max(Math.abs(z) - TUNE.runwayLength * 0.5 - 60, 0) / TUNE.flattenMargin;
-  return 1 - smoothstep(0, 1, Math.max(nx, nz));
+const ROUTE_HALF = () => TUNE.routeLength / 2;
+const ROUTE_SCALE = () => TUNE.routeLength / 12000;
+const pFromNY = z => clamp((ROUTE_HALF() - z) / TUNE.routeLength, -0.3, 1.3);
+
+function mountainGauss(z) {
+  const zc = -1500 * ROUTE_SCALE();
+  const w = 430 * ROUTE_SCALE();
+  const d = (z - zc) / w;
+  return Math.exp(-d * d);
 }
 
-const RWY_ELEV = Math.max(rawHeight(0, 0), TUNE.waterLevel + 2);
+function canyonT(z) {
+  const zc = -3800 * ROUTE_SCALE();
+  const half = 150 * ROUTE_SCALE();
+  return clamp(1 - Math.abs(z - zc) / half, 0, 1);
+}
+
+function lakeShape(x, z) {
+  const cx = -350 * ROUTE_SCALE(), cz = 1800 * ROUTE_SCALE();
+  const rx = 640 * ROUTE_SCALE(), rz = 420 * ROUTE_SCALE();
+  const nx = (x - cx) / rx, nz = (z - cz) / rz;
+  return (nx * nx + nz * nz < 1) ? smoothstep(0.3, 1, nx * nx + nz * nz) : 0;
+}
+
+function coastDrop(z) {
+  const edge = ROUTE_HALF() + 500 * ROUTE_SCALE();
+  const over = Math.max(z - edge, -(z + edge));
+  return over <= 0 ? 0 : smoothstep(0, 700 * ROUTE_SCALE(), over) * 16;
+}
+
+function desertMask(z) {
+  const p = pFromNY(z);
+  return smoothstep(0.70, 0.76, p) * (1 - smoothstep(0.84, 0.90, p));
+}
+
+function farmMask(z) {
+  const p = pFromNY(z);
+  return smoothstep(0.24, 0.30, p) * (1 - smoothstep(0.42, 0.48, p));
+}
+
+function plainsMask(z) {
+  const p = pFromNY(z);
+  return smoothstep(0.30, 0.38, p) * (1 - smoothstep(0.50, 0.56, p));
+}
+
+function shapedTerrain(x, z) {
+  let h = rawHeight(x, z);
+  h *= 1 - desertMask(z) * 0.62;
+  if (mountainGauss(z) > 0.01) {
+    h += mountainGauss(z) * (48 + valueNoise(x / 460 + 91, z / 260) * 78) * TUNE.continentCompression;
+  }
+  const ct = canyonT(z);
+  if (ct > 0) {
+    h -= ct * ct * 72 * TUNE.continentCompression;
+    h += valueNoise(x / 90 + 7, z / 55) * ct * 6;
+  }
+  const lk = lakeShape(x, z);
+  if (lk > 0) h -= lk * 14;
+  h -= coastDrop(z);
+  const harborZ = ROUTE_HALF() - 420;
+  if (Math.abs(x) < 2400 && Math.abs(z - harborZ) < 320) {
+    const hd = Math.max(0, 1 - Math.abs(Math.abs(z - harborZ) - 60) / 130);
+    h -= hd * 9;
+  }
+  return h;
+}
+
+const AIRPORTS = [
+  { cz: ROUTE_HALF(), elev: Math.max(shapedTerrain(0, ROUTE_HALF()), TUNE.waterLevel + 2) },
+  { cz: -ROUTE_HALF(), elev: Math.max(shapedTerrain(0, -ROUTE_HALF()), TUNE.waterLevel + 2) }
+];
+
+function flattenMask(x, z) {
+  let m = 0;
+  for (let i = 0; i < AIRPORTS.length; i++) {
+    const nx = Math.max(Math.abs(x) - TUNE.runwayWidth * 0.5 - 40, 0) / TUNE.flattenMargin;
+    const dzAbs = Math.abs(z - AIRPORTS[i].cz);
+    const nz = Math.max(TUNE.runwayLength * 0.5 + 60 - dzAbs, 0) / TUNE.flattenMargin;
+    m = Math.max(m, 1 - smoothstep(0, 1, Math.max(nx, nz)));
+  }
+  return m;
+}
+
+function onAnyRunwayRect(x, z) {
+  for (let i = 0; i < AIRPORTS.length; i++) {
+    if (Math.abs(x) <= TUNE.runwayWidth / 2 + 12 &&
+        Math.abs(z - AIRPORTS[i].cz) <= TUNE.runwayLength / 2 + 12) return true;
+  }
+  return false;
+}
 
 function terrainEff(x, z) {
   const m = flattenMask(x, z);
-  return rawHeight(x, z) * (1 - m) + RWY_ELEV * m;
+  if (m <= 0.001) return shapedTerrain(x, z);
+  let best = AIRPORTS[0];
+  let bd = Math.abs(z - AIRPORTS[0].cz);
+  for (let i = 1; i < AIRPORTS.length; i++) {
+    const d = Math.abs(z - AIRPORTS[i].cz);
+    if (d < bd) { bd = d; best = AIRPORTS[i]; }
+  }
+  return shapedTerrain(x, z) * (1 - m) + best.elev * m;
 }
 
 const scene = new THREE.Scene();
@@ -540,6 +806,7 @@ const skyMat = new THREE.ShaderMaterial({
     }
   `
 });
+const skyUniforms = skyMat.uniforms;
 const skyDome = new THREE.Mesh(skyGeo, skyMat);
 scene.add(skyDome);
 
@@ -547,6 +814,78 @@ scene.add(new THREE.HemisphereLight(TUNE.hemiSkyColor, TUNE.hemiGroundColor, TUN
 const sunLight = new THREE.DirectionalLight(0xfff3d6, TUNE.sunIntensity);
 sunLight.position.set(400, 1000, 250);
 scene.add(sunLight);
+
+const SPACE_TOP = new THREE.Color(0x04050d);
+const SPACE_HOR = new THREE.Color(0x0b1024);
+const SKY_TOP_BASE = new THREE.Color(TUNE.skyTopColor);
+const SKY_HOR_BASE = new THREE.Color(TUNE.skyHorizonColor);
+
+const starsGeo = new THREE.BufferGeometry();
+{
+  const pts = new Float32Array(700 * 3);
+  for (let i = 0; i < 700; i++) {
+    const th = Math.random() * Math.PI * 2;
+    const ph = Math.acos(Math.random());
+    const r = 2700;
+    pts[i * 3] = r * Math.sin(ph) * Math.cos(th);
+    pts[i * 3 + 1] = Math.abs(r * Math.cos(ph)) * 0.9 + 60;
+    pts[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+  }
+  starsGeo.setAttribute("position", new THREE.BufferAttribute(pts, 3));
+}
+const starsMat = new THREE.PointsMaterial({
+  color: 0xffffff, size: 2.2, sizeAttenuation: false,
+  transparent: true, opacity: 0, fog: false
+});
+const stars = new THREE.Points(starsGeo, starsMat);
+skyDome.add(stars);
+
+const earthMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(3200, 32, 24),
+  new THREE.MeshBasicMaterial({ color: 0x2a66c9, transparent: true, opacity: 0, fog: false })
+);
+scene.add(earthMesh);
+
+const astronaut = new THREE.Group();
+{
+  const suit = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 5, 10), lamSafe(0xf2f4f7));
+  astronaut.add(suit);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(1.8, 10, 8), lamSafe(0xf2f4f7));
+  helmet.position.y = 4;
+  astronaut.add(helmet);
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(1.3, 10, 8), new THREE.MeshBasicMaterial({ color: 0x20262e }));
+  visor.position.set(0, 4, 0.95);
+  astronaut.add(visor);
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(3.6, 4.6, 1.8), lamSafe(0xd8dde4));
+  pack.position.set(0, 0.6, -2);
+  astronaut.add(pack);
+}
+astronaut.position.set(420, TUNE.spaceAltitude + 320, -900 * ROUTE_SCALE() || -900);
+astronaut.visible = false;
+scene.add(astronaut);
+
+const station = new THREE.Group();
+{
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 20, 12), lamSafe(0xcfd6df));
+  station.add(core);
+  for (const sy of [-6.5, 6.5]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(30, 1.4, 5), lamSafe(0x9aa2ad));
+    arm.position.y = sy;
+    station.add(arm);
+    for (const sx of [-10.5, 10.5]) {
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(13, 0.5, 7.5), lamSafe(0x2a4f9e));
+      panel.position.set(sx, sy, 0);
+      station.add(panel);
+    }
+  }
+}
+station.position.set(-380, TUNE.spaceAltitude + 520, -1400 * (ROUTE_SCALE() || 1));
+station.visible = false;
+scene.add(station);
+
+function lamSafe(color) {
+  return new THREE.MeshLambertMaterial({ color });
+}
 
 const waterMat = new THREE.MeshLambertMaterial({ color: 0x3f7fbf });
 const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), waterMat);
@@ -557,41 +896,49 @@ scene.add(waterMesh);
 {
   const asphaltMat = new THREE.MeshLambertMaterial({ color: TUNE.runwaySurfaceColor });
   const paintMat = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
-  const surface = new THREE.Mesh(
-    new THREE.BoxGeometry(TUNE.runwayWidth, 0.4, TUNE.runwayLength),
-    asphaltMat
-  );
-  surface.position.set(0, RWY_ELEV + 0.05, 0);
-  scene.add(surface);
-
   const dashCount = Math.floor(TUNE.runwayLength / 95) - 1;
-  const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.08, 20), paintMat, dashCount);
-  const dummy = new THREE.Object3D();
-  for (let i = 0; i < dashCount; i++) {
-    dummy.position.set(0, RWY_ELEV + 0.32, TUNE.runwayLength / 2 - 60 - i * 95);
-    dummy.updateMatrix();
-    dashes.setMatrixAt(i, dummy.matrix);
-  }
-  scene.add(dashes);
-
-  const stripeGeo = new THREE.BoxGeometry(2.6, 0.08, 24);
   const stripesPerEnd = 6;
-  const stripes = new THREE.InstancedMesh(stripeGeo, paintMat, stripesPerEnd * 2);
-  let si = 0;
-  for (const endZ of [TUNE.runwayLength / 2 - 26, -TUNE.runwayLength / 2 + 26]) {
-    for (let k = 0; k < stripesPerEnd; k++) {
-      dummy.position.set((k - (stripesPerEnd - 1) / 2) * 8, RWY_ELEV + 0.32, endZ);
+  for (const ap of AIRPORTS) {
+    const surface = new THREE.Mesh(
+      new THREE.BoxGeometry(TUNE.runwayWidth, 0.4, TUNE.runwayLength),
+      asphaltMat
+    );
+    surface.position.set(0, ap.elev + 0.05, ap.cz);
+    scene.add(surface);
+
+    const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.08, 20), paintMat, dashCount);
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < dashCount; i++) {
+      dummy.position.set(0, ap.elev + 0.32, ap.cz + TUNE.runwayLength / 2 - 60 - i * 95);
       dummy.updateMatrix();
-      stripes.setMatrixAt(si++, dummy.matrix);
+      dashes.setMatrixAt(i, dummy.matrix);
     }
+    scene.add(dashes);
+
+    const stripeGeo = new THREE.BoxGeometry(2.6, 0.08, 24);
+    const stripes = new THREE.InstancedMesh(stripeGeo, paintMat, stripesPerEnd * 2);
+    let si = 0;
+    for (const endZ of [ap.cz + TUNE.runwayLength / 2 - 26, ap.cz - TUNE.runwayLength / 2 + 26]) {
+      for (let k = 0; k < stripesPerEnd; k++) {
+        dummy.position.set((k - (stripesPerEnd - 1) / 2) * 8, ap.elev + 0.32, endZ);
+        dummy.updateMatrix();
+        stripes.setMatrixAt(si++, dummy.matrix);
+      }
+    }
+    scene.add(stripes);
   }
-  scene.add(stripes);
 }
 
 const cLow = new THREE.Color(TUNE.colorLow);
 const cMid = new THREE.Color(TUNE.colorMid);
 const cHigh = new THREE.Color(TUNE.colorHigh);
 const cSand = new THREE.Color(TUNE.sandColor);
+const cSnow = new THREE.Color(0xf4f8fb);
+const cRock = new THREE.Color(0xb5522e);
+const cFarmA = new THREE.Color(0x9ec46a);
+const cFarmB = new THREE.Color(0xc9b978);
+const cPlains = new THREE.Color(0xc4b478);
+const cDesert = new THREE.Color(0xe0c48f);
 const tmpColor = new THREE.Color();
 
 const terrainMat = new THREE.MeshStandardMaterial({
@@ -627,7 +974,21 @@ function buildChunk(cx, cz) {
       if (t < 0.5) tmpColor.copy(cLow).lerp(cMid, t * 2);
       else tmpColor.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
     }
+    const wx = ox + fp.getX(f), wz = oz + fp.getZ(f);
     const j = 1 + (hash2(Math.round(fp.getX(f)), Math.round(fp.getZ(f))) - 0.5) * 2 * TUNE.colorJitter;
+    if (mountainGauss(wz) > 0.3 && hy > 46) {
+      tmpColor.lerp(cSnow, smoothstep(46, 66, hy));
+    }
+    const ct = canyonT(wz);
+    if (ct > 0.1) tmpColor.lerp(cRock, Math.min(0.9, ct * 1.6));
+    const fm = farmMask(wz);
+    if (fm > 0 && hy > TUNE.waterLevel + 2) {
+      tmpColor.lerp(valueNoise(wx / 260 + 55, wz / 200) > 0.5 ? cFarmA : cFarmB, fm * 0.75);
+    }
+    const pm = plainsMask(wz);
+    if (pm > 0 && hy > TUNE.waterLevel + 2) tmpColor.lerp(cPlains, pm * 0.55);
+    const dm = desertMask(wz);
+    if (dm > 0) tmpColor.lerp(cDesert, dm * 0.8);
     for (let v = 0; v < 3; v++) {
       colors[(f + v) * 3] = tmpColor.r * j;
       colors[(f + v) * 3 + 1] = tmpColor.g * j;
@@ -676,6 +1037,8 @@ function updateChunks(px, pz) {
 }
 
 const rings = [];
+const ringsGroup = new THREE.Group();
+scene.add(ringsGroup);
 {
   const ringMat = new THREE.MeshBasicMaterial({
     color: 0x36e0ff,
@@ -684,14 +1047,19 @@ const rings = [];
     fog: false
   });
   const ringGeo = new THREE.TorusGeometry(TUNE.ringRadius, 2.4, 8, 26);
-  const thz = TUNE.runwayLength / 2;
   for (let i = 0; i < TUNE.ringCount; i++) {
     const s = i / (TUNE.ringCount - 1);
     const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.set(0, RWY_ELEV + 3 + TUNE.ringStartAltitude * Math.pow(1 - s, 1.35), thz + TUNE.ringStartDistance * (1 - s));
-    scene.add(ring);
+    ring.position.set(0, 3 + TUNE.ringStartAltitude * Math.pow(1 - s, 1.35), TUNE.ringStartDistance * (1 - s));
+    ringsGroup.add(ring);
     rings.push(ring);
   }
+}
+
+function placeRings() {
+  const ap = AIRPORTS[state.destIdx];
+  ringsGroup.position.set(0, ap.elev, ap.cz + TUNE.runwayLength / 2);
+  ringsGroup.rotation.y = state.dirIdx === 0 ? 0 : Math.PI;
 }
 
 const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
@@ -723,8 +1091,13 @@ function respawnCloud(c, px, py, pz, hx, hz, ahead) {
 }
 
 function inCorridor(x, z, extra) {
-  return Math.abs(x) < TUNE.runwayWidth / 2 + 35 + extra
-      && Math.abs(z) < TUNE.runwayLength / 2 + TUNE.ringStartDistance + extra;
+  for (let i = 0; i < AIRPORTS.length; i++) {
+    if (Math.abs(x) < TUNE.runwayWidth / 2 + 35 + extra
+      && Math.abs(z - AIRPORTS[i].cz) < TUNE.runwayLength / 2 + (i === 0 ? TUNE.ringStartDistance : 200) + extra) {
+      return true;
+    }
+  }
+  return false;
 }
 
 const trunkInst = new THREE.InstancedMesh(
@@ -745,6 +1118,8 @@ const buildingInst = new THREE.InstancedMesh(
   TUNE.buildingMaxInstances
 );
 buildingInst.setColorAt(0, tmpColor.setHex(0xcfc4ae));
+
+const buildingBoxes = [];
 
 const BUILDING_PALETTE = [0xcfc4ae, 0xc7a186, 0xb9b0a0, 0xd8cdb4, 0xa89880, 0xc2b8a4];
 scene.add(trunkInst, canopyInst, buildingInst);
@@ -873,14 +1248,22 @@ function rebuildTrees(px, pz) {
         if (inCorridor(wx, wz, -80)) continue;
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.6) continue;
+        const palm = pFromNY(wz) < 0.055;
         const s = 0.8 + hashSalt(cx + k, cz - k, 45) * 0.9;
+        const sy = s * (0.9 + hashSalt(cx, cz, 47) * 0.5) * (palm ? 1.75 : 1);
         dummyObj.position.set(wx, gy - 0.3, wz);
         dummyObj.rotation.set(0, hashSalt(cx, cz, 46) * Math.PI * 2, 0);
-        dummyObj.scale.set(s, s * (0.9 + hashSalt(cx, cz, 47) * 0.5), s);
+        dummyObj.scale.set(palm ? s * 0.5 : s, sy, palm ? s * 0.5 : s);
         dummyObj.updateMatrix();
         trunkInst.setMatrixAt(ti, dummyObj.matrix);
         canopyInst.setMatrixAt(ti, dummyObj.matrix);
-        tmpColor.setHex(TUNE.treeCanopyColor).multiplyScalar(0.82 + hashSalt(cx - k, cz + k, 48) * 0.4);
+        if (palm) {
+          dummyObj.position.y = gy + sy * 4;
+          dummyObj.scale.set(s * 1.2, s * 0.5, s * 1.2);
+          dummyObj.updateMatrix();
+          canopyInst.setMatrixAt(ti, dummyObj.matrix);
+        }
+        tmpColor.setHex(palm ? 0x2f7a3f : TUNE.treeCanopyColor).multiplyScalar(0.82 + hashSalt(cx - k, cz + k, 48) * 0.4);
         canopyInst.setColorAt(ti, tmpColor);
         ti++;
       }
@@ -898,6 +1281,7 @@ function rebuildBuildings(px, pz) {
   const R = Math.ceil(TUNE.sceneryRadius / grid);
   const ccx = Math.round(px / grid), ccz = Math.round(pz / grid);
   let bi = 0;
+  buildingBoxes.length = 0;
   for (let dx = -R; dx <= R; dx++) {
     for (let dz = -R; dz <= R; dz++) {
       if (bi >= TUNE.buildingMaxInstances) break;
@@ -926,6 +1310,7 @@ function rebuildBuildings(px, pz) {
         buildingInst.setMatrixAt(bi, dummyObj.matrix);
         tmpColor.setHex(BUILDING_PALETTE[Math.floor(hashSalt(cx + k, cz + k, 72) * BUILDING_PALETTE.length)]);
         buildingInst.setColorAt(bi, tmpColor);
+        buildingBoxes.push({ x: wx, z: wz, hw: w / 2, hd: d / 2, top: gy - 0.3 + hgt });
         bi++;
       }
     }
@@ -946,6 +1331,183 @@ function updateScenery(px, pz, force) {
   rebuildTrees(px, pz);
   rebuildBuildings(px, pz);
   syncLandmarks(px, pz);
+}
+
+const matCache = {};
+function lam(color) {
+  if (!matCache[color]) matCache[color] = new THREE.MeshLambertMaterial({ color });
+  return matCache[color];
+}
+function lmBox(g, w, h, d, color, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(color));
+  m.position.set(x, y, z);
+  g.add(m);
+  return m;
+}
+function lmCyl(g, rT, rB, h, color, x, y, z, seg) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, seg || 8), lam(color));
+  m.position.set(x, y, z);
+  g.add(m);
+  return m;
+}
+
+const ROUTE_LANDMARKS = [];
+function addRouteLandmark(g, x, z) {
+  g.position.set(x, terrainEff(x, z) - 0.5, z);
+  scene.add(g);
+  ROUTE_LANDMARKS.push({ g, x, z });
+}
+
+function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
+  const g = new THREE.Group();
+  for (const sx of [-len / 2 + 55, len / 2 - 55]) {
+    lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, 0);
+    lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, deckW);
+  }
+  lmBox(g, len, 4.5, deckW + 2, 0x9aa2ad, 0, deckY, deckW / 2);
+  for (const sz of [0, deckW]) {
+    lmBox(g, len * 0.44, 1.6, 1.6, cableColor, -len * 0.28, deckY + towerH * 0.4, sz);
+    lmBox(g, len * 0.44, 1.6, 1.6, cableColor, len * 0.28, deckY + towerH * 0.4, sz);
+  }
+  return g;
+}
+
+(function buildRouteLandmarks() {
+  const RS = ROUTE_SCALE();
+  const half = ROUTE_HALF();
+
+  const ny = new THREE.Group();
+  const skylineZ = half - 900 * RS;
+  for (let i = 0; i < 14; i++) {
+    const bx = -160 + hashSalt(i, 7, 201) * 320;
+    const bz = (hashSalt(i, 7, 202) - 0.5) * 300;
+    const bh = 45 + hashSalt(i, 7, 203) * 115;
+    const bw = 20 + hashSalt(i, 7, 204) * 16;
+    lmBox(ny, bw, bh, bw * 0.85, i % 3 === 0 ? 0x5d6b7d : 0x77879a, bx, bh / 2, bz);
+  }
+  lmCyl(ny, 5, 7.5, 165, 0xaebccd, 40, 82.5, 30, 10);
+  lmCyl(ny, 1.4, 2.6, 48, 0xcdd8e4, 40, 178, 30, 8);
+  addRouteLandmark(ny, -140, skylineZ);
+
+  const statue = new THREE.Group();
+  lmCyl(statue, 36, 42, 8, 0x8d9299, 0, 4, 0, 12);
+  lmBox(statue, 12, 15, 12, 0x6d7a70, 0, 15.5, 0);
+  lmCyl(statue, 4.5, 6.5, 24, 0x3f8f5a, 0, 35, 0, 10);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(3.6, 10, 8), lam(0x3f8f5a));
+  head.position.y = 50;
+  statue.add(head);
+  const arm = lmBox(statue, 2.6, 14, 2.6, 0x3f8f5a, 5.5, 53, 0);
+  arm.rotation.z = 0.45;
+  const torch = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd23e }));
+  torch.position.set(11, 60, 0);
+  statue.add(torch);
+  const island = new THREE.Mesh(new THREE.CylinderGeometry(46, 54, 7, 12), lam(0x77c95f));
+  island.position.y = 3.5;
+  statue.add(island);
+  addRouteLandmark(statue, -520, half - 1350 * RS);
+
+  const harborZ = half - 480 * RS;
+  addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 16, 18), -120, harborZ);
+  addRouteLandmark(suspensionBridge(0xd0342c, 540, 52, 16, 16), 420, harborZ - 260 * RS);
+
+  const silosFarm = new THREE.Group();
+  for (let i = 0; i < 6; i++) {
+    lmCyl(silosFarm, 6, 6, 26, i % 2 ? 0xc9ccd4 : 0xb0413a, -80 + i * 34, 13, i % 2 * 20, 10);
+  }
+  addRouteLandmark(silosFarm, 240, half * 0.28);
+
+  const midCity = new THREE.Group();
+  for (let i = 0; i < 9; i++) {
+    const bx = -130 + i * 32 + hashSalt(i, 9, 211) * 12;
+    const bh = 50 + hashSalt(i, 9, 212) * 64;
+    lmBox(midCity, 20 + hashSalt(i, 9, 213) * 10, bh, 18, i % 2 ? 0x5a6470 : 0x6e7a88, bx, bh / 2, (hashSalt(i, 9, 214) - 0.5) * 100);
+  }
+  lmBox(midCity, 22, 155, 22, 0x22262c, 8, 77.5, 0);
+  addRouteLandmark(midCity, -70, half * 0.55);
+
+  const silosPlains = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    lmCyl(silosPlains, 5.5, 5.5, 22, 0xd8cdb4, i * 30 - 45, 11, 0, 10);
+  }
+  addRouteLandmark(silosPlains, 430, -half * 0.18);
+
+  const casinos = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const bh2 = 52 + hashSalt(i, 11, 221) * 50;
+    lmBox(casinos, 24 + i * 2, bh2, 20, [0xd8b04a, 0xc9963f, 0xb87f2f, 0xd8b04a, 0xcf9d3a][i], -95 + i * 47, bh2 / 2, (i % 2) * 26 - 13);
+  }
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(12, 12, 10), lam(0xe8c860));
+  ball.position.set(100, 105, 13);
+  casinos.add(ball);
+  addRouteLandmark(casinos, -160, -half * 0.555);
+
+  const caBridge = suspensionBridge(0xd0342c, 700, 78, 21, 20);
+  addRouteLandmark(caBridge, -80, -half + 380 * RS);
+
+  const letters = new THREE.Group();
+  const hill = new THREE.Mesh(new THREE.CylinderGeometry(140, 200, 42, 14), lam(0x9a8f6a));
+  hill.position.y = 18;
+  letters.add(hill);
+  for (let i = 0; i < 7; i++) {
+    const blk = new THREE.Mesh(new THREE.BoxGeometry(16, 22, 4), lam(0xf4f8fa));
+    blk.position.set(-84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
+    blk.rotation.x = -0.4;
+    letters.add(blk);
+  }
+  addRouteLandmark(letters, 240, -half + 620 * RS);
+
+  const downtown = new THREE.Group();
+  for (let i = 0; i < 10; i++) {
+    const bx = -125 + i * 28 + hashSalt(i, 13, 231) * 10;
+    const bh3 = 55 + hashSalt(i, 13, 232) * 68;
+    lmBox(downtown, 18 + hashSalt(i, 13, 233) * 10, bh3, 18, i % 3 === 0 ? 0x8a97a8 : 0xb8c2cf, bx, bh3 / 2, (hashSalt(i, 13, 234) - 0.5) * 76);
+  }
+  addRouteLandmark(downtown, 110, -half + 1080 * RS);
+})();
+
+const TRAIN_CARS = 22;
+const trainInst = new THREE.InstancedMesh(
+  new THREE.BoxGeometry(7, 9, 15),
+  new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  TRAIN_CARS
+);
+for (let i = 0; i < TRAIN_CARS; i++) {
+  trainInst.setColorAt(i, tmpColor.setHex(i === 0 ? 0xb0413a : (i % 2 ? 0x8a6f52 : 0x5f6b78)));
+}
+trainInst.instanceColor.needsUpdate = true;
+scene.add(trainInst);
+const TRAIN_X = 340;
+const TRAIN_ZMIN = -600, TRAIN_ZMAX = 1600;
+let trainHead = TRAIN_ZMAX;
+
+function updateTrain(dt, px, pz) {
+  const mid = (TRAIN_ZMIN + TRAIN_ZMAX) / 2;
+  if (Math.abs(pz - mid) > 2800 || Math.abs(px - TRAIN_X) > 2800) return;
+  trainHead -= TUNE.trainSpeed * dt;
+  if (trainHead < TRAIN_ZMIN) trainHead = TRAIN_ZMAX;
+  const dummyT = dummyObj;
+  for (let i = 0; i < TRAIN_CARS; i++) {
+    let cz = trainHead + i * 17;
+    if (cz > TRAIN_ZMAX) continue;
+    dummyT.position.set(TRAIN_X, terrainEff(TRAIN_X, cz) + 6, cz);
+    dummyT.rotation.set(0, 0, 0);
+    dummyT.scale.set(1, 1, 1);
+    dummyT.updateMatrix();
+    trainInst.setMatrixAt(i, dummyT.matrix);
+  }
+  trainInst.instanceMatrix.needsUpdate = true;
+}
+
+let cullTimer = 0;
+function cullLandmarks(dt, px, pz) {
+  cullTimer -= dt;
+  if (cullTimer > 0) return;
+  cullTimer = 0.35;
+  const maxD2 = TUNE.fogFar * TUNE.fogFar * 2.1;
+  for (const L of ROUTE_LANDMARKS) {
+    const dx = L.x - px, dz = L.z - pz;
+    L.g.visible = dx * dx + dz * dz < maxD2;
+  }
 }
 
 let audioCtx = null;
@@ -1055,6 +1617,15 @@ function chirp() {
   synthBlip("sine", 720, 720, 0.09, 0.35, 0.09);
   noiseBurst(0.1, 2400, 0.12, 0);
 }
+function boomSound() {
+  noiseBurst(0.55, 180, 0.65, 0);
+  synthBlip("sawtooth", 130, 26, 0.5, 0.5, 0);
+  synthBlip("sine", 70, 22, 0.6, 0.5, 0.02);
+}
+function whoosh() {
+  synthBlip("sine", 110, 540, 0.28, 0.22, 0);
+  noiseBurst(0.2, 1200, 0.12, 0.02);
+}
 function cheer() {
   const notes = [523, 659, 784, 1047];
   notes.forEach((f, i) => {
@@ -1067,7 +1638,8 @@ function cheer() {
 
 const el = {};
 ["hud", "pillarL", "pillarR", "brow", "dash", "asiDial", "aiDial", "altDial",
- "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow"].forEach(id => {
+ "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow",
+ "screenVehicle", "screenDir", "progressStrip"].forEach(id => {
   el[id] = document.getElementById(id);
 });
 el.homeArrow.style.setProperty("--home-sz", TUNE.homeIndicatorSize + "px");
@@ -1107,6 +1679,40 @@ el.homeArrow.style.setProperty("--home-sz", TUNE.homeIndicatorSize + "px");
   el.asiNeedle = asiNeedle;
   el.altNeedle = altNeedle;
 })();
+
+const STRIP_DOTS = [0.985, 0.955, 0.9, 0.78, 0.72, 0.55, 0.42, 0.3, 0.185, 0.09, 0.04, 0.01];
+const stripDots = [];
+(function buildStrip() {
+  for (const f of STRIP_DOTS) {
+    const d = document.createElement("div");
+    d.className = "dot";
+    d.style.left = (f * 100) + "%";
+    el.progressStrip.appendChild(d);
+    stripDots.push({ el: d, f });
+  }
+  const marker = document.createElement("div");
+  marker.className = "marker";
+  marker.innerHTML = '<svg viewBox="0 0 20 20"><path d="M10 2 L17 16 L10 12.5 L3 16 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  el.progressStrip.appendChild(marker);
+  el.stripMarker = marker;
+})();
+let lastStripP = -1;
+
+function updateStrip() {
+  const oCz = AIRPORTS[state.originIdx].cz;
+  const dCz = AIRPORTS[state.destIdx].cz;
+  const pr = clamp((oCz - state.z) / (oCz - dCz), 0, 1);
+  if (Math.abs(pr - lastStripP) < 0.0015) return;
+  lastStripP = pr;
+  const northbound = state.dirIdx === 1;
+  const shown = northbound ? 1 - pr : pr;
+  el.stripMarker.style.left = (shown * 100) + "%";
+  el.stripMarker.style.transform = northbound ? "scaleX(-1)" : "none";
+  for (const d of stripDots) {
+    const fShown = northbound ? 1 - d.f : d.f;
+    d.el.classList.toggle("passed", fShown <= pr);
+  }
+}
 
 const fxCanvas = el.fx;
 const fxCtx = fxCanvas.getContext("2d");
@@ -1162,6 +1768,119 @@ function updateFx(dt) {
   confetti = next;
 }
 
+const debrisMesh = new THREE.InstancedMesh(
+  new THREE.BoxGeometry(1, 1, 1),
+  new THREE.MeshBasicMaterial({}),
+  TUNE.debrisCount
+);
+debrisMesh.setColorAt(0, tmpColor.setHex(0xffffff));
+debrisMesh.visible = false;
+debrisMesh.frustumCulled = false;
+scene.add(debrisMesh);
+
+const parts = [];
+const FIRE_COLS = [0xff9a2a, 0xffd23e, 0xff6a1a];
+const SMOKE_COL = 0x565b63;
+const METAL_COL = 0x3a3f46;
+for (let i = 0; i < TUNE.debrisCount; i++) {
+  parts.push({ alive: false, kind: i % 3, life: 0, maxLife: 1, size: 1,
+    px: 0, py: 0, pz: 0, vx: 0, vy: 0, vz: 0,
+    rx: 0, ry: 0, rvx: 0, rvy: 0 });
+}
+
+const fireballs = [];
+for (let i = 0; i < 5; i++) {
+  const fb = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 10, 8),
+    new THREE.MeshBasicMaterial({ color: i % 2 ? 0xff8c2a : 0xffd23e, transparent: true, opacity: 0, fog: false })
+  );
+  fb.visible = false;
+  scene.add(fb);
+  fireballs.push(fb);
+}
+let shakeAmp = 0;
+
+function triggerExplosion(nx, ny, nz, intensity) {
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    p.alive = true;
+    p.kind = i % 3;
+    p.maxLife = (p.kind === 1 ? 1.9 : 1.3) + rnd() * 0.7;
+    p.life = p.maxLife;
+    const sp = (16 + rnd() * 34) * (0.7 + intensity * 0.5);
+    const th = rnd() * Math.PI * 2;
+    const up = p.kind === 1 ? 0.6 + rnd() * 0.5 : rnd() * 1.2 - 0.15;
+    const side = Math.sqrt(Math.max(0, 1 - up * up));
+    p.px = nx; p.py = ny; p.pz = nz;
+    p.vx = Math.cos(th) * side * sp;
+    p.vz = Math.sin(th) * side * sp;
+    p.vy = Math.abs(up) * sp;
+    p.rx = rnd() * Math.PI; p.ry = rnd() * Math.PI;
+    p.rvx = (rnd() - 0.5) * 9; p.rvy = (rnd() - 0.5) * 9;
+    p.size = p.kind === 1 ? 1.6 + rnd() * 1.6 : 0.7 + rnd() * 1.3;
+  }
+  for (const fb of fireballs) {
+    fb.visible = true;
+    fb.position.set(nx, ny + 2, nz);
+    fb.position.x += (rnd() - 0.5) * 8;
+    fb.userData.t = 0;
+    fb.userData.dur = 0.5 + rnd() * 0.25;
+  }
+  debrisMesh.visible = true;
+  shakeAmp = 1;
+  boomSound();
+  flags.exploded++;
+}
+
+function updateExplosion(dt, homePos, seeking) {
+  let anyAlive = false;
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (!p.alive || p.life <= 0) {
+      if (p.alive) p.alive = false;
+      dummyObj.position.set(0, -9999, 0);
+      dummyObj.scale.setScalar(0.001);
+      dummyObj.rotation.set(0, 0, 0);
+      dummyObj.updateMatrix();
+      debrisMesh.setMatrixAt(i, dummyObj.matrix);
+      continue;
+    }
+    anyAlive = true;
+    p.life -= dt;
+    if (seeking && p.life < 0.55) {
+      p.px += (homePos.x - p.px) * Math.min(1, 9 * dt);
+      p.py += (homePos.y - p.py) * Math.min(1, 9 * dt);
+      p.pz += (homePos.z - p.pz) * Math.min(1, 9 * dt);
+    } else {
+      const grav = p.kind === 2 ? -30 : (p.kind === 1 ? 5 : -9);
+      p.vy += grav * dt;
+      p.vx *= 1 - Math.min(1, 1.1 * dt);
+      p.vz *= 1 - Math.min(1, 1.1 * dt);
+      p.px += p.vx * dt; p.py += p.vy * dt; p.pz += p.vz * dt;
+    }
+    p.rx += p.rvx * dt; p.ry += p.rvy * dt;
+    const fade = clamp(p.life / 0.4, 0, 1);
+    dummyObj.position.set(p.px, p.py, p.pz);
+    dummyObj.rotation.set(p.rx, p.ry, 0);
+    dummyObj.scale.setScalar(Math.max(0.01, p.size * (p.kind === 1 ? (2 - p.life / p.maxLife) : fade)));
+    dummyObj.updateMatrix();
+    debrisMesh.setMatrixAt(i, dummyObj.matrix);
+    tmpColor.setHex(p.kind === 0 ? FIRE_COLS[i % FIRE_COLS.length] : (p.kind === 1 ? SMOKE_COL : METAL_COL));
+    debrisMesh.setColorAt(i, tmpColor);
+  }
+  debrisMesh.instanceMatrix.needsUpdate = true;
+  if (debrisMesh.instanceColor) debrisMesh.instanceColor.needsUpdate = true;
+  if (!anyAlive && !seeking) debrisMesh.visible = false;
+  for (const fb of fireballs) {
+    if (!fb.visible) continue;
+    fb.userData.t += dt;
+    const tt = fb.userData.t / fb.userData.dur;
+    if (tt >= 1) { fb.visible = false; fb.material.opacity = 0; continue; }
+    fb.scale.setScalar(3 + tt * 16);
+    fb.material.opacity = 0.9 * (1 - tt);
+  }
+}
+
 const state = {
   x: 0, y: 0, z: 0,
   pitch: 0, bank: 0, heading: 0,
@@ -1181,16 +1900,41 @@ const state = {
   assistBias: 0,
   engaged: false,
   canRotate: false,
-  approachLatch: false
+  approachLatch: false,
+  exploding: false,
+  explodeTimer: 0,
+  spaceF: 0,
+  vehicleKey: "prop",
+  vp: null,
+  dirIdx: 0,
+  originIdx: 0,
+  destIdx: 1
 };
 
-const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, bounced: 0 };
+const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, bounced: 0, exploded: 0 };
+const safePos = { x: 0, y: 0, z: 0 };
 
-function repositionToStart() {
+function applyVehicle(key) {
+  if (!TUNE.vehicles[key]) return;
+  state.vehicleKey = key;
+  state.vp = TUNE.vehicles[key];
+  const cols = TUNE.vehicleColors[key];
+  document.documentElement.style.setProperty("--veh", cols[0]);
+  document.documentElement.style.setProperty("--veh2", cols[1]);
+}
+
+function spawnForTakeoff(originIdx, dirIdx) {
+  if (originIdx === undefined) { originIdx = state.originIdx; }
+  if (dirIdx === undefined) { dirIdx = state.dirIdx; }
+  state.originIdx = originIdx;
+  state.dirIdx = dirIdx;
+  state.destIdx = 1 - originIdx;
+  const ap = AIRPORTS[state.originIdx];
+  const sgn = dirIdx === 0 ? 1 : -1;
   state.x = 0;
-  state.z = TUNE.runwayLength / 2 - 50;
-  state.y = RWY_ELEV + TUNE.gearHeight;
-  state.heading = 0;
+  state.z = ap.cz + sgn * (TUNE.runwayLength / 2 - 50);
+  state.y = ap.elev + TUNE.gearHeight;
+  state.heading = dirIdx === 0 ? 0 : Math.PI;
   state.pitch = 0;
   state.bank = 0;
   state.speed = 0;
@@ -1209,11 +1953,15 @@ function repositionToStart() {
   state.engaged = false;
   state.canRotate = false;
   state.approachLatch = false;
+  state.exploding = false;
+  state.explodeTimer = 0;
   state.phase = "TAXI";
+  placeRings();
   flags.repositioned++;
 }
 
-repositionToStart();
+applyVehicle("prop");
+spawnForTakeoff(0, 0);
 
 const glEl = renderer.domElement;
 
@@ -1254,6 +2002,27 @@ const releaseThrottle = () => {
 el.throttleBtn.addEventListener("pointerup", releaseThrottle);
 el.throttleBtn.addEventListener("pointercancel", releaseThrottle);
 
+document.querySelectorAll(".vehCard").forEach(card => {
+  card.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    applyVehicle(card.dataset.v);
+    document.querySelectorAll(".vehCard").forEach(c2 => c2.classList.toggle("sel", c2 === card));
+    el.screenVehicle.classList.add("hiddenS");
+    el.screenDir.classList.remove("hiddenS");
+  });
+});
+document.querySelectorAll(".dirCard").forEach(card => {
+  card.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const d = parseInt(card.dataset.d, 10) === 1 ? 1 : 0;
+    spawnForTakeoff(d === 1 ? 1 : 0, d);
+    el.screenDir.classList.add("hiddenS");
+    unlockAudio();
+  });
+});
+
 window.addEventListener("gesturestart", (e) => e.preventDefault());
 
 function resize() {
@@ -1286,11 +2055,13 @@ const forward = new THREE.Vector3();
 function groundPhase(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
   if (!grounded) return;
+  const ap = AIRPORTS[state.originIdx];
+  const sgn = state.dirIdx === 0 ? 1 : -1;
   state.x = 0;
   state.pitch += (0 - state.pitch) * Math.min(1, 8 * dt);
   state.bank += (0 - state.bank) * Math.min(1, 8 * dt);
-  state.heading = 0;
-  state.y = RWY_ELEV + TUNE.gearHeight;
+  state.heading = state.dirIdx === 0 ? 0 : Math.PI;
+  state.y = ap.elev + TUNE.gearHeight;
   state.airVy = null;
 
   if (state.phase === "TAXI") {
@@ -1300,12 +2071,13 @@ function groundPhase(dt) {
   }
 
   if (state.throttleHeld) {
-    state.speed = Math.min(state.speed + TUNE.throttleAccel * dt, TUNE.cruiseSpeed * 1.15);
+    state.speed = Math.min(state.speed + state.vp.accel * dt, state.vp.cruiseSpeed * 1.15);
   } else {
     state.speed = Math.max(state.speed - TUNE.brakeDecel * dt, 0);
   }
 
-  state.z -= state.speed * dt;
+  state.z -= sgn * state.speed * dt;
+  void ap;
 
   if (state.speed >= TUNE.rotateSpeed) {
     state.canRotate = true;
@@ -1323,11 +2095,11 @@ function groundPhase(dt) {
     state.rotatePullTime = 0;
   }
 
-  const pastEnd = state.z < -(TUNE.runwayLength / 2) - 40;
+  const pastEnd = sgn * (ap.cz - state.z) > TUNE.runwayLength / 2 + 40;
   if (pastEnd || (!state.throttleHeld && state.speed <= 0.01)) {
     if (pastEnd) {
       state.speed = Math.max(state.speed - TUNE.brakeDecel * 2 * dt, 0);
-      if (state.speed <= 0.01) repositionToStart();
+      if (state.speed <= 0.01) spawnForTakeoff(state.originIdx, state.dirIdx);
     } else {
       state.phase = "TAXI";
     }
@@ -1335,12 +2107,12 @@ function groundPhase(dt) {
 }
 
 function updateAssists(dt) {
-  const thz = TUNE.runwayLength / 2;
+  const t = Math.abs(wrapPi(state.heading)) < Math.PI / 2 ? 0 : Math.PI;
+  const thOff = Math.round(Math.cos(t)) * (TUNE.runwayLength / 2);
   const dxr = state.x - 0;
-  const dzr = state.z - thz;
+  const dzr = state.z - (AIRPORTS[state.destIdx].cz + thOff);
   const distHoriz = Math.sqrt(dxr * dxr + dzr * dzr);
 
-  const t = Math.abs(wrapPi(state.heading)) < Math.PI / 2 ? 0 : Math.PI;
   const ft = { x: -Math.sin(t), z: -Math.cos(t) };
   const rt = { x: Math.cos(t), z: -Math.sin(t) };
   const along = dxr * ft.x + dzr * ft.z;
@@ -1371,15 +2143,48 @@ function updateAssists(dt) {
 }
 
 function update(dt) {
+  if (state.exploding) {
+    state.explodeTimer -= dt;
+    const seeking = state.explodeTimer <= 0.5;
+    updateExplosion(dt, safePos, seeking);
+    shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
+    setEngine(0.01);
+    updateChunks(state.x, state.z);
+    skyDome.position.set(state.x, state.y, state.z);
+    waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
+    camera.position.set(
+      state.x + (Math.random() - 0.5) * 11 * shakeAmp,
+      state.y + (Math.random() - 0.5) * 9 * shakeAmp,
+      state.z + (Math.random() - 0.5) * 11 * shakeAmp
+    );
+    camera.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
+    updateHud();
+    updateFx(dt);
+    if (state.explodeTimer <= 0) {
+      state.exploding = false;
+      state.x = safePos.x;
+      state.y = safePos.y;
+      state.z = safePos.z;
+      state.speed = state.vp.cruiseSpeed * 0.6;
+      state.pitch = 0;
+      state.bank = 0;
+      state.airVy = null;
+      state.bounceTimer = 0;
+      state.canRotate = false;
+      state.approachLatch = false;
+      whoosh();
+    }
+    return;
+  }
   let targetBank = 0, targetPitch = 0;
   if (state.touching) {
-    targetBank = state.ctrlBank * TUNE.bankLimitDeg;
-    targetPitch = state.ctrlPitch * TUNE.pitchLimitDeg;
+    targetBank = state.ctrlBank * state.vp.bankLimitDeg;
+    targetPitch = state.ctrlPitch * state.vp.pitchLimitDeg;
   }
 
   if (state.phase === "TAXI" || state.phase === "ROLL") {
     groundPhase(dt);
-    setEngine(state.speed / TUNE.cruiseSpeed);
+    setEngine(state.speed / state.vp.cruiseSpeed);
     el.throttleBtn.classList.remove("hidden");
     el.rotateArrow.classList.toggle("on",
       state.phase === "ROLL" && state.canRotate);
@@ -1396,7 +2201,7 @@ function update(dt) {
       targetBank = 0;
       resp = TUNE.controlResponse;
       state.assistBias *= Math.max(0, 1 - 3 * dt);
-      state.speed += (TUNE.cruiseSpeed - state.speed) * Math.min(1, 1.2 * dt);
+      state.speed += (state.vp.cruiseSpeed - state.speed) * Math.min(1, 1.2 * dt);
       if (state.climbAwayTimer <= 0) {
         state.phase = "AIRBORNE";
         flags.missed++;
@@ -1420,7 +2225,11 @@ function update(dt) {
       }
       if (state.celebrated) {
         state.celebrateTimer -= dt;
-        if (state.celebrateTimer <= 0) repositionToStart();
+        if (state.celebrateTimer <= 0) {
+          state.originIdx = state.destIdx;
+          state.dirIdx = 1 - state.dirIdx;
+          spawnForTakeoff();
+        }
       }
     } else {
       updateAssists(dt);
@@ -1431,19 +2240,20 @@ function update(dt) {
       if (state.engaged) {
         targetBank += state.assistBias;
       }
-      targetBank = clamp(targetBank, -TUNE.bankLimitDeg, TUNE.bankLimitDeg);
-      targetPitch = clamp(targetPitch, -TUNE.pitchLimitDeg, TUNE.pitchLimitDeg);
-      const targetSpeed = state.engaged ? TUNE.approachSpeed : TUNE.cruiseSpeed;
-      state.speed += (targetSpeed - state.speed) * Math.min(1, TUNE.autoThrottleResponse * dt);
+      targetBank = clamp(targetBank, -state.vp.bankLimitDeg, state.vp.bankLimitDeg);
+      targetPitch = clamp(targetPitch, -state.vp.pitchLimitDeg, state.vp.pitchLimitDeg);
+      const hover = state.vp.hoverSpeed > 0 && !state.touching;
+      const targetSpeed = hover ? state.vp.hoverSpeed : (state.engaged ? TUNE.approachSpeed : state.vp.cruiseSpeed);
+      state.speed += (targetSpeed - state.speed) * Math.min(1, (hover ? 0.5 : TUNE.autoThrottleResponse) * dt);
     }
 
     const k = Math.min(1, resp * dt);
     state.bank += (targetBank - state.bank) * k;
     state.pitch += (targetPitch - state.pitch) * k;
 
-    const effBank = clamp(state.bank + state.assistBias, -TUNE.bankLimitDeg, TUNE.bankLimitDeg);
+    const effBank = clamp(state.bank + state.assistBias, -state.vp.bankLimitDeg, state.vp.bankLimitDeg);
     if (turnCoupling) {
-      state.heading -= TUNE.turnRateAtFullBankDeg * DEG * (effBank / TUNE.bankLimitDeg) * dt;
+      state.heading -= state.vp.turnRateDeg * DEG * (effBank / state.vp.bankLimitDeg) * dt;
     }
 
     const pr = state.pitch * DEG;
@@ -1454,9 +2264,17 @@ function update(dt) {
     state.z += forward.z * state.speed * dt;
     state.y += forward.y * state.speed * dt;
 
-    setEngine(state.speed / TUNE.cruiseSpeed);
+    setEngine(state.speed / state.vp.cruiseSpeed);
 
     const groundNow = terrainEff(state.x, state.z);
+    let contactGround = Math.max(groundNow, TUNE.waterLevel);
+    if (groundNow > TUNE.waterLevel + 0.01) contactGround = groundNow;
+    for (let i = 0; i < buildingBoxes.length; i++) {
+      const bb = buildingBoxes[i];
+      if (Math.abs(state.x - bb.x) < bb.hw + 2 && Math.abs(state.z - bb.z) < bb.hd + 2) {
+        if (state.y < bb.top + 4) contactGround = Math.max(contactGround, bb.top);
+      }
+    }
 
     if (state.phase === "LANDED") {
       state.y = groundNow + TUNE.gearHeight;
@@ -1486,15 +2304,27 @@ function update(dt) {
         state.approachLatch = false;
         state.phase = "CLIMB_AWAY";
         state.climbAwayTimer = TUNE.climbAwayTime;
-      } else if (agl <= TUNE.terrainClearance && !(
-        Math.abs(state.x) <= halfW + 12 && Math.abs(state.z) <= halfL + 12
-      )) {
-        state.y = groundNow + TUNE.terrainClearance;
-        if (state.bounceTimer <= 0) {
-          state.airVy = TUNE.bounceImpulse;
-          state.bounceTimer = TUNE.bounceHoldTime;
-          boing();
-          flags.bounced++;
+      } else if (agl <= TUNE.terrainClearance && !onAnyRunwayRect(state.x, state.z)) {
+        const descent = -(Math.sin(state.pitch * DEG) * state.speed);
+        const steep =
+          descent > TUNE.explodeDescentRate ||
+          Math.abs(state.pitch) > TUNE.explodeAngleDeg ||
+          state.speed > state.vp.cruiseSpeed * 1.4;
+        if (steep) {
+          state.exploding = true;
+          state.explodeTimer = TUNE.reassembleDelay;
+          safePos.x = state.x;
+          safePos.z = state.z;
+          safePos.y = Math.max(groundNow, TUNE.waterLevel) + 60;
+          triggerExplosion(state.x, Math.max(state.y - 2, contactGround + 1), state.z, clamp(state.speed / 80, 0, 1));
+        } else {
+          state.y = contactGround + TUNE.terrainClearance;
+          if (state.bounceTimer <= 0) {
+            state.airVy = TUNE.bounceImpulse;
+            state.bounceTimer = TUNE.bounceHoldTime;
+            boing();
+            flags.bounced++;
+          }
         }
       }
 
@@ -1519,8 +2349,48 @@ function update(dt) {
     }
   }
 
+  const aglSpace = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+  let spaceTarget = 0;
+  if (!state.vp.capped && state.phase === "AIRBORNE") {
+    spaceTarget = clamp((aglSpace - TUNE.spaceAltitude) / TUNE.spaceBlendBand, 0, 1);
+  }
+  state.spaceF += (spaceTarget - state.spaceF) * Math.min(1, 1.4 * dt);
+  if (state.vp.capped && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY")) {
+    if (state.y > TUNE.otherVehicleCeiling) {
+      state.y = TUNE.otherVehicleCeiling;
+      if (state.pitch > -2) state.pitch -= 20 * dt;
+    }
+  }
+  const sf = state.spaceF;
+  if (sf > 0.001) {
+    skyUniforms.topColor.value.copy(SKY_TOP_BASE).lerp(SPACE_TOP, sf);
+    skyUniforms.horizonColor.value.copy(SKY_HOR_BASE).lerp(SPACE_HOR, sf);
+    scene.fog.color.copy(skyUniforms.horizonColor.value);
+    scene.fog.near = lerp(TUNE.fogNear, 2600, sf);
+    scene.fog.far = lerp(TUNE.fogFar, 5400, sf);
+  } else if (skyUniforms.topColor.value.getHex() !== TUNE.skyTopColor) {
+    skyUniforms.topColor.value.copy(SKY_TOP_BASE);
+    skyUniforms.horizonColor.value.copy(SKY_HOR_BASE);
+    scene.fog.color.copy(skyUniforms.horizonColor.value);
+    scene.fog.near = TUNE.fogNear;
+    scene.fog.far = TUNE.fogFar;
+  }
+  stars.material.opacity = sf;
+  earthMesh.material.opacity = sf * 0.96;
+  earthMesh.position.set(state.x, state.y - 3600, state.z);
+  earthMesh.visible = sf > 0.02;
+  astronaut.visible = station.visible = sf > 0.05;
+  if (astronaut.visible) {
+    astronaut.rotation.y += dt * 0.4;
+    astronaut.rotation.x += dt * 0.12;
+    station.rotation.y += dt * 0.16;
+  }
+  waterMesh.visible = sf < 0.9;
+
   updateChunks(state.x, state.z);
   updateScenery(state.x, state.z, false);
+  updateTrain(dt, state.x, state.z);
+  cullLandmarks(dt, state.x, state.z);
   skyDome.position.set(state.x, state.y, state.z);
   waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
 
@@ -1537,11 +2407,17 @@ function update(dt) {
   const blinkOn = Math.sin(performance.now() * 0.004) > -0.3;
   for (const b of blinkers) b.visible = blinkOn;
 
-  camera.position.set(state.x, state.y, state.z);
-  camera.rotation.set(state.pitch * DEG, state.heading, -(state.bank + state.assistBias) * DEG);
+  camera.position.set(
+    state.x + (Math.random() - 0.5) * 11 * shakeAmp,
+    state.y + (Math.random() - 0.5) * 9 * shakeAmp,
+    state.z + (Math.random() - 0.5) * 11 * shakeAmp
+  );
+  camera.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
+  shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
 
   updateHud();
   updateFx(dt);
+  updateExplosion(dt, safePos, false);
 }
 
 function updateHomeArrow() {
@@ -1549,10 +2425,10 @@ function updateHomeArrow() {
     el.homeArrow.classList.remove("on");
     return;
   }
-  const thz = TUNE.runwayLength / 2;
+  const thz = AIRPORTS[state.destIdx].cz;
   const rx = -state.x, rz = thz - state.z;
   const dist = Math.sqrt(rx * rx + rz * rz);
-  if (dist <= TUNE.homeIndicatorDistance) {
+  if (dist <= TUNE.homeIndicatorDistance || state.engaged) {
     el.homeArrow.classList.remove("on");
     return;
   }
@@ -1581,6 +2457,7 @@ function updateHud() {
   el.altDigits.textContent = String(Math.round(altM));
   el.aiBall.style.transform = `rotate(${-state.bank}deg) translateY(${clamp(state.pitch, -40, 40) * TUNE.hudPitchPixelsPerDeg}px)`;
   updateHomeArrow();
+  updateStrip();
 }
 
 updateChunks(state.x, state.z);
@@ -1589,7 +2466,7 @@ for (const c of clouds) respawnCloud(c, state.x, state.y, state.z, 0, -1, false)
 grabWakeLock();
 
 window.__lp = {
-  TUNE, state, flags, update, terrainEff,
+  TUNE, state, flags, update, terrainEff, ROUTE_LANDMARKS, wrapPi,
   get engineNorm() { return lastEngineNorm; },
   api: {
     setThrottle(v) { state.throttleHeld = !!v; },
@@ -1599,15 +2476,29 @@ window.__lp = {
       state.ctrlPitch = clamp(pitch, -1, 1);
     },
     clearStick() { state.touching = false; state.ctrlBank = 0; state.ctrlPitch = 0; },
-    placeOnRunway() { repositionToStart(); },
+    placeOnRunway() { spawnForTakeoff(0, 0); },
+    spawnAt(originIdx, dirIdx) { spawnForTakeoff(originIdx, dirIdx); },
+    setVehicle(key) { applyVehicle(key); },
+    skipScreens() {
+      el.screenVehicle.classList.add("hiddenS");
+      el.screenDir.classList.add("hiddenS");
+    },
     teleportAirborne(distBehind, lateral, alt, headingDeg) {
       state.x = lateral;
-      state.z = TUNE.runwayLength / 2 + distBehind;
-      state.y = RWY_ELEV + alt;
+      state.z = AIRPORTS[0].cz + Math.round(Math.cos(headingDeg * DEG)) * (TUNE.runwayLength / 2 + distBehind);
+      state.y = AIRPORTS[0].elev + alt;
       state.heading = headingDeg * DEG;
+      let bd = Infinity;
+      state.destIdx = 0;
+      for (let i = 0; i < AIRPORTS.length; i++) {
+        const d = Math.abs(state.z - AIRPORTS[i].cz);
+        if (d < bd) { bd = d; state.destIdx = i; }
+      }
+      state.originIdx = 1 - state.destIdx;
+      placeRings();
       state.pitch = 0;
       state.bank = 0;
-      state.speed = TUNE.cruiseSpeed;
+      state.speed = state.vp.cruiseSpeed;
       state.airVy = null;
       state.phase = "AIRBORNE";
       state.liftoffTimer = 0;
