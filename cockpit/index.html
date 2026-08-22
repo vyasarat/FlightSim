@@ -23,25 +23,270 @@
     user-select: none;
     -webkit-touch-callout: none;
     overscroll-behavior: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
-  canvas {
+  canvas#gl {
     display: block;
     width: 100vw;
     height: 100vh;
     touch-action: none;
   }
+  #hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    overflow: hidden;
+  }
+  .pillar {
+    position: absolute;
+    top: -4vh;
+    width: clamp(34px, 7vw, 92px);
+    height: 62vh;
+    background: linear-gradient(105deg, #2b3038 0%, #23282f 55%, #1a1e24 100%);
+    box-shadow: inset 0 0 18px rgba(0,0,0,.45);
+  }
+  #pillarL {
+    left: calc(-2vw + env(safe-area-inset-left));
+    transform: skewX(7deg);
+    border-radius: 0 14px 26px 0;
+  }
+  #pillarR {
+    right: calc(-2vw + env(safe-area-inset-right));
+    transform: skewX(-7deg);
+    border-radius: 0 0 14px 26px;
+    transform: skewX(-7deg);
+  }
+  #brow {
+    position: absolute;
+    top: calc(-2vh + env(safe-area-inset-top));
+    left: -2vw;
+    right: -2vw;
+    height: clamp(30px, 6.5vh, 74px);
+    background: linear-gradient(180deg, #2b3038 0%, #23282f 70%, #1a1e24 100%);
+    border-radius: 0 0 22px 22px;
+    box-shadow: 0 6px 16px rgba(10,20,40,.35);
+  }
+  #accentLine {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: clamp(4px, 0.9vh, 9px);
+    background: #e0483e;
+    border-radius: 0 0 22px 22px;
+  }
+  #dash {
+    position: absolute;
+    left: -2vw;
+    right: -2vw;
+    bottom: calc(-2vh + env(safe-area-inset-bottom));
+    height: clamp(96px, 19vh, 170px);
+    background: linear-gradient(180deg, #333a44 0%, #23282f 18%, #1a1e24 100%);
+    border-radius: 26px 26px 0 0;
+    box-shadow: 0 -8px 24px rgba(10,20,40,.35);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: clamp(18px, 5vw, 64px);
+    padding-top: clamp(10px, 2.2vh, 24px);
+  }
+  #dash::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: clamp(4px, 0.9vh, 9px);
+    background: #e0483e;
+    border-radius: 26px 26px 0 0;
+  }
+  .dial {
+    position: relative;
+    width: clamp(76px, 15vmin, 128px);
+    height: clamp(76px, 15vmin, 128px);
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #2c323b 0%, #161a1f 62%);
+    box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 2px 4px rgba(255,255,255,.08);
+    border: clamp(3px, 0.8vmin, 6px) solid #39404b;
+    overflow: hidden;
+    flex: 0 0 auto;
+  }
+  .needle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: clamp(2.5px, 0.7vmin, 4.5px);
+    height: 42%;
+    background: #f2f4f7;
+    border-radius: 3px;
+    transform-origin: 50% 100%;
+    translate: -50% -100%;
+    will-change: transform;
+  }
+  .needle.red { background: #e0483e; height: 36%; width: clamp(3.5px, 1vmin, 6px); }
+  .dial-cap {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 16%;
+    height: 16%;
+    background: #39404b;
+    border-radius: 50%;
+    translate: -50% -50%;
+  }
+  .tick {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: clamp(1.5px, 0.4vmin, 3px);
+    height: 11%;
+    background: #8b93a0;
+    transform-origin: 50% 0;
+  }
+  #aiBall {
+    position: absolute;
+    left: -50%;
+    top: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(180deg, #79c8f2 0%, #a8dcf7 46%, #f4f8fa 48%, #f4f8fa 50%, #8a6f47 52%, #6f5738 100%);
+    will-change: transform;
+  }
+  #aiHorizon {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: clamp(2px, 0.55vmin, 4px);
+    background: #ffffff;
+    opacity: .9;
+  }
+  #aiWings {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 58%;
+    height: clamp(4px, 1.1vmin, 8px);
+    translate: -50% -50%;
+    z-index: 3;
+  }
+  #aiWings::before, #aiWings::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 44%;
+    height: clamp(3px, 0.8vmin, 5px);
+    background: #ffb43a;
+    border-radius: 3px;
+  }
+  #aiWings::before { left: 0; }
+  #aiWings::after { right: 0; }
+  #aiWings span {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: clamp(6px, 1.6vmin, 10px);
+    height: clamp(6px, 1.6vmin, 10px);
+    translate: -50% -50%;
+    background: #ffb43a;
+    border-radius: 50%;
+  }
+  #altDigits {
+    position: absolute;
+    left: 50%;
+    bottom: 9%;
+    translate: -50% 0;
+    color: #e8ecf2;
+    font-size: clamp(13px, 3.4vmin, 24px);
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-shadow: 0 1px 2px rgba(0,0,0,.7);
+  }
+  #rotateArrow {
+    position: fixed;
+    top: max(11vh, env(safe-area-inset-top) + 44px);
+    left: 50%;
+    translate: -50% 0;
+    z-index: 8;
+    pointer-events: none;
+    display: none;
+    filter: drop-shadow(0 4px 10px rgba(10,30,60,.45));
+  }
+  #rotateArrow svg { width: clamp(72px, 14vmin, 130px); height: auto; display: block; }
+  @keyframes blinkArrow {
+    0%, 49% { opacity: 1; transform: translateY(0); }
+    50%, 100% { opacity: 0.12; transform: translateY(10px); }
+  }
+  #rotateArrow.on { display: block; animation: blinkArrow .55s infinite; }
+  #throttleBtn {
+    position: fixed;
+    right: calc(26px + env(safe-area-inset-right));
+    bottom: calc(clamp(110px, 21vh, 190px) + env(safe-area-inset-bottom));
+    width: clamp(96px, 17vmin, 148px);
+    height: clamp(96px, 17vmin, 148px);
+    border-radius: 50%;
+    border: clamp(4px, 1vmin, 7px) solid #e0483e;
+    background: radial-gradient(circle at 36% 30%, #3a414c 0%, #23282f 58%, #161a1f 100%);
+    box-shadow: 0 10px 26px rgba(10,20,40,.45), inset 0 3px 6px rgba(255,255,255,.1);
+    z-index: 10;
+    touch-action: none;
+    padding: 0;
+    outline: none;
+    transition: transform .08s ease, box-shadow .08s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #throttleBtn svg { width: 52%; height: 52%; }
+  #throttleBtn.pressed {
+    transform: scale(.93);
+    box-shadow: 0 4px 12px rgba(10,20,40,.4), inset 0 3px 10px rgba(0,0,0,.5);
+  }
+  #throttleBtn.hidden { display: none; }
+  #fx {
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
+<div id="hud">
+  <div id="pillarL" class="pillar"></div>
+  <div id="pillarR" class="pillar"></div>
+  <div id="brow"><div id="accentLine"></div></div>
+  <div id="dash">
+    <div class="dial" id="asiDial"></div>
+    <div class="dial" id="aiDial">
+      <div id="aiBall"><div id="aiHorizon"></div></div>
+      <div id="aiWings"><span></span></div>
+    </div>
+    <div class="dial" id="altDial"><div id="altDigits">0</div></div>
+  </div>
+</div>
+<div id="rotateArrow">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M50 8 L88 66 L66 66 L66 94 L34 94 L34 66 L12 66 Z" fill="#ffd23e" stroke="#c9971d" stroke-width="4" stroke-linejoin="round"/>
+  </svg>
+</div>
+<button id="throttleBtn" aria-hidden="true">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M28 56 L50 30 L72 56" fill="none" stroke="#f2f4f7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M28 84 L50 58 L72 84" fill="none" stroke="#e0483e" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</button>
+<canvas id="fx"></canvas>
 <script src="three.min.js"></script>
 <script>
 (() => {
 "use strict";
 
 const TUNE = {
-  speed: 60,
   fov: 72,
   maxPixelRatio: 1.75,
+  cruiseSpeed: 60,
 
   pitchLimitDeg: 30,
   bankLimitDeg: 45,
@@ -93,21 +338,103 @@ const TUNE = {
   cloudRespawnAhead: [900, 1500],
   cloudLateralSpread: 800,
 
-  engineVolume: 0.05,
-  engineFrequency: 52,
-  engineFilterFreq: 260,
+  engineFreqIdle: 46,
+  engineFreqMax: 84,
+  engineGainIdle: 0.03,
+  engineGainMax: 0.095,
+  engineFilterFreq: 300,
   engineLfoRate: 9,
-  boingVolume: 0.5
+  boingVolume: 0.5,
+
+  throttleAccel: 16,
+  brakeDecel: 12,
+  rotateSpeed: 44,
+  rotateStickThreshold: 0.35,
+  rotateStickTime: 0.12,
+  liftoffPitchDeg: 11,
+  liftoffHoldTime: 1.1,
+  gearHeight: 3.2,
+
+  runwayLength: 1400,
+  runwayWidth: 60,
+  flattenMargin: 260,
+  waterLevel: -3.5,
+
+  approachEngageDist: 1500,
+  alignStartDist: 500,
+  alignHeadingGain: 1.6,
+  alignHeadingMaxRateDeg: 10,
+  alignLateralGain: 0.15,
+  alignRollMaxBiasDeg: 14,
+  approachSpeed: 34,
+  autoThrottleResponse: 0.9,
+  ringCount: 10,
+  ringStartDistance: 1250,
+  ringStartAltitude: 230,
+  ringRadius: 26,
+  ringPulseRate: 2.2,
+  touchdownLatTolMult: 3.5,
+  touchdownHeadingTolDeg: 30,
+  touchdownClearance: 2.6,
+  climbAwayPitchDeg: 14,
+  climbAwayTime: 3.0,
+  climbAwayBankCapDeg: 10,
+
+  sceneryRebuildDist: 256,
+  sceneryRadius: 1450,
+  treeCell: 100,
+  treeDensity: 0.55,
+  treeMaxPerCell: 3,
+  treeMaxInstances: 1100,
+  townGrid: 700,
+  townChance: 0.28,
+  townBuildingsMin: 8,
+  townBuildingsMax: 18,
+  buildingMaxInstances: 160,
+  landmarkGrid: 2600,
+  landmarkChance: 0.4,
+
+  sandColor: 0xd9c27e,
+  treeTrunkColor: 0x7a5230,
+  treeCanopyColor: 0x3e8f4a,
+  runwaySurfaceColor: 0x565b63,
+  runwayPaintColor: 0xf2f4f7,
+
+  hudPitchPixelsPerDeg: 2.2,
+  asiMaxSpeed: 80,
+  altMaxMeters: 400
 };
 
 const DEG = Math.PI / 180;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+
+function wrapPi(a) {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
+}
+
+function smoothstep(a, b, x) {
+  const t = clamp((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+}
 
 function hash2(ix, iz) {
-  let n = Math.imul(ix, 374761393) + Math.imul(iz, 668265263);
+  let n = Math.imul(ix | 0, 374761393) + Math.imul(iz | 0, 668265263);
   n = Math.imul(n ^ (n >>> 13), 1274126177);
   n = (n ^ (n >>> 16)) >>> 0;
   return n / 4294967295;
+}
+
+function hashSalt(ix, iz, salt) {
+  return hash2(ix + salt * 7919, iz - salt * 104729);
+}
+
+let seed = 987654321;
+function rnd() {
+  seed = (seed * 1664525 + 1013904223) >>> 0;
+  return seed / 4294967296;
 }
 
 function valueNoise(x, z) {
@@ -120,11 +447,24 @@ function valueNoise(x, z) {
   return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
 }
 
-function terrainHeight(x, z) {
+function rawHeight(x, z) {
   return valueNoise(x / TUNE.hillWavelength, z / TUNE.hillWavelength) * TUNE.hillAmplitude
        + valueNoise(x / TUNE.midWavelength + 37.2, z / TUNE.midWavelength + 91.7) * TUNE.midAmplitude
        + valueNoise(x / TUNE.microWavelength + 512.1, z / TUNE.microWavelength + 77.3) * TUNE.microAmplitude
        - TUNE.hillAmplitude * 0.5;
+}
+
+function flattenMask(x, z) {
+  const nx = Math.max(Math.abs(x) - TUNE.runwayWidth * 0.5 - 40, 0) / TUNE.flattenMargin;
+  const nz = Math.max(Math.abs(z) - TUNE.runwayLength * 0.5 - 60, 0) / TUNE.flattenMargin;
+  return 1 - smoothstep(0, 1, Math.max(nx, nz));
+}
+
+const RWY_ELEV = Math.max(rawHeight(0, 0), TUNE.waterLevel + 2);
+
+function terrainEff(x, z) {
+  const m = flattenMask(x, z);
+  return rawHeight(x, z) * (1 - m) + RWY_ELEV * m;
 }
 
 const scene = new THREE.Scene();
@@ -137,6 +477,7 @@ scene.add(camera);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.domElement.id = "gl";
 document.body.appendChild(renderer.domElement);
 
 const skyGeo = new THREE.SphereGeometry(3000, 24, 12);
@@ -172,9 +513,55 @@ const skyDome = new THREE.Mesh(skyGeo, skyMat);
 scene.add(skyDome);
 
 scene.add(new THREE.HemisphereLight(TUNE.hemiSkyColor, TUNE.hemiGroundColor, TUNE.hemiIntensity));
-const sun = new THREE.DirectionalLight(0xfff3d6, TUNE.sunIntensity);
-sun.position.set(400, 1000, 250);
-scene.add(sun);
+const sunLight = new THREE.DirectionalLight(0xfff3d6, TUNE.sunIntensity);
+sunLight.position.set(400, 1000, 250);
+scene.add(sunLight);
+
+const waterMat = new THREE.MeshLambertMaterial({ color: 0x3f7fbf });
+const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), waterMat);
+waterMesh.rotation.x = -Math.PI / 2;
+waterMesh.position.y = TUNE.waterLevel;
+scene.add(waterMesh);
+
+{
+  const asphaltMat = new THREE.MeshLambertMaterial({ color: TUNE.runwaySurfaceColor });
+  const paintMat = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
+  const surface = new THREE.Mesh(
+    new THREE.BoxGeometry(TUNE.runwayWidth, 0.4, TUNE.runwayLength),
+    asphaltMat
+  );
+  surface.position.set(0, RWY_ELEV + 0.05, 0);
+  scene.add(surface);
+
+  const dashCount = Math.floor(TUNE.runwayLength / 95) - 1;
+  const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.08, 20), paintMat, dashCount);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < dashCount; i++) {
+    dummy.position.set(0, RWY_ELEV + 0.32, TUNE.runwayLength / 2 - 60 - i * 95);
+    dummy.updateMatrix();
+    dashes.setMatrixAt(i, dummy.matrix);
+  }
+  scene.add(dashes);
+
+  const stripeGeo = new THREE.BoxGeometry(2.6, 0.08, 24);
+  const stripesPerEnd = 6;
+  const stripes = new THREE.InstancedMesh(stripeGeo, paintMat, stripesPerEnd * 2);
+  let si = 0;
+  for (const endZ of [TUNE.runwayLength / 2 - 26, -TUNE.runwayLength / 2 + 26]) {
+    for (let k = 0; k < stripesPerEnd; k++) {
+      dummy.position.set((k - (stripesPerEnd - 1) / 2) * 8, RWY_ELEV + 0.32, endZ);
+      dummy.updateMatrix();
+      stripes.setMatrixAt(si++, dummy.matrix);
+    }
+  }
+  scene.add(stripes);
+}
+
+const cLow = new THREE.Color(TUNE.colorLow);
+const cMid = new THREE.Color(TUNE.colorMid);
+const cHigh = new THREE.Color(TUNE.colorHigh);
+const cSand = new THREE.Color(TUNE.sandColor);
+const tmpColor = new THREE.Color();
 
 const terrainMat = new THREE.MeshStandardMaterial({
   vertexColors: true,
@@ -183,11 +570,6 @@ const terrainMat = new THREE.MeshStandardMaterial({
   metalness: 0.0
 });
 
-const cLow = new THREE.Color(TUNE.colorLow);
-const cMid = new THREE.Color(TUNE.colorMid);
-const cHigh = new THREE.Color(TUNE.colorHigh);
-const tmpColor = new THREE.Color();
-
 function buildChunk(cx, cz) {
   const cs = TUNE.chunkSize;
   const geo = new THREE.PlaneGeometry(cs, cs, TUNE.chunkSegments, TUNE.chunkSegments);
@@ -195,7 +577,7 @@ function buildChunk(cx, cz) {
   const ox = cx * cs, oz = cz * cs;
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
-    pos.setY(i, terrainHeight(pos.getX(i) + ox, pos.getZ(i) + oz));
+    pos.setY(i, terrainEff(pos.getX(i) + ox, pos.getZ(i) + oz));
   }
 
   const flat = geo.toNonIndexed();
@@ -203,11 +585,17 @@ function buildChunk(cx, cz) {
   const fp = flat.attributes.position;
   const colors = new Float32Array(fp.count * 3);
   const hSpan = TUNE.colorHighHeight - TUNE.colorLowHeight;
+  const shoreLo = TUNE.waterLevel - 1.2;
+  const shoreHi = TUNE.waterLevel + 1.4;
   for (let f = 0; f < fp.count; f += 3) {
     const hy = (fp.getY(f) + fp.getY(f + 1) + fp.getY(f + 2)) / 3;
-    const t = clamp((hy - TUNE.colorLowHeight) / hSpan, 0, 1);
-    if (t < 0.5) tmpColor.copy(cLow).lerp(cMid, t * 2);
-    else tmpColor.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
+    if (hy < shoreHi) {
+      tmpColor.copy(cSand).multiplyScalar(hy < shoreLo ? 0.78 : lerp(0.85, 1.02, smoothstep(shoreLo, shoreHi, hy)));
+    } else {
+      const t = clamp((hy - TUNE.colorLowHeight) / hSpan, 0, 1);
+      if (t < 0.5) tmpColor.copy(cLow).lerp(cMid, t * 2);
+      else tmpColor.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
+    }
     const j = 1 + (hash2(Math.round(fp.getX(f)), Math.round(fp.getZ(f))) - 0.5) * 2 * TUNE.colorJitter;
     for (let v = 0; v < 3; v++) {
       colors[(f + v) * 3] = tmpColor.r * j;
@@ -256,6 +644,25 @@ function updateChunks(px, pz) {
   }
 }
 
+const rings = [];
+{
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x36e0ff,
+    transparent: true,
+    opacity: 0.85,
+    fog: false
+  });
+  const ringGeo = new THREE.TorusGeometry(TUNE.ringRadius, 2.4, 8, 26);
+  const thz = TUNE.runwayLength / 2;
+  for (let i = 0; i < TUNE.ringCount; i++) {
+    const s = i / (TUNE.ringCount - 1);
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.set(0, RWY_ELEV + 3 + TUNE.ringStartAltitude * Math.pow(1 - s, 1.35), thz + TUNE.ringStartDistance * (1 - s));
+    scene.add(ring);
+    rings.push(ring);
+  }
+}
+
 const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 function makeCloud() {
   const g = new THREE.Group();
@@ -270,16 +677,10 @@ function makeCloud() {
   return g;
 }
 
-let seed = 987654321;
-function rnd() {
-  seed = (seed * 1664525 + 1013904223) >>> 0;
-  return seed / 4294967296;
-}
-
 const clouds = [];
 for (let i = 0; i < TUNE.cloudCount; i++) clouds.push(makeCloud());
 
-function respawnCloud(c, px, pz, hx, hz, ahead) {
+function respawnCloud(c, px, py, pz, hx, hz, ahead) {
   const d = TUNE.cloudRespawnAhead[0] + rnd() * (TUNE.cloudRespawnAhead[1] - TUNE.cloudRespawnAhead[0]);
   const lat = (rnd() - 0.5) * 2 * TUNE.cloudLateralSpread;
   const base = ahead ? d : rnd() * TUNE.fogFar;
@@ -290,32 +691,231 @@ function respawnCloud(c, px, pz, hx, hz, ahead) {
   );
 }
 
-const cockpit = new THREE.Group();
-{
-  const frameMat = new THREE.MeshBasicMaterial({ color: 0x23282f });
-  const darkMat = new THREE.MeshBasicMaterial({ color: 0x1d2127 });
-  const lipMat = new THREE.MeshBasicMaterial({ color: 0x39404b });
-  const accentMat = new THREE.MeshBasicMaterial({ color: 0xe0483e });
-
-  const addBox = (mat, w, h, d, x, y, z, rx, ry, rz) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    m.position.set(x, y, z);
-    m.rotation.set(rx || 0, ry || 0, rz || 0);
-    cockpit.add(m);
-    return m;
-  };
-
-  addBox(darkMat, 2.7, 0.55, 0.14, 0, -0.82, -0.82, 0.30, 0, 0);
-  addBox(frameMat, 2.7, 0.14, 0.90, 0, -0.55, -0.92, -0.12, 0, 0);
-  addBox(lipMat, 2.7, 0.06, 0.22, 0, -0.50, -1.24, -0.28, 0, 0);
-  addBox(frameMat, 2.7, 0.20, 0.26, 0, 0.64, -0.98, 0.30, 0, 0);
-  addBox(accentMat, 2.7, 0.05, 0.27, 0, 0.56, -0.95, 0.30, 0, 0);
-  addBox(frameMat, 0.15, 2.0, 0.18, -0.90, 0.02, -0.90, 0, -0.06, 0.16);
-  addBox(frameMat, 0.15, 2.0, 0.18, 0.90, 0.02, -0.90, 0, 0.06, -0.16);
-  addBox(frameMat, 0.13, 0.13, 1.5, -0.97, -0.34, -0.42, 0, 0, 0);
-  addBox(frameMat, 0.13, 0.13, 1.5, 0.97, -0.34, -0.42, 0, 0, 0);
+function inCorridor(x, z, extra) {
+  return Math.abs(x) < TUNE.runwayWidth / 2 + 35 + extra
+      && Math.abs(z) < TUNE.runwayLength / 2 + TUNE.ringStartDistance + extra;
 }
-camera.add(cockpit);
+
+const trunkInst = new THREE.InstancedMesh(
+  new THREE.CylinderGeometry(0.5, 0.75, 4, 5),
+  new THREE.MeshLambertMaterial({ color: TUNE.treeTrunkColor }),
+  TUNE.treeMaxInstances
+);
+const canopyInst = new THREE.InstancedMesh(
+  new THREE.ConeGeometry(3.4, 9.5, 7),
+  new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  TUNE.treeMaxInstances
+);
+canopyInst.setColorAt(0, tmpColor.setHex(TUNE.treeCanopyColor));
+
+const buildingInst = new THREE.InstancedMesh(
+  new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
+  new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  TUNE.buildingMaxInstances
+);
+buildingInst.setColorAt(0, tmpColor.setHex(0xcfc4ae));
+
+const BUILDING_PALETTE = [0xcfc4ae, 0xc7a186, 0xb9b0a0, 0xd8cdb4, 0xa89880, 0xc2b8a4];
+scene.add(trunkInst, canopyInst, buildingInst);
+
+const towerProto = (() => {
+  const g = new THREE.Group();
+  const white = new THREE.MeshLambertMaterial({ color: 0xe8e4da });
+  const red = new THREE.MeshLambertMaterial({ color: 0xd63a2f });
+  const mk = (rTop, rBot, h, y, mat) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, 8), mat);
+    m.position.y = y;
+    g.add(m);
+  };
+  mk(7, 9, 8, 4, white);
+  mk(3.4, 4.4, 30, 23, red);
+  mk(3.0, 3.4, 26, 51, white);
+  mk(2.4, 3.0, 24, 76, red);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 8), white);
+  ball.position.y = 93;
+  g.add(ball);
+  const blinkerMat = new THREE.MeshBasicMaterial({ color: 0xff4030, fog: false });
+  const blinker = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 6), blinkerMat);
+  blinker.position.y = 101;
+  g.add(blinker);
+  g.userData.blinker = blinker;
+  return g;
+})();
+
+const bridgeProto = (() => {
+  const g = new THREE.Group();
+  const steel = new THREE.MeshLambertMaterial({ color: 0x9aa2ad });
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(360, 5, 18), steel);
+  g.add(deck);
+  for (const sx of [-115, 115]) {
+    const pylon = new THREE.Mesh(new THREE.BoxGeometry(12, 30, 14), steel);
+    pylon.position.set(sx, -16, 0);
+    g.add(pylon);
+  }
+  for (const sz of [-9.4, 9.4]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(360, 2.2, 2), steel);
+    rail.position.set(0, 4.4, sz);
+    g.add(rail);
+  }
+  return g;
+})();
+
+const landmarkCells = new Map();
+const blinkers = [];
+const dummyObj = new THREE.Object3D();
+
+function placeLandmark(cellX, cellZ) {
+  const cxw = cellX * TUNE.landmarkGrid, czw = cellZ * TUNE.landmarkGrid;
+  const isTower = hashSalt(cellX, cellZ, 91) < 0.5;
+  let lx = cxw + (hashSalt(cellX, cellZ, 92) - 0.5) * TUNE.landmarkGrid * 0.5;
+  let lz = czw + (hashSalt(cellX, cellZ, 93) - 0.5) * TUNE.landmarkGrid * 0.5;
+  if (Math.abs(lx) < 1700 && Math.abs(lz) < 1700) return null;
+  if (inCorridor(lx, lz, 200)) return null;
+  const proto = isTower ? towerProto : bridgeProto;
+  const inst = proto.clone();
+  if (isTower) {
+    const gy = terrainEff(lx, lz);
+    if (gy < TUNE.waterLevel + 1) return null;
+    inst.position.set(lx, gy, lz);
+    if (inst.userData.blinker) blinkers.push(inst.userData.blinker);
+  } else {
+    let deckY = TUNE.waterLevel + 15;
+    let overWater = true;
+    for (let s = -1; s <= 1; s += 0.5) {
+      if (terrainEff(lx + s * 140, lz) > TUNE.waterLevel + 2.5) overWater = false;
+    }
+    if (!overWater) deckY = terrainEff(lx, lz) + 15;
+    inst.position.set(lx, deckY, lz);
+    inst.rotation.y = (hashSalt(cellX, cellZ, 94) < 0.5 ? 0 : Math.PI / 2);
+  }
+  scene.add(inst);
+  return inst;
+}
+
+function syncLandmarks(px, pz) {
+  const grid = TUNE.landmarkGrid;
+  const ccx = Math.round(px / grid), ccz = Math.round(pz / grid);
+  const R = Math.ceil((TUNE.sceneryRadius + 400) / grid);
+  const need = new Set();
+  for (let dx = -R; dx <= R; dx++) {
+    for (let dz = -R; dz <= R; dz++) {
+      const cx = ccx + dx, cz = ccz + dz;
+      const k = cx + "," + cz;
+      if (hashSalt(cx, cz, 90) >= TUNE.landmarkChance) continue;
+      need.add(k);
+      if (!landmarkCells.has(k)) {
+        const inst = placeLandmark(cx, cz);
+        landmarkCells.set(k, inst);
+      } else if (landmarkCells.get(k) === null) {
+        landmarkCells.set(k, placeLandmark(cx, cz));
+      }
+    }
+  }
+  for (const [k, inst] of landmarkCells) {
+    if (!need.has(k)) {
+      if (inst) {
+        scene.remove(inst);
+        const bi = blinkers.indexOf(inst.userData.blinker);
+        if (bi >= 0) blinkers.splice(bi, 1);
+      }
+      landmarkCells.delete(k);
+    }
+  }
+}
+
+function rebuildTrees(px, pz) {
+  const cs = TUNE.treeCell;
+  const R = Math.ceil(TUNE.sceneryRadius / cs);
+  const ccx = Math.round(px / cs), ccz = Math.round(pz / cs);
+  let ti = 0;
+  outer:
+  for (let dx = -R; dx <= R; dx++) {
+    for (let dz = -R; dz <= R; dz++) {
+      const cx = ccx + dx, cz = ccz + dz;
+      if (hashSalt(cx, cz, 41) >= TUNE.treeDensity) continue;
+      const n = 1 + Math.floor(hashSalt(cx, cz, 42) * TUNE.treeMaxPerCell);
+      for (let k = 0; k < n; k++) {
+        if (ti >= TUNE.treeMaxInstances) break outer;
+        const wx = (cx + hashSalt(cx * 5 + k, cz, 43)) * cs;
+        const wz = (cz + hashSalt(cx, cz * 5 + k, 44)) * cs;
+        if (flattenMask(wx, wz) > 0.02) continue;
+        if (inCorridor(wx, wz, -80)) continue;
+        const gy = terrainEff(wx, wz);
+        if (gy < TUNE.waterLevel + 1.6) continue;
+        const s = 0.8 + hashSalt(cx + k, cz - k, 45) * 0.9;
+        dummyObj.position.set(wx, gy - 0.3, wz);
+        dummyObj.rotation.set(0, hashSalt(cx, cz, 46) * Math.PI * 2, 0);
+        dummyObj.scale.set(s, s * (0.9 + hashSalt(cx, cz, 47) * 0.5), s);
+        dummyObj.updateMatrix();
+        trunkInst.setMatrixAt(ti, dummyObj.matrix);
+        canopyInst.setMatrixAt(ti, dummyObj.matrix);
+        tmpColor.setHex(TUNE.treeCanopyColor).multiplyScalar(0.82 + hashSalt(cx - k, cz + k, 48) * 0.4);
+        canopyInst.setColorAt(ti, tmpColor);
+        ti++;
+      }
+    }
+  }
+  trunkInst.count = ti;
+  canopyInst.count = ti;
+  trunkInst.instanceMatrix.needsUpdate = true;
+  canopyInst.instanceMatrix.needsUpdate = true;
+  if (canopyInst.instanceColor) canopyInst.instanceColor.needsUpdate = true;
+}
+
+function rebuildBuildings(px, pz) {
+  const grid = TUNE.townGrid;
+  const R = Math.ceil(TUNE.sceneryRadius / grid);
+  const ccx = Math.round(px / grid), ccz = Math.round(pz / grid);
+  let bi = 0;
+  for (let dx = -R; dx <= R; dx++) {
+    for (let dz = -R; dz <= R; dz++) {
+      if (bi >= TUNE.buildingMaxInstances) break;
+      const cx = ccx + dx, cz = ccz + dz;
+      if (hashSalt(cx, cz, 61) >= TUNE.townChance) continue;
+      const tcx = (cx + 0.5 + (hashSalt(cx, cz, 62) - 0.5) * 0.6) * grid;
+      const tcz = (cz + 0.5 + (hashSalt(cx, cz, 63) - 0.5) * 0.6) * grid;
+      if (inCorridor(tcx, tcz, -60)) continue;
+      const n = TUNE.townBuildingsMin + Math.floor(hashSalt(cx, cz, 64) * (TUNE.townBuildingsMax - TUNE.townBuildingsMin + 1));
+      for (let k = 0; k < n; k++) {
+        if (bi >= TUNE.buildingMaxInstances) break;
+        const ang = hashSalt(cx * 7 + k, cz, 65) * Math.PI * 2;
+        const rad = (0.25 + hashSalt(cx * 7 + k, cz * 7 + k, 66) * 0.75) * grid * 0.33;
+        const wx = tcx + Math.cos(ang) * rad;
+        const wz = tcz + Math.sin(ang) * rad;
+        if (flattenMask(wx, wz) > 0.02 || inCorridor(wx, wz, -40)) continue;
+        const gy = terrainEff(wx, wz);
+        if (gy < TUNE.waterLevel + 1.8) continue;
+        const w = 8 + hashSalt(cx + k, cz, 67) * 14;
+        const d = 8 + hashSalt(cx, cz + k, 68) * 14;
+        const hgt = 6 + hashSalt(cx + k, cz - k, 69) * 20;
+        dummyObj.position.set(wx, gy - 0.3, wz);
+        dummyObj.rotation.set(0, Math.round(hashSalt(cx, cz, 70) * 4) * Math.PI / 2 + (hashSalt(cx, cz, 71) - 0.5) * 0.2, 0);
+        dummyObj.scale.set(w, hgt, d);
+        dummyObj.updateMatrix();
+        buildingInst.setMatrixAt(bi, dummyObj.matrix);
+        tmpColor.setHex(BUILDING_PALETTE[Math.floor(hashSalt(cx + k, cz + k, 72) * BUILDING_PALETTE.length)]);
+        buildingInst.setColorAt(bi, tmpColor);
+        bi++;
+      }
+    }
+  }
+  buildingInst.count = bi;
+  buildingInst.instanceMatrix.needsUpdate = true;
+  if (buildingInst.instanceColor) buildingInst.instanceColor.needsUpdate = true;
+}
+
+let scenCenterX = null, scenCenterZ = null;
+function updateScenery(px, pz, force) {
+  if (!force && scenCenterX !== null) {
+    const dx = px - scenCenterX, dz = pz - scenCenterZ;
+    if (dx * dx + dz * dz < TUNE.sceneryRebuildDist * TUNE.sceneryRebuildDist) return;
+  }
+  scenCenterX = px;
+  scenCenterZ = pz;
+  rebuildTrees(px, pz);
+  rebuildBuildings(px, pz);
+  syncLandmarks(px, pz);
+}
 
 let audioCtx = null;
 let masterGain = null;
@@ -339,17 +939,17 @@ function startEngine() {
   const t = audioCtx.currentTime;
   const o = audioCtx.createOscillator();
   o.type = "sawtooth";
-  o.frequency.value = TUNE.engineFrequency;
+  o.frequency.value = TUNE.engineFreqIdle;
   const lp = audioCtx.createBiquadFilter();
   lp.type = "lowpass";
   lp.frequency.value = TUNE.engineFilterFreq;
   const g = audioCtx.createGain();
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(TUNE.engineVolume, t + 1.5);
+  g.gain.linearRampToValueAtTime(TUNE.engineGainIdle, t + 0.8);
   const lfo = audioCtx.createOscillator();
   lfo.frequency.value = TUNE.engineLfoRate;
   const lfoG = audioCtx.createGain();
-  lfoG.gain.value = TUNE.engineVolume * 0.25;
+  lfoG.gain.value = TUNE.engineGainIdle * 0.25;
   lfo.connect(lfoG);
   lfoG.connect(g.gain);
   o.connect(lp);
@@ -360,25 +960,169 @@ function startEngine() {
   engineNodes = { o, lfo, g };
 }
 
-function boing() {
-  if (!audioCtx || audioCtx.state !== "running") return;
+function setEngine(speedNorm) {
+  if (!engineNodes || !audioCtx || audioCtx.state !== "running") return;
   const t = audioCtx.currentTime;
-  const mk = (type, f0, f1, peak) => {
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(f0, t);
-    o.frequency.exponentialRampToValueAtTime(f1, t + 0.28);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(peak, t + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
-    o.connect(g);
-    g.connect(masterGain);
-    o.start(t);
-    o.stop(t + 0.36);
-  };
-  mk("triangle", 300, 75, TUNE.boingVolume);
-  mk("sine", 600, 150, TUNE.boingVolume * 0.36);
+  engineNodes.o.frequency.setTargetAtTime(lerp(TUNE.engineFreqIdle, TUNE.engineFreqMax, speedNorm), t, 0.12);
+  engineNodes.g.gain.setTargetAtTime(lerp(TUNE.engineGainIdle, TUNE.engineGainMax, speedNorm), t, 0.12);
+}
+
+function synthBlip(type, f0, f1, dur, peak, when) {
+  if (!audioCtx || audioCtx.state !== "running") return;
+  const t = audioCtx.currentTime + (when || 0);
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g);
+  g.connect(masterGain);
+  o.start(t);
+  o.stop(t + dur + 0.05);
+}
+
+function noiseBurst(dur, freq, peak, when) {
+  if (!audioCtx || audioCtx.state !== "running") return;
+  const t = audioCtx.currentTime + (when || 0);
+  const len = Math.max(1, Math.floor(audioCtx.sampleRate * dur));
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = freq;
+  bp.Q.value = 0.9;
+  const g = audioCtx.createGain();
+  g.gain.value = peak;
+  src.connect(bp);
+  bp.connect(g);
+  g.connect(masterGain);
+  src.start(t);
+}
+
+function boing() {
+  synthBlip("triangle", 300, 75, 0.34, TUNE.boingVolume, 0);
+  synthBlip("sine", 600, 150, 0.34, TUNE.boingVolume * 0.36, 0);
+}
+function gearSound() {
+  noiseBurst(0.22, 900, 0.25, 0);
+  synthBlip("sine", 220, 70, 0.28, 0.3, 0.05);
+  synthBlip("square", 340, 340, 0.05, 0.12, 0.16);
+}
+function chirp() {
+  synthBlip("sine", 950, 950, 0.07, 0.35, 0);
+  synthBlip("sine", 720, 720, 0.09, 0.35, 0.09);
+  noiseBurst(0.1, 2400, 0.12, 0);
+}
+function cheer() {
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((f, i) => {
+    synthBlip("triangle", f, f, 0.16, 0.32, i * 0.1);
+    synthBlip("sine", f * 2, f * 2, 0.14, 0.1, i * 0.1);
+  });
+  noiseBurst(0.7, 1800, 0.14, 0.05);
+  synthBlip("triangle", 1319, 1319, 0.4, 0.26, 0.44);
+}
+
+const el = {};
+["hud", "pillarL", "pillarR", "brow", "dash", "asiDial", "aiDial", "altDial",
+ "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx"].forEach(id => {
+  el[id] = document.getElementById(id);
+});
+
+(function buildDialTicks() {
+  const svgNS = "http://www.w3.org/2000/svg";
+  for (const dialId of ["asiDial", "altDial"]) {
+    const dial = el[dialId];
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
+    for (let i = 0; i <= 8; i++) {
+      const ang = (-120 + (i / 8) * 240 - 90) * Math.PI / 180;
+      const line = document.createElementNS(svgNS, "line");
+      line.setAttribute("x1", 50 + Math.cos(ang) * 39);
+      line.setAttribute("y1", 50 + Math.sin(ang) * 39);
+      line.setAttribute("x2", 50 + Math.cos(ang) * 46);
+      line.setAttribute("y2", 50 + Math.sin(ang) * 46);
+      line.setAttribute("stroke", "#8b93a0");
+      line.setAttribute("stroke-width", i % 2 === 0 ? "2.6" : "1.4");
+      svg.appendChild(line);
+    }
+    dial.appendChild(svg);
+  }
+  const asiNeedle = document.createElement("div");
+  asiNeedle.className = "needle";
+  el.asiDial.appendChild(asiNeedle);
+  const asiCap = document.createElement("div");
+  asiCap.className = "dial-cap";
+  el.asiDial.appendChild(asiCap);
+  const altNeedle = document.createElement("div");
+  altNeedle.className = "needle red";
+  el.altDial.appendChild(altNeedle);
+  const altCap = document.createElement("div");
+  altCap.className = "dial-cap";
+  el.altDial.appendChild(altCap);
+  el.asiNeedle = asiNeedle;
+  el.altNeedle = altNeedle;
+})();
+
+const fxCanvas = el.fx;
+const fxCtx = fxCanvas.getContext("2d");
+let confetti = [];
+
+function resizeFx() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  fxCanvas.width = Math.round(window.innerWidth * dpr);
+  fxCanvas.height = Math.round(window.innerHeight * dpr);
+  fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function confettiBurst() {
+  const colors = ["#e0483e", "#ffd23e", "#36c46a", "#3aa0ff", "#ff7ab8", "#ffffff"];
+  for (let i = 0; i < 140; i++) {
+    confetti.push({
+      x: Math.random() * window.innerWidth,
+      y: -20 - Math.random() * window.innerHeight * 0.4,
+      vx: (Math.random() - 0.5) * 160,
+      vy: 120 + Math.random() * 260,
+      size: 6 + Math.random() * 9,
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 9,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 3.4
+    });
+  }
+}
+
+function updateFx(dt) {
+  if (!confetti.length) {
+    fxCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    return;
+  }
+  fxCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  const next = [];
+  for (const p of confetti) {
+    p.life -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 210 * dt;
+    p.rot += p.vr * dt;
+    if (p.life > 0 && p.y < window.innerHeight + 40) {
+      fxCtx.save();
+      fxCtx.translate(p.x, p.y);
+      fxCtx.rotate(p.rot);
+      fxCtx.fillStyle = p.color;
+      fxCtx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+      fxCtx.restore();
+      next.push(p);
+    }
+  }
+  confetti = next;
 }
 
 const state = {
@@ -388,43 +1132,103 @@ const state = {
   touching: false,
   startX: 0, startY: 0,
   airVy: null,
-  bounceTimer: 0
+  bounceTimer: 0,
+  speed: 0,
+  phase: "TAXI",
+  throttleHeld: false,
+  rotatePullTime: 0,
+  liftoffTimer: 0,
+  climbAwayTimer: 0,
+  celebrateTimer: 0,
+  celebrated: false,
+  assistBias: 0,
+  engaged: false,
+  canRotate: false,
+  approachLatch: false
 };
 
-function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
+const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, bounced: 0 };
+
+function repositionToStart() {
+  state.x = 0;
+  state.z = TUNE.runwayLength / 2 - 50;
+  state.y = RWY_ELEV + TUNE.gearHeight;
+  state.heading = 0;
+  state.pitch = 0;
+  state.bank = 0;
+  state.speed = 0;
+  state.airVy = null;
+  state.bounceTimer = 0;
+  state.ctrlBank = 0;
+  state.ctrlPitch = 0;
+  state.touching = false;
+  state.throttleHeld = false;
+  state.rotatePullTime = 0;
+  state.liftoffTimer = 0;
+  state.climbAwayTimer = 0;
+  state.celebrateTimer = 0;
+  state.celebrated = false;
+  state.assistBias = 0;
+  state.engaged = false;
+  state.canRotate = false;
+  state.approachLatch = false;
+  state.phase = "TAXI";
+  flags.repositioned++;
 }
 
-canvasPointerHandlers();
+repositionToStart();
 
-function canvasPointerHandlers() {
-  const el = renderer.domElement;
-  el.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    unlockAudio();
-    if (!state.touching) {
-      state.touching = true;
-      state.startX = e.clientX;
-      state.startY = e.clientY;
-    }
-  });
-  el.addEventListener("pointermove", (e) => {
-    if (!state.touching) return;
-    const span = Math.min(window.innerWidth, window.innerHeight);
-    state.ctrlBank = clamp((e.clientX - state.startX) / (span * TUNE.dragRangeX), -1, 1);
-    state.ctrlPitch = clamp(-(e.clientY - state.startY) / (span * TUNE.dragRangeY), -1, 1);
-  });
-  const release = () => { state.touching = false; };
-  el.addEventListener("pointerup", release);
-  el.addEventListener("pointercancel", release);
-}
+const glEl = renderer.domElement;
+
+glEl.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  unlockAudio();
+  if (!state.touching) {
+    state.touching = true;
+    state.startX = e.clientX;
+    state.startY = e.clientY;
+  }
+});
+glEl.addEventListener("pointermove", (e) => {
+  if (!state.touching) return;
+  const span = Math.min(window.innerWidth, window.innerHeight);
+  state.ctrlBank = clamp((e.clientX - state.startX) / (span * TUNE.dragRangeX), -1, 1);
+  state.ctrlPitch = clamp(-(e.clientY - state.startY) / (span * TUNE.dragRangeY), -1, 1);
+});
+const releaseDrag = () => {
+  state.touching = false;
+};
+glEl.addEventListener("pointerup", releaseDrag);
+glEl.addEventListener("pointercancel", releaseDrag);
+window.addEventListener("blur", releaseDrag);
+
+el.throttleBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  try { el.throttleBtn.setPointerCapture(e.pointerId); } catch (err) {}
+  el.throttleBtn.classList.add("pressed");
+  unlockAudio();
+  state.throttleHeld = true;
+});
+const releaseThrottle = () => {
+  el.throttleBtn.classList.remove("pressed");
+  state.throttleHeld = false;
+};
+el.throttleBtn.addEventListener("pointerup", releaseThrottle);
+el.throttleBtn.addEventListener("pointercancel", releaseThrottle);
 
 window.addEventListener("gesturestart", (e) => e.preventDefault());
+
+function resize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
+  resizeFx();
+}
+
 window.addEventListener("resize", resize);
+resize();
 
 let wakeLock = null;
 async function grabWakeLock() {
@@ -440,14 +1244,94 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
   });
 }
 
-state.x = 0;
-state.z = 0;
-state.y = terrainHeight(0, 0) + 60;
-updateChunks(state.x, state.z);
-for (const c of clouds) respawnCloud(c, state.x, state.z, 0, -1, false);
-grabWakeLock();
-
 const forward = new THREE.Vector3();
+
+function groundPhase(dt) {
+  const grounded = state.phase === "TAXI" || state.phase === "ROLL";
+  if (!grounded) return;
+  state.x = 0;
+  state.pitch += (0 - state.pitch) * Math.min(1, 8 * dt);
+  state.bank += (0 - state.bank) * Math.min(1, 8 * dt);
+  state.heading = 0;
+  state.y = RWY_ELEV + TUNE.gearHeight;
+  state.airVy = null;
+
+  if (state.phase === "TAXI") {
+    state.speed = 0;
+    if (state.throttleHeld) state.phase = "ROLL";
+    return;
+  }
+
+  if (state.throttleHeld) {
+    state.speed = Math.min(state.speed + TUNE.throttleAccel * dt, TUNE.cruiseSpeed * 1.15);
+  } else {
+    state.speed = Math.max(state.speed - TUNE.brakeDecel * dt, 0);
+  }
+
+  state.z -= state.speed * dt;
+
+  if (state.speed >= TUNE.rotateSpeed) {
+    state.canRotate = true;
+  }
+  if (state.canRotate && state.ctrlPitch > TUNE.rotateStickThreshold) {
+    state.rotatePullTime += dt;
+    if (state.rotatePullTime >= TUNE.rotateStickTime) {
+      state.phase = "AIRBORNE";
+      state.liftoffTimer = TUNE.liftoffHoldTime;
+      state.pitch = TUNE.liftoffPitchDeg * 0.5;
+      gearSound();
+      flags.liftoff++;
+    }
+  } else {
+    state.rotatePullTime = 0;
+  }
+
+  const pastEnd = state.z < -(TUNE.runwayLength / 2) - 40;
+  if (pastEnd || (!state.throttleHeld && state.speed <= 0.01)) {
+    if (pastEnd) {
+      state.speed = Math.max(state.speed - TUNE.brakeDecel * 2 * dt, 0);
+      if (state.speed <= 0.01) repositionToStart();
+    } else {
+      state.phase = "TAXI";
+    }
+  }
+}
+
+function updateAssists(dt) {
+  const thz = TUNE.runwayLength / 2;
+  const dxr = state.x - 0;
+  const dzr = state.z - thz;
+  const distHoriz = Math.sqrt(dxr * dxr + dzr * dzr);
+
+  const t = Math.abs(wrapPi(state.heading)) < Math.PI / 2 ? 0 : Math.PI;
+  const ft = { x: -Math.sin(t), z: -Math.cos(t) };
+  const rt = { x: Math.cos(t), z: -Math.sin(t) };
+  const along = dxr * ft.x + dzr * ft.z;
+  const lat = dxr * rt.x + dzr * rt.z;
+  state.approachData = { t, along, lat };
+
+  const dot = (-Math.sin(state.heading) * -dxr + -Math.cos(state.heading) * -dzr) / (distHoriz || 1);
+  state.engaged = state.phase === "AIRBORNE"
+    && state.liftoffTimer <= 0
+    && distHoriz < TUNE.approachEngageDist
+    && dot > 0.25;
+
+  if (!state.engaged) {
+    state.assistBias *= Math.max(0, 1 - 2.5 * dt);
+    return;
+  }
+
+  state.approachLatch = true;
+
+  const err = wrapPi(t - state.heading);
+  const falloff = 1 - smoothstep(TUNE.alignStartDist * 0.5, TUNE.approachEngageDist, distHoriz);
+
+  const dH = clamp(err * TUNE.alignHeadingGain, -TUNE.alignHeadingMaxRateDeg * DEG, TUNE.alignHeadingMaxRateDeg * DEG);
+  state.heading += dH * falloff * dt;
+
+  const biasTarget = -clamp(lat * TUNE.alignLateralGain, -TUNE.alignRollMaxBiasDeg, TUNE.alignRollMaxBiasDeg) * falloff;
+  state.assistBias += (biasTarget - state.assistBias) * Math.min(1, 2 * dt);
+}
 
 function update(dt) {
   let targetBank = 0, targetPitch = 0;
@@ -455,62 +1339,212 @@ function update(dt) {
     targetBank = state.ctrlBank * TUNE.bankLimitDeg;
     targetPitch = state.ctrlPitch * TUNE.pitchLimitDeg;
   }
-  if (state.bounceTimer > 0) {
-    state.bounceTimer -= dt;
-    targetPitch = TUNE.bouncePitchDeg;
-  }
 
-  const resp = state.touching ? TUNE.controlResponse : TUNE.autoLevelResponse;
-  const k = Math.min(1, resp * dt);
-  state.bank += (targetBank - state.bank) * k;
-  state.pitch += (targetPitch - state.pitch) * k;
-  state.bank = clamp(state.bank, -TUNE.bankLimitDeg, TUNE.bankLimitDeg);
-  state.pitch = clamp(state.pitch, -TUNE.pitchLimitDeg, TUNE.pitchLimitDeg);
+  if (state.phase === "TAXI" || state.phase === "ROLL") {
+    groundPhase(dt);
+    setEngine(state.speed / TUNE.cruiseSpeed);
+    el.throttleBtn.classList.remove("hidden");
+    el.rotateArrow.classList.toggle("on",
+      state.phase === "ROLL" && state.canRotate);
+  } else {
+    el.throttleBtn.classList.add("hidden");
+    el.rotateArrow.classList.remove("on");
 
-  state.heading -= TUNE.turnRateAtFullBankDeg * DEG * (state.bank / TUNE.bankLimitDeg) * dt;
+    let resp = state.touching ? TUNE.controlResponse : TUNE.autoLevelResponse;
+    let turnCoupling = true;
 
-  const pr = state.pitch * DEG;
-  const hr = state.heading;
-  const cp = Math.cos(pr);
-  forward.set(-Math.sin(hr) * cp, Math.sin(pr), -Math.cos(hr) * cp);
-
-  state.x += forward.x * TUNE.speed * dt;
-  state.z += forward.z * TUNE.speed * dt;
-  state.y += forward.y * TUNE.speed * dt;
-
-  const ground = terrainHeight(state.x, state.z) + TUNE.terrainClearance;
-  if (state.y <= ground) {
-    state.y = ground;
-    if (state.bounceTimer <= 0) {
-      state.airVy = TUNE.bounceImpulse;
-      state.bounceTimer = TUNE.bounceHoldTime;
-      boing();
+    if (state.phase === "CLIMB_AWAY") {
+      state.climbAwayTimer -= dt;
+      targetPitch = TUNE.climbAwayPitchDeg;
+      targetBank = 0;
+      resp = TUNE.controlResponse;
+      state.assistBias *= Math.max(0, 1 - 3 * dt);
+      state.speed += (TUNE.cruiseSpeed - state.speed) * Math.min(1, 1.2 * dt);
+      if (state.climbAwayTimer <= 0) {
+        state.phase = "AIRBORNE";
+        flags.missed++;
+      }
+    } else if (state.phase === "LANDED") {
+      state.speed = Math.max(state.speed - TUNE.brakeDecel * 0.55 * dt, 0);
+      targetPitch = 0;
+      targetBank = 0;
+      resp = 4;
+      turnCoupling = false;
+      state.assistBias = 0;
+      const adR = state.approachData;
+      if (adR && Math.abs(adR.along) < TUNE.runwayLength) {
+        state.heading += wrapPi(adR.t - state.heading) * Math.min(1, 1.5 * dt);
+      }
+      if (state.speed <= 0.05 && !state.celebrated) {
+        state.celebrated = true;
+        confettiBurst();
+        cheer();
+        state.celebrateTimer = 2.6;
+      }
+      if (state.celebrated) {
+        state.celebrateTimer -= dt;
+        if (state.celebrateTimer <= 0) repositionToStart();
+      }
+    } else {
+      updateAssists(dt);
+      if (state.liftoffTimer > 0) {
+        state.liftoffTimer -= dt;
+        targetPitch = TUNE.liftoffPitchDeg;
+      }
+      if (state.engaged) {
+        targetBank += state.assistBias;
+      }
+      targetBank = clamp(targetBank, -TUNE.bankLimitDeg, TUNE.bankLimitDeg);
+      targetPitch = clamp(targetPitch, -TUNE.pitchLimitDeg, TUNE.pitchLimitDeg);
+      const targetSpeed = state.engaged ? TUNE.approachSpeed : TUNE.cruiseSpeed;
+      state.speed += (targetSpeed - state.speed) * Math.min(1, TUNE.autoThrottleResponse * dt);
     }
-  }
-  if (state.airVy !== null) {
-    state.airVy -= TUNE.bounceGravity * dt;
-    state.y += state.airVy * dt;
-    if (state.airVy <= forward.y * TUNE.speed && state.y > ground) {
-      state.airVy = null;
-    } else if (state.y <= ground) {
-      state.y = ground;
+
+    const k = Math.min(1, resp * dt);
+    state.bank += (targetBank - state.bank) * k;
+    state.pitch += (targetPitch - state.pitch) * k;
+
+    const effBank = clamp(state.bank + state.assistBias, -TUNE.bankLimitDeg, TUNE.bankLimitDeg);
+    if (turnCoupling) {
+      state.heading -= TUNE.turnRateAtFullBankDeg * DEG * (effBank / TUNE.bankLimitDeg) * dt;
+    }
+
+    const pr = state.pitch * DEG;
+    const hr = state.heading;
+    const cp = Math.cos(pr);
+    forward.set(-Math.sin(hr) * cp, Math.sin(pr), -Math.cos(hr) * cp);
+    state.x += forward.x * state.speed * dt;
+    state.z += forward.z * state.speed * dt;
+    state.y += forward.y * state.speed * dt;
+
+    setEngine(state.speed / TUNE.cruiseSpeed);
+
+    const groundNow = terrainEff(state.x, state.z);
+
+    if (state.phase === "LANDED") {
+      state.y = groundNow + TUNE.gearHeight;
+    } else {
+      const agl = state.y - groundNow;
+      const halfW = TUNE.runwayWidth / 2;
+      const halfL = TUNE.runwayLength / 2;
+      const ad = state.approachData || { t: 0, along: 1e9, lat: 1e9 };
+      const withinLat = Math.abs(ad.lat) <= halfW * TUNE.touchdownLatTolMult;
+      const overRect = ad.along > -40 && ad.along < halfL && withinLat;
+
+      if (state.phase === "AIRBORNE" && overRect && agl <= TUNE.touchdownClearance) {
+        if (Math.abs(wrapPi(state.heading - ad.t)) <= TUNE.touchdownHeadingTolDeg * DEG) {
+          state.phase = "LANDED";
+          flags.touchdown++;
+          chirp();
+          state.y = groundNow + TUNE.gearHeight;
+        } else {
+          state.approachLatch = false;
+          state.phase = "CLIMB_AWAY";
+          state.climbAwayTimer = TUNE.climbAwayTime;
+        }
+      } else if (
+        state.phase === "AIRBORNE" && state.approachLatch && agl < 45 &&
+        (ad.along > halfL + 40 || (ad.along > 60 && !withinLat))
+      ) {
+        state.approachLatch = false;
+        state.phase = "CLIMB_AWAY";
+        state.climbAwayTimer = TUNE.climbAwayTime;
+      } else if (agl <= TUNE.terrainClearance && !(
+        Math.abs(state.x) <= halfW + 12 && Math.abs(state.z) <= halfL + 12
+      )) {
+        state.y = groundNow + TUNE.terrainClearance;
+        if (state.bounceTimer <= 0) {
+          state.airVy = TUNE.bounceImpulse;
+          state.bounceTimer = TUNE.bounceHoldTime;
+          boing();
+          flags.bounced++;
+        }
+      }
+
+      if (state.airVy !== null) {
+        state.airVy -= TUNE.bounceGravity * dt;
+        state.y += state.airVy * dt;
+        const gnd = terrainEff(state.x, state.z);
+        if (state.airVy <= Math.sin(state.pitch * DEG) * state.speed && state.y > gnd) {
+          state.airVy = null;
+        } else if (state.y <= gnd) {
+          state.y = gnd;
+        }
+      }
+      state.bounceTimer = Math.max(0, state.bounceTimer - dt);
     }
   }
 
   updateChunks(state.x, state.z);
+  updateScenery(state.x, state.z, false);
   skyDome.position.set(state.x, state.y, state.z);
+  waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
 
-  const hx = -Math.sin(hr), hz = -Math.cos(hr);
+  const hx = -Math.sin(state.heading), hz = -Math.cos(state.heading);
   for (const c of clouds) {
     const dx = c.position.x - state.x, dz = c.position.z - state.z;
     if (dx * dx + dz * dz > TUNE.fogFar * TUNE.fogFar * 1.44) {
-      respawnCloud(c, state.x, state.z, hx, hz, true);
+      respawnCloud(c, state.x, state.y, state.z, hx, hz, true);
     }
   }
 
+  const pulse = 1 + Math.sin(performance.now() * 0.001 * TUNE.ringPulseRate) * 0.07;
+  for (const r of rings) r.scale.setScalar(pulse);
+  const blinkOn = Math.sin(performance.now() * 0.004) > -0.3;
+  for (const b of blinkers) b.visible = blinkOn;
+
   camera.position.set(state.x, state.y, state.z);
-  camera.rotation.set(pr, hr, -state.bank * DEG);
+  camera.rotation.set(state.pitch * DEG, state.heading, -(state.bank + state.assistBias) * DEG);
+
+  updateHud();
+  updateFx(dt);
 }
+
+function updateHud() {
+  const asiFrac = clamp(state.speed / TUNE.asiMaxSpeed, 0, 1);
+  el.asiNeedle.style.transform = `rotate(${-120 + asiFrac * 240}deg)`;
+  const altM = Math.max(0, state.y - RWY_ELEV);
+  const altFrac = clamp(altM / TUNE.altMaxMeters, 0, 1);
+  el.altNeedle.style.transform = `rotate(${-120 + altFrac * 240}deg)`;
+  el.altDigits.textContent = String(Math.round(altM));
+  el.aiBall.style.transform = `rotate(${-state.bank}deg) translateY(${clamp(state.pitch, -40, 40) * TUNE.hudPitchPixelsPerDeg}px)`;
+}
+
+updateChunks(state.x, state.z);
+updateScenery(state.x, state.z, true);
+for (const c of clouds) respawnCloud(c, state.x, state.y, state.z, 0, -1, false);
+grabWakeLock();
+
+window.__lp = {
+  TUNE, state, flags, update,
+  api: {
+    setThrottle(v) { state.throttleHeld = !!v; },
+    setStick(bank, pitch) {
+      state.touching = true;
+      state.ctrlBank = clamp(bank, -1, 1);
+      state.ctrlPitch = clamp(pitch, -1, 1);
+    },
+    clearStick() { state.touching = false; state.ctrlBank = 0; state.ctrlPitch = 0; },
+    placeOnRunway() { repositionToStart(); },
+    teleportAirborne(distBehind, lateral, alt, headingDeg) {
+      state.x = lateral;
+      state.z = TUNE.runwayLength / 2 + distBehind;
+      state.y = RWY_ELEV + alt;
+      state.heading = headingDeg * DEG;
+      state.pitch = 0;
+      state.bank = 0;
+      state.speed = TUNE.cruiseSpeed;
+      state.airVy = null;
+      state.phase = "AIRBORNE";
+      state.liftoffTimer = 0;
+      state.climbAwayTimer = 0;
+      state.celebrated = false;
+      state.celebrateTimer = 0;
+      state.approachLatch = false;
+      state.canRotate = false;
+    }
+  }
+};
 
 let last = performance.now();
 function frame(now) {
@@ -519,7 +1553,7 @@ function frame(now) {
   if (dt > 1 / 30) dt = 1 / 30;
   if (dt <= 0) dt = 1 / 120;
   update(dt);
-  renderer.render(scene, camera);
+  if (!(window.__lp && window.__lp.noRender)) renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
