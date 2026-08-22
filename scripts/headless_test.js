@@ -249,6 +249,53 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-A explosions ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => window.__lp.api.teleportAirborne(-1500, 600, 45, 0));
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.9));
+    let boomed = false;
+    for (let i = 0; i < 30 && !boomed; i++) {
+      boomed = await page.evaluate(() => window.__lp.flags.exploded > 0 && window.__lp.state.exploding);
+      if (!boomed) await pump(page, 0.25);
+    }
+    check("crash: steep dive explodes", boomed);
+    await pump(page, 3.2);
+    const stillExploding = await page.evaluate(() => window.__lp.state.exploding);
+    const spd = await page.evaluate(() => window.__lp.state.speed);
+    const fin1 = await snapState(page);
+    check("crash: reassembles airborne, no penalty",
+      !stillExploding && fin1.finite && fin1.phase === "AIRBORNE" && spd > 10,
+      `phase=${fin1.phase} speed=${spd.toFixed(1)}`);
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.9));
+    let boomed2 = false;
+    for (let i = 0; i < 40 && !boomed2; i++) {
+      boomed2 = await page.evaluate(() => window.__lp.flags.exploded >= 2);
+      if (!boomed2) await pump(page, 0.25);
+    }
+    check("crash: deliberately repeatable", boomed2);
+    await page.evaluate(() => window.__lp.api.clearStick());
+    await pump(page, 3.5);
+    const fin = await snapState(page);
+    check("crash: state finite after two rebuilds", fin.finite && !fin.phase.includes("LANDED"), `y=${fin.y}`);
+
+    await page.evaluate(() => window.__lp.api.teleportAirborne(-800, -600, 30, 0));
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.22));
+    const b0 = await page.evaluate(() => window.__lp.flags.bounced);
+    const e0 = await page.evaluate(() => window.__lp.flags.exploded);
+    let bounced = false;
+    for (let i = 0; i < 20 && !bounced; i++) {
+      bounced = await page.evaluate((prevE) => window.__lp.flags.bounced > 0 || window.__lp.flags.exploded > prevE, e0);
+      if (!bounced) await pump(page, 0.25);
+    }
+    const b1 = await page.evaluate(() => window.__lp.flags.bounced);
+    const e1 = await page.evaluate(() => window.__lp.flags.exploded);
+    check("crash: shallow skim still bounces (no explosion)", bounced && e1 === e0 && b1 >= b0,
+      `bounced ${b0}->${b1} exploded=${e1}`);
+    await page.close();
+  }
+
   // ---------- T9 home indicator ----------
   {
     const { page } = await newPage(1180, 820);
