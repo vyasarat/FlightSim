@@ -351,7 +351,7 @@ function check(name, ok, extra) {
     const fin = await snapState(page);
     check("crash: state finite after two rebuilds", fin.finite && !fin.phase.includes("LANDED"), `y=${fin.y}`);
 
-    await page.evaluate(() => window.__lp.api.teleportAirborne(-800, -600, 30, 0));
+    await page.evaluate(() => window.__lp.api.teleportAirborne(-800, -600, 12, 0));
     await page.evaluate(() => window.__lp.api.setStick(0, -0.22));
     const b0 = await page.evaluate(() => window.__lp.flags.bounced);
     const e0 = await page.evaluate(() => window.__lp.flags.exploded);
@@ -365,6 +365,65 @@ function check(name, ok, extra) {
     check("crash: shallow skim still bounces (no explosion)", bounced && e1 === e0 && b1 >= b0,
       `bounced ${b0}->${b1} exploded=${e1}`);
     await page.close();
+  }
+
+  // ---------- T-C route end-to-end ----------
+  async function flyRoute(page, dirIdx, label) {
+    await page.evaluate((d) => { window.__lp.noRender = true; window.__lp.api.skipScreens(); window.__lp.api.spawnAt(d === 1 ? 1 : 0, d); }, dirIdx);
+    let simSecs = 0;
+    const step = 0.5;
+    const repos0 = await page.evaluate(() => window.__lp.flags.repositioned);
+    let airborne = false;
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    while (simSecs < 30 && !airborne) {
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.6));
+      await pump(page, step); simSecs += step;
+      if (canRot) {
+        const a = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+        if (a) { airborne = true; await page.evaluate(() => window.__lp.api.clearStick()); }
+      }
+    }
+    check(`route ${label}: takeoff`, airborne);
+    if (!airborne) return;
+
+    let landed = false;
+    while (simSecs < 300) {
+      const info = await page.evaluate(() => ({
+        z: window.__lp.state.z,
+        cz: window.__lp.TUNE.routeLength / 2 * (window.__lp.state.dirIdx === 0 ? -1 : 1),
+        td: window.__lp.flags.touchdown,
+        phase: window.__lp.state.phase
+      }));
+      const distToDest = Math.abs(info.cz - info.z);
+      await page.evaluate((sp) => window.__lp.api.setStick(0, sp), distToDest < 2300 ? -0.13 : 0);
+      await pump(page, step); simSecs += step;
+      if (info.td > 0 && info.phase === "LANDED") { landed = true; break; }
+    }
+    const expectedOrigin = dirIdx === 0 ? 1 : 0;
+    check(`route ${label}: reaches destination in 3-4 min cruise`,
+      landed && simSecs >= 150 && simSecs <= 290, `${simSecs.toFixed(0)}s landed=${landed}`);
+
+    let parked = false;
+    while (simSecs < 330 && !parked) {
+      parked = await page.evaluate((r0) => window.__lp.flags.repositioned > r0 && window.__lp.state.phase === "TAXI", repos0);
+      await pump(page, step); simSecs += step;
+    }
+    const originNow = await page.evaluate(() => window.__lp.state.originIdx);
+    check(`route ${label}: resets at destination for fly-back`, originNow === expectedOrigin,
+      `origin=${originNow} expected=${expectedOrigin}`);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
+  }
+
+  {
+    const a = await newPage(1180, 820);
+    await flyRoute(a.page, 0, "NY->CA");
+    await a.page.close();
+  }
+  {
+    const b = await newPage(1180, 820);
+    await flyRoute(b.page, 1, "CA->NY");
+    await b.page.close();
   }
 
   // ---------- T9 home indicator ----------
@@ -383,7 +442,7 @@ function check(name, ok, extra) {
       r.on && r.l >= -2 && r.t >= -2 && r.rgt <= 1182 && r.bot <= 822 && /rotate/.test(r.tf),
       JSON.stringify(r));
 
-    await page.evaluate(() => window.__lp.api.teleportAirborne(1200, 0, 90, 0));
+    await page.evaluate(() => window.__lp.api.teleportAirborne(2400, 0, 90, 0));
     await pump(page, 0.5);
     const angUp = await page.evaluate(() => {
       const m = document.getElementById("homeArrow").style.transform.match(/rotate\(([-\d.]+)deg\)/);
