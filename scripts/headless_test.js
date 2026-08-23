@@ -258,22 +258,24 @@ function check(name, ok, extra) {
     const bootOk = await page.evaluate(() => {
       const sv = document.getElementById("screenVehicle");
       sv.classList.remove("hiddenS");
-      const cards = [...sv.querySelectorAll(".card")];
-      if (cards.length !== 6) return { ok: false, why: "count" };
-      const sized = cards.every(c => {
+      const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
+      const hidden = [...sv.querySelectorAll(".card.hiddenS")];
+      if (visible.length !== 4) return { ok: false, why: "visible=" + visible.length };
+      const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
       });
-      return { ok: sized, why: "size" };
+      const keys = visible.map(c => c.dataset.v);
+      return { ok: sized && hidden.length === 2 && !keys.includes("helicopter") && !keys.includes("rocket"), why: keys.join(",") };
     });
-    check("vehicles: picker present at boot, six cards >= 100px", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows 4 (heli+rocket shelved), cards >= 100px", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
-      const vs = Object.values(window.__lp.TUNE.vehicles);
+      const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
       return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
     });
-    check("vehicles: six defined, airliners share stats by design",
-      combos.n === 6 && combos.uniq === 4, `n=${combos.n} uniq=${combos.uniq}`);
+    check("vehicles: four available, airliners share stats by design",
+      combos.n === 4 && combos.uniq === 2, `n=${combos.n} uniq=${combos.uniq}`);
 
     const vpBefore = await page.evaluate(() => window.__lp.state.vp.cruiseSpeed);
     await page.evaluate(() => {
@@ -409,25 +411,26 @@ function check(name, ok, extra) {
       const st = window.__lp.state;
       return {
         on: st.viewChase,
-        hudHidden: document.getElementById("hud").style.display === "none",
+        frameHidden: getComputedStyle(document.getElementById("pillarL")).display === "none",
+        dialVisible: document.getElementById("asiDial").getBoundingClientRect().height > 40,
         modelVisible: window.__lp.vehicleModel.visible,
         cx: cp.x, cy: cp.y, cz2: cp.z,
         px: st.x, py: st.y, pz: st.z
       };
     });
     chaseRaw.dist = Math.hypot(chaseRaw.cx - chaseRaw.px, chaseRaw.cy - chaseRaw.py, chaseRaw.cz2 - chaseRaw.pz);
-    const chase = { on: chaseRaw.on, hudHidden: chaseRaw.hudHidden, modelVisible: chaseRaw.modelVisible, dist: chaseRaw.dist };
-    check("view: chase mode active, cockpit hidden, model shown",
-      chase.on && chase.hudHidden && chase.modelVisible, JSON.stringify(chase));
+    const chase = { on: chaseRaw.on, frameHidden: chaseRaw.frameHidden, dialVisible: chaseRaw.dialVisible, modelVisible: chaseRaw.modelVisible, dist: chaseRaw.dist };
+    check("view: chase active, frame hidden, dials kept, model shown",
+      chase.on && chase.frameHidden && chase.dialVisible && chase.modelVisible, JSON.stringify(chase));
 
     await page.click("#viewBtn");
     await pump(page, 0.3);
     const back = await page.evaluate(() => ({
       off: !window.__lp.state.viewChase,
-      hudShown: document.getElementById("hud").style.display !== "none",
+      frameBack: getComputedStyle(document.getElementById("pillarL")).display !== "none",
       modelHidden: !window.__lp.vehicleModel.visible
     }));
-    check("view: toggles back to cockpit", back.off && back.hudShown && back.modelHidden);
+    check("view: toggles back to cockpit", back.off && back.frameBack && back.modelHidden);
 
     // gear toggle in flight
     await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
@@ -461,42 +464,7 @@ function check(name, ok, extra) {
     await page.close();
   }
 
-  // ---------- T-D space ----------
-  {
-    const { page } = await newPage(1180, 820);
-    await page.evaluate(() => { window.__lp.noRender = true; });
-    await page.evaluate(() => { window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); });
-    await page.evaluate(() => window.__lp.api.setThrottle(true));
-    let air = false, simSecs = 0;
-    while (simSecs < 30 && !air) {
-      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
-      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.85));
-      await pump(page, 0.5); simSecs += 0.5;
-      if (canRot) {
-        air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
-        if (air) await page.evaluate(() => window.__lp.api.setStick(0, 0.85));
-      }
-    }
-    check("space: rocket climbs with stick held", air);
-    let inSpace = false;
-    while (simSecs < 90 && !inSpace) {
-      inSpace = await page.evaluate(() => window.__lp.state.spaceF > 0.9);
-      if (!inSpace) await pump(page, 1); simSecs += 1;
-    }
-    check("space: rocket reaches space blend", inSpace,
-      `spaceF=${(await page.evaluate(() => window.__lp.state.spaceF)).toFixed(2)}`);
-    await page.evaluate(() => window.__lp.api.clearStick());
-    await pump(page, 3);
-    await page.evaluate(() => window.__lp.api.setStick(0, -0.7));
-    let back = false;
-    while (simSecs < 150 && !back) {
-      back = await page.evaluate(() => window.__lp.state.spaceF < 0.15);
-      if (!back) await pump(page, 1); simSecs += 1;
-    }
-    check("space: dive returns to sky", back);
-    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
-    await page.close();
-  }
+  // ---------- T-D ceiling (space content dormant: rocket shelved) ----------
   {
     const { page } = await newPage(1180, 820);
     await page.evaluate(() => { window.__lp.noRender = true; });
@@ -512,15 +480,15 @@ function check(name, ok, extra) {
         if (air) await page.evaluate(() => window.__lp.api.setStick(0, 0.9));
       }
     }
-    let maxY = 0, capped = true;
-    while (simSecs < 90) {
+    let capped = true;
+    while (simSecs < 70) {
       await pump(page, 1); simSecs += 1;
-      maxY = Math.max(maxY, await page.evaluate(() => window.__lp.state.y - Math.max(window.__lp.terrainEff(window.__lp.state.x, window.__lp.state.z), window.__lp.TUNE.waterLevel)));
       capped = await page.evaluate(() =>
-        window.__lp.state.y <= window.__lp.TUNE.otherVehicleCeiling + 6 && window.__lp.state.spaceF < 0.35);
-      if (simSecs > 40 && !capped) break;
+        window.__lp.state.y <= window.__lp.TUNE.otherVehicleCeiling + 6 &&
+        window.__lp.state.spaceF < 0.35);
+      if (simSecs > 30 && !capped) break;
     }
-    check("space: non-rocket capped below space", capped, `maxAgl=${maxY.toFixed(0)} ceiling=${await page.evaluate(() => window.__lp.TUNE.otherVehicleCeiling)}`);
+    check("ceiling: vehicles capped below dormant space", capped);
     await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
     await page.close();
   }
@@ -558,17 +526,15 @@ function check(name, ok, extra) {
 
     await page.evaluate(() => window.__lp.api.teleportAirborne(-800, -600, 12, 0));
     await page.evaluate(() => window.__lp.api.setStick(0, -0.22));
-    const b0 = await page.evaluate(() => window.__lp.flags.bounced);
     const e0 = await page.evaluate(() => window.__lp.flags.exploded);
-    let bounced = false;
-    for (let i = 0; i < 20 && !bounced; i++) {
-      bounced = await page.evaluate((prevE) => window.__lp.flags.bounced > 0 || window.__lp.flags.exploded > prevE, e0);
-      if (!bounced) await pump(page, 0.25);
+    let blew = false;
+    for (let i = 0; i < 24 && !blew; i++) {
+      blew = await page.evaluate((prevE) => window.__lp.flags.exploded > prevE, e0);
+      if (!blew) await pump(page, 0.25);
     }
-    const b1 = await page.evaluate(() => window.__lp.flags.bounced);
     const e1 = await page.evaluate(() => window.__lp.flags.exploded);
-    check("crash: shallow skim still bounces (no explosion)", bounced && e1 === e0 && b1 >= b0,
-      `bounced ${b0}->${b1} exploded=${e1}`);
+    check("crash: every impact explodes (shallow skim included)", blew && e1 === e0 + 1,
+      `exploded ${e0}->${e1}`);
     await page.close();
   }
 
@@ -657,6 +623,100 @@ function check(name, ok, extra) {
     check("strip: marker moves and dots pass en-route",
       mid.left !== "" && parseFloat(mid.left) > 30 && parseFloat(mid.left) < 95 && mid.passed >= 3,
       JSON.stringify(mid));
+    await page.close();
+  }
+
+  // ---------- T-H gear-up landing explodes ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    for (let i = 0; i < 40; i++) {
+      const air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+      if (air) break;
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.6));
+      await pump(page, 0.25);
+    }
+    const td0 = await page.evaluate(() => window.__lp.flags.touchdown);
+    await page.click("#gearBtn");
+    await pump(page, 1.2);
+    await page.evaluate(() => window.__lp.api.teleportAirborne(500, 0, 60, 0));
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.2));
+    let boomed = false;
+    for (let i = 0; i < 60 && !boomed; i++) {
+      boomed = await page.evaluate(() => window.__lp.flags.exploded > 0);
+      if (!boomed) await pump(page, 0.5);
+    }
+    const tds = await page.evaluate(() => window.__lp.flags.touchdown);
+    check("gear: belly landing explodes instead of landing",
+      boomed && tds === td0, `exploded=${boomed} td=${tds}`);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
+    await page.close();
+  }
+
+  // ---------- T-I slow throttle + glide guide ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    for (let i = 0; i < 40; i++) {
+      const air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+      if (air) break;
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.6));
+      await pump(page, 0.25);
+    }
+    await pump(page, 3);
+    const cruise = await page.evaluate(() => window.__lp.state.vp.cruiseSpeed);
+    const sb = await page.locator("#slowBtn").boundingBox();
+    await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
+    await page.mouse.down();
+    let slowed = false;
+    for (let i = 0; i < 20 && !slowed; i++) {
+      slowed = await page.evaluate((c) => window.__lp.state.speed < c * 0.7, cruise);
+      if (!slowed) await pump(page, 0.5);
+    }
+    check("throttle: slow button reduces airspeed", slowed);
+    await page.mouse.up();
+    let recovered = false;
+    for (let i = 0; i < 20 && !recovered; i++) {
+      recovered = await page.evaluate((c) => window.__lp.state.speed > c * 0.9, cruise);
+      if (!recovered) await pump(page, 0.5);
+    }
+    check("throttle: release returns to cruise", recovered);
+
+    // glide guide during engaged approach
+    await page.evaluate(() => window.__lp.api.teleportAirborne(900, 0, 60, 0));
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.16));
+    let guideSeen = false;
+    for (let i = 0; i < 40 && !guideSeen; i++) {
+      guideSeen = await page.evaluate(() =>
+        document.getElementById("glideGuide").classList.contains("on") &&
+        ["up", "down", "ok"].includes(document.getElementById("glideGuide").dataset.state));
+      if (!guideSeen) await pump(page, 0.5);
+    }
+    check("guidance: glide arrow appears on approach", guideSeen);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
+    await page.close();
+  }
+
+  // ---------- T-J chase model sits on the ground ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.setView(true); window.__lp.api.placeOnRunway(); });
+    await pump(page, 1);
+    const gap = await page.evaluate(() => {
+      const m = window.__lp.vehicleModel;
+      const st = window.__lp.state;
+      const wheelWorld = m.position.y - 1.9 * (st.vp.size || 1);
+      const ground = Math.max(window.__lp.terrainEff(st.x, st.z), window.__lp.TUNE.waterLevel);
+      return wheelWorld - ground;
+    });
+    check("view: landed model rests wheels on ground", Math.abs(gap) < 1.5, `gap=${gap.toFixed(2)}`);
     await page.close();
   }
 
