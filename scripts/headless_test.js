@@ -320,6 +320,147 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-F solid structures ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    const nSolids = await page.evaluate(() => {
+      let n = 0; window.__lp.forEachSolid ? window.__lp.forEachSolid(() => n++) : null;
+      return window.__lp.solidCount !== undefined ? window.__lp.solidCount : -1;
+    });
+    check("solids: registry populated", nSolids > 40, `count=${nSolids}`);
+
+    const e0 = await page.evaluate(() => window.__lp.flags.exploded);
+    const aim = await page.evaluate(() => {
+      let best = null;
+      window.__lp.forEachSolid(b => {
+        if (b.x > 0 && b.x < 260 && Math.abs(b.z + 4920) < 60 && (b.y1 - b.y0) > 80) {
+          if (!best || (b.y1 - b.y0) > (best.y1 - best.y0)) best = b;
+        }
+      });
+      return best ? { x: b_x(best), z: best.z, midY: (best.y0 + best.y1) / 2 } : null;
+      function b_x(b) { return b.x; }
+    });
+    check("solids: aimed at a real registered tower", !!aim, JSON.stringify(aim));
+    await page.evaluate((a) => {
+      const st = window.__lp.state;
+      st.x = a.x - 80; st.z = a.z;
+      st.heading = -Math.PI / 2; st.pitch = 0; st.bank = 0; st.dirIdx = 0;
+      st.y = a.midY;
+      st.speed = 60; st.phase = "AIRBORNE"; st.exploding = false;
+      st.destIdx = 1; st.originIdx = 0;
+    }, aim);
+    await page.evaluate(() => window.__lp.api.setStick(0, 0));
+    let boomed = false, maxX = -1e9;
+    for (let i = 0; i < 24 && !boomed; i++) {
+      const cur = await page.evaluate(() => ({
+        e: window.__lp.flags.exploded > 0,
+        x: window.__lp.state.x
+      }));
+      maxX = Math.max(maxX, cur.x);
+      boomed = cur.e || false;
+      if (!boomed) await pump(page, 0.25);
+    }
+    check("solids: flying into downtown tower shatters plane",
+      boomed && maxX < aim.x + 30,
+      `exploded=${boomed} maxX=${maxX.toFixed(0)} towerX=${aim.x.toFixed(0)}`);
+    await pump(page, 3.2);
+    const alive = await page.evaluate(() =>
+      !window.__lp.state.exploding && isFinite(window.__lp.state.x));
+    check("solids: reassembled after structure crash", alive);
+    await page.close();
+  }
+
+  // ---------- T-G view + gear ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+
+    const gearVisRocket = await page.evaluate(() => {
+      window.__lp.api.setVehicle("rocket");
+      for (let i = 0; i < 40; i++) {
+        const q = window.__rafQueue.splice(0);
+        if (q.length) q[q.length - 1](window.__simTime += 1000 / 60);
+      }
+      return document.getElementById("gearBtn").classList.contains("hidden");
+    });
+    check("gear: hidden for rocket", gearVisRocket);
+
+    const gearVisProp = await page.evaluate(() => {
+      window.__lp.api.setVehicle("prop");
+      for (let i = 0; i < 40; i++) {
+        const q = window.__rafQueue.splice(0);
+        if (q.length) q[q.length - 1](window.__simTime += 1000 / 60);
+      }
+      return !document.getElementById("gearBtn").classList.contains("hidden");
+    });
+    check("gear: visible for prop plane", gearVisProp);
+
+    const btnOk = await page.evaluate(() => {
+      const r = document.getElementById("viewBtn").getBoundingClientRect();
+      return r.width >= 80 && r.height >= 80;
+    });
+    check("view: toggle button >= 80px", btnOk);
+
+    await page.click("#viewBtn");
+    await pump(page, 0.5);
+    const chaseRaw = await page.evaluate(() => {
+      const cp = window.__lp.cameraPos;
+      const st = window.__lp.state;
+      return {
+        on: st.viewChase,
+        hudHidden: document.getElementById("hud").style.display === "none",
+        modelVisible: window.__lp.vehicleModel.visible,
+        cx: cp.x, cy: cp.y, cz2: cp.z,
+        px: st.x, py: st.y, pz: st.z
+      };
+    });
+    chaseRaw.dist = Math.hypot(chaseRaw.cx - chaseRaw.px, chaseRaw.cy - chaseRaw.py, chaseRaw.cz2 - chaseRaw.pz);
+    const chase = { on: chaseRaw.on, hudHidden: chaseRaw.hudHidden, modelVisible: chaseRaw.modelVisible, dist: chaseRaw.dist };
+    check("view: chase mode active, cockpit hidden, model shown",
+      chase.on && chase.hudHidden && chase.modelVisible, JSON.stringify(chase));
+
+    await page.click("#viewBtn");
+    await pump(page, 0.3);
+    const back = await page.evaluate(() => ({
+      off: !window.__lp.state.viewChase,
+      hudShown: document.getElementById("hud").style.display !== "none",
+      modelHidden: !window.__lp.vehicleModel.visible
+    }));
+    check("view: toggles back to cockpit", back.off && back.hudShown && back.modelHidden);
+
+    // gear toggle in flight
+    await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    for (let i = 0; i < 40; i++) {
+      const air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+      if (air) break;
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.6));
+      await pump(page, 0.25);
+    }
+    const gDown0 = await page.evaluate(() => window.__lp.state.gearDown);
+    await page.click("#gearBtn");
+    await pump(page, 1.2);
+    const gUp = await page.evaluate(() => ({
+      down: window.__lp.state.gearDown,
+      anim: window.__lp.state.gearAnim,
+      snd: window.__lp.flags.gear
+    }));
+    check("gear: button retracts gear mid-flight with sound",
+      gDown0 === true && gUp.down === false && gUp.anim < 0.15 && gUp.snd >= 1,
+      JSON.stringify(gUp));
+    await page.click("#gearBtn");
+    await pump(page, 1.2);
+    const gExt = await page.evaluate(() => ({
+      down: window.__lp.state.gearDown,
+      anim: window.__lp.state.gearAnim
+    }));
+    check("gear: extends again", gExt.down === true && gExt.anim > 0.85, JSON.stringify(gExt));
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
+    await page.close();
+  }
+
   // ---------- T-D space ----------
   {
     const { page } = await newPage(1180, 820);
@@ -460,7 +601,13 @@ function check(name, ok, extra) {
         phase: window.__lp.state.phase
       }));
       const distToDest = Math.abs(info.cz - info.z);
-      await page.evaluate((sp) => window.__lp.api.setStick(0, sp), distToDest < 2300 ? -0.13 : 0);
+      const aglNow = await page.evaluate(() =>
+        window.__lp.state.y - Math.max(window.__lp.terrainEff(window.__lp.state.x, window.__lp.state.z), window.__lp.TUNE.waterLevel));
+      let stickP = 0;
+      if (distToDest < 4600) stickP = -0.19;
+      else if (aglNow < 170) stickP = 0.16;
+      else if (aglNow > 210) stickP = -0.06;
+      await page.evaluate((sp) => window.__lp.api.setStick(0, sp), stickP);
       await pump(page, step); simSecs += step;
       if (info.td > 0 && info.phase === "LANDED") { landed = true; break; }
     }
