@@ -1,62 +1,162 @@
 # Little Pilot
 
-A no-reading, no-failing flying game for a 4-year-old. Single-page Canvas 2D game,
-vanilla JS, zero network calls after load. Spec lives outside the repo (Product Spec v1).
+A no-reading, no-failing flying game for a 4-year-old. Two builds live side by side
+on one droplet, both installable as home-screen PWAs:
 
-**Live:**
-- 2D side-scroller: https://flightsim.138.197.80.104.nip.io
-- 3D cockpit build: https://flightsim.138.197.80.104.nip.io/cockpit/
+| Build | URL | Stack | Status |
+|---|---|---|---|
+| **Cockpit 3D** (primary) | https://flightsim.138.197.80.104.nip.io/cockpit/ | Three.js r128 (vendored) + DOM HUD | Active development |
+| 2D side-scroller | https://flightsim.138.197.80.104.nip.io/ | Canvas 2D, single file | Frozen |
 
-The two builds are independent PWA shells (each has its own manifest/sw.js), so either
-URL can be added to the Home Screen separately for A/B testing.
-3D development happens on the `cockpit-3d` branch and merges into `main` to deploy;
-the branch is kept on origin.
+Zero text anywhere in either UI — icons, silhouettes and numbers only.
+Zero network calls after load; service workers cache everything.
 
-## Stack & hosting
+The player-spec lives outside the repo. Design rules that govern everything:
+nothing is ever taken away, no score, no unlocks, no timers, every control is a
+pointing skill not a timing skill, drag-up = nose-up.
 
-Same droplet as XDeck / Allergy Tracker (`138.197.80.104`, `ubuntu-s-1vcpu-1gb-nyc3-01`).
-Pure static site — nginx serves `/var/www/flightsim`, no backend, no PM2.
+## Repo layout
 
-| Piece | Where |
+```
+cockpit/
+  index.html        the entire 3D game (~2900 lines, inline JS, TUNE at top)
+  three.min.js      vendored r128 UMD build -- no CDN, offline-first
+  manifest.json     display:fullscreen, orientation:landscape
+  sw.js             cache-first service worker (bump CACHE_NAME on deploys)
+  icons/            180 / 192 / 512 px app icons
+index.html          frozen 2D build (same PWA shell pattern)
+manifest.json       2D manifest
+sw.js               2D service worker
+icons/              shared icon source set
+scripts/
+  make_icons.py     regenerates icons/ from code (PIL)
+  headless_test.js  60-check playwright harness -- run before every ship
+deploy/
+  deploy.sh         run ON the droplet: git pull + rsync to web root
+  nginx-flightsim.conf  reference copy of the live nginx site config
+qa-screenshots/      harness-generated screen captures
+```
+
+## Controls (what he actually touches)
+
+| Input | Effect |
 |---|---|
-| Repo | `git@github.com:vyasarat/FlightSim.git` |
-| Checkout on droplet | `/root/flightsim` |
-| Served from | `/var/www/flightsim` |
-| nginx config | `/etc/nginx/sites-available/flightsim` (copy in `deploy/nginx-flightsim.conf`) |
-| TLS | Let's Encrypt via certbot (`flightsim.138.197.80.104.nip.io`), auto-renews |
+| Drag anywhere, hold | Relative virtual stick from touch-down point. Left/right banks, up/down pitches. **Drag up = nose up**, never inverted |
+| Release | Auto-level to horizon at a gentler rate than active control |
+| Round button, bottom-right | Hold to throttle (takeoff roll). Engine sound tracks speed |
+| Yellow flashing arrow | Appears once rotation speed is reached (latched -- releasing throttle to free his finger doesn't lose it). Drag up past threshold to lift off |
+| Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials visible; only the window frame hides |
+| Gear button, bottom-left (planes only) | Retract / extend landing gear -- distinct up (grey wheel + red slash) and down (white wheel + ground line) icons, whirr/clunk sounds, animated struts in chase view. **Landing with gear up explodes** |
+| Down-chevrons button, bottom-right (airborne) | Hold to slow down; release returns to cruise |
+| White pointer arrow at screen edge | Points along the horizontal bearing of the destination airport; hides within `homeIndicatorDistance` or whenever approach assists engage |
+| Route strip, top-center | Plane glyph slides NY<->CA as he flies; dots fill in for landmarks passed |
+
+## Vehicles (all unlocked, tap to fly)
+
+Defined in `TUNE.vehicles` + `TUNE.vehicleColors`. After picking a vehicle he
+chooses direction: New York skyline icon (start NY, fly south) or palm-and-coast
+icon (start CA, fly north).
+
+| Vehicle | Cruise | Turn rate | Pitch limit | Notes |
+|---|---|---|---|---|
+| Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
+| Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (color only, no trade dress); have gear |
+
+Shelved behind `hidden: true` in `TUNE.vehicles` (defs intact, one flag to
+re-enable): helicopter (hover) and rocket (space access). Space content is
+dormant while the rocket is shelved; every other vehicle is ceiling-capped.
+
+Cockpit overlay accents recolor per vehicle via the `--veh` CSS variable.
+
+## The route: New York <-> California
+
+`TUNE.routeLength` (default 12000 units ≈ 3.5 min each way at cruise). Airports sit
+at ±routeLength/2 with flattened-terrain runway rects. Landmarks are placed at fixed
+fractions of the route and are **solid**:
+
+- NYC skyline cluster + spire, green statue on an island, two suspension bridges (flyable-under)
+- Farmland belt around the great lake
+- Mid-route city with a tall dark tower
+- Plains with grain silos and a moving freight train (chaseable, solid cars)
+- Snow-capped mountain range
+- Red canyon carved below the waterline (river fills it; wide enough to fly inside)
+- Desert with casino towers
+- California: red suspension bridge, hillside blocks, downtown cluster, palm trees, coastal ocean
+
+Landing guidance: the ring corridor plus two glowing centerline rails on the ground,
+and a HUD glide arrow during engaged approaches -- amber up/down when off the ideal
+glide path (`glideSlope`), pulsing green ring when on it.
+
+Landing at the far airport plays confetti + cheer, then immediately spawns him on
+that runway facing home. Missing the approach triggers a silent automatic go-around.
+All of it crashable -- see below.
+
+## Space (rocket only)
+
+Above `spaceAltitude` (900 AGL) blended over `spaceBlendBand`: sky/fog lerp to
+night, stars fade in, Earth curve below, astronaut + station props mid-route.
+Other vehicles are hard-capped at `otherVehicleCeiling`. Dive back down returns
+automatically.
+
+## Crashes & collisions
+
+- **Any impact explodes** -- terrain, water, structures, at any speed or angle: fireball, debris, camera shake, boom, plane reassembles ~2 s later (`reassembleDelay`) at safe altitude. Zero penalty, repeatable forever. (The old shallow-skim bounce is gone -- he asked for realism.)
+- Structures are solid AABBs (`resolveSolidWalls`): instanced town buildings, landmark towers/decks/silos/casinos/downtown, bridge decks, train cars. Wall hits shatter *both* sides -- nearby structure pieces hide into the debris cloud and restore on reassemble.
+- **Gear-up landings explode.** Touchdown tolerances (`touchdownLatTolMult`, `touchdownHeadingTolDeg`) still generous, but only with gear down.
+
+## Tuning
+
+Every gameplay number lives in the `TUNE` object at the top of the inline script
+in `cockpit/index.html`, grouped: flight feel (do not retune -- tested with the kid),
+takeoff/rotation, landing-assist strengths (weaken these gradually as he improves:
+`align*`, `touchdown*`, `autoThrottleResponse`), explosions, space, route/scenery,
+HUD/home indicator, audio, vehicles. Changing `routeLength` stretches the whole
+continent -- landmarks and zones derive from route fractions, nothing needs rebuilding.
+
+## Testing
+
+`scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL)
+through 62 checks: HUD layout in both orientations, zero-text DOM audit, takeoff
+(with and without input), sloppy-approach landings, go-around, deliberate repeatable
+crashes, shallow-skim-bounces, all six vehicles, full route both directions timed
+150–290 s, rocket round-trip to space, non-rocket ceiling, solid-wall shatter,
+view toggle, gear cycle (up/down icons), slow-throttle hold/release, glide-guidance arrow, chase-cam ground alignment, strip behavior, SW reachability, software-GL FPS smoke.
+
+```
+npm i playwright-core        # once, any node_modules location
+CHROME_HEADLESS_SHELL=/path/to/chrome-headless-shell \
+NODE_PATH=/path/to/node_modules \
+node scripts/headless_test.js
+```
+
+Serve is handled internally via python3 http.server on port 8177.
+Screenshots land in `qa-screenshots/`.
 
 ## Deploy
 
-SSH into the droplet and run the deploy script (pulls latest main + syncs to web root):
+Hosting matches the other apps on this droplet: nginx static site + Let's Encrypt
+via certbot, hostname `flightsim.138.197.80.104.nip.io`, docroot `/var/www/flightsim`,
+checkout `/root/flightsim`, GitHub auth via account SSH key.
 
 ```
-ssh root@138.197.80.104 'bash /root/flightsim/deploy/deploy.sh'
-```
+# ship (from anywhere):
+git push origin cockpit-3d && git checkout main && git merge --no-ff cockpit-3d && git push
+ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'
 
-Rollback:
-
-```
+# rollback:
 ssh root@138.197.80.104 'cd /root/flightsim && git checkout $(cat /tmp/flightsim-previous-rev) && bash deploy/deploy.sh'
 ```
 
-First-time provisioning on a fresh droplet: clone repo, copy `deploy/nginx-flightsim.conf`
-to `/etc/nginx/sites-available/flightsim`, symlink into `sites-enabled`, reload nginx.
-Certbot already manages the cert; if missing: `certbot --nginx -d flightsim.138.197.80.104.nip.io`.
+Branch flow: develop on `cockpit-3d`, merge to `main` to deploy; branch kept on origin.
+Bump `CACHE_NAME` in both `sw.js` files whenever shipping asset/code changes so his
+iPad's service worker refreshes.
+
+First-time provisioning on a fresh droplet: clone repo, copy
+`deploy/nginx-flightsim.conf` into `/etc/nginx/sites-available/flightsim`, symlink
+into `sites-enabled`, reload nginx, `certbot --nginx -d flightsim.138.197.80.104.nip.io`.
 
 ## iPad install
 
-1. Open the URL in Safari.
-2. Share → **Add to Home Screen** (fullscreen icon, no browser chrome).
+1. Open the build URL in Safari (each build is its own PWA scope).
+2. Share → Add to Home Screen.
 3. Settings → Accessibility → Guided Access to lock him in.
-
-Service worker caches everything on first load — works offline after that.
-Bump `CACHE_NAME` in `sw.js` when shipping asset changes.
-
-## Build stages (per spec)
-
-2D build (repo root): stages 1 ✅, 2–7 pending.
-
-3D cockpit build (`cockpit/`, branch `cockpit-3d`): stage 1 = flight feel only
-(drag = bank/pitch with ±30°/±45° clamps, release auto-levels, constant speed,
-terrain contact bounces). Tuning knobs in the `TUNE` object at the top of the
-script in `cockpit/index.html`. Three.js r128 is vendored — no CDN.
