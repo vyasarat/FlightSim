@@ -47,10 +47,10 @@ qa-screenshots/      harness-generated screen captures
 | Yellow flashing arrow | Appears once rotation speed is reached (latched -- releasing throttle to free his finger doesn't lose it). Drag up past threshold to lift off |
 | Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials visible; only the window frame hides |
 | Gear button, bottom-left (planes only) | Retract / extend landing gear -- distinct up (grey wheel + red slash) and down (white wheel + ground line) icons, whirr/clunk sounds, animated struts in chase view. **Landing with gear up explodes** |
-| Turtle button, bottom-right (airborne) | Hold to slow down; release returns to cruise |
-| Rabbit button, above it (airborne) | Hold to speed up to boost (`fastSpeedFactor`); release returns to cruise |
+| Turtle button, bottom-right (airborne) | Tap: step the set speed DOWN one notch. Speed stays where he sets it -- no snap-back |
+| Rabbit button, above it (airborne) | Tap: step the set speed UP one notch. Four steps total (`TUNE.speedSteps`); approach assists still cap speed on final |
 | Missile button, bottom-left above gear (airborne) | Fire a wing missile -- explodes on impact with terrain, structures, or traffic planes (cooldown `missileCooldown`) |
-| Parachute button, top-left (airborne, off-approach) | Skip to landing: places the plane aligned on the glide slope `skipOutDistance` from the destination, gear auto-extends, ~45-60 s out |
+| Plane-and-runway button, top-left (airborne, off-approach) | Skip to landing: places the plane aligned on the glide slope `skipOutDistance` from the destination, gear auto-extends, ~45-60 s out |
 | White pointer arrow at screen edge | Points along the horizontal bearing of the destination airport; hides within `homeIndicatorDistance` or whenever approach assists engage |
 | Route strip, top-center | Plane glyph slides NY<->CA as he flies; dots fill in for landmarks passed |
 
@@ -124,7 +124,7 @@ through 74 checks: HUD layout in both orientations, zero-text DOM audit, takeoff
 (with and without input), sloppy-approach landings, go-around, deliberate repeatable
 crashes, shallow-skim-bounces, all six vehicles, full route both directions timed
 150–290 s, rocket round-trip to space, non-rocket ceiling, solid-wall shatter,
-view toggle, gear cycle (up/down icons), slow/fast throttle hold-release, glide-guidance arrow, chase-cam ground alignment, missile firing + shootdowns + ground impact, traffic presence + mid-air collision, skip-to-landing end-to-end, strip behavior, SW reachability, software-GL FPS smoke.
+view toggle, gear cycle (up/down icons), persistent speed stepper (set-and-stays), glide-guidance arrow, chase-cam ground alignment, missile firing + shootdowns + ground impact, traffic presence + mid-air collision, skip-to-landing end-to-end, strip behavior, SW reachability, software-GL FPS smoke.
 
 ```
 npm i playwright-core        # once, any node_modules location

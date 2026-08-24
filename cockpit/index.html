@@ -442,9 +442,11 @@
 </div>
 <button id="skipBtn" class="roundBtn" aria-hidden="true">
   <svg viewBox="0 0 100 100">
-    <path d="M14 44 A36 36 0 0 1 86 44 L14 44 Z" fill="#f2f4f7" stroke="#8b93a0" stroke-width="3"/>
-    <path d="M14 44 L50 82 L86 44 M50 44 L50 82" fill="none" stroke="#8b93a0" stroke-width="4"/>
-    <circle cx="50" cy="85" r="7" fill="#e0483e"/>
+    <path d="M30 88 L38 88 L44 30 L56 30 L62 88 L54 88 L50 62 L42 88 Z" fill="none" stroke="#8b93a0" stroke-width="4" stroke-linejoin="round"/>
+    <line x1="24" y1="90" x2="76" y2="90" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round"/>
+    <line x1="30" y1="82" x2="36" y2="82" stroke="#e0483e" stroke-width="5" stroke-linecap="round"/>
+    <line x1="64" y1="82" x2="70" y2="82" stroke="#e0483e" stroke-width="5" stroke-linecap="round"/>
+    <path d="M62 34 L84 22 L80 34 L88 40 L70 44 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3" stroke-linejoin="round"/>
   </svg>
 </button>
 <button id="viewBtn" class="roundBtn" aria-hidden="true">
@@ -729,8 +731,7 @@ const TUNE = {
   spaceBlendBand: 260,
   otherVehicleCeiling: 520,
 
-  slowSpeedFactor: 0.45,
-  fastSpeedFactor: 1.3,
+  speedSteps: [0.45, 0.7, 1.0, 1.3],
   missileCount: 4,
   missileCooldown: 0.45,
   missileSpeed: 95,
@@ -2590,8 +2591,7 @@ const state = {
   gearAnim: 1,
   vehicleKey: "prop",
   vp: null,
-  slowHeld: false,
-  fastHeld: false,
+  speedStep: 2,
   missileCooldown: 0,
   missileSide: 1,
   dirIdx: 0,
@@ -2717,7 +2717,6 @@ function skipToLanding() {
   state.celebrated = false;
   state.celebrateTimer = 0;
   state.approachLatch = false;
-  state.slowHeld = false;
   state.throttleHeld = false;
   state.touching = false;
   state.ctrlBank = 0;
@@ -2753,35 +2752,19 @@ el.viewBtn.addEventListener("pointerdown", (e) => {
   el.hud.classList.toggle("chase", state.viewChase);
 });
 
-el.slowBtn.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  try { el.slowBtn.setPointerCapture(e.pointerId); } catch (err) {}
-  el.slowBtn.classList.add("pressed");
-  unlockAudio();
-  state.slowHeld = true;
-});
-const releaseSlow = () => {
-  el.slowBtn.classList.remove("pressed");
-  state.slowHeld = false;
-};
-el.slowBtn.addEventListener("pointerup", releaseSlow);
-el.slowBtn.addEventListener("pointercancel", releaseSlow);
-
 el.fastBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
-  try { el.fastBtn.setPointerCapture(e.pointerId); } catch (err) {}
-  el.fastBtn.classList.add("pressed");
   unlockAudio();
-  state.fastHeld = true;
+  state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
 });
-const releaseFast = () => {
-  el.fastBtn.classList.remove("pressed");
-  state.fastHeld = false;
-};
-el.fastBtn.addEventListener("pointerup", releaseFast);
-el.fastBtn.addEventListener("pointercancel", releaseFast);
+
+el.slowBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  unlockAudio();
+  state.speedStep = Math.max(state.speedStep - 1, 0);
+});
 
 el.missileBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
@@ -2948,9 +2931,7 @@ function update(dt) {
     state.phase !== "AIRBORNE" || state.engaged || (dzVis * dzVis) < TUNE.approachEngageDist * TUNE.approachEngageDist);
   const inFlight = state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY";
   el.slowBtn.classList.toggle("hidden", !inFlight);
-  el.slowBtn.classList.toggle("pressed", state.slowHeld);
   el.fastBtn.classList.toggle("hidden", !inFlight);
-  el.fastBtn.classList.toggle("pressed", state.fastHeld);
   el.missileBtn.classList.toggle("hidden", !inFlight);
   el.missileBtn.classList.toggle("cooldown", state.missileCooldown > 0);
   const gT = state.gearDown ? 1 : 0;
@@ -3055,9 +3036,9 @@ function update(dt) {
       targetBank = clamp(targetBank, -state.vp.bankLimitDeg, state.vp.bankLimitDeg);
       targetPitch = clamp(targetPitch, -state.vp.pitchLimitDeg, state.vp.pitchLimitDeg);
       const hover = state.vp.hoverSpeed > 0 && !state.touching;
-      let targetSpeed = hover ? state.vp.hoverSpeed : (state.engaged ? TUNE.approachSpeed : state.vp.cruiseSpeed);
-      if (state.fastHeld) targetSpeed = state.vp.cruiseSpeed * TUNE.fastSpeedFactor;
-      else if (state.slowHeld) targetSpeed = Math.min(targetSpeed, Math.max(20, state.vp.cruiseSpeed * TUNE.slowSpeedFactor));
+      let targetSpeed = state.vp.cruiseSpeed * TUNE.speedSteps[state.speedStep];
+      if (hover) targetSpeed = state.vp.hoverSpeed;
+      else if (state.engaged) targetSpeed = Math.min(targetSpeed, TUNE.approachSpeed);
       state.speed += (targetSpeed - state.speed) * Math.min(1, (hover ? 0.5 : TUNE.autoThrottleResponse * 1.6) * dt);
     }
 

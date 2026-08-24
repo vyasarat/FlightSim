@@ -671,35 +671,34 @@ function check(name, ok, extra) {
     }
     await pump(page, 3);
     const cruise = await page.evaluate(() => window.__lp.state.vp.cruiseSpeed);
-    const sb = await page.locator("#slowBtn").boundingBox();
-    await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
-    await page.mouse.down();
+    const step0 = await page.evaluate(() => window.__lp.state.speedStep);
+
+    // turtle tap: speed drops and STAYS down
+    await page.click("#slowBtn");
     let slowed = false;
-    for (let i = 0; i < 20 && !slowed; i++) {
-      slowed = await page.evaluate((c) => window.__lp.state.speed < c * 0.7, cruise);
+    for (let i = 0; i < 16 && !slowed; i++) {
+      slowed = await page.evaluate((c) => window.__lp.state.speed < c * 0.75, cruise);
       if (!slowed) await pump(page, 0.5);
     }
-    check("throttle: slow button reduces airspeed", slowed);
-    await page.mouse.up();
-    let recovered = false;
-    for (let i = 0; i < 20 && !recovered; i++) {
-      recovered = await page.evaluate((c) => window.__lp.state.speed > c * 0.9, cruise);
-      if (!recovered) await pump(page, 0.5);
-    }
-    check("throttle: release returns to cruise", recovered);
+    check("throttle: turtle tap slows", slowed);
+    await pump(page, 5);
+    const staysLow = await page.evaluate((c) => window.__lp.state.speed < c * 0.75, cruise);
+    check("throttle: slow speed persists (no regress to cruise)", staysLow);
 
-    const fb = await page.locator("#fastBtn").boundingBox();
-    check("throttle: fast button visible airborne", !!fb && fb.width >= 80);
-    await page.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2);
-    await page.mouse.down();
+    // two rabbit taps: up to boost, and STAYS
+    await page.click("#fastBtn");
+    await page.click("#fastBtn");
     let boosted = false;
-    for (let i = 0; i < 20 && !boosted; i++) {
-      boosted = await page.evaluate((c) => window.__lp.state.speed > c * 1.15, cruise);
+    for (let i = 0; i < 16 && !boosted; i++) {
+      boosted = await page.evaluate((c) => window.__lp.state.speed > c * 1.1, cruise);
       if (!boosted) await pump(page, 0.5);
     }
-    check("throttle: fast button boosts speed", boosted);
-    await page.mouse.up();
-    await pump(page, 2);
+    check("throttle: rabbit taps speed up", boosted);
+    await pump(page, 5);
+    const staysFast = await page.evaluate((c) => window.__lp.state.speed > c * 1.1, cruise);
+    check("throttle: fast speed persists", staysFast);
+    const stepNow = await page.evaluate(() => window.__lp.state.speedStep);
+    check("throttle: step index tracked", stepNow === step0 + 1, `step ${step0}->${stepNow}`);
 
     // glide guide during engaged approach
     await page.evaluate(() => window.__lp.api.teleportAirborne(900, 0, 60, 0));
