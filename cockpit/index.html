@@ -1527,7 +1527,7 @@ function rebuildBuildings(px, pz) {
         buildingInst.setMatrixAt(bi, dummyObj.matrix);
         tmpColor.setHex(BUILDING_PALETTE[Math.floor(hashSalt(cx + k, cz + k, 72) * BUILDING_PALETTE.length)]);
         buildingInst.setColorAt(bi, tmpColor);
-        buildingBoxes.push({ x: wx, z: wz, hw: w / 2, hd: d / 2, top: gy - 0.3 + hgt, idx: bi });
+        buildingBoxes.push({ x: wx, z: wz, hw: w / 2, hd: d / 2, y0: gy - 0.3, y1: gy - 0.3 + hgt, top: gy - 0.3 + hgt, idx: bi });
         bi++;
       }
     }
