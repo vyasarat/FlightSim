@@ -169,7 +169,6 @@ function frame(now) {
   // Schedule the next frame first so a thrown exception can never end the loop
   // (the game runs under Guided Access -- there is no way to reload it).
   requestAnimationFrame(frame);
-  frameCount++;
   try {
     update(dt);
     if (!(window.__lp && window.__lp.noRender)) renderer.render(scene, camera);

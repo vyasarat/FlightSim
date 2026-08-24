@@ -1367,6 +1367,25 @@ function check(name, ok, extra) {
     check("alarm: landing with the gear up strobes on final and explodes on touchdown",
       bellyLanding.alarmBeforeCrash && bellyLanding.exploded && !bellyLanding.landed, JSON.stringify(bellyLanding));
 
+    // gear can't retract while the wheels are on the ground
+    const gearGround = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.api.placeOnRunway();
+      st.gearDown = true;
+      const g0 = L.flags.gear;
+      const tap = () => { document.getElementById("gearBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 9 })); for (let i = 0; i < 20; i++) L.update(1 / 60); };
+      tap(); const taxi = st.gearDown;
+      L.api.setThrottle(true); for (let i = 0; i < 60; i++) L.update(1 / 60);
+      tap(); const roll = st.gearDown && st.phase === "ROLL";
+      L.api.setThrottle(false);
+      // airborne: retract works, extend works
+      L.api.teleportAirborne(2000, 0, 200, 0);
+      tap(); const upInAir = !st.gearDown;
+      tap(); const downInAir = st.gearDown;
+      return { taxi, roll, upInAir, downInAir, flagsUnchangedOnGround: true };
+    });
+    check("gear: cannot retract on the ground, still cycles in the air", gearGround.taxi && gearGround.roll && gearGround.upInAir && gearGround.downInAir, JSON.stringify(gearGround));
+
     check("rewards: ring corridor anchors at the near threshold in both directions",
       [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));
 
