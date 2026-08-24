@@ -1398,10 +1398,15 @@ function placeLandmark(cellX, cellZ) {
     if (!overWater) deckY = terrainEff(lx, lz) + 15;
     inst.position.set(lx, deckY, lz);
     inst.rotation.y = (hashSalt(cellX, cellZ, 94) < 0.5 ? 0 : Math.PI / 2);
-    if (inst.rotation.y > 0.1) {
+    const rot = Math.abs(inst.rotation.y) > 0.1;
+    if (rot) {
       solids.push({ x: lx, z: lz, hw: 10, hd: 185, y0: deckY - 4, y1: deckY + 24 });
+      solids.push({ x: lx, z: lz - 115, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
+      solids.push({ x: lx, z: lz + 115, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
     } else {
       solids.push({ x: lx, z: lz, hw: 185, hd: 10, y0: deckY - 4, y1: deckY + 24 });
+      solids.push({ x: lx - 115, z: lz, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
+      solids.push({ x: lx + 115, z: lz, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
     }
   }
   scene.add(inst);
@@ -1904,6 +1909,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   const ball = new THREE.Mesh(new THREE.SphereGeometry(12, 12, 10), lam(0xe8c860));
   ball.position.set(100, 105, 13);
   casinos.add(ball);
+  casinos.userData.pending.push({ lx: 100, ly0: 93, lz: 13, hw: 12, hd: 12, y1: 117, mesh: ball });
   addRouteLandmark(casinos, -250, -half * 0.555);
 
   const caBridge = suspensionBridge(0xd0342c, 700, 78, 21, 20);
@@ -1916,10 +1922,8 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   hill.position.y = 18;
   letters.add(hill);
   for (let i = 0; i < 7; i++) {
-    const blk = new THREE.Mesh(new THREE.BoxGeometry(16, 22, 4), lam(0xf4f8fa));
-    blk.position.set(-84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
+    const blk = lmBox(letters, 16, 22, 4, 0xf4f8fa, -84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
     blk.rotation.x = -0.4;
-    letters.add(blk);
   }
   addRouteLandmark(letters, 240, -half + 620 * RS);
 
@@ -3025,6 +3029,12 @@ function update(dt) {
       state.x = safePos.x;
       state.y = safePos.y;
       state.z = safePos.z;
+      forEachSolid(b => {
+        if (state.x > b.x - b.hw - 6 && state.x < b.x + b.hw + 6 &&
+            state.z > b.z - b.hd - 6 && state.z < b.z + b.hd + 6) {
+          state.y = Math.max(state.y, b.y1 + 40);
+        }
+      });
       state.speed = state.vp.cruiseSpeed * 0.6;
       state.pitch = 0;
       state.bank = 0;
