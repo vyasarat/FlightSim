@@ -169,8 +169,16 @@ function updateCrashWarning(dt) {
   let warn = false;
   if (state.phase === "AIRBORNE" && !state.exploding && state.liftoffTimer <= 0) {
     const vx = forward.x * state.speed, vz = forward.z * state.speed, vy = forward.y * state.speed + (state.airVy || 0) - (state.flaring ? TUNE.flareSink : 0);
-    const landing = inLandingZone() || onAnyRunwayRect(state.x, state.z);
-    if (!landing) {
+    // Gear up, lined up with the runway and low: that's a belly landing about
+    // to happen -- alarm, no suppression. Touchdown itself explodes.
+    const ad = state.approachData;
+    const gearUp = state.vp.hasGear && !state.gearDown;
+    const linedUp = !!ad && Math.abs(ad.lat) <= (TUNE.runwayWidth / 2) * TUNE.touchdownLatTolMult &&
+      ad.along > -300 && ad.along < TUNE.runwayLength / 2 + 40;
+    const aglHere = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+    if (gearUp && (linedUp || onAnyRunwayRect(state.x, state.z)) && aglHere < TUNE.gearWarnAgl) warn = true;
+    const landing = !gearUp && (inLandingZone() || onAnyRunwayRect(state.x, state.z));
+    if (!warn && !landing) {
       const groundNow = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
       const agl = state.y - groundNow;
       if (vy < -0.5 && agl / -vy < TUNE.crashWarnTime) warn = true;

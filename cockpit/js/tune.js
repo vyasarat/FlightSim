@@ -151,6 +151,7 @@ const TUNE = {
   wingmanHold: 3.0,
   wingmanCooldown: 20,
   crashWarnTime: 2.2,
+  gearWarnAgl: 25,
   keyStickRamp: 4.0,
 
   explodeDescentRate: 26,
