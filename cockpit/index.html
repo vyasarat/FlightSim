@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cockpit">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#79c8f2">
@@ -380,7 +381,7 @@
              calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     overflow-y: auto;
   }
-  .screen.hiddenS { display: none; }
+  .screen.hiddenS, .card.hiddenS { display: none; }
   .card {
     width: clamp(150px, 23vmin, 225px);
     height: clamp(110px, 16vmin, 158px);
@@ -544,7 +545,7 @@
       <circle cx="146" cy="58" r="9" fill="#bfeaff" stroke="#23282f" stroke-width="4"/>
     </svg>
   </button>
-  <button class="card vehCard hiddenS" data-v="helicopter">
+  <button class="card vehCard" data-v="helicopter">
     <svg viewBox="0 0 200 120">
       <line x1="20" y1="22" x2="180" y2="22" stroke="#23282f" stroke-width="7" stroke-linecap="round"/>
       <rect x="95" y="18" width="10" height="16" fill="#23282f"/>
@@ -557,7 +558,7 @@
       <line x1="108" y1="88" x2="110" y2="98" stroke="#23282f" stroke-width="5"/>
     </svg>
   </button>
-  <button class="card vehCard hiddenS" data-v="rocket">
+  <button class="card vehCard" data-v="rocket">
     <svg viewBox="0 0 200 120">
       <path d="M100 6 Q122 34 122 62 L122 96 L78 96 L78 62 Q78 34 100 6 Z" fill="#b8bec9" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
       <path d="M78 70 L54 100 L78 96 Z" fill="#d71920" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
@@ -630,7 +631,7 @@
 
 const TUNE = {
   fov: 72,
-  maxPixelRatio: 1.75,
+  maxPixelRatio: 1.5,
   cruiseSpeed: 60,
 
   pitchLimitDeg: 30,
@@ -642,10 +643,6 @@ const TUNE = {
 
 
   terrainClearance: 8,
-  bounceImpulse: 26,
-  bounceGravity: 30,
-  bouncePitchDeg: 14,
-  bounceHoldTime: 0.25,
 
   hillAmplitude: 18,
   hillWavelength: 350,
@@ -770,6 +767,7 @@ const TUNE = {
   missileLife: 4.0,
   trafficCount: 6,
   trafficRespawnDelay: 4.0,
+  trainSpeed: 22,
 
   explodeDescentRate: 26,
   explodeAngleDeg: 20,
@@ -906,7 +904,7 @@ function shapedTerrain(x, z) {
   const lk = lakeShape(x, z);
   if (lk > 0) h -= lk * 14;
   h -= coastDrop(z);
-  const harborZ = ROUTE_HALF() - 420;
+  const harborZ = ROUTE_HALF() - 420 * ROUTE_SCALE();
   if (Math.abs(x) < 2400 && Math.abs(z - harborZ) < 320) {
     const hd = Math.max(0, 1 - Math.abs(Math.abs(z - harborZ) - 60) / 130);
     h -= hd * 9;
@@ -924,7 +922,7 @@ function flattenMask(x, z) {
   for (let i = 0; i < AIRPORTS.length; i++) {
     const nx = Math.max(Math.abs(x) - TUNE.runwayWidth * 0.5 - 40, 0) / TUNE.flattenMargin;
     const dzAbs = Math.abs(z - AIRPORTS[i].cz);
-    const nz = Math.max(TUNE.runwayLength * 0.5 + 60 - dzAbs, 0) / TUNE.flattenMargin;
+    const nz = Math.max(dzAbs - (TUNE.runwayLength * 0.5 + 60), 0) / TUNE.flattenMargin;
     m = Math.max(m, 1 - smoothstep(0, 1, Math.max(nx, nz)));
   }
   return m;
@@ -1194,31 +1192,44 @@ function buildChunk(cx, cz) {
 const chunks = new Map();
 let lastCellX = null, lastCellZ = null;
 
-function updateChunks(px, pz) {
+// Chunks needed but not yet built, nearest-first. Drained a few per frame so a
+// cell crossing (up to 11 new chunks) never stalls one frame.
+const chunkQueue = [];
+const CHUNKS_PER_FRAME = 2;
+let chunkNeed = new Set();
+
+function updateChunks(px, pz, buildAllNow) {
   const cs = TUNE.chunkSize;
   const ccx = Math.round(px / cs), ccz = Math.round(pz / cs);
-  if (ccx === lastCellX && ccz === lastCellZ) return;
-  lastCellX = ccx;
-  lastCellZ = ccz;
-
-  const need = new Set();
-  for (let dx = -TUNE.chunkRadius; dx <= TUNE.chunkRadius; dx++) {
-    for (let dz = -TUNE.chunkRadius; dz <= TUNE.chunkRadius; dz++) {
-      const k = (ccx + dx) + "," + (ccz + dz);
-      need.add(k);
-      if (!chunks.has(k)) {
-        const m = buildChunk(ccx + dx, ccz + dz);
-        chunks.set(k, m);
-        scene.add(m);
+  if (ccx !== lastCellX || ccz !== lastCellZ) {
+    if (Math.abs(ccx - lastCellX) > 1 || Math.abs(ccz - lastCellZ) > 1) buildAllNow = true;
+    lastCellX = ccx;
+    lastCellZ = ccz;
+    chunkNeed = new Set();
+    chunkQueue.length = 0;
+    for (let dx = -TUNE.chunkRadius; dx <= TUNE.chunkRadius; dx++) {
+      for (let dz = -TUNE.chunkRadius; dz <= TUNE.chunkRadius; dz++) {
+        const k = (ccx + dx) + "," + (ccz + dz);
+        chunkNeed.add(k);
+        if (!chunks.has(k)) chunkQueue.push({ k, cx: ccx + dx, cz: ccz + dz, d: dx * dx + dz * dz });
+      }
+    }
+    chunkQueue.sort((a, b) => a.d - b.d);
+    for (const [k, m] of chunks) {
+      if (!chunkNeed.has(k)) {
+        scene.remove(m);
+        m.geometry.dispose();
+        chunks.delete(k);
       }
     }
   }
-  for (const [k, m] of chunks) {
-    if (!need.has(k)) {
-      scene.remove(m);
-      m.geometry.dispose();
-      chunks.delete(k);
-    }
+  let budget = buildAllNow ? Infinity : CHUNKS_PER_FRAME;
+  while (chunkQueue.length && budget-- > 0) {
+    const q = chunkQueue.shift();
+    if (chunks.has(q.k) || !chunkNeed.has(q.k)) continue;
+    const m = buildChunk(q.cx, q.cz);
+    chunks.set(q.k, m);
+    scene.add(m);
   }
 }
 
@@ -1236,7 +1247,9 @@ scene.add(ringsGroup);
   for (let i = 0; i < TUNE.ringCount; i++) {
     const s = i / (TUNE.ringCount - 1);
     const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.set(0, 3 + TUNE.ringStartAltitude * Math.pow(1 - s, 1.35), TUNE.ringStartDistance * (1 - s));
+    // Rings sit exactly on the glide slope so they agree with the HUD glide arrow.
+    const dist = TUNE.ringStartDistance * (1 - s);
+    ring.position.set(0, 3 + dist * TUNE.glideSlope, dist);
     ringsGroup.add(ring);
     rings.push(ring);
   }
@@ -1296,7 +1309,7 @@ function respawnCloud(c, px, pz, hx, hz, ahead) {
 function inCorridor(x, z, extra) {
   for (let i = 0; i < AIRPORTS.length; i++) {
     if (Math.abs(x) < TUNE.runwayWidth / 2 + 35 + extra
-      && Math.abs(z - AIRPORTS[i].cz) < TUNE.runwayLength / 2 + (i === 0 ? TUNE.ringStartDistance : 200) + extra) {
+      && Math.abs(z - AIRPORTS[i].cz) < TUNE.runwayLength / 2 + TUNE.ringStartDistance + extra) {
       return true;
     }
   }
@@ -1346,8 +1359,10 @@ const towerProto = (() => {
   const blinkerMat = new THREE.MeshBasicMaterial({ color: 0xff4030, fog: false });
   const blinker = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 6), blinkerMat);
   blinker.position.y = 101;
+  // Found by name after clone(): Group.clone() JSON-copies userData, so a Mesh
+  // reference stored there would become a dead plain object.
+  blinker.name = "blinker";
   g.add(blinker);
-  g.userData.blinker = blinker;
   return g;
 })();
 
@@ -1387,7 +1402,8 @@ function placeLandmark(cellX, cellZ) {
     const gy = terrainEff(lx, lz);
     if (gy < TUNE.waterLevel + 1) return null;
     inst.position.set(lx, gy, lz);
-    if (inst.userData.blinker) blinkers.push(inst.userData.blinker);
+    const bl = inst.getObjectByName("blinker");
+    if (bl) { inst.userData.blinker = bl; blinkers.push(bl); }
     solids.push({ x: lx, z: lz, hw: 9, hd: 9, y0: gy, y1: gy + 101 });
   } else {
     let deckY = TUNE.waterLevel + 15;
@@ -1400,11 +1416,11 @@ function placeLandmark(cellX, cellZ) {
     inst.rotation.y = (hashSalt(cellX, cellZ, 94) < 0.5 ? 0 : Math.PI / 2);
     const rot = Math.abs(inst.rotation.y) > 0.1;
     if (rot) {
-      solids.push({ x: lx, z: lz, hw: 10, hd: 185, y0: deckY - 4, y1: deckY + 24 });
+      solids.push({ x: lx, z: lz, hw: 10, hd: 185, y0: deckY - 4, y1: deckY + 7 });
       solids.push({ x: lx, z: lz - 115, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
       solids.push({ x: lx, z: lz + 115, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
     } else {
-      solids.push({ x: lx, z: lz, hw: 185, hd: 10, y0: deckY - 4, y1: deckY + 24 });
+      solids.push({ x: lx, z: lz, hw: 185, hd: 10, y0: deckY - 4, y1: deckY + 7 });
       solids.push({ x: lx - 115, z: lz, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
       solids.push({ x: lx + 115, z: lz, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
     }
@@ -1520,14 +1536,17 @@ function rebuildBuildings(px, pz) {
         const w = 8 + hashSalt(cx + k, cz, 67) * 14;
         const d = 8 + hashSalt(cx, cz + k, 68) * 14;
         const hgt = 6 + hashSalt(cx + k, cz - k, 69) * 20;
+        const rotIdx = Math.round(hashSalt(cx, cz, 70) * 4);
         dummyObj.position.set(wx, gy - 0.3, wz);
-        dummyObj.rotation.set(0, Math.round(hashSalt(cx, cz, 70) * 4) * Math.PI / 2 + (hashSalt(cx, cz, 71) - 0.5) * 0.2, 0);
+        dummyObj.rotation.set(0, rotIdx * Math.PI / 2 + (hashSalt(cx, cz, 71) - 0.5) * 0.2, 0);
         dummyObj.scale.set(w, hgt, d);
         dummyObj.updateMatrix();
         buildingInst.setMatrixAt(bi, dummyObj.matrix);
         tmpColor.setHex(BUILDING_PALETTE[Math.floor(hashSalt(cx + k, cz + k, 72) * BUILDING_PALETTE.length)]);
         buildingInst.setColorAt(bi, tmpColor);
-        buildingBoxes.push({ x: wx, z: wz, hw: w / 2, hd: d / 2, y0: gy - 0.3, y1: gy - 0.3 + hgt, top: gy - 0.3 + hgt, idx: bi });
+        // Collider follows the visual quarter-turn: odd turns swap the x/z extents.
+        const hw = (rotIdx % 2 ? d : w) / 2, hd = (rotIdx % 2 ? w : d) / 2;
+        buildingBoxes.push({ x: wx, z: wz, hw, hd, y0: gy - 0.3, y1: gy - 0.3 + hgt, top: gy - 0.3 + hgt, idx: bi });
         bi++;
       }
     }
@@ -1581,16 +1600,22 @@ function makeTrafficModel(colorHex) {
 
 function spawnTraffic(t, farFromPlayer) {
   const px = state ? state.x : 0, pz = state ? state.z : 0;
-  for (let tries = 0; tries < 20; tries++) {
+  let placed = false;
+  for (let tries = 0; tries < 40; tries++) {
     t.heading = Math.random() < 0.5 ? 0 : Math.PI;
     t.x = (Math.random() - 0.5) * 1400;
     t.z = (Math.random() * 2 - 1) * (ROUTE_HALF() + 400);
     t.y = TUNE.waterLevel + 90 + Math.random() * 140;
     if (t.y < terrainEff(t.x, t.z) + 45) continue;
+    // Never spawn head-on inside the landing corridor / ring tunnel.
+    if (inCorridor(t.x, t.z, 300)) continue;
     const dx = t.x - px, dz = t.z - pz;
     if (farFromPlayer && dx * dx + dz * dz < 700 * 700) continue;
+    placed = true;
     break;
   }
+  // Every candidate was rejected: at least guarantee it's above the ground.
+  if (!placed) t.y = Math.max(t.y, Math.max(terrainEff(t.x, t.z), TUNE.waterLevel) + 80);
   t.speed = 30 + Math.random() * 26;
   t.phase = Math.random() * Math.PI * 2;
   t.alive = true;
@@ -1606,7 +1631,7 @@ function initTraffic() {
     const t = { mesh, x: 0, y: 0, z: 0, heading: 0, speed: 40, phase: 0, alive: true, respawn: 0, bank: 0 };
     traffic.push(t);
     spawnTraffic(t, false);
-    if (Math.abs(t.z - 6000) < 1500 || Math.abs(t.z + 6000) < 1500) spawnTraffic(t, true);
+    if (Math.abs(t.z - ROUTE_HALF()) < 1500 || Math.abs(t.z + ROUTE_HALF()) < 1500) spawnTraffic(t, true);
   }
 }
 
@@ -1637,7 +1662,7 @@ function updateTraffic(dt, px, py, pz) {
     t.mesh.rotation.set(0, t.heading, t.bank);
   }
 
-  if (state.phase === "AIRBORNE" && !state.exploding) {
+  if ((state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding) {
     for (const t of traffic) {
       if (!t.alive) continue;
       const dx = t.x - state.x, dy = t.y - state.y, dz = t.z - state.z;
@@ -1755,7 +1780,7 @@ function updateMissiles(dt) {
         triggerExplosion(hitX, hitY, hitZ, 0.8);
         flags.missileHits++;
       } else if (expired) {
-        triggerExplosion(m.x, m.y, m.z, 0.35);
+        triggerExplosion(m.x, m.y, m.z, 0.35, true);
       }
     } else {
       m.mesh.position.set(m.x, m.y, m.z);
@@ -1935,7 +1960,9 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
     const bh3 = 55 + hashSalt(i, 13, 232) * 68;
     lmBox(downtown, 18 + hashSalt(i, 13, 233) * 10, bh3, 18, i % 3 === 0 ? 0x8a97a8 : 0xb8c2cf, bx, bh3 / 2, (hashSalt(i, 13, 234) - 0.5) * 76);
   }
-  addRouteLandmark(downtown, 110, -half + 1080 * RS);
+  // Beside the approach, not under it: the corridor is clear of solids for
+  // ringStartDistance beyond both runway ends (see inCorridor + harness check).
+  addRouteLandmark(downtown, 460, -half + 1080 * RS);
 })();
 
 const TRAIN_CARS = 22;
@@ -1950,7 +1977,7 @@ for (let i = 0; i < TRAIN_CARS; i++) {
 trainInst.instanceColor.needsUpdate = true;
 scene.add(trainInst);
 const TRAIN_X = 340;
-const TRAIN_ZMIN = -600, TRAIN_ZMAX = 1600;
+const TRAIN_ZMIN = -600 * ROUTE_SCALE(), TRAIN_ZMAX = 1600 * ROUTE_SCALE();
 let trainHead = TRAIN_ZMAX;
 
 function updateTrain(dt, px, pz) {
@@ -1996,11 +2023,17 @@ function unlockAudio() {
   if (!audioCtx) {
     audioCtx = new AC();
     masterGain = audioCtx.createGain();
-    masterGain.gain.value = 1;
+    // Boom stacks three sources (~1.65 peak); keep headroom so crashes don't clip.
+    masterGain.gain.value = 0.6;
     masterGain.connect(audioCtx.destination);
   }
-  if (audioCtx.state === "suspended") audioCtx.resume();
-  startEngine();
+  // iOS reports "interrupted" (not "suspended") after a call / Siri / lock.
+  // Either way: resume, and start the engine only once the context is running.
+  if (audioCtx.state !== "running") {
+    audioCtx.resume().then(startEngine).catch(() => {});
+  } else {
+    startEngine();
+  }
 }
 
 function startEngine() {
@@ -2282,7 +2315,21 @@ for (let i = 0; i < 5; i++) {
 }
 let shakeAmp = 0;
 
-function triggerExplosion(nx, ny, nz, intensity) {
+// `small`: a visible pop only (fireballs + soft sound) -- no debris reset, no
+// camera shake. Used for a missile reaching the end of its range so a distant
+// self-destruct can't hijack a reassemble animation that's mid-flight.
+function triggerExplosion(nx, ny, nz, intensity, small) {
+  if (small) {
+    for (const fb of fireballs) {
+      fb.visible = true;
+      fb.position.set(nx, ny + 2, nz);
+      fb.position.x += (rnd() - 0.5) * 8;
+      fb.userData.t = 0;
+      fb.userData.dur = 0.35 + rnd() * 0.2;
+    }
+    noiseBurst(0.25, 400, 0.3, 0);
+    return;
+  }
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
     p.alive = true;
@@ -2315,6 +2362,8 @@ function triggerExplosion(nx, ny, nz, intensity) {
 }
 
 function updateExplosion(dt, homePos, seeking) {
+  // Nothing burning, nothing to home in on: skip the 26 matrix writes.
+  if (!debrisMesh.visible && !fireballs.some(fb => fb.visible)) return;
   let anyAlive = false;
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
@@ -2367,11 +2416,16 @@ let vehicleModel = null;
 const camDesired = new THREE.Vector3();
 const lookV = new THREE.Vector3();
 const aimWorld = new THREE.Vector3();
+const aimTmp = new THREE.Vector3();
 const camFwd = new THREE.Vector3();
 
 function buildVehicleModel(key) {
   if (vehicleModel) {
     scene.remove(vehicleModel);
+    vehicleModel.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+    });
     vehicleModel = null;
   }
   const cols = TUNE.vehicleColors[key];
@@ -2555,23 +2609,37 @@ function applyCamera(dt) {
   }
 }
 
+// Pieces hidden by a shatter (player crash or missile hit). They restore on
+// their own timer so a missile-shattered building never lingers as an invisible
+// wall waiting for the *player* to crash. A hidden piece is also skipped by
+// collision so nothing solid is ever invisible.
 const hiddenPieces = [];
-const zeroedTown = [];
+const hiddenTownIdx = new Set();
+let shatterTimer = 0;
+const MAX_HIDDEN_PIECES = 24;
+
+function isSolidHidden(b) {
+  if (b.mesh) return b.mesh.visible === false;
+  if (b.idx !== undefined) return hiddenTownIdx.has(b.idx);
+  return false;
+}
 
 function shatterAround(px, py, pz) {
   forEachSolid(b => {
-    if (hiddenPieces.length >= 10) return;
+    if (hiddenPieces.length >= MAX_HIDDEN_PIECES) return;
+    if (isSolidHidden(b)) return;
     const dx = Math.max(b.x - b.hw - px, px - (b.x + b.hw), 0);
     const dz = Math.max(b.z - b.hd - pz, pz - (b.z + b.hd), 0);
     const dy = Math.max(b.y0 - py, py - b.y1, 0);
     if (dx * dx + dz * dz + dy * dy > 70 * 70) return;
-    if (b.mesh && b.mesh.visible !== false) {
+    if (b.mesh) {
       b.mesh.visible = false;
       hiddenPieces.push({ kind: "mesh", mesh: b.mesh });
     } else if (b.idx !== undefined) {
       const m = new THREE.Matrix4();
       buildingInst.getMatrixAt(b.idx, m);
-      zeroedTown.push({ idx: b.idx, mat: m });
+      hiddenPieces.push({ kind: "town", idx: b.idx, mat: m });
+      hiddenTownIdx.add(b.idx);
       dummyObj.position.set(0, -9999, 0);
       dummyObj.scale.setScalar(0.001);
       dummyObj.updateMatrix();
@@ -2579,38 +2647,52 @@ function shatterAround(px, py, pz) {
       buildingInst.instanceMatrix.needsUpdate = true;
     }
   });
+  if (hiddenPieces.length) shatterTimer = TUNE.reassembleDelay;
 }
 
 function restoreShattered() {
   for (const h of hiddenPieces) {
     if (h.kind === "mesh") h.mesh.visible = true;
     else {
-      buildingInst.setMatrixAt(h.idx, h.mat);
-      buildingInst.instanceMatrix.needsUpdate = true;
+      // Skip if the town instance pool was rebuilt underneath us (idx now belongs
+      // to a different building); rebuildBuildings already wrote a fresh matrix.
+      if (hiddenTownIdx.has(h.idx)) {
+        buildingInst.setMatrixAt(h.idx, h.mat);
+        buildingInst.instanceMatrix.needsUpdate = true;
+      }
     }
   }
   hiddenPieces.length = 0;
-  zeroedTown.length = 0;
+  hiddenTownIdx.clear();
+  shatterTimer = 0;
+}
+
+function updateShatter(dt) {
+  if (shatterTimer <= 0) return;
+  shatterTimer -= dt;
+  if (shatterTimer <= 0) restoreShattered();
 }
 
 function resolveSolidWalls() {
-  if (state.exploding || state.phase !== "AIRBORNE") return;
+  if (state.exploding || (state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY")) return;
   flags.wallChecks = (flags.wallChecks || 0) + 1;
   const PRAD = 3;
   let hit = null;
   forEachSolid(b => {
     if (hit) return;
+    if (isSolidHidden(b)) return;
     const ex = b.hw + PRAD, ez = b.hd + PRAD;
     if (!(state.x > b.x - ex && state.x < b.x + ex &&
           state.z > b.z - ez && state.z < b.z + ez)) return;
     if (!(state.y > b.y0 - PRAD && state.y < b.y1 + PRAD)) return;
+    // Push direction points OUT of the face the plane is nearest to.
     const pens = [
-      { d: (b.x + ex) - state.x, nx: -1, nz: 0 },
-      { d: state.x - (b.x - ex), nx: -1, nz: 0 },
-      { d: (b.z + ez) - state.z, nz: -1, nx: 0 },
-      { d: state.z - (b.z - ez), nz: 1, nx: 0 },
-      { d: (b.y1 + PRAD) - state.y, ny: 1 },
-      { d: state.y - (b.y0 - PRAD), ny: -1 },
+      { d: (b.x + ex) - state.x, nx: 1, nz: 0, ny: 0 },
+      { d: state.x - (b.x - ex), nx: -1, nz: 0, ny: 0 },
+      { d: (b.z + ez) - state.z, nx: 0, nz: 1, ny: 0 },
+      { d: state.z - (b.z - ez), nx: 0, nz: -1, ny: 0 },
+      { d: (b.y1 + PRAD) - state.y, nx: 0, nz: 0, ny: 1 },
+      { d: state.y - (b.y0 - PRAD), nx: 0, nz: 0, ny: -1 },
     ];
     let best = pens[0];
     for (const q of pens) if (q.d < best.d) best = q;
@@ -2626,11 +2708,12 @@ function resolveSolidWalls() {
   triggerExplosion(state.x, state.y, state.z, clamp(state.speed / 80, 0, 1));
   state.exploding = true;
   state.explodeTimer = TUNE.reassembleDelay;
-  safePos.x = state.x + best.nx * 30;
+  safePos.x = state.x + (best.nx || 0) * 30;
   safePos.z = state.z + (best.nz || 0) * 30;
   safePos.y = Math.max(
     Math.max(terrainEff(safePos.x, safePos.z), TUNE.waterLevel) + 60,
-    state.y + 40
+    state.y + 40,
+    best.ny ? hit.b.y1 + 40 : -Infinity
   );
 }
 
@@ -2641,7 +2724,6 @@ const state = {
   touching: false,
   startX: 0, startY: 0,
   airVy: null,
-  bounceTimer: 0,
   speed: 0,
   phase: "TAXI",
   throttleHeld: false,
@@ -2670,7 +2752,7 @@ const state = {
   destIdx: 1
 };
 
-const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, bounced: 0, exploded: 0, gear: 0, missiles: 0, missileHits: 0, shootdowns: 0, midairs: 0 };
+const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, exploded: 0, gear: 0, missiles: 0, missileHits: 0, shootdowns: 0, midairs: 0 };
 const safePos = { x: 0, y: 0, z: 0 };
 
 function applyVehicle(key) {
@@ -2702,11 +2784,11 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.bank = 0;
   state.speed = 0;
   state.airVy = null;
-  state.bounceTimer = 0;
   state.ctrlBank = 0;
   state.ctrlPitch = 0;
-  state.touching = false;
-  state.throttleHeld = false;
+  // Deliberately do NOT clear `touching` / `throttleHeld`: the finger may still
+  // be physically down (ran off the runway end while holding throttle) and the
+  // pointerup that would re-arm it never comes.
   state.rotatePullTime = 0;
   state.liftoffTimer = 0;
   state.climbAwayTimer = 0;
@@ -2731,27 +2813,40 @@ initTraffic();
 
 const glEl = renderer.domElement;
 
+// The stick belongs to exactly one pointer. A second finger or a resting palm
+// is ignored entirely -- it must neither move the stick nor release it.
+let stickPointerId = null;
 glEl.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   unlockAudio();
   if (!state.touching) {
     state.touching = true;
+    stickPointerId = e.pointerId;
     state.startX = e.clientX;
     state.startY = e.clientY;
+    state.ctrlBank = 0;
+    state.ctrlPitch = 0;
+    try { glEl.setPointerCapture(e.pointerId); } catch (err) {}
   }
 });
 glEl.addEventListener("pointermove", (e) => {
-  if (!state.touching) return;
+  if (!state.touching || e.pointerId !== stickPointerId) return;
   const span = Math.min(window.innerWidth, window.innerHeight);
   state.ctrlBank = clamp((e.clientX - state.startX) / (span * TUNE.dragRangeX), -1, 1);
   state.ctrlPitch = clamp(-(e.clientY - state.startY) / (span * TUNE.dragRangeY), -1, 1);
 });
-const releaseDrag = () => {
+const releaseDrag = (e) => {
+  if (e && e.pointerId !== undefined && stickPointerId !== null && e.pointerId !== stickPointerId) return;
   state.touching = false;
+  stickPointerId = null;
 };
 glEl.addEventListener("pointerup", releaseDrag);
 glEl.addEventListener("pointercancel", releaseDrag);
-window.addEventListener("blur", releaseDrag);
+// Anything that can end a touch without telling us (Guided Access overlay,
+// notification banner, app switch) releases every held control.
+const releaseAllInputs = () => { releaseDrag(); releaseThrottle(); };
+window.addEventListener("blur", releaseAllInputs);
+window.addEventListener("pagehide", releaseAllInputs);
 
 el.throttleBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
@@ -2807,21 +2902,40 @@ function skipToLanding() {
 el.skipBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
+  if (state.exploding) return;
+  restoreShattered();
   skipToLanding();
 });
+
+// Toggle buttons ignore a toddler double-tap (two taps within 300 ms would
+// otherwise toggle twice and look like nothing happened).
+let frameCount = 0;
+function debounced(fn, frames) {
+  let lastF = -Infinity;
+  return () => {
+    if (frameCount - lastF < frames) return;
+    lastF = frameCount;
+    fn();
+  };
+}
 
 function toggleGear() {
   state.gearDown = !state.gearDown;
   gearSound(state.gearDown);
   flags.gear++;
 }
+const toggleGearDebounced = debounced(toggleGear, 18);
+
+const toggleView = debounced(() => {
+  state.viewChase = !state.viewChase;
+  el.hud.classList.toggle("chase", state.viewChase);
+}, 18);
 
 el.viewBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   unlockAudio();
-  state.viewChase = !state.viewChase;
-  el.hud.classList.toggle("chase", state.viewChase);
+  toggleView();
 });
 
 el.fastBtn.addEventListener("pointerdown", (e) => {
@@ -2853,10 +2967,13 @@ el.gearBtn.addEventListener("pointerdown", (e) => {
   e.stopPropagation();
   try { el.gearBtn.setPointerCapture(e.pointerId); } catch (err) {}
   unlockAudio();
-  toggleGear();
+  toggleGearDebounced();
 });
 
 document.querySelectorAll(".vehCard").forEach(card => {
+  // Shelved vehicles are hidden from TUNE alone (`hidden: true`), not from markup.
+  const def = TUNE.vehicles[card.dataset.v];
+  card.classList.toggle("hiddenS", !!(def && def.hidden));
   card.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -2895,12 +3012,34 @@ async function grabWakeLock() {
   try { wakeLock = await navigator.wakeLock.request("screen"); } catch (err) {}
 }
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") grabWakeLock();
+  if (document.visibilityState === "visible") {
+    grabWakeLock();
+    if (audioCtx && audioCtx.state !== "running") audioCtx.resume().then(startEngine).catch(() => {});
+  } else {
+    releaseAllInputs();
+  }
+});
+
+// iOS Safari drops WebGL contexts under memory pressure and rarely restores
+// them. If no restore arrives, reload -- a blank frozen canvas is the one
+// state a child under Guided Access cannot escape.
+renderer.domElement.addEventListener("webglcontextlost", (e) => {
+  e.preventDefault();
+  const t = setTimeout(() => location.reload(), 3000);
+  renderer.domElement.addEventListener("webglcontextrestored", () => clearTimeout(t), { once: true });
 });
 
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+  // A freshly-activated worker means new code is cached; pick it up on this
+  // launch instead of the next one. Only reload while sitting on the menu so a
+  // flight is never interrupted.
+  let hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadController && state.phase === "TAXI" && state.speed === 0) location.reload();
+    hadController = true;
   });
 }
 
@@ -2954,6 +3093,8 @@ function groundPhase(dt) {
       if (state.speed <= 0.01) spawnForTakeoff(state.originIdx, state.dirIdx);
     } else {
       state.phase = "TAXI";
+      state.canRotate = false;
+      state.rotatePullTime = 0;
     }
   }
 }
@@ -2979,6 +3120,9 @@ function updateAssists(dt) {
 
   if (!state.engaged) {
     state.assistBias *= Math.max(0, 1 - 2.5 * dt);
+    // Wandered away from the airport: forget the approach so a later low pass
+    // beside the runway can't trigger a surprise go-around.
+    if (distHoriz > TUNE.alignStartDist) state.approachLatch = false;
     return;
   }
 
@@ -3014,9 +3158,13 @@ function update(dt) {
     state.explodeTimer -= dt;
     const seeking = state.explodeTimer <= 0.5;
     updateExplosion(dt, safePos, seeking);
-    shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
     setEngine(0.01);
+    state.engaged = false;
     updateChunks(state.x, state.z);
+    updateShatter(dt);
+    updateTrain(dt, state.x, state.z);
+    updateTraffic(dt, state.x, state.y, state.z);
+    updateMissiles(dt);
     skyDome.position.set(state.x, state.y, state.z);
     waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
     applyCamera(dt);
@@ -3039,7 +3187,6 @@ function update(dt) {
       state.pitch = 0;
       state.bank = 0;
       state.airVy = null;
-      state.bounceTimer = 0;
       state.canRotate = false;
       state.approachLatch = false;
       whoosh();
@@ -3159,7 +3306,7 @@ function update(dt) {
     if (state.phase === "LANDED") {
       state.y = groundNow + TUNE.gearHeight;
     } else {
-      const agl = state.y - groundNow;
+      const agl = state.y - Math.max(groundNow, TUNE.waterLevel);
       const halfW = TUNE.runwayWidth / 2;
       const halfL = TUNE.runwayLength / 2;
       const ad = state.approachData || { t: 0, along: 1e9, lat: 1e9 };
@@ -3177,11 +3324,13 @@ function update(dt) {
           triggerExplosion(state.x, state.y, state.z, clamp(state.speed / 80, 0, 1));
         } else if (Math.abs(wrapPi(state.heading - ad.t)) <= TUNE.touchdownHeadingTolDeg * DEG) {
           state.phase = "LANDED";
+          state.engaged = false;
           flags.touchdown++;
           chirp();
           state.y = groundNow + TUNE.gearHeight;
         } else {
           state.approachLatch = false;
+          state.engaged = false;
           state.phase = "CLIMB_AWAY";
           state.climbAwayTimer = TUNE.climbAwayTime;
         }
@@ -3190,6 +3339,7 @@ function update(dt) {
         (ad.along > halfL + 40 || (ad.along > 60 && !withinLat))
       ) {
         state.approachLatch = false;
+        state.engaged = false;
         state.phase = "CLIMB_AWAY";
         state.climbAwayTimer = TUNE.climbAwayTime;
       } else if (agl <= TUNE.terrainClearance && !onAnyRunwayRect(state.x, state.z)) {
@@ -3251,6 +3401,7 @@ function update(dt) {
   updateChunks(state.x, state.z);
   updateScenery(state.x, state.z, false);
   updateTrain(dt, state.x, state.z);
+  updateShatter(dt);
   cullLandmarks(dt, state.x, state.z);
   updateTraffic(dt, state.x, state.y, state.z);
   updateMissiles(dt);
@@ -3319,7 +3470,7 @@ function updateAimMarker() {
   camera.updateMatrixWorld();
   camera.getWorldDirection(camFwd);
   aimWorld.set(state.x + fx * TUNE.aimMarkerDistance, state.y + fy * TUNE.aimMarkerDistance, state.z + fz * TUNE.aimMarkerDistance);
-  const toAim = aimWorld.clone().sub(camera.position);
+  const toAim = aimTmp.copy(aimWorld).sub(camera.position);
   if (toAim.dot(camFwd) <= 0) {
     el.aimMarker.classList.remove("on");
     return;
@@ -3342,14 +3493,17 @@ function updateHud() {
   const altM = Math.max(0, state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel));
   const altFrac = clamp(altM / TUNE.altMaxMeters, 0, 1);
   el.altNeedle.style.transform = `rotate(${-120 + altFrac * 240}deg)`;
-  el.altDigits.textContent = String(Math.round(altM));
+  const altStr = String(Math.round(altM));
+  if (el.altDigits.textContent !== altStr) el.altDigits.textContent = altStr;
   el.aiBall.style.transform = `rotate(${-state.bank}deg) translateY(${clamp(state.pitch, -40, 40) * TUNE.hudPitchPixelsPerDeg}px)`;
 
   if (state.engaged && state.approachData) {
-    const idealY = AIRPORTS[state.destIdx].elev + 3 + Math.max(0, state.approachData.along) * TUNE.glideSlope;
+    // `along` is negative while short of the threshold; distance-to-go is -along.
+    const idealY = AIRPORTS[state.destIdx].elev + 3 + Math.max(0, -state.approachData.along) * TUNE.glideSlope;
     const diff = state.y - idealY;
     el.glideGuide.classList.add("on");
-    el.glideGuide.dataset.state = diff > TUNE.glideBand ? "down" : (diff < -TUNE.glideBand ? "up" : "ok");
+    const gs = diff > TUNE.glideBand ? "down" : (diff < -TUNE.glideBand ? "up" : "ok");
+    if (el.glideGuide.dataset.state !== gs) el.glideGuide.dataset.state = gs;
   } else {
     el.glideGuide.classList.remove("on");
   }
@@ -3359,13 +3513,16 @@ function updateHud() {
   updateAimMarker();
 }
 
-updateChunks(state.x, state.z);
+updateChunks(state.x, state.z, true);
 updateScenery(state.x, state.z, true);
 for (const c of clouds) respawnCloud(c, state.x, state.z, 0, -1, false);
 grabWakeLock();
 
 window.__lp = {
-  TUNE, state, flags, update, terrainEff, ROUTE_LANDMARKS, wrapPi,
+  TUNE, state, flags, update, terrainEff, shapedTerrain, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,
+  get safePos(){return safePos;}, get blinkers(){return blinkers;}, get hiddenPieces(){return hiddenPieces;},
+  get trainHead(){return trainHead;}, get trainSolids(){return trainSolids;}, resolveSolidWalls,
+  get rings(){return rings;}, restoreShattered,
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
   get cameraPos(){return camera.position;},
   forEachSolid(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);for(const b of trainSolids)cb(b);}, get vehicleModel(){return vehicleModel;},
@@ -3426,9 +3583,19 @@ function frame(now) {
   last = now;
   if (dt > 1 / 30) dt = 1 / 30;
   if (dt <= 0) dt = 1 / 120;
-  update(dt);
-  if (!(window.__lp && window.__lp.noRender)) renderer.render(scene, camera);
+  // Schedule the next frame first so a thrown exception can never end the loop
+  // (the game runs under Guided Access -- there is no way to reload it).
   requestAnimationFrame(frame);
+  frameCount++;
+  try {
+    update(dt);
+    if (!(window.__lp && window.__lp.noRender)) renderer.render(scene, camera);
+  } catch (err) {
+    console.error("frame error", err);
+    window.__lp = window.__lp || {};
+    window.__lp.frameErrors = (window.__lp.frameErrors || 0) + 1;
+    if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
+  }
 }
 requestAnimationFrame(frame);
 
