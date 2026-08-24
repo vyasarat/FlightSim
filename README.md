@@ -47,7 +47,10 @@ qa-screenshots/      harness-generated screen captures
 | Yellow flashing arrow | Appears once rotation speed is reached (latched -- releasing throttle to free his finger doesn't lose it). Drag up past threshold to lift off |
 | Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials visible; only the window frame hides |
 | Gear button, bottom-left (planes only) | Retract / extend landing gear -- distinct up (grey wheel + red slash) and down (white wheel + ground line) icons, whirr/clunk sounds, animated struts in chase view. **Landing with gear up explodes** |
-| Down-chevrons button, bottom-right (airborne) | Hold to slow down; release returns to cruise |
+| Turtle button, bottom-right (airborne) | Hold to slow down; release returns to cruise |
+| Rabbit button, above it (airborne) | Hold to speed up to boost (`fastSpeedFactor`); release returns to cruise |
+| Missile button, bottom-left above gear (airborne) | Fire a wing missile -- explodes on impact with terrain, structures, or traffic planes (cooldown `missileCooldown`) |
+| Parachute button, top-left (airborne, off-approach) | Skip to landing: places the plane aligned on the glide slope `skipOutDistance` from the destination, gear auto-extends, ~45-60 s out |
 | White pointer arrow at screen edge | Points along the horizontal bearing of the destination airport; hides within `homeIndicatorDistance` or whenever approach assists engage |
 | Route strip, top-center | Plane glyph slides NY<->CA as he flies; dots fill in for landmarks passed |
 
@@ -103,6 +106,7 @@ automatically.
 - **Any impact explodes** -- terrain, water, structures, at any speed or angle: fireball, debris, camera shake, boom, plane reassembles ~2 s later (`reassembleDelay`) at safe altitude. Zero penalty, repeatable forever. (The old shallow-skim bounce is gone -- he asked for realism.)
 - Structures are solid AABBs (`resolveSolidWalls`): instanced town buildings, landmark towers/decks/silos/casinos/downtown, bridge decks, train cars. Wall hits shatter *both* sides -- nearby structure pieces hide into the debris cloud and restore on reassemble.
 - **Gear-up landings explode.** Touchdown tolerances (`touchdownLatTolMult`, `touchdownHeadingTolDeg`) still generous, but only with gear down.
+- **Traffic planes**: six AI airliners cruise the route in both directions (`trafficCount`). Shoot them with missiles or fly into them -- both explode on contact; they respawn elsewhere after `trafficRespawnDelay`. Mid-air collisions cost him nothing, same as everything else.
 
 ## Tuning
 
@@ -116,11 +120,11 @@ continent -- landmarks and zones derive from route fractions, nothing needs rebu
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL)
-through 62 checks: HUD layout in both orientations, zero-text DOM audit, takeoff
+through 74 checks: HUD layout in both orientations, zero-text DOM audit, takeoff
 (with and without input), sloppy-approach landings, go-around, deliberate repeatable
 crashes, shallow-skim-bounces, all six vehicles, full route both directions timed
 150–290 s, rocket round-trip to space, non-rocket ceiling, solid-wall shatter,
-view toggle, gear cycle (up/down icons), slow-throttle hold/release, glide-guidance arrow, chase-cam ground alignment, strip behavior, SW reachability, software-GL FPS smoke.
+view toggle, gear cycle (up/down icons), slow/fast throttle hold-release, glide-guidance arrow, chase-cam ground alignment, missile firing + shootdowns + ground impact, traffic presence + mid-air collision, skip-to-landing end-to-end, strip behavior, SW reachability, software-GL FPS smoke.
 
 ```
 npm i playwright-core        # once, any node_modules location
