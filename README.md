@@ -63,7 +63,7 @@ qa-screenshots/      harness-generated screen captures (gitignored)
 | Round button, bottom-right | Hold to throttle (takeoff roll). Engine sound tracks speed |
 | Yellow flashing arrow | Appears once rotation speed is reached (latched -- releasing throttle to free his finger doesn't lose it). Drag up past threshold to lift off |
 | Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials visible; only the window frame hides |
-| Gear button, bottom-left (planes only) | Retract / extend landing gear -- distinct up (grey wheel + red slash) and down (white wheel + ground line) icons, whirr/clunk sounds, animated struts in chase view. **Landing with gear up explodes** |
+| Gear button, bottom-left (planes only) | Retract / extend landing gear (retracting is ignored while the wheels are on the ground) -- distinct up (grey wheel + red slash) and down (white wheel + ground line) icons, whirr/clunk sounds, animated struts in chase view. **Landing with gear up explodes** |
 | Double-down-chevron button, bottom-right (airborne) | Tap: step the set speed DOWN one notch. Speed stays where he sets it -- no snap-back |
 | Double-up-chevron button, above it (airborne) | Tap: step the set speed UP one notch. Four steps total (`TUNE.speedSteps`); approach floor still prevents crawling on final |
 | Missile button, bottom-left above gear (airborne) | Fire a wing missile -- explodes on impact with terrain, structures, or traffic planes (cooldown `missileCooldown`). Sub-stepped collision detection means no tunneling; at end of range it self-destructs with a visible pop |
