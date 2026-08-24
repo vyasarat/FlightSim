@@ -416,6 +416,12 @@ function buildAirport(idx) {
     for (let k = 0; k < 12; k++) { d.position.set(-halfW + 2.5 + k * (TUNE.runwayWidth - 5) / 11, 0.45, endZ - Math.sign(endZ) * 6); d.updateMatrix(); inner.setMatrixAt(k, d.matrix); }
     g.add(inner);
   }
+  // addRouteLandmark anchors a group at terrain - 0.5 (so landmark bases sink
+  // into the ground). Airport ground layers are measured from the runway
+  // surface, so lift everything by that 0.5: otherwise the apron is buried and
+  // the taxiway's top face is coplanar with the terrain (it shimmered).
+  for (const c of g.children) c.position.y += 0.5;
+  for (const pnd of g.userData.pending) { pnd.ly0 += 0.5; pnd.y1 += 0.5; }
   addRouteLandmark(g, 0, ap.cz);
 }
 for (let i = 0; i < AIRPORTS.length; i++) buildAirport(i);
