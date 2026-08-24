@@ -106,7 +106,7 @@ function shapedTerrain(x, z) {
   const lk = lakeShape(x, z);
   if (lk > 0) h -= lk * 14;
   h -= coastDrop(z);
-  const harborZ = ROUTE_HALF() - 420 * ROUTE_SCALE();
+  const harborZ = ROUTE_HALF() - 1420 * ROUTE_SCALE();  // under the NY bridges, clear of the airport
   if (Math.abs(x) < 2400 && Math.abs(z - harborZ) < 320) {
     const hd = Math.max(0, 1 - Math.abs(Math.abs(z - harborZ) - 60) / 130);
     h -= hd * 9;
@@ -122,7 +122,7 @@ const AIRPORTS = [
 function flattenMask(x, z) {
   let m = 0;
   for (let i = 0; i < AIRPORTS.length; i++) {
-    const nx = Math.max(Math.abs(x) - TUNE.runwayWidth * 0.5 - 40, 0) / TUNE.flattenMargin;
+    const nx = Math.max(Math.abs(x) - TUNE.runwayWidth * 0.5 - 40 - TUNE.apronWidth, 0) / TUNE.flattenMargin;
     const dzAbs = Math.abs(z - AIRPORTS[i].cz);
     const nz = Math.max(dzAbs - (TUNE.runwayLength * 0.5 + 60), 0) / TUNE.flattenMargin;
     m = Math.max(m, 1 - smoothstep(0, 1, Math.max(nx, nz)));
