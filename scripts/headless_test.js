@@ -914,6 +914,79 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-N town building collisions ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    for (let i = 0; i < 40; i++) {
+      const air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+      if (air) break;
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.6));
+      await pump(page, 0.25);
+    }
+    await page.evaluate(() => window.__lp.api.clearStick());
+    await pump(page, 2);
+
+    // find a real town building near the plane, aim at its center
+    const aim = await page.evaluate(() => {
+      let best = null;
+      window.__lp.forEachSolid(b => {
+        if (b.idx === undefined || b.y0 === undefined) return;
+        const d = Math.hypot(b.x - window.__lp.state.x, b.z - window.__lp.state.z);
+        if (d < 600 && d > 80 && (b.y1 - b.y0) > 8) {
+          if (!best || d < best.d) best = { x: b.x, z: b.z, y0: b.y0, y1: b.y1, d };
+        }
+      });
+      return best;
+    });
+    check("town: found a nearby town building to test", !!aim, JSON.stringify(aim));
+
+    // missile into the town building
+    await page.evaluate((a) => {
+      const st = window.__lp.state;
+      st.heading = Math.atan2(-(a.x - st.x), -(a.z - st.z));
+      st.pitch = 0; st.bank = 0;
+      st.y = (a.y0 + a.y1) / 2;
+      st.speed = 60; st.phase = "AIRBORNE"; st.exploding = false;
+    }, aim);
+    const h0 = await page.evaluate(() => window.__lp.flags.missileHits);
+    await page.click("#missileBtn");
+    await page.evaluate(() => {
+      const st = window.__lp.state;
+      st.y += 260;
+      st.pitch = 0;
+    });
+    let mHit = false;
+    for (let i = 0; i < 16 && !mHit; i++) {
+      mHit = await page.evaluate((p0) => window.__lp.flags.missileHits > p0, h0);
+      if (!mHit) await pump(page, 0.25);
+    }
+    check("town: missile destroys a small building", mHit);
+
+    // plane into the same building
+    const e0 = await page.evaluate(() => window.__lp.flags.exploded);
+    await page.evaluate((a) => {
+      const st = window.__lp.state;
+      st.heading = Math.atan2(-(a.x - st.x), -(a.z - st.z));
+      st.pitch = 0; st.bank = 0;
+      st.y = (a.y0 + a.y1) / 2;
+      st.speed = 60; st.phase = "AIRBORNE"; st.exploding = false;
+      st.x = a.x + Math.sin(st.heading) * 90;
+      st.z = a.z + Math.cos(st.heading) * 90;
+    }, aim);
+    let boomed = false;
+    for (let i = 0; i < 16 && !boomed; i++) {
+      boomed = await page.evaluate((p0) => window.__lp.flags.exploded > p0, e0);
+      if (!boomed) await pump(page, 0.25);
+    }
+    check("town: plane hitting a small building explodes", boomed);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
+    await page.close();
+  }
+
   // ---------- T9 home indicator ----------
   {
     const { page } = await newPage(1180, 820);
