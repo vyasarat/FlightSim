@@ -105,7 +105,7 @@ window.__lp = {
   TUNE, state, flags, update, terrainEff, shapedTerrain, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,
   get safePos(){return safePos;}, get blinkers(){return blinkers;}, get hiddenPieces(){return hiddenPieces;},
   get trainHead(){return trainHead;}, get trainSolids(){return trainSolids;}, resolveSolidWalls,
-  get rings(){return rings;}, restoreShattered, get gates(){return gates;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
+  get rings(){return rings;}, restoreShattered, get gates(){return gates;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
   get cameraPos(){return camera.position;},
   forEachSolid(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);for(const b of trainSolids)cb(b);}, get vehicleModel(){return vehicleModel;},
