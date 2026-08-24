@@ -70,6 +70,8 @@ function check(name, ok, extra) {
 
   async function newPage(w, h) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+    // every harness page boots on the picker, even if a previous test saved a choice
+    await ctx.addInitScript(() => { try { localStorage.clear(); } catch (e) {} });
     const page = await ctx.newPage();
     const errors = [];
     page.on("pageerror", e => errors.push("pageerror: " + e.message));
@@ -1210,7 +1212,7 @@ function check(name, ok, extra) {
       st.heading = Math.atan2(-(b.x - st.x), -(b.z - st.z));
       L.fireMissile();
       let hidden = false, restored = false;
-      for (let i = 0; i < 60 * 8; i++) {
+      for (let i = 0; i < 60 * 16; i++) {
         L.update(1 / 60);
         if (b.mesh.visible === false) hidden = true;
         if (hidden && b.mesh.visible === true) { restored = true; break; }
@@ -1263,6 +1265,236 @@ function check(name, ok, extra) {
       return bad;
     });
     check("world: approach corridors are clear of solids below the glide slope", corridor.length === 0, JSON.stringify(corridor.slice(0, 6)));
+    await page.close();
+  }
+
+  // ---------- T-R rewards, feel, alarm, keyboard, persistence ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.skipScreens(); });
+
+    // rings: fly the slope from 1200 out; every ring should be eaten, each plays a note
+    const ringsR = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      L.api.teleportAirborne(1320, 0, 3 + 1320 * T.glideSlope, 0);  // behind the first ring (ringStartDistance)
+      L.api.setStick(0, -0.18);  // a gentle nose-down tracks the slope (same as the skip test)
+      st.speedStep = 1;
+      const e0 = L.flags.ringsEaten;
+      let touched = false;
+      for (let i = 0; i < 60 * 60; i++) {
+        L.update(1 / 60);
+        if (st.phase === "LANDED") { touched = true; break; }
+        if (st.exploding) break;
+      }
+      L.api.clearStick();
+      const eaten = L.rings.filter(r => r.userData.eaten).length;
+      const green = L.rings.filter(r => r.material === L.rings[0].parent.userData.matEaten).length;
+      return { eaten, green, total: L.rings.length, gained: L.flags.ringsEaten - e0, touched, exploded: st.exploding, flare: L.TUNE.flareAgl };
+    });
+    // the threshold ring sits at the touchdown point, so it may be reached after LANDED
+    check("rewards: flying the slope eats the rings (green) and auto-flare lands hands-off",
+      ringsR.eaten >= ringsR.total - 1 && ringsR.green === ringsR.eaten && ringsR.touched && !ringsR.exploded, JSON.stringify(ringsR));
+    const ringsReset = await page.evaluate(() => {
+      const L = window.__lp;
+      // LANDED -> celebrate -> spawnForTakeoff -> placeRings resets
+      for (let i = 0; i < 60 * 16; i++) L.update(1 / 60);
+      return { phase: L.state.phase, eaten: L.rings.filter(r => r.userData.eaten).length };
+    });
+    check("rewards: rings reset for the next approach", ringsReset.phase === "TAXI" && ringsReset.eaten === 0, JSON.stringify(ringsReset));
+
+    // gates: three kinds exist; flying through the canyon gate triggers a fanfare once, then re-arms
+    const gate = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const gs = L.gates;
+      const canyon = gs.find(g => !g.follow && Math.abs(g.z + 3800 * (T.routeLength / 12000)) < 1);
+      const train = gs.find(g => g.follow);
+      const bridges = gs.filter(g => !g.follow && g !== canyon).length;
+      if (!canyon) return { err: "no canyon gate", n: gs.length };
+      L.api.skipScreens();
+      st.phase = "AIRBORNE"; st.exploding = false; st.x = canyon.x; st.y = canyon.y; st.z = canyon.z + 60; st.heading = 0; st.pitch = 0; st.speed = 50;
+      L.api.clearStick();
+      const g0 = L.flags.gates;
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      const after1 = L.flags.gates - g0;
+      const wasGreen = canyon.green > 0;
+      // come back through immediately: cooldown means no second fanfare
+      st.x = canyon.x; st.y = canyon.y; st.z = canyon.z + 60; st.heading = 0; st.speed = 50;
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      const after2 = L.flags.gates - g0;
+      return { n: gs.length, bridges, train: !!train, after1, after2, wasGreen, cooldown: canyon.cooldown };
+    });
+    check("rewards: gates exist under bridges, in the canyon and on the train", !gate.err && gate.bridges >= 2 && gate.train, JSON.stringify(gate));
+    check("rewards: canyon gate fires once, turns green, then re-arms", !gate.err && gate.after1 === 1 && gate.after2 === 1 && gate.wasGreen && gate.cooldown > 0, JSON.stringify(gate));
+
+    // wingman: park next to a traffic plane for the hold time
+    const wing = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const t = L.traffic.find(x => x.alive);
+      const w0 = L.flags.wingman;
+      st.phase = "AIRBORNE"; st.exploding = false; st.speedStep = 1;
+      let nearSeen = false;
+      for (let i = 0; i < 60 * (T.wingmanHold + 1.5); i++) {
+        st.x = t.x + 20; st.y = t.y; st.z = t.z; st.speed = t.speed; st.heading = t.heading;
+        L.update(1 / 60);
+        if (document.getElementById("wingman").classList.contains("near")) nearSeen = true;
+      }
+      return { nearSeen, gained: L.flags.wingman - w0, done: document.getElementById("wingman").classList.contains("done") };
+    });
+    check("rewards: wingman icon lights when close and fires after the hold", wing.nearSeen && wing.gained === 1, JSON.stringify(wing));
+
+    // crash aftermath: smoke + crater linger, shattered pieces stay hidden longer than the plane
+    const aftermath = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const half = T.routeLength / 2;
+      // find dry land mid-route
+      let gx = 300, gz = 0;
+      for (let z = -half + 2000; z < half - 2000; z += 200) { if (L.terrainEff(300, z) > T.waterLevel + 5) { gz = z; break; } }
+      const gy = L.terrainEff(gx, gz);
+      st.phase = "AIRBORNE"; st.exploding = false; st.x = gx; st.z = gz; st.y = gy + 40; st.pitch = -60; st.speed = 60; st.heading = 0;
+      L.api.setStick(0, -1);
+      let t = 0;
+      for (; t < 60 * 6 && !st.exploding; t++) L.update(1 / 60);
+      L.api.clearStick();
+      const smoke = L.smokeSources.length, crater = L.craters.filter(c => c.life > 0).length;
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      const smokeLater = L.smokeSources.length, craterLater = L.craters.filter(c => c.life > 0).length;
+      return { exploded: t < 360, smoke, crater, smokeLater, craterLater, popped: st.popTimer > 0 || !st.exploding };
+    });
+    check("crash: leaves a smoke column and a crater that outlast the reassemble",
+      aftermath.exploded && aftermath.smoke > 0 && aftermath.crater > 0 && aftermath.smokeLater > 0 && aftermath.craterLater > 0, JSON.stringify(aftermath));
+
+    // alarm: diving at terrain strobes + beeps; a normal approach does not
+    const alarm = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const half = T.routeLength / 2;
+      let gz = 0;
+      for (let z = -half + 2000; z < half - 2000; z += 200) { if (L.terrainEff(300, z) > T.waterLevel + 5) { gz = z; break; } }
+      const gy = L.terrainEff(300, gz);
+      st.exploding = false; st.phase = "AIRBORNE"; st.x = 300; st.z = gz; st.y = gy + 60; st.pitch = -45; st.speed = 60; st.heading = 0; st.liftoffTimer = 0;
+      L.api.setStick(0, -1);
+      const a0 = L.flags.alarms;
+      let on = false;
+      for (let i = 0; i < 60 * 4 && !st.exploding; i++) { L.update(1 / 60); if (document.getElementById("alarm").classList.contains("on")) on = true; }
+      L.api.clearStick();
+      const diveAlarm = on && L.flags.alarms > a0;
+      // approach: on-slope, engaged, gear down -> no alarm even on short final
+      st.exploding = false;
+      L.api.teleportAirborne(400, 0, 3 + 400 * T.glideSlope, 0);
+      st.gearDown = true;
+      L.api.setStick(0, -0.18);
+      let approachAlarm = false;
+      for (let i = 0; i < 60 * 25; i++) { L.update(1 / 60); if (document.getElementById("alarm").classList.contains("on")) approachAlarm = true; if (st.phase === "LANDED") break; }
+      L.api.clearStick();
+      return { diveAlarm, approachAlarm, landed: st.phase === "LANDED", off: !document.getElementById("alarm").classList.contains("on") };
+    });
+    check("alarm: strobes on a dive into terrain, silent on a normal approach", alarm.diveAlarm && !alarm.approachAlarm && alarm.landed && alarm.off, JSON.stringify(alarm));
+
+    // keyboard: arrows steer (up = nose up), space throttles, keys toggle
+    const kb = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.api.placeOnRunway();
+      const fire = (type, code) => window.dispatchEvent(new KeyboardEvent(type, { code, bubbles: true }));
+      fire("keydown", "Space");
+      for (let i = 0; i < 60 * 6; i++) {
+        L.update(1 / 60);
+        if (st.canRotate) fire("keydown", "ArrowUp");
+        if (st.phase === "AIRBORNE") break;
+      }
+      const tookOff = st.phase === "AIRBORNE";
+      fire("keyup", "ArrowUp"); fire("keyup", "Space");
+      const thr = st.throttleHeld;
+      for (let i = 0; i < 30; i++) L.update(1 / 60);
+      fire("keydown", "ArrowUp");
+      for (let i = 0; i < 60; i++) L.update(1 / 60);
+      const pitchUp = st.ctrlPitch > 0.5 && st.touching;
+      fire("keyup", "ArrowUp");
+      for (let i = 0; i < 5; i++) L.update(1 / 60);
+      const released = !st.touching && st.ctrlPitch === 0;
+      const v0 = st.viewChase; fire("keydown", "KeyV"); fire("keyup", "KeyV"); for (let i = 0; i < 2; i++) L.update(1 / 60);
+      const g0 = st.gearDown; fire("keydown", "KeyG"); fire("keyup", "KeyG"); for (let i = 0; i < 2; i++) L.update(1 / 60);
+      const s0 = st.speedStep; fire("keydown", "Equal"); fire("keyup", "Equal");
+      return { tookOff, throttleReleased: !thr, pitchUp, released, view: st.viewChase !== v0, gear: st.gearDown !== g0, step: st.speedStep === Math.min(s0 + 1, L.TUNE.speedSteps.length - 1) };
+    });
+    check("keyboard: space + arrow-up takes off, arrows steer, keys toggle view/gear/speed", Object.values(kb).every(Boolean), JSON.stringify(kb));
+    await page.close();
+
+    // persistence: a chosen vehicle + direction is restored on the next launch
+    {
+      const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 1 });
+      const p1 = await ctx.newPage();
+      await p1.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
+      await p1.goto(URL);
+      await p1.waitForFunction(() => window.__lp);
+      await p1.click('[data-v="fighter"]');
+      await p1.click('[data-d="1"]');
+      const p2 = await ctx.newPage();
+      await p2.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
+      await p2.goto(URL);
+      await p2.waitForFunction(() => window.__lp);
+      const restored = await p2.evaluate(() => ({
+        key: window.__lp.state.vehicleKey, dir: window.__lp.state.dirIdx, phase: window.__lp.state.phase,
+        pickerHidden: document.getElementById("screenVehicle").classList.contains("hiddenS"),
+        vehBtn: !document.getElementById("vehBtn").classList.contains("hidden") || true
+      }));
+      await p2.evaluate(() => { window.__lp.update(1 / 60); });
+      const vehBtnShown = await p2.evaluate(() => !document.getElementById("vehBtn").classList.contains("hidden"));
+      await p2.click("#vehBtn");
+      const pickerBack = await p2.evaluate(() => !document.getElementById("screenVehicle").classList.contains("hiddenS"));
+      check("persistence: relaunch restores vehicle + direction straight to the runway; plane button reopens the picker",
+        restored.key === "fighter" && restored.dir === 1 && restored.phase === "TAXI" && restored.pickerHidden && vehBtnShown && pickerBack, JSON.stringify({ restored, vehBtnShown, pickerBack }));
+      await ctx.close();
+    }
+  }
+
+  // ---------- T-V visual regression (perceptual hashes of fixed scenes) ----------
+  {
+    const fs = require("fs");
+    const baselinePath = path.resolve(__dirname, "visual_baseline.json");
+    const update = !!process.env.UPDATE_VISUAL;
+    let baseline = {};
+    try { baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8")); } catch (e) {}
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.api.skipScreens(); for (const t of window.__lp.traffic) t.mesh.visible = false; });
+    const scenes = {
+      "runway-ny-cockpit": () => { window.__lp.api.placeOnRunway(); window.__lp.api.setView(false); },
+      "chase-canyon": () => { const T = window.__lp.TUNE; window.__lp.api.setView(true); const st = window.__lp.state; st.phase = "AIRBORNE"; st.x = 0; st.z = -3800 * (T.routeLength / 12000) + 420; st.y = T.waterLevel + 140; st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; },
+      "approach-rings": () => { const T = window.__lp.TUNE; window.__lp.api.setView(false); window.__lp.api.teleportAirborne(700, 0, 3 + 700 * T.glideSlope, 0); window.__lp.state.speed = 0; },
+      "ny-skyline-chase": () => { const T = window.__lp.TUNE; window.__lp.api.setView(true); const st = window.__lp.state; st.phase = "AIRBORNE"; st.x = 0; st.z = T.routeLength / 2 - 900; st.y = 160; st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; },
+    };
+    const got = {};
+    for (const [name, setup] of Object.entries(scenes)) {
+      got[name] = await page.evaluate(async (src) => {
+        const L = window.__lp;
+        L.noRender = true;
+        (new Function(src))();
+        // let the chase camera finish its lerp and scenery stream in before hashing
+        for (let i = 0; i < 150; i++) { const q = window.__rafQueue.splice(0); if (q.length) q[q.length - 1](window.__simTime += 1000 / 60); }
+        L.noRender = false;
+        const q = window.__rafQueue.splice(0); if (q.length) q[q.length - 1](window.__simTime += 1000 / 60);
+        const gl = document.getElementById("gl");
+        const c = document.createElement("canvas"); c.width = 24; c.height = 14;
+        const cx = c.getContext("2d");
+        cx.drawImage(gl, 0, 0, 24, 14);
+        const d = cx.getImageData(0, 0, 24, 14).data;
+        const out = [];
+        for (let i = 0; i < d.length; i += 4) out.push(Math.round((d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11)));
+        return out;
+      }, "(" + setup.toString() + ")()");
+      await page.screenshot({ path: path.join(SHOTS, `visual-${name}.png`) });
+    }
+    if (update) {
+      fs.writeFileSync(baselinePath, JSON.stringify(got));
+      console.log("INFO  visual: baseline written to scripts/visual_baseline.json");
+    } else {
+      for (const [name, hash] of Object.entries(got)) {
+        const ref = baseline[name];
+        if (!ref) { console.log(`INFO  visual: no baseline for ${name} (run with UPDATE_VISUAL=1)`); continue; }
+        let sum = 0, blank = hash.every(v => v === hash[0]);
+        for (let i = 0; i < hash.length; i++) sum += Math.abs(hash[i] - ref[i]);
+        const mean = sum / hash.length;
+        check(`visual: ${name} matches baseline`, mean < 14 && !blank, `mean |diff| ${mean.toFixed(1)}/255${blank ? " BLANK FRAME" : ""}`);
+      }
+    }
     await page.close();
   }
 

@@ -19,7 +19,24 @@ pointing skill not a timing skill, drag-up = nose-up.
 
 ```
 cockpit/
-  index.html        the entire 3D game (~3600 lines, inline JS, TUNE at top)
+  index.html        markup + CSS shell (~700 lines); loads js/ in order
+  js/               the game, classic scripts sharing one global scope, in load order:
+    tune.js         every gameplay number (TUNE)
+    terrain.js      noise, terrain shaping, flatten mask, runway rects
+    scene.js        renderer, sky, water, terrain chunk streaming
+    landing.js      ring corridor, centreline rails, ring eating
+    scenery.js      clouds, trees, town buildings, landmark cells, traffic models
+    traffic.js      AI airliners + missiles
+    landmarks.js    solids registry, route landmarks, gates, smoke/craters, train
+    audio.js        WebAudio synth (engine, rolling, one-shots)
+    hud.js          DOM refs, dials, route strip, 2D fx canvas
+    explosion.js    debris/fireball pools
+    vehicle.js      vehicle models, chase/cockpit camera
+    collision.js    shatter/restore, wall resolution
+    state.js        state object, vehicle apply, spawn
+    input.js        touch, buttons, keyboard, persistence, lifecycle, SW
+    flight.js       ground roll, approach assists, flare, alarm, update()
+    main.js         HUD update, test surface (window.__lp), frame loop
   three.min.js      vendored r128 UMD build -- no CDN, offline-first
   manifest.json     display:fullscreen, orientation:landscape
   sw.js             cache-first service worker (bump CACHE_NAME on deploys)
@@ -54,6 +71,26 @@ qa-screenshots/      harness-generated screen captures (gitignored)
 | Crosshair, center screen (airborne) | Flight-path marker -- shows exactly where the plane is aimed, including climb/dive; doubles as the missile aiming point. Clamps to the screen edge when the aim is off-view |
 | White pointer arrow at screen edge | Points along the horizontal bearing of the destination airport; hides within `homeIndicatorDistance` or whenever approach assists engage |
 | Route strip, top-center | Plane glyph slides NY<->CA as he flies; dots fill in for landmarks passed |
+| Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker. The last vehicle + direction are remembered (`localStorage`), so a relaunch goes straight to the runway |
+| **Keyboard** (desktop) | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter missile, `+`/`-` (or `]`/`[`) speed step, L skip-to-landing. A finger on the screen always wins over the keys |
+
+## Rewards (things that go "ding")
+
+Nothing here can be failed or lost; every one re-arms.
+
+- **Ring eating** -- fly through a landing ring and it turns green and plays the next note of a rising scale (`ringNotes`); land after eating three or more and the scale resolves into a chord. The rings sit exactly on the glide slope, so they *are* the landing instruction.
+- **Auto-flare** -- on an engaged approach below `flareAgl` the nose levels off regardless of the stick and the plane settles at `flareSink`. He can't arrive nose-first or tail-first. The last 300 m before the threshold (the flattened pad) never explodes on terrain when lined up with gear down.
+- **Touchdown** -- plane squashes, tyre puffs, the centreline rails pulse bright.
+- **Gates** -- gold hoops under every suspension bridge, inside the canyon, and one riding with the locomotive. Fly through: fanfare + sparkle, the hoop turns green for `gateGreenTime`, re-arms after `gateRearm`.
+- **Wingman** -- fly within `wingmanDist` of a traffic plane for `wingmanHold` seconds: the two-plane icon at the top lights up, then sparkles. Cooldown `wingmanCooldown`.
+- **Cloud whoosh** when passing through a cloud; runway rumble and a rolling-tyre noise on the ground that cuts at liftoff; the chase camera lags and leans into banks.
+
+## Imminent-crash alarm
+
+When the plane will hit terrain, water or a structure within `crashWarnTime` at its
+current velocity, the screen edges strobe red, a warning triangle flashes and an
+alarm beeps. It is silent whenever he is lined up on the runway with gear down
+(that's a landing, not a crash).
 
 ## Vehicles (all unlocked, tap to fly)
 
@@ -106,8 +143,8 @@ automatically.
 
 ## Crashes & collisions
 
-- **Any impact explodes** -- terrain, water, structures, at any speed or angle: fireball, debris, camera shake, boom, plane reassembles ~2 s later (`reassembleDelay`) at safe altitude. Zero penalty, repeatable forever. (The old shallow-skim bounce is gone -- he asked for realism.)
-- Structures are solid AABBs (`resolveSolidWalls`): instanced town buildings, landmark towers/decks/silos/casinos/downtown, bridge decks, train cars. Wall hits shatter *both* sides -- nearby structure pieces hide into the debris cloud and restore after `reassembleDelay` on their own timer (so a missile-shattered building never lingers as an invisible wall). Hidden pieces are never solid. Walls and mid-airs stay live during a go-around.
+- **Any impact explodes** -- terrain, water, structures, at any speed or angle: fireball, debris, camera shake, boom, plane reassembles ~2 s later (`reassembleDelay`) at safe altitude with a "boing" pop. A smoke column rises from the crash for ~8 s and a crater stays for `craterFade`. Zero penalty, repeatable forever. (The old shallow-skim bounce is gone -- he asked for realism.)
+- Structures are solid AABBs (`resolveSolidWalls`): instanced town buildings, landmark towers/decks/silos/casinos/downtown, bridge decks, train cars. Wall hits shatter *both* sides -- nearby structure pieces hide into the debris cloud and restore after `shatterRestoreDelay` on their own timer, longer than the plane's reassemble, so the damage is visible (a missile-shattered building never lingers as an invisible wall). Hidden pieces are never solid. Walls and mid-airs stay live during a go-around.
 - **Gear-up landings explode.** Touchdown tolerances (`touchdownLatTolMult`, `touchdownHeadingTolDeg`) still generous, but only with gear down.
 - **Traffic planes**: six AI airliners cruise the route in both directions (`trafficCount`). Shoot them with missiles or fly into them -- both explode on contact; they respawn elsewhere after `trafficRespawnDelay`. Mid-air collisions cost him nothing, same as everything else.
 
@@ -117,7 +154,8 @@ Every gameplay number lives in the `TUNE` object at the top of the inline script
 in `cockpit/index.html`, grouped: flight feel (do not retune -- tested with the kid),
 takeoff/rotation, landing-assist strengths (weaken these gradually as he improves:
 `align*`, `touchdown*`, `autoThrottleResponse`), explosions, space, route/scenery,
-HUD/home indicator, audio, vehicles. Changing `routeLength` stretches the whole
+HUD/home indicator, audio, vehicles, rewards & feel (ring notes, flare, gates,
+wingman, alarm, keyboard ramp). Changing `routeLength` stretches the whole
 continent -- landmarks and zones derive from route fractions, nothing needs rebuilding.
 
 ## Testing
@@ -130,7 +168,12 @@ crashes (every impact explodes, shallow skims included), all five visible vehicl
 view toggle, gear cycle (up/down icons), persistent speed stepper (set-and-stays), aim crosshair, glide-guidance arrow, chase-cam ground alignment, missile firing + shootdowns + ground impact + no-tunneling, traffic presence + mid-air collision, skip-to-landing end-to-end, strip behavior, SW/manifest reachability for both builds, and
 world-integrity regressions (no flattened ribbon along the route, train moves, beacons are
 live meshes, every wall face reassembles on the near side with finite coords,
-missile-shattered pieces self-restore, deep water crashes). FPS under software GL is printed as advisory only.
+missile-shattered pieces self-restore, deep water crashes), rewards (rings eaten + hands-off flare
+landing, gates fire once then re-arm, wingman, crash smoke/crater, alarm on a dive and silent on
+approach, keyboard takeoff and controls, remembered vehicle restored on relaunch), and a visual
+regression pass: four fixed scenes are rendered and reduced to 24x14 grey hashes compared against
+`scripts/visual_baseline.json` (mean pixel diff < 14/255). Re-baseline deliberately with
+`UPDATE_VISUAL=1` after an intentional look change. FPS under software GL is printed as advisory only.
 The harness refuses to run if something else is already serving port 8177.
 
 ```
@@ -165,7 +208,9 @@ only `index.html`, `manifest.json`, `sw.js`, `icons/`, `cockpit/` reach the docr
 
 Branch flow: develop on `cockpit-3d`, merge to `main` to deploy; branch kept on origin.
 Bump `CACHE_NAME` in the relevant `sw.js` whenever shipping asset/code changes so his
-iPad's service worker refreshes. The page reloads itself when a new worker takes over
+iPad's service worker refreshes (deploy.sh refuses to ship `cockpit/index.html`, `cockpit/js/`
+or `three.min.js` changes without one). Adding a file under `cockpit/js/` means adding it to
+both the `<script>` list and `cockpit/sw.js` ASSETS. The page reloads itself when a new worker takes over
 while sitting on the menu, so the first launch after a deploy already runs the new code.
 
 First-time provisioning on a fresh droplet: clone repo, copy
