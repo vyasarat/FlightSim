@@ -51,7 +51,8 @@ fi
 echo "→ Deploying $NEW_REV"
 # Allowlist: only what the browser needs. README, scripts, screenshots and
 # anything untracked never reach the public docroot.
-rsync -a --delete \
+# --delete-excluded also removes files a previous deploy left behind.
+rsync -a --delete --delete-excluded \
   --include='/index.html' --include='/manifest.json' --include='/sw.js' \
   --include='/icons/' --include='/icons/**' \
   --include='/cockpit/' --include='/cockpit/**' \
