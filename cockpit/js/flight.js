@@ -232,6 +232,7 @@ function updateRewards(dt) {
 }
 
 function update(dt) {
+  frameCount++;
   applyKeyboard(dt);
   el.vehBtn.classList.toggle("hidden", !(state.phase === "TAXI" && state.speed === 0 && !state.exploding));
   el.gearBtn.classList.toggle("hidden", !state.vp.hasGear);
