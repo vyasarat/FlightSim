@@ -155,6 +155,7 @@ automatically.
 - Structures are solid AABBs (`resolveSolidWalls`): instanced town buildings, landmark towers/decks/silos/casinos/downtown, bridge decks, train cars. Wall hits shatter *both* sides -- nearby structure pieces hide into the debris cloud and restore after `shatterRestoreDelay` on their own timer, longer than the plane's reassemble, so the damage is visible (a missile-shattered building never lingers as an invisible wall). Hidden pieces are never solid. Walls and mid-airs stay live during a go-around.
 - **Gear-up landings explode.** Touchdown tolerances (`touchdownLatTolMult`, `touchdownHeadingTolDeg`) still generous, but only with gear down.
 - **Traffic planes**: six AI airliners cruise the route in both directions (`trafficCount`). Shoot them with missiles or fly into them -- both explode on contact; they respawn elsewhere after `trafficRespawnDelay`. Mid-air collisions cost him nothing, same as everything else.
+- **Targets**: five hot-air balloons drifting along the route, a blimp cruising it end to end, a UFO zig-zagging over the desert (its ring of lights alternates green/red), and three boats circling the great lake. A missile pops them (balloons and the UFO add a sparkle burst); they come back 6-10 s later. Flying into one is a mid-air like the traffic planes.
 
 ## Tuning
 
