@@ -46,8 +46,20 @@ function check(name, ok, extra) {
     process.exit(1);
   }
   fs_mkdir(SHOTS);
+  // Refuse to run against a server we didn't start (stale build on :8177).
+  const portBusy = await new Promise(resolve => {
+    const req = http.get(URL, res => { res.resume(); resolve(true); });
+    req.on("error", () => resolve(false));
+  });
+  if (portBusy) {
+    console.error(`Port ${PORT} is already serving something; stop it first.`);
+    process.exit(2);
+  }
   const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
   process.on("exit", () => server.kill());
+  server.on("exit", code => {
+    if (results.length === 0) { console.error(`static server exited early (code ${code})`); process.exit(2); }
+  });
   await new Promise(r => setTimeout(r, 500));
   await waitForServer(URL);
 
@@ -266,9 +278,11 @@ function check(name, ok, extra) {
         return r.width >= 100 && r.height >= 100;
       });
       const keys = visible.map(c => c.dataset.v);
-      return { ok: sized && hidden.length === 2 && keys.includes("fighter") && !keys.includes("helicopter") && !keys.includes("rocket"), why: keys.join(",") };
+      const hiddenGone = hidden.every(c => c.getBoundingClientRect().width === 0);
+      const fromTune = hidden.every(c => window.__lp.TUNE.vehicles[c.dataset.v].hidden === true);
+      return { ok: sized && hidden.length === 2 && hiddenGone && fromTune && keys.includes("fighter") && !keys.includes("helicopter") && !keys.includes("rocket"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
     });
-    check("vehicles: picker shows 5 incl fighter (heli+rocket shelved), cards >= 100px", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows 5 incl fighter (heli+rocket shelved, not rendered, driven by TUNE.hidden)", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
@@ -277,10 +291,11 @@ function check(name, ok, extra) {
     check("vehicles: five available, fighter distinct, airliners share stats",
       combos.n === 5 && combos.uniq === 3, `n=${combos.n} uniq=${combos.uniq}`);
 
-    const vpBefore = await page.evaluate(() => window.__lp.state.vp.cruiseSpeed);
     await page.evaluate(() => {
       document.getElementById("screenDir").classList.add("hiddenS");
       document.getElementById("screenVehicle").classList.remove("hiddenS");
+      // The rocket is shelved; un-shelve it for this test only so the space checks below still run.
+      document.querySelector('[data-v="rocket"]').classList.remove("hiddenS");
     });
     await page.click('[data-v="rocket"]');
     const dirShown = await page.evaluate(() =>
@@ -302,7 +317,6 @@ function check(name, ok, extra) {
       sel.key === "rocket" && sel.cs === 112 && Math.abs(sel.heading - Math.PI) < 0.01 &&
       sel.z < 0 && sel.screensGone && sel.accent === "#b8bec9",
       JSON.stringify(sel));
-    void vpBefore;
 
     await page.evaluate(() => window.__lp.api.setThrottle(true));
     let air = false;
@@ -336,7 +350,8 @@ function check(name, ok, extra) {
     const aim = await page.evaluate(() => {
       let best = null;
       window.__lp.forEachSolid(b => {
-        if (b.x > 0 && b.x < 260 && Math.abs(b.z + 4920) < 60 && (b.y1 - b.y0) > 80) {
+        // CA downtown cluster (addRouteLandmark(downtown, 460, ...)) -- beside the approach corridor
+        if (b.x > 300 && b.x < 620 && Math.abs(b.z + 4920) < 60 && (b.y1 - b.y0) > 80) {
           if (!best || (b.y1 - b.y0) > (best.y1 - best.y0)) best = b;
         }
       });
@@ -727,6 +742,36 @@ function check(name, ok, extra) {
       if (!guideSeen) await pump(page, 0.5);
     }
     check("guidance: glide arrow appears on approach", guideSeen);
+    const guideStates = await page.evaluate(() => {
+      const T = window.__lp.TUNE, st = window.__lp.state;
+      const out = {};
+      for (const [name, dAlt] of [["ok", 0], ["down", 60], ["up", -60]]) {
+        window.__lp.api.teleportAirborne(900, 0, 3 + 900 * T.glideSlope + dAlt, 0);
+        st.pitch = 0;
+        window.__lp.api.clearStick();
+        window.__lp.update(1 / 60);
+        out[name] = document.getElementById("glideGuide").dataset.state;
+      }
+      return out;
+    });
+    check("guidance: glide arrow says ok on-slope, down when high, up when low",
+      guideStates.ok === "ok" && guideStates.down === "down" && guideStates.up === "up", JSON.stringify(guideStates));
+    // rings sit on the same slope the arrow measures
+    const ringsOnSlope = await page.evaluate(() => {
+      const T = window.__lp.TUNE;
+      let worst = 0;
+      for (let i = 0; i < T.ringCount; i++) {
+        const s = i / (T.ringCount - 1), d = T.ringStartDistance * (1 - s);
+        const expect = 3 + d * T.glideSlope;
+        const rings = window.__lp.rings;
+        worst = Math.max(worst, Math.abs(rings[i].position.y - expect));
+      }
+      return worst;
+    });
+    check("guidance: ring corridor lies on the glide slope", ringsOnSlope < 0.01, `worst dy ${ringsOnSlope.toFixed(2)}`);
+    // put the plane back on the approach the following speed checks expect
+    await page.evaluate(() => { window.__lp.state.exploding = false; window.__lp.state.explodeTimer = 0; window.__lp.api.teleportAirborne(900, 0, 60, 0); window.__lp.api.setStick(0, -0.16); });
+    await pump(page, 1);
 
     // speed controls work during engaged approach
     const spEngaged = await page.evaluate(() => window.__lp.state.speed);
@@ -1062,7 +1107,7 @@ function check(name, ok, extra) {
       };
       step();
     }));
-    check("perf: renders under software GL (informational)", fps > 5, `${fps} fps swiftshader (iPad GPU will be much faster)`);
+    console.log(`INFO  perf: ${fps} fps under swiftshader (advisory only; iPad GPU is much faster)`);
     await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.teleportAirborne(1200, 200, 120, 15); });
     await pump(page, 0.4);
     await page.evaluate(() => {
@@ -1074,11 +1119,169 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-W world integrity (regressions the old harness missed) ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.skipScreens(); });
+
+    const terrain = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, half = T.routeLength / 2;
+      const ap = L.AIRPORTS[0];
+      // sample the centreline mid-route: flatten must be ~0 there and 1 on the runway
+      let maxMask = 0, maxGap = 0;
+      for (let z = -half + 1200; z < half - 1200; z += 97) {
+        maxMask = Math.max(maxMask, L.flattenMask(0, z));
+        maxGap = Math.max(maxGap, Math.abs(L.shapedTerrain(0, z) - L.terrainEff(0, z)));
+      }
+      return { maxMask, maxGap, runwayMask: L.flattenMask(0, ap.cz), runwayFlat: Math.abs(L.terrainEff(0, ap.cz) - L.terrainEff(0, ap.cz + T.runwayLength * 0.4)) };
+    });
+    check("world: no flattened ribbon along the route centreline (flattenMask sign)",
+      terrain.maxMask < 0.02 && terrain.maxGap < 0.5, JSON.stringify(terrain));
+    check("world: runways still flat", terrain.runwayMask > 0.999 && terrain.runwayFlat < 0.01, JSON.stringify(terrain));
+
+    // train exists, moves, is finite
+    const train = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      st.x = 340; st.z = 500; st.y = 400; st.phase = "AIRBORNE"; st.speed = 0;
+      for (let i = 0; i < 60 * 20; i++) L.update(1 / 60);  // let the cars enter the track
+      const h0 = L.trainHead;
+      for (let i = 0; i < 60; i++) L.update(1 / 60);
+      const h1 = L.trainHead;
+      const solids = L.trainSolids.length;
+      const finite = L.trainSolids.every(b => Number.isFinite(b.z) && Number.isFinite(b.y0));
+      return { h0, h1, solids, finite, speed: L.TUNE.trainSpeed };
+    });
+    check("world: freight train moves and is solid (TUNE.trainSpeed defined)",
+      Number.isFinite(train.h0) && train.h1 < train.h0 - 10 && train.solids > 10 && train.finite, JSON.stringify(train));
+
+    // tower beacons are live meshes (not JSON-cloned husks)
+    const beacons = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      // fly along the route so landmark cells stream in
+      st.speed = 0;
+      for (let z = -3000; z <= 3000; z += 600) { st.x = 0; st.z = z; st.y = 300; L.update(1 / 60); }
+      return { n: L.blinkers.length, meshes: L.blinkers.filter(b => b && b.isMesh).length };
+    });
+    check("world: tower beacons are real meshes", beacons.n > 0 && beacons.meshes === beacons.n, JSON.stringify(beacons));
+
+    // wall hit: reassemble on the near side, never NaN
+    const walls = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      const res = [];
+      const boxes = [];
+      L.forEachSolid(b => { if (b.hw >= 4 && b.hd >= 4 && b.y1 - b.y0 >= 6) boxes.push(b); });
+      const b = boxes[0];
+      if (!b) return { err: "no solids" };
+      const cases = [
+        { name: "+x", x: b.x + b.hw + 1, y: (b.y0 + b.y1) / 2, z: b.z, ok: sp => sp.x > b.x + b.hw },
+        { name: "-x", x: b.x - b.hw - 1, y: (b.y0 + b.y1) / 2, z: b.z, ok: sp => sp.x < b.x - b.hw },
+        { name: "+z", x: b.x, y: (b.y0 + b.y1) / 2, z: b.z + b.hd + 1, ok: sp => sp.z > b.z + b.hd },
+        { name: "-z", x: b.x, y: (b.y0 + b.y1) / 2, z: b.z - b.hd - 1, ok: sp => sp.z < b.z - b.hd },
+        { name: "roof", x: b.x, y: b.y1 + 1, z: b.z, ok: sp => sp.y > b.y1 },
+      ];
+      for (const c of cases) {
+        L.restoreShattered();  // the previous hit shattered (hid) this very box
+        st.exploding = false; st.explodeTimer = 0; st.phase = "AIRBORNE";
+        st.x = c.x; st.y = c.y; st.z = c.z; st.speed = 40; st.pitch = 0; st.heading = 0;
+        L.resolveSolidWalls();
+        const sp = L.safePos;
+        const finite = Number.isFinite(sp.x) && Number.isFinite(sp.y) && Number.isFinite(sp.z);
+        res.push({ name: c.name, hit: st.exploding, finite, side: finite && c.ok(sp) });
+        st.exploding = false;
+      }
+      return { res };
+    });
+    check("walls: every face hit reassembles on the near side with finite coords",
+      !walls.err && walls.res.every(r => r.hit && r.finite && r.side), JSON.stringify(walls));
+
+    // shattered pieces restore on their own (missile hit, no player crash)
+    const shatter = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      let b = null;
+      L.forEachSolid(x => { if (!b && x.mesh) b = x; });
+      if (!b) return { err: "no mesh solid" };
+      st.x = b.x + b.hw + 200; st.y = (b.y0 + b.y1) / 2; st.z = b.z; st.phase = "AIRBORNE"; st.speed = 0; st.pitch = 0; st.heading = Math.PI / 2;
+      st.exploding = false;
+      // shatter directly (what a missile impact does) and let time pass
+      L.hiddenPieces.length = 0;
+      window.__lp_shatterProbe = true;
+      const before = b.mesh.visible;
+      // call through a missile-hit-equivalent: fire toward it
+      st.heading = Math.atan2(-(b.x - st.x), -(b.z - st.z));
+      L.fireMissile();
+      let hidden = false, restored = false;
+      for (let i = 0; i < 60 * 8; i++) {
+        L.update(1 / 60);
+        if (b.mesh.visible === false) hidden = true;
+        if (hidden && b.mesh.visible === true) { restored = true; break; }
+      }
+      return { before, hidden, restored, exploded: st.exploding };
+    });
+    check("walls: missile-shattered pieces restore without a player crash",
+      !shatter.err && shatter.hidden && shatter.restored, JSON.stringify(shatter));
+
+    // deep water is crashable
+    const water = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      let wx = null, wz = null;
+      const half = T.routeLength / 2;
+      for (let z = -half + 500; z < half - 500 && wx === null; z += 50) {
+        for (let x = -1200; x <= 1200; x += 100) {
+          if (L.terrainEff(x, z) < T.waterLevel - 10 && !L.AIRPORTS.some(a => Math.abs(z - a.cz) < 1500)) { wx = x; wz = z; break; }
+        }
+      }
+      if (wx === null) return { err: "no deep water found" };
+      const e0 = L.flags.exploded;
+      st.x = wx; st.z = wz; st.y = T.waterLevel + 40; st.phase = "AIRBORNE"; st.speed = 50; st.pitch = -20; st.heading = 0; st.exploding = false;
+      window.__lp.api.setStick(0, -0.6);
+      for (let i = 0; i < 60 * 6 && L.flags.exploded === e0; i++) L.update(1 / 60);
+      window.__lp.api.clearStick();
+      return { wx, wz, depth: L.terrainEff(wx, wz), exploded: L.flags.exploded > e0 };
+    });
+    check("crash: deep water explodes (no surfing)", !water.err && water.exploded, JSON.stringify(water));
+
+    // nothing solid stands under either approach: every solid inside the ring
+    // corridor must top out below the glide slope with clearance to spare
+    const corridor = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const bad = [];
+      for (const destIdx of [0, 1]) {
+        const ap = L.AIRPORTS[destIdx];
+        for (const sgn of [1, -1]) {
+          const th = ap.cz + sgn * T.runwayLength / 2;
+          // stream scenery in around the approach
+          for (let d = 0; d <= T.ringStartDistance; d += 300) { st.x = 0; st.z = th + sgn * d; st.y = ap.elev + 200; st.phase = "AIRBORNE"; st.speed = 0; L.update(1 / 60); }
+          L.forEachSolid(b => {
+            const dz = (b.z - th) * sgn;
+            if (dz < -20 || dz > T.ringStartDistance) return;
+            if (Math.abs(b.x) - b.hw > T.runwayWidth / 2 + 35) return;
+            const slopeY = ap.elev + 3 + Math.max(0, dz - b.hd) * T.glideSlope;
+            if (b.y1 + T.terrainClearance > slopeY) bad.push({ destIdx, sgn, x: Math.round(b.x), dShort: Math.round(dz), top: Math.round(b.y1), slope: Math.round(slopeY) });
+          });
+        }
+      }
+      return bad;
+    });
+    check("world: approach corridors are clear of solids below the glide slope", corridor.length === 0, JSON.stringify(corridor.slice(0, 6)));
+    await page.close();
+  }
+
   // ---------- T8 service worker reachable ----------
   {
     const { page } = await newPage(1180, 820);
     const sw = await page.evaluate(async () => (await fetch("sw.js")).status);
     check("pwa: sw.js served", sw === 200, `status ${sw}`);
+    const pwa = await page.evaluate(async () => {
+      const out = {};
+      for (const f of ["manifest.json", "../manifest.json", "../sw.js", "../index.html"]) {
+        try {
+          const r = await fetch(f);
+          out[f] = r.status === 200 && (f.endsWith(".json") ? !!JSON.parse(await r.text()).start_url : (await r.text()).length > 100);
+        } catch (e) { out[f] = false; }
+      }
+      return out;
+    });
+    check("pwa: both manifests parse, 2D build and root sw.js served", Object.values(pwa).every(Boolean), JSON.stringify(pwa));
     await page.close();
   }
 

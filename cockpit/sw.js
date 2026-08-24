@@ -1,4 +1,4 @@
-const CACHE_NAME = "little-pilot-cockpit-v15";
+const CACHE_NAME = "little-pilot-cockpit-v16";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,8 +27,11 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+      // Only cache good responses: a transient 404/502 must not become permanent.
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+      }
       return response;
     }))
   );
