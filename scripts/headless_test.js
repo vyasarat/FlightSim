@@ -1393,6 +1393,28 @@ function check(name, ok, extra) {
     });
     check("gear: cannot retract on the ground, still cycles in the air", gearGround.taxi && gearGround.roll && gearGround.upInAir && gearGround.downInAir, JSON.stringify(gearGround));
 
+    // shootable targets: balloons, blimp, UFO, boats; a missile pops one and it respawns
+    const tg = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const kinds = {};
+      for (const t of L.targets) kinds[t.kind] = (kinds[t.kind] || 0) + 1;
+      const b = L.targets.find(t => t.kind === "balloon");
+      // park 120 m from the balloon, aim straight at it, fire
+      st.exploding = false; st.phase = "AIRBORNE"; st.speed = 0; st.pitch = 0; st.bank = 0;
+      st.x = b.x; st.y = b.y + 9; st.z = b.z + 120; st.heading = 0;
+      L.api.clearStick();
+      const h0 = L.flags.targets;
+      L.fireMissile();
+      let popped = false;
+      for (let i = 0; i < 60 * 4 && !popped; i++) { L.update(1 / 60); popped = L.flags.targets > h0; }
+      const hiddenAfter = !b.mesh.visible;
+      for (let i = 0; i < 60 * 12; i++) L.update(1 / 60);
+      const back = b.alive && b.mesh.visible;
+      return { kinds, popped, hiddenAfter, back, n: L.targets.length };
+    });
+    check("targets: balloons, blimp, UFO and boats exist; a missile pops a balloon and it comes back",
+      tg.kinds.balloon >= 3 && tg.kinds.blimp >= 1 && tg.kinds.ufo >= 1 && tg.kinds.boat >= 2 && tg.popped && tg.hiddenAfter && tg.back, JSON.stringify(tg));
+
     check("rewards: ring corridor anchors at the near threshold in both directions",
       [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));
 
