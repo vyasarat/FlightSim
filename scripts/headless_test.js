@@ -1302,6 +1302,27 @@ function check(name, ok, extra) {
     });
     check("rewards: rings reset for the next approach", ringsReset.phase === "TAXI" && ringsReset.eaten === 0, JSON.stringify(ringsReset));
 
+    // both directions: the ring corridor must start at the NEAR threshold and run away from the runway
+    const ringSides = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const out = {};
+      for (const d of [0, 1]) {
+        L.api.spawnAt(d, d);            // origin d, dest 1-d
+        const ap = L.AIRPORTS[st.destIdx];
+        const sgn = d === 0 ? 1 : -1;     // the end he arrives at
+        const near = ap.cz + sgn * T.runwayLength / 2;
+        const g = L.rings[0].parent;
+        const zs = L.rings.map(r => g.position.z + (g.rotation.y ? -1 : 1) * r.position.z);
+        const lastZ = zs[zs.length - 1], firstZ = zs[0];
+        // last ring at the near threshold; first ring further out, away from the runway
+        out["dir" + d] = { lastAtNear: Math.abs(lastZ - near) < 1, outward: (firstZ - near) * sgn > T.ringStartDistance * 0.9,
+          overRunway: zs.some(z => (z - near) * sgn < -5) };
+      }
+      return out;
+    });
+    check("rewards: ring corridor anchors at the near threshold in both directions",
+      [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));
+
     // gates: three kinds exist; flying through the canyon gate triggers a fanfare once, then re-arms
     const gate = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE, st = L.state;
