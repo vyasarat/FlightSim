@@ -225,6 +225,7 @@ function updateRewards(dt) {
   updateRings(dt);
   updateGates(dt);
   updateAirports(dt);
+  updateTargets(dt);
   updateWingman(dt);
   updateCloudWhoosh(dt);
   updateSmoke(dt);

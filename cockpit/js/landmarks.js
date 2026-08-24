@@ -423,6 +423,174 @@ function updateAirports(dt) {
   for (const s of airportSpinners) s.rotation.y += dt * 0.9;
 }
 
+// ---- shootable targets: hot-air balloons drifting along the route, a blimp
+// cruising it end to end, a UFO zig-zagging over the desert, and boats on the
+// great lake. A missile (or the plane) pops them; they come back a few seconds
+// later somewhere else. Nothing is counted, nothing is lost.
+const targets = [];
+const TARGET_HIT_R = { balloon: 11, blimp: 17, ufo: 12, boat: 9 };
+const balloonPalette = [0xe0483e, 0xffd23e, 0x3aa0ff, 0x36c46a, 0xff7ab8, 0xff8a1f];
+function makeBalloon(color) {
+  const g = new THREE.Group();
+  const env = new THREE.Mesh(new THREE.SphereGeometry(7, 10, 8), lam(color));
+  env.scale.y = 1.15; env.position.y = 9; g.add(env);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(7.2, 7.2, 1.6, 12), lam(0xf2f4f7));
+  band.position.y = 9; g.add(band);
+  const throat = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 1.2, 3, 8), lam(color));
+  throat.position.y = 1.5; g.add(throat);
+  const basket = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 2.4), lam(0x8a5a2b));
+  basket.position.y = -1.5; g.add(basket);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 4), lam(0x3c3a36));
+    rope.position.set(sx * 1.1, 0.2, sz * 1.1); g.add(rope);
+  }
+  return g;
+}
+function makeBlimp() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(6, 12, 8), lam(0xd8dde4));
+  body.scale.set(1, 1, 3.2); g.add(body);
+  const stripe = new THREE.Mesh(new THREE.SphereGeometry(6.05, 12, 8, 0, Math.PI * 2, 1.2, 0.8), lam(0xe0483e));
+  stripe.scale.set(1, 1, 3.2); g.add(stripe);
+  const gondola = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 8), lam(0x2f3a48));
+  gondola.position.y = -6; g.add(gondola);
+  for (const sx of [-1, 1]) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(7, 0.6, 5), lam(0xe0483e));
+    fin.position.set(sx * 4, 0, -16); g.add(fin);
+  }
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.6, 7, 5), lam(0xe0483e));
+  tail.position.set(0, 4, -16); g.add(tail);
+  return g;
+}
+function makeUfo() {
+  const g = new THREE.Group();
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(9, 6, 2.4, 16), lam(0xb8bec9));
+  g.add(disc);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(4, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8fe8ff, transparent: true, opacity: 0.8 }));
+  dome.position.y = 1.2; g.add(dome);
+  const lights = new THREE.Mesh(new THREE.TorusGeometry(7.5, 0.5, 6, 16), new THREE.MeshBasicMaterial({ color: 0x3fdc6a, fog: false }));
+  lights.rotation.x = Math.PI / 2; lights.position.y = -0.6; g.add(lights);
+  g.userData.lights = lights;
+  return g;
+}
+function makeBoat(color) {
+  const g = new THREE.Group();
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(5, 2.4, 13), lam(color));
+  hull.position.y = 0.6; g.add(hull);
+  const bow = new THREE.Mesh(new THREE.ConeGeometry(2.5, 5, 4), lam(color));
+  bow.rotation.x = Math.PI / 2; bow.rotation.y = Math.PI / 4; bow.position.set(0, 0.6, 9); g.add(bow);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.6, 5), lam(0xf2f4f7));
+  cabin.position.set(0, 3, -1); g.add(cabin);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 6, 5), lam(0x3c3a36));
+  mast.position.set(0, 6.5, -1); g.add(mast);
+  return g;
+}
+function addTarget(kind, mesh, place) {
+  const t = { kind, mesh, x: 0, y: 0, z: 0, alive: true, respawn: 0, t: rnd() * 100, place, r: TARGET_HIT_R[kind] };
+  scene.add(mesh);
+  targets.push(t);
+  t.place(t, true);
+  return t;
+}
+function placeBalloon(t) {
+  const half = ROUTE_HALF();
+  for (let tries = 0; tries < 30; tries++) {
+    const z = (rnd() * 2 - 1) * (half - 2000);
+    const x = (rnd() - 0.5) * 1600;
+    if (inCorridor(x, z, 300)) continue;
+    t.x = x; t.z = z;
+    t.y = Math.max(terrainEff(x, z), TUNE.waterLevel) + 90 + rnd() * 80;
+    t.vx = (rnd() - 0.5) * 2.5; t.vz = (rnd() - 0.5) * 2.5;
+    return;
+  }
+}
+function placeBlimp(t, first) {
+  const half = ROUTE_HALF();
+  t.dir = first ? (rnd() < 0.5 ? 1 : -1) : -t.dir;
+  t.x = (rnd() < 0.5 ? -1 : 1) * (450 + rnd() * 300);
+  t.z = -t.dir * (half - 1800);
+  t.y = 210 + rnd() * 40;
+}
+function placeUfo(t) {
+  t.cx = 0; t.cz = ROUTE_HALF() - 0.8 * TUNE.routeLength;   // desert centre
+  t.x = t.cx; t.z = t.cz; t.y = 150;
+}
+function placeBoat(t) {
+  const RS = ROUTE_SCALE();
+  // great lake (lakeShape): the water is a ring around a central island, so the
+  // boats orbit at ~75% of the lake's radii where it is deepest.
+  t.cx = -350 * RS; t.cz = 1800 * RS;
+  const k = 0.66 + rnd() * 0.16;
+  t.orbitX = 640 * RS * k; t.orbitZ = 420 * RS * k;
+  t.speed = 0.05 + rnd() * 0.04; t.t = rnd() * 100;
+  t.x = t.cx + Math.cos(t.t * t.speed) * t.orbitX; t.z = t.cz + Math.sin(t.t * t.speed) * t.orbitZ; t.y = TUNE.waterLevel + 0.4;
+}
+for (let i = 0; i < 5; i++) addTarget("balloon", makeBalloon(balloonPalette[i % balloonPalette.length]), placeBalloon);
+addTarget("blimp", makeBlimp(), placeBlimp);
+addTarget("ufo", makeUfo(), placeUfo);
+for (let i = 0; i < 3; i++) addTarget("boat", makeBoat([0xf2f4f7, 0xe0483e, 0x1c75bc][i]), placeBoat);
+
+function killTarget(t, hx, hy, hz) {
+  t.alive = false;
+  t.mesh.visible = false;
+  t.respawn = 6 + rnd() * 4;
+  flags.targets++;
+  triggerExplosion(hx, hy, hz, t.kind === "balloon" ? 0.5 : 0.8);
+  if (t.kind === "balloon" || t.kind === "ufo") sparkleBurst();
+}
+function updateTargets(dt) {
+  for (const t of targets) {
+    if (!t.alive) {
+      t.respawn -= dt;
+      if (t.respawn <= 0) { t.place(t, false); t.alive = true; t.mesh.visible = true; }
+      continue;
+    }
+    t.t += dt;
+    if (t.kind === "balloon") {
+      t.x += t.vx * dt; t.z += t.vz * dt;
+      const floor = Math.max(terrainEff(t.x, t.z), TUNE.waterLevel) + 60;
+      if (t.y < floor) t.y += 8 * dt;
+      t.mesh.position.set(t.x, t.y + Math.sin(t.t * 0.7) * 1.5, t.z);
+      t.mesh.rotation.y = t.t * 0.1;
+    } else if (t.kind === "blimp") {
+      t.z += t.dir * 24 * dt;
+      if (Math.abs(t.z) > ROUTE_HALF() - 1500) placeBlimp(t, false);
+      t.mesh.position.set(t.x, t.y + Math.sin(t.t * 0.5) * 2, t.z);
+      t.mesh.rotation.y = t.dir > 0 ? 0 : Math.PI;
+      t.mesh.rotation.z = Math.sin(t.t * 0.3) * 0.04;
+    } else if (t.kind === "ufo") {
+      t.x = t.cx + Math.sin(t.t * 0.9) * 320;
+      t.z = t.cz + Math.sin(t.t * 0.55) * 260;
+      t.y = 150 + Math.sin(t.t * 1.7) * 35;
+      t.mesh.position.set(t.x, t.y, t.z);
+      t.mesh.rotation.y += dt * 4;
+      t.mesh.rotation.z = Math.cos(t.t * 0.9) * 0.25;
+      if (t.mesh.userData.lights) t.mesh.userData.lights.material.color.setHex(Math.floor(t.t * 4) % 2 ? 0x3fdc6a : 0xff4030);
+    } else if (t.kind === "boat") {
+      t.x = t.cx + Math.cos(t.t * t.speed) * t.orbitX;
+      t.z = t.cz + Math.sin(t.t * t.speed) * t.orbitZ;
+      t.mesh.position.set(t.x, t.y + Math.sin(t.t * 1.3) * 0.15, t.z);
+      // bow points along the direction of travel
+      const vx = -Math.sin(t.t * t.speed) * t.orbitX, vz = Math.cos(t.t * t.speed) * t.orbitZ;
+      t.mesh.rotation.y = Math.atan2(vx, vz);
+      t.mesh.rotation.z = Math.sin(t.t * 1.1) * 0.05;
+    }
+    // flying into one is a mid-air, same as traffic
+    if ((state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding) {
+      const dx = t.x - state.x, dy = t.y - state.y, dz = t.z - state.z;
+      if (dx * dx + dy * dy + dz * dz < (t.r + 3) * (t.r + 3)) {
+        killTarget(t, (t.x + state.x) / 2, (t.y + state.y) / 2, (t.z + state.z) / 2);
+        flags.midairs++;
+        state.exploding = true;
+        state.explodeTimer = TUNE.reassembleDelay;
+        safePos.x = state.x; safePos.z = state.z;
+        safePos.y = Math.max(state.y + 30, Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + 60);
+        shakeAmp = 1;
+      }
+    }
+  }
+}
+
 const TRAIN_CARS = 22;
 const trainInst = new THREE.InstancedMesh(
   new THREE.BoxGeometry(7, 9, 15),

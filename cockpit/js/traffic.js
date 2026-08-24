@@ -198,6 +198,16 @@ function updateMissiles(dt) {
           break;
         }
       }
+      if (boomed) break;
+      for (const t of targets) {
+        if (!t.alive) continue;
+        const dx = t.x - m.x, dy = t.y - m.y, dz = t.z - m.z;
+        if (dx * dx + dy * dy + dz * dz < t.r * t.r) {
+          boomed = true;
+          killTarget(t, m.x, m.y, m.z);
+          break;
+        }
+      }
     }
 
     const expired = m.life <= 0;
