@@ -333,8 +333,8 @@
   }
   #aimMarker.on { display: block; }
   #aimMarker svg {
-    width: clamp(40px, 8vmin, 68px);
-    height: clamp(40px, 8vmin, 68px);
+    width: clamp(24px, 4.2vmin, 38px);
+    height: clamp(24px, 4.2vmin, 38px);
     translate: -50% -50%;
     display: block;
     opacity: 0.85;
@@ -470,11 +470,8 @@
 </button>
 <button id="fastBtn" class="roundBtn" aria-hidden="true">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="36" cy="26" rx="6" ry="15" fill="#f2f4f7" transform="rotate(-14 36 26)"/>
-    <ellipse cx="52" cy="24" rx="6" ry="15" fill="#f2f4f7" transform="rotate(10 52 24)"/>
-    <circle cx="44" cy="44" r="12" fill="#f2f4f7"/>
-    <ellipse cx="60" cy="63" rx="21" ry="13" fill="#f2f4f7"/>
-    <circle cx="85" cy="57" r="6" fill="#f2f4f7"/>
+    <path d="M28 46 L50 22 L72 46" fill="none" stroke="#f2f4f7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M28 76 L50 52 L72 76" fill="none" stroke="#f2f4f7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
 </button>
 <button id="missileBtn" class="roundBtn" aria-hidden="true">
@@ -594,6 +591,16 @@
       <path d="M96 20 L116 20 L110 34 L94 34 Z" fill="#d71920" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
       <path d="M70 76 L104 96 L124 96 L96 74 Z" fill="#c9a227" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
       <path d="M60 58 L96 44 L112 46 L82 58 Z" fill="#d71920" opacity=".85" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="fighter">
+    <svg viewBox="0 0 200 120">
+      <path d="M18 62 Q50 56 96 58 L120 60 Q140 63 142 68 L118 74 L60 76 Q32 74 18 62 Z" fill="#6b7280" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 58 L58 26 L74 24 L108 56 Z" fill="#6b7280" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M96 58 L58 90 L74 92 L108 62 Z" fill="#565f6b" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M118 60 L134 30 L146 32 L134 62 Z" fill="#e0483e" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M60 76 L84 96 L98 96 L78 74 Z" fill="#dfe8f2" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="112" cy="63" r="7" fill="#bfeaff" stroke="#23282f" stroke-width="4"/>
     </svg>
   </button>
 </div>
@@ -745,6 +752,7 @@ const TUNE = {
 
   glideSlope: 0.085,
   glideBand: 9,
+  minFlyingSpeed: 18,
   skipOutDistance: 1450,
   aimMarkerDistance: 320,
 
@@ -775,7 +783,8 @@ const TUNE = {
     rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 48, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.1, hasGear: false, hidden: true },
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
     airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
-    airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true }
+    airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
+    fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, hoverSpeed: 0, capped: true, size: 1.25, hasGear: true }
   },
 
   vehicleColors: {
@@ -784,7 +793,8 @@ const TUNE = {
     rocket:           ["#b8bec9", "#d71920"],
     airlinerDelta:    ["#0b4ea2", "#d0342c"],
     airlinerJetblue:  ["#1c75bc", "#e8edf4"],
-    airlinerEmirates: ["#c9a227", "#d71920"]
+    airlinerEmirates: ["#c9a227", "#d71920"],
+    fighter:          ["#6b7280", "#e0483e"]
   }
 };
 
@@ -1692,26 +1702,32 @@ function updateMissiles(dt) {
   for (const m of missiles) {
     if (!m.alive) continue;
     m.life -= dt;
-    m.x += m.vx * dt;
-    m.y += m.vy * dt;
-    m.z += m.vz * dt;
+
+    const speed = Math.hypot(m.vx, m.vy, m.vz);
+    const sub = Math.min(6, Math.max(1, Math.ceil((speed * dt) / 2)));
+    const sdt = dt / sub;
     let boomed = false;
+    let hitX = m.x, hitY = m.y, hitZ = m.z;
 
-    if (m.y <= Math.max(terrainEff(m.x, m.z), TUNE.waterLevel)) boomed = true;
+    for (let st = 0; st < sub && !boomed; st++) {
+      m.x += m.vx * sdt;
+      m.y += m.vy * sdt;
+      m.z += m.vz * sdt;
+      hitX = m.x; hitY = m.y; hitZ = m.z;
 
-    if (!boomed) {
+      if (m.y <= Math.max(terrainEff(m.x, m.z), TUNE.waterLevel)) { boomed = true; break; }
+
       forEachSolid(b => {
         if (boomed) return;
-        if (m.x > b.x - b.hw && m.x < b.x + b.hw &&
-            m.z > b.z - b.hd && m.z < b.z + b.hd &&
-            m.y > b.y0 - 1 && m.y < b.y1 + 1) {
+        if (m.x > b.x - b.hw - 1 && m.x < b.x + b.hw + 1 &&
+            m.z > b.z - b.hd - 1 && m.z < b.z + b.hd + 1 &&
+            m.y > b.y0 - 1.5 && m.y < b.y1 + 1.5) {
           boomed = true;
           shatterAround(m.x, m.y, m.z);
         }
       });
-    }
+      if (boomed) break;
 
-    if (!boomed) {
       for (const t of traffic) {
         if (!t.alive) continue;
         const dx = t.x - m.x, dy = t.y - m.y, dz = t.z - m.z;
@@ -1726,12 +1742,15 @@ function updateMissiles(dt) {
       }
     }
 
-    if (boomed || m.life <= 0) {
+    const expired = m.life <= 0;
+    if (boomed || expired || m.life <= 0) {
       m.alive = false;
       m.mesh.visible = false;
       if (boomed) {
-        triggerExplosion(m.x, m.y, m.z, 0.8);
+        triggerExplosion(hitX, hitY, hitZ, 0.8);
         flags.missileHits++;
+      } else if (expired) {
+        triggerExplosion(m.x, m.y, m.z, 0.35);
       }
     } else {
       m.mesh.position.set(m.x, m.y, m.z);
@@ -2406,6 +2425,28 @@ function buildVehicleModel(key) {
     flame.position.z = 5.2;
     g.add(flame);
     g.userData.flame = flame;
+  } else if (key === "fighter") {
+    const fus = add(new THREE.CylinderGeometry(0.75, 0.55, 11, 10), mA, 0, 0, 0, Math.PI / 2);
+    void fus;
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.75, 3.4, 10), mA);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.z = -6.8;
+    g.add(nose);
+    for (const sx of [-3.2, 3.2]) {
+      const wing = add(new THREE.BoxGeometry(4.6, 0.14, 2.6), mA, sx, -0.2, 0.6);
+      wing.rotation.y = sx > 0 ? -0.55 : 0.55;
+    }
+    const tail = add(new THREE.BoxGeometry(0.14, 2.6, 1.6), mB, 0, 1.4, 4.6);
+    void tail;
+    for (const sx of [-1.6, 1.6]) {
+      add(new THREE.BoxGeometry(2.4, 0.12, 1.2), mA, sx, 0.2, 4.8);
+    }
+    add(new THREE.SphereGeometry(0.55, 10, 8), glassM, 0, 0.55, -3.6);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.2, 8), new THREE.MeshBasicMaterial({ color: 0xffb43a }));
+    flame.rotation.x = -Math.PI / 2;
+    flame.position.z = 6.6;
+    g.add(flame);
+    g.userData.flame = flame;
   } else if (key.startsWith("airliner")) {
     const fus = add(new THREE.CylinderGeometry(1.05, 1.05, 13.4, 12), mA, 0, 0, 0, Math.PI / 2);
     void fus;
@@ -2753,6 +2794,7 @@ function skipToLanding() {
     gearSound(true);
     flags.gear++;
   }
+  state.speedStep = 1;
   state.phase = "AIRBORNE";
   placeRings();
   unlockAudio();
@@ -3064,7 +3106,7 @@ function update(dt) {
       const hover = state.vp.hoverSpeed > 0 && !state.touching;
       let targetSpeed = state.vp.cruiseSpeed * TUNE.speedSteps[state.speedStep];
       if (hover) targetSpeed = state.vp.hoverSpeed;
-      else if (state.engaged) targetSpeed = Math.min(targetSpeed, TUNE.approachSpeed);
+      else if (state.engaged) targetSpeed = Math.max(targetSpeed, TUNE.minFlyingSpeed);
       state.speed += (targetSpeed - state.speed) * Math.min(1, (hover ? 0.5 : TUNE.autoThrottleResponse * 1.6) * dt);
     }
 
