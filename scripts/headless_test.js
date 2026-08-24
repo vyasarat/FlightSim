@@ -260,22 +260,22 @@ function check(name, ok, extra) {
       sv.classList.remove("hiddenS");
       const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
       const hidden = [...sv.querySelectorAll(".card.hiddenS")];
-      if (visible.length !== 4) return { ok: false, why: "visible=" + visible.length };
+      if (visible.length !== 5) return { ok: false, why: "visible=" + visible.length };
       const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
       });
       const keys = visible.map(c => c.dataset.v);
-      return { ok: sized && hidden.length === 2 && !keys.includes("helicopter") && !keys.includes("rocket"), why: keys.join(",") };
+      return { ok: sized && hidden.length === 2 && keys.includes("fighter") && !keys.includes("helicopter") && !keys.includes("rocket"), why: keys.join(",") };
     });
-    check("vehicles: picker shows 4 (heli+rocket shelved), cards >= 100px", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows 5 incl fighter (heli+rocket shelved), cards >= 100px", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
       return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
     });
-    check("vehicles: four available, airliners share stats by design",
-      combos.n === 4 && combos.uniq === 2, `n=${combos.n} uniq=${combos.uniq}`);
+    check("vehicles: five available, fighter distinct, airliners share stats",
+      combos.n === 5 && combos.uniq === 3, `n=${combos.n} uniq=${combos.uniq}`);
 
     const vpBefore = await page.evaluate(() => window.__lp.state.vp.cruiseSpeed);
     await page.evaluate(() => {
@@ -727,6 +727,20 @@ function check(name, ok, extra) {
       if (!guideSeen) await pump(page, 0.5);
     }
     check("guidance: glide arrow appears on approach", guideSeen);
+
+    // speed controls work during engaged approach
+    const spEngaged = await page.evaluate(() => window.__lp.state.speed);
+    await page.click("#slowBtn");
+    await pump(page, 2);
+    const spSlower = await page.evaluate(() => window.__lp.state.speed);
+    check("throttle: slow works during landing approach", spSlower < spEngaged - 2,
+      `${spEngaged.toFixed(0)} -> ${spSlower.toFixed(0)}`);
+    await page.click("#fastBtn");
+    await pump(page, 2);
+    const spFaster = await page.evaluate(() => window.__lp.state.speed);
+    check("throttle: fast works during landing approach", spFaster > spSlower + 2,
+      `${spSlower.toFixed(0)} -> ${spFaster.toFixed(0)}`);
+    await page.evaluate(() => window.__lp.api.clearStick());
     await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
     await page.close();
   }
