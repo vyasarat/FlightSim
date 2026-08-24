@@ -342,11 +342,12 @@ function buildAirport(idx) {
   const asphalt = 0x5e636b, apron = 0x777c85, paint = 0xffd23e;
 
   // apron slab + parallel taxiway + two connectors to the runway
-  lmBox(g, 200, 0.3, 760, apron, m * 170, 0.2, 0, false);
-  lmBox(g, 18, 0.32, 900, asphalt, m * 88, 0.22, 0, false);
-  for (const cz of [-300, 300]) lmBox(g, 70, 0.32, 18, asphalt, m * (halfW + 30), 0.22, cz, false);
-  for (let z = -430; z <= 430; z += 40) lmBox(g, 0.8, 0.02, 18, paint, m * 88, 0.42, z, false);
-  for (const cz of [-300, 300]) for (let x = halfW + 8; x < halfW + 62; x += 14) lmBox(g, 12, 0.02, 0.8, paint, m * x, 0.42, cz, false);
+  // Stacked ground layers keep >= 0.15 between faces so nothing z-fights.
+  lmBox(g, 200, 0.3, 760, apron, m * 170, 0.15, 0, false);
+  lmBox(g, 18, 0.2, 900, asphalt, m * 88, 0.4, 0, false);
+  for (const cz of [-300, 300]) lmBox(g, 70, 0.2, 18, asphalt, m * (halfW + 30), 0.4, cz, false);
+  for (let z = -430; z <= 430; z += 40) lmBox(g, 0.8, 0.04, 18, paint, m * 88, 0.62, z, false);
+  for (const cz of [-300, 300]) for (let x = halfW + 8; x < halfW + 62; x += 14) lmBox(g, 12, 0.04, 0.8, paint, m * x, 0.62, cz, false);
 
   // terminal: long hall, glass band, roof, jet bridges toward the apron
   lmBox(g, 40, 14, 220, 0xd8dde4, m * 232, 7, 0, true);
