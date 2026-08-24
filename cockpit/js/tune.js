@@ -68,6 +68,7 @@ const TUNE = {
   runwayLength: 1400,
   runwayWidth: 60,
   flattenMargin: 260,
+  apronWidth: 220,           // flat ground beside the runway for the terminal complex
   waterLevel: -3.5,
 
   approachEngageDist: 1500,
