@@ -418,10 +418,14 @@ function update(dt) {
       const halfL = TUNE.runwayLength / 2;
       const ad = state.approachData || { t: 0, along: 1e9, lat: 1e9 };
       const withinLat = Math.abs(ad.lat) <= halfW * TUNE.touchdownLatTolMult;
-      const overRect = ad.along > -40 && ad.along < halfL && withinLat;
+      // The flattened pad extends 300 m short of the threshold; touching down
+      // anywhere on it is a landing (he rolls onto the runway), never a plane
+      // pinned 0.6 m off the ground with its wheels underground.
+      const overRect = ad.along > -300 && ad.along < halfL && withinLat;
 
       const gearOk = !state.vp.hasGear || state.gearDown;
-      if (state.phase === "AIRBORNE" && overRect && agl <= TUNE.touchdownClearance) {
+      // state.y is the plane reference; the wheels hang gearHeight below it.
+      if (state.phase === "AIRBORNE" && overRect && agl <= TUNE.gearHeight + TUNE.touchdownClearance) {
         if (!gearOk) {
           state.exploding = true;
           state.explodeTimer = TUNE.reassembleDelay;
@@ -461,8 +465,11 @@ function update(dt) {
 
       if (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") {
         const floorNow = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
-        if (state.y < floorNow + 0.6) {
-          state.y = floorNow + 0.6;
+        // With the wheels down on the landing pad the floor is gear height, not
+        // belly height -- the model must never sit below the ground.
+        const minY = floorNow + (inLandingZone() ? TUNE.gearHeight : 0.6);
+        if (state.y < minY) {
+          state.y = minY;
         }
       }
     }
