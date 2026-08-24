@@ -31,7 +31,7 @@ if [[ $PULL -eq 1 ]]; then
     # rollback never overwrites the pointer we would want to return to.
     echo "$CURRENT_REV" > "$PREV_FILE"
     # Game code changed without a service-worker cache bump = iPad keeps old code.
-    if ! git diff --quiet "$CURRENT_REV" "$NEW_REV" -- cockpit/index.html cockpit/three.min.js \
+    if ! git diff --quiet "$CURRENT_REV" "$NEW_REV" -- cockpit/index.html cockpit/js cockpit/three.min.js \
        && git diff --quiet "$CURRENT_REV" "$NEW_REV" -- cockpit/sw.js; then
       echo "✗ cockpit/ changed but cockpit/sw.js CACHE_NAME was not bumped; refusing to deploy." >&2
       echo "  (git checkout $CURRENT_REV to return the checkout, bump CACHE_NAME, push, retry)" >&2
