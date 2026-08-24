@@ -431,6 +431,11 @@ function check(name, ok, extra) {
       modelHidden: !window.__lp.vehicleModel.visible
     }));
     check("view: toggles back to cockpit", back.off && back.frameBack && back.modelHidden);
+    await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
+    await pump(page, 0.5);
+    const aimGround = await page.evaluate(() =>
+      !document.getElementById("aimMarker").classList.contains("on"));
+    check("aim: hidden while parked", aimGround);
 
     // gear toggle in flight
     await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
@@ -442,6 +447,17 @@ function check(name, ok, extra) {
       if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.6));
       await pump(page, 0.25);
     }
+    await pump(page, 1);
+    const aim = await page.evaluate(() => {
+      const e = document.getElementById("aimMarker");
+      const r = { on: e.classList.contains("on"), l: parseFloat(e.style.left), t: parseFloat(e.style.top) };
+      return r;
+    });
+    check("aim: crosshair on-screen while flying level",
+      aim.on && aim.l > 0 && aim.t > 0 &&
+      aim.l < 1180 && aim.t < 820,
+      JSON.stringify(aim));
+
     const gDown0 = await page.evaluate(() => window.__lp.state.gearDown);
     await page.click("#gearBtn");
     await pump(page, 1.2);
