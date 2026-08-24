@@ -41,7 +41,11 @@ scene.add(guideGroup);
 
 function placeRings() {
   const ap = AIRPORTS[state.destIdx];
-  ringsGroup.position.set(0, ap.elev, ap.cz + TUNE.runwayLength / 2);
+  // Anchor at the threshold he arrives at: the +z end when flying south
+  // (dirIdx 0), the -z end when flying north. (Was always +z, so northbound
+  // rings ran the length of the runway and ended at the far end.)
+  const sgn = state.dirIdx === 0 ? 1 : -1;
+  ringsGroup.position.set(0, ap.elev, ap.cz + sgn * (TUNE.runwayLength / 2));
   ringsGroup.rotation.y = state.dirIdx === 0 ? 0 : Math.PI;
   guideGroup.position.set(0, ap.elev, ap.cz);
   guideGroup.rotation.y = state.dirIdx === 0 ? 0 : Math.PI;
