@@ -90,7 +90,8 @@ Nothing here can be failed or lost; every one re-arms.
 When the plane will hit terrain, water or a structure within `crashWarnTime` at its
 current velocity, the screen edges strobe red, a warning triangle flashes and an
 alarm beeps. It is silent whenever he is lined up on the runway with gear down
-(that's a landing, not a crash).
+(that's a landing, not a crash). With the gear **up** it is the opposite: lined up and
+below `gearWarnAgl` the alarm runs all the way down final, and touchdown explodes.
 
 ## Vehicles (all unlocked, tap to fly)
 

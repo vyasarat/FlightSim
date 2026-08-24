@@ -1342,6 +1342,31 @@ function check(name, ok, extra) {
     check("landing: touching down short on the pad lands (no explosion) and the wheels stay above ground",
       shortLanding.landed && shortLanding.landedAlong < -40 && shortLanding.minAbove >= shortLanding.gearHeight - 0.05 && !shortLanding.exploded, JSON.stringify(shortLanding));
 
+    // gear-up approach: alarm before touchdown, then the explosion
+    const bellyLanding = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      L.api.spawnAt(0, 0);
+      L.api.teleportAirborne(500, 0, 3 + 500 * T.glideSlope, 0);
+      st.gearDown = false;
+      L.api.setStick(0, -0.18);
+      const e0 = L.flags.exploded;
+      let alarmBeforeCrash = false, alarmAgl = null;
+      for (let i = 0; i < 60 * 30; i++) {
+        L.update(1 / 60);
+        if (!st.exploding && document.getElementById("alarm").classList.contains("on")) {
+          alarmBeforeCrash = true;
+          if (alarmAgl === null) alarmAgl = +(st.y - L.terrainEff(st.x, st.z)).toFixed(1);
+        }
+        if (st.exploding || st.phase === "LANDED") break;
+      }
+      L.api.clearStick();
+      const r = { alarmBeforeCrash, alarmAgl, exploded: L.flags.exploded > e0, landed: st.phase === "LANDED" };
+      st.gearDown = true;
+      return r;
+    });
+    check("alarm: landing with the gear up strobes on final and explodes on touchdown",
+      bellyLanding.alarmBeforeCrash && bellyLanding.exploded && !bellyLanding.landed, JSON.stringify(bellyLanding));
+
     check("rewards: ring corridor anchors at the near threshold in both directions",
       [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));
 
