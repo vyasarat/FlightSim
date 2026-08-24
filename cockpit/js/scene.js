@@ -2,11 +2,14 @@
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(TUNE.skyHorizonColor, TUNE.fogNear, TUNE.fogFar);
 
-const camera = new THREE.PerspectiveCamera(TUNE.fov, window.innerWidth / window.innerHeight, 0.05, 6000);
+// Near plane 0.6 (nothing renders closer: the HUD is DOM) + logarithmic depth
+// buffer: with 0.05..6000 the depth buffer had no precision at distance, so
+// ground paint, building bases and the water plane z-fought (shimmered).
+const camera = new THREE.PerspectiveCamera(TUNE.fov, window.innerWidth / window.innerHeight, 0.6, 6000);
 camera.rotation.order = "YXZ";
 scene.add(camera);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.domElement.id = "gl";
@@ -122,7 +125,8 @@ function lamSafe(color) {
   return new THREE.MeshLambertMaterial({ color });
 }
 
-const waterMat = new THREE.MeshLambertMaterial({ color: 0x3f7fbf });
+// Water wins ties against shallow shore terrain instead of flickering.
+const waterMat = new THREE.MeshLambertMaterial({ color: 0x3f7fbf, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), waterMat);
 waterMesh.rotation.x = -Math.PI / 2;
 waterMesh.position.y = TUNE.waterLevel;
@@ -138,13 +142,13 @@ scene.add(waterMesh);
       new THREE.BoxGeometry(TUNE.runwayWidth, 0.4, TUNE.runwayLength),
       asphaltMat
     );
-    surface.position.set(0, ap.elev + 0.05, ap.cz);
+    surface.position.set(0, ap.elev + 0.1, ap.cz);
     scene.add(surface);
 
     const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.08, 20), paintMat, dashCount);
     const dummy = new THREE.Object3D();
     for (let i = 0; i < dashCount; i++) {
-      dummy.position.set(0, ap.elev + 0.32, ap.cz + TUNE.runwayLength / 2 - 60 - i * 95);
+      dummy.position.set(0, ap.elev + 0.42, ap.cz + TUNE.runwayLength / 2 - 60 - i * 95);
       dummy.updateMatrix();
       dashes.setMatrixAt(i, dummy.matrix);
     }
@@ -155,7 +159,7 @@ scene.add(waterMesh);
     let si = 0;
     for (const endZ of [ap.cz + TUNE.runwayLength / 2 - 26, ap.cz - TUNE.runwayLength / 2 + 26]) {
       for (let k = 0; k < stripesPerEnd; k++) {
-        dummy.position.set((k - (stripesPerEnd - 1) / 2) * 8, ap.elev + 0.32, endZ);
+        dummy.position.set((k - (stripesPerEnd - 1) / 2) * 8, ap.elev + 0.42, endZ);
         dummy.updateMatrix();
         stripes.setMatrixAt(si++, dummy.matrix);
       }

@@ -33,7 +33,7 @@ const guideGroup = new THREE.Group();
   const lineGeo = new THREE.BoxGeometry(1.4, 0.4, len);
   for (const sx of [-(TUNE.runwayWidth / 2 + 5), TUNE.runwayWidth / 2 + 5]) {
     const line = new THREE.Mesh(lineGeo, lineMat);
-    line.position.set(sx, 0.5, TUNE.runwayLength / 2 + len / 2 - 60);
+    line.position.set(sx, 0.7, TUNE.runwayLength / 2 + len / 2 - 60);
     guideGroup.add(line);
   }
 }
