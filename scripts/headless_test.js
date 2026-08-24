@@ -1320,6 +1320,28 @@ function check(name, ok, extra) {
       }
       return out;
     });
+    // landing short (on the pad, before the threshold) is a landing, and the
+    // wheels never go below the ground
+    const shortLanding = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      L.api.spawnAt(0, 0);
+      L.api.teleportAirborne(260, 0, 14, 0);   // 260 m short, 14 m up, level
+      st.gearDown = true;
+      L.api.setStick(0, -0.35);                 // push it onto the pad
+      let minAbove = Infinity, landedAlong = null;
+      for (let i = 0; i < 60 * 20; i++) {
+        L.update(1 / 60);
+        const g = L.terrainEff(st.x, st.z);
+        minAbove = Math.min(minAbove, st.y - g);
+        if (st.phase === "LANDED") { landedAlong = st.approachData.along; break; }
+        if (st.exploding) break;
+      }
+      L.api.clearStick();
+      return { landed: st.phase === "LANDED", landedAlong: landedAlong && Math.round(landedAlong), minAbove: +minAbove.toFixed(2), gearHeight: T.gearHeight, exploded: st.exploding };
+    });
+    check("landing: touching down short on the pad lands (no explosion) and the wheels stay above ground",
+      shortLanding.landed && shortLanding.landedAlong < -40 && shortLanding.minAbove >= shortLanding.gearHeight - 0.05 && !shortLanding.exploded, JSON.stringify(shortLanding));
+
     check("rewards: ring corridor anchors at the near threshold in both directions",
       [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));
 
