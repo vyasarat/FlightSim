@@ -114,7 +114,14 @@ Cockpit overlay accents recolor per vehicle via the `--veh` CSS variable.
 ## The route: New York <-> California
 
 `TUNE.routeLength` (default 12000 units ≈ 3.5 min each way at cruise). Airports sit
-at ±routeLength/2 with flattened-terrain runway rects. Landmarks are placed at fixed
+at ±routeLength/2 with flattened-terrain runway rects plus a flat apron `apronWidth`
+wide beside them. Each airport is a full complex on the side away from the city
+(NY east, CA west): apron and taxiways with yellow centrelines, a terminal with
+three jet bridges and three parked airliners at the gates, a control tower with a
+blinking beacon, two arched hangars, fuel tanks, a spinning radar dish, a windsock,
+and runway edge/threshold lights. Buildings and parked planes are solid. Nothing
+else stands within ±700 m of a runway centre (the NY harbour/bridges/skyline and the
+CA bridge were moved ~1 km out so they no longer cross the runway or the apron). Landmarks are placed at fixed
 fractions of the route and are **solid**:
 
 - NYC skyline cluster + spire, green statue on an island, two suspension bridges (flyable-under)

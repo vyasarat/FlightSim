@@ -202,7 +202,10 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   const ny = new THREE.Group();
   ny.userData.trackSolids = true;
   ny.userData.pending = [];
-  const skylineZ = half - 900 * RS;
+  // The NY cluster sits 1 km further out than it used to: the airport's runway
+  // spans +-700 and the apron another 300 beside it, so anything closer
+  // crossed the runway (the bridges) or stood on short final (the skyline).
+  const skylineZ = half - 1900 * RS;
   for (let i = 0; i < 14; i++) {
     const bx = -160 + hashSalt(i, 7, 201) * 320;
     const bz = (hashSalt(i, 7, 202) - 0.5) * 300;
@@ -231,9 +234,9 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   const island = new THREE.Mesh(new THREE.CylinderGeometry(46, 54, 7, 12), lam(0x77c95f));
   island.position.y = 3.5;
   statue.add(island);
-  addRouteLandmark(statue, -520, half - 1350 * RS);
+  addRouteLandmark(statue, -520, half - 2350 * RS);
 
-  const harborZ = half - 480 * RS;
+  const harborZ = half - 1480 * RS;
   addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 16, 18), -120, harborZ);
   addRouteLandmark(suspensionBridge(0xd0342c, 540, 52, 16, 16), 420, harborZ - 260 * RS);
 
@@ -278,7 +281,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   addRouteLandmark(casinos, -250, -half * 0.555);
 
   const caBridge = suspensionBridge(0xd0342c, 700, 78, 21, 20);
-  addRouteLandmark(caBridge, -400, -half + 380 * RS);
+  addRouteLandmark(caBridge, -400, -half + 1480 * RS);  // clear of the runway + apron
 
   const letters = new THREE.Group();
   letters.userData.trackSolids = true;
@@ -320,6 +323,103 @@ for (const L of ROUTE_LANDMARKS) {
   const zc = -3800 * ROUTE_SCALE();
   const gy = Math.max(terrainEff(0, zc), TUNE.waterLevel);
   addGate(0, gy + 34, zc, 42, 30, null);
+}
+
+// ---- airports: a terminal complex beside each runway, on the side away from
+// nothing in particular (NY east, CA west) so the two feel different. Every
+// building and parked plane is a solid; the apron, taxiways and lights are not.
+const airportSpinners = [];
+const edgeLightMat = new THREE.MeshBasicMaterial({ color: 0xfff2b0, fog: false });
+const greenLightMat = new THREE.MeshBasicMaterial({ color: 0x3fdc6a, fog: false });
+const redLightMat = new THREE.MeshBasicMaterial({ color: 0xe0483e, fog: false });
+function buildAirport(idx) {
+  const ap = AIRPORTS[idx];
+  const m = idx === 0 ? 1 : -1;                 // apron side
+  const halfL = TUNE.runwayLength / 2, halfW = TUNE.runwayWidth / 2;
+  const g = new THREE.Group();
+  g.userData.trackSolids = true;
+  g.userData.pending = [];
+  const asphalt = 0x5e636b, apron = 0x777c85, paint = 0xffd23e;
+
+  // apron slab + parallel taxiway + two connectors to the runway
+  lmBox(g, 200, 0.3, 760, apron, m * 170, 0.2, 0, false);
+  lmBox(g, 18, 0.32, 900, asphalt, m * 88, 0.22, 0, false);
+  for (const cz of [-300, 300]) lmBox(g, 70, 0.32, 18, asphalt, m * (halfW + 30), 0.22, cz, false);
+  for (let z = -430; z <= 430; z += 40) lmBox(g, 0.8, 0.02, 18, paint, m * 88, 0.42, z, false);
+  for (const cz of [-300, 300]) for (let x = halfW + 8; x < halfW + 62; x += 14) lmBox(g, 12, 0.02, 0.8, paint, m * x, 0.42, cz, false);
+
+  // terminal: long hall, glass band, roof, jet bridges toward the apron
+  lmBox(g, 40, 14, 220, 0xd8dde4, m * 232, 7, 0, true);
+  lmBox(g, 41, 4, 222, 0x6fa7d9, m * 232, 8, 0, false);
+  lmBox(g, 46, 1.2, 226, 0x8a93a0, m * 232, 14.6, 0, false);
+  for (const z of [-70, 0, 70]) {
+    lmBox(g, 26, 3.2, 4, 0xb8c2cf, m * 199, 6.5, z, true);
+    lmBox(g, 5, 6, 5, 0x8a93a0, m * 188, 3, z, true);
+  }
+  // control tower with cab and beacon
+  lmCyl(g, 4, 5, 42, 0xe6eaf0, m * 150, 21, 260, 10, true);
+  lmBox(g, 15, 6, 15, 0x2f3a48, m * 150, 45, 260, true);
+  lmBox(g, 17, 1, 17, 0x8a93a0, m * 150, 48.5, 260, false);
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff4030, fog: false }));
+  beacon.position.set(m * 150, 50.5, 260);
+  g.add(beacon);
+  blinkers.push(beacon);
+  // hangars with arched roofs
+  for (const z of [-300, -370]) {
+    lmBox(g, 56, 14, 44, 0xb0b6bf, m * 215, 7, z, true);
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 56, 12, 1, false, 0, Math.PI), lam(0x8f96a0));
+    roof.rotation.z = Math.PI / 2; roof.rotation.y = Math.PI / 2;
+    roof.position.set(m * 215, 14, z);
+    g.add(roof);
+    lmBox(g, 40, 10, 1, 0x3c4350, m * (215 - 28 * m), 5, z, false);
+  }
+  // fuel tanks
+  for (const z of [340, 372]) lmCyl(g, 9, 9, 12, 0xeef1f4, m * 245, 6, z, 14, true);
+  // parked airliners at the gates, nose to the terminal
+  for (const [z, ci] of [[-70, 0], [0, 1], [70, 2]]) {
+    const plane = makeTrafficModel(trafficPalette[ci % trafficPalette.length]);
+    plane.scale.setScalar(1.35);
+    plane.position.set(m * 160, 3.2, z);
+    plane.rotation.y = m > 0 ? -Math.PI / 2 : Math.PI / 2;
+    g.add(plane);
+    g.userData.pending.push({ lx: m * 160, ly0: 0, lz: z, hw: 12, hd: 12, y1: 8, mesh: plane });
+  }
+  // radar dish (spins) and windsock on the far side
+  lmCyl(g, 1.2, 1.6, 10, 0xe6eaf0, -m * 95, 5, -470, 8, false);
+  const dish = new THREE.Mesh(new THREE.BoxGeometry(12, 4, 0.8), lam(0xf2f4f7));
+  dish.position.set(-m * 95, 11, -470);
+  dish.rotation.x = -0.35;
+  g.add(dish);
+  airportSpinners.push(dish);
+  lmCyl(g, 0.3, 0.3, 9, 0xf2f4f7, -m * 90, 4.5, 420, 6, false);
+  const sock = new THREE.Mesh(new THREE.ConeGeometry(1.4, 6, 8), lam(0xff7a1a));
+  sock.rotation.z = Math.PI / 2;
+  sock.position.set(-m * 87, 9, 420);
+  g.add(sock);
+
+  // runway edge lights + threshold bars (green facing the approach, red at the far end)
+  const n = Math.floor(TUNE.runwayLength / 50);
+  const lights = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), edgeLightMat, n * 2);
+  const d = new THREE.Object3D();
+  let li = 0;
+  for (let i = 0; i < n; i++) for (const sx of [-1, 1]) {
+    d.position.set(sx * (halfW + 2.5), 0.45, -halfL + 25 + i * 50);
+    d.updateMatrix(); lights.setMatrixAt(li++, d.matrix);
+  }
+  g.add(lights);
+  for (const [endZ, mat] of [[halfL + 3, greenLightMat], [-halfL - 3, greenLightMat]]) {
+    const bar = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), mat, 12);
+    for (let k = 0; k < 12; k++) { d.position.set(-halfW + 2.5 + k * (TUNE.runwayWidth - 5) / 11, 0.45, endZ); d.updateMatrix(); bar.setMatrixAt(k, d.matrix); }
+    g.add(bar);
+    const inner = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), redLightMat, 12);
+    for (let k = 0; k < 12; k++) { d.position.set(-halfW + 2.5 + k * (TUNE.runwayWidth - 5) / 11, 0.45, endZ - Math.sign(endZ) * 6); d.updateMatrix(); inner.setMatrixAt(k, d.matrix); }
+    g.add(inner);
+  }
+  addRouteLandmark(g, 0, ap.cz);
+}
+for (let i = 0; i < AIRPORTS.length; i++) buildAirport(i);
+function updateAirports(dt) {
+  for (const s of airportSpinners) s.rotation.y += dt * 0.9;
 }
 
 const TRAIN_CARS = 22;
