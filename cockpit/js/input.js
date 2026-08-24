@@ -106,6 +106,10 @@ function debounced(fn, frames) {
 }
 
 function toggleGear() {
+  // Wheels stay down while they're carrying the plane: no retracting on the
+  // ground (TAXI / ROLL / LANDED). Extending is always allowed.
+  const onGround = state.phase === "TAXI" || state.phase === "ROLL" || state.phase === "LANDED";
+  if (onGround && state.gearDown) return;
   state.gearDown = !state.gearDown;
   gearSound(state.gearDown);
   flags.gear++;
