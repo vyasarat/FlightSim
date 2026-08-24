@@ -688,6 +688,19 @@ function check(name, ok, extra) {
     }
     check("throttle: release returns to cruise", recovered);
 
+    const fb = await page.locator("#fastBtn").boundingBox();
+    check("throttle: fast button visible airborne", !!fb && fb.width >= 80);
+    await page.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2);
+    await page.mouse.down();
+    let boosted = false;
+    for (let i = 0; i < 20 && !boosted; i++) {
+      boosted = await page.evaluate((c) => window.__lp.state.speed > c * 1.15, cruise);
+      if (!boosted) await pump(page, 0.5);
+    }
+    check("throttle: fast button boosts speed", boosted);
+    await page.mouse.up();
+    await pump(page, 2);
+
     // glide guide during engaged approach
     await page.evaluate(() => window.__lp.api.teleportAirborne(900, 0, 60, 0));
     await page.evaluate(() => window.__lp.api.setStick(0, -0.16));
@@ -717,6 +730,158 @@ function check(name, ok, extra) {
       return wheelWorld - ground;
     });
     check("view: landed model rests wheels on ground", Math.abs(gap) < 1.5, `gap=${gap.toFixed(2)}`);
+    await page.close();
+  }
+
+  // ---------- T-K skip to landing ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    for (let i = 0; i < 40; i++) {
+      const air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+      if (air) break;
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.6));
+      await pump(page, 0.25);
+    }
+    await page.evaluate(() => window.__lp.api.clearStick());
+    await pump(page, 1);
+    const vis = await page.evaluate(() =>
+      !document.getElementById("skipBtn").classList.contains("hidden"));
+    check("skip: button appears while airborne en-route", vis);
+
+    await page.click("#skipBtn");
+    await pump(page, 0.5);
+    const placed = await page.evaluate(() => {
+      const st = window.__lp.state;
+      const apCz = window.__lp.TUNE.routeLength / 2 * (st.dirIdx === 0 ? -1 : 1);
+      const thOff = (st.dirIdx === 0 ? 1 : -1) * window.__lp.TUNE.runwayLength / 2;
+      return {
+        engaged: st.engaged,
+        gear: st.gearDown,
+        dist: Math.abs(st.z - (apCz + thOff)),
+        sp: st.speed,
+        btnHidden: document.getElementById("skipBtn").classList.contains("hidden")
+      };
+    });
+    check("skip: placed aligned on glide slope, engaged, gear down, button hides",
+      placed.engaged && placed.gear && placed.dist > 1300 && placed.dist < 1600 &&
+      placed.sp <= 60 && placed.btnHidden,
+      JSON.stringify(placed));
+
+    const repos0 = await page.evaluate(() => window.__lp.flags.repositioned);
+    let landed = false, elapsed = 0;
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.18));
+    while (elapsed < 90 && !landed) {
+      landed = await page.evaluate(() =>
+        window.__lp.flags.touchdown > 0 && window.__lp.state.phase === "LANDED");
+      if (!landed) { await pump(page, 1); elapsed += 1; }
+    }
+    check("skip: lands within a minute-ish of skipping",
+      landed && elapsed >= 20 && elapsed <= 80, `${elapsed.toFixed(0)}s landed=${landed}`);
+    await pump(page, 14);
+    const reset = await page.evaluate((r0) =>
+      window.__lp.flags.repositioned > r0 && window.__lp.state.phase === "TAXI", repos0);
+    check("skip: post-landing reset ready for next flight", reset);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
+    await page.close();
+  }
+
+  // ---------- T-M missiles & traffic ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; });
+    await page.evaluate(() => { window.__lp.api.placeOnRunway(); });
+    await page.evaluate(() => window.__lp.api.setThrottle(true));
+    for (let i = 0; i < 40; i++) {
+      const air = await page.evaluate(() => window.__lp.state.phase === "AIRBORNE");
+      if (air) break;
+      const canRot = await page.evaluate(() => window.__lp.state.canRotate);
+      if (canRot) await page.evaluate(() => window.__lp.api.setStick(0, 0.6));
+      await pump(page, 0.25);
+    }
+    await page.evaluate(() => window.__lp.api.clearStick());
+    await pump(page, 2);
+    for (let i = 0; i < 30; i++) {
+      const agl = await page.evaluate(() =>
+        window.__lp.state.y - Math.max(window.__lp.terrainEff(window.__lp.state.x, window.__lp.state.z), window.__lp.TUNE.waterLevel));
+      if (agl >= 100) break;
+      await page.evaluate(() => window.__lp.api.setStick(0, 0.3));
+      await pump(page, 0.5);
+    }
+    await page.evaluate(() => window.__lp.api.clearStick());
+    const settle = async () => {
+      for (let i = 0; i < 20; i++) {
+        const p = await page.evaluate(() => Math.abs(window.__lp.state.pitch));
+        if (p < 0.15) return true;
+        await pump(page, 0.25);
+      }
+      return false;
+    };
+    const leveled = await settle();
+
+    const trafficN = await page.evaluate(() => window.__lp.traffic.length);
+    check("traffic: planes cruising", trafficN === 6, `n=${trafficN}`);
+
+    const mb = await page.locator("#missileBtn").boundingBox();
+    check("missiles: button visible airborne", !!mb && mb.width >= 80);
+    check("missiles: plane settled level before shot", leveled);
+
+    // put a traffic plane dead ahead, then shoot it
+    const shot = await page.evaluate(() => {
+      const st = window.__lp.state;
+      const t = window.__lp.traffic.find(tt => tt.alive);
+      if (!t) return false;
+      t.heading = st.heading;
+      t.x = st.x - Math.sin(st.heading) * 260;
+      t.z = st.z - Math.cos(st.heading) * 260;
+      t.y = Math.max(st.y, window.__lp.terrainEff(t.x, t.z) + window.__lp.TUNE.waterLevel + 47);
+      t.speed = st.speed * 0.5;
+      return true;
+    });
+    const e0 = await page.evaluate(() => window.__lp.flags.exploded);
+    const s0 = await page.evaluate(() => window.__lp.flags.shootdowns);
+    await page.click("#missileBtn");
+    let hit = false;
+    for (let i = 0; i < 16 && !hit; i++) {
+      hit = await page.evaluate((p0) => window.__lp.flags.shootdowns > p0, s0);
+      if (!hit) await pump(page, 0.25);
+    }
+    const e1 = await page.evaluate(() => window.__lp.flags.exploded);
+    check("missiles: shoot down a plane ahead",
+      shot && hit && e1 >= e0, `shot=${shot} hit=${hit}`);
+
+    // missile into terrain also explodes
+    const h0 = await page.evaluate(() => window.__lp.flags.missileHits);
+    await page.evaluate(() => window.__lp.api.setStick(0, -0.5));
+    await pump(page, 1);
+    await page.evaluate(() => window.__lp.api.clearStick());
+    await page.click("#missileBtn");
+    let terrainHit = false;
+    for (let i = 0; i < 20 && !terrainHit; i++) {
+      terrainHit = await page.evaluate((p0) => window.__lp.flags.missileHits > p0, h0);
+      if (!terrainHit) await pump(page, 0.25);
+    }
+    check("missiles: ground impact explodes", terrainHit);
+
+    // mid-air collision with traffic explodes the player
+    const e2 = await page.evaluate(() => window.__lp.flags.exploded);
+    await page.evaluate(() => {
+      const st = window.__lp.state;
+      const t = window.__lp.traffic.find(tt => tt.alive);
+      if (t) {
+        st.x = t.x; st.y = t.y; st.z = t.z;
+      }
+    });
+    let midair = false;
+    for (let i = 0; i < 12 && !midair; i++) {
+      midair = await page.evaluate((p0) => window.__lp.flags.exploded > p0 || window.__lp.flags.midairs > 0, e2);
+      if (!midair) await pump(page, 0.25);
+    }
+    check("traffic: mid-air collision explodes", midair);
+    await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
     await page.close();
   }
 
