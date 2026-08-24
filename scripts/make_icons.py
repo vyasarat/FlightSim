@@ -81,13 +81,17 @@ def draw_scene(size):
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
-    out = os.path.join(here, "..", "icons")
+    # Both PWAs share one icon set; write to each build's icons/ so neither
+    # goes stale when the artwork changes.
+    outs = [os.path.join(here, "..", "icons"), os.path.join(here, "..", "cockpit", "icons")]
     os.makedirs(out, exist_ok=True)
     master = draw_scene(BASE * SS).resize((BASE, BASE), Image.LANCZOS)
-    master.save(os.path.join(out, "icon-512.png"))
-    master.resize((192, 192), Image.LANCZOS).save(os.path.join(out, "icon-192.png"))
-    master.resize((180, 180), Image.LANCZOS).save(os.path.join(out, "icon-180.png"))
-    print("icons written:", sorted(os.listdir(out)))
+    for out in outs:
+        os.makedirs(out, exist_ok=True)
+        master.save(os.path.join(out, "icon-512.png"))
+        master.resize((192, 192), Image.LANCZOS).save(os.path.join(out, "icon-192.png"))
+        master.resize((180, 180), Image.LANCZOS).save(os.path.join(out, "icon-180.png"))
+        print("icons written:", out, sorted(os.listdir(out)))
 
 
 if __name__ == "__main__":

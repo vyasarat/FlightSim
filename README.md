@@ -19,7 +19,7 @@ pointing skill not a timing skill, drag-up = nose-up.
 
 ```
 cockpit/
-  index.html        the entire 3D game (~2900 lines, inline JS, TUNE at top)
+  index.html        the entire 3D game (~3600 lines, inline JS, TUNE at top)
   three.min.js      vendored r128 UMD build -- no CDN, offline-first
   manifest.json     display:fullscreen, orientation:landscape
   sw.js             cache-first service worker (bump CACHE_NAME on deploys)
@@ -30,11 +30,11 @@ sw.js               2D service worker
 icons/              shared icon source set
 scripts/
   make_icons.py     regenerates icons/ from code (PIL)
-  headless_test.js  60-check playwright harness -- run before every ship
+  headless_test.js  playwright harness (prints its check count) -- run before every ship
 deploy/
   deploy.sh         run ON the droplet: git pull + rsync to web root
   nginx-flightsim.conf  reference copy of the live nginx site config
-qa-screenshots/      harness-generated screen captures
+qa-screenshots/      harness-generated screen captures (gitignored)
 ```
 
 ## Controls (what he actually touches)
@@ -65,9 +65,10 @@ icon (start CA, fly north).
 |---|---|---|---|---|
 | Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (color only, no trade dress); have gear |
+| Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
 
 Shelved behind `hidden: true` in `TUNE.vehicles` (defs intact, one flag to
-re-enable): helicopter (hover) and rocket (space access). Space content is
+re-enable -- the picker reads the flag at boot): helicopter (hover) and rocket (space access). Space content is
 dormant while the rocket is shelved; every other vehicle is ceiling-capped.
 
 Cockpit overlay accents recolor per vehicle via the `--veh` CSS variable.
@@ -89,7 +90,8 @@ fractions of the route and are **solid**:
 
 Landing guidance: the ring corridor plus two glowing centerline rails on the ground,
 and a HUD glide arrow during engaged approaches -- amber up/down when off the ideal
-glide path (`glideSlope`), pulsing green ring when on it.
+glide path (`glideSlope`), pulsing green ring when on it. Rings are placed on the
+same slope the arrow measures, so the two never disagree.
 
 Landing at the far airport plays confetti + cheer, then immediately spawns him on
 that runway facing home. Missing the approach triggers a silent automatic go-around.
@@ -105,7 +107,7 @@ automatically.
 ## Crashes & collisions
 
 - **Any impact explodes** -- terrain, water, structures, at any speed or angle: fireball, debris, camera shake, boom, plane reassembles ~2 s later (`reassembleDelay`) at safe altitude. Zero penalty, repeatable forever. (The old shallow-skim bounce is gone -- he asked for realism.)
-- Structures are solid AABBs (`resolveSolidWalls`): instanced town buildings, landmark towers/decks/silos/casinos/downtown, bridge decks, train cars. Wall hits shatter *both* sides -- nearby structure pieces hide into the debris cloud and restore on reassemble.
+- Structures are solid AABBs (`resolveSolidWalls`): instanced town buildings, landmark towers/decks/silos/casinos/downtown, bridge decks, train cars. Wall hits shatter *both* sides -- nearby structure pieces hide into the debris cloud and restore after `reassembleDelay` on their own timer (so a missile-shattered building never lingers as an invisible wall). Hidden pieces are never solid. Walls and mid-airs stay live during a go-around.
 - **Gear-up landings explode.** Touchdown tolerances (`touchdownLatTolMult`, `touchdownHeadingTolDeg`) still generous, but only with gear down.
 - **Traffic planes**: six AI airliners cruise the route in both directions (`trafficCount`). Shoot them with missiles or fly into them -- both explode on contact; they respawn elsewhere after `trafficRespawnDelay`. Mid-air collisions cost him nothing, same as everything else.
 
@@ -121,11 +123,15 @@ continent -- landmarks and zones derive from route fractions, nothing needs rebu
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL)
-through 79 checks: HUD layout in both orientations, zero-text DOM audit, takeoff
+(it prints the check count at the end): HUD layout in both orientations, zero-text DOM audit, takeoff
 (with and without input), sloppy-approach landings, go-around, deliberate repeatable
-crashes, shallow-skim-bounces, all six vehicles, full route both directions timed
+crashes (every impact explodes, shallow skims included), all five visible vehicles plus the shelved rocket, full route both directions timed
 150–290 s, rocket round-trip to space, non-rocket ceiling, solid-wall shatter,
-view toggle, gear cycle (up/down icons), persistent speed stepper (set-and-stays), aim crosshair, glide-guidance arrow, chase-cam ground alignment, missile firing + shootdowns + ground impact + no-tunneling, traffic presence + mid-air collision, skip-to-landing end-to-end, strip behavior, SW reachability, software-GL FPS smoke.
+view toggle, gear cycle (up/down icons), persistent speed stepper (set-and-stays), aim crosshair, glide-guidance arrow, chase-cam ground alignment, missile firing + shootdowns + ground impact + no-tunneling, traffic presence + mid-air collision, skip-to-landing end-to-end, strip behavior, SW/manifest reachability for both builds, and
+world-integrity regressions (no flattened ribbon along the route, train moves, beacons are
+live meshes, every wall face reassembles on the near side with finite coords,
+missile-shattered pieces self-restore, deep water crashes). FPS under software GL is printed as advisory only.
+The harness refuses to run if something else is already serving port 8177.
 
 ```
 npm i playwright-core        # once, any node_modules location
@@ -135,7 +141,7 @@ node scripts/headless_test.js
 ```
 
 Serve is handled internally via python3 http.server on port 8177.
-Screenshots land in `qa-screenshots/`.
+Screenshots land in `qa-screenshots/` (gitignored).
 
 ## Deploy
 
@@ -148,17 +154,26 @@ checkout `/root/flightsim`, GitHub auth via account SSH key.
 git push origin cockpit-3d && git checkout main && git merge --no-ff cockpit-3d && git push
 ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'
 
-# rollback:
-ssh root@138.197.80.104 'cd /root/flightsim && git checkout $(cat /tmp/flightsim-previous-rev) && bash deploy/deploy.sh'
+# rollback (--no-pull is essential: without it deploy.sh pulls main again):
+ssh root@138.197.80.104 'cd /root/flightsim && git checkout $(cat /tmp/flightsim-previous-rev) && bash deploy/deploy.sh --no-pull'
 ```
 
+`deploy.sh` always publishes `origin/main` (it checks out main and hard-resets to it),
+refuses a dirty tree, and refuses to deploy if `cockpit/index.html` changed without a
+`cockpit/sw.js` `CACHE_NAME` bump (same for the root build). It rsyncs an allowlist --
+only `index.html`, `manifest.json`, `sw.js`, `icons/`, `cockpit/` reach the docroot.
+
 Branch flow: develop on `cockpit-3d`, merge to `main` to deploy; branch kept on origin.
-Bump `CACHE_NAME` in both `sw.js` files whenever shipping asset/code changes so his
-iPad's service worker refreshes.
+Bump `CACHE_NAME` in the relevant `sw.js` whenever shipping asset/code changes so his
+iPad's service worker refreshes. The page reloads itself when a new worker takes over
+while sitting on the menu, so the first launch after a deploy already runs the new code.
 
 First-time provisioning on a fresh droplet: clone repo, copy
-`deploy/nginx-flightsim.conf` into `/etc/nginx/sites-available/flightsim`, symlink
-into `sites-enabled`, reload nginx, `certbot --nginx -d flightsim.138.197.80.104.nip.io`.
+`deploy/nginx-flightsim.conf` into `/etc/nginx/sites-available/flightsim`, create
+`/etc/nginx/snippets/flightsim-headers.conf` from the comment at the top of that file
+(the security headers live there because nginx `add_header` is not inherited into
+location blocks), symlink into `sites-enabled`, reload nginx,
+`certbot --nginx -d flightsim.138.197.80.104.nip.io`.
 
 ## iPad install
 
