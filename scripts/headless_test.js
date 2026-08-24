@@ -977,16 +977,23 @@ function check(name, ok, extra) {
     await page.evaluate(() => window.__lp.api.clearStick());
     await pump(page, 2);
 
-    // find a real town building near the plane, aim at its center
+    // fly down the route until a town building streams in near the plane, aim at its center
     const aim = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
       let best = null;
-      window.__lp.forEachSolid(b => {
-        if (b.idx === undefined || b.y0 === undefined) return;
-        const d = Math.hypot(b.x - window.__lp.state.x, b.z - window.__lp.state.z);
-        if (d < 600 && d > 80 && (b.y1 - b.y0) > 8) {
-          if (!best || d < best.d) best = { x: b.x, z: b.z, y0: b.y0, y1: b.y1, d };
-        }
-      });
+      const half = T.routeLength / 2;
+      for (let z = half - 1600; z > -half + 1600 && !best; z -= 250) {
+        st.x = 0; st.z = z; st.y = 220; st.phase = "AIRBORNE"; st.speed = 0;
+        for (let i = 0; i < 3; i++) L.update(1 / 60);
+        L.forEachSolid(b => {
+          if (b.idx === undefined || b.y0 === undefined) return;
+          const d = Math.hypot(b.x - st.x, b.z - st.z);
+          if (d < 600 && d > 80 && (b.y1 - b.y0) > 8) {
+            if (!best || d < best.d) best = { x: b.x, z: b.z, y0: b.y0, y1: b.y1, d };
+          }
+        });
+      }
+      st.speed = st.vp.cruiseSpeed;
       return best;
     });
     check("town: found a nearby town building to test", !!aim, JSON.stringify(aim));
@@ -1546,7 +1553,7 @@ function check(name, ok, extra) {
       "runway-ny-cockpit": () => { window.__lp.api.placeOnRunway(); window.__lp.api.setView(false); },
       "chase-canyon": () => { const T = window.__lp.TUNE; window.__lp.api.setView(true); const st = window.__lp.state; st.phase = "AIRBORNE"; st.x = 0; st.z = -3800 * (T.routeLength / 12000) + 420; st.y = T.waterLevel + 140; st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; },
       "approach-rings": () => { const T = window.__lp.TUNE; window.__lp.api.setView(false); window.__lp.api.teleportAirborne(700, 0, 3 + 700 * T.glideSlope, 0); window.__lp.state.speed = 0; },
-      "ny-skyline-chase": () => { const T = window.__lp.TUNE; window.__lp.api.setView(true); const st = window.__lp.state; st.phase = "AIRBORNE"; st.x = 0; st.z = T.routeLength / 2 - 900; st.y = 160; st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; },
+      "ny-skyline-chase": () => { const T = window.__lp.TUNE; window.__lp.api.setView(true); const st = window.__lp.state; st.phase = "AIRBORNE"; st.x = 0; st.z = T.routeLength / 2 - 1900; st.y = 160; st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; },
     };
     const got = {};
     for (const [name, setup] of Object.entries(scenes)) {
