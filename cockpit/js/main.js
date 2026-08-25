@@ -144,6 +144,9 @@ window.__lp = {
         if (d < bd) { bd = d; state.destIdx = i; }
       }
       state.originIdx = 1 - state.destIdx;
+      // Direction follows the heading: flying -z arrives at a runway's +z end (dirIdx 0).
+      state.dirIdx = Math.abs(wrapPi(state.heading)) < Math.PI / 2 ? 0 : 1;
+      state.maxAglSinceLiftoff = 1e9;
       placeRings();
       state.pitch = 0;
       state.bank = 0;

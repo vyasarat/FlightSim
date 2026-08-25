@@ -5,7 +5,9 @@ let stickPointerId = null;
 glEl.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   unlockAudio();
-  if (!state.touching) {
+  // A finger always wins: it takes the stick even if an arrow key is held.
+  if (stickPointerId === null) {
+    keyStickActive = false;
     state.touching = true;
     stickPointerId = e.pointerId;
     state.startX = e.clientX;
@@ -30,19 +32,40 @@ glEl.addEventListener("pointerup", releaseDrag);
 glEl.addEventListener("pointercancel", releaseDrag);
 // Anything that can end a touch without telling us (Guided Access overlay,
 // notification banner, app switch) releases every held control.
-const releaseAllInputs = () => { releaseDrag(); releaseThrottle(); };
+const releaseAllInputs = () => {
+  releaseDrag();
+  releaseThrottle();
+  // A keyup can be lost to another window (Cmd-Tab, Guided Access overlay):
+  // forget every held key so nothing stays "pressed" forever.
+  keys.clear();
+  keyStickActive = false;
+  state.ctrlBank = 0;
+  state.ctrlPitch = 0;
+  state.touching = false;
+  stickPointerId = null;
+};
 window.addEventListener("blur", releaseAllInputs);
 window.addEventListener("pagehide", releaseAllInputs);
 
+// The throttle belongs to one pointer too: a palm tapping the same button
+// while the thumb holds it must not release it.
+let throttlePointerId = null;
+function menuOpen() {
+  return !el.screenVehicle.classList.contains("hiddenS") || !el.screenDir.classList.contains("hiddenS");
+}
 el.throttleBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
+  if (menuOpen() || throttlePointerId !== null) return;
+  throttlePointerId = e.pointerId;
   try { el.throttleBtn.setPointerCapture(e.pointerId); } catch (err) {}
   el.throttleBtn.classList.add("pressed");
   unlockAudio();
   state.throttleHeld = true;
 });
-const releaseThrottle = () => {
+const releaseThrottle = (e) => {
+  if (e && e.pointerId !== undefined && throttlePointerId !== null && e.pointerId !== throttlePointerId) return;
+  throttlePointerId = null;
   el.throttleBtn.classList.remove("pressed");
   state.throttleHeld = false;
 };
@@ -71,6 +94,7 @@ function skipToLanding() {
   state.approachLatch = false;
   state.throttleHeld = false;
   state.touching = false;
+  stickPointerId = null;
   state.ctrlBank = 0;
   state.ctrlPitch = 0;
   state.liftoffTimer = 0;
@@ -81,6 +105,7 @@ function skipToLanding() {
   }
   state.speedStep = 1;
   state.phase = "AIRBORNE";
+  state.maxAglSinceLiftoff = 1e9;
   placeRings();
   unlockAudio();
 }
@@ -121,10 +146,17 @@ const toggleView = debounced(() => {
   el.hud.classList.toggle("chase", state.viewChase);
 }, 18);
 
+// iOS drops :active after preventDefault, so tap feedback is explicit.
+function pressFlash(btn) {
+  btn.classList.add("pressed");
+  setTimeout(() => btn.classList.remove("pressed"), 140);
+}
+
 el.viewBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   unlockAudio();
+  pressFlash(el.viewBtn);
   toggleView();
 });
 
@@ -132,6 +164,7 @@ el.fastBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   unlockAudio();
+  pressFlash(el.fastBtn);
   state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
 });
 
@@ -139,6 +172,7 @@ el.slowBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   unlockAudio();
+  pressFlash(el.slowBtn);
   state.speedStep = Math.max(state.speedStep - 1, 0);
 });
 
@@ -157,6 +191,7 @@ el.gearBtn.addEventListener("pointerdown", (e) => {
   e.stopPropagation();
   try { el.gearBtn.setPointerCapture(e.pointerId); } catch (err) {}
   unlockAudio();
+  pressFlash(el.gearBtn);
   toggleGearDebounced();
 });
 
@@ -209,7 +244,7 @@ window.addEventListener("keydown", (e) => {
     c === "Minus" || c === "NumpadSubtract" || c === "KeyL" || c === "BracketRight" || c === "BracketLeft";
   if (!handled) return;
   e.preventDefault();
-  if (e.repeat) return;
+  if (e.repeat || menuOpen()) return;
   keys.add(c);
   unlockAudio();
   if (c === "Space" || c === "ShiftLeft" || c === "ShiftRight") { el.throttleBtn.classList.add("pressed"); state.throttleHeld = true; }

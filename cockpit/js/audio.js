@@ -11,7 +11,12 @@ function unlockAudio() {
     masterGain = audioCtx.createGain();
     // Boom stacks three sources (~1.65 peak); keep headroom so crashes don't clip.
     masterGain.gain.value = 0.6;
-    masterGain.connect(audioCtx.destination);
+    // A crash boom on top of engine + rolling + alarm can exceed 1.0; the
+    // compressor keeps it loud without clipping.
+    const comp = audioCtx.createDynamicsCompressor();
+    comp.threshold.value = -12; comp.knee.value = 20; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.25;
+    masterGain.connect(comp);
+    comp.connect(audioCtx.destination);
   }
   // iOS reports "interrupted" (not "suspended") after a call / Siri / lock.
   // Either way: resume, and start the engine only once the context is running.
@@ -51,8 +56,9 @@ function startEngine() {
 let lastEngineNorm = 1;
 function setEngine(speedNorm) {
   speedNorm = clamp(speedNorm, 0, 1.15);
+  const unchanged = Math.abs(speedNorm - lastEngineNorm) < 0.003;
   lastEngineNorm = speedNorm;
-  if (!engineNodes || !audioCtx || audioCtx.state !== "running") return;
+  if (!engineNodes || !audioCtx || audioCtx.state !== "running" || unchanged) return;
   const t = audioCtx.currentTime;
   const off = speedNorm <= 0.02;
   const gainTarget = off ? 0.0004 : lerp(TUNE.engineGainIdle, TUNE.engineGainMax, speedNorm);
@@ -163,6 +169,8 @@ function setRolling(norm) {
     rollNodes = { g, lp };
   }
   const n = clamp(norm, 0, 1);
+  if (Math.abs(n - (rollNodes.last || 0)) < 0.004) return;   // no automation spam when unchanged
+  rollNodes.last = n;
   rollNodes.g.gain.setTargetAtTime(n * 0.22, audioCtx.currentTime, 0.08);
   rollNodes.lp.frequency.setTargetAtTime(200 + n * 500, audioCtx.currentTime, 0.1);
 }

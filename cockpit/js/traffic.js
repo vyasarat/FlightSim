@@ -42,8 +42,8 @@ function spawnTraffic(t, farFromPlayer) {
     placed = true;
     break;
   }
-  // Every candidate was rejected: at least guarantee it's above the ground.
-  if (!placed) t.y = Math.max(t.y, Math.max(terrainEff(t.x, t.z), TUNE.waterLevel) + 80);
+  // Every candidate was rejected: park it mid-route, well off the centreline and high.
+  if (!placed) { t.x = 600; t.z = 0; t.y = Math.max(terrainEff(t.x, t.z), TUNE.waterLevel) + 200; }
   t.speed = 30 + Math.random() * 26;
   t.phase = Math.random() * Math.PI * 2;
   t.alive = true;
@@ -67,7 +67,7 @@ function killTraffic(t, px, py, pz) {
   t.alive = false;
   t.mesh.visible = false;
   t.respawn = TUNE.trafficRespawnDelay;
-  triggerExplosion((t.x + px) / 2, (t.y + py) / 2, (t.z + pz) / 2, 1);
+  triggerExplosion((t.x + px) / 2, (t.y + py) / 2, (t.z + pz) / 2, 1, state.exploding);
 }
 
 function updateTraffic(dt, px, py, pz) {
@@ -81,6 +81,11 @@ function updateTraffic(dt, px, py, pz) {
     t.z += -Math.cos(t.heading) * t.speed * dt;
     const groundNow = Math.max(terrainEff(t.x, t.z), TUNE.waterLevel);
     if (t.y < groundNow + 40) t.y += 30 * dt;
+    // Never transit the ring tunnel at glide altitude: side-slip out and climb.
+    if (inCorridor(t.x, t.z, 100)) {
+      t.x += (t.x >= 0 ? 1 : -1) * 25 * dt;
+      if (t.y < groundNow + 260) t.y += 30 * dt;
+    }
     if (Math.abs(t.z) > ROUTE_HALF() + 900) {
       spawnTraffic(t, true);
       continue;
@@ -101,7 +106,7 @@ function updateTraffic(dt, px, py, pz) {
         state.explodeTimer = TUNE.reassembleDelay;
         safePos.x = state.x;
         safePos.z = state.z;
-        safePos.y = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + 60;
+        safePos.y = Math.max(state.y, Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + 60);
       }
     }
   }
@@ -176,7 +181,7 @@ function updateMissiles(dt) {
       if (m.y <= Math.max(terrainEff(m.x, m.z), TUNE.waterLevel)) { boomed = true; break; }
 
       forEachSolid(b => {
-        if (boomed) return;
+        if (boomed || isSolidHidden(b)) return;
         if (m.x > b.x - b.hw - 1 && m.x < b.x + b.hw + 1 &&
             m.z > b.z - b.hd - 1 && m.z < b.z + b.hd + 1 &&
             m.y > b.y0 - 1.5 && m.y < b.y1 + 1.5) {
@@ -215,7 +220,8 @@ function updateMissiles(dt) {
       m.alive = false;
       m.mesh.visible = false;
       if (boomed) {
-        triggerExplosion(hitX, hitY, hitZ, 0.8);
+        // While the player is reassembling, a full boom would hijack the debris.
+        triggerExplosion(hitX, hitY, hitZ, 0.8, state.exploding);
         flags.missileHits++;
       } else if (expired) {
         triggerExplosion(m.x, m.y, m.z, 0.35, true);

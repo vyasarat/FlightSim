@@ -1,4 +1,4 @@
-const CACHE_NAME = "little-pilot-cockpit-v25";
+const CACHE_NAME = "little-pilot-cockpit-v26";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,7 +27,9 @@ const ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    // cache: "reload" bypasses the HTTP cache so a long-cached three.min.js
+    // can't survive a CACHE_NAME bump.
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS.map((a) => new Request(a, { cache: "reload" })))).then(() => self.skipWaiting())
   );
 });
 

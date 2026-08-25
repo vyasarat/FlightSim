@@ -67,7 +67,7 @@ qa-screenshots/      harness-generated screen captures (gitignored)
 | Double-down-chevron button, bottom-right (airborne) | Tap: step the set speed DOWN one notch. Speed stays where he sets it -- no snap-back |
 | Double-up-chevron button, above it (airborne) | Tap: step the set speed UP one notch. Four steps total (`TUNE.speedSteps`); approach floor still prevents crawling on final |
 | Missile button, bottom-left above gear (airborne) | Fire a wing missile -- explodes on impact with terrain, structures, or traffic planes (cooldown `missileCooldown`). Sub-stepped collision detection means no tunneling; at end of range it self-destructs with a visible pop |
-| Runway button, top-left (airborne, off-approach) | Skip to landing: places the plane aligned on the glide slope `skipOutDistance` from the destination, gear auto-extends, ~45-60 s out |
+| Runway button, top-left (airborne, off-approach) | Skip to landing: places the plane aligned on the glide slope `skipOutDistance` from the destination, gear auto-extends, speed step set to 1 for the approach, ~45-60 s out |
 | Crosshair, center screen (airborne) | Flight-path marker -- shows exactly where the plane is aimed, including climb/dive; doubles as the missile aiming point. Clamps to the screen edge when the aim is off-view |
 | White pointer arrow at screen edge | Points along the horizontal bearing of the destination airport; hides within `homeIndicatorDistance` or whenever approach assists engage |
 | Route strip, top-center | Plane glyph slides NY<->CA as he flies; dots fill in for landmarks passed |
@@ -79,7 +79,7 @@ qa-screenshots/      harness-generated screen captures (gitignored)
 Nothing here can be failed or lost; every one re-arms.
 
 - **Ring eating** -- fly through a landing ring and it turns green and plays the next note of a rising scale (`ringNotes`); land after eating three or more and the scale resolves into a chord. The rings sit exactly on the glide slope, so they *are* the landing instruction.
-- **Auto-flare** -- on an engaged approach below `flareAgl` the nose levels off regardless of the stick and the plane settles at `flareSink`. He can't arrive nose-first or tail-first. The last 300 m before the threshold (the flattened pad) never explodes on terrain when lined up with gear down.
+- **Auto-flare** -- on an engaged approach below `flareAgl` the nose levels off regardless of the stick and the plane settles at `flareSink`. He can't arrive nose-first or tail-first. The approach stays engaged all the way over the runway, so crossing the threshold high still flares down to a landing. The last 300 m before the threshold (the flattened pad) never explodes on terrain when lined up with gear down. Approach geometry is measured against the *nearest* airport, so turning back onto the runway he just left lands (or belly-explodes) like any other; after landing he respawns on that runway.
 - **Touchdown** -- plane squashes, tyre puffs, the centreline rails pulse bright.
 - **Gates** -- gold hoops under every suspension bridge, inside the canyon, and one riding with the locomotive. Fly through: fanfare + sparkle, the hoop turns green for `gateGreenTime`, re-arms after `gateRearm`.
 - **Wingman** -- fly within `wingmanDist` of a traffic plane for `wingmanHold` seconds: the two-plane icon at the top lights up, then sparkles. Cooldown `wingmanCooldown`.
@@ -120,8 +120,9 @@ wide beside them. Each airport is a full complex on the side away from the city
 three jet bridges and three parked airliners at the gates, a control tower with a
 blinking beacon, two arched hangars, fuel tanks, a spinning radar dish, a windsock,
 and runway edge/threshold lights. Buildings and parked planes are solid. Nothing
-else stands within ±700 m of a runway centre (the NY harbour/bridges/skyline and the
-CA bridge were moved ~1 km out so they no longer cross the runway or the apron). Landmarks are placed at fixed
+solid crosses the runway centreline (|x| < 65) for 2.2 km beyond either runway end, and
+nothing else stands within the runway span (the NY harbour/bridges/skyline, the CA bridge
+and the hillside letters were all moved out; the harness checks the centreline). Landmarks are placed at fixed
 fractions of the route and are **solid**:
 
 - NYC skyline cluster + spire, green statue on an island, two suspension bridges (flyable-under)
@@ -159,8 +160,7 @@ automatically.
 
 ## Tuning
 
-Every gameplay number lives in the `TUNE` object at the top of the inline script
-in `cockpit/index.html`, grouped: flight feel (do not retune -- tested with the kid),
+Every gameplay number lives in the `TUNE` object in `cockpit/js/tune.js`, grouped: flight feel (do not retune -- tested with the kid),
 takeoff/rotation, landing-assist strengths (weaken these gradually as he improves:
 `align*`, `touchdown*`, `autoThrottleResponse`), explosions, space, route/scenery,
 HUD/home indicator, audio, vehicles, rewards & feel (ring notes, flare, gates,
@@ -172,16 +172,17 @@ continent -- landmarks and zones derive from route fractions, nothing needs rebu
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL)
 (it prints the check count at the end): HUD layout in both orientations, zero-text DOM audit, takeoff
 (with and without input), sloppy-approach landings, go-around, deliberate repeatable
-crashes (every impact explodes, shallow skims included), all five visible vehicles plus the shelved rocket, full route both directions timed
+crashes (every impact explodes, shallow skims included), the prop and the shelved rocket flown (the other vehicles are asserted by stats), full route both directions timed
 150–290 s, rocket round-trip to space, non-rocket ceiling, solid-wall shatter,
 view toggle, gear cycle (up/down icons), persistent speed stepper (set-and-stays), aim crosshair, glide-guidance arrow, chase-cam ground alignment, missile firing + shootdowns + ground impact + no-tunneling, traffic presence + mid-air collision, skip-to-landing end-to-end, strip behavior, SW/manifest reachability for both builds, and
 world-integrity regressions (no flattened ribbon along the route, train moves, beacons are
 live meshes, every wall face reassembles on the near side with finite coords,
-missile-shattered pieces self-restore, deep water crashes), rewards (rings eaten + hands-off flare
-landing, gates fire once then re-arm, wingman, crash smoke/crater, alarm on a dive and silent on
+missile-shattered pieces self-restore, deep water crashes), rewards (rings eaten + flare
+landing with a gentle nose-down, a high hands-off threshold crossing that still lands, rings re-arming on a
+go-around, gates in legal air, boats on water, origin-runway landings both gear states, gates fire once then re-arm, wingman, crash smoke/crater, alarm on a dive and silent on
 approach, keyboard takeoff and controls, remembered vehicle restored on relaunch), and a visual
 regression pass: four fixed scenes are rendered and reduced to 24x14 grey hashes compared against
-`scripts/visual_baseline.json` (mean pixel diff < 14/255). Re-baseline deliberately with
+`scripts/visual_baseline.json` (96x54 grey, mean pixel diff < 6/255). Re-baseline deliberately with
 `UPDATE_VISUAL=1` after an intentional look change. FPS under software GL is printed as advisory only.
 The harness refuses to run if something else is already serving port 8177.
 
@@ -206,14 +207,17 @@ checkout `/root/flightsim`, GitHub auth via account SSH key.
 git push origin cockpit-3d && git checkout main && git merge --no-ff cockpit-3d && git push
 ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'
 
-# rollback (--no-pull is essential: without it deploy.sh pulls main again):
-ssh root@138.197.80.104 'cd /root/flightsim && git checkout $(cat /tmp/flightsim-previous-rev) && bash deploy/deploy.sh --no-pull'
+# rollback to the previously published rev:
+ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh --rollback'
 ```
 
-`deploy.sh` always publishes `origin/main` (it checks out main and hard-resets to it),
-refuses a dirty tree, and refuses to deploy if `cockpit/index.html` changed without a
-`cockpit/sw.js` `CACHE_NAME` bump (same for the root build). It rsyncs an allowlist --
-only `index.html`, `manifest.json`, `sw.js`, `icons/`, `cockpit/` reach the docroot.
+`deploy.sh` publishes `origin/main` (checks out main, hard-resets to it), refuses a
+dirty tree in every mode, and refuses to deploy if `cockpit/` changed *since the rev
+currently published* without a `cockpit/sw.js` `CACHE_NAME` line change (same for the
+root build) -- re-running after a refusal cannot slip the commit through. It records the
+published and previous revs under `/var/lib/flightsim/` (survives reboots) and rsyncs an
+allowlist -- only `index.html`, `manifest.json`, `sw.js`, `icons/`, `cockpit/` reach the
+docroot. `--rollback` republishes the previous rev; `--no-pull` publishes the checkout as-is.
 
 Branch flow: develop on `cockpit-3d`, merge to `main` to deploy; branch kept on origin.
 Bump `CACHE_NAME` in the relevant `sw.js` whenever shipping asset/code changes so his

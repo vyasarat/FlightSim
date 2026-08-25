@@ -84,7 +84,6 @@ def main():
     # Both PWAs share one icon set; write to each build's icons/ so neither
     # goes stale when the artwork changes.
     outs = [os.path.join(here, "..", "icons"), os.path.join(here, "..", "cockpit", "icons")]
-    os.makedirs(out, exist_ok=True)
     master = draw_scene(BASE * SS).resize((BASE, BASE), Image.LANCZOS)
     for out in outs:
         os.makedirs(out, exist_ok=True)

@@ -1,4 +1,4 @@
-const CACHE_NAME = "little-pilot-v2";
+const CACHE_NAME = "little-pilot-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -24,6 +24,9 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  // The cockpit build has its own worker and cache; never let this one serve
+  // (and freeze) its files if the cockpit registration is ever missing.
+  if (new URL(event.request.url).pathname.startsWith("/cockpit/")) return;
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
       // Only cache good responses: a transient 404/502 must not become permanent.

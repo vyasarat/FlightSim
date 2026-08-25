@@ -49,6 +49,11 @@ function placeRings() {
   ringsGroup.rotation.y = state.dirIdx === 0 ? 0 : Math.PI;
   guideGroup.position.set(0, ap.elev, ap.cz);
   guideGroup.rotation.y = state.dirIdx === 0 ? 0 : Math.PI;
+  resetRings();
+}
+
+// Every reward re-arms: a go-around gets fresh rings for the second try.
+function resetRings() {
   for (const r of rings) { r.userData.eaten = false; r.material = ringsGroup.userData.matBase; }
   state.ringsEatenThisApproach = 0;
 }
