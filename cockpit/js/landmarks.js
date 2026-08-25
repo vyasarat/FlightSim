@@ -42,6 +42,8 @@ const ROUTE_LANDMARKS = [];
 // ---- mission gates: gold hoops you fly through for a fanfare. Never fail,
 // never expire; they re-arm after gateRearm so he can do it again.
 const gates = [];
+const airports = [];        // per-airport reactive parts (beacon, windsock, hangar doors)
+const casinoLights = [];    // casino light strips (declared early: filled by buildRouteLandmarks)
 const gateMatGold = new THREE.MeshBasicMaterial({ color: 0xffc43a, transparent: true, opacity: 0.9, fog: false });
 const gateMatGreen = new THREE.MeshBasicMaterial({ color: 0x3fdc6a, transparent: true, opacity: 0.95, fog: false });
 const gateGeo = new THREE.TorusGeometry(1, 0.06, 8, 32);
@@ -70,6 +72,15 @@ function updateGates(dt) {
     flags.gates++;
     fanfare();
     sparkleBurst();
+    if (g.bounceGroup) g.bounceT = 1.4;   // the bridge bounces after you fly under it
+  }
+  // bridges bounce after you fly under them
+  for (const g of gates) {
+    if (!(g.bounceT > 0)) continue;
+    g.bounceT -= dt;
+    const k = Math.max(0, g.bounceT / 1.4);
+    g.bounceGroup.position.y = g.bounceBaseY + Math.sin((1.4 - g.bounceT) * 16) * 2.2 * k * k;
+    if (g.bounceT <= 0) g.bounceGroup.position.y = g.bounceBaseY;
   }
 }
 
@@ -155,6 +166,54 @@ function tyrePuffAt(x, y, z) {
     p.mesh.material.opacity = 0.7;
   }
 }
+// ---- wake: spray over water, dust over the desert, and bomb splashes
+const wakePuffs = [];
+for (let i = 0; i < 24; i++) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }));
+  m.visible = false;
+  scene.add(m);
+  wakePuffs.push({ mesh: m, life: 0, max: 1, rise: 0, grow: 0 });
+}
+let wakeEmitT = 0;
+function wakePuff(x, y, z, color, size, rise, life) {
+  const p = wakePuffs.find(q => q.life <= 0) || wakePuffs[0];
+  p.life = p.max = life; p.rise = rise; p.grow = size * 2.2;
+  p.mesh.visible = true;
+  p.mesh.material.color.setHex(color);
+  p.mesh.material.opacity = 0.6;
+  p.mesh.position.set(x, y, z);
+  p.mesh.scale.setScalar(size);
+}
+function splashAt(x, y, z, big) {
+  for (let i = 0; i < 8; i++) wakePuff(x + (rnd() - 0.5) * 6 * big, y + 0.5, z + (rnd() - 0.5) * 6 * big, 0xe8f6ff, 1.5 * big, 9 * big, 0.9);
+}
+function updateWake(dt) {
+  wakeEmitT -= dt;
+  if (wakeEmitT <= 0 && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding && state.speed > 20) {
+    const terr = terrainEff(state.x, state.z);
+    const agl = state.y - Math.max(terr, TUNE.waterLevel);
+    if (agl < 12) {
+      const overWater = terr < TUNE.waterLevel - 0.2;
+      const overSand = desertMask(state.z) > 0.5;
+      if (overWater || overSand) {
+        wakeEmitT = 0.06;
+        const bx = state.x + forward.x * -6, bz = state.z + forward.z * -6;
+        wakePuff(bx + (rnd() - 0.5) * 3, Math.max(terr, TUNE.waterLevel) + 0.6, bz + (rnd() - 0.5) * 3,
+          overWater ? 0xe8f6ff : 0xe9d9a8, 1.2, overWater ? 3 : 2, 0.7);
+      }
+    }
+  }
+  for (const p of wakePuffs) {
+    if (p.life <= 0) continue;
+    p.life -= dt;
+    if (p.life <= 0) { p.mesh.visible = false; continue; }
+    const t = 1 - p.life / p.max;
+    p.mesh.position.y += p.rise * dt;
+    p.mesh.scale.setScalar(p.mesh.scale.x + p.grow * dt);
+    p.mesh.material.opacity = 0.6 * (1 - t);
+  }
+}
+
 function updateTyrePuffs(dt) {
   for (const p of tyrePuffs) {
     if (p.life <= 0) continue;
@@ -277,6 +336,16 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
     const bh2 = 52 + hashSalt(i, 11, 221) * 50;
     lmBox(casinos, 24 + i * 2, bh2, 20, [0xd8b04a, 0xc9963f, 0xb87f2f, 0xd8b04a, 0xcf9d3a][i], -95 + i * 47, bh2 / 2, (i % 2) * 26 - 13);
   }
+  for (let i = 0; i < 5; i++) {
+    const bh2 = 52 + hashSalt(i, 11, 221) * 50;
+    for (let k = 0; k < 3; k++) {
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(25 + i * 2, 1.2, 0.6), new THREE.MeshBasicMaterial({ color: 0xffd23e, fog: false }));
+      strip.position.set(-95 + i * 47, 14 + k * (bh2 - 20) / 2, (i % 2) * 26 - 13 + 10.4);
+      casinos.add(strip);
+      strip.userData.wx = -250; strip.userData.wz = -half * 0.555;   // world anchor for the "close" test
+      casinoLights.push(strip);
+    }
+  }
   const ball = new THREE.Mesh(new THREE.SphereGeometry(12, 12, 10), lam(0xe8c860));
   ball.position.set(100, 105, 13);
   casinos.add(ball);
@@ -312,6 +381,50 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   addRouteLandmark(downtown, 460, -half + 1080 * RS);
 })();
 
+// Night windows: little lit squares on every tall landmark box, only visible
+// after dark. Built once from the solids the landmarks registered.
+const windowMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, fog: false, transparent: true, opacity: 0 });
+const windowInst = (() => {
+  const cells = [];
+  for (const L of ROUTE_LANDMARKS) {
+    let perLandmark = 0;
+    for (const p of L.g.userData.pending || []) {
+      if (perLandmark >= 600) break;           // spread the budget over every landmark
+      const h = p.y1 - p.ly0;
+      if (h < 24 || !p.mesh || !p.mesh.geometry || !p.mesh.geometry.parameters || p.mesh.geometry.parameters.width === undefined) continue;
+      const w = p.mesh.geometry.parameters.width, d = p.mesh.geometry.parameters.depth;
+      for (let y = p.ly0 + 5; y < p.y1 - 4; y += 9) {
+        for (let x = -w / 2 + 3.5; x < w / 2 - 3; x += 7) {
+          if (hashSalt(Math.round(x * 7), Math.round(y * 3), 303) < 0.3) continue;
+          cells.push([L.x + p.lx + x, y + L.g.position.y, L.z + p.lz + d / 2 + 0.3, 0]);
+          cells.push([L.x + p.lx + x, y + L.g.position.y, L.z + p.lz - d / 2 - 0.3, 0]);
+          perLandmark += 2;
+        }
+        for (let z = -d / 2 + 3.5; z < d / 2 - 3; z += 7) {
+          if (hashSalt(Math.round(z * 7), Math.round(y * 3), 304) < 0.3) continue;
+          cells.push([L.x + p.lx + w / 2 + 0.3, y + L.g.position.y, L.z + p.lz + z, 1]);
+          cells.push([L.x + p.lx - w / 2 - 0.3, y + L.g.position.y, L.z + p.lz + z, 1]);
+          perLandmark += 2;
+        }
+      }
+      if (cells.length > 4000) break;
+    }
+  }
+  const n = Math.min(cells.length, 4000);
+  const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(3.4, 4, 0.2), windowMat, Math.max(1, n));
+  const d = new THREE.Object3D();
+  for (let i = 0; i < n; i++) {
+    const c = cells[i];
+    d.position.set(c[0], c[1], c[2]); d.rotation.set(0, c[3] ? Math.PI / 2 : 0, 0); d.updateMatrix();
+    inst.setMatrixAt(i, d.matrix);
+  }
+  inst.count = n;
+  inst.visible = false;
+  inst.frustumCulled = false;   // bound would be the single origin box: the whole set vanished off-centre
+  scene.add(inst);
+  return inst;
+})();
+
 // Gates: under every suspension bridge, inside the canyon, and one that rides
 // with the locomotive (placed after the train is built, below).
 for (const L of ROUTE_LANDMARKS) {
@@ -325,7 +438,9 @@ for (const L of ROUTE_LANDMARKS) {
   const top = L.g.position.y + deckY - 2.25 - 3.5;
   if (top - bottom < 10) continue;
   const hh = (top - bottom) / 2;
-  addGate(L.x, bottom + hh, L.z, 70, hh, null);
+  const gate = addGate(L.x, bottom + hh, L.z, 70, hh, null);
+  gate.bounceGroup = L.g;
+  gate.bounceBaseY = L.g.position.y;
 }
 {
   const zc = -3800 * ROUTE_SCALE();
@@ -373,6 +488,8 @@ function buildAirport(idx) {
   beacon.position.set(m * 150, 50.5, 260);
   g.add(beacon);
   blinkers.push(beacon);
+  const rec = { idx, cz: ap.cz, m, beacon, doors: [], sock: null, buzz: 0, doorOpen: 0 };
+  airports.push(rec);
   // hangars with arched roofs
   for (const z of [-300, -370]) {
     lmBox(g, 56, 14, 44, 0xb0b6bf, m * 215, 7, z, true);
@@ -381,7 +498,9 @@ function buildAirport(idx) {
     roof.position.set(m * 215, 14, z);
     g.add(roof);
     g.userData.pending.push({ lx: m * 215, ly0: 14, lz: z, hw: 28, hd: 22, y1: 36, mesh: roof });
-    lmBox(g, 40, 10, 1, 0x3c4350, m * (215 - 28 * m), 5, z, false);
+    const door = lmBox(g, 40, 10, 1, 0x3c4350, m * (215 - 28 * m), 5, z, false);
+    door.userData.baseX = door.position.x;
+    rec.doors.push(door);
   }
   // fuel tanks
   for (const z of [340, 372]) lmCyl(g, 9, 9, 12, 0xeef1f4, m * 245, 6, z, 14, true);
@@ -406,6 +525,7 @@ function buildAirport(idx) {
   sock.rotation.z = Math.PI / 2;
   sock.position.set(-m * 87, 9, 420);
   g.add(sock);
+  rec.sock = sock;
 
   // runway edge lights + threshold bars (green facing the approach, red at the far end)
   const n = Math.floor(TUNE.runwayLength / 50);
@@ -434,8 +554,32 @@ function buildAirport(idx) {
   addRouteLandmark(g, 0, ap.cz);
 }
 for (let i = 0; i < AIRPORTS.length; i++) buildAirport(i);
+// Buzz the airport: low over the apron and the beacon strobes, the windsock
+// whips, the hangar doors slide open. Everything eases back when he leaves.
 function updateAirports(dt) {
   for (const s of airportSpinners) s.rotation.y += dt * 0.9;
+  const agl = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+  for (const a of airports) {
+    const near = Math.abs(state.z - a.cz) < 520 && Math.abs(state.x - a.m * 170) < 330 && agl < 70 &&
+      (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY");
+    a.buzz += ((near ? 1 : 0) - a.buzz) * Math.min(1, (near ? 6 : 1.2) * dt);
+    if (a.buzz > 0.05) {
+      a.beacon.visible = Math.sin(frameCount * 0.9) > 0;      // fast strobe overrides the slow blink
+      a.sock.rotation.y = Math.sin(frameCount * 0.35) * 0.8 * a.buzz;
+      a.sock.rotation.z = Math.PI / 2 + Math.sin(frameCount * 0.5) * 0.25 * a.buzz;
+    }
+    for (const d of a.doors) d.position.x = d.userData.baseX + a.m * 30 * a.buzz;
+  }
+  // casino lights: steady gold, but wild colour cycling when he's close
+  if (casinoLights.length) {
+    const c0 = casinoLights[0];
+    const dx = state.x - c0.userData.wx, dz = state.z - c0.userData.wz;
+    const close = dx * dx + dz * dz < 420 * 420;
+    for (let i = 0; i < casinoLights.length; i++) {
+      const l = casinoLights[i];
+      l.material.color.setHex(close ? [0xff3b6b, 0x3ad1ff, 0xffd23e, 0x7cff5a][(i + Math.floor(frameCount * 0.25)) % 4] : 0xffd23e);
+    }
+  }
 }
 
 // ---- shootable targets: hot-air balloons drifting along the route, a blimp
@@ -465,8 +609,9 @@ function makeBlimp() {
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.SphereGeometry(6, 12, 8), lam(0xd8dde4));
   body.scale.set(1, 1, 3.2); g.add(body);
-  const stripe = new THREE.Mesh(new THREE.SphereGeometry(6.05, 12, 8, 0, Math.PI * 2, 1.2, 0.8), lam(0xe0483e));
+  const stripe = new THREE.Mesh(new THREE.SphereGeometry(6.05, 12, 8, 0, Math.PI * 2, 1.2, 0.8), new THREE.MeshLambertMaterial({ color: 0xe0483e }));
   stripe.scale.set(1, 1, 3.2); g.add(stripe);
+  g.userData.glow = stripe;   // lit up at night
   const gondola = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 8), lam(0x2f3a48));
   gondola.position.y = -6; g.add(gondola);
   for (const sx of [-1, 1]) {
@@ -658,7 +803,13 @@ function killTarget(t, hx, hy, hz) {
   const soft = t.kind === "balloon" || t.kind === "flock" || t.kind === "kite";
   triggerExplosion(hx, hy, hz, soft ? 0.45 : 0.8, state.exploding || soft);
   if (t.kind === "balloon" || t.kind === "ufo" || t.kind === "disc") sparkleBurst();
-  if (t.kind === "flock" || t.kind === "kite") noiseBurst(0.3, 900, 0.25, 0);
+  // every target has its own voice
+  if (t.kind === "disc") gong();
+  else if (t.kind === "boat") { splash(); splashAt(t.x, t.y, t.z, 1.4); }
+  else if (t.kind === "kite") flutter();
+  else if (t.kind === "flock") rustle();
+  else if (t.kind === "blimp") deepPop();
+  else if (t.kind === "ufo") sciFi();
 }
 function updateTargets(dt) {
   for (const t of targets) {
@@ -681,6 +832,11 @@ function updateTargets(dt) {
       t.mesh.rotation.y = t.dir > 0 ? 0 : Math.PI;
       t.mesh.rotation.z = Math.sin(t.t * 0.3) * 0.04;
     } else if (t.kind === "ufo") {
+      if (!(t.zip > 0)) {
+        const dx = t.x - state.x, dy = t.y - state.y, dz = t.z - state.z;
+        if (dx * dx + dy * dy + dz * dz < 150 * 150) { t.zip = 2.5; sciFi(); }
+      }
+      if (t.zip > 0) { t.zip -= dt; t.t += dt * 5; }
       t.x = t.cx + Math.sin(t.t * 0.9) * 320;
       t.z = t.cz + Math.sin(t.t * 0.55) * 260;
       t.y = 150 + Math.sin(t.t * 1.7) * 35;
@@ -752,8 +908,19 @@ addGate(TRAIN_X, 0, trainHead, 30, 30, g => {
   g.y = terrainEff(TRAIN_X, g.z) + 6 + 34;
 });
 
+// locomotive headlight (a lit cone that only shows at night)
+const trainLamp = new THREE.Mesh(new THREE.ConeGeometry(1.2, 6, 8), new THREE.MeshBasicMaterial({ color: 0xfff3c4, fog: false, transparent: true, opacity: 0 }));
+trainLamp.rotation.x = -Math.PI / 2;
+trainLamp.visible = false;
+scene.add(trainLamp);
+let trainTootT = 0;
 function updateTrain(dt, px, pz) {
   const mid = (TRAIN_ZMIN + TRAIN_ZMAX) / 2;
+  trainTootT -= dt;
+  {
+    const dx = px - TRAIN_X, dz = pz - trainHead;
+    if (trainTootT <= 0 && dx * dx + dz * dz < 160 * 160 && state.phase === "AIRBORNE") { toot(); trainTootT = 9; }
+  }
   trainSolids.length = 0;
   if (Math.abs(pz - mid) > 2800 || Math.abs(px - TRAIN_X) > 2800) return;
   trainHead -= TUNE.trainSpeed * dt;
@@ -777,6 +944,7 @@ function updateTrain(dt, px, pz) {
     trainSolids.push({ x: TRAIN_X, z: cz, hw: 4.5, hd: 8.5, y0: gy + 1, y1: gy + 11.5, car: i });
   }
   trainInst.instanceMatrix.needsUpdate = true;
+  trainLamp.position.set(TRAIN_X, terrainEff(TRAIN_X, trainHead) + 6, trainHead - 10);
 }
 // Shot cars leave the train (they come back when it loops round).
 const trainCarGone = new Array(TRAIN_CARS).fill(false);
@@ -785,6 +953,7 @@ function shootTrainCar(i, hx, hy, hz) {
   trainCarGone[i] = true;
   flags.targets++;
   sparkleBurst();
+  clang();
   return true;
 }
 
