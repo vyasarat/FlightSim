@@ -199,7 +199,7 @@ function rebuildTrees(px, pz) {
         const wx = (cx + hashSalt(cx * 5 + k, cz, 43)) * cs;
         const wz = (cz + hashSalt(cx, cz * 5 + k, 44)) * cs;
         if (flattenMask(wx, wz) > 0.02) continue;
-        if (inCorridor(wx, wz, -80)) continue;
+        if (inCorridor(wx, wz, 40)) continue;
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.6) continue;
         const palm = pFromNY(wz) < 0.055;
@@ -230,7 +230,15 @@ function rebuildTrees(px, pz) {
   if (canopyInst.instanceColor) canopyInst.instanceColor.needsUpdate = true;
 }
 
+// Bumped on every rebuild: a hidden town entry from an older generation refers
+// to an index that now belongs to a different building and must not restore.
+let buildingGen = 0;
 function rebuildBuildings(px, pz) {
+  buildingGen++;
+  if (typeof hiddenTownIdx !== "undefined") {
+    hiddenTownIdx.clear();
+    for (let i = hiddenPieces.length - 1; i >= 0; i--) if (hiddenPieces[i].kind === "town") hiddenPieces.splice(i, 1);
+  }
   const grid = TUNE.townGrid;
   const R = Math.ceil(TUNE.sceneryRadius / grid);
   const ccx = Math.round(px / grid), ccz = Math.round(pz / grid);
@@ -243,7 +251,7 @@ function rebuildBuildings(px, pz) {
       if (hashSalt(cx, cz, 61) >= TUNE.townChance) continue;
       const tcx = (cx + 0.5 + (hashSalt(cx, cz, 62) - 0.5) * 0.6) * grid;
       const tcz = (cz + 0.5 + (hashSalt(cx, cz, 63) - 0.5) * 0.6) * grid;
-      if (inCorridor(tcx, tcz, -60)) continue;
+      if (inCorridor(tcx, tcz, 60)) continue;
       const n = TUNE.townBuildingsMin + Math.floor(hashSalt(cx, cz, 64) * (TUNE.townBuildingsMax - TUNE.townBuildingsMin + 1));
       for (let k = 0; k < n; k++) {
         if (bi >= TUNE.buildingMaxInstances) break;
@@ -251,7 +259,8 @@ function rebuildBuildings(px, pz) {
         const rad = (0.25 + hashSalt(cx * 7 + k, cz * 7 + k, 66) * 0.75) * grid * 0.33;
         const wx = tcx + Math.cos(ang) * rad;
         const wz = tcz + Math.sin(ang) * rad;
-        if (flattenMask(wx, wz) > 0.02 || inCorridor(wx, wz, -40)) continue;
+        if (flattenMask(wx, wz) > 0.02 || inCorridor(wx, wz, 40)) continue;
+        if (Math.abs(wx - 340) < 14) continue;   // the freight line runs along x=340
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.8) continue;
         const w = 8 + hashSalt(cx + k, cz, 67) * 14;

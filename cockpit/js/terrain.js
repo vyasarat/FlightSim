@@ -104,7 +104,7 @@ function shapedTerrain(x, z) {
     h += valueNoise(x / 90 + 7, z / 55) * ct * 6;
   }
   const lk = lakeShape(x, z);
-  if (lk > 0) h -= lk * 14;
+  if (lk > 0) h -= lk * 26;
   h -= coastDrop(z);
   const harborZ = ROUTE_HALF() - 1420 * ROUTE_SCALE();  // under the NY bridges, clear of the airport
   if (Math.abs(x) < 2400 && Math.abs(z - harborZ) < 320) {

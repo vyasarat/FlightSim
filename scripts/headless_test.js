@@ -14,10 +14,10 @@ const path = require("path");
 const http = require("http");
 const { chromium } = require("playwright-core");
 
-const ROOT = path.resolve(__dirname, "..", "cockpit");
+const ROOT = path.resolve(__dirname, "..");            // repo root: both builds are reachable
 const SHOTS = path.resolve(__dirname, "..", "qa-screenshots");
 const PORT = 8177;
-const URL = `http://127.0.0.1:${PORT}/index.html`;
+const URL = `http://127.0.0.1:${PORT}/cockpit/index.html`;
 const SHELL = process.env.CHROME_HEADLESS_SHELL;
 
 function waitForServer(url, tries) {
@@ -34,6 +34,7 @@ function waitForServer(url, tries) {
   });
 }
 
+const L_GEAR = 3.2;   // TUNE.gearHeight (asserted below)
 const results = [];
 function check(name, ok, extra) {
   results.push({ name, ok });
@@ -342,10 +343,7 @@ function check(name, ok, extra) {
   {
     const { page } = await newPage(1180, 820);
     await page.evaluate(() => { window.__lp.noRender = true; });
-    const nSolids = await page.evaluate(() => {
-      let n = 0; window.__lp.forEachSolid ? window.__lp.forEachSolid(() => n++) : null;
-      return window.__lp.solidCount !== undefined ? window.__lp.solidCount : -1;
-    });
+    const nSolids = await page.evaluate(() => window.__lp.solidCount !== undefined ? window.__lp.solidCount : -1);
     check("solids: registry populated", nSolids > 40, `count=${nSolids}`);
 
     const e0 = await page.evaluate(() => window.__lp.flags.exploded);
@@ -645,7 +643,7 @@ function check(name, ok, extra) {
     const dots = await page.evaluate(() => document.querySelectorAll("#progressStrip .dot").length);
     check("strip: landmark dots rendered", dots === 12, `dots=${dots}`);
 
-    await page.evaluate(() => { window.__lp.api.teleportAirborne(-5400, 0, 80, Math.PI); });
+    await page.evaluate(() => { window.__lp.api.teleportAirborne(-5400, 0, 80, 0); });   // mid-route, southbound
     await pump(page, 1.2);
     const mid = await page.evaluate(() => {
       const m = document.getElementById("progressStrip");
@@ -910,6 +908,9 @@ function check(name, ok, extra) {
       const st = window.__lp.state;
       const t = window.__lp.traffic.find(tt => tt.alive);
       if (!t) return false;
+      // mid-route, well off the runway centreline: traffic inside a corridor side-slips away by design
+      st.x = 600; st.z = 0; st.y = Math.max(window.__lp.terrainEff(600, 0), window.__lp.TUNE.waterLevel) + 200; st.pitch = 0; st.bank = 0;
+      window.__lp.update(1 / 60);
       t.heading = st.heading;
       t.x = st.x - Math.sin(st.heading) * 260;
       t.z = st.z - Math.cos(st.heading) * 260;
@@ -931,6 +932,7 @@ function check(name, ok, extra) {
 
     // missile into terrain also explodes
     const h0 = await page.evaluate(() => window.__lp.flags.missileHits);
+    await page.evaluate(() => { const st = window.__lp.state; st.y = Math.max(window.__lp.terrainEff(st.x, st.z), window.__lp.TUNE.waterLevel) + 70; });
     await page.evaluate(() => window.__lp.api.setStick(0, -0.5));
     await pump(page, 1);
     await page.evaluate(() => window.__lp.api.clearStick());
@@ -1147,6 +1149,8 @@ function check(name, ok, extra) {
     check("world: no flattened ribbon along the route centreline (flattenMask sign)",
       terrain.maxMask < 0.02 && terrain.maxGap < 0.5, JSON.stringify(terrain));
     check("world: runways still flat", terrain.runwayMask > 0.999 && terrain.runwayFlat < 0.01, JSON.stringify(terrain));
+    const gearH = await page.evaluate(() => window.__lp.TUNE.gearHeight);
+    check("world: harness gearHeight constant matches TUNE", gearH === L_GEAR, `TUNE.gearHeight=${gearH}`);
 
     // train exists, moves, is finite
     const train = await page.evaluate(() => {
@@ -1415,6 +1419,171 @@ function check(name, ok, extra) {
     check("targets: balloons, blimp, UFO and boats exist; a missile pops a balloon and it comes back",
       tg.kinds.balloon >= 3 && tg.kinds.blimp >= 1 && tg.kinds.ufo >= 1 && tg.kinds.boat >= 2 && tg.popped && tg.hiddenAfter && tg.back, JSON.stringify(tg));
 
+    // H4: crossing the threshold high with the stick released must still land (engaged stays on over the runway)
+    const highCross = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      L.api.spawnAt(0, 0);
+      L.api.teleportAirborne(60, 0, 14, 0);   // 60 m short, 14 m up (above flareAgl), level
+      st.gearDown = true; st.speedStep = 1;
+      L.api.clearStick();
+      let engagedOver = false, missed0 = L.flags.missed;
+      for (let i = 0; i < 60 * 40; i++) {
+        L.update(1 / 60);
+        if (st.approachData && st.approachData.along > 100 && st.engaged) engagedOver = true;
+        if (st.phase === "LANDED" || st.exploding) break;
+      }
+      return { landed: st.phase === "LANDED", engagedOver, wentAround: L.flags.missed > missed0, along: st.approachData && Math.round(st.approachData.along) };
+    });
+    check("landing: a high, hands-off threshold crossing still flares and lands (no forced go-around)",
+      highCross.landed && !highCross.wentAround, JSON.stringify(highCross));
+
+    // H5: turning back onto the ORIGIN runway lands (gear down) / explodes (gear up)
+    const origin = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const out = {};
+      for (const gear of [true, false]) {
+        L.api.spawnAt(0, 0);           // origin NY (idx 0), dest CA
+        const ap = L.AIRPORTS[0];
+        // approach NY from the south (heading +z = PI), lined up, on a slope
+        st.phase = "AIRBORNE"; st.exploding = false; st.x = 0; st.z = ap.cz - T.runwayLength / 2 - 500; st.y = ap.elev + 3 + 500 * T.glideSlope;
+        st.heading = Math.PI; st.pitch = 0; st.speed = st.vp.cruiseSpeed * 0.7; st.gearDown = gear; st.liftoffTimer = 0;
+        L.api.setStick(0, -0.18);
+        const e0 = L.flags.exploded, td0 = L.flags.touchdown;
+        let minAbove = Infinity;
+        for (let i = 0; i < 60 * 40; i++) {
+          L.update(1 / 60);
+          minAbove = Math.min(minAbove, st.y - L.terrainEff(st.x, st.z));
+          if (st.phase === "LANDED" || st.exploding) break;
+        }
+        L.api.clearStick();
+        out[gear ? "gearDown" : "gearUp"] = { landed: L.flags.touchdown > td0, exploded: L.flags.exploded > e0, minAbove: +minAbove.toFixed(2), approachIdx: st.approachIdx };
+        if (gear) {
+          for (let i = 0; i < 60 * 16 && st.phase !== "TAXI"; i++) L.update(1 / 60);
+          out.respawnedAt = st.originIdx;
+        }
+        st.gearDown = true; st.exploding = false;
+      }
+      return out;
+    });
+    check("landing: turning back onto the origin runway lands with gear down and respawns there",
+      origin.gearDown.landed && !origin.gearDown.exploded && origin.gearDown.minAbove >= L_GEAR - 0.05 && origin.respawnedAt === 0, JSON.stringify(origin));
+    check("landing: origin runway with gear up explodes (no underground skim)",
+      origin.gearUp.exploded && !origin.gearUp.landed, JSON.stringify(origin.gearUp));
+
+    // rings re-arm after a go-around
+    const rearm = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      L.api.spawnAt(0, 0);
+      L.api.teleportAirborne(1320, 0, 3 + 1320 * T.glideSlope, 0);
+      L.api.setStick(0, -0.18);
+      for (let i = 0; i < 60 * 20; i++) { L.update(1 / 60); if (st.approachData && st.approachData.along > -400) break; }
+      const eatenBefore = L.rings.filter(r => r.userData.eaten).length;
+      // force a go-around: pop up just past the far end of the runway, low
+      const ap = L.AIRPORTS[st.destIdx];
+      st.z = ap.cz - 100; st.y = ap.elev + 20; st.x = 0;   // ~800 m along: past the midpoint, low
+      for (let i = 0; i < 60 * 3 && st.phase !== "CLIMB_AWAY"; i++) L.update(1 / 60);
+      const went = st.phase === "CLIMB_AWAY";
+      const eatenAfter = L.rings.filter(r => r.userData.eaten).length;
+      L.api.clearStick();
+      return { eatenBefore, went, eatenAfter };
+    });
+    check("rewards: rings re-arm on a go-around", rearm.eatenBefore > 0 && rearm.went && rearm.eatenAfter === 0, JSON.stringify(rearm));
+
+    // bridge gates: the hoop must lie entirely in legal air (above water clearance, under the deck collider)
+    const gateAir = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE;
+      const bad = [];
+      for (const g of L.gates) {
+        if (g.follow) continue;
+        const ground = Math.max(L.terrainEff(g.x, g.z), T.waterLevel);
+        const lo = g.y - g.hh, hi = g.y + g.hh;
+        if (lo < ground + T.terrainClearance) bad.push({ x: Math.round(g.x), z: Math.round(g.z), lo: +lo.toFixed(1), ground: +ground.toFixed(1) });
+        let deckHit = false;
+        L.forEachSolid(b => { if (Math.abs(b.x - g.x) < b.hw && Math.abs(b.z - g.z) < b.hd + 4 && b.y0 - 3 < hi && b.y1 + 3 > lo) deckHit = true; });
+        if (deckHit) bad.push({ x: Math.round(g.x), z: Math.round(g.z), deckHit: true, hi: +hi.toFixed(1) });
+      }
+      return { n: L.gates.length, bad };
+    });
+    check("rewards: every fixed gate sits in legal air (>= 8 m over water, clear of solids)", gateAir.bad.length === 0, JSON.stringify(gateAir));
+
+    // boats: on water all the way round their orbit
+    const boats = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE;
+      const out = [];
+      for (const b of L.targets.filter(t => t.kind === "boat")) {
+        let dry = 0, n = 0;
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 24) { n++; if (L.terrainEff(b.cx + Math.cos(a) * b.orbitX, b.cz + Math.sin(a) * b.orbitZ) > T.waterLevel - 0.5) dry++; }
+        out.push({ k: +(b.orbitX / (640 * T.routeLength / 12000)).toFixed(2), dry, n });
+      }
+      return out;
+    });
+    check("targets: boats stay on the water for the whole orbit", boats.length === 3 && boats.every(b => b.dry === 0), JSON.stringify(boats));
+
+    // no solid crosses the departure/arrival centreline within |x| < 65 for 2.2 km beyond either runway end
+    const centreline = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const bad = [];
+      for (const ap of L.AIRPORTS) for (const sgn of [1, -1]) {
+        const th = ap.cz + sgn * T.runwayLength / 2;
+        const reach = T.ringStartDistance + 100;
+        for (let d = 0; d <= reach; d += 300) { st.x = 0; st.z = th + sgn * d; st.y = ap.elev + 200; st.phase = "AIRBORNE"; st.speed = 0; L.update(1 / 60); }
+        L.forEachSolid(b => {
+          const dz = (b.z - th) * sgn;
+          if (dz < -20 || dz > reach) return;
+          if (Math.abs(b.x) - b.hw < 65 && b.y1 > ap.elev + 2) bad.push({ x: Math.round(b.x), hw: Math.round(b.hw), dz: Math.round(dz), top: Math.round(b.y1) });
+        });
+      }
+      return bad;
+    });
+    check("world: nothing solid crosses the runway centreline through the ring corridor beyond either end", centreline.length === 0, JSON.stringify(centreline.slice(0, 5)));
+
+    // traffic never lingers in the ring tunnel at glide altitude
+    const trafficCorr = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const t = L.traffic[0];
+      const ap = L.AIRPORTS[1];
+      t.alive = true; t.mesh.visible = true; t.heading = 0; t.x = 10; t.z = ap.cz + T.runwayLength / 2 + 900; t.y = ap.elev + 100; t.speed = 40;
+      st.x = 600; st.z = 0; st.y = 300; st.phase = "AIRBORNE"; st.speed = 0;
+      let low = 0;
+      for (let i = 0; i < 60 * 25; i++) {
+        L.update(1 / 60);
+        const inC = Math.abs(t.x) < T.runwayWidth / 2 + 35 && Math.abs(t.z - ap.cz) < T.runwayLength / 2 + T.ringStartDistance;
+        if (inC && t.y < ap.elev + 200 && i > 60 * 8) low++;
+      }
+      return { low, x: Math.round(t.x), y: Math.round(t.y) };
+    });
+    check("traffic: a plane entering the corridor climbs/slips out within seconds", trafficCorr.low === 0, JSON.stringify(trafficCorr));
+
+    // keyboard: blur releases held keys
+    const kbBlur = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.api.placeOnRunway();
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowUp", bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true }));
+      for (let i = 0; i < 30; i++) L.update(1 / 60);
+      const held = st.touching && st.throttleHeld;
+      window.dispatchEvent(new Event("blur"));
+      for (let i = 0; i < 5; i++) L.update(1 / 60);
+      return { held, releasedStick: !st.touching && st.ctrlPitch === 0, releasedThrottle: !st.throttleHeld };
+    });
+    check("keyboard: blur releases held arrow + throttle keys", kbBlur.held && kbBlur.releasedStick && kbBlur.releasedThrottle, JSON.stringify(kbBlur));
+
+    // fighter: throttle held past the runway end stops within a few hundred metres and respawns
+    const overrun = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      L.api.setVehicle("fighter"); L.api.placeOnRunway();
+      L.api.setThrottle(true);
+      const ap = L.AIRPORTS[0];
+      let maxPast = 0, repos0 = L.flags.repositioned;
+      for (let i = 0; i < 60 * 90 && L.flags.repositioned === repos0; i++) {
+        L.update(1 / 60);
+        maxPast = Math.max(maxPast, (ap.cz - st.z) - T.runwayLength / 2);
+      }
+      L.api.setThrottle(false); L.api.setVehicle("prop");
+      return { maxPast: Math.round(maxPast), respawned: L.flags.repositioned > repos0 };
+    });
+    check("ground: fighter with throttle held past the end stops < 400 m out and respawns", overrun.respawned && overrun.maxPast < 400, JSON.stringify(overrun));
+
     check("rewards: ring corridor anchors at the near threshold in both directions",
       [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));
 
@@ -1550,7 +1719,6 @@ function check(name, ok, extra) {
       const restored = await p2.evaluate(() => ({
         key: window.__lp.state.vehicleKey, dir: window.__lp.state.dirIdx, phase: window.__lp.state.phase,
         pickerHidden: document.getElementById("screenVehicle").classList.contains("hiddenS"),
-        vehBtn: !document.getElementById("vehBtn").classList.contains("hidden") || true
       }));
       await p2.evaluate(() => { window.__lp.update(1 / 60); });
       const vehBtnShown = await p2.evaluate(() => !document.getElementById("vehBtn").classList.contains("hidden"));
@@ -1588,10 +1756,10 @@ function check(name, ok, extra) {
         L.noRender = false;
         const q = window.__rafQueue.splice(0); if (q.length) q[q.length - 1](window.__simTime += 1000 / 60);
         const gl = document.getElementById("gl");
-        const c = document.createElement("canvas"); c.width = 24; c.height = 14;
+        const c = document.createElement("canvas"); c.width = 96; c.height = 54;
         const cx = c.getContext("2d");
-        cx.drawImage(gl, 0, 0, 24, 14);
-        const d = cx.getImageData(0, 0, 24, 14).data;
+        cx.drawImage(gl, 0, 0, 96, 54);
+        const d = cx.getImageData(0, 0, 96, 54).data;
         const out = [];
         for (let i = 0; i < d.length; i += 4) out.push(Math.round((d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11)));
         return out;
@@ -1608,7 +1776,7 @@ function check(name, ok, extra) {
         let sum = 0, blank = hash.every(v => v === hash[0]);
         for (let i = 0; i < hash.length; i++) sum += Math.abs(hash[i] - ref[i]);
         const mean = sum / hash.length;
-        check(`visual: ${name} matches baseline`, mean < 14 && !blank, `mean |diff| ${mean.toFixed(1)}/255${blank ? " BLANK FRAME" : ""}`);
+        check(`visual: ${name} matches baseline`, mean < 6 && !blank, `mean |diff| ${mean.toFixed(1)}/255${blank ? " BLANK FRAME" : ""}`);
       }
     }
     await page.close();
@@ -1624,7 +1792,9 @@ function check(name, ok, extra) {
       for (const f of ["manifest.json", "../manifest.json", "../sw.js", "../index.html"]) {
         try {
           const r = await fetch(f);
-          out[f] = r.status === 200 && (f.endsWith(".json") ? !!JSON.parse(await r.text()).start_url : (await r.text()).length > 100);
+          const txt = await r.text();
+          out[f] = r.status === 200 && (f.endsWith(".json") ? !!JSON.parse(txt).start_url : txt.length > 100);
+          if (f === "../sw.js") out.rootIsDistinct = /little-pilot-v\d+/.test(txt) && !/cockpit/.test(txt.split("\n")[0]);
         } catch (e) { out[f] = false; }
       }
       return out;

@@ -92,6 +92,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.explodeTimer = 0;
   state.gearDown = true;
   state.gearAnim = 1;
+  state.maxAglSinceLiftoff = 0;
   state.phase = "TAXI";
   placeRings();
   flags.repositioned++;
@@ -100,5 +101,6 @@ function spawnForTakeoff(originIdx, dirIdx) {
 applyVehicle("prop");
 spawnForTakeoff(0, 0);
 initTraffic();
+initTargets();
 
 const glEl = renderer.domElement;
