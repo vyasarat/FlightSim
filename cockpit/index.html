@@ -64,7 +64,7 @@
     top: calc(-2vh + env(safe-area-inset-top));
     left: -2vw;
     right: -2vw;
-    height: clamp(30px, 6.5vh, 74px);
+    height: var(--brow-h);
     background: linear-gradient(180deg, #2b3038 0%, #23282f 70%, #1a1e24 100%);
     border-radius: 0 0 22px 22px;
     box-shadow: 0 6px 16px rgba(10,20,40,.35);
@@ -83,7 +83,7 @@
     left: -2vw;
     right: -2vw;
     bottom: calc(-2vh + env(safe-area-inset-bottom));
-    height: clamp(96px, 19vh, 170px);
+    height: var(--dash-h);
     background: linear-gradient(180deg, #333a44 0%, #23282f 18%, #1a1e24 100%);
     border-radius: 26px 26px 0 0;
     box-shadow: 0 -8px 24px rgba(10,20,40,.35);
@@ -105,8 +105,8 @@
   }
   .dial {
     position: relative;
-    width: clamp(76px, 15vmin, 128px);
-    height: clamp(76px, 15vmin, 128px);
+    width: var(--dial);
+    height: var(--dial);
     border-radius: 50%;
     background: radial-gradient(circle at 38% 32%, #2c323b 0%, #161a1f 62%);
     box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 2px 4px rgba(255,255,255,.08);
@@ -246,10 +246,10 @@
   }
   #throttleBtn {
     position: fixed;
-    right: calc(26px + env(safe-area-inset-right));
-    bottom: calc(clamp(110px, 21vh, 190px) + env(safe-area-inset-bottom));
-    width: clamp(96px, 17vmin, 148px);
-    height: clamp(96px, 17vmin, 148px);
+    right: calc(var(--edge) + 4px + env(safe-area-inset-right));
+    bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    width: var(--thr);
+    height: var(--thr);
     border-radius: 50%;
     border: clamp(4px, 1vmin, 7px) solid var(--veh);
     background: radial-gradient(circle at 36% 30%, #3a414c 0%, #23282f 58%, #161a1f 100%);
@@ -275,7 +275,37 @@
     z-index: 9;
     pointer-events: none;
   }
-  html { --btn: clamp(92px, 15vmin, 128px); }
+  /* Layout tokens. The phone tier (short landscape viewports) shrinks every
+     control and the dash so nothing overlaps; iPad sizes are unchanged. */
+  html {
+    --btn: clamp(92px, 15vmin, 128px);
+    --thr: clamp(96px, 17vmin, 148px);
+    --stack-bottom: clamp(110px, 21vh, 190px);   /* base of the bottom button stack (above the dash) */
+    --top-row: calc(clamp(30px, 6.5vh, 74px) + 46px);
+    --edge: 22px;
+    --dash-h: clamp(96px, 19vh, 170px);
+    --brow-h: clamp(30px, 6.5vh, 74px);
+    --dial: clamp(76px, 15vmin, 128px);
+  }
+  @media (max-height: 520px) {
+    html {
+      --btn: clamp(58px, 15vmin, 70px);
+      --thr: clamp(64px, 17vmin, 78px);
+      --stack-bottom: 74px;
+      --top-row: 24px;
+      --edge: 12px;
+      --dash-h: 66px;
+      --brow-h: 20px;
+      --dial: 54px;
+    }
+    #homeArrow svg { width: 40px; height: 40px; }
+    #rotateArrow svg { width: 56px; }
+    #glideGuide svg { width: 50px; }
+    #altDigits { font-size: 12px; }
+    #progressStrip { width: min(34vw, 300px); top: calc(var(--brow-h) + env(safe-area-inset-top) + 4px); }
+    #wingman { width: 34px; height: 34px; }
+    #alarm .tri { width: 60px; height: 60px; }
+  }
   .roundBtn {
     position: fixed;
     width: var(--btn);
@@ -296,25 +326,25 @@
   .roundBtn:active, .roundBtn.pressed { transform: scale(.93); }
   .roundBtn.off { opacity: .55; }
   #viewBtn {
-    top: calc(clamp(30px, 6.5vh, 74px) + env(safe-area-inset-top) + 46px);
-    right: calc(22px + env(safe-area-inset-right));
+    top: calc(var(--top-row) + env(safe-area-inset-top));
+    right: calc(var(--edge) + env(safe-area-inset-right));
     z-index: 11;
   }
   #gearBtn {
-    bottom: calc(clamp(110px, 21vh, 190px) + env(safe-area-inset-bottom));
-    left: calc(22px + env(safe-area-inset-left));
+    bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    left: calc(var(--edge) + env(safe-area-inset-left));
     z-index: 10;
   }
   #gearBtn.hidden { display: none; }
   #skipBtn {
-    top: calc(clamp(30px, 6.5vh, 74px) + env(safe-area-inset-top) + 46px);
-    left: calc(22px + env(safe-area-inset-left));
+    top: calc(var(--top-row) + env(safe-area-inset-top));
+    left: calc(var(--edge) + env(safe-area-inset-left));
     z-index: 11;
   }
   #skipBtn.hidden { display: none; }
   #vehBtn {
-    top: calc(clamp(30px, 6.5vh, 74px) + env(safe-area-inset-top) + 46px);
-    left: calc(22px + env(safe-area-inset-left));
+    top: calc(var(--top-row) + env(safe-area-inset-top));
+    left: calc(var(--edge) + env(safe-area-inset-left));
     z-index: 11;
   }
   #vehBtn.hidden { display: none; }
@@ -384,22 +414,22 @@
     50% { opacity: 1; transform: scale(1.12); }
   }
   #slowBtn {
-    bottom: calc(clamp(110px, 21vh, 190px) + env(safe-area-inset-bottom));
-    right: calc(22px + env(safe-area-inset-right));
+    bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    right: calc(var(--edge) + env(safe-area-inset-right));
     z-index: 10;
   }
   #slowBtn.hidden { display: none; }
   #slowBtn.pressed { transform: scale(.93); }
   #fastBtn {
-    bottom: calc(clamp(110px, 21vh, 190px) + var(--btn) + 14px + env(safe-area-inset-bottom));
-    right: calc(22px + env(safe-area-inset-right));
+    bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
+    right: calc(var(--edge) + env(safe-area-inset-right));
     z-index: 10;
   }
   #fastBtn.hidden { display: none; }
   #fastBtn.pressed { transform: scale(.93); }
   #missileBtn {
-    bottom: calc(clamp(110px, 21vh, 190px) + var(--btn) + 14px + env(safe-area-inset-bottom));
-    left: calc(22px + env(safe-area-inset-left));
+    bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
+    left: calc(var(--edge) + env(safe-area-inset-left));
     z-index: 10;
   }
   #missileBtn.hidden { display: none; }
