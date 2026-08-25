@@ -112,6 +112,35 @@ function check(name, ok, extra) {
     });
   }
 
+  // ---------- T0 phone landscape: nothing overlaps ----------
+  {
+    const { page } = await newPage(844, 390);
+    await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.teleportAirborne(3000, 200, 150, 0); window.__lp.update(1 / 60); });
+    const phone = await page.evaluate(() => {
+      const ids = ["viewBtn", "skipBtn", "fastBtn", "slowBtn", "missileBtn", "gearBtn", "throttleBtn", "vehBtn", "dash", "brow", "progressStrip"];
+      const rects = [];
+      for (const id of ids) {
+        const e = document.getElementById(id);
+        if (!e || e.classList.contains("hidden")) continue;
+        const r = e.getBoundingClientRect();
+        if (r.width === 0) continue;
+        rects.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom });
+      }
+      const overlaps = [];
+      for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i], b = rects[j];
+        if (a.l < b.r - 2 && b.l < a.r - 2 && a.t < b.b - 2 && b.t < a.b - 2) overlaps.push(a.id + "/" + b.id);
+      }
+      const btn = document.getElementById("fastBtn").getBoundingClientRect();
+      // dash and brow deliberately bleed past the edges; every button must be fully on screen
+      const inside = rects.filter(r => r.id !== "dash" && r.id !== "brow").every(r => r.l >= -3 && r.r <= window.innerWidth + 3 && r.t >= -3 && r.b <= window.innerHeight + 3);
+      return { overlaps, btnW: Math.round(btn.width), inside, n: rects.length };
+    });
+    check("phone landscape (844x390): controls neither overlap nor leave the screen, buttons >= 56px",
+      phone.overlaps.length === 0 && phone.inside && phone.btnW >= 56, JSON.stringify(phone));
+    await page.close();
+  }
+
   // ---------- T1/T2 overlay layout ----------
   for (const [w, h, label] of [[1180, 820, "landscape"], [820, 1180, "portrait"]]) {
     const { page, errors } = await newPage(w, h);
