@@ -118,12 +118,14 @@ function sparkleBurst() {
   }
 }
 
+let fxDirty = false;
 function updateFx(dt) {
   if (!confetti.length) {
-    fxCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    if (fxDirty) { fxCtx.clearRect(0, 0, window.innerWidth, window.innerHeight); fxDirty = false; }
     return;
   }
   fxCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  fxDirty = true;
   const next = [];
   for (const p of confetti) {
     p.life -= dt;

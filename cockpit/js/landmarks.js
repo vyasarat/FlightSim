@@ -236,9 +236,12 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   statue.add(island);
   addRouteLandmark(statue, -520, half - 2350 * RS);
 
+  // Decks high enough to fly under with room (plane needs 8 m over the water
+  // and 3 m under the deck) and no deck crossing the departure/arrival
+  // centreline (|x| < 150 is kept clear of every bridge).
   const harborZ = half - 1480 * RS;
-  addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 16, 18), -120, harborZ);
-  addRouteLandmark(suspensionBridge(0xd0342c, 540, 52, 16, 16), 420, harborZ - 260 * RS);
+  addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 34, 18), -520, harborZ);
+  addRouteLandmark(suspensionBridge(0xd0342c, 540, 52, 32, 16), 480, harborZ - 260 * RS);
 
   const silosFarm = new THREE.Group();
   silosFarm.userData.trackSolids = true;
@@ -280,8 +283,8 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   casinos.userData.pending.push({ lx: 100, ly0: 93, lz: 13, hw: 12, hd: 12, y1: 117, mesh: ball });
   addRouteLandmark(casinos, -250, -half * 0.555);
 
-  const caBridge = suspensionBridge(0xd0342c, 700, 78, 21, 20);
-  addRouteLandmark(caBridge, -400, -half + 1480 * RS);  // clear of the runway + apron
+  const caBridge = suspensionBridge(0xd0342c, 700, 78, 30, 20);
+  addRouteLandmark(caBridge, -530, -half + 1480 * RS);  // clear of the runway, apron and centreline
 
   const letters = new THREE.Group();
   letters.userData.trackSolids = true;
@@ -289,11 +292,12 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   const hill = new THREE.Mesh(new THREE.CylinderGeometry(140, 200, 42, 14), lam(0x9a8f6a));
   hill.position.y = 18;
   letters.add(hill);
+  letters.userData.pending.push({ lx: 0, ly0: -3, lz: 0, hw: 170, hd: 170, y1: 39, mesh: hill });
   for (let i = 0; i < 7; i++) {
     const blk = lmBox(letters, 16, 22, 4, 0xf4f8fa, -84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
     blk.rotation.x = -0.4;
   }
-  addRouteLandmark(letters, 240, -half + 620 * RS);
+  addRouteLandmark(letters, 560, -half + 1700 * RS);  // well clear of the CA runway, pad and downtown
 
   const downtown = new THREE.Group();
   downtown.userData.trackSolids = true;
@@ -314,15 +318,19 @@ for (const L of ROUTE_LANDMARKS) {
   const deckY = L.g.userData.bridgeDeckY;
   if (!deckY) continue;
   const groundY = Math.max(terrainEff(L.x, L.z), TUNE.waterLevel);
-  const top = L.g.position.y + deckY - 3;
-  if (top - groundY < 9) continue; // deck too close to the water to fly under
-  const hh = (top - groundY) / 2;
-  addGate(L.x, groundY + hh, L.z, 70, hh, null);
+  // Legal air under a deck: >= terrainClearance above the water, and clear of
+  // the deck collider (deck box is 4.5 thick, PRAD 3). The hoop is centred on
+  // that band, and only exists if the band is comfortably wide.
+  const bottom = groundY + TUNE.terrainClearance + 1;
+  const top = L.g.position.y + deckY - 2.25 - 3.5;
+  if (top - bottom < 10) continue;
+  const hh = (top - bottom) / 2;
+  addGate(L.x, bottom + hh, L.z, 70, hh, null);
 }
 {
   const zc = -3800 * ROUTE_SCALE();
   const gy = Math.max(terrainEff(0, zc), TUNE.waterLevel);
-  addGate(0, gy + 34, zc, 42, 30, null);
+  addGate(0, gy + TUNE.terrainClearance + 1 + 30, zc, 42, 30, null);   // bottom of the hoop is legal air
 }
 
 // ---- airports: a terminal complex beside each runway, on the side away from
@@ -372,6 +380,7 @@ function buildAirport(idx) {
     roof.rotation.z = Math.PI / 2; roof.rotation.y = Math.PI / 2;
     roof.position.set(m * 215, 14, z);
     g.add(roof);
+    g.userData.pending.push({ lx: m * 215, ly0: 14, lz: z, hw: 28, hd: 22, y1: 36, mesh: roof });
     lmBox(g, 40, 10, 1, 0x3c4350, m * (215 - 28 * m), 5, z, false);
   }
   // fuel tanks
@@ -504,8 +513,13 @@ function placeBalloon(t) {
     const z = (rnd() * 2 - 1) * (half - 2000);
     const x = (rnd() - 0.5) * 1600;
     if (inCorridor(x, z, 300)) continue;
-    t.x = x; t.z = z;
-    t.y = Math.max(terrainEff(x, z), TUNE.waterLevel) + 90 + rnd() * 80;
+    const y = Math.max(terrainEff(x, z), TUNE.waterLevel) + 90 + rnd() * 80;
+    const dpx = x - state.x, dpy = y - state.y, dpz = z - state.z;
+    if (dpx * dpx + dpy * dpy + dpz * dpz < 300 * 300) continue;   // never pop into existence on the plane
+    let inside = false;
+    forEachSolid(b => { if (!inside && Math.abs(x - b.x) < b.hw + 12 && Math.abs(z - b.z) < b.hd + 12 && y > b.y0 - 12 && y < b.y1 + 12) inside = true; });
+    if (inside) continue;
+    t.x = x; t.z = z; t.y = y;
     t.vx = (rnd() - 0.5) * 2.5; t.vz = (rnd() - 0.5) * 2.5;
     return;
   }
@@ -526,22 +540,34 @@ function placeBoat(t) {
   // great lake (lakeShape): the water is a ring around a central island, so the
   // boats orbit at ~75% of the lake's radii where it is deepest.
   t.cx = -350 * RS; t.cz = 1800 * RS;
-  const k = 0.66 + rnd() * 0.16;
+  // Try orbit sizes from the outer rim inward and keep the first one that is
+  // under water at every sample point.
+  let k = 0.9;
+  for (let kk = 0.94; kk >= 0.6; kk -= 0.02) {
+    let wet = true;
+    for (let a = 0; a < Math.PI * 2 && wet; a += Math.PI / 12) {
+      if (terrainEff(t.cx + Math.cos(a) * 640 * RS * kk, t.cz + Math.sin(a) * 420 * RS * kk) > TUNE.waterLevel - 1.5) wet = false;
+    }
+    if (wet) { k = kk - 0.01 * rnd() * 2; break; }
+  }
   t.orbitX = 640 * RS * k; t.orbitZ = 420 * RS * k;
   t.speed = 0.05 + rnd() * 0.04; t.t = rnd() * 100;
   t.x = t.cx + Math.cos(t.t * t.speed) * t.orbitX; t.z = t.cz + Math.sin(t.t * t.speed) * t.orbitZ; t.y = TUNE.waterLevel + 0.4;
 }
-for (let i = 0; i < 5; i++) addTarget("balloon", makeBalloon(balloonPalette[i % balloonPalette.length]), placeBalloon);
-addTarget("blimp", makeBlimp(), placeBlimp);
-addTarget("ufo", makeUfo(), placeUfo);
-for (let i = 0; i < 3; i++) addTarget("boat", makeBoat([0xf2f4f7, 0xe0483e, 0x1c75bc][i]), placeBoat);
+// Called from main.js once `state` exists (placement keeps balloons off the plane).
+function initTargets() {
+  for (let i = 0; i < 5; i++) addTarget("balloon", makeBalloon(balloonPalette[i % balloonPalette.length]), placeBalloon);
+  addTarget("blimp", makeBlimp(), placeBlimp);
+  addTarget("ufo", makeUfo(), placeUfo);
+  for (let i = 0; i < 3; i++) addTarget("boat", makeBoat([0xf2f4f7, 0xe0483e, 0x1c75bc][i]), placeBoat);
+}
 
 function killTarget(t, hx, hy, hz) {
   t.alive = false;
   t.mesh.visible = false;
   t.respawn = 6 + rnd() * 4;
   flags.targets++;
-  triggerExplosion(hx, hy, hz, t.kind === "balloon" ? 0.5 : 0.8);
+  triggerExplosion(hx, hy, hz, t.kind === "balloon" ? 0.5 : 0.8, state.exploding);
   if (t.kind === "balloon" || t.kind === "ufo") sparkleBurst();
 }
 function updateTargets(dt) {
@@ -625,7 +651,13 @@ function updateTrain(dt, px, pz) {
   const dummyT = dummyObj;
   for (let i = 0; i < TRAIN_CARS; i++) {
     const cz = trainHead + i * 17;
-    if (cz > TRAIN_ZMAX) continue;
+    if (cz > TRAIN_ZMAX) {
+      // Not on the track yet: park the instance out of sight instead of leaving
+      // its previous matrix frozen where the car used to be.
+      dummyT.position.set(0, -9999, 0); dummyT.rotation.set(0, 0, 0); dummyT.scale.setScalar(0.001); dummyT.updateMatrix();
+      trainInst.setMatrixAt(i, dummyT.matrix);
+      continue;
+    }
     const gy = terrainEff(TRAIN_X, cz);
     dummyT.position.set(TRAIN_X, gy + 6, cz);
     dummyT.rotation.set(0, 0, 0);

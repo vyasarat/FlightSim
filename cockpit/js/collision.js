@@ -28,7 +28,7 @@ function shatterAround(px, py, pz) {
     } else if (b.idx !== undefined) {
       const m = new THREE.Matrix4();
       buildingInst.getMatrixAt(b.idx, m);
-      hiddenPieces.push({ kind: "town", idx: b.idx, mat: m });
+      hiddenPieces.push({ kind: "town", idx: b.idx, mat: m, gen: buildingGen });
       hiddenTownIdx.add(b.idx);
       dummyObj.position.set(0, -9999, 0);
       dummyObj.scale.setScalar(0.001);
@@ -46,7 +46,7 @@ function restoreShattered() {
     else {
       // Skip if the town instance pool was rebuilt underneath us (idx now belongs
       // to a different building); rebuildBuildings already wrote a fresh matrix.
-      if (hiddenTownIdx.has(h.idx)) {
+      if (h.gen === buildingGen && hiddenTownIdx.has(h.idx)) {
         buildingInst.setMatrixAt(h.idx, h.mat);
         buildingInst.instanceMatrix.needsUpdate = true;
       }
