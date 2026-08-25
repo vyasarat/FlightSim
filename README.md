@@ -76,6 +76,7 @@ qa-screenshots/      harness-generated screen captures (gitignored)
 Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h` … in `cockpit/index.html`). Viewports under 520 px tall (phones in landscape) get a compact tier: smaller buttons, dash and dials, so nothing overlaps; the harness checks 844x390.
 | Route strip, top-center | Plane glyph slides NY<->CA as he flies; dots fill in for landmarks passed |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker. The last vehicle + direction are remembered (`localStorage`), so a relaunch goes straight to the runway |
+| Sky button, right column under the view button | Cycles **sun → rain → snow → night**. Rain: grey sky, falling drops, rain hiss. Snow: pale sky, drifting flakes, whitened ground. Night: dark sky and stars, every tall building's windows light up, the blimps glow, the locomotive's headlight comes on, runway and tower lights stand out. Remembered across launches |
 | **Keyboard** (desktop) | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter missile, `+`/`-` (or `]`/`[`) speed step, L skip-to-landing. A finger on the screen always wins over the keys |
 
 ## Rewards (things that go "ding")
@@ -88,6 +89,8 @@ Nothing here can be failed or lost; every one re-arms.
 - **Gates** -- gold hoops under every suspension bridge, inside the canyon, and one riding with the locomotive. Fly through: fanfare + sparkle, the hoop turns green for `gateGreenTime`, re-arms after `gateRearm`.
 - **Wingman** -- fly within `wingmanDist` of a traffic plane for `wingmanHold` seconds: the two-plane icon at the top lights up, then sparkles. Cooldown `wingmanCooldown`.
 - **Cloud whoosh** when passing through a cloud; runway rumble and a rolling-tyre noise on the ground that cuts at liftoff; the chase camera lags and leans into banks.
+- **The world answers back** -- buzz an airport (low over the apron) and the tower beacon strobes, the windsock whips and the hangar doors slide open; fly under a bridge and it bounces; pass the locomotive and it toots; get close to the UFO and it zips away; a low pass over water leaves a spray wake, over the desert a dust trail; the casino lights go wild when you're near.
+- **Sounds** -- every target has its own voice (balloon pop, kite flutter, disc gong, boat splash, blimp deep pop, UFO sci-fi, paper-plane rustle, train-car clang); a stall wobble tone when slow and nose-high, a rising whistle in a fast dive; each landmark passed on the route strip plays the next note of a scale.
 
 ## Imminent-crash alarm
 

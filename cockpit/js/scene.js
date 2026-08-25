@@ -48,13 +48,41 @@ const skyUniforms = skyMat.uniforms;
 const skyDome = new THREE.Mesh(skyGeo, skyMat);
 scene.add(skyDome);
 
-scene.add(new THREE.HemisphereLight(TUNE.hemiSkyColor, TUNE.hemiGroundColor, TUNE.hemiIntensity));
+const hemiLight = new THREE.HemisphereLight(TUNE.hemiSkyColor, TUNE.hemiGroundColor, TUNE.hemiIntensity);
+scene.add(hemiLight);
 const sunLight = new THREE.DirectionalLight(0xfff3d6, TUNE.sunIntensity);
 sunLight.position.set(400, 1000, 250);
 scene.add(sunLight);
 
 const SPACE_TOP = new THREE.Color(0x04050d);
 const SPACE_HOR = new THREE.Color(0x0b1024);
+// Sky moods for the sky button: sun / rain / snow / night. Night reuses the
+// space palette for the dome and stars; rain and snow are grey and pale.
+const SKY_MOODS = [
+  { top: null, hor: null, fogNear: null, fogFar: null, sun: 1, hemi: 1 },
+  { top: new THREE.Color(0x5f6c7a), hor: new THREE.Color(0x98a3ae), fogNear: 260, fogFar: 950, sun: 0.45, hemi: 0.75 },
+  { top: new THREE.Color(0xb3c1cf), hor: new THREE.Color(0xe7edf2), fogNear: 380, fogFar: 1150, sun: 0.75, hemi: 0.95 },
+  { top: new THREE.Color(0x070a18), hor: new THREE.Color(0x1a2240), fogNear: 700, fogFar: 2000, sun: 0.12, hemi: 0.3 },
+];
+// Precipitation: a box of points that rides with the camera and wraps.
+const PRECIP_N = 1400;
+const precipGeo = new THREE.BufferGeometry();
+const precipPos = new Float32Array(PRECIP_N * 3);
+for (let i = 0; i < PRECIP_N; i++) { precipPos[i * 3] = (Math.random() - 0.5) * 220; precipPos[i * 3 + 1] = Math.random() * 120 - 30; precipPos[i * 3 + 2] = (Math.random() - 0.5) * 220; }
+precipGeo.setAttribute("position", new THREE.BufferAttribute(precipPos, 3));
+// soft round sprite so drops and flakes aren't hard squares
+const precipTex = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 32;
+  const cx = c.getContext("2d");
+  const g = cx.createRadialGradient(16, 16, 2, 16, 16, 15);
+  g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.6, "rgba(255,255,255,.55)"); g.addColorStop(1, "rgba(255,255,255,0)");
+  cx.fillStyle = g; cx.fillRect(0, 0, 32, 32);
+  const t = new THREE.CanvasTexture(c); return t;
+})();
+const precipMat = new THREE.PointsMaterial({ color: 0xdde8f2, size: 0.7, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, map: precipTex, alphaTest: 0.05 });
+const precip = new THREE.Points(precipGeo, precipMat);
+precip.frustumCulled = false;
+scene.add(precip);
 const SKY_TOP_BASE = new THREE.Color(TUNE.skyTopColor);
 const SKY_HOR_BASE = new THREE.Color(TUNE.skyHorizonColor);
 

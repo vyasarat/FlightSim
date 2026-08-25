@@ -350,6 +350,13 @@
     z-index: 11;
   }
   #vehBtn.hidden { display: none; }
+  #skyBtn {
+    top: calc(var(--top-row) + var(--btn) + 12px + env(safe-area-inset-top));
+    right: calc(var(--edge) + env(safe-area-inset-right));
+    z-index: 11;
+  }
+  #skyBtn svg { display: none; }
+  #skyBtn[data-mode="0"] .m0, #skyBtn[data-mode="1"] .m1, #skyBtn[data-mode="2"] .m2, #skyBtn[data-mode="3"] .m3 { display: block; }
   /* imminent-crash alarm: red edge strobes + flashing warning triangle */
   #alarm { position: fixed; inset: 0; z-index: 8; pointer-events: none; display: none; }
   #alarm.on { display: block; }
@@ -536,6 +543,12 @@
     <path d="M50 22 a28 28 0 1 0 28 28" fill="none" stroke="#f2f4f7" stroke-width="10" stroke-linecap="round"/>
     <path d="M78 34 L82 52 L64 46 Z" fill="#f2f4f7" stroke="#f2f4f7" stroke-width="4" stroke-linejoin="round"/>
   </svg>
+</button>
+<button id="skyBtn" class="roundBtn" aria-hidden="true" data-mode="0">
+  <svg class="m0" viewBox="0 0 100 100"><circle cx="50" cy="50" r="18" fill="#ffd23e" stroke="#c9971d" stroke-width="4"/><g stroke="#ffd23e" stroke-width="6" stroke-linecap="round"><path d="M50 12v12M50 76v12M12 50h12M76 50h12M23 23l8 8M69 69l8 8M23 77l8-8M69 31l8-8"/></g></svg>
+  <svg class="m1" viewBox="0 0 100 100"><path d="M28 60 a16 16 0 0 1 4 -31 a20 20 0 0 1 38 -2 a14 14 0 0 1 4 33 Z" fill="#dfe6ee" stroke="#8a93a0" stroke-width="4"/><g stroke="#3aa0ff" stroke-width="6" stroke-linecap="round"><path d="M36 70l-6 14M52 70l-6 14M68 70l-6 14"/></g></svg>
+  <svg class="m2" viewBox="0 0 100 100"><path d="M28 56 a16 16 0 0 1 4 -31 a20 20 0 0 1 38 -2 a14 14 0 0 1 4 33 Z" fill="#dfe6ee" stroke="#8a93a0" stroke-width="4"/><g fill="#f2f4f7" stroke="#8fb4d6" stroke-width="2"><circle cx="34" cy="74" r="5"/><circle cx="52" cy="82" r="5"/><circle cx="70" cy="72" r="5"/></g></svg>
+  <svg class="m3" viewBox="0 0 100 100"><path d="M62 18 a30 30 0 1 0 22 50 a24 24 0 0 1 -22 -50 Z" fill="#f2f4f7" stroke="#8a93a0" stroke-width="4"/><g fill="#ffd23e"><circle cx="28" cy="30" r="3"/><circle cx="40" cy="18" r="2"/><circle cx="24" cy="54" r="2"/></g></svg>
 </button>
 <button id="fastBtn" class="roundBtn" aria-hidden="true">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
