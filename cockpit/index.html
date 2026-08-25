@@ -238,11 +238,12 @@
   }
   #homeArrow.on svg {
     display: block;
+    opacity: .75;
     animation: homePulse 1.5s ease-in-out infinite;
   }
   @keyframes homePulse {
-    0%, 100% { opacity: .82; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.08); }
+    0%, 100% { opacity: .7; transform: scale(1); }
+    50% { opacity: .9; transform: scale(1.05); }
   }
   #throttleBtn {
     position: fixed;
@@ -298,9 +299,10 @@
       --brow-h: 20px;
       --dial: 54px;
     }
-    #homeArrow svg { width: 40px; height: 40px; }
+    #homeArrow svg { width: 34px; height: 34px; }
     #rotateArrow svg { width: 56px; }
-    #glideGuide svg { width: 50px; }
+    #glideGuide svg { width: 32px; }
+    #glideGuide { top: calc(var(--brow-h) + env(safe-area-inset-top) + 30px); }
     #altDigits { font-size: 12px; }
     #progressStrip { width: min(34vw, 300px); top: calc(var(--brow-h) + env(safe-area-inset-top) + 4px); }
     #wingman { width: 34px; height: 34px; }
@@ -367,8 +369,8 @@
   @media (prefers-reduced-motion: reduce) { #alarm .vig, #alarm .tri { animation: none; } }
   /* wingman icon: dim while a traffic plane is near, bright when formation is held */
   #wingman {
-    position: fixed; top: calc(clamp(30px, 6.5vh, 74px) + env(safe-area-inset-top) + 50px);
-    left: 50%; translate: -50% 0;
+    position: fixed; top: calc(var(--brow-h) + env(safe-area-inset-top) + 44px);
+    left: calc(50% + 90px); translate: -50% 0;   /* beside the glide arrow's slot, not on it */
     width: clamp(48px, 9vmin, 84px); height: clamp(48px, 9vmin, 84px);
     z-index: 7; pointer-events: none; opacity: 0; transition: opacity .25s;
   }
@@ -380,8 +382,10 @@
   #hud.chase #pillarL, #hud.chase #pillarR, #hud.chase #brow { display: none; }
   #glideGuide {
     position: fixed;
-    top: 30%;
+    /* small and high, just under the route strip: a cue, not an obstacle */
+    top: calc(var(--brow-h) + env(safe-area-inset-top) + 44px);
     left: 50%;
+    opacity: .85;
     translate: -50% 0;
     z-index: 8;
     pointer-events: none;
@@ -405,7 +409,7 @@
     filter: drop-shadow(0 2px 6px rgba(10,30,60,.4));
   }
   #glideGuide.on { display: block; }
-  #glideGuide svg { width: clamp(64px, 12vmin, 108px); height: auto; display: none; }
+  #glideGuide svg { width: clamp(36px, 6.5vmin, 56px); height: auto; display: none; }
   #glideGuide[data-state="up"] .gUp { display: block; }
   #glideGuide[data-state="down"] .gDown { display: block; }
   #glideGuide[data-state="ok"] .gOk { display: block; animation: guidePulse 0.9s ease-in-out infinite; }
