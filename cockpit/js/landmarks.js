@@ -500,20 +500,23 @@ function makeBoat(color) {
   mast.position.set(0, 6.5, -1); g.add(mast);
   return g;
 }
-// A V of seven birds that flap; pops into a puff of feathers.
+// A V of seven paper planes gliding together (no living things in this game);
+// pops into a puff of paper.
 function makeFlock() {
   const g = new THREE.Group();
-  const mat = lam(0x2b2f36);
+  const mat = lam(0xf4f6f8), edge = lam(0xd4d9e0);
   for (let i = 0; i < 7; i++) {
     const k = i === 0 ? 0 : Math.ceil(i / 2), side = i % 2 ? -1 : 1;
-    const bird = new THREE.Group();
+    const plane = new THREE.Group();
     for (const s of [-1, 1]) {
-      const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 0.8), mat);
-      wing.position.x = s * 1.2; bird.add(wing);
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 3.2), mat);
+      wing.position.set(s * 1.1, 0, 0); wing.rotation.z = s * 0.35; plane.add(wing);
       wing.userData.side = s;
     }
-    bird.position.set(side * k * 3.2, -k * 0.4, k * 3.4);
-    g.add(bird);
+    const keel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 3.2), edge);
+    keel.position.y = -0.45; plane.add(keel);
+    plane.position.set(side * k * 3.4, -k * 0.5, k * 3.6);
+    g.add(plane);
   }
   return g;
 }
@@ -693,8 +696,9 @@ function updateTargets(dt) {
       t.mesh.position.set(t.x, t.y + Math.sin(t.t * 1.1) * 2, t.z);
       const vx = -Math.sin(t.t * t.speed), vz = Math.cos(t.t * t.speed);
       t.mesh.rotation.y = Math.atan2(vx, vz) + Math.PI;
-      const flap = Math.sin(t.t * 9) * 0.6;
-      for (const bird of t.mesh.children) for (const w of bird.children) w.rotation.z = w.userData.side * flap;
+      // paper planes wobble gently rather than flap
+      const wob = Math.sin(t.t * 2.2) * 0.12;
+      for (const plane of t.mesh.children) plane.rotation.z = wob + Math.sin(t.t * 1.7 + plane.position.x) * 0.08;
     } else if (t.kind === "kite") {
       t.x = t.ax + Math.sin(t.t * 0.7) * 9;
       t.z = t.az + Math.cos(t.t * 0.5) * 6;
