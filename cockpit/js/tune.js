@@ -116,7 +116,7 @@ const TUNE = {
   altMaxMeters: 400,
 
   homeIndicatorDistance: 300,
-  homeIndicatorSize: 96,
+  homeIndicatorSize: 60,
 
   glideSlope: 0.085,
   glideBand: 9,
