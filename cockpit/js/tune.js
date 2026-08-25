@@ -153,6 +153,8 @@ const TUNE = {
   wingmanCooldown: 20,
   crashWarnTime: 2.2,
   gearWarnAgl: 25,
+  climbOutAgl: 15,
+  flareStartAgl: 30,         // over the runway, descend from here into the flare band           // must reach this AGL after liftoff before a landing can count
   keyStickRamp: 4.0,
 
   explodeDescentRate: 26,

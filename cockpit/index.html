@@ -293,7 +293,7 @@
     transition: transform .08s ease, opacity .25s ease, visibility .25s;
   }
   .roundBtn svg { width: 54%; height: 54%; pointer-events: none; }
-  .roundBtn:active { transform: scale(.93); }
+  .roundBtn:active, .roundBtn.pressed { transform: scale(.93); }
   .roundBtn.off { opacity: .55; }
   #viewBtn {
     top: calc(clamp(30px, 6.5vh, 74px) + env(safe-area-inset-top) + 46px);
@@ -327,7 +327,7 @@
     animation: alarmStrobe .3s steps(2, jump-none) infinite;
   }
   #alarm .tri {
-    position: absolute; left: 50%; top: 14%;
+    position: absolute; left: 50%; top: 24%;
     width: clamp(70px, 14vmin, 130px); height: clamp(70px, 14vmin, 130px);
     translate: -50% 0;
     filter: drop-shadow(0 4px 10px rgba(0,0,0,.5));
@@ -398,7 +398,7 @@
   #fastBtn.hidden { display: none; }
   #fastBtn.pressed { transform: scale(.93); }
   #missileBtn {
-    bottom: calc(clamp(110px, 21vh, 190px) + var(--btn) + 14px + env(safe-area-inset-left));
+    bottom: calc(clamp(110px, 21vh, 190px) + var(--btn) + 14px + env(safe-area-inset-bottom));
     left: calc(22px + env(safe-area-inset-left));
     z-index: 10;
   }
@@ -413,6 +413,7 @@
     padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
              calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     overflow-y: auto;
+    touch-action: pan-y;
   }
   .screen.hiddenS, .card.hiddenS { display: none; }
   .card {

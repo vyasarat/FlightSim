@@ -23,10 +23,12 @@ function groundPhase(dt) {
   rumble = state.speed > 6 ? 0.035 * Math.min(1, state.speed / 40) : 0;
   setRolling(state.speed / Math.max(1, state.vp.cruiseSpeed));
 
-  if (state.throttleHeld) {
+  const pastEnd = sgn * (ap.cz - state.z) > TUNE.runwayLength / 2 + 40;
+  if (state.throttleHeld && !pastEnd) {
     state.speed = Math.min(state.speed + state.vp.accel * dt, state.vp.cruiseSpeed * 1.15);
   } else {
-    state.speed = Math.max(state.speed - TUNE.brakeDecel * dt, 0);
+    // Off the end of the runway the throttle does nothing: hard brake, respawn.
+    state.speed = Math.max(state.speed - TUNE.brakeDecel * (pastEnd ? 2 : 1) * dt, 0);
   }
 
   state.z -= sgn * state.speed * dt;
@@ -40,6 +42,7 @@ function groundPhase(dt) {
       state.phase = "AIRBORNE";
       state.liftoffTimer = TUNE.liftoffHoldTime;
       state.pitch = TUNE.liftoffPitchDeg * 0.5;
+      state.maxAglSinceLiftoff = 0;
       flags.liftoff++;
       rumble = 0;
       setRolling(0);
@@ -49,10 +52,8 @@ function groundPhase(dt) {
     state.rotatePullTime = 0;
   }
 
-  const pastEnd = sgn * (ap.cz - state.z) > TUNE.runwayLength / 2 + 40;
   if (pastEnd || (!state.throttleHeld && state.speed <= 0.01)) {
     if (pastEnd) {
-      state.speed = Math.max(state.speed - TUNE.brakeDecel * 2 * dt, 0);
       if (state.speed <= 0.01) spawnForTakeoff(state.originIdx, state.dirIdx);
     } else {
       state.phase = "TAXI";
@@ -62,11 +63,23 @@ function groundPhase(dt) {
   }
 }
 
+// The runway he is actually near -- normally the destination, but turning back
+// onto the runway he just left must land (or belly-explode) like any other.
+function nearestAirportIdx() {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < AIRPORTS.length; i++) {
+    const d = Math.abs(state.z - AIRPORTS[i].cz);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
 function updateAssists(dt) {
   const t = Math.abs(wrapPi(state.heading)) < Math.PI / 2 ? 0 : Math.PI;
   const thOff = Math.round(Math.cos(t)) * (TUNE.runwayLength / 2);
+  state.approachIdx = nearestAirportIdx();
   const dxr = state.x - 0;
-  const dzr = state.z - (AIRPORTS[state.destIdx].cz + thOff);
+  const dzr = state.z - (AIRPORTS[state.approachIdx].cz + thOff);
   const distHoriz = Math.sqrt(dxr * dxr + dzr * dzr);
 
   const ft = { x: -Math.sin(t), z: -Math.cos(t) };
@@ -76,16 +89,26 @@ function updateAssists(dt) {
   state.approachData = { t, along, lat };
 
   const dot = (-Math.sin(state.heading) * -dxr + -Math.cos(state.heading) * -dzr) / (distHoriz || 1);
+  // Once past the threshold `dot` points backwards; stay engaged while over the
+  // runway and lined up so the flare, arrow and assists carry through to touchdown.
+  // (Only once he has actually climbed away -- otherwise the runway he just
+  // lifted off from would "engage" and flare him straight back down.)
+  // ... and only for an ARRIVAL (approachLatch was set by the approach itself),
+  // never for a climb-out over the runway he just left.
+  const overRunway = climbedOut() && state.approachLatch && along > -50 && along < TUNE.runwayLength / 2 + 40 &&
+    Math.abs(lat) <= (TUNE.runwayWidth / 2) * TUNE.touchdownLatTolMult;
   state.engaged = state.phase === "AIRBORNE"
     && state.liftoffTimer <= 0
-    && distHoriz < TUNE.approachEngageDist
-    && dot > 0.25;
+    && ((distHoriz < TUNE.approachEngageDist && dot > 0.25 && climbedOut()) || overRunway);
 
   if (!state.engaged) {
     state.assistBias *= Math.max(0, 1 - 2.5 * dt);
     // Wandered away from the airport: forget the approach so a later low pass
-    // beside the runway can't trigger a surprise go-around.
-    if (distHoriz > TUNE.alignStartDist) state.approachLatch = false;
+    // beside the runway can't trigger a surprise go-around. Keep it while he is
+    // over the runway or just past its far end -- that is the go-around's job
+    // (it clears the latch itself), otherwise "flew past the end" could never fire.
+    const farEnd = TUNE.runwayLength + 300;   // `along` is measured from the arrival threshold
+    if (distHoriz > TUNE.alignStartDist && (along < -TUNE.alignStartDist || along > farEnd)) state.approachLatch = false;
     return;
   }
 
@@ -106,6 +129,12 @@ function updateAssists(dt) {
 // exempt the last few metres of an approach from the terrain-clearance
 // explosion (the glide slope dips under terrainClearance just short of the
 // threshold) and to keep the crash alarm quiet during a landing.
+// A landing (or a belly-landing explosion) needs a flight first: the plane
+// must have been at least climbOutAgl above the ground since it lifted off.
+function climbedOut() {
+  return (state.maxAglSinceLiftoff === undefined ? 1e9 : state.maxAglSinceLiftoff) >= TUNE.climbOutAgl;
+}
+
 function inLandingZone() {
   const ad = state.approachData;
   if (!ad) return false;
@@ -135,7 +164,8 @@ function updateWingman(dt) {
       if (dx * dx + dy * dy + dz * dz < d2) { near = true; break; }
     }
   }
-  state.wingmanHold = near ? state.wingmanHold + dt : Math.max(0, state.wingmanHold - dt * 2);
+  if (state.wingmanCooldown > 0) state.wingmanHold = 0;
+  else state.wingmanHold = near ? Math.min(TUNE.wingmanHold, state.wingmanHold + dt) : Math.max(0, state.wingmanHold - dt * 2);
   const done = state.wingmanHold >= TUNE.wingmanHold && state.wingmanCooldown <= 0;
   if (done) {
     state.wingmanCooldown = TUNE.wingmanCooldown;
@@ -167,7 +197,7 @@ function updateCloudWhoosh(dt) {
 const warnP = { x: 0, y: 0, z: 0 };
 function updateCrashWarning(dt) {
   let warn = false;
-  if (state.phase === "AIRBORNE" && !state.exploding && state.liftoffTimer <= 0) {
+  if ((state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding && state.liftoffTimer <= 0) {
     const vx = forward.x * state.speed, vz = forward.z * state.speed, vy = forward.y * state.speed + (state.airVy || 0) - (state.flaring ? TUNE.flareSink : 0);
     // Gear up, lined up with the runway and low: that's a belly landing about
     // to happen -- alarm, no suppression. Touchdown itself explodes.
@@ -176,7 +206,7 @@ function updateCrashWarning(dt) {
     const linedUp = !!ad && Math.abs(ad.lat) <= (TUNE.runwayWidth / 2) * TUNE.touchdownLatTolMult &&
       ad.along > -300 && ad.along < TUNE.runwayLength / 2 + 40;
     const aglHere = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
-    if (gearUp && (linedUp || onAnyRunwayRect(state.x, state.z)) && aglHere < TUNE.gearWarnAgl) warn = true;
+    if (gearUp && climbedOut() && (linedUp || onAnyRunwayRect(state.x, state.z)) && aglHere < TUNE.gearWarnAgl) warn = true;
     const landing = !gearUp && (inLandingZone() || onAnyRunwayRect(state.x, state.z));
     if (!warn && !landing) {
       const groundNow = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
@@ -296,6 +326,7 @@ function update(dt) {
     }
     return;
   }
+  if (state.phase !== "AIRBORNE") state.flaring = false;
   let targetBank = 0, targetPitch = 0;
   if (state.touching) {
     targetBank = state.ctrlBank * state.vp.bankLimitDeg;
@@ -348,8 +379,10 @@ function update(dt) {
       if (state.celebrated) {
         state.celebrateTimer -= dt;
         if (state.celebrateTimer <= 0) {
-          state.originIdx = state.destIdx;
-          state.dirIdx = 1 - state.dirIdx;
+          const at = state.landedIdx === undefined ? state.destIdx : state.landedIdx;
+          state.originIdx = at;
+          state.destIdx = 1 - at;
+          state.dirIdx = at === 0 ? 0 : 1;   // NY -> fly south, CA -> fly north
           spawnForTakeoff();
         }
       }
@@ -371,9 +404,16 @@ function update(dt) {
       if (state.engaged && state.approachData) {
         const aglNow = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
         const latOk = Math.abs(state.approachData.lat) <= (TUNE.runwayWidth / 2) * TUNE.touchdownLatTolMult;
+        const ad = state.approachData;
+        const overRunway = ad.along > -50 && ad.along < TUNE.runwayLength / 2 + 40;
         if (latOk && aglNow < TUNE.flareAgl && (!state.vp.hasGear || state.gearDown)) {
           const k = 1 - clamp(aglNow / TUNE.flareAgl, 0, 1);
           targetPitch = lerp(targetPitch, 1.5, k);
+          state.flaring = true;
+        } else if (latOk && overRunway && aglNow < TUNE.flareStartAgl && (!state.vp.hasGear || state.gearDown)) {
+          // Crossed the threshold high with the stick released: ease the nose
+          // down so the flare band is reached before the runway runs out.
+          targetPitch = Math.min(targetPitch, -3);
           state.flaring = true;
         }
       }
@@ -436,16 +476,18 @@ function update(dt) {
 
       const gearOk = !state.vp.hasGear || state.gearDown;
       // state.y is the plane reference; the wheels hang gearHeight below it.
-      if (state.phase === "AIRBORNE" && overRect && agl <= TUNE.gearHeight + TUNE.touchdownClearance) {
+      if (state.maxAglSinceLiftoff !== undefined && agl > state.maxAglSinceLiftoff) state.maxAglSinceLiftoff = agl;
+      if (state.phase === "AIRBORNE" && overRect && climbedOut() && agl <= TUNE.gearHeight + TUNE.touchdownClearance) {
         if (!gearOk) {
           state.exploding = true;
           state.explodeTimer = TUNE.reassembleDelay;
           safePos.x = state.x;
           safePos.z = state.z;
-          safePos.y = groundNow + 60;
+          safePos.y = Math.max(state.y, groundNow + 60);
           triggerExplosion(state.x, state.y, state.z, clamp(state.speed / 80, 0, 1));
         } else if (Math.abs(wrapPi(state.heading - ad.t)) <= TUNE.touchdownHeadingTolDeg * DEG) {
           state.phase = "LANDED";
+          state.landedIdx = state.approachIdx;
           state.engaged = false;
           flags.touchdown++;
           chirp();
@@ -456,6 +498,7 @@ function update(dt) {
           state.engaged = false;
           state.phase = "CLIMB_AWAY";
           state.climbAwayTimer = TUNE.climbAwayTime;
+          resetRings();
         }
       } else if (
         state.phase === "AIRBORNE" && state.approachLatch && agl < 45 &&
@@ -465,6 +508,7 @@ function update(dt) {
         state.engaged = false;
         state.phase = "CLIMB_AWAY";
         state.climbAwayTimer = TUNE.climbAwayTime;
+        resetRings();
       } else if (agl <= TUNE.terrainClearance && !onAnyRunwayRect(state.x, state.z) && !inLandingZone()) {
         state.exploding = true;
         state.explodeTimer = TUNE.reassembleDelay;
