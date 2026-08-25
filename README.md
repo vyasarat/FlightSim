@@ -72,6 +72,8 @@ qa-screenshots/      harness-generated screen captures (gitignored)
 | Runway button, top-left (airborne, off-approach) | Skip to landing: places the plane aligned on the glide slope `skipOutDistance` from the destination, gear auto-extends, speed step set to 1 for the approach, ~45-60 s out |
 | Crosshair, center screen (airborne) | Flight-path marker -- shows exactly where the plane is aimed, including climb/dive; doubles as the missile aiming point. Clamps to the screen edge when the aim is off-view |
 | White pointer arrow at screen edge | Points along the horizontal bearing of the destination airport; hides within `homeIndicatorDistance` or whenever approach assists engage |
+
+Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h` … in `cockpit/index.html`). Viewports under 520 px tall (phones in landscape) get a compact tier: smaller buttons, dash and dials, so nothing overlaps; the harness checks 844x390.
 | Route strip, top-center | Plane glyph slides NY<->CA as he flies; dots fill in for landmarks passed |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker. The last vehicle + direction are remembered (`localStorage`), so a relaunch goes straight to the runway |
 | **Keyboard** (desktop) | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter missile, `+`/`-` (or `]`/`[`) speed step, L skip-to-landing. A finger on the screen always wins over the keys |
