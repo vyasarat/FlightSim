@@ -443,7 +443,7 @@ function updateAirports(dt) {
 // great lake. A missile (or the plane) pops them; they come back a few seconds
 // later somewhere else. Nothing is counted, nothing is lost.
 const targets = [];
-const TARGET_HIT_R = { balloon: 11, blimp: 17, ufo: 12, boat: 9 };
+const TARGET_HIT_R = { balloon: 11, blimp: 17, ufo: 12, boat: 9, flock: 15, kite: 9, disc: 11 };
 const balloonPalette = [0xe0483e, 0xffd23e, 0x3aa0ff, 0x36c46a, 0xff7ab8, 0xff8a1f];
 function makeBalloon(color) {
   const g = new THREE.Group();
@@ -500,6 +500,49 @@ function makeBoat(color) {
   mast.position.set(0, 6.5, -1); g.add(mast);
   return g;
 }
+// A V of seven birds that flap; pops into a puff of feathers.
+function makeFlock() {
+  const g = new THREE.Group();
+  const mat = lam(0x2b2f36);
+  for (let i = 0; i < 7; i++) {
+    const k = i === 0 ? 0 : Math.ceil(i / 2), side = i % 2 ? -1 : 1;
+    const bird = new THREE.Group();
+    for (const s of [-1, 1]) {
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 0.8), mat);
+      wing.position.x = s * 1.2; bird.add(wing);
+      wing.userData.side = s;
+    }
+    bird.position.set(side * k * 3.2, -k * 0.4, k * 3.4);
+    g.add(bird);
+  }
+  return g;
+}
+// A diamond kite on a string with a tail, bobbing over its anchor.
+function makeKite(color) {
+  const g = new THREE.Group();
+  const sail = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 0.15), lam(color));
+  sail.rotation.z = Math.PI / 4; sail.scale.y = 1.4; g.add(sail);
+  const spar = new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.2, 0.2), lam(0x3c3a36)); g.add(spar);
+  for (let i = 0; i < 5; i++) {
+    const bow = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.1), lam(i % 2 ? 0xffd23e : 0xf2f4f7));
+    bow.position.set(Math.sin(i * 1.3) * 0.8, -4.5 - i * 1.6, 0); bow.rotation.z = i * 0.7; g.add(bow);
+  }
+  const string = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 40, 4), lam(0xe8e8e8));
+  string.position.set(0, -20, 6); string.rotation.x = 0.3; g.add(string);
+  return g;
+}
+// A bullseye on a pole -- the archery-range classic, big and satisfying.
+function makeDisc() {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 24, 8), lam(0x8a93a0));
+  pole.position.y = -12; g.add(pole);
+  for (const [r, col, dz] of [[9, 0xe0483e, 0], [6.2, 0xf2f4f7, 0.35], [3.4, 0xe0483e, 0.7], [1.2, 0xffd23e, 1.05]]) {
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.6, 24), new THREE.MeshLambertMaterial({ color: col }));
+    ring.rotation.x = Math.PI / 2; ring.position.z = dz; g.add(ring);
+  }
+  return g;
+}
+
 function addTarget(kind, mesh, place) {
   const t = { kind, mesh, x: 0, y: 0, z: 0, alive: true, respawn: 0, t: rnd() * 100, place, r: TARGET_HIT_R[kind] };
   scene.add(mesh);
@@ -535,6 +578,44 @@ function placeUfo(t) {
   t.cx = 0; t.cz = ROUTE_HALF() - 0.8 * TUNE.routeLength;   // desert centre
   t.x = t.cx; t.z = t.cz; t.y = 150;
 }
+function placeFlock(t) {
+  const half = ROUTE_HALF();
+  for (let tries = 0; tries < 30; tries++) {
+    // farmland and plains (route fraction 0.24 - 0.56) and the coast strips
+    const p = 0.24 + rnd() * 0.32;
+    t.cz = half - p * TUNE.routeLength; t.cx = (rnd() - 0.5) * 1400;
+    if (inCorridor(t.cx, t.cz, 300)) continue;
+    break;
+  }
+  t.orbit = 90 + rnd() * 120; t.speed = 0.25 + rnd() * 0.15; t.t = rnd() * 100; t.alt = 35 + rnd() * 30;
+  t.x = t.cx + Math.cos(t.t * t.speed) * t.orbit; t.z = t.cz + Math.sin(t.t * t.speed) * t.orbit;
+  t.y = Math.max(terrainEff(t.x, t.z), TUNE.waterLevel) + t.alt;
+}
+function placeKite(t) {
+  const half = ROUTE_HALF();
+  for (let tries = 0; tries < 30; tries++) {
+    const p = 0.05 + rnd() * 0.9;
+    const z = half - p * TUNE.routeLength, x = (rnd() < 0.5 ? -1 : 1) * (250 + rnd() * 500);
+    if (inCorridor(x, z, 200) || terrainEff(x, z) < TUNE.waterLevel + 2) continue;
+    t.ax = x; t.az = z; t.ay = terrainEff(x, z); break;
+  }
+  t.alt = 28 + rnd() * 22; t.t = rnd() * 100;
+  t.x = t.ax; t.z = t.az; t.y = t.ay + t.alt;
+}
+function placeDisc(t) {
+  const half = ROUTE_HALF();
+  for (let tries = 0; tries < 40; tries++) {
+    const p = 0.08 + rnd() * 0.84;
+    const z = half - p * TUNE.routeLength, x = (rnd() < 0.5 ? -1 : 1) * (120 + rnd() * 600);
+    if (inCorridor(x, z, 200) || terrainEff(x, z) < TUNE.waterLevel + 2) continue;
+    let inside = false;
+    forEachSolid(b => { if (!inside && Math.abs(x - b.x) < b.hw + 14 && Math.abs(z - b.z) < b.hd + 14) inside = true; });
+    if (inside) continue;
+    t.x = x; t.z = z; t.y = terrainEff(x, z) + 24; break;
+  }
+  rnd();   // (keeps the deterministic sequence stable)
+  t.mesh.rotation.y = 0;   // always face along the route -- edge-on discs are invisible
+}
 function placeBoat(t) {
   const RS = ROUTE_SCALE();
   // great lake (lakeShape): the water is a ring around a central island, so the
@@ -556,10 +637,14 @@ function placeBoat(t) {
 }
 // Called from main.js once `state` exists (placement keeps balloons off the plane).
 function initTargets() {
-  for (let i = 0; i < 5; i++) addTarget("balloon", makeBalloon(balloonPalette[i % balloonPalette.length]), placeBalloon);
+  for (let i = 0; i < 8; i++) addTarget("balloon", makeBalloon(balloonPalette[i % balloonPalette.length]), placeBalloon);
+  addTarget("blimp", makeBlimp(), placeBlimp);
   addTarget("blimp", makeBlimp(), placeBlimp);
   addTarget("ufo", makeUfo(), placeUfo);
-  for (let i = 0; i < 3; i++) addTarget("boat", makeBoat([0xf2f4f7, 0xe0483e, 0x1c75bc][i]), placeBoat);
+  for (let i = 0; i < 5; i++) addTarget("boat", makeBoat([0xf2f4f7, 0xe0483e, 0x1c75bc, 0xffd23e, 0x36c46a][i]), placeBoat);
+  for (let i = 0; i < 4; i++) addTarget("flock", makeFlock(), placeFlock);
+  for (let i = 0; i < 5; i++) addTarget("kite", makeKite([0xe0483e, 0x3aa0ff, 0xffd23e, 0x36c46a, 0xff7ab8][i]), placeKite);
+  for (let i = 0; i < 8; i++) addTarget("disc", makeDisc(), placeDisc);
 }
 
 function killTarget(t, hx, hy, hz) {
@@ -567,8 +652,10 @@ function killTarget(t, hx, hy, hz) {
   t.mesh.visible = false;
   t.respawn = 6 + rnd() * 4;
   flags.targets++;
-  triggerExplosion(hx, hy, hz, t.kind === "balloon" ? 0.5 : 0.8, state.exploding);
-  if (t.kind === "balloon" || t.kind === "ufo") sparkleBurst();
+  const soft = t.kind === "balloon" || t.kind === "flock" || t.kind === "kite";
+  triggerExplosion(hx, hy, hz, soft ? 0.45 : 0.8, state.exploding || soft);
+  if (t.kind === "balloon" || t.kind === "ufo" || t.kind === "disc") sparkleBurst();
+  if (t.kind === "flock" || t.kind === "kite") noiseBurst(0.3, 900, 0.25, 0);
 }
 function updateTargets(dt) {
   for (const t of targets) {
@@ -598,6 +685,25 @@ function updateTargets(dt) {
       t.mesh.rotation.y += dt * 4;
       t.mesh.rotation.z = Math.cos(t.t * 0.9) * 0.25;
       if (t.mesh.userData.lights) t.mesh.userData.lights.material.color.setHex(Math.floor(t.t * 4) % 2 ? 0x3fdc6a : 0xff4030);
+    } else if (t.kind === "flock") {
+      t.x = t.cx + Math.cos(t.t * t.speed) * t.orbit;
+      t.z = t.cz + Math.sin(t.t * t.speed) * t.orbit;
+      const gy = Math.max(terrainEff(t.x, t.z), TUNE.waterLevel) + t.alt;
+      t.y += (gy - t.y) * Math.min(1, 2 * dt);
+      t.mesh.position.set(t.x, t.y + Math.sin(t.t * 1.1) * 2, t.z);
+      const vx = -Math.sin(t.t * t.speed), vz = Math.cos(t.t * t.speed);
+      t.mesh.rotation.y = Math.atan2(vx, vz) + Math.PI;
+      const flap = Math.sin(t.t * 9) * 0.6;
+      for (const bird of t.mesh.children) for (const w of bird.children) w.rotation.z = w.userData.side * flap;
+    } else if (t.kind === "kite") {
+      t.x = t.ax + Math.sin(t.t * 0.7) * 9;
+      t.z = t.az + Math.cos(t.t * 0.5) * 6;
+      t.y = t.ay + t.alt + Math.sin(t.t * 1.3) * 3;
+      t.mesh.position.set(t.x, t.y, t.z);
+      t.mesh.rotation.z = Math.sin(t.t * 0.9) * 0.3;
+      t.mesh.rotation.x = 0.35 + Math.sin(t.t * 0.6) * 0.1;
+    } else if (t.kind === "disc") {
+      // static; nothing to do
     } else if (t.kind === "boat") {
       t.x = t.cx + Math.cos(t.t * t.speed) * t.orbitX;
       t.z = t.cz + Math.sin(t.t * t.speed) * t.orbitZ;
@@ -647,11 +753,11 @@ function updateTrain(dt, px, pz) {
   trainSolids.length = 0;
   if (Math.abs(pz - mid) > 2800 || Math.abs(px - TRAIN_X) > 2800) return;
   trainHead -= TUNE.trainSpeed * dt;
-  if (trainHead < TRAIN_ZMIN) trainHead = TRAIN_ZMAX;
+  if (trainHead < TRAIN_ZMIN) { trainHead = TRAIN_ZMAX; trainCarGone.fill(false); }
   const dummyT = dummyObj;
   for (let i = 0; i < TRAIN_CARS; i++) {
     const cz = trainHead + i * 17;
-    if (cz > TRAIN_ZMAX) {
+    if (cz > TRAIN_ZMAX || trainCarGone[i]) {
       // Not on the track yet: park the instance out of sight instead of leaving
       // its previous matrix frozen where the car used to be.
       dummyT.position.set(0, -9999, 0); dummyT.rotation.set(0, 0, 0); dummyT.scale.setScalar(0.001); dummyT.updateMatrix();
@@ -664,9 +770,18 @@ function updateTrain(dt, px, pz) {
     dummyT.scale.set(1, 1, 1);
     dummyT.updateMatrix();
     trainInst.setMatrixAt(i, dummyT.matrix);
-    trainSolids.push({ x: TRAIN_X, z: cz, hw: 4.5, hd: 8.5, y0: gy + 1, y1: gy + 11.5 });
+    trainSolids.push({ x: TRAIN_X, z: cz, hw: 4.5, hd: 8.5, y0: gy + 1, y1: gy + 11.5, car: i });
   }
   trainInst.instanceMatrix.needsUpdate = true;
+}
+// Shot cars leave the train (they come back when it loops round).
+const trainCarGone = new Array(TRAIN_CARS).fill(false);
+function shootTrainCar(i, hx, hy, hz) {
+  if (trainCarGone[i]) return false;
+  trainCarGone[i] = true;
+  flags.targets++;
+  sparkleBurst();
+  return true;
 }
 
 let cullTimer = 0;

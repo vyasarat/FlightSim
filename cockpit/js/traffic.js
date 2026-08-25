@@ -186,7 +186,8 @@ function updateMissiles(dt) {
             m.z > b.z - b.hd - 1 && m.z < b.z + b.hd + 1 &&
             m.y > b.y0 - 1.5 && m.y < b.y1 + 1.5) {
           boomed = true;
-          shatterAround(m.x, m.y, m.z);
+          if (b.car !== undefined) shootTrainCar(b.car, m.x, m.y, m.z);
+          else shatterAround(m.x, m.y, m.z);
         }
       });
       if (boomed) break;

@@ -1416,8 +1416,44 @@ function check(name, ok, extra) {
       const back = b.alive && b.mesh.visible;
       return { kinds, popped, hiddenAfter, back, n: L.targets.length };
     });
-    check("targets: balloons, blimp, UFO and boats exist; a missile pops a balloon and it comes back",
-      tg.kinds.balloon >= 3 && tg.kinds.blimp >= 1 && tg.kinds.ufo >= 1 && tg.kinds.boat >= 2 && tg.popped && tg.hiddenAfter && tg.back, JSON.stringify(tg));
+    check("targets: balloons, blimps, UFO, boats, flocks, kites and discs exist; a missile pops a balloon and it comes back",
+      tg.kinds.balloon >= 6 && tg.kinds.blimp >= 2 && tg.kinds.ufo >= 1 && tg.kinds.boat >= 4 && tg.kinds.flock >= 3 && tg.kinds.kite >= 4 && tg.kinds.disc >= 6 && tg.popped && tg.hiddenAfter && tg.back, JSON.stringify(tg));
+
+    // every target starts in the open: above ground, not inside a solid, not in a corridor
+    const tgPlace = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE;
+      const bad = [];
+      for (const t of L.targets) {
+        const g = Math.max(L.terrainEff(t.x, t.z), T.waterLevel);
+        if (t.kind !== "boat" && t.y < g + 5) bad.push({ kind: t.kind, why: "low", y: Math.round(t.y), g: Math.round(g) });
+        if (t.kind === "boat" && L.terrainEff(t.x, t.z) > T.waterLevel - 0.5) bad.push({ kind: t.kind, why: "dry" });
+        let inside = false;
+        L.forEachSolid(b => { if (b.car === undefined && Math.abs(t.x - b.x) < b.hw && Math.abs(t.z - b.z) < b.hd && t.y > b.y0 && t.y < b.y1) inside = true; });
+        if (inside) bad.push({ kind: t.kind, why: "inside solid" });
+      }
+      return bad;
+    });
+    check("targets: none start underground, inside a solid, or dry", tgPlace.length === 0, JSON.stringify(tgPlace.slice(0, 5)));
+
+    // train cars are shootable: a hit removes the car until the train loops
+    const trainShot = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      st.exploding = false; st.phase = "AIRBORNE"; st.speed = 0; st.pitch = 0; st.bank = 0;
+      st.x = 340; st.z = 600; st.y = 400;
+      for (let i = 0; i < 60 * 25; i++) L.update(1 / 60);   // let cars enter the track
+      const car = L.trainSolids.find(b => b.car === 3);
+      if (!car) return { err: "no car" };
+      st.x = car.x; st.y = car.y1 + 4; st.z = car.z + 140; st.heading = 0; st.pitch = -3;
+      L.update(1 / 60);
+      const h0 = L.flags.targets, n0 = L.trainSolids.length;
+      L.fireMissile();
+      let hit = false;
+      for (let i = 0; i < 60 * 4 && !hit; i++) { L.update(1 / 60); hit = L.flags.targets > h0; }
+      L.update(1 / 60);   // the train rebuilds its solids on the next frame
+      const nAfter = L.trainSolids.length;
+      return { hit, fewerCars: nAfter < n0, n0, nAfter };
+    });
+    check("targets: a missile knocks a car off the freight train", !trainShot.err && trainShot.hit && trainShot.fewerCars, JSON.stringify(trainShot));
 
     // H4: crossing the threshold high with the stick released must still land (engaged stays on over the runway)
     const highCross = await page.evaluate(() => {
@@ -1517,7 +1553,7 @@ function check(name, ok, extra) {
       }
       return out;
     });
-    check("targets: boats stay on the water for the whole orbit", boats.length === 3 && boats.every(b => b.dry === 0), JSON.stringify(boats));
+    check("targets: boats stay on the water for the whole orbit", boats.length >= 3 && boats.every(b => b.dry === 0), JSON.stringify(boats));
 
     // no solid crosses the departure/arrival centreline within |x| < 65 for 2.2 km beyond either runway end
     const centreline = await page.evaluate(() => {
