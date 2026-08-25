@@ -244,6 +244,59 @@ function updateCrashWarning(dt) {
   }
 }
 
+// ---- sky button: sun / rain / snow / night. Each mood blends in over ~3 s.
+// Space (rocket only) still takes over the dome when it applies.
+function updateSky(dt) {
+  const mode = state.sky | 0;
+  const k = Math.min(1, 0.6 * dt);
+  state.rainF += ((mode === 1 ? 1 : 0) - state.rainF) * k;
+  state.snowF += ((mode === 2 ? 1 : 0) - state.snowF) * k;
+  state.nightF += ((mode === 3 ? 1 : 0) - state.nightF) * k;
+  const sf = state.spaceF;
+  const mood = SKY_MOODS[mode];
+  const w = Math.max(state.rainF, state.snowF, state.nightF);   // weight of the non-sun mood
+  const top = skyUniforms.topColor.value.copy(SKY_TOP_BASE);
+  const hor = skyUniforms.horizonColor.value.copy(SKY_HOR_BASE);
+  if (mood.top && w > 0.001) { top.lerp(mood.top, w); hor.lerp(mood.hor, w); }
+  let fogNear = mood.fogNear ? lerp(TUNE.fogNear, mood.fogNear, w) : TUNE.fogNear;
+  let fogFar = mood.fogFar ? lerp(TUNE.fogFar, mood.fogFar, w) : TUNE.fogFar;
+  if (sf > 0.001) { top.lerp(SPACE_TOP, sf); hor.lerp(SPACE_HOR, sf); fogNear = lerp(fogNear, 2600, sf); fogFar = lerp(fogFar, 5400, sf); }
+  scene.fog.color.copy(hor);
+  scene.fog.near = fogNear;
+  scene.fog.far = fogFar;
+  sunLight.intensity = TUNE.sunIntensity * lerp(1, mood.sun, w);
+  hemiLight.intensity = TUNE.hemiIntensity * lerp(1, mood.hemi, w);
+  // snow: the ground and roofs whiten (emissive lift on the vertex-coloured terrain)
+  terrainMat.emissive.setScalar(0.32 * state.snowF);
+  // precipitation rides with the camera
+  const pAmt = Math.max(state.rainF, state.snowF);
+  precipMat.opacity = pAmt * (state.snowF > state.rainF ? 0.95 : 0.55);
+  precipMat.size = state.snowF > state.rainF ? 1.3 : 0.55;
+  precipMat.color.setHex(state.snowF > state.rainF ? 0xffffff : 0xcfe0ee);
+  precip.visible = pAmt > 0.02;
+  if (precip.visible) {
+    precip.position.copy(camera.position);
+    const fall = state.snowF > state.rainF ? 9 : 55;
+    const sway = state.snowF > state.rainF ? 6 : 0;
+    const arr = precipGeo.attributes.position.array;
+    for (let i = 0; i < PRECIP_N; i++) {
+      let y = arr[i * 3 + 1] - fall * dt;
+      if (y < -30) { y += 120; arr[i * 3] = (Math.random() - 0.5) * 220; arr[i * 3 + 2] = (Math.random() - 0.5) * 220; }
+      arr[i * 3 + 1] = y;
+      if (sway) arr[i * 3] += Math.sin(frameCount * 0.05 + i) * sway * dt;
+    }
+    precipGeo.attributes.position.needsUpdate = true;
+  }
+  setRain(state.rainF);
+  // night things: windows, headlight, lit blimps, beacons stay as they are (already lit)
+  const nf = state.nightF;
+  windowInst.visible = nf > 0.05;
+  windowMat.opacity = nf;
+  trainLamp.visible = nf > 0.05;
+  trainLamp.material.opacity = nf;
+  for (const t of targets) if (t.kind === "blimp" && t.mesh.userData.glow) t.mesh.userData.glow.material.emissive.setRGB(nf, nf * 0.25, nf * 0.2);
+}
+
 function updateRewards(dt) {
   if (state.squashTimer > 0) state.squashTimer -= dt;
   if (state.popTimer > 0) state.popTimer -= dt;
@@ -261,6 +314,17 @@ function updateRewards(dt) {
   updateSmoke(dt);
   updateCraters(dt);
   updateTyrePuffs(dt);
+  updateWake(dt);
+  updateFlightTones();
+}
+
+// Stall wobble when slow and nose-high; a rising whistle in a fast dive.
+function updateFlightTones() {
+  const flying = state.phase === "AIRBORNE" && !state.exploding;
+  const slow = flying && state.speed < state.vp.cruiseSpeed * 0.55 && state.pitch > 10;
+  const dive = flying && state.pitch < -15 && state.speed > state.vp.cruiseSpeed * 0.9;
+  setTone("stall", "triangle", 170 + Math.sin(frameCount * 0.4) * 25, slow ? 0.11 : 0);
+  setTone("dive", "sine", dive ? 500 + (-state.pitch - 15) * 28 : 500, dive ? 0.09 : 0);
 }
 
 function update(dt) {
@@ -542,21 +606,9 @@ function update(dt) {
       if (state.pitch > -2) state.pitch -= 20 * dt;
     }
   }
+  updateSky(dt);
   const sf = state.spaceF;
-  if (sf > 0.001) {
-    skyUniforms.topColor.value.copy(SKY_TOP_BASE).lerp(SPACE_TOP, sf);
-    skyUniforms.horizonColor.value.copy(SKY_HOR_BASE).lerp(SPACE_HOR, sf);
-    scene.fog.color.copy(skyUniforms.horizonColor.value);
-    scene.fog.near = lerp(TUNE.fogNear, 2600, sf);
-    scene.fog.far = lerp(TUNE.fogFar, 5400, sf);
-  } else if (skyUniforms.topColor.value.getHex() !== TUNE.skyTopColor) {
-    skyUniforms.topColor.value.copy(SKY_TOP_BASE);
-    skyUniforms.horizonColor.value.copy(SKY_HOR_BASE);
-    scene.fog.color.copy(skyUniforms.horizonColor.value);
-    scene.fog.near = TUNE.fogNear;
-    scene.fog.far = TUNE.fogFar;
-  }
-  stars.material.opacity = sf;
+  stars.material.opacity = Math.max(sf, state.nightF);
   earthMesh.material.opacity = sf * 0.96;
   earthMesh.position.set(state.x, state.y - 3600, state.z);
   earthMesh.visible = sf > 0.02;

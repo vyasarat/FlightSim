@@ -221,6 +221,14 @@ document.querySelectorAll(".dirCard").forEach(card => {
   });
 });
 
+// Sky button cycles sun -> rain -> snow -> night.
+el.skyBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.skyBtn);
+  state.sky = (state.sky + 1) % 4;
+  el.skyBtn.dataset.mode = String(state.sky);
+  try { localStorage.setItem("lp.sky", String(state.sky)); } catch (err) {}
+  flags.skyChanges = (flags.skyChanges || 0) + 1;
+});
 el.vehBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
