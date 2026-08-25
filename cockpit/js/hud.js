@@ -2,7 +2,7 @@
 const el = {};
 ["hud", "pillarL", "pillarR", "brow", "dash", "asiDial", "aiDial", "altDial",
  "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow",
- "screenVehicle", "screenDir", "progressStrip", "viewBtn", "gearBtn", "slowBtn", "glideGuide", "skipBtn", "fastBtn", "missileBtn", "aimMarker", "vehBtn", "alarm", "wingman"].forEach(id => {
+ "screenVehicle", "screenDir", "progressStrip", "viewBtn", "gearBtn", "slowBtn", "glideGuide", "skipBtn", "fastBtn", "missileBtn", "aimMarker", "vehBtn", "alarm", "wingman", "skyBtn"].forEach(id => {
   el[id] = document.getElementById(id);
 });
 el.homeArrow.style.setProperty("--home-sz", TUNE.homeIndicatorSize + "px");
@@ -71,11 +71,18 @@ function updateStrip() {
   const shown = northbound ? 1 - pr : pr;
   el.stripMarker.style.left = (shown * 100) + "%";
   el.stripMarker.style.transform = northbound ? "scaleX(-1)" : "none";
+  let passed = 0;
   for (const d of stripDots) {
     const fShown = northbound ? 1 - d.f : d.f;
-    d.el.classList.toggle("passed", fShown <= pr);
+    const p = fShown <= pr;
+    d.el.classList.toggle("passed", p);
+    if (p) passed++;
   }
+  // each landmark passed plays the next note of the scale
+  if (passed > stripNotesPlayed && stripNotesPlayed >= 0 && state.phase === "AIRBORNE") routeNote(passed - 1);
+  stripNotesPlayed = passed;
 }
+let stripNotesPlayed = -1;   // -1: first update just syncs (no note on spawn)
 
 const fxCanvas = el.fx;
 const fxCtx = fxCanvas.getContext("2d");

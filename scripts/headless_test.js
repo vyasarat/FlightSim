@@ -117,7 +117,7 @@ function check(name, ok, extra) {
     const { page } = await newPage(844, 390);
     await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.teleportAirborne(3000, 200, 150, 0); window.__lp.update(1 / 60); });
     const phone = await page.evaluate(() => {
-      const ids = ["viewBtn", "skipBtn", "fastBtn", "slowBtn", "missileBtn", "gearBtn", "throttleBtn", "vehBtn", "dash", "brow", "progressStrip"];
+      const ids = ["viewBtn", "skipBtn", "fastBtn", "slowBtn", "missileBtn", "gearBtn", "throttleBtn", "vehBtn", "skyBtn", "dash", "brow", "progressStrip"];
       const rects = [];
       for (const id of ids) {
         const e = document.getElementById(id);
@@ -1648,6 +1648,53 @@ function check(name, ok, extra) {
       return { maxPast: Math.round(maxPast), respawned: L.flags.repositioned > repos0 };
     });
     check("ground: fighter with throttle held past the end stops < 400 m out and respawns", overrun.respawned && overrun.maxPast < 400, JSON.stringify(overrun));
+
+    // sky button: rain brings precipitation + rain loop, night lights the windows, sun clears it
+    const sky = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      const out = {};
+      const tap = () => document.getElementById("skyBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 11 }));
+      const settle = () => { for (let i = 0; i < 60 * 5; i++) L.update(1 / 60); };
+      st.sky = 0; settle();
+      tap(); settle(); out.rain = { mode: st.sky, precip: L.precip.visible, rainF: +st.rainF.toFixed(2), fogFar: Math.round(window.__lp.state.rainF > 0.9 ? 950 : -1) };
+      tap(); settle(); out.snow = { mode: st.sky, precip: L.precip.visible, snowF: +st.snowF.toFixed(2) };
+      tap(); settle(); out.night = { mode: st.sky, windows: L.windowInst.visible, nightF: +st.nightF.toFixed(2), stars: +window.__lp.state.nightF.toFixed(2) };
+      tap(); settle(); out.sun = { mode: st.sky, precip: L.precip.visible, windows: L.windowInst.visible };
+      out.saved = localStorage.getItem("lp.sky");
+      return out;
+    });
+    check("sky: sun -> rain (drops) -> snow (flakes) -> night (windows lit) -> sun, and the choice is saved",
+      sky.rain.mode === 1 && sky.rain.precip && sky.rain.rainF > 0.9 && sky.snow.mode === 2 && sky.snow.precip && sky.snow.snowF > 0.9 &&
+      sky.night.mode === 3 && sky.night.windows && sky.night.nightF > 0.9 && sky.sun.mode === 0 && !sky.sun.precip && !sky.sun.windows && sky.saved === "0",
+      JSON.stringify(sky));
+
+    // buzz the airport: low over the apron opens the hangar doors
+    const buzz = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      const a = L.airports[0];
+      st.exploding = false; st.phase = "AIRBORNE"; st.speed = 0; st.pitch = 0;
+      st.x = a.m * 170; st.z = a.cz; st.y = L.AIRPORTS[0].elev + 40; st.heading = 0; st.liftoffTimer = 0; st.maxAglSinceLiftoff = 1e9;
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      const open = a.doors.map(d => Math.abs(d.position.x - d.userData.baseX));
+      st.y = L.AIRPORTS[0].elev + 400;
+      for (let i = 0; i < 60 * 6; i++) L.update(1 / 60);
+      const closed = a.doors.map(d => Math.abs(d.position.x - d.userData.baseX));
+      return { buzz: +a.buzz.toFixed(2), open: open.map(v => Math.round(v)), closed: closed.map(v => Math.round(v)) };
+    });
+    check("world: buzzing the apron slides the hangar doors open, then they close again", buzz.open.every(v => v > 20) && buzz.closed.every(v => v < 3), JSON.stringify(buzz));
+
+    // bridges bounce after a gate pass
+    const hoop = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      const bridge = L.gates.find(g => g.bounceGroup);
+      if (!bridge) return { err: "no bridge gate" };
+      st.exploding = false; st.phase = "AIRBORNE"; st.pitch = 0;
+      st.x = bridge.x; st.y = bridge.y; st.z = bridge.z + 40; st.heading = 0; st.speed = 50;
+      let bounced = false;
+      for (let i = 0; i < 60 * 2; i++) { L.update(1 / 60); if (bridge.bounceT > 0 && Math.abs(bridge.bounceGroup.position.y - bridge.bounceBaseY) > 0.3) bounced = true; }
+      return { bounced };
+    });
+    check("world: bridges bounce when flown under", !hoop.err && hoop.bounced, JSON.stringify(hoop));
 
     check("rewards: ring corridor anchors at the near threshold in both directions",
       [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));
