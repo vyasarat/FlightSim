@@ -253,6 +253,23 @@ function setRain(level) {
   rainNodes.last = level;
   rainNodes.g.gain.setTargetAtTime(level * 0.12, audioCtx.currentTime, 0.3);
 }
+function chime() {
+  [880, 1175, 1760].forEach((f, i) => synthBlip("triangle", f, f, 0.5, 0.22, i * 0.06));
+  synthBlip("sine", 3520, 3520, 0.4, 0.06, 0.1);
+}
+function fireworkSound(when) {
+  synthBlip("sine", 400, 1500, 0.9, 0.08, when);           // whistle up
+  noiseBurst(0.5, 700, 0.4, when + 0.95);                  // pop
+  noiseBurst(0.7, 2500, 0.18, when + 1.0);                 // crackle
+}
+function boatHorn() {
+  synthBlip("sawtooth", 110, 108, 0.7, 0.2, 0);
+  synthBlip("square", 165, 163, 0.7, 0.08, 0);
+}
+function squeak() {
+  synthBlip("sine", 900, 1300, 0.12, 0.14, 0);
+  synthBlip("sine", 1300, 900, 0.12, 0.12, 0.13);
+}
 function cheer() {
   const notes = [523, 659, 784, 1047];
   notes.forEach((f, i) => {

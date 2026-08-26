@@ -250,7 +250,7 @@ function check(name, ok, extra) {
     check("landing: sloppy approach touches down successfully",
       landed && st.finite,
       `phase=${st.phase} td=${st.flags.touchdown} miss=${st.flags.missed}`);
-    await pump(page, 12);
+    await pump(page, 18);   // rollout + the 6 s arrival show
     const st2 = await snapState(page);
     check("landing: rollout -> celebrate -> reset to takeoff",
       st2.flags.repositioned > repos0 && st2.phase === "TAXI",
@@ -1695,6 +1695,68 @@ function check(name, ok, extra) {
       return { bounced };
     });
     check("world: bridges bounce when flown under", !hoop.err && hoop.bounced, JSON.stringify(hoop));
+
+    // sparkle spots: 20 gems in the open air; flying through one lights it for good and saves
+    const spotsR = await page.evaluate(() => {
+      const L = window.__lp, T = L.TUNE, st = L.state;
+      const bad = [];
+      for (const sp of L.spots) {
+        const g = Math.max(L.terrainEff(sp.x, sp.z), T.waterLevel);
+        if (sp.y < g + 4) bad.push({ why: "low", x: Math.round(sp.x), z: Math.round(sp.z) });
+        let inside = false;
+        L.forEachSolid(b => { if (b.car === undefined && Math.abs(sp.x - b.x) < b.hw && Math.abs(sp.z - b.z) < b.hd && sp.y > b.y0 && sp.y < b.y1) inside = true; });
+        if (inside) bad.push({ why: "inside solid", x: Math.round(sp.x), z: Math.round(sp.z) });
+      }
+      const sp = L.spots[0];
+      st.exploding = false; st.phase = "AIRBORNE"; st.speed = 0; st.pitch = 0;
+      st.x = sp.x; st.y = sp.y; st.z = sp.z; st.heading = 0;
+      const f0 = L.flags.spots || 0;
+      for (let i = 0; i < 10; i++) L.update(1 / 60);
+      const saved = localStorage.getItem("lp.spots");
+      return { n: L.spots.length, bad, lit: sp.lit && sp.beam.visible, gained: (L.flags.spots || 0) - f0, saved: !!saved && saved.startsWith("[1") };
+    });
+    check("spots: 20 sparkle spots in clear air; flying through one lights it and it is remembered",
+      spotsR.n === 20 && spotsR.bad.length === 0 && spotsR.lit && spotsR.gained === 1 && spotsR.saved, JSON.stringify(spotsR));
+
+    // arrival show + apron vehicles, on a fresh page (no state carried over)
+    {
+      const fresh = await newPage(1180, 820);
+      const p2 = fresh.page;
+      await p2.evaluate(() => { window.__lp.noRender = true; });
+      // arrival show + apron vehicles: landing brings fireworks, chasing lights, and the trucks drive out
+      const arrival = await p2.evaluate(() => {
+        const L = window.__lp, T = L.TUNE, st = L.state;
+        L.api.spawnAt(0, 0);
+        L.api.teleportAirborne(400, 0, 3 + 400 * T.glideSlope, 0);
+        st.gearDown = true; L.api.setStick(0, -0.18);
+        for (let i = 0; i < 60 * 30 && st.phase !== "LANDED"; i++) L.update(1 / 60);
+        L.api.clearStick();
+        for (let i = 0; i < 60 * 25 && !st.celebrated; i++) L.update(1 / 60);
+        const a = L.airports.find(r => r.idx === st.landedIdx);
+        const homeD = a.vehicles.map(v => Math.round(Math.hypot(v.x - v.homeX, v.z - v.homeZ)));
+        for (let i = 0; i < 60 * 3.5; i++) L.update(1 / 60);
+        const planeD = a.vehicles.map(v => Math.round(Math.hypot(v.x - st.x, v.z - st.z)));
+        const stillCelebrating = st.celebrated;
+        let fireworksSeen = false;
+        for (let i = 0; i < 60 * 2; i++) { L.update(1 / 60); if (L.wakePuffsAlive() > 6) fireworksSeen = true; }
+        return { celebrated: stillCelebrating, landedIdx: st.landedIdx, homeD, planeD, fireworksSeen };
+      });
+      check("arrival: fireworks over the terminal and the apron trucks drive out to the plane",
+        arrival.celebrated && arrival.fireworksSeen && arrival.planeD.every(d => d < 40), JSON.stringify(arrival));
+      await p2.close();
+    }
+
+    // fly-by hellos: the tower cab flashes when you pass close
+    const flyby = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      const a = L.airports[0];
+      st.exploding = false; st.phase = "AIRBORNE"; st.speed = 0; st.pitch = 0; st.liftoffTimer = 0; st.maxAglSinceLiftoff = 1e9;
+      st.x = a.m * 150 + 30; st.z = a.cz + 260 + 30; st.y = L.AIRPORTS[0].elev + 50; st.heading = 0;
+      let flashed = false;
+      for (let i = 0; i < 60; i++) { L.update(1 / 60); if (a.cab.material.color.getHex() === 0xfff3a8) flashed = true; }
+      return { flyby: +a.flyby.toFixed(2), flashed };
+    });
+    check("world: passing the control tower flashes its cab", flyby.flashed, JSON.stringify(flyby));
 
     check("rewards: ring corridor anchors at the near threshold in both directions",
       [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));

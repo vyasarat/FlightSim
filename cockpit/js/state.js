@@ -96,6 +96,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.gearAnim = 1;
   state.maxAglSinceLiftoff = 0;
   state.phase = "TAXI";
+  if (typeof apronVehiclesTo === "function") apronVehiclesTo(originIdx, true);
   placeRings();
   flags.repositioned++;
 }

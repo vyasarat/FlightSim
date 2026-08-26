@@ -17,7 +17,7 @@ function groundPhase(dt) {
     state.speed = 0;
     rumble = 0;
     setRolling(0);
-    if (state.throttleHeld) state.phase = "ROLL";
+    if (state.throttleHeld) { state.phase = "ROLL"; apronVehiclesTo(state.originIdx, false); }
     return;
   }
   rumble = state.speed > 6 ? 0.035 * Math.min(1, state.speed / 40) : 0;
@@ -316,6 +316,7 @@ function updateRewards(dt) {
   updateTyrePuffs(dt);
   updateWake(dt);
   updateFlightTones();
+  updateSpots(dt);
 }
 
 // Stall wobble when slow and nose-high; a rising whistle in a fast dive.
@@ -438,7 +439,10 @@ function update(dt) {
         state.celebrated = true;
         confettiBurst();
         cheer();
-        state.celebrateTimer = 2.6;
+        const at = state.landedIdx === undefined ? state.destIdx : state.landedIdx;
+        arrivalShow(at);
+        apronVehiclesTo(at, true);
+        state.celebrateTimer = 6.0;   // long enough for the fireworks and the trucks to arrive
       }
       if (state.celebrated) {
         state.celebrateTimer -= dt;

@@ -381,6 +381,85 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   addRouteLandmark(downtown, 460, -half + 1080 * RS);
 })();
 
+// ---- sparkle spots: twenty hidden gems tucked around the world. Fly through
+// one and it bursts and stays lit for good (a small beacon), so the more he
+// explores, the more lit the world gets. Remembered across launches; once all
+// are found they quietly reset so there is always something to find.
+const spots = [];
+const spotMatIdle = new THREE.MeshBasicMaterial({ color: 0xffd23e, fog: false, transparent: true, opacity: 0.9 });
+const spotMatLit = new THREE.MeshBasicMaterial({ color: 0x9df7ff, fog: false });
+const spotGeo = new THREE.IcosahedronGeometry(3.2, 0);
+const beamGeo = new THREE.CylinderGeometry(0.6, 0.6, 60, 6, 1, true);
+const beamMat = new THREE.MeshBasicMaterial({ color: 0x9df7ff, fog: false, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+function addSpot(x, y, z) {
+  y = Math.max(y, Math.max(terrainEff(x, z), TUNE.waterLevel) + 12);   // always in clear air
+  const mesh = new THREE.Mesh(spotGeo, spotMatIdle);
+  mesh.position.set(x, y, z);
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.set(x, y + 30, z);
+  beam.visible = false;
+  scene.add(mesh); scene.add(beam);
+  spots.push({ mesh, beam, x, y, z, lit: false });
+}
+(function placeSpots() {
+  const half = ROUTE_HALF(), RS = ROUTE_SCALE(), W = TUNE.waterLevel;
+  const g = (x, z) => Math.max(terrainEff(x, z), W);
+  const L = ROUTE_LANDMARKS;
+  const top = (i) => { const l = L[i]; let t = 0; for (const p of l.g.userData.pending || []) t = Math.max(t, p.y1); return l.g.position.y + t; };
+  // on landmarks
+  addSpot(L[0].x + 40, top(0) + 8, L[0].z + 30);                 // NY spire tip
+  addSpot(L[1].x + 11, L[1].g.position.y + 66, L[1].z);          // the statue's torch
+  addSpot(L[2].x, L[2].g.position.y + 34 + 58 + 6, L[2].z);      // NY bridge tower top
+  addSpot(L[4].x, top(4) + 6, L[4].z + 20);                      // farm silos
+  addSpot(L[5].x + 8, top(5) + 6, L[5].z);                       // mid-city tower top
+  addSpot(L[6].x, top(6) + 6, L[6].z);                           // plains silos
+  addSpot(L[7].x + 100, L[7].g.position.y + 105 + 16, L[7].z + 13); // the casino ball
+  addSpot(L[8].x, L[8].g.position.y + 30 + 78 + 6, L[8].z);      // CA bridge tower top
+  addSpot(L[9].x, L[9].g.position.y + 60, L[9].z - 10);          // above the hillside letters
+  addSpot(L[10].x, top(10) + 6, L[10].z);                        // downtown roof
+  // in the landscape
+  {
+    const zc = -1500 * RS; let best = -1e9, bx = 0, bz = zc;
+    for (let x = -800; x <= 800; x += 40) for (let z = zc - 400; z <= zc + 400; z += 40) { const h = terrainEff(x, z); if (h > best) { best = h; bx = x; bz = z; } }
+    addSpot(bx, best + 10, bz);                                    // the highest mountain peak
+  }
+  addSpot(0, g(0, -3800 * RS) + 22, -3800 * RS);                   // inside the canyon
+  addSpot(-350 * RS, g(-350 * RS, 1800 * RS) + 24, 1800 * RS);      // the lake island
+  addSpot(0, W + 12, half - 1420 * RS);                             // low over the harbour water
+  addSpot(200, g(200, half - 0.8 * TUNE.routeLength) + 45, half - 0.8 * TUNE.routeLength);   // desert
+  addSpot(-500, g(-500, half * 0.35) + 40, half * 0.35);            // farmland
+  addSpot(340, g(340, 500) + 30, 500);                              // over the railway (TRAIN_X, declared later)
+  addSpot(600, g(600, -half * 0.3) + 60, -half * 0.3);              // out over the plains
+})();
+function lightSpot(s, quiet) {
+  s.lit = true;
+  s.mesh.material = spotMatLit;
+  s.mesh.scale.setScalar(1.4);
+  s.beam.visible = true;
+  if (!quiet) { chime(); sparkleBurst(); flags.spots = (flags.spots || 0) + 1; }
+}
+function updateSpots(dt) {
+  const inFlight = (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding;
+  for (const s of spots) {
+    s.mesh.rotation.y += dt * (s.lit ? 0.6 : 2.2);
+    s.mesh.rotation.x += dt * 0.7;
+    if (!s.lit) s.mesh.position.y = s.y + Math.sin(frameCount * 0.05 + s.x) * 1.5;
+    if (s.lit || !inFlight) continue;
+    const dx = state.x - s.x, dy = state.y - s.y, dz = state.z - s.z;
+    if (dx * dx + dy * dy + dz * dz < 16 * 16) {
+      lightSpot(s, false);
+      try { localStorage.setItem("lp.spots", JSON.stringify(spots.map(q => q.lit ? 1 : 0))); } catch (err) {}
+    }
+  }
+}
+function restoreSpots() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem("lp.spots") || "null"); } catch (err) {}
+  if (!Array.isArray(saved) || saved.length !== spots.length) return;
+  if (saved.every(Boolean)) { try { localStorage.removeItem("lp.spots"); } catch (err) {} return; }   // all found: start fresh
+  saved.forEach((v, i) => { if (v) lightSpot(spots[i], true); });
+}
+
 // Night windows: little lit squares on every tall landmark box, only visible
 // after dark. Built once from the solids the landmarks registered.
 const windowMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, fog: false, transparent: true, opacity: 0 });
@@ -452,6 +531,47 @@ for (const L of ROUTE_LANDMARKS) {
 // nothing in particular (NY east, CA west) so the two feel different. Every
 // building and parked plane is a solid; the apron, taxiways and lights are not.
 const airportSpinners = [];
+let lightsChase = 0;        // runway edge lights chase during the arrival show
+function L_elev(a) { return AIRPORTS[a.idx].elev; }
+// Send the apron vehicles out to the plane (after a landing) or home (takeoff roll).
+function apronVehiclesTo(idx, toPlane) {
+  const a = airports.find(r => r.idx === idx);
+  if (!a) return;
+  a.vehicles.forEach((v, i) => {
+    if (toPlane) {
+      // start on the parallel taxiway abeam the plane so the drive-in is short
+      // wherever he stopped, then pull up beside it
+      v.x = a.m * 88; v.z = state.z + (i ? -40 : 40);
+      v.tx = state.x + a.m * (12 + i * 6); v.tz = state.z + (i ? -10 : 8);
+    } else { v.tx = v.homeX; v.tz = v.homeZ; }
+  });
+}
+// The arrival show: fireworks over the terminal, edge lights chasing.
+const fireworkColors = [0xff3b6b, 0xffd23e, 0x3ad1ff, 0x7cff5a, 0xff7ab8, 0xffffff];
+let fwQueue = [];
+function arrivalShow(idx) {
+  const a = airports.find(r => r.idx === idx);
+  if (!a) return;
+  lightsChase = 5;
+  for (let i = 0; i < 7; i++) {
+    fwQueue.push({ t: 0.3 + i * 0.55, x: a.m * (150 + (rnd() - 0.5) * 160), y: L_elev(a) + 70 + rnd() * 50, z: a.cz + (rnd() - 0.5) * 300, c: fireworkColors[i % fireworkColors.length] });
+    fireworkSound(0.3 + i * 0.55 - 1.0 > 0 ? i * 0.55 - 0.7 : 0);
+  }
+}
+function updateFireworks(dt) {
+  if (!fwQueue.length) return;
+  for (const f of fwQueue) f.t -= dt;
+  const due = fwQueue.filter(f => f.t <= 0);
+  fwQueue = fwQueue.filter(f => f.t > 0);
+  for (const f of due) {
+    for (let i = 0; i < 14; i++) {
+      const a = rnd() * Math.PI * 2, b = (rnd() - 0.5) * Math.PI;
+      wakePuff(f.x + Math.cos(a) * Math.cos(b) * 3, f.y + Math.sin(b) * 3, f.z + Math.sin(a) * Math.cos(b) * 3, f.c, 1.6, Math.sin(b) * 14, 1.3);
+    }
+    if (a_beaconFlash) a_beaconFlash(1);
+  }
+}
+let a_beaconFlash = null;
 const edgeLightMat = new THREE.MeshBasicMaterial({ color: 0xfff2b0, fog: false });
 const greenLightMat = new THREE.MeshBasicMaterial({ color: 0x3fdc6a, fog: false });
 const redLightMat = new THREE.MeshBasicMaterial({ color: 0xe0483e, fog: false });
@@ -482,14 +602,28 @@ function buildAirport(idx) {
   }
   // control tower with cab and beacon
   lmCyl(g, 4, 5, 42, 0xe6eaf0, m * 150, 21, 260, 10, true);
-  lmBox(g, 15, 6, 15, 0x2f3a48, m * 150, 45, 260, true);
+  const cab = lmBox(g, 15, 6, 15, 0x2f3a48, m * 150, 45, 260, true);
+  cab.material = new THREE.MeshLambertMaterial({ color: 0x2f3a48 });   // own material: it flashes on a fly-by
   lmBox(g, 17, 1, 17, 0x8a93a0, m * 150, 48.5, 260, false);
   const beacon = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff4030, fog: false }));
   beacon.position.set(m * 150, 50.5, 260);
   g.add(beacon);
   blinkers.push(beacon);
-  const rec = { idx, cz: ap.cz, m, beacon, doors: [], sock: null, buzz: 0, doorOpen: 0 };
+  const rec = { idx, cz: ap.cz, m, beacon, cab, doors: [], sock: null, buzz: 0, doorOpen: 0, flyby: 0, vehicles: [] };
   airports.push(rec);
+  addSpot(m * 150, ap.elev + 58, ap.cz + 260);   // sparkle spot above the control tower
+  // apron vehicles: a fuel truck and a baggage cart that drive out to the plane
+  const part = (parent, geo, color, x, y, z, rx) => { const mm = new THREE.Mesh(geo, lam(color)); mm.position.set(x, y, z); if (rx) mm.rotation.x = rx; parent.add(mm); return mm; };
+  const truck = new THREE.Group();
+  part(truck, new THREE.BoxGeometry(3.2, 2.6, 7), 0xffd23e, 0, 1.8, 0);
+  part(truck, new THREE.BoxGeometry(3, 2.2, 2.2), 0x2f3a48, 0, 1.6, 4.3);
+  part(truck, new THREE.CylinderGeometry(1.2, 1.2, 5.5, 10), 0xeef1f4, 0, 3.6, -0.5, Math.PI / 2);
+  const cart = new THREE.Group();
+  part(cart, new THREE.BoxGeometry(2.2, 1.8, 3), 0x36c46a, 0, 1.2, 0);
+  for (const dz of [-3.6, -7]) part(cart, new THREE.BoxGeometry(2, 1.4, 2.6), 0x8a93a0, 0, 1, dz);
+  for (const v of [truck, cart]) { v.position.set(m * 180, 0.5, v === truck ? 120 : 160); scene.add(v); }
+  rec.vehicles.push({ mesh: truck, homeX: m * 180, homeZ: 120, x: m * 180, z: 120, tx: m * 180, tz: 120 },
+                    { mesh: cart, homeX: m * 180, homeZ: 160, x: m * 180, z: 160, tx: m * 180, tz: 160 });
   // hangars with arched roofs
   for (const z of [-300, -370]) {
     lmBox(g, 56, 14, 44, 0xb0b6bf, m * 215, 7, z, true);
@@ -556,8 +690,12 @@ function buildAirport(idx) {
 for (let i = 0; i < AIRPORTS.length; i++) buildAirport(i);
 // Buzz the airport: low over the apron and the beacon strobes, the windsock
 // whips, the hangar doors slide open. Everything eases back when he leaves.
+let beaconFlashT = 0;
+a_beaconFlash = (t) => { beaconFlashT = t; };
 function updateAirports(dt) {
   for (const s of airportSpinners) s.rotation.y += dt * 0.9;
+  updateFireworks(dt);
+  if (beaconFlashT > 0) { beaconFlashT -= dt; for (const a of airports) a.beacon.visible = Math.floor(beaconFlashT * 14) % 2 === 0; }
   const agl = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
   for (const a of airports) {
     const near = Math.abs(state.z - a.cz) < 520 && Math.abs(state.x - a.m * 170) < 330 && agl < 70 &&
@@ -569,6 +707,26 @@ function updateAirports(dt) {
       a.sock.rotation.z = Math.PI / 2 + Math.sin(frameCount * 0.5) * 0.25 * a.buzz;
     }
     for (const d of a.doors) d.position.x = d.userData.baseX + a.m * 30 * a.buzz;
+    // fly-by: pass close to the tower and its cab lights flash
+    const tdx = state.x - a.m * 150, tdz = state.z - (a.cz + 260), tdy = state.y - (L_elev(a) + 45);
+    const closeTower = tdx * tdx + tdz * tdz + tdy * tdy < 110 * 110 && state.phase === "AIRBORNE";
+    if (closeTower && a.flyby <= 0) a.flyby = 2.5;
+    if (a.flyby > 0) { a.flyby -= dt; a.cab.material.color.setHex(Math.floor(a.flyby * 8) % 2 ? 0xfff3a8 : 0x2f3a48); if (a.flyby <= 0) a.cab.material.color.setHex(0x2f3a48); }
+    // apron vehicles drive to their target (the parked plane or home)
+    for (const v of a.vehicles) {
+      const dx = v.tx - v.x, dz = v.tz - v.z, d = Math.hypot(dx, dz);
+      if (d > 0.5) {
+        const step = Math.min(d, 34 * dt);
+        v.x += dx / d * step; v.z += dz / d * step;
+        v.mesh.rotation.y = Math.atan2(dx, dz);
+      }
+      v.mesh.position.set(v.x, terrainEff(v.x, v.z) + 0.5, v.z);
+    }
+  }
+  if (lightsChase > 0) {
+    lightsChase -= dt;
+    edgeLightMat.color.setHex(Math.floor(lightsChase * 10) % 2 ? 0xffd23e : 0x3fdc6a);
+    if (lightsChase <= 0) edgeLightMat.color.setHex(0xfff2b0);
   }
   // casino lights: steady gold, but wild colour cycling when he's close
   if (casinoLights.length) {
@@ -873,6 +1031,15 @@ function updateTargets(dt) {
       t.mesh.rotation.y = Math.atan2(vx, vz);
       t.mesh.rotation.z = Math.sin(t.t * 1.1) * 0.05;
     }
+    // a close pass gets a hello: boats sound their horn, balloons squeak and wobble
+    if (t.hello > 0) t.hello -= dt;
+    if ((state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding && !(t.hello > 0)) {
+      const hx = t.x - state.x, hy = t.y - state.y, hz = t.z - state.z;
+      const hd2 = hx * hx + hy * hy + hz * hz;
+      if (t.kind === "boat" && hd2 < 70 * 70) { t.hello = 8; boatHorn(); }
+      else if (t.kind === "balloon" && hd2 < 45 * 45) { t.hello = 6; squeak(); t.wobble = 1.2; }
+    }
+    if (t.wobble > 0) { t.wobble -= dt; t.mesh.rotation.z = Math.sin(t.t * 12) * 0.25 * t.wobble; }
     // flying into one is a mid-air, same as traffic
     if ((state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding) {
       const dx = t.x - state.x, dy = t.y - state.y, dz = t.z - state.z;
