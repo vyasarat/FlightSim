@@ -160,6 +160,11 @@ function updateVehicleModel(dt) {
     vehicleModel.userData.flame.scale.y = 0.8 + Math.random() * 0.5;
     vehicleModel.userData.flame.visible = state.vp.rocket ? (state.throttleHeld && rk.fuel[Math.min(rk.stage, 2)] > 0 && (state.phase === "AIRBORNE" || rk.igniteT > 0.6)) : state.speed > 2;
   }
+  if (vehicleModel.userData.plumeLight) {
+    const on = vehicleModel.userData.flame.visible && state.nightF > 0.3;
+    vehicleModel.userData.plumeLight.intensity = on ? 4 * state.nightF : 0;
+    vehicleModel.userData.plumeLight.position.z = vehicleModel.userData.flame.position.z + 1;
+  }
   if (vehicleModel.userData.gear) {
     const a = clamp(state.gearAnim, 0.001, 1);
     vehicleModel.userData.gear.scale.y = a;
