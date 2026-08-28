@@ -349,6 +349,11 @@ function satBeep() {
   noiseBurst(0.6, 2400, 0.1, 0.05);
   synthBlip("triangle", 660, 660, 0.3, 0.16, 0.7);
 }
+function sonicBoom() {
+  noiseBurst(0.12, 110, 0.75, 0);
+  noiseBurst(0.12, 110, 0.6, 0.17);
+  synthBlip("sine", 48, 30, 0.35, 0.3, 0);
+}
 function stageSep() {
   noiseBurst(0.18, 500, 0.4, 0);
   synthBlip("square", 220, 120, 0.2, 0.2, 0);
