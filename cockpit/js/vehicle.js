@@ -55,6 +55,8 @@ function buildVehicleModel(key) {
     g.userData.tailRotor = tr;
   } else if (key === "rocket") {
     buildRocketStack(g, { mA, mB, glassM });
+  } else if (key === "starship") {
+    buildStarshipStack(g, { mA, mB, glassM });
   } else if (key === "fighter") {
     const fus = add(new THREE.CylinderGeometry(0.75, 0.55, 11, 10), mA, 0, 0, 0, Math.PI / 2);
     void fus;
