@@ -281,6 +281,7 @@ function updateRocket(dt) {
   const halfLen = rocketHalfLen();
   updateSatellites(dt);
   updateChuteVisual(dt);
+  updatePad(dt, grounded);
 
   // buttons: throttle always (hold to burn); the rocket has no missiles/speed steps/gear
   el.throttleBtn.classList.remove("hidden");
@@ -333,6 +334,7 @@ function updateRocket(dt) {
         rk.igniteT = 0;
         if (!rk.onBody) apronVehiclesTo(state.originIdx, false);
         rk.launchedFromBody = !!rk.onBody;
+        if (!rk.onBody) rk.delugeT = 2.2;
         rk.onBody = null;
         rk.refitT = 0;
         chuteReset();
@@ -389,7 +391,7 @@ function updateRocket(dt) {
   setReentryRoar(rk.reentry);
   reentryOverlay();
 
-  resolveSolidWalls();
+  resolveSolidWalls(state.y - halfLen);
   if (state.exploding) return;
 
   // ---- touching a body
@@ -478,14 +480,14 @@ function rocketSkipToLanding() {
   } else if (rk.stage === 3 && state.y > TUNE.spaceAltitude) {
     // deorbit: the capsule drops out of space above home, heat shield first, and rides
     // the plasma and the parachutes down (nothing to do but watch, or steer a little)
-    const ap = AIRPORTS[state.originIdx];
-    state.x = 0; state.z = ap.cz; state.y = Math.max(state.y, RK.gravityFade + 500);
+    const pad = rocketPad(state.originIdx);
+    state.x = pad.x; state.z = pad.z; state.y = Math.max(state.y, RK.gravityFade + 500);
     rk.vx = 0; rk.vy = -150; rk.vz = 0;
     state.pitch = 90; state.heading = state.dirIdx === 0 ? 0 : Math.PI;
     flags.deorbits = (flags.deorbits || 0) + 1;
   } else {
-    const ap = AIRPORTS[state.originIdx];
-    state.x = 0; state.z = ap.cz; state.y = ap.elev + 200;
+    const pad = rocketPad(state.originIdx);
+    state.x = pad.x; state.z = pad.z; state.y = pad.ground + 200;
     rk.vx = 0; rk.vy = -12; rk.vz = 0;
     state.pitch = 90; state.heading = state.dirIdx === 0 ? 0 : Math.PI;
   }
@@ -602,6 +604,23 @@ function rocketCamera(dt) {
   camera.position.z += (Math.random() - 0.5) * 9 * sh;
 }
 
+
+// ---- the pad: the strongback stands against the rocket while it waits and swings
+// back at ignition (SpaceX lowers it minutes before launch); the water deluge steams
+// out of the flame trench through ignition and liftoff.
+function updatePad(dt, grounded) {
+  const a = airports.find(r => r.idx === state.originIdx);
+  if (!a || !a.strongback) return;
+  const onPad = grounded && !rk.onBody && Math.hypot(state.x - a.padX, state.z - a.padZ) < 20;
+  const want = onPad && rk.igniteT < 0.25 && !(rk.delugeT > 0) ? 0 : -0.55;
+  a.strongback.rotation.x += (want - a.strongback.rotation.x) * Math.min(1, 1.6 * dt);
+  const steaming = (onPad && rk.igniteT > 0.4) || (rk.delugeT || 0) > 0;
+  if (rk.delugeT > 0) rk.delugeT -= dt;
+  if (steaming) {
+    const gy = AIRPORTS[state.originIdx].elev + 1;
+    for (let i = 0; i < 2; i++) wakePuff(a.padX + (rnd() - 0.5) * 18, gy, a.padZ + 6 + rnd() * 40, 0xffffff, 2.6, 7, 1.6);
+  }
+}
 
 // ===========================================================================
 // The way home, Dragon style: deploy the satellite up in space, deorbit, glow
