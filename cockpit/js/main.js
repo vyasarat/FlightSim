@@ -60,7 +60,7 @@ function updateHud() {
   const asiFrac = clamp(state.speed / TUNE.asiMaxSpeed, 0, 1);
   el.asiNeedle.style.transform = `rotate(${-120 + asiFrac * 240}deg)`;
   const altM = Math.max(0, state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel));
-  const altFrac = clamp(altM / TUNE.altMaxMeters, 0, 1);
+  const altFrac = clamp(altM / (state.vp.rocket ? TUNE.rocketTune.altMax : TUNE.altMaxMeters), 0, 1);
   el.altNeedle.style.transform = `rotate(${-120 + altFrac * 240}deg)`;
   const altStr = String(Math.round(altM));
   if (el.altDigits.textContent !== altStr) el.altDigits.textContent = altStr;
@@ -110,7 +110,7 @@ window.__lp = {
   TUNE, state, flags, update, terrainEff, shapedTerrain, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,
   get safePos(){return safePos;}, get blinkers(){return blinkers;}, get hiddenPieces(){return hiddenPieces;},
   get trainHead(){return trainHead;}, get trainSolids(){return trainSolids;}, resolveSolidWalls,
-  get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
+  get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, rk, BODIES, dropStage, rocketCanDrop, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
   get cameraPos(){return camera.position;},
   forEachSolid(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);for(const b of trainSolids)cb(b);}, get vehicleModel(){return vehicleModel;},

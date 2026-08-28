@@ -54,22 +54,7 @@ function buildVehicleModel(key) {
     const tr = add(new THREE.BoxGeometry(0.06, 1.7, 0.28), darkM, 0.16, 0.75, 4.7);
     g.userData.tailRotor = tr;
   } else if (key === "rocket") {
-    add(new THREE.CylinderGeometry(1.0, 1.15, 6.4, 12), mW, 0, 0, 0, Math.PI / 2);
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(1.0, 2.4, 12), mA);
-    nose.rotation.x = -Math.PI / 2;
-    nose.position.z = -4.35;
-    g.add(nose);
-    for (const sx of [-1.25, 1.25]) {
-      const fin = add(new THREE.BoxGeometry(0.18, 2.2, 1.6), mA, sx, -0.4, 2.4);
-      void fin;
-    }
-    const win = add(new THREE.CircleGeometry(0.55, 10), glassM, 0, 0.45, -3.32);
-    void win;
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2.6, 10), new THREE.MeshBasicMaterial({ color: 0xffb43a }));
-    flame.rotation.x = -Math.PI / 2;
-    flame.position.z = 5.2;
-    g.add(flame);
-    g.userData.flame = flame;
+    buildRocketStack(g, { mA, mB, glassM });
   } else if (key === "fighter") {
     const fus = add(new THREE.CylinderGeometry(0.75, 0.55, 11, 10), mA, 0, 0, 0, Math.PI / 2);
     void fus;
@@ -160,7 +145,8 @@ function updateVehicleModel(dt) {
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
   const wheelDrop = state.vp.hasGear ? 1.9 * (state.vp.size || 1) : 0.6;
-  vehicleModel.position.set(state.x, state.y - TUNE.gearHeight + wheelDrop, state.z);
+  if (state.vp.rocket) vehicleModel.position.set(state.x, state.y, state.z);   // the stack is centred on the reference point
+  else vehicleModel.position.set(state.x, state.y - TUNE.gearHeight + wheelDrop, state.z);
   if (vehicleModel.userData.baseScale === undefined) vehicleModel.userData.baseScale = vehicleModel.scale.x;
   const bs = vehicleModel.userData.baseScale;
   let sx = 1, sy = 1;
@@ -172,7 +158,7 @@ function updateVehicleModel(dt) {
   if (vehicleModel.userData.propDisc) vehicleModel.userData.propDisc.rotation.z += dt * 40;
   if (vehicleModel.userData.flame) {
     vehicleModel.userData.flame.scale.y = 0.8 + Math.random() * 0.5;
-    vehicleModel.userData.flame.visible = state.speed > 2;
+    vehicleModel.userData.flame.visible = state.vp.rocket ? (state.throttleHeld && (state.phase === "AIRBORNE" || rk.igniteT > 0.6)) : state.speed > 2;
   }
   if (vehicleModel.userData.gear) {
     const a = clamp(state.gearAnim, 0.001, 1);
@@ -182,6 +168,8 @@ function updateVehicleModel(dt) {
 }
 
 function applyCamera(dt) {
+  if (state.vp.rocket) { rocketCamera(dt); return; }
+  camera.up.set(0, 1, 0);
   if (state.viewChase) {
     const vs = state.vp.size || 1;
     const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
