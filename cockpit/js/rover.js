@@ -12,7 +12,7 @@ const rover = {
   active: false, body: null, returning: false,
   x: 0, y: 0, z: 0, h: 0, vh: 0, speed: 0, t: 0, thrPrev: false,
   n: new THREE.Vector3(0, 1, 0), f: new THREE.Vector3(0, 0, -1),
-  mesh: null, wheels: [], rocks: [], beacons: [],
+  mesh: null, wheels: [], rocks: [], beacons: [], arches: [], loopT: 0,
 };
 const rvTmp = new THREE.Vector3(), rvTmp2 = new THREE.Vector3();
 
@@ -67,6 +67,45 @@ function placeRocks(b) {
     rover.rocks.push({ mesh: m, x: m.position.x, y: m.position.y, z: m.position.z, lit: false, i });
   }
 }
+// The loop: six glowing arches in a ring around the landing site. Drive through each for a
+// rising note; all six and it is fireworks, then they re-arm (like the flight gates).
+function placeArches(b) {
+  for (const a of rover.arches) scene.remove(a.mesh);
+  rover.arches = [];
+  for (let i = 0; i < 6; i++) {
+    const ang = i / 6 * Math.PI * 2, p = surfacePoint(b, rover.n, 60, ang);
+    const g = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color: 0x5ff1ff });
+    for (const sx of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 5, 8), mat); post.position.set(sx * 4, 2.5, 0); g.add(post); }
+    const bar = new THREE.Mesh(new THREE.TorusGeometry(4, 0.35, 8, 20, Math.PI), mat); bar.position.y = 5; g.add(bar);
+    g.position.set(p.x, p.y, p.z);
+    // stand on the ground, facing along the ring (tangent) so the loop drives through them
+    const up = p.dir.clone();
+    const q = surfacePoint(b, rover.n, 60, ang + 0.1);
+    const t = new THREE.Vector3(q.x - p.x, q.y - p.y, q.z - p.z); t.addScaledVector(up, -t.dot(up)).normalize();
+    g.up.copy(up); g.lookAt(p.x + t.x, p.y + t.y, p.z + t.z);
+    scene.add(g);
+    rover.arches.push({ mesh: g, mat, x: p.x, y: p.y, z: p.z, lit: false, i });
+  }
+  rover.loopT = 0;
+}
+function archesReset() { for (const a of rover.arches) { a.lit = false; a.mat.color.setHex(0x5ff1ff); } rover.loopT = 0; }
+function updateArches(dt) {
+  if (rover.loopT > 0) { rover.loopT -= dt; if (rover.loopT <= 0) archesReset(); return; }
+  for (const a of rover.arches) {
+    if (a.lit) continue;
+    if (Math.hypot(a.x - rover.x, a.y - rover.y, a.z - rover.z) < 6) {
+      a.lit = true; a.mat.color.setHex(0x7cff5a);
+      ringNote(a.i * 2);
+      flags.roverArches = (flags.roverArches || 0) + 1;
+    }
+  }
+  if (rover.arches.length && rover.arches.every(a => a.lit)) {
+    fanfare(); confettiBurst(); for (let i = 0; i < 5; i++) fireworkSound(0.3 + i * 0.4);
+    flags.roverLoops = (flags.roverLoops || 0) + 1;
+    rover.loopT = TUNE.gateRearm;
+  }
+}
 function roverDeploy() {
   if (!roverCan()) return false;
   if (!rover.mesh) buildRover();
@@ -79,6 +118,7 @@ function roverDeploy() {
   rover.f.set(rover.x - state.x, rover.y - state.y, rover.z - state.z);
   rover.f.addScaledVector(rover.n, -rover.f.dot(rover.n)).normalize();
   placeRocks(b);
+  placeArches(b);
   rover.mesh.visible = true;
   rover.active = true;
   rover.thrPrev = state.throttleHeld;
@@ -99,6 +139,8 @@ function roverReset() {
   if (rover.mesh) rover.mesh.visible = false;
   for (const r of rover.rocks) scene.remove(r.mesh);
   rover.rocks = [];
+  for (const a of rover.arches) scene.remove(a.mesh);
+  rover.arches = [];
   for (const bc of rover.beacons) scene.remove(bc.mesh);
   rover.beacons = [];
   if (el.roverBtn) el.roverBtn.dataset.mode = "out";
@@ -170,6 +212,7 @@ function updateRover(dt) {
       r.mesh.rotation.y += dt * 0.8;
     }
   }
+  updateArches(dt);
   // throttle plants a beacon (rising edge)
   if (state.throttleHeld && !rover.thrPrev && !rover.returning) plantBeacon();
   rover.thrPrev = state.throttleHeld;
