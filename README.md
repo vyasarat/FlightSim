@@ -14,7 +14,9 @@ the ship checklist; this file describes the game.
 ## Design rules
 
 - **Zero text** in either UI: icons, silhouettes and numbers only (the harness audits every DOM text node).
-- **No living things**: no people, animals or birds. Vehicles, machines and objects only.
+- **Nothing living is ever a target**: everything that can be shot, hit, exploded or shattered
+  is a vehicle, machine or object (that is why birds are paper-plane squadrons). People are
+  fine where nothing can happen to them: the astronaut in the station and on spacewalks.
 - **Nothing is ever taken away**: no score, no timers, no unlocks, no failure state. Every crash explodes and reassembles for free; every reward re-arms.
 - **Pointing, not timing**: every control is "aim at it". Assists exist so that coasting in works.
 - **Drag up = nose up**, never inverted (the keyboard mirrors this).

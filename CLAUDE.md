@@ -8,8 +8,10 @@ the checklist for shipping one.
 
 - **Zero text** in the UI: icons, silhouettes and numbers only. The harness audits
   every DOM text node. `<title>` and `alt=""` are fine; nothing else may render text.
-- **No living things**: no people, animals, birds. Vehicles, machines, objects only.
-  (Birds became paper-plane squadrons; the astronaut became a satellite.)
+- **Nothing living gets shot, hit or destroyed**: targets, traffic, things that explode or
+  shatter are vehicles, machines and objects only (birds became paper-plane squadrons for
+  that reason). Living things are fine where nothing can happen to them -- an astronaut
+  floating in the station, on a spacewalk, in the rover.
 - **Nothing is ever taken away**: no score, no timers, no unlocks, no failure state.
   Every crash explodes and reassembles for free; every reward re-arms.
 - **Pointing, not timing**: every control is "aim at it", never "press at the right
