@@ -226,6 +226,7 @@ function updateMissiles(dt) {
         flags.missileHits++;
       } else if (expired) {
         triggerExplosion(m.x, m.y, m.z, 0.35, true);
+        flags.missileExpired = (flags.missileExpired || 0) + 1;
       }
     } else {
       m.mesh.position.set(m.x, m.y, m.z);
