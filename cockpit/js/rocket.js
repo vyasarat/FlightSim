@@ -586,8 +586,10 @@ function rocketCamera(dt) {
     }
     const camGround = Math.max(terrainEff(camDesired.x, camDesired.z), TUNE.waterLevel) + 2.5;
     if (camDesired.y < camGround && state.y < RK.gravityFade) camDesired.y = camGround;
+    if (rk.chute > 0) { camDesired.x -= fx * 14; camDesired.z -= fz * 14; camDesired.y += 6; }   // step back to fit the canopies
     camera.position.lerp(camDesired, Math.min(1, 4 * dt));
-    lookV.set(state.x + rkAxis.x * 4, state.y + rkAxis.y * 4, state.z + rkAxis.z * 4);
+    const la = rk.chute > 0 ? 12 : 4;
+    lookV.set(state.x + rkAxis.x * la, state.y + rkAxis.y * la, state.z + rkAxis.z * la);
     camera.lookAt(lookV);
   } else {
     camera.position.set(state.x + rkAxis.x * (rocketHalfLen() - 1.5), state.y + rkAxis.y * (rocketHalfLen() - 1.5), state.z + rkAxis.z * (rocketHalfLen() - 1.5));
@@ -750,7 +752,9 @@ function updateChuteVisual(dt) {
   const show = rk.chute > 0 && !state.exploding;
   chuteGroup.visible = show;
   if (!show) return;
-  chuteGroup.position.set(state.x, state.y, state.z);
+  // the risers gather at the capsule's nose tip (model z -6.2 from the reference point), along the body axis
+  const vs0 = state.vp.size || 1;
+  chuteGroup.position.set(state.x + rkAxis.x * 6.0 * vs0, state.y + rkAxis.y * 6.0 * vs0, state.z + rkAxis.z * 6.0 * vs0);
   chuteGroup.rotation.set(0, state.heading, state.bank * DEG * 0.5);
   const pop = Math.min(1, rk.chuteT / 0.9);
   let s = clamp(pop < 1 ? 0.15 + 0.85 * (1 - Math.pow(1 - pop, 3)) * (1 + 0.12 * Math.sin(pop * Math.PI)) : 1, 0.05, 1.12);
