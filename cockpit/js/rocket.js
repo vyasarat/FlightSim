@@ -439,7 +439,10 @@ function rocketLandOn(body) {
   state.phase = "TAXI";
   state.throttleHeld = false;
   releaseThrottle();
-  rocketRestock();
+  // Only the home pad rolls out a new rocket. On the Moon or Mars you stay
+  // whatever you arrived as -- a capsule lands as a capsule and lifts off again
+  // on its thrusters (its thrust beats both bodies' gravity).
+  if (!body) rocketRestock();
   if (body) {
     flags[body.name + "Landings"] = (flags[body.name + "Landings"] || 0) + 1;
     confettiBurst(); cheer();
@@ -481,7 +484,16 @@ function rocketCamera(dt) {
   camera.up.copy(camUp);
   if (state.viewChase) {
     const fx = -Math.sin(hr), fz = -Math.cos(hr);
-    camDesired.set(state.x - fx * 34 - rkAxis.x * 6, state.y + 4 - rkAxis.y * 6 + 6, state.z - fz * 34 - rkAxis.z * 6);
+    // beside/behind the rocket, a little toward its nose, and lifted along "up"
+    camDesired.set(state.x - fx * 34 + rkAxis.x * 4 + camUp.x * 8, state.y + rkAxis.y * 4 + camUp.y * 8, state.z - fz * 34 + rkAxis.z * 4 + camUp.z * 8);
+    // never inside the Moon / Mars (a camera inside a sphere sees nothing) or under the ground
+    for (const b of BODIES) {
+      rkTmp.set(camDesired.x - b.x, camDesired.y - b.y, camDesired.z - b.z);
+      const d = rkTmp.length();
+      if (d < b.r + 6) { rkTmp.multiplyScalar((b.r + 6) / Math.max(d, 0.001)); camDesired.set(b.x + rkTmp.x, b.y + rkTmp.y, b.z + rkTmp.z); }
+    }
+    const camGround = Math.max(terrainEff(camDesired.x, camDesired.z), TUNE.waterLevel) + 2.5;
+    if (camDesired.y < camGround && state.y < RK.gravityFade) camDesired.y = camGround;
     camera.position.lerp(camDesired, Math.min(1, 4 * dt));
     lookV.set(state.x + rkAxis.x * 4, state.y + rkAxis.y * 4, state.z + rkAxis.z * 4);
     camera.lookAt(lookV);

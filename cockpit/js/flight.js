@@ -626,7 +626,9 @@ function update(dt) {
   earthMesh.material.opacity = sf * 0.96;
   // the Earth follows along below, but stops rising once you're in deep space so it
   // looks like a ball far beneath the Moon rather than a wall next to it
-  earthMesh.position.set(state.x, Math.min(state.y - 3600, 2200), state.z);
+  // In deep space the Earth stays far below as a ball in a black sky -- from the
+  // Moon it must never fill the view like a blue sky.
+  earthMesh.position.set(state.x, Math.min(state.y - 3600, -1400), state.z);
   earthMesh.visible = sf > 0.02;
   satellite.visible = station.visible = sf > 0.05;
   if (satellite.visible) {
