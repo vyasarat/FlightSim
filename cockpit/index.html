@@ -357,6 +357,14 @@
     right: calc(var(--edge) + env(safe-area-inset-right));
     z-index: 11;
   }
+  #stageBtn {
+    bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
+    left: calc(var(--edge) + env(safe-area-inset-left));
+    z-index: 10;
+    border-color: #ffb43a;
+    animation: homePulse 1.2s ease-in-out infinite;
+  }
+  #stageBtn.hidden { display: none; }
   #camBtn {
     top: calc(var(--top-row) + var(--btn) + 12px + env(safe-area-inset-top));
     left: calc(var(--edge) + env(safe-area-inset-left));
@@ -565,6 +573,16 @@
     <path d="M78 34 L82 52 L64 46 Z" fill="#f2f4f7" stroke="#f2f4f7" stroke-width="4" stroke-linejoin="round"/>
   </svg>
 </button>
+<button id="stageBtn" class="roundBtn hidden" aria-hidden="true" data-stage="0">
+  <svg viewBox="0 0 100 100">
+    <path d="M50 6 Q60 18 60 34 L60 52 L40 52 L40 34 Q40 18 50 6 Z" fill="#f4f6f8" stroke="#23282f" stroke-width="3"/>
+    <rect x="40" y="52" width="20" height="6" fill="#1f2328"/>
+    <path d="M40 66 L60 66 L58 88 L42 88 Z" fill="#f4f6f8" stroke="#23282f" stroke-width="3" opacity=".9"/>
+    <path d="M44 88 Q50 98 56 88 Z" fill="#ffb43a"/>
+    <path d="M28 62 l-8 6 M72 62 l8 6" stroke="#e0483e" stroke-width="5" stroke-linecap="round"/>
+    <path d="M50 60 v4" stroke="#e0483e" stroke-width="4" stroke-dasharray="2 2"/>
+  </svg>
+</button>
 <button id="camBtn" class="roundBtn" aria-hidden="true">
   <svg viewBox="0 0 100 100"><path d="M18 34 h18 l6 -10 h16 l6 10 h18 a6 6 0 0 1 6 6 v34 a6 6 0 0 1 -6 6 h-64 a6 6 0 0 1 -6 -6 v-34 a6 6 0 0 1 6 -6 z" fill="#f2f4f7" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/><circle cx="50" cy="56" r="14" fill="#23282f"/><circle cx="50" cy="56" r="8" fill="#5ff1ff"/><circle cx="74" cy="42" r="3" fill="#e0483e"/></svg>
 </button>
@@ -768,6 +786,7 @@
 <script src="js/state.js"></script>
 <script src="js/input.js"></script>
 <script src="js/flight.js"></script>
+<script src="js/rocket.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

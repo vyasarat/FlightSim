@@ -304,7 +304,7 @@ function check(name, ok, extra) {
       sv.classList.remove("hiddenS");
       const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
       const hidden = [...sv.querySelectorAll(".card.hiddenS")];
-      if (visible.length !== 5) return { ok: false, why: "visible=" + visible.length };
+      if (visible.length !== 6) return { ok: false, why: "visible=" + visible.length };
       const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
@@ -312,22 +312,20 @@ function check(name, ok, extra) {
       const keys = visible.map(c => c.dataset.v);
       const hiddenGone = hidden.every(c => c.getBoundingClientRect().width === 0);
       const fromTune = hidden.every(c => window.__lp.TUNE.vehicles[c.dataset.v].hidden === true);
-      return { ok: sized && hidden.length === 2 && hiddenGone && fromTune && keys.includes("fighter") && !keys.includes("helicopter") && !keys.includes("rocket"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
+      return { ok: sized && hidden.length === 1 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && !keys.includes("helicopter"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
     });
-    check("vehicles: picker shows 5 incl fighter (heli+rocket shelved, not rendered, driven by TUNE.hidden)", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows 6 incl fighter and rocket (heli shelved, not rendered, driven by TUNE.hidden)", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
       return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
     });
-    check("vehicles: five available, fighter distinct, airliners share stats",
-      combos.n === 5 && combos.uniq === 3, `n=${combos.n} uniq=${combos.uniq}`);
+    check("vehicles: six available, fighter and rocket distinct, airliners share stats",
+      combos.n === 6 && combos.uniq === 4, `n=${combos.n} uniq=${combos.uniq}`);
 
     await page.evaluate(() => {
       document.getElementById("screenDir").classList.add("hiddenS");
       document.getElementById("screenVehicle").classList.remove("hiddenS");
-      // The rocket is shelved; un-shelve it for this test only so the space checks below still run.
-      document.querySelector('[data-v="rocket"]').classList.remove("hiddenS");
     });
     await page.click('[data-v="rocket"]');
     const dirShown = await page.evaluate(() =>
@@ -356,14 +354,13 @@ function check(name, ok, extra) {
       air = await page.evaluate(() => window.__lp.flags.liftoff > 0);
       if (!air) await pump(page, 0.25);
     }
-    await page.evaluate(() => window.__lp.api.setStick(0, -0.5));
     let spd = 0;
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       spd = await page.evaluate(() => window.__lp.state.speed);
       if (spd > 100) break;
       await pump(page, 0.5);
     }
-    check("vehicles: rocket reaches its higher cruise speed", spd > 100, `speed=${spd.toFixed(1)}`);
+    check("vehicles: rocket lifts off vertically and passes 100 units/s", air && spd > 100, `speed=${spd.toFixed(1)}`);
     await page.evaluate(() => { window.__lp.api.clearStick(); window.__lp.api.setThrottle(false); });
     await page.close();
   }
@@ -1968,6 +1965,94 @@ function check(name, ok, extra) {
         check(`visual: ${name} matches baseline`, mean < 6 && !blank, `mean |diff| ${mean.toFixed(1)}/255${blank ? " BLANK FRAME" : ""}`);
       }
     }
+    await page.close();
+  }
+
+  // ---------- T-K rocket: staging, booster landing, Moon and Mars ----------
+  {
+    const { page } = await newPage(1180, 820);
+    await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); });
+
+    const launch = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune;
+      const stageBtn = document.getElementById("stageBtn");
+      const out = { pitchOnPad: Math.round(st.pitch), btnHiddenOnPad: stageBtn.classList.contains("hidden"), canDropLow: null, canDropHigh: null };
+      L.api.setThrottle(true);
+      let liftoffAt = null, alt = 0;
+      for (let i = 0; i < 60 * 40; i++) {
+        L.update(1 / 60);
+        alt = st.y - L.terrainEff(st.x, st.z);
+        if (liftoffAt === null && st.phase === "AIRBORNE") liftoffAt = i / 60;
+        if (st.phase === "AIRBORNE" && alt < R.stageAlt[0] - 50 && out.canDropLow === null) out.canDropLow = L.rocketCanDrop();
+        if (alt >= R.stageAlt[0] + 20) { out.canDropHigh = L.rocketCanDrop(); break; }
+      }
+      out.liftoffAt = liftoffAt; out.alt = Math.round(alt); out.btnShownHigh = !stageBtn.classList.contains("hidden"); out.stage = L.rk.stage;
+      // drop the booster
+      const dropped = L.dropStage();
+      out.dropped = dropped; out.stageAfter = L.rk.stage; out.falling = L.fallingStages.length;
+      out.boosterKind = L.fallingStages[0] && L.fallingStages[0].kind;
+      // keep climbing to the fairing and stage-2 altitudes, dropping as allowed
+      for (let i = 0; i < 60 * 90 && L.rk.stage < 3; i++) { L.update(1 / 60); if (L.rocketCanDrop()) L.dropStage(); }
+      out.finalStage = L.rk.stage; out.altEnd = Math.round(st.y - L.terrainEff(st.x, st.z)); out.spaceF = +st.spaceF.toFixed(2);
+      // the booster should have landed on its legs by now
+      let boosterLanded = false;
+      for (let i = 0; i < 60 * 40 && !boosterLanded; i++) { L.update(1 / 60); boosterLanded = (L.flags.boosterLandings || 0) > 0; }
+      out.boosterLanded = boosterLanded;
+      L.api.setThrottle(false);
+      return out;
+    });
+    check("rocket: sits upright on the pad; stage button only above the booster altitude",
+      launch.pitchOnPad === 90 && launch.btnHiddenOnPad && launch.canDropLow === false && launch.canDropHigh === true && launch.btnShownHigh, JSON.stringify(launch));
+    check("rocket: three manual drops (booster, fairing, second stage) each gated by altitude; ends as the capsule in space",
+      launch.dropped && launch.stageAfter === 1 && launch.boosterKind === "booster" && launch.finalStage === 3 && launch.spaceF > 0.9, JSON.stringify(launch));
+    check("rocket: the dropped booster flies itself down and lands on its legs", launch.boosterLanded, JSON.stringify({ boosterLanded: launch.boosterLanded }));
+
+    const moon = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, R = L.TUNE.rocketTune, m = L.BODIES[0];
+      // approach the Moon slowly from below: land
+      st.exploding = false; st.phase = "AIRBORNE"; st.throttleHeld = false;
+      st.x = m.x; st.y = m.y - m.r - 60; st.z = m.z; st.pitch = 90; st.heading = 0;
+      L.rk.vx = 0; L.rk.vy = 12; L.rk.vz = 0;
+      const l0 = L.flags.moonLandings || 0;
+      for (let i = 0; i < 60 * 20 && (L.flags.moonLandings || 0) === l0; i++) L.update(1 / 60);
+      const landed = (L.flags.moonLandings || 0) > l0;
+      const onMoon = L.rk.onBody && L.rk.onBody.name === "moon";
+      const restocked = L.rk.stage === 0;
+      const spaceStays = st.spaceF > 0.5;
+      // launch again from the Moon
+      L.api.setThrottle(true);
+      let left = false;
+      for (let i = 0; i < 60 * 15; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE" && Math.hypot(st.x - m.x, st.y - m.y, st.z - m.z) > m.r + 40) { left = true; break; } }
+      L.api.setThrottle(false);
+      // now crash into Mars fast: explode + reassemble above it
+      const mars = L.BODIES[1];
+      st.exploding = false; st.phase = "AIRBORNE"; st.x = mars.x; st.y = mars.y - mars.r - 200; st.z = mars.z; st.pitch = 90;
+      L.rk.vx = 0; L.rk.vy = 150; L.rk.vz = 0;
+      const e0 = L.flags.exploded;
+      for (let i = 0; i < 60 * 8 && L.flags.exploded === e0; i++) L.update(1 / 60);
+      const crashed = L.flags.exploded > e0;
+      for (let i = 0; i < 60 * 4 && st.exploding; i++) L.update(1 / 60);
+      const back = !st.exploding && Math.hypot(st.x - mars.x, st.y - mars.y, st.z - mars.z) > mars.r + 30 && L.rk.stage === 0;
+      return { landed, onMoon, restocked, spaceStays, left, crashed, back };
+    });
+    check("rocket: a slow approach lands on the Moon (stack restored, space stays), and it can launch again",
+      moon.landed && moon.onMoon && moon.restocked && moon.spaceStays && moon.left, JSON.stringify(moon));
+    check("rocket: hitting Mars fast explodes and reassembles above it with the full stack", moon.crashed && moon.back, JSON.stringify(moon));
+
+    // return to Earth: descend upright and slowly = a landing
+    const home = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      const ap = L.AIRPORTS[0];
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null;
+      st.x = 0; st.z = ap.cz; st.y = ap.elev + 120; st.pitch = 90; st.heading = 0;
+      L.rk.vx = 0; L.rk.vy = -8; L.rk.vz = 0;
+      const r0 = L.flags.rocketLandings || 0, e0 = L.flags.exploded;
+      // feather it down: burn when falling faster than 10
+      for (let i = 0; i < 60 * 40 && st.phase !== "TAXI"; i++) { L.api.setThrottle(L.rk.vy < -9); L.update(1 / 60); }
+      L.api.setThrottle(false);
+      return { landed: (L.flags.rocketLandings || 0) > r0, exploded: L.flags.exploded > e0, phase: st.phase, pitch: Math.round(st.pitch) };
+    });
+    check("rocket: a slow upright descent onto the Earth lands (Falcon style)", home.landed && !home.exploded && home.phase === "TAXI", JSON.stringify(home));
     await page.close();
   }
 

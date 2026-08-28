@@ -114,10 +114,11 @@ icon (start CA, fly north).
 | Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (color only, no trade dress); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
+| Rocket | -- | 38°/s tilt | vertical launch | Its own flight model (see below); no gear, no missiles |
 
 Shelved behind `hidden: true` in `TUNE.vehicles` (defs intact, one flag to
-re-enable -- the picker reads the flag at boot): helicopter (hover) and rocket (space access). Space content is
-dormant while the rocket is shelved; every other vehicle is ceiling-capped.
+re-enable -- the picker reads the flag at boot): the helicopter (hover). Every
+non-rocket vehicle is ceiling-capped.
 
 Cockpit overlay accents recolor per vehicle via the `--veh` CSS variable.
 
@@ -153,12 +154,36 @@ Landing at the far airport plays confetti + cheer, then immediately spawns him o
 that runway facing home. Missing the approach triggers a silent automatic go-around.
 All of it crashable -- see below.
 
-## Space (rocket only)
+## The rocket and space (`js/rocket.js`, `TUNE.rocketTune`)
 
-Above `spaceAltitude` (900 AGL) blended over `spaceBlendBand`: sky/fog lerp to
-night, stars fade in, Earth curve below, astronaut + station props mid-route.
-Other vehicles are hard-capped at `otherVehicleCeiling`. Dive back down returns
-automatically.
+Loosely a Falcon 9: white booster with a black interstage, nine engines, four grid
+fins and four landing legs; a second stage with one vacuum engine; the capsule
+inside a two-half fairing. It stands upright on the runway (the pad).
+
+- **Launch**: hold the throttle `igniteTime` seconds (engine spools, rumble) and it
+  lifts off. Keep holding to burn; release to coast. The stick tilts it: drag **up**
+  = back toward vertical, drag **down** = pitch over toward the horizon, left/right
+  yaws. Thrust acts along the body; Earth's gravity fades to nothing above
+  `gravityFade`; drag only in the atmosphere. Speed caps at `maxSpeed`.
+- **Staging** is manual: the orange stage button (missile slot) appears only above
+  each stage's altitude in `stageAlt` -- booster first, then the fairing halves,
+  then the second stage -- and `F`/Enter does the same. Dropped stages tumble away;
+  the **booster flips upright, burns to slow down and lands on its legs**
+  (`flags.boosterLandings`). Fuel per stage in `fuel`; the capsule's thrusters
+  never run out. Landing anywhere gives the whole stack back.
+- **Space**: above `spaceAltitude` (blended over `spaceBlendBand`) the dome goes to
+  stars, the Earth's curve sits below, a satellite and a station drift mid-route.
+  The **Moon** and **Mars** hang above the atmosphere (`rocketTune.moon/mars`:
+  position, radius, gravity) with craters and, on Mars, a polar cap; each pulls
+  gently when you're near. Touch one slower than `landSpeed` and you **land** --
+  fireworks, the stack is restored, the sky stays black -- then launch again from its
+  surface (it's the new pad). Faster than that and you explode and reassemble above
+  it, like everything else.
+- **Coming home**: descend into the atmosphere, come down upright (pitch > 55°) and
+  slower than `landSpeed` on dry land and it lands Falcon-style; anything else is a
+  crash. Both views work: the cockpit looks along the body axis (straight up at the
+  stars on the pad), the chase camera sits behind and below.
+- Other vehicles are hard-capped at `otherVehicleCeiling`.
 
 ## Crashes & collisions
 
