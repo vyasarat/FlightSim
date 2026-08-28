@@ -64,6 +64,13 @@ function applyVehicle(key) {
   }
 }
 
+// The rocket's launch pad: on the side of the runway away from the terminal,
+// standing on the launch mount (solid top, so it can land back on it).
+function rocketPad(idx) {
+  const ap = AIRPORTS[idx], P = TUNE.rocketTune.pad;
+  const m = idx === 0 ? 1 : -1;
+  return { x: -m * P.dx, z: ap.cz + P.dz, ground: ap.elev + P.mountH };
+}
 function spawnForTakeoff(originIdx, dirIdx) {
   if (originIdx === undefined) { originIdx = state.originIdx; }
   if (dirIdx === undefined) { dirIdx = state.dirIdx; }
@@ -104,7 +111,10 @@ function spawnForTakeoff(originIdx, dirIdx) {
     state.pitch = 90;
     rk.onBody = null;
     rocketRestock();
-    state.y = ap.elev + rocketHalfLen();
+    const pad = rocketPad(originIdx);
+    state.x = pad.x; state.z = pad.z;
+    rk.groundHere = pad.ground;
+    state.y = pad.ground + rocketHalfLen();
   }
   if (typeof apronVehiclesTo === "function") apronVehiclesTo(originIdx, true);
   placeRings();

@@ -63,7 +63,10 @@ function updateShatter(dt) {
   if (shatterTimer <= 0) restoreShattered();
 }
 
-function resolveSolidWalls() {
+// baseY (optional, the rocket): the body's lowest point. A box whose top is under
+// that is ground to stand on, not a wall -- the capsule's reference point sits
+// below its base, so without this it "hit" the launch mount 3 m above it.
+function resolveSolidWalls(baseY) {
   if (state.exploding || (state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY")) return;
   flags.wallChecks = (flags.wallChecks || 0) + 1;
   const PRAD = 3;
@@ -71,6 +74,7 @@ function resolveSolidWalls() {
   forEachSolid(b => {
     if (hit) return;
     if (isSolidHidden(b)) return;
+    if (baseY !== undefined && baseY >= b.y1 - 1) return;
     const ex = b.hw + PRAD, ez = b.hd + PRAD;
     if (!(state.x > b.x - ex && state.x < b.x + ex &&
           state.z > b.z - ez && state.z < b.z + ez)) return;
