@@ -46,6 +46,7 @@ the ship checklist; this file describes the game.
 | Parachute button (rocket, same slot, red) | As the capsule low in the air: the drogue, then the mains. Each only below its `chuteAlt`; they pop by themselves below `chuteAutoAlt`, so nothing needs pressing |
 | Double-down / double-up chevrons, bottom-right (planes, airborne) | Step the set speed down / up one notch. Speed stays where he sets it -- no snap-back. Four steps (`TUNE.speedSteps`) |
 | Destination cards (rocket, after the direction card) | Moon / Mars / Station: where the landing button aims in space. Always all three |
+| Rover button (rocket, same slot, yellow; on the Moon / Mars) | Rolls the rover out; tap again and it drives itself back in. Stick drives, throttle plants a beacon |
 | Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, ~45 s to touchdown. Rocket: jump to a slow descent 350 m above the nearest planet, or 200 m above the home pad; the landing assist does the rest. Capsule with the satellite out: **deorbit** -- drop out of space above home and ride the plasma and parachutes down |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker |
@@ -260,9 +261,11 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   capsule's parachute landing the **recovery ship** (at sea) or a **flatbed truck** (on land)
   arrives, its crane swings out, lifts the capsule aboard and carries it toward the pad --
   that ride *is* the refit; a new stack is on the pad when it ends. Nothing teleports.
-- **Destination**: after the direction card the rocket gets a third card row -- **Moon, Mars,
-  Station** (`lp.dest`, remembered). It only sets what the landing button aims at in space; the
-  flying is the same. All three are always there.
+- **Destination**: a rocket on the pad always asks where it is going -- **Moon, Mars, Station**
+  cards (after the direction card, on every launch from a restored session, and after every
+  refit; `lp.dest` remembers the last one). It sets what the landing button aims at in space and
+  where the big arrow points up there (it hides while the target is in view; on the way home it
+  points at the pad). The flying is the same. All three are always there.
 - **The station** is somewhere to go: it hangs above the gravity band with a glowing docking
   port on top. Coast at it and the port's magnet (`assistR`) noses the capsule in with a clang
   and a chime -- no speed to judge, no way to bounce off. Docked, the windows light and the solar
@@ -271,6 +274,14 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
 - **The stack**: the satellite button releases the big satellite and then five flat Starlink-style
   ones, one every 0.9 s with their own beep, fanning out in a line of blinking lights.
 - **Mission photos**: the camera in the rocket frames the shot as a round mission patch.
+- **The rover** (`js/rover.js`): landed on the Moon or Mars, the slot button shows a buggy.
+  Tap it and a yellow rover rolls out of the capsule; the stick drives it (drag **up** = go,
+  down = back, left/right = turn) on the curved ground, hopping over bumps in the body's own
+  gravity with a thump. Eight **glowing rocks** lie around the landing site: roll over one and
+  it chimes a note and sparkles. The throttle plants a **blinking beacon** with a flag. Tap the
+  button again and the rover drives itself back and climbs in -- nothing to line up -- and the
+  rocket is ready to launch. Rocks and beacons come back fresh with the refit. Both views work
+  (a seat on the rover, or the chase camera behind it).
 - Both views work: the cockpit looks along the body axis, the chase camera sits beside and
   above and never enters a planet. **The rocket starts in the chase view** (the view button
   still toggles).
@@ -317,6 +328,7 @@ cockpit/
     flight.js         plane flight model, assists, alarm, sky, rewards, update()
     rocket.js         rocket flight model, staging, Moon / Mars, landing assist, satellite, reentry + parachutes
     recovery.js       droneship, net boat, recovery ship / truck and the ride that refits the pad
+    rover.js          the Moon / Mars rover: drive on the sphere, rocks, beacons, drive-back
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape
@@ -337,7 +349,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (155 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (156 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```

@@ -149,7 +149,7 @@ function check(name, ok, extra) {
       L.api.setThrottle(true);
       for (let i = 0; i < 60 * 30 && !L.rocketCanDrop(); i++) L.update(1 / 60);
       L.api.setThrottle(false); L.update(1 / 60);
-      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "skyBtn", "dash", "brow", "progressStrip"];
+      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "skyBtn", "dash", "brow", "progressStrip"];
       const rects = [];
       for (const id of ids) { const e = document.getElementById(id); if (!e || e.classList.contains("hidden")) continue; const r = e.getBoundingClientRect(); if (r.width) rects.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom }); }
       const overlaps = [];
@@ -2201,6 +2201,10 @@ function check(name, ok, extra) {
       L.rk.launchedFromBody = false; L.rk.satOut = false; st.y = 5000; st.x = 0; st.z = 0; L.rk.vx = L.rk.vy = L.rk.vz = 0; L.update(1 / 60);
       st.dest = "station"; out.destStation = L.rocketSkipTarget() && L.rocketSkipTarget().name === "station";
       st.dest = "mars"; out.destMars = L.rocketSkipTarget() && L.rocketSkipTarget().name === "mars";
+      // the big arrow points at the destination when it is off screen (nose straight down in the cockpit: everything is behind)
+      L.api.setView(false); st.pitch = -90; st.heading = 0; L.update(1 / 60); L.update(1 / 60);
+      out.arrowOn = document.getElementById("homeArrow").classList.contains("on");
+      st.pitch = 90; L.api.setView(true);
       st.dest = "moon";
       // the stack: the big satellite, then five flat ones one by one
       st.phase = "AIRBORNE"; st.exploding = false; const n0 = L.satellites.length, s0 = L.flags.satDeploys || 0;
@@ -2214,7 +2218,7 @@ function check(name, ok, extra) {
       return out;
     });
     check("station: the capsule noses into the port on the magnet (no explosion), the windows light and the arrays unfold; throttle undocks and the landing button then means home; the destination picks the landing button's target",
-      dock.docked && dock.noBoom && dock.onStation && dock.phase === "TAXI" && dock.noseIn && dock.unfolded && dock.lit && dock.undocked && dock.skipHome && dock.destStation && dock.destMars, JSON.stringify(dock));
+      dock.docked && dock.noBoom && dock.onStation && dock.phase === "TAXI" && dock.noseIn && dock.unfolded && dock.lit && dock.undocked && dock.skipHome && dock.destStation && dock.destMars && dock.arrowOn, JSON.stringify(dock));
     check("satellite: the big satellite is followed by a stack of five flat ones, each with a beep; rocket photos get the mission-patch frame",
       dock.stackStart && dock.stackCount === 6 && dock.stackBeeps === 6 && dock.patch && dock.noPatchPlane, JSON.stringify({ stackStart: dock.stackStart, stackCount: dock.stackCount, stackBeeps: dock.stackBeeps, patch: dock.patch, noPatchPlane: dock.noPatchPlane }));
 
@@ -2260,6 +2264,48 @@ function check(name, ok, extra) {
       moon.landed && moon.onMoon && moon.restocked && moon.spaceStays && moon.left && moon.onBodyCleared && moon.skipGoesHome, JSON.stringify(moon));
     check("rocket: coasting at Mars from far out is braked to a landing; ramming it under power still explodes and reassembles",
       moon.marsLanded && moon.crashed && moon.back, JSON.stringify(moon));
+
+    // the rover: out of the capsule on the Moon, drives on the sphere, rocks + beacon, drives itself back
+    const rov = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, m = L.BODIES[0], hidden = b => b.classList.contains("hidden");
+      const btn = document.getElementById("roverBtn");
+      const out = {};
+      L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.update(1 / 60);
+      out.hiddenOnPad = hidden(btn);
+      // land the capsule on the Moon (top)
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel);
+      st.x = m.x; st.y = m.y + m.r + 60; st.z = m.z; st.pitch = 90; st.heading = 0; L.rk.vx = L.rk.vz = 0; L.rk.vy = -12;
+      for (let i = 0; i < 60 * 30 && st.phase !== "TAXI"; i++) L.update(1 / 60);
+      L.update(1 / 60);
+      out.landed = st.phase === "TAXI" && !!L.rk.onBody; out.shownOnMoon = !hidden(btn);
+      out.deployed = L.roverDeploy(); L.update(1 / 60);
+      out.rocks = L.rover.rocks.length;
+      const x0 = L.rover.x, y0 = L.rover.y, z0 = L.rover.z;
+      st.touching = true; st.ctrlPitch = 1; st.ctrlBank = 0;
+      let hMin = 1e9, hMax = -1e9;
+      for (let i = 0; i < 60 * 4; i++) { L.update(1 / 60); const h = Math.hypot(L.rover.x - m.x, L.rover.y - m.y, L.rover.z - m.z) - m.r; hMin = Math.min(hMin, h); hMax = Math.max(hMax, h); }
+      st.ctrlPitch = 0; st.touching = false;
+      out.moved = Math.round(Math.hypot(L.rover.x - x0, L.rover.y - y0, L.rover.z - z0)); out.hMin = +hMin.toFixed(1); out.hMax = +hMax.toFixed(1);
+      out.rocketStayed = st.phase === "TAXI" && !!L.rk.onBody;
+      // roll onto a rock
+      const r = L.rover.rocks[0]; L.rover.x = r.x; L.rover.y = r.y; L.rover.z = r.z; const k0 = L.flags.roverRocks || 0;
+      L.update(1 / 60); out.rock = (L.flags.roverRocks || 0) > k0 && !r.mesh.visible;
+      // throttle plants a beacon
+      const b0 = L.flags.roverBeacons || 0; L.api.setThrottle(true); L.update(1 / 60); L.api.setThrottle(false); L.update(1 / 60);
+      out.beacon = (L.flags.roverBeacons || 0) > b0 && L.rover.beacons.length > 0;
+      // back to the capsule by itself
+      out.ret = L.roverReturn();
+      for (let i = 0; i < 60 * 60 && L.rover.active; i++) L.update(1 / 60);
+      out.back = !L.rover.active && (L.flags.roverBack || 0) > 0 && btn.dataset.mode === "out";
+      // and the rocket still launches
+      L.api.setThrottle(true); for (let i = 0; i < 60 * 3; i++) L.update(1 / 60); L.api.setThrottle(false);
+      out.launched = st.phase === "AIRBORNE";
+      // the refit brings the rocks back fresh
+      L.api.placeOnRunway(); out.reset = L.rover.rocks.length === 0 && L.rover.beacons.length === 0;
+      return out;
+    });
+    check("rover: only on a body; rolls out, drives on the sphere with hops, collects a rock, plants a beacon, drives itself back, and the rocket launches after",
+      rov.hiddenOnPad && rov.landed && rov.shownOnMoon && rov.deployed && rov.rocks === 8 && rov.moved > 20 && rov.hMin > 0.5 && rov.hMax < 15 && rov.rocketStayed && rov.rock && rov.beacon && rov.ret && rov.back && rov.launched && rov.reset, JSON.stringify(rov));
 
     // skip-to-landing: in deep space it jumps to a slow descent above the nearest planet and lands; low down, above the home pad
     const skip = await page.evaluate(() => {
@@ -2361,7 +2407,8 @@ function check(name, ok, extra) {
       const f0 = L.flags.refits || 0; const y0 = st.y; let yPeak = y0, moved = false;
       for (let i = 0; i < 60 * 14 && (L.flags.refits || 0) === f0; i++) { L.update(1 / 60); yPeak = Math.max(yPeak, st.y); if (L.rk.stage === 3 && Math.hypot(st.x - padP.x, st.z - padP.z) < dPad - 100) moved = true; }
       out.lifted = yPeak > y0 + 3; out.carried = moved;
-      out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x - L.rocketPad(st.originIdx).x) < 1 && st.phase === "TAXI" && out.recovery && out.lifted && out.carried;
+      out.destAsked = !document.getElementById("screenDest").classList.contains("hiddenS"); document.getElementById("screenDest").classList.add("hiddenS");
+      out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x - L.rocketPad(st.originIdx).x) < 1 && st.phase === "TAXI" && out.recovery && out.lifted && out.carried && out.destAsked;
       return out;
     });
     check("rocket: the capsule deploys a satellite in space (button only then; it unfolds and drifts off) and the landing button then means home",

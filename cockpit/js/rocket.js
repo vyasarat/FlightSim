@@ -31,8 +31,8 @@ const rk = {                     // rocket-specific state (plane fields stay in 
   refitT: 0,                     // seconds until the pad rolls out a new stack after an Earth landing
 };
 const BODIES = [
-  { name: "moon", x: RK.moon.x, y: RK.moon.y, z: RK.moon.z, r: RK.moon.r, g: RK.moon.g, color: 0xb9bcc4 },
-  { name: "mars", x: RK.mars.x, y: RK.mars.y, z: RK.mars.z, r: RK.mars.r, g: RK.mars.g, color: 0xc65a2e },
+  { name: "moon", x: RK.moon.x, y: RK.moon.y, z: RK.moon.z, r: RK.moon.r, g: RK.moon.g, color: 0x9a9ea8 },
+  { name: "mars", x: RK.mars.x, y: RK.mars.y, z: RK.mars.z, r: RK.mars.r, g: RK.mars.g, color: 0xb04f28 },
   // the station's docking port: a tiny "body" with no gravity that the capsule noses into
   { name: "station", x: station.position.x, y: station.position.y + station.userData.portY, z: station.position.z, r: 3, g: 0, dock: true, assistR: 140, mesh: station },
 ];
@@ -44,8 +44,8 @@ const rkTmp = new THREE.Vector3();
 for (const b of BODIES) {
   if (b.dock) continue;
   const g = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color: b.color, emissive: b.name === "moon" ? 0x7a7e88 : 0x6e2a12 });
-  const sphere = new THREE.Mesh(new THREE.SphereGeometry(b.r, 36, 24), mat);
+  const mat = new THREE.MeshLambertMaterial({ color: b.color, emissive: b.name === "moon" ? 0x3a3d44 : 0x3a1608 });   // dim enough not to burn out up close (the rover drives on it)
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(b.r, 96, 64), mat);   // fine enough that the ground is where the rover drives (facet sag < 1 m)
   g.add(sphere);
   // craters / features: darker discs pressed into the surface
   const seedBase = b.name === "moon" ? 51 : 77;
@@ -53,10 +53,10 @@ for (const b of BODIES) {
   for (let i = 0; i < n; i++) {
     const th = hashSalt(i, seedBase, 1) * Math.PI * 2, ph = (hashSalt(i, seedBase, 2) - 0.5) * Math.PI;
     const cr = b.r * (0.05 + hashSalt(i, seedBase, 3) * 0.09);
-    const c = new THREE.Mesh(new THREE.CircleGeometry(cr, 14), new THREE.MeshLambertMaterial({ color: b.name === "moon" ? 0x8e929b : 0x9c4322, emissive: b.name === "moon" ? 0x4e525a : 0x4a1d0c }));
+    // a cap of the sphere itself (a flat disc would stand proud of the ground at its rim)
+    const c = new THREE.Mesh(new THREE.SphereGeometry(b.r + 0.25, 16, 6, 0, Math.PI * 2, 0, cr / b.r), new THREE.MeshLambertMaterial({ color: b.name === "moon" ? 0x6e727b : 0x7c3319, emissive: b.name === "moon" ? 0x24272c : 0x22100a }));
     const dir = new THREE.Vector3(Math.cos(ph) * Math.cos(th), Math.sin(ph), Math.cos(ph) * Math.sin(th));
-    c.position.copy(dir).multiplyScalar(b.r + 0.6);
-    c.lookAt(dir.clone().multiplyScalar(b.r * 2));
+    c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     g.add(c);
   }
   if (b.name === "mars") {
@@ -168,6 +168,7 @@ function rocketRestock() {
   rk.fuel = [RK.fuel[0], RK.fuel[1], Infinity];
   rk.satOut = false;             // a new satellite rides up with every new stack
   rk.refitT = 0;
+  if (typeof roverReset === "function") roverReset();   // rocks and beacons come back fresh
   if (typeof cancelRecovery === "function") cancelRecovery();
   rk.reentry = 0;
   chuteReset();
@@ -328,6 +329,8 @@ function updateRocket(dt) {
   updateSatellites(dt);
   updateChuteVisual(dt);
   updatePad(dt, grounded);
+  el.roverBtn.classList.toggle("hidden", !(roverCan() || roverActive()));
+  if (roverActive()) { updateRover(dt); rk.igniteT = 0; return; }   // driving: the capsule waits
 
   // buttons: throttle always (hold to burn); the rocket has no missiles/speed steps/gear
   el.throttleBtn.classList.remove("hidden");
@@ -642,6 +645,7 @@ function rocketAfterReassemble() {
 function rocketRefit() {
   rk.refitT = 0;
   spawnForTakeoff(state.originIdx, state.dirIdx);
+  el.screenDest.classList.remove("hiddenS");   // a fresh stack: pick the next destination
   chime(); stageSep();
   flags.refits = (flags.refits || 0) + 1;
 }
