@@ -2145,6 +2145,37 @@ function check(name, ok, extra) {
     check("rocket: launch flourishes -- shockwave at T-0, sonic booms as the booster comes down, pad lights strobe through the count, the plume lights the pad only at night, reentry view leans to the horizon",
       fx.shockwaves > 0 && fx.booms > 0 && fx.strobed && fx.nightLight && fx.dayLight === 0 && fx.reentry > 0.5 && fx.lookY < 0.6, JSON.stringify(fx));
 
+    const sea = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune;
+      const out = {};
+      const setup = (stage, y) => { L.api.setVehicle("rocket"); L.api.placeOnRunway(); st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.stage = stage; L.rocketApplyStages(L.vehicleModel); st.y = y; st.pitch = 90; st.heading = 0; L.rk.vy = 20; };
+      // a seaward-tilting launch: the booster flies to the droneship
+      const rec = L.RECOVERY[st.originIdx];
+      setup(0, 700);
+      const dx = rec.barge.x - st.x, dz = rec.barge.z - st.z, d = Math.hypot(dx, dz);
+      L.rk.vx = dx / d * 30; L.rk.vz = dz / d * 30;
+      out.dropped = L.dropStage();
+      const s = L.fallingStages.filter(f => f.kind === "booster").pop();
+      out.targetBarge = !!(s && s.target && s.target.barge);
+      const b0 = L.flags.bargeLandings || 0;
+      for (let i = 0; i < 60 * 90 && (L.flags.bargeLandings || 0) === b0; i++) L.update(1 / 60);
+      out.bargeLanded = (L.flags.bargeLandings || 0) > b0;
+      out.onDeck = s && Math.abs(s.x - rec.barge.x) < 26 && Math.abs(s.z - rec.barge.z) < 44 && s.y > rec.barge.deckY;
+      // a straight-up launch: the booster comes back beside the pad
+      setup(0, 700); L.rk.vx = L.rk.vz = 0; L.dropStage();
+      const s2 = L.fallingStages.filter(f => f.kind === "booster").pop();
+      out.targetPad = !!(s2 && s2.target && !s2.target.barge);
+      // the fairing halves chute down into the net boat
+      setup(1, 1300); L.rk.vx = L.rk.vz = 0; L.dropStage();
+      const c0 = L.flags.fairingsCaught || 0, p0 = L.flags.fairingChutes || 0;
+      for (let i = 0; i < 60 * 100 && (L.flags.fairingsCaught || 0) < c0 + 2; i++) L.update(1 / 60);
+      out.fairingChutes = (L.flags.fairingChutes || 0) - p0; out.fairingsCaught = (L.flags.fairingsCaught || 0) - c0;
+      L.api.setThrottle(false);
+      return out;
+    });
+    check("recovery: a seaward booster flies to the droneship and lands on its deck; a straight one comes back to the pad; both fairing halves chute into the net boat",
+      sea.dropped && sea.targetBarge && sea.bargeLanded && sea.onDeck && sea.targetPad && sea.fairingChutes === 2 && sea.fairingsCaught === 2, JSON.stringify(sea));
+
     const moon = await page.evaluate(() => {
       const L = window.__lp, st = L.state, R = L.TUNE.rocketTune, m = L.BODIES[0];
       // approach the Moon slowly from below: land
@@ -2284,16 +2315,18 @@ function check(name, ok, extra) {
       out.stillCapsule = L.rk.stage === 3; const padP = L.rocketPad(st.originIdx); const dPad = Math.hypot(st.x - padP.x, st.z - padP.z); out.nearPad = dPad > 150 && dPad < 1500 && !(Math.abs(st.x) < T.runwayWidth / 2 + 100 && Math.abs(st.z - ap.cz) < T.runwayLength / 2 + 200);
       for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
       out.notYetRefit = L.rk.stage === 3;
-      const f0 = L.flags.refits || 0;
-      for (let i = 0; i < 60 * (R.refitDelay + 1); i++) L.update(1 / 60);
-      out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x - L.rocketPad(st.originIdx).x) < 1 && st.phase === "TAXI";
+      out.recovery = (L.flags.recoveries || 0) > 0;
+      const f0 = L.flags.refits || 0; const y0 = st.y; let yPeak = y0, moved = false;
+      for (let i = 0; i < 60 * 14 && (L.flags.refits || 0) === f0; i++) { L.update(1 / 60); yPeak = Math.max(yPeak, st.y); if (L.rk.stage === 3 && Math.hypot(st.x - padP.x, st.z - padP.z) < dPad - 100) moved = true; }
+      out.lifted = yPeak > y0 + 3; out.carried = moved;
+      out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x - L.rocketPad(st.originIdx).x) < 1 && st.phase === "TAXI" && out.recovery && out.lifted && out.carried;
       return out;
     });
     check("rocket: the capsule deploys a satellite in space (button only then; it unfolds and drifts off) and the landing button then means home",
       ret.satShown && ret.chuteHiddenInSpace && ret.did && ret.satAdded && ret.satHiddenAfter && ret.unfolded && ret.drifted && ret.skipHome && ret.deorbit, JSON.stringify(ret));
     check("rocket: reentry glows (model + window overlay) heat-shield first; no chute button above the drogue height; the drogue pops by itself",
       ret.glowPeak > 0.5 && ret.overlayPeak > 0.2 && !ret.btnEarly && ret.pitchAtGlow > 60 && ret.reentries > 0 && ret.drogueAuto && ret.drogueAlt < 700 && ret.drogueAlt > 500, JSON.stringify(ret));
-    check("rocket: drogue then mains (button below its height, auto below that), a slow float down, a soft landing as the capsule somewhere around home (not the pad or runway), and the pad refits after the delay",
+    check("rocket: drogue then mains (button below its height, auto below that), a slow float down, a soft landing as the capsule somewhere around home (not the pad or runway); the recovery ship/truck lifts it and carries it, then the pad refits",
       ret.mainsBtn && ret.drogueSink > 18 && ret.drogueSink < 34 && ret.mainsAuto && ret.landedSoft && ret.maxSink < 10 && ret.stillCapsule && ret.nearPad && ret.notYetRefit && ret.refit, JSON.stringify(ret));
     await page.close();
   }

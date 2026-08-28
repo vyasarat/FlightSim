@@ -165,6 +165,7 @@ function rocketRestock() {
   rk.fuel = [RK.fuel[0], RK.fuel[1], Infinity];
   rk.satOut = false;             // a new satellite rides up with every new stack
   rk.refitT = 0;
+  if (typeof cancelRecovery === "function") cancelRecovery();
   rk.reentry = 0;
   chuteReset();
   if (vehicleModel) rocketApplyStages(vehicleModel);
@@ -206,7 +207,8 @@ function dropStage() {
       mesh: clone, kind,
       x: clone.position.x, y: clone.position.y, z: clone.position.z,
       vx: rk.vx * 0.9 + sx * 6, vy: kind === "booster" ? Math.min(rk.vy * 0.9 - 4, 25) : rk.vy * 0.9 - 4, vz: rk.vz * 0.9 + sz * 6,
-      rx: (rnd() - 0.5) * 1.2, ry: (rnd() - 0.5) * 1.2, life: kind === "booster" ? 60 : 30, landed: false,
+      rx: (rnd() - 0.5) * 1.2, ry: (rnd() - 0.5) * 1.2, life: kind === "booster" ? 60 : kind === "fairing" ? 150 : 30, landed: false,
+      target: kind === "booster" ? boosterTargetFor(rk.vx, rk.vz) : null, t: 0,
     });
   }
   rk.stage++;
@@ -221,7 +223,9 @@ function updateFallingStages(dt) {
     s.life -= dt;
     if (s.life <= 0) { scene.remove(s.mesh); fallingStages.splice(i, 1); continue; }
     if (s.landed) continue;
-    const ground = Math.max(terrainEff(s.x, s.z), TUNE.waterLevel);
+    s.t += dt;
+    let ground = Math.max(terrainEff(s.x, s.z), TUNE.waterLevel);
+    if (s.target && s.target.barge && Math.abs(s.x - s.target.x) < 26 && Math.abs(s.z - s.target.z) < 44) ground = Math.max(ground, s.target.y);
     const alt = s.y - ground;
     const g = RK.gravity * clamp(1 - s.y / RK.gravityFade, 0, 1);
     s.vy -= g * dt;
@@ -230,7 +234,14 @@ function updateFallingStages(dt) {
       // seconds, it flips upright, brakes near the ground and lands on its legs.
       if (s.life > 55 && s.vy > 0) s.vy *= 1 - Math.min(1, 1.6 * dt);
       s.mesh.quaternion.slerp(Q_UPRIGHT, Math.min(1, 1.5 * dt));
-      s.vx *= 1 - Math.min(1, 1.2 * dt); s.vz *= 1 - Math.min(1, 1.2 * dt);
+      if (s.target && s.life < 57) {
+        // grid fins: fly to the target (the droneship or the pad side), arriving over it
+        const dx = s.target.x - s.x, dz = s.target.z - s.z, d = Math.hypot(dx, dz);
+        const want = Math.min(60, d * 0.3);
+        const tvx = d > 1 ? dx / d * want : 0, tvz = d > 1 ? dz / d * want : 0;
+        s.vx += (tvx - s.vx) * Math.min(1, 1.5 * dt); s.vz += (tvz - s.vz) * Math.min(1, 1.5 * dt);
+        if (d > 60 && alt < 180) { const hold = clamp((150 - alt) * 0.5, -6, 12); s.vy += (hold - s.vy) * Math.min(1, 3 * dt); }   // hover across until it is over the target
+      } else { s.vx *= 1 - Math.min(1, 1.2 * dt); s.vz *= 1 - Math.min(1, 1.2 * dt); }
       if (!s.boomed && s.vy < -30 && alt < 700) { s.boomed = true; sonicBoom(); flags.sonicBooms = (flags.sonicBooms || 0) + 1; }
       if (s.vy < 0 && alt < 260) {
         const want = -Math.max(6, alt * 0.25);   // slow to ~6 m/s for touchdown
@@ -245,8 +256,35 @@ function updateFallingStages(dt) {
         s.mesh.position.set(s.x, s.y, s.z);
         boosterLand();
         flags.boosterLandings = (flags.boosterLandings || 0) + 1;
+        if (s.target && s.target.barge && Math.abs(s.x - s.target.x) < 26 && Math.abs(s.z - s.target.z) < 44) { flags.bargeLandings = (flags.bargeLandings || 0) + 1; boatHorn(); }
         continue;
       }
+    } else if (s.kind === "fairing" && s.t > 1.5 && s.y < RK.gravityFade) {
+      // the halves pop small chutes and drift down to the net boat
+      if (!s.canopy) {
+        s.canopy = buildCanopy(2.2, 0xffd23e); s.canopy.position.y = 7; s.canopy.scale.setScalar(0.1);
+        s.mesh.add(s.canopy); s.mesh.rotation.set(0, 0, 0); s.mesh.quaternion.identity();
+        chutePop(false);
+        flags.fairingChutes = (flags.fairingChutes || 0) + 1;
+      }
+      const pop = clamp((s.t - 1.5) / 0.8, 0.1, 1); s.canopy.scale.setScalar(pop);
+      s.mesh.rotation.z = Math.sin(s.t * 1.7) * 0.15;
+      const boat = fairingBoatFor();
+      const bd = boat ? Math.hypot(boat.x - s.x, boat.z - s.z) : 0;
+      let sink = -(9 + Math.max(0, alt - 60) * 0.06);   // quick when high, gentle at the boat
+      if (bd > 30 && alt < 45) sink = clamp((35 - alt) * 0.4, -4, 8);   // hover across until it is over the boat
+      s.vy += (sink - s.vy) * Math.min(1, 1.4 * dt);
+      if (boat) {
+        const dx = boat.x - s.x, dz = boat.z - s.z, d = bd;
+        const want = Math.min(40, d * 0.25);
+        s.vx += ((d > 1 ? dx / d * want : 0) - s.vx) * Math.min(1, 1.2 * dt); s.vz += ((d > 1 ? dz / d * want : 0) - s.vz) * Math.min(1, 1.2 * dt);
+        if (alt <= 9 && d < 14) {   // into the net
+          s.life = Math.min(s.life, 0.01);
+          splashAt(boat.x, TUNE.waterLevel, boat.z, 1.2); rustle(); chirp();
+          flags.fairingsCaught = (flags.fairingsCaught || 0) + 1;
+        }
+      }
+      if (alt <= 2) { s.life = Math.min(s.life, 0.01); splashAt(s.x, TUNE.waterLevel, s.z, 1); }
     } else {
       s.mesh.rotation.x += s.rx * dt; s.mesh.rotation.y += s.ry * dt;
       if (alt <= 2) { s.life = Math.min(s.life, 0.01); }
@@ -323,6 +361,7 @@ function updateRocket(dt) {
     reentryOverlay();
     // after an Earth landing the capsule (or whatever came down) sits where it
     // touched for a few seconds, then the pad rolls out a fresh stack
+    if (recoveryActive()) { updateRecovery(dt); state.pitch = 90; forward.set(0, 1, 0); return; }
     if (rk.refitT > 0 && !rk.onBody && !state.throttleHeld) {
       rk.refitT -= dt;
       if (rk.refitT <= 0) rocketRefit();
@@ -454,7 +493,7 @@ function rocketLandingAssist(dt, burning) {
   // stand up: attitude eases toward the surface normal unless he is steering
   if (!state.touching || Math.abs(state.ctrlPitch) < 0.15) {
     const wantPitch = Math.asin(clamp(ny, -1, 1)) / DEG;
-    const wantHeading = Math.atan2(-nx, -nz);
+    const wantHeading = (Math.abs(nx) + Math.abs(nz)) < 1e-4 ? state.heading : Math.atan2(-nx, -nz);   // straight up: keep his heading
     state.pitch += (wantPitch - state.pitch) * Math.min(1, 2 * dt);
     state.heading += wrapPi(wantHeading - state.heading) * Math.min(1, 2 * dt);
   }
@@ -545,6 +584,8 @@ function rocketLandOn(body) {
       confettiBurst(); cheer();
       for (let i = 0; i < 4; i++) fireworkSound(0.4 + i * 0.5);
       chuteCollapse();
+      rk.refitT = 0;
+      startRecovery();   // the ship or the truck comes for it; the ride is the refit
     } else {
       chirp(); touchdownFx();
     }
