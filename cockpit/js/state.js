@@ -52,6 +52,7 @@ function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
   state.vehicleKey = key;
   state.vp = TUNE.vehicles[key];
+  if (typeof setRocketEngine === "function") setRocketEngine(0, 0);   // a plane never carries the rocket roar
   const cols = TUNE.vehicleColors[key];
   document.documentElement.style.setProperty("--veh", cols[0]);
   document.documentElement.style.setProperty("--veh2", cols[1]);
