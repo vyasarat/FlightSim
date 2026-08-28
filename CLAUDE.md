@@ -26,7 +26,11 @@ the checklist for shipping one.
   listed in `cockpit/index.html`. Load order matters: a top-level `const`/`let`
   used *at load time* must be declared in an earlier file (TDZ). Using it later,
   inside a function, is fine.
-- `cockpit/js/tune.js` — every gameplay number (`TUNE`, `TUNE.rocketTune`).
+- `cockpit/js/tune.js` — every gameplay number (`TUNE`, `TUNE.rocketTune`, `rocketTune.starship`).
+- `rocket.js` (Falcon / Starship spine), `recovery.js` (droneship, net boat, recovery ride) and
+  `rover.js` (surface buggy) load after `flight.js` and before `main.js`; they call into each
+  other only inside functions, so order among them is safe as long as all three precede `main.js`.
+- There is no weather/sky button; the sky moods stay in code (`state.sky`) for the harness.
 - `scripts/headless_test.js` — the harness. `scripts/visual_baseline.json` — generated;
   never edit by hand (`UPDATE_VISUAL=1` regenerates it after an intentional look change).
 - `deploy/` — the droplet deploy script and the nginx reference config.
@@ -51,7 +55,7 @@ the checklist for shipping one.
    ```
    It serves the repo on :8177 and refuses to start if that port is busy. Don't edit
    `cockpit/` while it runs — pages loaded later in the run would see mixed code.
-4. For anything visual, render it and *look* at it (the harness hashes only four scenes).
+4. For anything visual, render it and *look* at it (the harness hashes only eight scenes).
 5. `git push origin cockpit-3d && git checkout main && git merge --no-ff cockpit-3d && git push`
 6. `ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'`
    Rollback: `bash deploy/deploy.sh --rollback` (swaps to the previously published rev).

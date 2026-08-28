@@ -217,7 +217,7 @@ function updateMissiles(dt) {
     }
 
     const expired = m.life <= 0;
-    if (boomed || expired || m.life <= 0) {
+    if (boomed || expired) {
       m.alive = false;
       m.mesh.visible = false;
       if (boomed) {

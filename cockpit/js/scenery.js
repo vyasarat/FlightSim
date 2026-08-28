@@ -126,7 +126,7 @@ function placeLandmark(cellX, cellZ) {
     inst.position.set(lx, gy, lz);
     const bl = inst.getObjectByName("blinker");
     if (bl) { inst.userData.blinker = bl; blinkers.push(bl); }
-    solids.push({ x: lx, z: lz, hw: 5, hd: 5, y0: gy, y1: gy + 101 });   // the shaft; the ball is small
+    solids.push({ x: lx, z: lz, hw: 9, hd: 9, y0: gy, y1: gy + 101 });   // the base cylinder is r 9
   } else {
     let deckY = TUNE.waterLevel + 15;
     let overWater = true;
@@ -164,10 +164,7 @@ function syncLandmarks(px, pz) {
       if (hashSalt(cx, cz, 90) >= TUNE.landmarkChance) continue;
       need.add(k);
       if (!landmarkCells.has(k)) {
-        const inst = placeLandmark(cx, cz);
-        landmarkCells.set(k, inst);
-      } else if (landmarkCells.get(k) === null) {
-        landmarkCells.set(k, placeLandmark(cx, cz));
+        landmarkCells.set(k, placeLandmark(cx, cz) || false);   // false: tried, nothing goes here (placement is deterministic)
       }
     }
   }

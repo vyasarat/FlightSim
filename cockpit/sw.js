@@ -1,4 +1,4 @@
-const CACHE_NAME = "little-pilot-cockpit-v53";
+const CACHE_NAME = "little-pilot-cockpit-v54";
 const ASSETS = [
   "./",
   "./index.html",
@@ -39,7 +39,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("little-pilot-cockpit-") && k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

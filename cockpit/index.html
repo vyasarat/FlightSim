@@ -57,7 +57,7 @@
     right: calc(-2vw + env(safe-area-inset-right));
     transform: skewX(-7deg);
     border-radius: 0 0 14px 26px;
-    transform: skewX(-7deg);
+    
   }
   #brow {
     position: absolute;
@@ -290,6 +290,9 @@
     --dash-h: clamp(96px, 19vh, 170px);
     --brow-h: clamp(30px, 6.5vh, 74px);
     --dial: clamp(76px, 15vmin, 128px);
+  }
+  @media (max-height: 360px) {
+    html { --btn: 48px; --thr: 54px; --stack-bottom: 58px; --top-row: 14px; --edge: 10px; }
   }
   @media (max-height: 520px) {
     html {

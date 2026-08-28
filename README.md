@@ -5,7 +5,7 @@ Two builds live side by side on one droplet, both installable as home-screen PWA
 
 | Build | URL | Stack | Status |
 |---|---|---|---|
-| **Cockpit 3D** (primary) | https://flightsim.138.197.80.104.nip.io/cockpit/ | Three.js r128 (vendored) + DOM HUD, 17 plain scripts | Active development |
+| **Cockpit 3D** (primary) | https://flightsim.138.197.80.104.nip.io/cockpit/ | Three.js r128 (vendored) + DOM HUD, 19 plain scripts | Active development |
 | 2D side-scroller | https://flightsim.138.197.80.104.nip.io/ | Canvas 2D, single file | Frozen |
 
 The player-spec lives outside the repo. `CLAUDE.md` holds the working rules and
@@ -39,22 +39,22 @@ the ship checklist; this file describes the game.
 | Yellow flashing arrow | Rotation speed reached (latched -- releasing the throttle to free his finger doesn't lose it). Drag up past the threshold to lift off |
 | Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials; only the window frame hides |
 | Gear button, bottom-left (planes) | Retract / extend the landing gear. Retracting is ignored while the wheels carry the plane. Distinct up/down icons, whirr/clunk, animated struts in chase view. **Landing with the gear up explodes** |
-| Missile button, bottom-left above gear (planes, airborne) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileCooldown`) |
+| Missile button, bottom-left above gear (planes, airborne) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileLife` × `missileSpeed`; `missileCooldown` is the refire gap) |
 | Stage button (rocket, same slot, orange, pulsing) | Drops the next stage. Only appears above each stage's altitude (see The rocket) |
 | Satellite button (rocket, same slot, cyan) | As the capsule in space: pops the satellite out ahead of the nose; it unfolds its panels and drifts off blinking. One per stack |
 | Parachute button (rocket, same slot, red) | As the capsule low in the air: the drogue, then the mains. Each only below its `chuteAlt`; they pop by themselves below `chuteAutoAlt`, so nothing needs pressing |
 | Double-down / double-up chevrons, bottom-right (planes, airborne) | Step the set speed down / up one notch. Speed stays where he sets it -- no snap-back. Four steps (`TUNE.speedSteps`) |
 | Destination cards (rocket, after the direction card) | Moon / Mars / Station: where the landing button aims in space. Always all three |
 | Rover button (rocket, same slot, yellow; on the Moon / Mars) | Rolls the rover out; tap again and it drives itself back in. Throttle drives, stick steers |
-| Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, ~45 s to touchdown. Rocket, in space: **the go button** -- jump to a slow descent 350 m above the chosen destination (its icon is on the button); once he is heading home, the runway icon: **deorbit** as the capsule (plasma and parachutes down to a new spot around home), or a thruster descent to the pad for a full stack. Lower down: 200 m above the home pad; the landing assist does the rest |
+| Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, 20-80 s to touchdown depending on the plane. Rocket, in space: **the go button** -- jump to a slow descent `skipOut` (220 m) above the chosen destination (its icon is on the button); once he is heading home, the runway icon: **deorbit** as the capsule (plasma and parachutes down to a new spot around home), or a thruster descent to the pad for a full stack. Lower down: 200 m above the home pad; the landing assist does the rest |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker |
 | Crosshair, centre (airborne) | Flight-path marker: where the plane is really aimed; doubles as the missile aiming point; clamps to the screen edge when off-view |
-| White arrow at the screen edge | Bearing to the destination airport; hides within `homeIndicatorDistance`, when approach assists engage, and in space |
+| White arrow at the screen edge | Bearing to the destination airport; hides within `homeIndicatorDistance` and when approach assists engage. In space (rocket) it points at the chosen destination, or at the pad once he is heading home, and hides while the target is in view |
 | Route strip, top centre | Plane glyph slides NY <-> CA; dots fill in for landmarks passed (each one plays the next note of a scale) |
 | Small amber arrow / green ring under the strip | Glide-slope cue on an engaged approach: down = too high, up = too low, green ring = on the slope |
 | Two-plane icon under the strip | Wingman: dim while a traffic plane is near, bright when formation has been held |
-| **Keyboard** | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter = missile (rocket: drop stage / deploy satellite / parachute, whichever is up), `+`/`-` or `]`/`[` speed step, L landing button, P photo. A finger on the screen always wins over the keys |
+| **Keyboard** | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter = missile (rocket: drop stage / deploy satellite / parachute / rover out-and-back, whichever is up), `+`/`-` or `]`/`[` speed step, L landing / go button, P photo, B or Esc = the vehicle picker (on the ground). A finger on the screen always wins over the keys |
 
 Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h`, … in
 `cockpit/index.html`). Viewports under 520 px tall (phones in landscape) get a
@@ -73,7 +73,7 @@ the flag at boot): the helicopter.
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (colour only); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
 | Rocket | see `rocketTune` | 38°/s tilt | vertical launch | Its own flight model (The rocket below); no gear, no missiles. The `vehicles.rocket` entry only feeds the picker and dials |
-| Starship | `rocketTune.starship` | 38°/s tilt | vertical launch | Same flight model, one drop; the booster is caught by the tower's arms; the Ship lands on its engines |
+| Starship | `rocketTune.starship` | 38°/s tilt (turnRateDeg 7 vs the rocket's 8) | vertical launch | Same flight model, one drop; the booster is caught by the tower's arms; the Ship lands on its engines |
 
 Every non-rocket vehicle is ceiling-capped at `otherVehicleCeiling`.
 
@@ -252,8 +252,8 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
 - **Launch flourishes**: through the ignite hold the pad's edge lights strobe faster and
   faster (his countdown, without a digit); at T-0 a white flash, a deep thump and a shockwave
   ring racing out across the pad. The booster makes a double **sonic boom** on its way back
-  down. With the sky on night the plume is a light: it paints the pad, the towers and the
-  trucks orange. Through reentry the cockpit view leans over toward the horizon so the
+  down. In the night mood (harness only, now that there is no sky button) the plume is a light: it
+  paints the pad, the towers and the trucks orange. Through reentry the cockpit view leans over toward the horizon so the
   Earth's curve rolls under the glow.
 - **Where things come down** (`js/recovery.js`): a **droneship** waits offshore of each
   airport -- a barge with a painted deck. A booster dropped while the stack was tilting toward
@@ -269,7 +269,7 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   where the big arrow points up there (it hides while the target is in view; on the way home it
   points at the pad). The flying is the same. All three are always there.
 - **The station** is somewhere to go: it hangs above the gravity band with a glowing docking
-  port on top. Coast at it and the port's magnet (`assistR`) noses the capsule in with a clang
+  port on top. Coast at it and the port's magnet (`assistR` on the station's entry in `BODIES`, 140 m) noses the capsule in with a clang
   and a chime -- no speed to judge, no way to bounce off. Docked, the windows light and the solar
   arrays unfold (and stay out). Hold the throttle to undock: the capsule turns and backs away,
   and the landing button then means home.
@@ -330,7 +330,7 @@ weakened gradually as he improves. `routeLength` scales the whole continent.
 ```
 CLAUDE.md             working rules + ship checklist
 cockpit/
-  index.html          markup + CSS shell (~800 lines); loads js/ in order
+  index.html          markup + CSS shell (~900 lines); loads js/ in order
   js/                 the game: classic scripts sharing one global scope, in load order
     tune.js           every gameplay number (TUNE, rocketTune)
     terrain.js        noise, terrain shaping, flatten mask, runway rects
@@ -370,7 +370,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (157 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (158 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```
