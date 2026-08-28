@@ -203,7 +203,7 @@ fairing. It stands on the **launch complex** on the far side of the runway from 
 mount it stands on (a solid top, so it can land back on it), the strongback beside it that
 swings away at ignition, four lightning towers, a water tower and the integration hangar at the
 base of the pad. The trucks wait by the pad; the deluge steams out of the trench through
-ignition and liftoff. The landing button and the deorbit both aim for the pad.
+ignition and liftoff. The landing button (lower down) aims for the pad; the deorbit comes down somewhere new.
 
 - **Launch**: hold the throttle `igniteTime` s (the engine spools with a rumble) and it lifts
   off with a roar; the trucks drive home. Keep holding to burn, release to coast. The stick
@@ -241,8 +241,10 @@ ignition and liftoff. The landing button and the deorbit both aim for the pad.
   from the window. Touchdown on land or water: confetti, cheer, fireworks, splash if wet, the
   canopies collapse. It sits there as the capsule for `refitDelay` s, then the pad rolls out a
   new full stack with a chime (any Earth landing refits this way now, never instantly). The
-  deorbit (landing button as the capsule in space) puts it above home at `gravityFade` + 500 m,
-  falling, so the whole show plays with nothing to press.
+  deorbit (landing button as the capsule in space) puts it at `gravityFade` + 500 m, falling,
+  above a **new spot each time** -- a field or the sea 500-1200 m from home, never the runway
+  or the pad -- so the whole show plays with nothing to press, and the refit still brings
+  the new stack to the pad.
 - Both views work: the cockpit looks along the body axis, the chase camera sits beside and
   above and never enters a planet. **The rocket starts in the chase view** (the view button
   still toggles).

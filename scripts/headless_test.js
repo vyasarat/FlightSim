@@ -2253,7 +2253,7 @@ function check(name, ok, extra) {
       const c0 = L.flags.chuteLandings || 0, e0 = L.flags.exploded; let maxSink = 0;
       for (let i = 0; i < 60 * 120 && st.phase !== "TAXI"; i++) { L.update(1 / 60); if (L.rk.chute === 2 && L.rk.chuteT > 3) maxSink = Math.max(maxSink, -L.rk.vy); }
       out.landedSoft = (L.flags.chuteLandings || 0) > c0 && L.flags.exploded === e0 && st.phase === "TAXI"; out.maxSink = Math.round(maxSink);
-      out.stillCapsule = L.rk.stage === 3; out.nearPad = Math.hypot(st.x, st.z - ap.cz) < 400;
+      out.stillCapsule = L.rk.stage === 3; const padP = L.rocketPad(st.originIdx); const dPad = Math.hypot(st.x - padP.x, st.z - padP.z); out.nearPad = dPad > 150 && dPad < 1500 && !(Math.abs(st.x) < T.runwayWidth / 2 + 100 && Math.abs(st.z - ap.cz) < T.runwayLength / 2 + 200);
       for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
       out.notYetRefit = L.rk.stage === 3;
       const f0 = L.flags.refits || 0;
@@ -2265,7 +2265,7 @@ function check(name, ok, extra) {
       ret.satShown && ret.chuteHiddenInSpace && ret.did && ret.satAdded && ret.satHiddenAfter && ret.unfolded && ret.drifted && ret.skipHome && ret.deorbit, JSON.stringify(ret));
     check("rocket: reentry glows (model + window overlay) heat-shield first; no chute button above the drogue height; the drogue pops by itself",
       ret.glowPeak > 0.5 && ret.overlayPeak > 0.2 && !ret.btnEarly && ret.pitchAtGlow > 60 && ret.reentries > 0 && ret.drogueAuto && ret.drogueAlt < 700 && ret.drogueAlt > 500, JSON.stringify(ret));
-    check("rocket: drogue then mains (button below its height, auto below that), a slow float down, a soft landing as the capsule, and the pad refits after the delay",
+    check("rocket: drogue then mains (button below its height, auto below that), a slow float down, a soft landing as the capsule somewhere around home (not the pad or runway), and the pad refits after the delay",
       ret.mainsBtn && ret.drogueSink > 18 && ret.drogueSink < 34 && ret.mainsAuto && ret.landedSoft && ret.maxSink < 10 && ret.stillCapsule && ret.nearPad && ret.notYetRefit && ret.refit, JSON.stringify(ret));
     await page.close();
   }
