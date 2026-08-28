@@ -4,10 +4,11 @@ function updateHomeArrow() {
     el.homeArrow.classList.remove("on");
     return;
   }
+  if (state.vp.rocket && state.spaceF > 0.5) { updateSpaceArrow(); return; }
   const thz = AIRPORTS[state.destIdx].cz;
   const rx = -state.x, rz = thz - state.z;
   const dist = Math.sqrt(rx * rx + rz * rz);
-  if (dist <= TUNE.homeIndicatorDistance || state.engaged || (state.vp.rocket && state.spaceF > 0.5)) {
+  if (dist <= TUNE.homeIndicatorDistance || state.engaged) {
     el.homeArrow.classList.remove("on");
     return;
   }
@@ -24,6 +25,30 @@ function updateHomeArrow() {
   const py = cy - Math.cos(theta) * radius;
   el.homeArrow.style.left = px + "px";
   el.homeArrow.style.top = py + "px";
+  el.homeArrow.style.transform = `translate(-50%,-50%) rotate(${theta * 180 / Math.PI}deg)`;
+}
+
+// In space the arrow points at where he is going: the chosen destination, or home
+// once he is on the way back (after a planet, the station, or with the satellite out).
+const spaceTarget = new THREE.Vector3();
+function updateSpaceArrow() {
+  let tx, ty, tz;
+  const goingHome = rk.launchedFromBody || (rk.stage === 3 && rk.satOut);
+  const body = goingHome ? null : BODIES.find(b => b.name === state.dest);
+  if (body) { tx = body.x; ty = body.y; tz = body.z; }
+  else { const pad = rocketPad(state.originIdx); tx = pad.x; ty = pad.ground; tz = pad.z; }
+  camera.updateMatrixWorld();
+  spaceTarget.set(tx, ty, tz).project(camera);
+  const behind = spaceTarget.z > 1;
+  let sx = spaceTarget.x, sy = spaceTarget.y;
+  if (behind) { sx = -sx; sy = -sy; }
+  if (!behind && Math.abs(sx) < 0.85 && Math.abs(sy) < 0.8) { el.homeArrow.classList.remove("on"); return; }   // in view: no arrow needed
+  el.homeArrow.classList.add("on");
+  const theta = Math.atan2(sx, sy);
+  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  const radius = Math.min(cx, cy) - TUNE.homeIndicatorSize * 0.75 - 10;
+  el.homeArrow.style.left = (cx + Math.sin(theta) * radius) + "px";
+  el.homeArrow.style.top = (cy - Math.cos(theta) * radius) + "px";
   el.homeArrow.style.transform = `translate(-50%,-50%) rotate(${theta * 180 / Math.PI}deg)`;
 }
 
@@ -110,7 +135,8 @@ function updateHud() {
   spawnForTakeoff(di, di);
   el.screenVehicle.classList.add("hiddenS");
   el.screenDir.classList.add("hiddenS");
-  el.screenDest.classList.add("hiddenS");
+  // a rocket on the pad always asks where it is going (one tap; all three are always there)
+  el.screenDest.classList.toggle("hiddenS", !state.vp.rocket);
 })();
 updateChunks(state.x, state.z, true);
 updateScenery(state.x, state.z, true);
@@ -121,7 +147,7 @@ window.__lp = {
   TUNE, state, flags, update, terrainEff, shapedTerrain, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,
   get safePos(){return safePos;}, get blinkers(){return blinkers;}, get hiddenPieces(){return hiddenPieces;},
   get trainHead(){return trainHead;}, get trainSolids(){return trainSolids;}, resolveSolidWalls,
-  get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, get clouds(){return clouds;}, rk, BODIES, RECOVERY, dropStage, rocketCanDrop, rocketApplyStages, rocketPad, deploySatellite, rocketCanDeploySat, deployChute, rocketCanChute, get satellites(){return satellites;}, rocketSkipToLanding, rocketCanSkip, rocketSkipTarget, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
+  get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, get clouds(){return clouds;}, rk, BODIES, RECOVERY, rover, roverDeploy, roverReturn, roverCan, roverActive, dropStage, rocketCanDrop, rocketApplyStages, rocketPad, deploySatellite, rocketCanDeploySat, deployChute, rocketCanChute, get satellites(){return satellites;}, rocketSkipToLanding, rocketCanSkip, rocketSkipTarget, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
   get cameraPos(){return camera.position;}, camera, scene, station, takePhoto,
   forEachSolid(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);for(const b of trainSolids)cb(b);}, get vehicleModel(){return vehicleModel;},

@@ -173,7 +173,7 @@ function updateVehicleModel(dt) {
 }
 
 function applyCamera(dt) {
-  if (state.vp.rocket) { rocketCamera(dt); return; }
+  if (state.vp.rocket) { if (roverActive()) roverCamera(dt); else rocketCamera(dt); return; }
   camera.up.set(0, 1, 0);
   if (state.viewChase) {
     const vs = state.vp.size || 1;

@@ -110,7 +110,15 @@ function startRecovery() {
   const ux = dx / d, uz = dz / d;                    // toward the pad
   const from = { x: ax - ux * 260 + uz * 40, z: az - uz * 260 - ux * 40 };
   const beside = { x: ax + uz * 9, z: az - ux * 9 };
-  const to = { x: ax + ux * 220 + uz * 9, z: az + uz * 220 - ux * 9 };
+  // the ship stays on the water: it heads for the pad but stops short of the shore; the
+  // truck stays on land the same way (it will not drive into the sea)
+  let run = 220;
+  for (let d = 10; d <= 220; d += 10) {
+    const tx = ax + ux * d + uz * 9, tz = az + uz * d - ux * 9;
+    const wet = terrainEff(tx, tz) < TUNE.waterLevel - 0.3;
+    if (wet !== overWater) { run = Math.max(10, d - 30); break; }
+  }
+  const to = { x: ax + ux * run + uz * 9, z: az + uz * run - ux * 9 };
   const groundY = overWater ? TUNE.waterLevel : Math.max(terrainEff(ax, az), TUNE.waterLevel);
   ride = { r, v, overWater, t: 0, from, beside, to, groundY, capX: ax, capZ: az, capY: state.y, done: false,
     heading: Math.atan2(ux, uz), deckY: overWater ? 2.7 : 1.7 };
@@ -154,6 +162,9 @@ function updateRecovery(dt) {
     rocketRefit();
     return true;
   }
+  // the deck rides the water; the truck rides the ground under it
+  ride.groundY = ride.overWater ? TUNE.waterLevel : Math.max(terrainEff(vx, vz), TUNE.waterLevel);
+  if (t >= RIDE.arrive + RIDE.lift) state.y = ride.groundY + ride.deckY + rocketHalfLen();
   v.position.set(vx, ride.groundY, vz);
   v.rotation.y = ride.heading;
   if (ride.t > RIDE.arrive) v.userData.cable.scale.y = 1;
