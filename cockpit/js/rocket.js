@@ -226,6 +226,7 @@ function rocketRestock() {
   rk.satOut = false;             // a new satellite rides up with every new stack
   rk.refitT = 0;
   if (typeof roverReset === "function") roverReset();   // rocks and beacons come back fresh
+  if (typeof astroReset === "function") astroReset();
   if (typeof cancelRecovery === "function") cancelRecovery();
   rk.reentry = 0;
   chuteReset();
@@ -413,7 +414,9 @@ function updateRocket(dt) {
   updateChuteVisual(dt);
   updatePad(dt, grounded);
   el.roverBtn.classList.toggle("hidden", !(roverCan() || roverActive()));
+  el.hatchBtn.classList.toggle("hidden", !(stationCanEnter() || astroActive()));
   if (roverActive()) { updateRover(dt); rk.igniteT = 0; return; }   // driving: the capsule waits
+  if (astroActive()) { updateAstronaut(dt); rk.igniteT = 0; updateStationDocked(dt, true); return; }   // floating inside: the capsule waits at the port
 
   // buttons: throttle always (hold to burn); the rocket has no missiles/speed steps/gear
   el.throttleBtn.classList.remove("hidden");

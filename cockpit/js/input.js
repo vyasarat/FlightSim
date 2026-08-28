@@ -270,6 +270,10 @@ el.roverBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.roverBtn);
   toggleRover();
 });
+el.hatchBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.hatchBtn);
+  toggleHatch();
+});
 
 // Camera: the next rendered frame is grabbed (before the buffer clears), shown
 // in a polaroid frame for a few seconds with a flash and a shutter click.
@@ -332,7 +336,7 @@ window.addEventListener("keydown", (e) => {
   else if (c === "KeyV") toggleView();
   else if (c === "KeyB" || c === "Escape") openPicker();
   else if (c === "KeyF" || c === "Enter") {
-    if (state.vp.rocket) { if (!dropStage() && !deploySatellite() && !deployChute()) toggleRover(); }
+    if (state.vp.rocket) { if (!dropStage() && !deploySatellite() && !deployChute() && !toggleRover()) toggleHatch(); }
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
   }
   else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
