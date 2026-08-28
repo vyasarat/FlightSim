@@ -114,6 +114,7 @@ el.skipBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   if (state.exploding) return;
+  if (state.vp.rocket) { rocketSkipToLanding(); return; }
   restoreShattered();
   skipToLanding();
 });
@@ -294,7 +295,7 @@ window.addEventListener("keydown", (e) => {
   else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
   else if (c === "Minus" || c === "NumpadSubtract" || c === "BracketLeft") state.speedStep = Math.max(state.speedStep - 1, 0);
   else if (c === "KeyP") takePhoto();
-  else if (c === "KeyL") { if (!el.skipBtn.classList.contains("hidden") && !state.exploding) { restoreShattered(); skipToLanding(); } }
+  else if (c === "KeyL") { if (!el.skipBtn.classList.contains("hidden") && !state.exploding) { if (state.vp.rocket) rocketSkipToLanding(); else { restoreShattered(); skipToLanding(); } } }
 });
 window.addEventListener("keyup", (e) => {
   keys.delete(e.code);
