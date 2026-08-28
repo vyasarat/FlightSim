@@ -52,6 +52,7 @@ function startEngine() {
   o.start(t);
   lfo.start(t);
   engineNodes = { o, lfo, g };
+  ensureRocketNodes();   // build the rocket's voice here too, inside the unlock, like the propeller
 }
 
 let lastEngineNorm = 1;
@@ -279,9 +280,10 @@ function shutter() {
 // Rocket engine: a deep roar (low-passed noise) over a sub-bass rumble, with
 // crackle at full thrust. Thins to a soft hum in space (no air to carry it).
 let rocketNodes = null;
-function setRocketEngine(level, inSpace) {
-  if (!audioCtx || audioCtx.state !== "running") return;
-  if (!rocketNodes) {
+let audioRetryT = 0;
+function ensureRocketNodes() {
+  if (rocketNodes || !audioCtx || audioCtx.state !== "running") return;
+  {
     const len = audioCtx.sampleRate * 2;
     const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
     const d = buf.getChannelData(0);
@@ -302,6 +304,17 @@ function setRocketEngine(level, inSpace) {
     wob.connect(wobG); wobG.connect(sub.frequency); wob.start();
     rocketNodes = { roar, crackle, subG, lp, last: -1, lastSpace: -1 };
   }
+}
+function setRocketEngine(level, inSpace) {
+  if (!audioCtx) return;
+  if (audioCtx.state !== "running") {
+    // iOS can leave the context suspended / interrupted after a lock or a call:
+    // keep asking for it while he wants sound, at most once a second
+    if (level > 0 && performance.now() - audioRetryT > 1000) { audioRetryT = performance.now(); audioCtx.resume().then(startEngine).catch(() => {}); }
+    return;
+  }
+  ensureRocketNodes();
+  if (!rocketNodes) return;
   const n = clamp(level, 0, 1), sp = clamp(inSpace, 0, 1);
   if (Math.abs(n - rocketNodes.last) < 0.004 && Math.abs(sp - rocketNodes.lastSpace) < 0.01) return;
   rocketNodes.last = n; rocketNodes.lastSpace = sp;

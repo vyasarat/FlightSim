@@ -56,11 +56,11 @@ function menuOpen() {
 el.throttleBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
+  unlockAudio();   // every tap on the throttle is a chance to (re)start the audio, menu or not
   if (menuOpen() || throttlePointerId !== null) return;
   throttlePointerId = e.pointerId;
   try { el.throttleBtn.setPointerCapture(e.pointerId); } catch (err) {}
   el.throttleBtn.classList.add("pressed");
-  unlockAudio();
   state.throttleHeld = true;
 });
 const releaseThrottle = (e) => {
