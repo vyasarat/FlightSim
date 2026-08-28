@@ -1,11 +1,12 @@
 "use strict";
 // ---------------------------------------------------------------------------
 // The rover. Landed on the Moon or Mars, the slot button rolls a buggy out of
-// the capsule and the stick drives it: drag up = go, drag down = back, left /
-// right = turn. It hops over bumps in the body's gravity, collects glowing
-// rocks (a note each, they re-arm with the refit), and the throttle plants a
-// blinking beacon. Tap the button again and it drives itself back and climbs
-// in -- nothing to line up, and the rocket is ready to launch.
+// the capsule. Like everything else in the game: hold the throttle to go,
+// drag left / right to steer (drag down backs up slowly). It hops over bumps
+// in the body's gravity, collects glowing rocks (a note each, and it leaves a
+// blinking beacon where each one was; they re-arm with the refit). Tap the
+// button again and it drives itself back and climbs in -- nothing to line up,
+// and the rocket is ready to launch.
 // ---------------------------------------------------------------------------
 
 const rover = {
@@ -181,14 +182,16 @@ function updateRover(dt) {
       chirp(); flags.roverBack = (flags.roverBack || 0) + 1;
       return;
     }
-  } else if (state.touching || Math.abs(state.ctrlPitch) > 0.05 || Math.abs(state.ctrlBank) > 0.05) {
-    accel = clamp(state.ctrlPitch, -1, 1); turn = -clamp(state.ctrlBank, -1, 1);
+  } else {
+    // throttle = go; the stick steers; a pull down backs up slowly
+    accel = state.throttleHeld ? 1 : (state.ctrlPitch < -0.3 ? -0.5 : 0);
+    turn = -clamp(state.ctrlBank, -1, 1);
   }
   const want = accel * (accel > 0 ? 14 : 6);
   rover.speed += (want - rover.speed) * Math.min(1, (accel !== 0 ? 2.2 : 1.4) * dt);
   if (Math.abs(rover.speed) < 0.05) rover.speed = 0;
   // turn about the surface normal (slower when crawling)
-  const rate = turn * 1.7 * dt * (0.35 + 0.65 * Math.min(1, Math.abs(rover.speed) / 6));
+  const rate = turn * 1.9 * dt * (0.45 + 0.55 * Math.min(1, Math.abs(rover.speed) / 6));   // turns in place too, a bit slower
   if (rate) rover.f.applyAxisAngle(rover.n, -rate).normalize();
   // move along the ground and stay on the sphere
   rover.x += rover.f.x * rover.speed * dt; rover.y += rover.f.y * rover.speed * dt; rover.z += rover.f.z * rover.speed * dt;
@@ -208,14 +211,12 @@ function updateRover(dt) {
       ringNote(r.i % 12);
       for (let k = 0; k < 6; k++) wakePuff(r.x + (rnd() - 0.5) * 2, r.y + rnd() * 2, r.z + (rnd() - 0.5) * 2, r.mesh.material.color.getHex(), 0.8, 2.5, 0.7);
       flags.roverRocks = (flags.roverRocks || 0) + 1;
+      plantBeacon();   // marks where it was found
     } else {
       r.mesh.rotation.y += dt * 0.8;
     }
   }
   updateArches(dt);
-  // throttle plants a beacon (rising edge)
-  if (state.throttleHeld && !rover.thrPrev && !rover.returning) plantBeacon();
-  rover.thrPrev = state.throttleHeld;
   for (const bc of rover.beacons) bc.lamp.visible = (frameCount % 40) < 22;
   // the model
   const m = rover.mesh;

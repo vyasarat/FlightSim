@@ -122,7 +122,7 @@ function check(name, ok, extra) {
     const { page } = await newPage(844, 390);
     await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.teleportAirborne(3000, 200, 150, 0); window.__lp.update(1 / 60); });
     const phone = await page.evaluate(() => {
-      const ids = ["viewBtn", "skipBtn", "fastBtn", "slowBtn", "missileBtn", "gearBtn", "throttleBtn", "vehBtn", "skyBtn", "camBtn", "dash", "brow", "progressStrip"];
+      const ids = ["viewBtn", "skipBtn", "fastBtn", "slowBtn", "missileBtn", "gearBtn", "throttleBtn", "vehBtn", "camBtn", "dash", "brow", "progressStrip"];
       const rects = [];
       for (const id of ids) {
         const e = document.getElementById(id);
@@ -149,7 +149,7 @@ function check(name, ok, extra) {
       L.api.setThrottle(true);
       for (let i = 0; i < 60 * 30 && !L.rocketCanDrop(); i++) L.update(1 / 60);
       L.api.setThrottle(false); L.update(1 / 60);
-      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "skyBtn", "dash", "brow", "progressStrip"];
+      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "dash", "brow", "progressStrip"];
       const rects = [];
       for (const id of ids) { const e = document.getElementById(id); if (!e || e.classList.contains("hidden")) continue; const r = e.getBoundingClientRect(); if (r.width) rects.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom }); }
       const overlaps = [];
@@ -1682,19 +1682,19 @@ function check(name, ok, extra) {
     const sky = await page.evaluate(() => {
       const L = window.__lp, st = L.state;
       const out = {};
-      const tap = () => document.getElementById("skyBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 11 }));
+      const tap = () => { st.sky = (st.sky + 1) % 4; };   // the moods stay in code (no button any more)
       const settle = () => { for (let i = 0; i < 60 * 5; i++) L.update(1 / 60); };
+      out.noBtn = !document.getElementById("skyBtn");
       st.sky = 0; settle();
       tap(); settle(); out.rain = { mode: st.sky, precip: L.precip.visible, rainF: +st.rainF.toFixed(2), fogFar: Math.round(window.__lp.state.rainF > 0.9 ? 950 : -1) };
       tap(); settle(); out.snow = { mode: st.sky, precip: L.precip.visible, snowF: +st.snowF.toFixed(2) };
       tap(); settle(); out.night = { mode: st.sky, windows: L.windowInst.visible, nightF: +st.nightF.toFixed(2), stars: +window.__lp.state.nightF.toFixed(2) };
       tap(); settle(); out.sun = { mode: st.sky, precip: L.precip.visible, windows: L.windowInst.visible };
-      out.saved = localStorage.getItem("lp.sky");
       return out;
     });
-    check("sky: sun -> rain (drops) -> snow (flakes) -> night (windows lit) -> sun, and the choice is saved",
+    check("sky moods (code only, no button): sun -> rain (drops) -> snow (flakes) -> night (windows lit) -> sun",
       sky.rain.mode === 1 && sky.rain.precip && sky.rain.rainF > 0.9 && sky.snow.mode === 2 && sky.snow.precip && sky.snow.snowF > 0.9 &&
-      sky.night.mode === 3 && sky.night.windows && sky.night.nightF > 0.9 && sky.sun.mode === 0 && !sky.sun.precip && !sky.sun.windows && sky.saved === "0",
+      sky.night.mode === 3 && sky.night.windows && sky.night.nightF > 0.9 && sky.sun.mode === 0 && !sky.sun.precip && !sky.sun.windows && sky.noBtn,
       JSON.stringify(sky));
 
     // buzz the airport: low over the apron opens the hangar doors
@@ -1957,7 +1957,7 @@ function check(name, ok, extra) {
       await p1.waitForFunction(() => window.__lp);
       await p1.click('[data-v="fighter"]');
       await p1.click('[data-d="1"]');
-      await p1.evaluate(() => { window.__lp.update(1 / 60); document.getElementById("skyBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 31 })); for (let i = 0; i < 25; i++) window.__lp.update(1 / 60); try { localStorage.setItem("lp.dest", "station"); } catch (e) {} });
+      await p1.evaluate(() => { window.__lp.update(1 / 60); for (let i = 0; i < 25; i++) window.__lp.update(1 / 60); try { localStorage.setItem("lp.dest", "station"); localStorage.setItem("lp.sky", "3"); } catch (e) {} });
       const p2 = await ctx.newPage();
       await p2.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
       await p2.goto(URL);
@@ -1978,8 +1978,8 @@ function check(name, ok, extra) {
       const vehBtnShown = await p2.evaluate(() => !document.getElementById("vehBtn").classList.contains("hidden"));
       await p2.click("#vehBtn");
       const pickerBack = await p2.evaluate(() => !document.getElementById("screenVehicle").classList.contains("hiddenS"));
-      check("persistence: relaunch restores vehicle + direction straight to the runway; plane button reopens the picker",
-        restored.key === "fighter" && restored.dir === 1 && restored.sky === 1 && restored.dest === "station" && restored.phase === "TAXI" && restored.pickerHidden && vehBtnShown && pickerBack, JSON.stringify({ restored, vehBtnShown, pickerBack }));
+      check("persistence: relaunch restores vehicle + direction + destination straight to the runway (a stale lp.sky is ignored); plane button reopens the picker",
+        restored.key === "fighter" && restored.dir === 1 && restored.sky === 0 && restored.dest === "station" && restored.phase === "TAXI" && restored.pickerHidden && vehBtnShown && pickerBack, JSON.stringify({ restored, vehBtnShown, pickerBack }));
       await ctx.close();
     }
   }
@@ -2328,10 +2328,12 @@ function check(name, ok, extra) {
       out.deployed = L.roverDeploy(); L.update(1 / 60);
       out.rocks = L.rover.rocks.length; out.arches = L.rover.arches.length;
       const x0 = L.rover.x, y0 = L.rover.y, z0 = L.rover.z;
-      st.touching = true; st.ctrlPitch = 1; st.ctrlBank = 0;
+      // throttle drives it forward; the stick steers (drag right = turn right)
+      L.api.setThrottle(true); st.touching = true; st.ctrlPitch = 0; st.ctrlBank = 0;
       let hMin = 1e9, hMax = -1e9;
       for (let i = 0; i < 60 * 4; i++) { L.update(1 / 60); const h = Math.hypot(L.rover.x - m.x, L.rover.y - m.y, L.rover.z - m.z) - m.r; hMin = Math.min(hMin, h); hMax = Math.max(hMax, h); }
-      st.ctrlPitch = 0; st.touching = false;
+      const f0 = L.rover.f.clone(); st.ctrlBank = 1; for (let i = 0; i < 60; i++) L.update(1 / 60); out.steered = f0.angleTo(L.rover.f) > 0.4;
+      st.ctrlBank = 0; L.api.setThrottle(false); st.touching = false;
       out.moved = Math.round(Math.hypot(L.rover.x - x0, L.rover.y - y0, L.rover.z - z0)); out.hMin = +hMin.toFixed(1); out.hMax = +hMax.toFixed(1);
       out.rocketStayed = st.phase === "TAXI" && !!L.rk.onBody;
       // the loop: through all six arches (teleport to each) = a finale, then they re-arm
@@ -2342,9 +2344,8 @@ function check(name, ok, extra) {
       // roll onto a rock
       const r = L.rover.rocks[0]; L.rover.x = r.x; L.rover.y = r.y; L.rover.z = r.z; const k0 = L.flags.roverRocks || 0;
       L.update(1 / 60); out.rock = (L.flags.roverRocks || 0) > k0 && !r.mesh.visible;
-      // throttle plants a beacon
-      const b0 = L.flags.roverBeacons || 0; L.api.setThrottle(true); L.update(1 / 60); L.api.setThrottle(false); L.update(1 / 60);
-      out.beacon = (L.flags.roverBeacons || 0) > b0 && L.rover.beacons.length > 0;
+      // a beacon marks where the rock was
+      out.beacon = (L.flags.roverBeacons || 0) > 0 && L.rover.beacons.length > 0;
       // back to the capsule by itself
       out.ret = L.roverReturn();
       for (let i = 0; i < 60 * 60 && L.rover.active; i++) L.update(1 / 60);
@@ -2357,7 +2358,7 @@ function check(name, ok, extra) {
       return out;
     });
     check("rover: only on a body; rolls out, drives on the sphere with hops, collects a rock, plants a beacon, drives itself back, and the rocket launches after",
-      rov.hiddenOnPad && rov.landed && rov.shownOnMoon && rov.deployed && rov.rocks === 8 && rov.arches === 6 && rov.archesLit === 6 && rov.loop && rov.rearmed && rov.moved > 20 && rov.hMin > 0.5 && rov.hMax < 15 && rov.rocketStayed && rov.rock && rov.beacon && rov.ret && rov.back && rov.launched && rov.reset, JSON.stringify(rov));
+      rov.hiddenOnPad && rov.landed && rov.shownOnMoon && rov.deployed && rov.rocks === 8 && rov.arches === 6 && rov.archesLit === 6 && rov.loop && rov.rearmed && rov.moved > 20 && rov.steered && rov.hMin > 0.5 && rov.hMax < 15 && rov.rocketStayed && rov.rock && rov.beacon && rov.ret && rov.back && rov.launched && rov.reset, JSON.stringify(rov));
 
     // skip-to-landing: in deep space it jumps to a slow descent above the nearest planet and lands; low down, above the home pad
     const skip = await page.evaluate(() => {
