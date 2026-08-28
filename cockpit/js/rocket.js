@@ -25,7 +25,10 @@ const rk = {                     // rocket-specific state (plane fields stay in 
   igniteT: 0,                    // engine spool before liftoff
   onBody: null,                  // null (Earth pad / ground), or a BODIES entry when landed on it
   landedT: 0,
-  reentry: 0,
+  reentry: 0,                    // plasma glow 0..1
+  chute: 0, chuteT: 0,           // 0 none, 1 drogue, 2 mains; seconds since the last pop
+  satOut: false,                 // the satellite has been deployed on this flight
+  refitT: 0,                     // seconds until the pad rolls out a new stack after an Earth landing
 };
 const BODIES = [
   { name: "moon", x: RK.moon.x, y: RK.moon.y, z: RK.moon.z, r: RK.moon.r, g: RK.moon.g, color: 0xb9bcc4 },
@@ -124,7 +127,19 @@ function buildRocketStack(g, mats) {
   flame.position.z = 9.2;
   g.add(flame);
   g.userData.flame = flame;
-  g.userData.rocket = { booster, stage2, capsule, fairing, flame };
+  // plasma sheath for reentry: a bright shock layer on the heat shield (the capsule's
+  // base, +z) and a wake streaming past the nose. Additive, faded by rk.reentry.
+  const plasma = new THREE.Group();
+  const plasmaMats = [];
+  [[-3.3, 1.5, 1.0, 0xffd27a], [-4.6, 1.9, 0.55, 0xff8a2a], [-6.4, 2.4, 0.32, 0xff6a1a], [-8.8, 3.0, 0.18, 0xff4a10]].forEach(([z, r, a, c]) => {
+    const m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    m.userData.peak = a; plasmaMats.push(m);
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), m);
+    s.position.z = z; s.scale.set(1, 1, 1.5); plasma.add(s);
+  });
+  plasma.visible = false;
+  g.add(plasma);
+  g.userData.rocket = { booster, stage2, capsule, fairing, flame, plasma, plasmaMats };
   g.userData.halfLen = 7.6;
   rocketApplyStages(g);
 }
@@ -144,6 +159,10 @@ function rocketApplyStages(g) {
 function rocketRestock() {
   rk.stage = 0;
   rk.fuel = [RK.fuel[0], RK.fuel[1], Infinity];
+  rk.satOut = false;             // a new satellite rides up with every new stack
+  rk.refitT = 0;
+  rk.reentry = 0;
+  chuteReset();
   if (vehicleModel) rocketApplyStages(vehicleModel);
 }
 // Distance from the reference point down to the base of the lowest attached
@@ -260,6 +279,8 @@ function rocketNearestBody() {
 function updateRocket(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
   const halfLen = rocketHalfLen();
+  updateSatellites(dt);
+  updateChuteVisual(dt);
 
   // buttons: throttle always (hold to burn); the rocket has no missiles/speed steps/gear
   el.throttleBtn.classList.remove("hidden");
@@ -269,6 +290,8 @@ function updateRocket(dt) {
   el.skipBtn.classList.toggle("hidden", !rocketCanSkip());
   el.stageBtn.classList.toggle("hidden", !rocketCanDrop());
   if (el.stageBtn.dataset.stage !== String(rk.stage)) el.stageBtn.dataset.stage = String(rk.stage);
+  el.satBtn.classList.toggle("hidden", !rocketCanDeploySat());
+  el.chuteBtn.classList.toggle("hidden", !rocketCanChute());
 
   if (grounded) {
     // sitting on the pad (or on a body): upright, still, restocked
@@ -289,6 +312,15 @@ function updateRocket(dt) {
     rumble = 0;
     setRolling(0);
     setEngine(0);   // never the propeller drone
+    setReentryRoar(0);
+    rk.reentry = Math.max(0, rk.reentry - dt * 2);
+    reentryOverlay();
+    // after an Earth landing the capsule (or whatever came down) sits where it
+    // touched for a few seconds, then the pad rolls out a fresh stack
+    if (rk.refitT > 0 && !rk.onBody && !state.throttleHeld) {
+      rk.refitT -= dt;
+      if (rk.refitT <= 0) rocketRefit();
+    }
     if (state.throttleHeld) {
       rk.igniteT += dt;
       rumble = 0.03 + rk.igniteT * 0.02;
@@ -302,6 +334,8 @@ function updateRocket(dt) {
         if (!rk.onBody) apronVehiclesTo(state.originIdx, false);
         rk.launchedFromBody = !!rk.onBody;
         rk.onBody = null;
+        rk.refitT = 0;
+        chuteReset();
         liftoffRoar();
         rumble = 0.05;
       }
@@ -336,8 +370,10 @@ function updateRocket(dt) {
   rk.vz += (rkAxis.z * thrust + gz) * dt;
   rocketLandingAssist(dt, burning);
   const inAtmo = clamp(1 - state.y / RK.gravityFade, 0, 1);
-  const dragK = RK.drag * inAtmo;
+  const capsuleAtmo = rk.stage === 3 && inAtmo > 0 && rocketNearestBody().dist > 600;
+  let dragK = RK.drag * inAtmo + (capsuleAtmo ? RK.capsuleDrag * inAtmo : 0);
   rk.vx *= 1 - Math.min(1, dragK * dt); rk.vy *= 1 - Math.min(1, dragK * dt); rk.vz *= 1 - Math.min(1, dragK * dt);
+  updateReentryAndChutes(dt, capsuleAtmo, burning);
   let sp = Math.hypot(rk.vx, rk.vy, rk.vz);
   if (sp > RK.maxSpeed) { const k = RK.maxSpeed / sp; rk.vx *= k; rk.vy *= k; rk.vz *= k; sp = RK.maxSpeed; }
   state.x += rk.vx * dt; state.y += rk.vy * dt; state.z += rk.vz * dt;
@@ -349,8 +385,9 @@ function updateRocket(dt) {
   setEngine(0);
   setRocketEngine(burning ? 1 : 0, state.spaceF);
   rumble = burning ? 0.02 : 0;
-  // reentry glow: fast and descending into the atmosphere
-  rk.reentry = (rk.vy < -60 && inAtmo > 0.2 && inAtmo < 0.95) ? Math.min(1, rk.reentry + dt) : Math.max(0, rk.reentry - dt);
+  if (rk.reentry > 0.02) rumble = Math.max(rumble, 0.03 + rk.reentry * 0.09);
+  setReentryRoar(rk.reentry);
+  reentryOverlay();
 
   resolveSolidWalls();
   if (state.exploding) return;
@@ -377,7 +414,7 @@ function updateRocket(dt) {
   });
   rk.groundHere = ground;
   if (state.y - halfLen <= ground && rk.vy <= 0) {
-    const upright = state.pitch > 40 || sp <= RK.landSpeed * 0.3;
+    const upright = state.pitch > 40 || sp <= RK.landSpeed * 0.3 || rk.chute > 0;
     if (sp <= RK.landSpeed && upright) rocketLandOn(null);
     else rocketCrash(state.x, ground + 70, state.z);
   }
@@ -388,6 +425,7 @@ function updateRocket(dt) {
 // coasting in always ends in a landing. Burning hard straight into a surface
 // is the only way to arrive fast.
 function rocketLandingAssist(dt, burning) {
+  if (rk.chute > 0 || rk.reentry > 0.3) return;   // the parachutes are the capsule's landing assist
   const { body, dist } = rocketNearestBody();
   let nx = 0, ny = 1, nz = 0, gap = Infinity;
   if (body && dist < body.r * (RK.assistRange - 1)) {
@@ -419,7 +457,7 @@ function rocketLandingAssist(dt, burning) {
 // descent just above the nearest planet (in space) or the home pad (lower
 // down), and let the landing assist bring it in.
 function rocketSkipTarget() {
-  if (state.y > TUNE.spaceAltitude + TUNE.spaceBlendBand && !rk.launchedFromBody) return rocketNearestBody().body;
+  if (state.y > TUNE.spaceAltitude + TUNE.spaceBlendBand && !rk.launchedFromBody && !(rk.stage === 3 && rk.satOut)) return rocketNearestBody().body;
   return null;   // Earth: the pad he took off from (also after a planet visit -- the way home)
 }
 function rocketCanSkip() {
@@ -437,6 +475,14 @@ function rocketSkipToLanding() {
     rk.vx = -rkTmp.x * 20; rk.vy = -rkTmp.y * 20; rk.vz = -rkTmp.z * 20;
     state.pitch = Math.asin(clamp(rkTmp.y, -1, 1)) / DEG;
     state.heading = Math.atan2(-rkTmp.x, -rkTmp.z);
+  } else if (rk.stage === 3 && state.y > TUNE.spaceAltitude) {
+    // deorbit: the capsule drops out of space above home, heat shield first, and rides
+    // the plasma and the parachutes down (nothing to do but watch, or steer a little)
+    const ap = AIRPORTS[state.originIdx];
+    state.x = 0; state.z = ap.cz; state.y = Math.max(state.y, RK.gravityFade + 500);
+    rk.vx = 0; rk.vy = -150; rk.vz = 0;
+    state.pitch = 90; state.heading = state.dirIdx === 0 ? 0 : Math.PI;
+    flags.deorbits = (flags.deorbits || 0) + 1;
   } else {
     const ap = AIRPORTS[state.originIdx];
     state.x = 0; state.z = ap.cz; state.y = ap.elev + 200;
@@ -458,18 +504,28 @@ function rocketLandOn(body) {
   state.phase = "TAXI";
   state.throttleHeld = false;
   releaseThrottle();
-  // Only the home pad rolls out a new rocket. On the Moon or Mars you stay
-  // whatever you arrived as -- a capsule lands as a capsule and lifts off again
-  // on its thrusters (its thrust beats both bodies' gravity).
-  if (!body) rocketRestock();
+  // Only the home pad rolls out a new rocket, and only after a few seconds sitting
+  // where you came down. On the Moon or Mars you stay whatever you arrived as -- a
+  // capsule lands as a capsule and lifts off again on its thrusters.
   if (body) {
     flags[body.name + "Landings"] = (flags[body.name + "Landings"] || 0) + 1;
     confettiBurst(); cheer();
     for (let i = 0; i < 6; i++) fireworkSound(i * 0.5);
     rk.showT = 4;
   } else {
-    chirp(); touchdownFx();
+    rk.refitT = RK.refitDelay;
     flags.rocketLandings = (flags.rocketLandings || 0) + 1;
+    if (rk.chute > 0) {
+      // the float-down finished: the whole show
+      flags.chuteLandings = (flags.chuteLandings || 0) + 1;
+      const overWater = terrainEff(state.x, state.z) < TUNE.waterLevel - 0.2;
+      if (overWater) { splash(); if (typeof splashAt === "function") splashAt(state.x, TUNE.waterLevel, state.z, true); } else touchdownFx();
+      confettiBurst(); cheer();
+      for (let i = 0; i < 4; i++) fireworkSound(0.4 + i * 0.5);
+      chuteCollapse();
+    } else {
+      chirp(); touchdownFx();
+    }
   }
 }
 function rocketCrash(sx, sy, sz) {
@@ -480,6 +536,7 @@ function rocketCrash(sx, sy, sz) {
   state.exploding = true;
   state.explodeTimer = TUNE.reassembleDelay;
   safePos.x = sx; safePos.y = sy; safePos.z = sz;
+  rk.reentry = 0; reentryOverlay(); setReentryRoar(0); chuteReset();
   triggerExplosion(state.x, state.y, state.z, 1);
   shatterAround(state.x, state.y, state.z);
 }
@@ -489,6 +546,13 @@ function rocketAfterReassemble() {
   state.pitch = 90; state.bank = 0;
   rk.onBody = null;
   rocketRestock();
+}
+// The pad rolls out a fresh stack (same as picking the rocket again), with a chime.
+function rocketRefit() {
+  rk.refitT = 0;
+  spawnForTakeoff(state.originIdx, state.dirIdx);
+  chime(); stageSep();
+  flags.refits = (flags.refits || 0) + 1;
 }
 // Camera for the rocket: cockpit looks along the body axis; chase sits behind and a little below.
 const camUp = new THREE.Vector3(0, 1, 0);
@@ -534,4 +598,179 @@ function rocketCamera(dt) {
   camera.position.x += (Math.random() - 0.5) * 9 * sh;
   camera.position.y += (Math.random() - 0.5) * 7 * sh;
   camera.position.z += (Math.random() - 0.5) * 9 * sh;
+}
+
+
+// ===========================================================================
+// The way home, Dragon style: deploy the satellite up in space, deorbit, glow
+// through the air heat-shield first, drogue, mains, float down, refit.
+// ===========================================================================
+
+// ---- the satellite. Rides up inside the capsule; pops out ahead of the nose,
+// unfolds its panels and drifts off blinking. A new one comes with every stack.
+const satellites = [];
+function buildSatellite() {
+  const g = new THREE.Group();
+  const gold = new THREE.MeshLambertMaterial({ color: 0xd4a72c, emissive: 0x3a2a08 });
+  const blue = new THREE.MeshLambertMaterial({ color: 0x2b4fb0, emissive: 0x0d1a44, side: THREE.DoubleSide });
+  const grey = new THREE.MeshLambertMaterial({ color: 0xb8bec8 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.6), gold); g.add(body);
+  const dish = new THREE.Mesh(new THREE.ConeGeometry(0.7, 0.35, 12, 1, true), grey);
+  dish.position.set(0, 0.85, 0); dish.rotation.x = Math.PI; g.add(dish);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 6), grey); mast.position.set(0, -1.1, 0); g.add(mast);
+  const panels = [];
+  for (const s of [-1, 1]) {
+    const pivot = new THREE.Group(); pivot.position.x = s * 0.6;
+    const p = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.06, 1.2), blue); p.position.x = s * 1.7;
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.1, 0.08), grey); rib.position.x = s * 1.7;
+    pivot.add(p); pivot.add(rib); pivot.scale.x = 0.03; g.add(pivot); panels.push(pivot);
+  }
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3b30 }));
+  lamp.position.set(0, 0.7, 0.85); g.add(lamp);
+  g.userData = { panels, lamp };
+  return g;
+}
+function rocketCanDeploySat() {
+  return state.phase === "AIRBORNE" && !state.exploding && rk.stage === 3 && !rk.satOut && !rk.onBody && rk.chute === 0 &&
+    (state.spaceF > 0.8 || rocketAlt() > RK.satAlt);
+}
+function deploySatellite() {
+  if (!rocketCanDeploySat()) return false;
+  const g = buildSatellite();
+  const vs = state.vp.size || 1;
+  g.scale.setScalar(vs);
+  g.position.set(state.x + rkAxis.x * 7 * vs, state.y + rkAxis.y * 7 * vs, state.z + rkAxis.z * 7 * vs);
+  scene.add(g);
+  // push out along the nose with a little sideways nudge so it clears the window
+  const side = Math.cos(state.heading), sidez = -Math.sin(state.heading);
+  satellites.push({
+    mesh: g, t: 0,
+    x: g.position.x, y: g.position.y, z: g.position.z,
+    vx: rk.vx + rkAxis.x * 3 + side * 0.8, vy: rk.vy + rkAxis.y * 3, vz: rk.vz + rkAxis.z * 3 + sidez * 0.8,
+    rx: 0.15, ry: 0.25,
+  });
+  while (satellites.length > 3) { const old = satellites.shift(); scene.remove(old.mesh); }
+  rk.satOut = true;
+  stageSep(); satBeep();
+  flags.satDeploys = (flags.satDeploys || 0) + 1;
+  return true;
+}
+function updateSatellites(dt) {
+  for (const s of satellites) {
+    s.t += dt;
+    const [gx, gy, gz] = rocketGravityAt(s.x, s.y, s.z);
+    s.vx += gx * dt * 0.2; s.vy += gy * dt * 0.2; s.vz += gz * dt * 0.2;   // a whisper of gravity: it hangs up there
+    s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
+    s.mesh.position.set(s.x, s.y, s.z);
+    s.mesh.rotation.x += s.rx * dt; s.mesh.rotation.y += s.ry * dt;
+    const unfold = clamp((s.t - 0.8) / 2.5, 0, 1);
+    const k = 0.03 + 0.97 * (1 - Math.pow(1 - unfold, 3));
+    for (const p of s.mesh.userData.panels) p.scale.x = k;
+    s.mesh.userData.lamp.visible = (s.t % 1.2) < 0.15;
+  }
+}
+
+// ---- the parachutes. Live in the scene (not on the model) so the cockpit view,
+// looking up along the nose, sees the canopies overhead.
+let chuteGroup = null, chuteParts = null, chuteCollapseT = 0;
+function buildCanopy(r, red) {
+  // eight gores, white and red in turn; lit from inside too (he looks up at them from the window)
+  const g = new THREE.Group();
+  const white = new THREE.MeshLambertMaterial({ color: 0xf4f6f8, emissive: 0x8e9297, side: THREE.DoubleSide });
+  const stripe = new THREE.MeshLambertMaterial({ color: red, emissive: 0x7a2420, side: THREE.DoubleSide });
+  for (let k = 0; k < 8; k++) g.add(new THREE.Mesh(new THREE.SphereGeometry(r, 4, 8, k * Math.PI / 4, Math.PI / 4, 0, Math.PI / 2), k % 2 ? stripe : white));
+  return g;
+}
+function buildChutes() {
+  chuteGroup = new THREE.Group();
+  const vs = state.vp.size || 1;
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xe8ecf2 });
+  const mk = (r, h, ox, oz, red) => {
+    const c = new THREE.Group();
+    const canopy = buildCanopy(r, red); canopy.position.set(ox, h, oz); c.add(canopy);
+    const pts = [];
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; pts.push(new THREE.Vector3(0, 0, 0), new THREE.Vector3(ox + Math.cos(a) * r * 0.95, h, oz + Math.sin(a) * r * 0.95)); }
+    c.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), lineMat));
+    c.scale.setScalar(vs);
+    return c;
+  };
+  const drogue = mk(1.5, 9, 0, 0, 0xe0483e);
+  const mains = new THREE.Group();
+  [[0, -4.5], [3.9, 2.2], [-3.9, 2.2]].forEach(([ox, oz]) => mains.add(mk(4.4, 17, ox, oz, 0xe0483e)));
+  chuteGroup.add(drogue); chuteGroup.add(mains);
+  chuteGroup.visible = false;
+  scene.add(chuteGroup);
+  chuteParts = { drogue, mains };
+}
+function rocketCanChute() {
+  if (state.phase !== "AIRBORNE" || state.exploding || rk.stage !== 3 || rk.onBody || rk.chute >= 2) return false;
+  if (state.y > RK.gravityFade || rk.vy > -1 || rocketNearestBody().dist < 600) return false;
+  return rocketAlt() < RK.chuteAlt[rk.chute];
+}
+function deployChute() {
+  if (!rocketCanChute()) return false;
+  if (!chuteGroup) buildChutes();
+  rk.chute++; rk.chuteT = 0; chuteCollapseT = 0;
+  chutePop(rk.chute === 2);
+  flags.chuteDeploys = (flags.chuteDeploys || 0) + 1;
+  return true;
+}
+function chuteReset() { rk.chute = 0; rk.chuteT = 0; chuteCollapseT = 0; if (chuteGroup) chuteGroup.visible = false; }
+function chuteCollapse() { chuteCollapseT = 1.2; }
+function updateReentryAndChutes(dt, capsuleAtmo, burning) {
+  // plasma: the bare capsule, fast, down in the air
+  const sp = Math.hypot(rk.vx, rk.vy, rk.vz);
+  const plasma = capsuleAtmo && !burning && rk.vy < 0 && state.y < RK.reentryAlt && sp > RK.reentrySpeed;
+  const want = plasma ? clamp((sp - RK.reentrySpeed) / 120, 0.35, 1) : 0;
+  rk.reentry += (want - rk.reentry) * Math.min(1, (plasma ? 2.5 : 1.2) * dt);
+  if (rk.reentry < 0.02 && !plasma) rk.reentry = 0;
+  const glowing = rk.reentry > 0.3;
+  if (glowing && !rk.glowing) flags.reentries = (flags.reentries || 0) + 1;
+  rk.glowing = glowing;
+  // heat shield first (base down): the capsule trims itself upright while glowing or under a chute
+  if (plasma || rk.chute > 0) {
+    const steering = state.touching && Math.abs(state.ctrlPitch) > 0.15 && rk.chute === 0;
+    if (!steering) state.pitch += (90 - state.pitch) * Math.min(1, 2.5 * dt);
+  }
+  // chutes: pop by themselves low down, ease the fall to the sink rate, a little steering
+  if (rocketCanChute() && rocketAlt() < RK.chuteAutoAlt[rk.chute]) deployChute();
+  if (rk.chute > 0) {
+    rk.chuteT += dt;
+    const k = Math.min(1, (rk.chute === 2 ? 2.2 : 1.1) * dt);
+    const hr = state.heading, fx = -Math.sin(hr), fz = -Math.cos(hr), rx = Math.cos(hr), rz = -Math.sin(hr);
+    const drift = state.touching ? RK.chuteDrift : 0;
+    const tvx = (fx * state.ctrlPitch + rx * state.ctrlBank) * drift, tvz = (fz * state.ctrlPitch + rz * state.ctrlBank) * drift;
+    rk.vx += (tvx - rk.vx) * k; rk.vz += (tvz - rk.vz) * k;
+    rk.vy += (-RK.chuteSink[rk.chute - 1] - rk.vy) * k;
+    state.bank = Math.sin(rk.chuteT * 1.3) * 5;
+  }
+}
+function updateChuteVisual(dt) {
+  if (!chuteGroup) return;
+  const show = rk.chute > 0 && !state.exploding;
+  chuteGroup.visible = show;
+  if (!show) return;
+  chuteGroup.position.set(state.x, state.y, state.z);
+  chuteGroup.rotation.set(0, state.heading, state.bank * DEG * 0.5);
+  const pop = Math.min(1, rk.chuteT / 0.9);
+  let s = clamp(pop < 1 ? 0.15 + 0.85 * (1 - Math.pow(1 - pop, 3)) * (1 + 0.12 * Math.sin(pop * Math.PI)) : 1, 0.05, 1.12);
+  let sy = s;
+  if (chuteCollapseT > 0) { chuteCollapseT -= dt; sy = Math.max(0.02, chuteCollapseT / 1.2); if (chuteCollapseT <= 0) { chuteReset(); return; } }
+  chuteParts.drogue.visible = rk.chute === 1;
+  chuteParts.mains.visible = rk.chute === 2;
+  const vs = state.vp.size || 1;
+  (rk.chute === 1 ? chuteParts.drogue : chuteParts.mains).scale.set(vs * s, vs * sy, vs * s);
+}
+// The glow the pilot sees: the plasma sheath on the model in the chase view, and a
+// hot orange vignette over the window in both views.
+let reentryShown = -1;
+function reentryOverlay() {
+  const r = rk.reentry;
+  const o = r < 0.02 ? 0 : (state.viewChase ? 0.45 : 0.95) * r;
+  if (Math.abs(o - reentryShown) > 0.01) { reentryShown = o; el.reentryGlow.style.opacity = o.toFixed(2); }
+  if (vehicleModel && vehicleModel.userData.rocket && vehicleModel.userData.rocket.plasma) {
+    const p = vehicleModel.userData.rocket;
+    p.plasma.visible = r > 0.02;
+    if (p.plasma.visible) { const flick = 0.85 + Math.random() * 0.3; for (const m of p.plasmaMats) m.opacity = m.userData.peak * r * flick; }
+  }
 }

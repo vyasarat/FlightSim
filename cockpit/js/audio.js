@@ -312,6 +312,43 @@ function setRocketEngine(level, inSpace) {
   rocketNodes.crackle.gain.setTargetAtTime(n > 0.85 ? (n - 0.85) * 1.2 * air : 0, t, 0.1);
   rocketNodes.subG.gain.setTargetAtTime(n * 0.5 * air, t, 0.12);
 }
+let reentryNodes = null;
+function setReentryRoar(level) {
+  if (!audioCtx || audioCtx.state !== "running") return;
+  if (!reentryNodes) {
+    if (level <= 0) return;
+    const len = audioCtx.sampleRate * 2;
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const bp = audioCtx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 520; bp.Q.value = 0.6;
+    const g = audioCtx.createGain(); g.gain.value = 0;
+    const lfo = audioCtx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 9;   // the buffeting
+    const lfoG = audioCtx.createGain(); lfoG.gain.value = 0;
+    lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
+    src.connect(bp); bp.connect(g); g.connect(masterGain); src.start();
+    reentryNodes = { g, bp, lfoG, last: -1 };
+  }
+  const n = clamp(level, 0, 1);
+  if (Math.abs(n - reentryNodes.last) < 0.004) return;
+  reentryNodes.last = n;
+  const t = audioCtx.currentTime;
+  reentryNodes.g.gain.setTargetAtTime(n * 0.5, t, 0.15);
+  reentryNodes.lfoG.gain.setTargetAtTime(n * 0.18, t, 0.15);
+  reentryNodes.bp.frequency.setTargetAtTime(380 + n * 500, t, 0.2);
+}
+function chutePop(mains) {
+  noiseBurst(0.22, mains ? 600 : 900, mains ? 0.5 : 0.35, 0);
+  synthBlip("sine", mains ? 260 : 340, mains ? 150 : 200, 0.35, 0.22, 0.02);
+  rustle();
+  if (mains) { noiseBurst(0.5, 1400, 0.18, 0.25); synthBlip("triangle", 880, 880, 0.18, 0.18, 0.5); synthBlip("triangle", 1175, 1175, 0.25, 0.18, 0.68); }
+}
+function satBeep() {
+  [1400, 1800, 2200].forEach((f, i) => synthBlip("sine", f, f, 0.09, 0.2, 0.1 + i * 0.16));
+  noiseBurst(0.6, 2400, 0.1, 0.05);
+  synthBlip("triangle", 660, 660, 0.3, 0.16, 0.7);
+}
 function stageSep() {
   noiseBurst(0.18, 500, 0.4, 0);
   synthBlip("square", 220, 120, 0.2, 0.2, 0);
