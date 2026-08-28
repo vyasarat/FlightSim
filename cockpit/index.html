@@ -379,9 +379,9 @@
     background: #f6f3ea; padding: 14px 14px 46px; border-radius: 6px;
     box-shadow: 0 24px 60px rgba(0,0,0,.5); transform: rotate(-3deg);
     animation: photoIn .5s cubic-bezier(.2,1.4,.4,1);
-    pointer-events: auto;   /* long-press the picture to save it (iOS) */
+    pointer-events: none;   /* the stick must keep working underneath */
   }
-  #photo img { display: block; width: min(62vw, 720px); height: auto; border-radius: 2px; -webkit-touch-callout: default; user-select: none; }
+  #photo img { display: block; width: min(62vw, 720px); height: auto; border-radius: 2px; user-select: none; }
   @keyframes photoIn { 0% { transform: scale(.3) rotate(12deg); opacity: 0; } 100% { transform: scale(1) rotate(-3deg); opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { #photo .frame { animation: none; } }
   #skyBtn svg { display: none; }

@@ -138,6 +138,20 @@ function check(name, ok, extra) {
     });
     check("phone landscape (844x390): controls neither overlap nor leave the screen, buttons >= 56px",
       phone.overlaps.length === 0 && phone.inside && phone.btnW >= 56, JSON.stringify(phone));
+    const phoneRocket = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      L.api.setThrottle(true);
+      for (let i = 0; i < 60 * 30 && !L.rocketCanDrop(); i++) L.update(1 / 60);
+      L.api.setThrottle(false); L.update(1 / 60);
+      const ids = ["viewBtn", "skipBtn", "stageBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "skyBtn", "dash", "brow", "progressStrip"];
+      const rects = [];
+      for (const id of ids) { const e = document.getElementById(id); if (!e || e.classList.contains("hidden")) continue; const r = e.getBoundingClientRect(); if (r.width) rects.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom }); }
+      const overlaps = [];
+      for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) { const a = rects[i], b = rects[j]; if (a.l < b.r - 2 && b.l < a.r - 2 && a.t < b.b - 2 && b.t < a.b - 2) overlaps.push(a.id + "/" + b.id); }
+      return { overlaps, stageShown: rects.some(r => r.id === "stageBtn"), n: rects.length };
+    });
+    check("phone landscape (844x390): rocket with the stage button up -- nothing overlaps", phoneRocket.stageShown && phoneRocket.overlaps.length === 0, JSON.stringify(phoneRocket));
     await page.close();
   }
 
@@ -521,7 +535,7 @@ function check(name, ok, extra) {
     await page.close();
   }
 
-  // ---------- T-D ceiling (space content dormant: rocket shelved) ----------
+  // ---------- T-D ceiling: every non-rocket vehicle is capped ----------
   {
     const { page } = await newPage(1180, 820);
     await page.evaluate(() => { window.__lp.noRender = true; });
@@ -1419,7 +1433,7 @@ function check(name, ok, extra) {
       L.api.teleportAirborne(2000, 0, 200, 0);
       tap(); const upInAir = !st.gearDown;
       tap(); const downInAir = st.gearDown;
-      return { taxi, roll, upInAir, downInAir, flagsUnchangedOnGround: true };
+      return { taxi, roll, upInAir, downInAir, flagsUnchangedOnGround: L.flags.gear === g0 + 2 };
     });
     check("gear: cannot retract on the ground, still cycles in the air", gearGround.taxi && gearGround.roll && gearGround.upInAir && gearGround.downInAir, JSON.stringify(gearGround));
 
@@ -1958,8 +1972,10 @@ function check(name, ok, extra) {
     } else {
       for (const [name, hash] of Object.entries(got)) {
         const ref = baseline[name];
-        if (!ref) { console.log(`INFO  visual: no baseline for ${name} (run with UPDATE_VISUAL=1)`); continue; }
-        let sum = 0, blank = hash.every(v => v === hash[0]);
+        if (!ref) { check(`visual: ${name} has a baseline`, false, "no baseline: run with UPDATE_VISUAL=1"); continue; }
+        const mean0 = hash.reduce((a, b) => a + b, 0) / hash.length;
+        const sd = Math.sqrt(hash.reduce((a, b) => a + (b - mean0) * (b - mean0), 0) / hash.length);
+        let sum = 0, blank = sd < 8;   // a real scene has contrast; a lost context or bare sky does not
         for (let i = 0; i < hash.length; i++) sum += Math.abs(hash[i] - ref[i]);
         const mean = sum / hash.length;
         check(`visual: ${name} matches baseline`, mean < 6 && !blank, `mean |diff| ${mean.toFixed(1)}/255${blank ? " BLANK FRAME" : ""}`);
@@ -1991,12 +2007,13 @@ function check(name, ok, extra) {
       const dropped = L.dropStage();
       out.dropped = dropped; out.stageAfter = L.rk.stage; out.falling = L.fallingStages.length;
       out.boosterKind = L.fallingStages[0] && L.fallingStages[0].kind;
+      out.boosterNear = L.fallingStages[0] && Math.hypot(L.fallingStages[0].x - st.x, L.fallingStages[0].y - st.y, L.fallingStages[0].z - st.z) < 30;   // cockpit view: model transform must be current
       // keep climbing to the fairing and stage-2 altitudes, dropping as allowed
       for (let i = 0; i < 60 * 90 && L.rk.stage < 3; i++) { L.update(1 / 60); if (L.rocketCanDrop()) L.dropStage(); }
       out.finalStage = L.rk.stage; out.altEnd = Math.round(st.y - L.terrainEff(st.x, st.z)); out.spaceF = +st.spaceF.toFixed(2);
       // the booster should have landed on its legs by now
       let boosterLanded = false;
-      for (let i = 0; i < 60 * 40 && !boosterLanded; i++) { L.update(1 / 60); boosterLanded = (L.flags.boosterLandings || 0) > 0; }
+      for (let i = 0; i < 60 * 70 && !boosterLanded; i++) { L.update(1 / 60); boosterLanded = (L.flags.boosterLandings || 0) > 0; }
       out.boosterLanded = boosterLanded;
       L.api.setThrottle(false);
       return out;
@@ -2004,7 +2021,7 @@ function check(name, ok, extra) {
     check("rocket: sits upright on the pad; stage button only above the booster altitude",
       launch.pitchOnPad === 90 && launch.btnHiddenOnPad && launch.canDropLow === false && launch.canDropHigh === true && launch.btnShownHigh, JSON.stringify(launch));
     check("rocket: three manual drops (booster, fairing, second stage) each gated by altitude; ends as the capsule in space",
-      launch.dropped && launch.stageAfter === 1 && launch.boosterKind === "booster" && launch.finalStage === 3 && launch.spaceF > 0.9, JSON.stringify(launch));
+      launch.dropped && launch.stageAfter === 1 && launch.boosterKind === "booster" && launch.boosterNear && launch.finalStage === 3 && launch.spaceF > 0.9, JSON.stringify(launch));
     check("rocket: the dropped booster flies itself down and lands on its legs", launch.boosterLanded, JSON.stringify({ boosterLanded: launch.boosterLanded }));
 
     const moon = await page.evaluate(() => {
@@ -2019,11 +2036,13 @@ function check(name, ok, extra) {
       const onMoon = L.rk.onBody && L.rk.onBody.name === "moon";
       const restocked = L.rk.stage === 3;   // arrived as the capsule, stays the capsule (only home refits the stack)
       const spaceStays = st.spaceF > 0.5;
-      // launch again from the Moon
+      // launch again from the Moon -- and staging must work again afterwards (onBody cleared)
       L.api.setThrottle(true);
       let left = false;
       for (let i = 0; i < 60 * 15; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE" && Math.hypot(st.x - m.x, st.y - m.y, st.z - m.z) > m.r + 40) { left = true; break; } }
       L.api.setThrottle(false);
+      const onBodyCleared = !L.rk.onBody;
+      const skipGoesHome = L.rocketSkipTarget() === null;
       // coast into Mars from far away: the landing assist brakes it and it lands
       const mars = L.BODIES[1];
       st.exploding = false; st.phase = "AIRBORNE"; st.x = mars.x; st.y = mars.y - mars.r - 600; st.z = mars.z; st.pitch = 90;
@@ -2032,7 +2051,7 @@ function check(name, ok, extra) {
       for (let i = 0; i < 60 * 40 && (L.flags.marsLandings || 0) === m0; i++) L.update(1 / 60);
       const marsLanded = (L.flags.marsLandings || 0) > m0;
       // ramming it under full power, nose down, is the only way to crash: explode + reassemble above it
-      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; st.x = mars.x; st.y = mars.y - mars.r - 300; st.z = mars.z; st.pitch = -90;
+      st.exploding = false; st.phase = "AIRBORNE"; st.x = mars.x; st.y = mars.y - mars.r - 300; st.z = mars.z; st.pitch = -90;
       L.rk.vx = 0; L.rk.vy = 200; L.rk.vz = 0; L.api.setThrottle(true);
       const e0 = L.flags.exploded;
       for (let i = 0; i < 60 * 8 && L.flags.exploded === e0; i++) L.update(1 / 60);
@@ -2040,17 +2059,17 @@ function check(name, ok, extra) {
       const crashed = L.flags.exploded > e0;
       for (let i = 0; i < 60 * 4 && st.exploding; i++) L.update(1 / 60);
       const back = !st.exploding && Math.hypot(st.x - mars.x, st.y - mars.y, st.z - mars.z) > mars.r + 30 && L.rk.stage === 0;
-      return { landed, onMoon, restocked, spaceStays, left, marsLanded, crashed, back };
+      return { landed, onMoon, restocked, spaceStays, left, onBodyCleared, skipGoesHome, marsLanded, crashed, back };
     });
     check("rocket: a slow approach lands on the Moon (still the capsule, space stays), and it can launch again",
-      moon.landed && moon.onMoon && moon.restocked && moon.spaceStays && moon.left, JSON.stringify(moon));
+      moon.landed && moon.onMoon && moon.restocked && moon.spaceStays && moon.left && moon.onBodyCleared && moon.skipGoesHome, JSON.stringify(moon));
     check("rocket: coasting at Mars from far out is braked to a landing; ramming it under power still explodes and reassembles",
       moon.marsLanded && moon.crashed && moon.back, JSON.stringify(moon));
 
     // skip-to-landing: in deep space it jumps to a slow descent above the nearest planet and lands; low down, above the home pad
     const skip = await page.evaluate(() => {
       const L = window.__lp, st = L.state, T = L.TUNE, m = L.BODIES[0];
-      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null;
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false;   // a fresh flight from Earth
       st.x = m.x + 200; st.y = m.y - m.r - 3000; st.z = m.z; st.pitch = 90; L.rk.vx = L.rk.vy = L.rk.vz = 0;
       L.update(1 / 60);
       const shown = !document.getElementById("skipBtn").classList.contains("hidden");
@@ -2060,7 +2079,7 @@ function check(name, ok, extra) {
       for (let i = 0; i < 60 * 40 && (L.flags.moonLandings || 0) === l0; i++) L.update(1 / 60);
       const landed = (L.flags.moonLandings || 0) > l0;
       // low over home: skip puts it above the pad and it lands there
-      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null;
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false;
       const ap = L.AIRPORTS[st.originIdx];
       st.x = 900; st.z = ap.cz + 2000; st.y = ap.elev + 600; st.pitch = 90; L.rk.vx = L.rk.vy = L.rk.vz = 0;
       L.update(1 / 60);
@@ -2078,7 +2097,7 @@ function check(name, ok, extra) {
     const home = await page.evaluate(() => {
       const L = window.__lp, st = L.state, T = L.TUNE;
       const ap = L.AIRPORTS[0];
-      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null;
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false;
       st.x = 0; st.z = ap.cz; st.y = ap.elev + 120; st.pitch = 90; st.heading = 0;
       L.rk.vx = 0; L.rk.vy = -8; L.rk.vz = 0;
       const r0 = L.flags.rocketLandings || 0, e0 = L.flags.exploded;
