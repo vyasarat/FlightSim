@@ -137,6 +137,7 @@ function roverReturn() {
 function toggleRover() { return rover.active ? roverReturn() : roverDeploy(); }
 function roverReset() {
   rover.active = false; rover.returning = false;
+  if (typeof setTone === "function") setTone("rover", "sawtooth", 60, 0);
   if (rover.mesh) rover.mesh.visible = false;
   for (const r of rover.rocks) scene.remove(r.mesh);
   rover.rocks = [];
@@ -174,6 +175,7 @@ function updateRover(dt) {
     rvTmp.addScaledVector(rover.n, -rvTmp.dot(rover.n)).normalize();
     rvTmp2.copy(rover.f).cross(rvTmp);
     turn = -clamp(rvTmp2.dot(rover.n) * 3, -1, 1);
+    if (Math.abs(turn) < 0.05 && rover.f.dot(rvTmp) < 0) turn = 1;   // exactly tail-on: pick a side
     accel = rover.f.dot(rvTmp) > 0.2 ? 0.8 : 0.2;
     if (dist < 9) {
       rover.active = false; rover.returning = false; rover.mesh.visible = false;

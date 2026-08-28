@@ -2,31 +2,42 @@
 // The stick belongs to exactly one pointer. A second finger or a resting palm
 // is ignored entirely -- it must neither move the stick nor release it.
 let stickPointerId = null;
+const stickPointers = new Map();   // every finger on the canvas, oldest first: the next one takes over when the owner lifts
+function takeStick(id, x, y) {
+  keyStickActive = false;
+  state.touching = true;
+  stickPointerId = id;
+  state.startX = x;
+  state.startY = y;
+  state.ctrlBank = 0;
+  state.ctrlPitch = 0;
+  try { glEl.setPointerCapture(id); } catch (err) {}
+}
 glEl.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   unlockAudio();
+  stickPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   // A finger always wins: it takes the stick even if an arrow key is held.
-  if (stickPointerId === null) {
-    keyStickActive = false;
-    state.touching = true;
-    stickPointerId = e.pointerId;
-    state.startX = e.clientX;
-    state.startY = e.clientY;
-    state.ctrlBank = 0;
-    state.ctrlPitch = 0;
-    try { glEl.setPointerCapture(e.pointerId); } catch (err) {}
-  }
+  if (stickPointerId === null) takeStick(e.pointerId, e.clientX, e.clientY);
 });
 glEl.addEventListener("pointermove", (e) => {
+  const p = stickPointers.get(e.pointerId);
+  if (p) { p.x = e.clientX; p.y = e.clientY; }
   if (!state.touching || e.pointerId !== stickPointerId) return;
   const span = Math.min(window.innerWidth, window.innerHeight);
   state.ctrlBank = clamp((e.clientX - state.startX) / (span * TUNE.dragRangeX), -1, 1);
   state.ctrlPitch = clamp(-(e.clientY - state.startY) / (span * TUNE.dragRangeY), -1, 1);
 });
 const releaseDrag = (e) => {
+  if (e && e.pointerId !== undefined) stickPointers.delete(e.pointerId);
   if (e && e.pointerId !== undefined && stickPointerId !== null && e.pointerId !== stickPointerId) return;
   state.touching = false;
   stickPointerId = null;
+  if (e && e.pointerId !== undefined && stickPointers.size) {   // a resting second finger becomes the stick, from where it is
+    const [id, p] = stickPointers.entries().next().value;
+    takeStick(id, p.x, p.y);
+  }
+  if (!e || e.pointerId === undefined) stickPointers.clear();
 };
 glEl.addEventListener("pointerup", releaseDrag);
 glEl.addEventListener("pointercancel", releaseDrag);
@@ -113,6 +124,7 @@ function skipToLanding() {
 el.skipBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
+  unlockAudio();
   if (state.exploding) return;
   if (state.vp.rocket) { rocketSkipToLanding(); return; }
   restoreShattered();
@@ -200,9 +212,14 @@ document.querySelectorAll(".vehCard").forEach(card => {
   // Shelved vehicles are hidden from TUNE alone (`hidden: true`), not from markup.
   const def = TUNE.vehicles[card.dataset.v];
   card.classList.toggle("hiddenS", !!(def && def.hidden));
-  card.addEventListener("pointerdown", (e) => {
+  let downAt = null;
+  card.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); downAt = { x: e.clientX, y: e.clientY }; });
+  card.addEventListener("pointercancel", () => { downAt = null; });
+  card.addEventListener("pointerup", (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 12) { downAt = null; return; }   // that was a scroll
+    downAt = null;
     applyVehicle(card.dataset.v);
     try { localStorage.setItem("lp.vehicle", card.dataset.v); } catch (err) {}
     document.querySelectorAll(".vehCard").forEach(c2 => c2.classList.toggle("sel", c2 === card));
@@ -274,17 +291,22 @@ function showPhoto(dataUrl) {
   photoTimer = setTimeout(() => { el.photo.classList.remove("on"); el.photoImg.removeAttribute("src"); }, 3200);
 }
 el.camBtn.addEventListener("pointerdown", (e) => {
-  e.preventDefault(); e.stopPropagation(); pressFlash(el.camBtn);
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.camBtn);
   takePhoto();
 });
 
+function openPicker() {
+  if (state.phase !== "TAXI" || state.speed !== 0) return;
+  releaseThrottle();
+  keys.clear();
+  el.screenDir.classList.add("hiddenS");
+  el.screenDest.classList.add("hiddenS");
+  el.screenVehicle.classList.remove("hiddenS");
+}
 el.vehBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
-  if (state.phase !== "TAXI") return;
-  releaseThrottle();
-  el.screenDir.classList.add("hiddenS");
-  el.screenVehicle.classList.remove("hiddenS");
+  openPicker();
 });
 
 window.addEventListener("gesturestart", (e) => e.preventDefault());
@@ -294,21 +316,21 @@ window.addEventListener("gesturestart", (e) => e.preventDefault());
 const keys = new Set();
 const KEY_STICK = { ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1, KeyA: 1, KeyD: 1, KeyW: 1, KeyS: 1 };
 let keyStickActive = false;
-let keyThrottle = false;
 window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const c = e.code;
   const handled = KEY_STICK[c] || c === "Space" || c === "ShiftLeft" || c === "ShiftRight" ||
     c === "KeyG" || c === "KeyV" || c === "KeyF" || c === "Enter" || c === "Equal" || c === "NumpadAdd" ||
-    c === "Minus" || c === "NumpadSubtract" || c === "KeyL" || c === "BracketRight" || c === "BracketLeft" || c === "KeyP";
+    c === "Minus" || c === "NumpadSubtract" || c === "KeyL" || c === "BracketRight" || c === "BracketLeft" || c === "KeyP" || c === "KeyB" || c === "Escape";
   if (!handled) return;
   e.preventDefault();
   if (e.repeat || menuOpen()) return;
   keys.add(c);
   unlockAudio();
-  if (c === "Space" || c === "ShiftLeft" || c === "ShiftRight") { keyThrottle = true; el.throttleBtn.classList.add("pressed"); state.throttleHeld = true; }
+  if (c === "Space" || c === "ShiftLeft" || c === "ShiftRight") { el.throttleBtn.classList.add("pressed"); state.throttleHeld = true; }
   else if (c === "KeyG") { if (state.vp.hasGear) toggleGearDebounced(); }
   else if (c === "KeyV") toggleView();
+  else if (c === "KeyB" || c === "Escape") openPicker();
   else if (c === "KeyF" || c === "Enter") {
     if (state.vp.rocket) { if (!dropStage() && !deploySatellite() && !deployChute()) toggleRover(); }
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
@@ -321,7 +343,7 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => {
   keys.delete(e.code);
   if (e.code === "Space" || e.code === "ShiftLeft" || e.code === "ShiftRight") {
-    if (!keys.has("Space") && !keys.has("ShiftLeft") && !keys.has("ShiftRight")) { keyThrottle = false; if (throttlePointerId === null) releaseThrottle(); }
+    if (!keys.has("Space") && !keys.has("ShiftLeft") && !keys.has("ShiftRight")) { if (throttlePointerId === null) releaseThrottle(); }
   }
 });
 function applyKeyboard(dt) {
@@ -384,7 +406,7 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
   // flight is never interrupted.
   let hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (hadController && state.phase === "TAXI" && state.speed === 0 && !state.celebrated && !(rk && rk.onBody)) location.reload();
+    if (hadController && state.phase === "TAXI" && state.speed === 0 && !state.celebrated && !(rk && rk.onBody) && !(typeof recoveryActive === "function" && recoveryActive()) && !(rk && rk.refitT > 0) && !menuOpen()) location.reload();
     hadController = true;
   });
 }

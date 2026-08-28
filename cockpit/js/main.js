@@ -173,6 +173,7 @@ window.__lp = {
     skipScreens() {
       el.screenVehicle.classList.add("hiddenS");
       el.screenDir.classList.add("hiddenS");
+      el.screenDest.classList.add("hiddenS");
     },
     teleportAirborne(distBehind, lateral, alt, headingDeg) {
       state.x = lateral;

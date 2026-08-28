@@ -137,7 +137,7 @@ function climbedOut() {
 
 function inLandingZone() {
   const ad = state.approachData;
-  if (!ad) return false;
+  if (!ad || state.vp.rocket) return false;   // the rocket has its own landing (and its own alarm rule)
   if (state.vp.hasGear && !state.gearDown) return false;
   const withinLat = Math.abs(ad.lat) <= (TUNE.runwayWidth / 2) * TUNE.touchdownLatTolMult;
   // The flattened pad reaches runwayLength/2 + 60 + flattenMargin beyond the
@@ -333,6 +333,7 @@ function updateRewards(dt) {
   updateFlightTones();
   updateSpots(dt);
   updateFallingStages(dt);
+  updateSatellites(dt);   // satellites keep unfolding / drifting whatever he flies
 }
 
 // Stall wobble when slow and nose-high; a rising whistle in a fast dive.
@@ -387,6 +388,7 @@ function update(dt) {
     applyCamera(dt);
     updateVehicleModel(dt);
     updateHud();
+    updateSky(dt);   // rain, snow and the dome keep moving while it reassembles
     updateFx(dt);
     shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
     if (state.explodeTimer <= 0) {

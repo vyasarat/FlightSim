@@ -95,9 +95,6 @@ function resolveSolidWalls(baseY) {
   if (!hit) return;
   flags.wallHits = (flags.wallHits || 0) + 1;
   const { best } = hit;
-  const vx = -Math.sin(state.heading) * Math.cos(state.pitch * DEG) * state.speed;
-  const vz = -Math.cos(state.heading) * Math.cos(state.pitch * DEG) * state.speed;
-  const vy = Math.sin(state.pitch * DEG) * state.speed + (state.airVy || 0);
   shatterAround(state.x, state.y, state.z);
   triggerExplosion(state.x, state.y, state.z, clamp(state.speed / 80, 0, 1));
   state.exploding = true;
