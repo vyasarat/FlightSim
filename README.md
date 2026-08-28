@@ -77,7 +77,8 @@ Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h` … in `c
 | Route strip, top-center | Plane glyph slides NY<->CA as he flies; dots fill in for landmarks passed |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker. The last vehicle + direction are remembered (`localStorage`), so a relaunch goes straight to the runway |
 | Sky button, right column under the view button | Cycles **sun → rain → snow → night**. Rain: grey sky, falling drops, rain hiss. Snow: pale sky, drifting flakes, whitened ground. Night: dark sky and stars, every tall building's windows light up, the blimps glow, the locomotive's headlight comes on, runway and tower lights stand out. Remembered across launches |
-| **Keyboard** (desktop) | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter missile, `+`/`-` (or `]`/`[`) speed step, L skip-to-landing. A finger on the screen always wins over the keys |
+| Camera button, left column under the runway/plane button | Takes a photo: white flash, shutter click, and the shot appears in a polaroid frame for a few seconds (long-press it to save on iOS). `P` on a keyboard |
+| **Keyboard** (desktop) | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter missile, `+`/`-` (or `]`/`[`) speed step, L skip-to-landing, P photo. A finger on the screen always wins over the keys |
 
 ## Rewards (things that go "ding")
 

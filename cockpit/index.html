@@ -306,6 +306,8 @@
     #altDigits { font-size: 12px; }
     #progressStrip { width: min(34vw, 300px); top: calc(var(--brow-h) + env(safe-area-inset-top) + 4px); }
     #wingman { width: 34px; height: 34px; }
+    #photo .frame { padding: 8px 8px 26px; }
+    #photo img { width: min(60vw, 420px); }
     #alarm .tri { width: 60px; height: 60px; }
   }
   .roundBtn {
@@ -355,6 +357,25 @@
     right: calc(var(--edge) + env(safe-area-inset-right));
     z-index: 11;
   }
+  #camBtn {
+    top: calc(var(--top-row) + var(--btn) + 12px + env(safe-area-inset-top));
+    left: calc(var(--edge) + env(safe-area-inset-left));
+    z-index: 11;
+  }
+  /* photo moment: white flash, then the shot in a polaroid frame for a few seconds */
+  #flash { position: fixed; inset: 0; z-index: 40; background: #fff; opacity: 0; pointer-events: none; transition: opacity .35s ease-out; }
+  #flash.on { opacity: .9; transition: none; }
+  #photo { position: fixed; inset: 0; z-index: 39; display: none; align-items: center; justify-content: center; pointer-events: none; }
+  #photo.on { display: flex; }
+  #photo .frame {
+    background: #f6f3ea; padding: 14px 14px 46px; border-radius: 6px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5); transform: rotate(-3deg);
+    animation: photoIn .5s cubic-bezier(.2,1.4,.4,1);
+    pointer-events: auto;   /* long-press the picture to save it (iOS) */
+  }
+  #photo img { display: block; width: min(62vw, 720px); height: auto; border-radius: 2px; -webkit-touch-callout: default; user-select: none; }
+  @keyframes photoIn { 0% { transform: scale(.3) rotate(12deg); opacity: 0; } 100% { transform: scale(1) rotate(-3deg); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { #photo .frame { animation: none; } }
   #skyBtn svg { display: none; }
   #skyBtn[data-mode="0"] .m0, #skyBtn[data-mode="1"] .m1, #skyBtn[data-mode="2"] .m2, #skyBtn[data-mode="3"] .m3 { display: block; }
   /* imminent-crash alarm: red edge strobes + flashing warning triangle */
@@ -544,6 +565,11 @@
     <path d="M78 34 L82 52 L64 46 Z" fill="#f2f4f7" stroke="#f2f4f7" stroke-width="4" stroke-linejoin="round"/>
   </svg>
 </button>
+<button id="camBtn" class="roundBtn" aria-hidden="true">
+  <svg viewBox="0 0 100 100"><path d="M18 34 h18 l6 -10 h16 l6 10 h18 a6 6 0 0 1 6 6 v34 a6 6 0 0 1 -6 6 h-64 a6 6 0 0 1 -6 -6 v-34 a6 6 0 0 1 6 -6 z" fill="#f2f4f7" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/><circle cx="50" cy="56" r="14" fill="#23282f"/><circle cx="50" cy="56" r="8" fill="#5ff1ff"/><circle cx="74" cy="42" r="3" fill="#e0483e"/></svg>
+</button>
+<div id="photo" aria-hidden="true"><div class="frame"><img id="photoImg" alt=""></div></div>
+<div id="flash" aria-hidden="true"></div>
 <button id="skyBtn" class="roundBtn" aria-hidden="true" data-mode="0">
   <svg class="m0" viewBox="0 0 100 100"><circle cx="50" cy="50" r="18" fill="#ffd23e" stroke="#c9971d" stroke-width="4"/><g stroke="#ffd23e" stroke-width="6" stroke-linecap="round"><path d="M50 12v12M50 76v12M12 50h12M76 50h12M23 23l8 8M69 69l8 8M23 77l8-8M69 31l8-8"/></g></svg>
   <svg class="m1" viewBox="0 0 100 100"><path d="M28 60 a16 16 0 0 1 4 -31 a20 20 0 0 1 38 -2 a14 14 0 0 1 4 33 Z" fill="#dfe6ee" stroke="#8a93a0" stroke-width="4"/><g stroke="#3aa0ff" stroke-width="6" stroke-linecap="round"><path d="M36 70l-6 14M52 70l-6 14M68 70l-6 14"/></g></svg>
