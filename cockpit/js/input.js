@@ -51,7 +51,7 @@ window.addEventListener("pagehide", releaseAllInputs);
 // while the thumb holds it must not release it.
 let throttlePointerId = null;
 function menuOpen() {
-  return !el.screenVehicle.classList.contains("hiddenS") || !el.screenDir.classList.contains("hiddenS");
+  return !el.screenVehicle.classList.contains("hiddenS") || !el.screenDir.classList.contains("hiddenS") || !el.screenDest.classList.contains("hiddenS");
 }
 el.throttleBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
@@ -218,6 +218,18 @@ document.querySelectorAll(".dirCard").forEach(card => {
     try { localStorage.setItem("lp.dir", String(d)); } catch (err) {}
     spawnForTakeoff(d === 1 ? 1 : 0, d);
     el.screenDir.classList.add("hiddenS");
+    if (state.vp.rocket) el.screenDest.classList.remove("hiddenS");   // the rocket picks where it is going
+    unlockAudio();
+  });
+});
+document.querySelectorAll(".destCard").forEach(card => {
+  card.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    state.dest = card.dataset.dest;
+    try { localStorage.setItem("lp.dest", state.dest); } catch (err) {}
+    document.querySelectorAll(".destCard").forEach(c2 => c2.classList.toggle("sel", c2 === card));
+    el.screenDest.classList.add("hiddenS");
     unlockAudio();
   });
 });
@@ -244,6 +256,7 @@ let photoTimer = null;
 function takePhoto() {
   if (state.photoPending) return;
   state.photoPending = true;
+  el.photo.classList.toggle("patch", !!state.vp.rocket);   // rocket shots get the mission-patch frame
   unlockAudio();
   shutter();
   el.flash.classList.add("on");

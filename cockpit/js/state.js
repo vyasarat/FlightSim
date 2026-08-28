@@ -42,7 +42,8 @@ const state = {
   rainF: 0, snowF: 0, nightF: 0,
   dirIdx: 0,
   originIdx: 0,
-  destIdx: 1
+  destIdx: 1,
+  dest: "moon"   // where the rocket's landing button aims in space: moon | mars | station
 };
 
 const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, exploded: 0, gear: 0, missiles: 0, missileHits: 0, shootdowns: 0, midairs: 0, ringsEaten: 0, gates: 0, wingman: 0, alarms: 0, targets: 0 };
