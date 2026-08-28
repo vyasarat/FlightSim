@@ -543,8 +543,9 @@ function apronVehiclesTo(idx, toPlane) {
   a.vehicles.forEach((v, i) => {
     if (toPlane) {
       // start on the parallel taxiway abeam the plane so the drive-in is short
-      // wherever he stopped, then pull up beside it
-      v.x = a.m * 88; v.z = state.z + (i ? -40 : 40);
+      // wherever he stopped, then pull up beside it (for the rocket: from the pad's hangar road)
+      if (state.vp.rocket) { v.x = state.x + a.m * 20; v.z = state.z + 60 + i * 12; }
+      else { v.x = a.m * 88; v.z = state.z + (i ? -40 : 40); }
       v.tx = state.x + a.m * (12 + i * 6); v.tz = state.z + (i ? -10 : 8);
     } else { v.tx = v.homeX; v.tz = v.homeZ; }
   });
@@ -682,6 +683,40 @@ function buildAirport(idx) {
     const inner = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), redLightMat, 12);
     for (let k = 0; k < 12; k++) { d.position.set(-halfW + 2.5 + k * (TUNE.runwayWidth - 5) / 11, 0.45, endZ - Math.sign(endZ) * 6); d.updateMatrix(); inner.setMatrixAt(k, d.matrix); }
     g.add(inner);
+  }
+  // launch complex on the far side (SLC-40 style): concrete pad, launch mount over a
+  // flame trench with a deflector, the strongback that swings away at ignition, four
+  // lightning towers, a water tower for the deluge, the integration hangar at the base
+  {
+    const P = TUNE.rocketTune.pad, px = -m * P.dx, pz = P.dz, H = P.mountH;
+    lmBox(g, 96, 0.3, 96, 0x9a9ea6, px, 0.15, pz, false);                       // pad
+    lmBox(g, 14, 0.2, 70, 0x2a2e34, px, 0.45, pz + 22, false);                  // flame trench
+    for (let z = 0; z < 60; z += 12) lmBox(g, 15, 0.3, 1, 0x5d6269, px, 0.5, pz + 8 + z, false);   // trench grating
+    const defl = lmBox(g, 12, 1.4, 14, 0x555a62, px, 1.4, pz + 12, false);       // flame deflector ramp
+    defl.rotation.x = -0.55;
+    lmBox(g, 16, 1.2, 16, 0x6b7078, px, H - 0.6, pz, true);                     // launch mount (its top is the pad floor)
+    for (const [cx, cz] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) lmBox(g, 2.4, H - 1.2, 2.4, 0x5a5f66, px + cx, (H - 1.2) / 2, pz + cz, false);
+    lmBox(g, 0.5, 1.4, 0.5, 0xff7a1a, px - 7.5, H + 0.7, pz - 7.5, false);       // hold-down clamps
+    lmBox(g, 0.5, 1.4, 0.5, 0xff7a1a, px + 7.5, H + 0.7, pz - 7.5, false);
+    const sb = new THREE.Group();                                                // strongback (TEL), hinged at its base
+    sb.position.set(px, 0, pz - 7);
+    const part = (w, h, d, c, x, y, z) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(c)); mm.position.set(x, y, z); sb.add(mm); return mm; };
+    part(4.5, 22, 3, 0x3c4350, 0, 11, 0);
+    for (let y = 3; y < 22; y += 4.5) part(5.2, 0.5, 3.6, 0x8a93a0, 0, y, 0);
+    part(1.2, 1.2, 5.5, 0xe6eaf0, 0, 8, 3.2); part(1.2, 1.2, 5.5, 0xe6eaf0, 0, 15, 3.2);   // umbilical arms toward the rocket
+    part(6, 0.8, 6, 0x2f3a48, 0, 0.4, -1);
+    g.add(sb);
+    rec.strongback = sb;
+    for (const [cx, cz] of [[-42, -42], [42, -42], [-42, 42], [42, 42]]) {      // lightning towers
+      lmCyl(g, 0.9, 1.6, 40, 0xe6eaf0, px + cx, 20, pz + cz, 8, true);
+      lmBox(g, 1.6, 1.6, 1.6, 0xd71920, px + cx, 40.8, pz + cz, false);
+    }
+    lmCyl(g, 1.4, 1.4, 16, 0x8a93a0, px - m * 44, 8, pz - 70, 8, false);       // water tower
+    lmCyl(g, 6, 6, 9, 0xeef1f4, px - m * 44, 20.5, pz - 70, 14, true);
+    lmBox(g, 40, 13, 56, 0xd8dde4, px, 6.5, pz + 110, true);                    // integration hangar
+    lmBox(g, 30, 10, 1, 0x3c4350, px, 5, pz + 81.5, false);
+    lmBox(g, 8, 0.2, 60, 0x5e636b, px, 0.42, pz + 52, false);                   // road from the hangar to the pad
+    rec.padX = px; rec.padZ = ap.cz + pz;
   }
   // addRouteLandmark anchors a group at terrain - 0.5 (so landmark bases sink
   // into the ground). Airport ground layers are measured from the runway
