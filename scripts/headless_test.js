@@ -2024,20 +2024,28 @@ function check(name, ok, extra) {
       let left = false;
       for (let i = 0; i < 60 * 15; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE" && Math.hypot(st.x - m.x, st.y - m.y, st.z - m.z) > m.r + 40) { left = true; break; } }
       L.api.setThrottle(false);
-      // now crash into Mars fast: explode + reassemble above it
+      // coast into Mars from far away: the landing assist brakes it and it lands
       const mars = L.BODIES[1];
-      st.exploding = false; st.phase = "AIRBORNE"; st.x = mars.x; st.y = mars.y - mars.r - 200; st.z = mars.z; st.pitch = 90;
-      L.rk.vx = 0; L.rk.vy = 150; L.rk.vz = 0;
+      st.exploding = false; st.phase = "AIRBORNE"; st.x = mars.x; st.y = mars.y - mars.r - 600; st.z = mars.z; st.pitch = 90;
+      L.rk.vx = 0; L.rk.vy = 150; L.rk.vz = 0; L.api.setThrottle(false); L.api.clearStick();
+      const m0 = L.flags.marsLandings || 0;
+      for (let i = 0; i < 60 * 40 && (L.flags.marsLandings || 0) === m0; i++) L.update(1 / 60);
+      const marsLanded = (L.flags.marsLandings || 0) > m0;
+      // ramming it under full power, nose down, is the only way to crash: explode + reassemble above it
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; st.x = mars.x; st.y = mars.y - mars.r - 300; st.z = mars.z; st.pitch = -90;
+      L.rk.vx = 0; L.rk.vy = 200; L.rk.vz = 0; L.api.setThrottle(true);
       const e0 = L.flags.exploded;
       for (let i = 0; i < 60 * 8 && L.flags.exploded === e0; i++) L.update(1 / 60);
+      L.api.setThrottle(false);
       const crashed = L.flags.exploded > e0;
       for (let i = 0; i < 60 * 4 && st.exploding; i++) L.update(1 / 60);
       const back = !st.exploding && Math.hypot(st.x - mars.x, st.y - mars.y, st.z - mars.z) > mars.r + 30 && L.rk.stage === 0;
-      return { landed, onMoon, restocked, spaceStays, left, crashed, back };
+      return { landed, onMoon, restocked, spaceStays, left, marsLanded, crashed, back };
     });
     check("rocket: a slow approach lands on the Moon (stack restored, space stays), and it can launch again",
       moon.landed && moon.onMoon && moon.restocked && moon.spaceStays && moon.left, JSON.stringify(moon));
-    check("rocket: hitting Mars fast explodes and reassembles above it with the full stack", moon.crashed && moon.back, JSON.stringify(moon));
+    check("rocket: coasting at Mars from far out is braked to a landing; ramming it under power still explodes and reassembles",
+      moon.marsLanded && moon.crashed && moon.back, JSON.stringify(moon));
 
     // return to Earth: descend upright and slowly = a landing
     const home = await page.evaluate(() => {

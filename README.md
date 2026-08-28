@@ -175,13 +175,14 @@ inside a two-half fairing. It stands upright on the runway (the pad).
   stars, the Earth's curve sits below, a satellite and a station drift mid-route.
   The **Moon** and **Mars** hang above the atmosphere (`rocketTune.moon/mars`:
   position, radius, gravity) with craters and, on Mars, a polar cap; each pulls
-  gently when you're near. Touch one slower than `landSpeed` and you **land** --
+  gently when you're near. A **landing assist** takes over within `assistRange` radii (and within `assistEarthAgl` of the
+  ground at home): unless he is burning away, the rocket brakes to `assistDescent` and stands
+  itself upright, so simply coasting in always ends in a landing. Touch down and you **land** --
   fireworks, the stack is restored, the sky stays black -- then launch again from its
-  surface (it's the new pad). Faster than that and you explode and reassemble above
-  it, like everything else.
-- **Coming home**: descend into the atmosphere, come down upright (pitch > 55°) and
-  slower than `landSpeed` on dry land and it lands Falcon-style; anything else is a
-  crash. Both views work: the cockpit looks along the body axis (straight up at the
+  surface (it's the new pad). Only ramming a surface under full power faster than `landSpeed` still explodes (and
+  reassembles above it), like everything else.
+- **Coming home**: descend into the atmosphere and the same assist feathers it down
+  to a Falcon-style landing on land or water; only a powered ram is a crash. Both views work: the cockpit looks along the body axis (straight up at the
   stars on the pad), the chase camera sits behind and below.
 - Other vehicles are hard-capped at `otherVehicleCeiling`.
 
