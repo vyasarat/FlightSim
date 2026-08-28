@@ -149,7 +149,7 @@ function check(name, ok, extra) {
       L.api.setThrottle(true);
       for (let i = 0; i < 60 * 30 && !L.rocketCanDrop(); i++) L.update(1 / 60);
       L.api.setThrottle(false); L.update(1 / 60);
-      const ids = ["viewBtn", "skipBtn", "stageBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "skyBtn", "dash", "brow", "progressStrip"];
+      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "skyBtn", "dash", "brow", "progressStrip"];
       const rects = [];
       for (const id of ids) { const e = document.getElementById(id); if (!e || e.classList.contains("hidden")) continue; const r = e.getBoundingClientRect(); if (r.width) rects.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom }); }
       const overlaps = [];
@@ -465,6 +465,7 @@ function check(name, ok, extra) {
     });
     check("view: toggle button >= 80px", btnOk);
 
+    await page.evaluate(() => window.__lp.api.setView(false));   // the rocket defaults to chase; start from the cockpit
     await page.click("#viewBtn");
     await pump(page, 0.5);
     const chaseRaw = await page.evaluate(() => {
@@ -2170,16 +2171,81 @@ function check(name, ok, extra) {
     const home = await page.evaluate(() => {
       const L = window.__lp, st = L.state, T = L.TUNE;
       const ap = L.AIRPORTS[0];
-      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false;
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false; L.rk.stage = 0;   // the full stack, Falcon style
       st.x = 0; st.z = ap.cz; st.y = ap.elev + 120; st.pitch = 90; st.heading = 0;
       L.rk.vx = 0; L.rk.vy = -8; L.rk.vz = 0;
       const r0 = L.flags.rocketLandings || 0, e0 = L.flags.exploded;
       // feather it down: burn when falling faster than 10
       for (let i = 0; i < 60 * 40 && st.phase !== "TAXI"; i++) { L.api.setThrottle(L.rk.vy < -9); L.update(1 / 60); }
       L.api.setThrottle(false);
-      return { landed: (L.flags.rocketLandings || 0) > r0, exploded: L.flags.exploded > e0, phase: st.phase, pitch: Math.round(st.pitch), refit: L.rk.stage === 0 };
+      const landed = (L.flags.rocketLandings || 0) > r0, phase = st.phase;
+      for (let i = 0; i < 60 * (T.rocketTune.refitDelay + 1); i++) L.update(1 / 60);
+      return { landed, exploded: L.flags.exploded > e0, phase, pitch: Math.round(st.pitch), refit: L.rk.stage === 0 && (L.flags.refits || 0) > 0 };
     });
     check("rocket: a slow upright descent onto the Earth lands (Falcon style) and the pad refits the full stack", home.landed && !home.exploded && home.phase === "TAXI" && home.refit, JSON.stringify(home));
+
+    // the way home, Dragon style: satellite out in space, deorbit, plasma, drogue, mains, float down, refit
+    const ret = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune, ap = L.AIRPORTS[0];
+      const satBtn = document.getElementById("satBtn"), chuteBtn = document.getElementById("chuteBtn"), glow = document.getElementById("reentryGlow");
+      const hidden = b => b.classList.contains("hidden");
+      const alt = () => st.y - Math.max(L.terrainEff(st.x, st.z), T.waterLevel);
+      const out = {};
+      L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false; L.rk.stage = 3;
+      st.x = 0; st.z = ap.cz; st.y = 4000; st.pitch = 90; st.heading = 0; L.rk.vx = L.rk.vy = L.rk.vz = 0; st.spaceF = 1;
+      L.update(1 / 60);
+      out.satShown = !hidden(satBtn); out.chuteHiddenInSpace = hidden(chuteBtn);
+      const n0 = L.satellites.length;
+      out.did = L.deploySatellite();
+      out.satAdded = L.satellites.length === n0 + 1; L.update(1 / 60); out.satHiddenAfter = hidden(satBtn);
+      const s = L.satellites[L.satellites.length - 1];
+      const p0 = s.mesh.userData.panels[0].scale.x;
+      for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+      out.unfolded = p0 < 0.1 && s.mesh.userData.panels[0].scale.x > 0.9;
+      out.drifted = Math.hypot(s.x - st.x, s.y - st.y, s.z - st.z) > 8;
+      // with the satellite out, the landing button means home, not the Moon
+      out.skipHome = L.rocketSkipTarget() === null;
+      const d0 = L.flags.deorbits || 0;
+      L.rocketSkipToLanding();
+      out.deorbit = (L.flags.deorbits || 0) > d0 && st.y > R.gravityFade && L.rk.vy < -100;
+      // the fall: plasma glows (state + overlay), no chute button above chuteAlt, drogue pops by itself
+      let glowPeak = 0, overlayPeak = 0, btnEarly = false, pitchAtGlow = null;
+      for (let i = 0; i < 60 * 120 && L.rk.chute === 0; i++) {
+        L.update(1 / 60);
+        glowPeak = Math.max(glowPeak, L.rk.reentry); overlayPeak = Math.max(overlayPeak, parseFloat(glow.style.opacity) || 0);
+        if (L.rk.reentry > 0.5 && pitchAtGlow === null) pitchAtGlow = Math.round(st.pitch);
+        if (!hidden(chuteBtn) && alt() > R.chuteAlt[0] + 1) btnEarly = true;
+      }
+      out.glowPeak = +glowPeak.toFixed(2); out.overlayPeak = +overlayPeak.toFixed(2); out.btnEarly = btnEarly; out.pitchAtGlow = pitchAtGlow;
+      out.reentries = L.flags.reentries || 0;
+      out.drogueAuto = L.rk.chute === 1; out.drogueAlt = Math.round(alt());
+      // under the drogue: sinks at its rate, the mains button shows below chuteAlt[1]
+      let mainsBtn = false, sinkD = 0;
+      for (let i = 0; i < 60 * 60 && L.rk.chute === 1; i++) {
+        L.update(1 / 60);
+        const a = alt();
+        if (a < R.chuteAlt[1] - 10 && a > R.chuteAutoAlt[1] + 10) { if (!hidden(chuteBtn)) mainsBtn = true; sinkD = -L.rk.vy; }
+      }
+      out.mainsBtn = mainsBtn; out.drogueSink = Math.round(sinkD); out.mainsAuto = L.rk.chute === 2;
+      // mains: a slow float to the ground, celebration, still the capsule, then the refit
+      const c0 = L.flags.chuteLandings || 0, e0 = L.flags.exploded; let maxSink = 0;
+      for (let i = 0; i < 60 * 120 && st.phase !== "TAXI"; i++) { L.update(1 / 60); if (L.rk.chute === 2 && L.rk.chuteT > 3) maxSink = Math.max(maxSink, -L.rk.vy); }
+      out.landedSoft = (L.flags.chuteLandings || 0) > c0 && L.flags.exploded === e0 && st.phase === "TAXI"; out.maxSink = Math.round(maxSink);
+      out.stillCapsule = L.rk.stage === 3; out.nearPad = Math.hypot(st.x, st.z - ap.cz) < 400;
+      for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
+      out.notYetRefit = L.rk.stage === 3;
+      const f0 = L.flags.refits || 0;
+      for (let i = 0; i < 60 * (R.refitDelay + 1); i++) L.update(1 / 60);
+      out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x) < 1 && st.phase === "TAXI";
+      return out;
+    });
+    check("rocket: the capsule deploys a satellite in space (button only then; it unfolds and drifts off) and the landing button then means home",
+      ret.satShown && ret.chuteHiddenInSpace && ret.did && ret.satAdded && ret.satHiddenAfter && ret.unfolded && ret.drifted && ret.skipHome && ret.deorbit, JSON.stringify(ret));
+    check("rocket: reentry glows (model + window overlay) heat-shield first; no chute button above the drogue height; the drogue pops by itself",
+      ret.glowPeak > 0.5 && ret.overlayPeak > 0.2 && !ret.btnEarly && ret.pitchAtGlow > 60 && ret.reentries > 0 && ret.drogueAuto && ret.drogueAlt < 700 && ret.drogueAlt > 500, JSON.stringify(ret));
+    check("rocket: drogue then mains (button below its height, auto below that), a slow float down, a soft landing as the capsule, and the pad refits after the delay",
+      ret.mainsBtn && ret.drogueSink > 18 && ret.drogueSink < 34 && ret.mainsAuto && ret.landedSoft && ret.maxSink < 10 && ret.stillCapsule && ret.nearPad && ret.notYetRefit && ret.refit, JSON.stringify(ret));
     await page.close();
   }
 

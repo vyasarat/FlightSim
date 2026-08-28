@@ -368,6 +368,21 @@
     animation: homePulse 1.2s ease-in-out infinite;
   }
   #stageBtn.hidden { display: none; }
+  #satBtn, #chuteBtn {
+    bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
+    left: calc(var(--edge) + env(safe-area-inset-left));
+    z-index: 10;
+    animation: homePulse 1.2s ease-in-out infinite;
+  }
+  #satBtn { border-color: #5ff1ff; }
+  #chuteBtn { border-color: #e0483e; }
+  #satBtn.hidden, #chuteBtn.hidden { display: none; }
+  #reentryGlow {
+    position: fixed; inset: 0; z-index: 7; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at 50% 60%, rgba(255,120,30,0) 30%, rgba(255,140,40,.55) 70%, rgba(255,210,120,.95) 100%);
+    mix-blend-mode: screen;
+    transition: opacity .12s linear;
+  }
   #camBtn {
     top: calc(var(--top-row) + var(--btn) + 12px + env(safe-area-inset-top));
     left: calc(var(--edge) + env(safe-area-inset-left));
@@ -586,6 +601,26 @@
     <path d="M50 60 v4" stroke="#e0483e" stroke-width="4" stroke-dasharray="2 2"/>
   </svg>
 </button>
+<button id="satBtn" class="roundBtn hidden" aria-hidden="true">
+  <svg viewBox="0 0 100 100">
+    <rect x="40" y="38" width="20" height="24" rx="3" fill="#d4a72c" stroke="#23282f" stroke-width="3"/>
+    <rect x="6" y="42" width="30" height="16" fill="#2b4fb0" stroke="#5ff1ff" stroke-width="3"/>
+    <rect x="64" y="42" width="30" height="16" fill="#2b4fb0" stroke="#5ff1ff" stroke-width="3"/>
+    <path d="M40 50 h-4 M60 50 h4" stroke="#b8bec8" stroke-width="3"/>
+    <path d="M38 30 a14 8 0 0 1 24 0" fill="none" stroke="#f2f4f7" stroke-width="4" stroke-linecap="round"/>
+    <line x1="50" y1="30" x2="50" y2="38" stroke="#f2f4f7" stroke-width="3"/>
+    <circle cx="50" cy="20" r="4" fill="#ff3b30"/>
+  </svg>
+</button>
+<button id="chuteBtn" class="roundBtn hidden" aria-hidden="true">
+  <svg viewBox="0 0 100 100">
+    <path d="M10 46 A40 40 0 0 1 90 46 Z" fill="#f4f6f8" stroke="#23282f" stroke-width="3"/>
+    <path d="M30 46 A20 40 0 0 1 50 6 A20 40 0 0 1 70 46" fill="#e0483e"/>
+    <path d="M10 46 L46 80 M30 46 L48 80 M50 46 L50 80 M70 46 L52 80 M90 46 L54 80" stroke="#e8ecf2" stroke-width="2"/>
+    <path d="M42 80 L58 80 L56 94 L44 94 Z" fill="#f4f6f8" stroke="#23282f" stroke-width="3"/>
+  </svg>
+</button>
+<div id="reentryGlow" aria-hidden="true"></div>
 <button id="camBtn" class="roundBtn" aria-hidden="true">
   <svg viewBox="0 0 100 100"><path d="M18 34 h18 l6 -10 h16 l6 10 h18 a6 6 0 0 1 6 6 v34 a6 6 0 0 1 -6 6 h-64 a6 6 0 0 1 -6 -6 v-34 a6 6 0 0 1 6 -6 z" fill="#f2f4f7" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/><circle cx="50" cy="56" r="14" fill="#23282f"/><circle cx="50" cy="56" r="8" fill="#5ff1ff"/><circle cx="74" cy="42" r="3" fill="#e0483e"/></svg>
 </button>

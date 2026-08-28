@@ -42,8 +42,10 @@ the ship checklist; this file describes the game.
 | Gear button, bottom-left (planes) | Retract / extend the landing gear. Retracting is ignored while the wheels carry the plane. Distinct up/down icons, whirr/clunk, animated struts in chase view. **Landing with the gear up explodes** |
 | Missile button, bottom-left above gear (planes, airborne) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileCooldown`) |
 | Stage button (rocket, same slot, orange, pulsing) | Drops the next stage. Only appears above each stage's altitude (see The rocket) |
+| Satellite button (rocket, same slot, cyan) | As the capsule in space: pops the satellite out ahead of the nose; it unfolds its panels and drifts off blinking. One per stack |
+| Parachute button (rocket, same slot, red) | As the capsule low in the air: the drogue, then the mains. Each only below its `chuteAlt`; they pop by themselves below `chuteAutoAlt`, so nothing needs pressing |
 | Double-down / double-up chevrons, bottom-right (planes, airborne) | Step the set speed down / up one notch. Speed stays where he sets it -- no snap-back. Four steps (`TUNE.speedSteps`) |
-| Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, ~45 s to touchdown. Rocket: jump to a slow descent 350 m above the nearest planet, or 200 m above the home pad; the landing assist does the rest |
+| Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, ~45 s to touchdown. Rocket: jump to a slow descent 350 m above the nearest planet, or 200 m above the home pad; the landing assist does the rest. Capsule with the satellite out: **deorbit** -- drop out of space above home and ride the plasma and parachutes down |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker |
 | Crosshair, centre (airborne) | Flight-path marker: where the plane is really aimed; doubles as the missile aiming point; clamps to the screen edge when off-view |
@@ -51,7 +53,7 @@ the ship checklist; this file describes the game.
 | Route strip, top centre | Plane glyph slides NY <-> CA; dots fill in for landmarks passed (each one plays the next note of a scale) |
 | Small amber arrow / green ring under the strip | Glide-slope cue on an engaged approach: down = too high, up = too low, green ring = on the slope |
 | Two-plane icon under the strip | Wingman: dim while a traffic plane is near, bright when formation has been held |
-| **Keyboard** | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter = missile (rocket: drop stage), `+`/`-` or `]`/`[` speed step, L landing button, P photo. A finger on the screen always wins over the keys |
+| **Keyboard** | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter = missile (rocket: drop stage / deploy satellite / parachute, whichever is up), `+`/`-` or `]`/`[` speed step, L landing button, P photo. A finger on the screen always wins over the keys |
 
 Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h`, … in
 `cockpit/index.html`). Viewports under 520 px tall (phones in landscape) get a
@@ -220,9 +222,25 @@ fairing. It stands upright on the runway -- the pad -- with the trucks beside it
   Rooftops at home are landable too.
 - **Landing button** (runway button): in space, a slow descent 350 m above the nearest planet;
   after a planet visit, or lower down, 200 m above the home pad. Hides once the assist has him.
-- **Coming home**: descend into the atmosphere and the assist feathers it down to a Falcon-style
-  landing on land or water; the pad rolls out a new full stack. Both views work: the cockpit looks
-  along the body axis, the chase camera sits beside and above and never enters a planet.
+- **The satellite**: as the capsule in space (above `satAlt`, or with the space blend in) the
+  satellite button appears once per stack. It pops out ahead of the nose with a hiss and a
+  three-note beep, unfolds two blue panels over a couple of seconds and drifts off blinking
+  (the last three stay in the sky). With it out, the landing button means *home*.
+- **Coming home, Dragon style** (the capsule's own landing; the stack and booster still land
+  Falcon-style on the thruster assist): the capsule in the air has blunt-body drag
+  (`capsuleDrag`). Fast and below `reentryAlt` it trims heat-shield first and **glows** -- a
+  plasma sheath on the model, an orange vignette over the window, a buffeting roar and shake.
+  Below `chuteAlt[0]` the parachute button offers the **drogue** (auto below `chuteAutoAlt[0]`),
+  below `chuteAlt[1]` the three red-and-white **mains** (auto again), descent eases to
+  `chuteSink`, the stick drifts it `chuteDrift` m/s, the canopies sway and are visible overhead
+  from the window. Touchdown on land or water: confetti, cheer, fireworks, splash if wet, the
+  canopies collapse. It sits there as the capsule for `refitDelay` s, then the pad rolls out a
+  new full stack with a chime (any Earth landing refits this way now, never instantly). The
+  deorbit (landing button as the capsule in space) puts it above home at `gravityFade` + 500 m,
+  falling, so the whole show plays with nothing to press.
+- Both views work: the cockpit looks along the body axis, the chase camera sits beside and
+  above and never enters a planet. **The rocket starts in the chase view** (the view button
+  still toggles).
 
 ## Photo
 
@@ -264,7 +282,7 @@ cockpit/
     state.js          state object, vehicle apply, spawn
     input.js          touch, buttons, keyboard, photo, persistence, lifecycle, SW
     flight.js         plane flight model, assists, alarm, sky, rewards, update()
-    rocket.js         rocket flight model, staging, Moon / Mars, landing assist
+    rocket.js         rocket flight model, staging, Moon / Mars, landing assist, satellite, reentry + parachutes
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape
@@ -308,7 +326,7 @@ arrival show + apron trucks, tower fly-by, hangar doors, bridge bounce, sky cycl
 rule, overrun, bridge gates in legal air, boats on water, traffic corridor slip, blur releases
 keys) · persistence across launches · the rocket (pad, altitude-gated drops, booster landing,
 Moon landing + relaunch + staging afterwards, Mars coast-in and powered ram, landing button,
-Earth landing + refit, fuel-out and apron trucks) · claimed feel effects (cloud whoosh, missile
+Earth landing + delayed refit, fuel-out and apron trucks, satellite deploy, deorbit, reentry glow + overlay, drogue/mains gating and auto-pop, soft chute landing) · claimed feel effects (cloud whoosh, missile
 self-destruct pop, boat-horn hello, spray wake) · visual regression · service worker and manifests
 for both builds. `Math.random` is seeded under test, so runs are repeatable; heavy sections run on
 fresh pages so state cannot leak between them.
