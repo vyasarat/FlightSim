@@ -61,8 +61,9 @@ function applyVehicle(key) {
   // the rocket is a thing to watch: it starts in the chase view (the view button still toggles)
   if (state.vp.rocket && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
   if (!state.vp.rocket) {
-    for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn]) b.classList.add("hidden");
+    for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn]) b.classList.add("hidden");
     if (typeof roverReset === "function") roverReset();
+    if (typeof astroReset === "function") astroReset();
     if (typeof cancelRecovery === "function") cancelRecovery();
   }
   if (vehicleModel) {
