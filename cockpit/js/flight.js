@@ -17,7 +17,7 @@ function groundPhase(dt) {
     state.speed = 0;
     rumble = 0;
     setRolling(0);
-    if (state.throttleHeld) { state.phase = "ROLL"; apronVehiclesTo(state.originIdx, false); }
+    if (state.throttleHeld && !menuOpen()) { state.phase = "ROLL"; apronVehiclesTo(state.originIdx, false); }
     return;
   }
   rumble = state.speed > 6 ? 0.035 * Math.min(1, state.speed / 40) : 0;
@@ -145,6 +145,17 @@ function inLandingZone() {
   return withinLat && ad.along > -300 && ad.along < TUNE.runwayLength / 2 + 40;
 }
 
+// A go-around: climb away for climbAwayTime. Lift clear of the ground first so
+// the terrain-clearance check can't explode a plane that is still nose-level.
+function goAround(groundNow) {
+  state.approachLatch = false;
+  state.engaged = false;
+  state.phase = "CLIMB_AWAY";
+  state.climbAwayTimer = TUNE.climbAwayTime;
+  state.y = Math.max(state.y, Math.max(groundNow, TUNE.waterLevel) + TUNE.terrainClearance + 1);
+  resetRings();
+}
+
 function touchdownFx() {
   state.squashTimer = 0.35;
   tyrePuffAt(state.x, state.y - TUNE.gearHeight + 1.2, state.z);
@@ -206,8 +217,9 @@ function updateCrashWarning(dt) {
     const linedUp = !!ad && Math.abs(ad.lat) <= (TUNE.runwayWidth / 2) * TUNE.touchdownLatTolMult &&
       ad.along > -300 && ad.along < TUNE.runwayLength / 2 + 40;
     const aglHere = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
-    if (gearUp && climbedOut() && (linedUp || onAnyRunwayRect(state.x, state.z)) && aglHere < TUNE.gearWarnAgl) warn = true;
-    const landing = !gearUp && (inLandingZone() || onAnyRunwayRect(state.x, state.z));
+    if (gearUp && climbedOut() && vy < 0 && (linedUp || onAnyRunwayRect(state.x, state.z)) && aglHere < TUNE.gearWarnAgl) warn = true;
+    const rocketAssisted = state.vp.rocket && !state.throttleHeld && state.speed <= TUNE.rocketTune.landSpeed;
+    const landing = (!gearUp && (inLandingZone() || onAnyRunwayRect(state.x, state.z))) || rocketAssisted;
     if (!warn && !landing) {
       const groundNow = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
       const agl = state.y - groundNow;
@@ -253,7 +265,7 @@ function updateSky(dt) {
   state.snowF += ((mode === 2 ? 1 : 0) - state.snowF) * k;
   state.nightF += ((mode === 3 ? 1 : 0) - state.nightF) * k;
   const sf = state.spaceF;
-  const mood = SKY_MOODS[mode];
+  const mood = SKY_MOODS[mode] || SKY_MOODS[0];
   const w = Math.max(state.rainF, state.snowF, state.nightF);   // weight of the non-sun mood
   const top = skyUniforms.topColor.value.copy(SKY_TOP_BASE);
   const hor = skyUniforms.horizonColor.value.copy(SKY_HOR_BASE);
@@ -276,7 +288,7 @@ function updateSky(dt) {
   precipMat.opacity = pAmt * (state.snowF > state.rainF ? 0.95 : 0.55);
   precipMat.size = state.snowF > state.rainF ? 1.3 : 0.55;
   precipMat.color.setHex(state.snowF > state.rainF ? 0xffffff : 0xcfe0ee);
-  precip.visible = pAmt > 0.02;
+  precip.visible = pAmt > 0.02 && state.spaceF < 0.5;   // no rain in orbit
   if (precip.visible) {
     precip.position.copy(camera.position);
     const fall = state.snowF > state.rainF ? 9 : 55;
@@ -325,6 +337,7 @@ function updateRewards(dt) {
 
 // Stall wobble when slow and nose-high; a rising whistle in a fast dive.
 function updateFlightTones() {
+  if (state.vp.rocket) { setTone("stall", "triangle", 170, 0); setTone("dive", "sine", 500, 0); return; }
   const flying = state.phase === "AIRBORNE" && !state.exploding;
   const slow = flying && state.speed < state.vp.cruiseSpeed * 0.55 && state.pitch > 10;
   const dive = flying && state.pitch < -15 && state.speed > state.vp.cruiseSpeed * 0.9;
@@ -334,6 +347,7 @@ function updateFlightTones() {
 
 function update(dt) {
   frameCount++;
+  if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
   applyKeyboard(dt);
   el.vehBtn.classList.toggle("hidden", !(state.phase === "TAXI" && state.speed === 0 && !state.exploding));
   el.gearBtn.classList.toggle("hidden", !state.vp.hasGear);
@@ -352,6 +366,7 @@ function update(dt) {
     state.gearAnim = clamp(state.gearAnim + (gT > state.gearAnim ? 1 : -1) * 1.7 * dt, 0, 1);
   }
   if (state.exploding) {
+    if (state.vp.rocket) { el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden"); el.missileBtn.classList.add("hidden"); el.skipBtn.classList.add("hidden"); el.stageBtn.classList.add("hidden"); }
     state.explodeTimer -= dt;
     const seeking = state.explodeTimer <= 0.5;
     updateExplosion(dt, safePos, seeking);
@@ -482,7 +497,7 @@ function update(dt) {
         const latOk = Math.abs(state.approachData.lat) <= (TUNE.runwayWidth / 2) * TUNE.touchdownLatTolMult;
         const ad = state.approachData;
         const overRunway = ad.along > -50 && ad.along < TUNE.runwayLength / 2 + 40;
-        if (latOk && aglNow < TUNE.flareAgl && (!state.vp.hasGear || state.gearDown)) {
+        if (latOk && ad.along > -300 && aglNow < TUNE.flareAgl && (!state.vp.hasGear || state.gearDown)) {
           const k = 1 - clamp(aglNow / TUNE.flareAgl, 0, 1);
           targetPitch = lerp(targetPitch, 1.5, k);
           state.flaring = true;
@@ -548,7 +563,7 @@ function update(dt) {
       // The flattened pad extends 300 m short of the threshold; touching down
       // anywhere on it is a landing (he rolls onto the runway), never a plane
       // pinned 0.6 m off the ground with its wheels underground.
-      const overRect = ad.along > -300 && ad.along < halfL && withinLat;
+      const overRect = ad.along > -300 && ad.along < halfL + 40 && withinLat;   // same band as the landing zone
 
       const gearOk = !state.vp.hasGear || state.gearDown;
       // state.y is the plane reference; the wheels hang gearHeight below it.
@@ -570,22 +585,14 @@ function update(dt) {
           touchdownFx();
           state.y = groundNow + TUNE.gearHeight;
         } else {
-          state.approachLatch = false;
-          state.engaged = false;
-          state.phase = "CLIMB_AWAY";
-          state.climbAwayTimer = TUNE.climbAwayTime;
-          resetRings();
+          goAround(groundNow);
         }
       } else if (
         state.phase === "AIRBORNE" && state.approachLatch && agl < 45 &&
         (ad.along > halfL + 40 || (ad.along > 60 && !withinLat))
       ) {
-        state.approachLatch = false;
-        state.engaged = false;
-        state.phase = "CLIMB_AWAY";
-        state.climbAwayTimer = TUNE.climbAwayTime;
-        resetRings();
-      } else if (agl <= TUNE.terrainClearance && !onAnyRunwayRect(state.x, state.z) && !inLandingZone()) {
+        goAround(groundNow);
+      } else if (state.liftoffTimer <= 0 && agl <= TUNE.terrainClearance && !onAnyRunwayRect(state.x, state.z) && !inLandingZone()) {
         state.exploding = true;
         state.explodeTimer = TUNE.reassembleDelay;
         safePos.x = state.x;
@@ -598,7 +605,7 @@ function update(dt) {
         const floorNow = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
         // With the wheels down on the landing pad the floor is gear height, not
         // belly height -- the model must never sit below the ground.
-        const minY = floorNow + (inLandingZone() ? TUNE.gearHeight : 0.6);
+        const minY = floorNow + (inLandingZone() || onAnyRunwayRect(state.x, state.z) ? TUNE.gearHeight : 0.6);
         if (state.y < minY) {
           state.y = minY;
         }
@@ -661,7 +668,7 @@ function update(dt) {
   const pulse = 1 + Math.sin(performance.now() * 0.001 * TUNE.ringPulseRate) * 0.07;
   for (const r of rings) r.scale.setScalar(pulse);
   const blinkOn = Math.sin(performance.now() * 0.004) > -0.3;
-  for (const b of blinkers) b.visible = blinkOn;
+  for (const b of blinkers) if (!b.userData.override) b.visible = blinkOn;
 
   applyCamera(dt);
   shakeAmp = Math.max(0, shakeAmp - dt * 0.9);

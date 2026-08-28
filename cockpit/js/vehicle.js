@@ -158,7 +158,7 @@ function updateVehicleModel(dt) {
   if (vehicleModel.userData.propDisc) vehicleModel.userData.propDisc.rotation.z += dt * 40;
   if (vehicleModel.userData.flame) {
     vehicleModel.userData.flame.scale.y = 0.8 + Math.random() * 0.5;
-    vehicleModel.userData.flame.visible = state.vp.rocket ? (state.throttleHeld && (state.phase === "AIRBORNE" || rk.igniteT > 0.6)) : state.speed > 2;
+    vehicleModel.userData.flame.visible = state.vp.rocket ? (state.throttleHeld && rk.fuel[Math.min(rk.stage, 2)] > 0 && (state.phase === "AIRBORNE" || rk.igniteT > 0.6)) : state.speed > 2;
   }
   if (vehicleModel.userData.gear) {
     const a = clamp(state.gearAnim, 0.001, 1);

@@ -244,7 +244,7 @@ function showPhoto(dataUrl) {
   el.photoImg.src = dataUrl;
   el.photo.classList.add("on");
   clearTimeout(photoTimer);
-  photoTimer = setTimeout(() => el.photo.classList.remove("on"), 3200);
+  photoTimer = setTimeout(() => { el.photo.classList.remove("on"); el.photoImg.removeAttribute("src"); }, 3200);
 }
 el.camBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); pressFlash(el.camBtn);
@@ -252,17 +252,21 @@ el.camBtn.addEventListener("pointerdown", (e) => {
 });
 
 // Sky button cycles sun -> rain -> snow -> night.
-el.skyBtn.addEventListener("pointerdown", (e) => {
-  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.skyBtn);
+const cycleSky = debounced(() => {
   state.sky = (state.sky + 1) % 4;
   el.skyBtn.dataset.mode = String(state.sky);
   try { localStorage.setItem("lp.sky", String(state.sky)); } catch (err) {}
   flags.skyChanges = (flags.skyChanges || 0) + 1;
+}, 18);
+el.skyBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.skyBtn);
+  cycleSky();
 });
 el.vehBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   if (state.phase !== "TAXI") return;
+  releaseThrottle();
   el.screenDir.classList.add("hiddenS");
   el.screenVehicle.classList.remove("hiddenS");
 });
@@ -274,6 +278,7 @@ window.addEventListener("gesturestart", (e) => e.preventDefault());
 const keys = new Set();
 const KEY_STICK = { ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1, KeyA: 1, KeyD: 1, KeyW: 1, KeyS: 1 };
 let keyStickActive = false;
+let keyThrottle = false;
 window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const c = e.code;
@@ -285,7 +290,7 @@ window.addEventListener("keydown", (e) => {
   if (e.repeat || menuOpen()) return;
   keys.add(c);
   unlockAudio();
-  if (c === "Space" || c === "ShiftLeft" || c === "ShiftRight") { el.throttleBtn.classList.add("pressed"); state.throttleHeld = true; }
+  if (c === "Space" || c === "ShiftLeft" || c === "ShiftRight") { keyThrottle = true; el.throttleBtn.classList.add("pressed"); state.throttleHeld = true; }
   else if (c === "KeyG") { if (state.vp.hasGear) toggleGearDebounced(); }
   else if (c === "KeyV") toggleView();
   else if (c === "KeyF" || c === "Enter") {
@@ -300,7 +305,7 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => {
   keys.delete(e.code);
   if (e.code === "Space" || e.code === "ShiftLeft" || e.code === "ShiftRight") {
-    if (!keys.has("Space") && !keys.has("ShiftLeft") && !keys.has("ShiftRight")) releaseThrottle();
+    if (!keys.has("Space") && !keys.has("ShiftLeft") && !keys.has("ShiftRight")) { keyThrottle = false; if (throttlePointerId === null) releaseThrottle(); }
   }
 });
 function applyKeyboard(dt) {
@@ -363,7 +368,7 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
   // flight is never interrupted.
   let hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (hadController && state.phase === "TAXI" && state.speed === 0) location.reload();
+    if (hadController && state.phase === "TAXI" && state.speed === 0 && !state.celebrated && !(rk && rk.onBody)) location.reload();
     hadController = true;
   });
 }
