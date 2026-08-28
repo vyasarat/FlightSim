@@ -480,8 +480,10 @@ function rocketSkipToLanding() {
   } else if (rk.stage === 3 && state.y > TUNE.spaceAltitude) {
     // deorbit: the capsule drops out of space above home, heat shield first, and rides
     // the plasma and the parachutes down (nothing to do but watch, or steer a little)
-    const pad = rocketPad(state.originIdx);
-    state.x = pad.x; state.z = pad.z; state.y = Math.max(state.y, RK.gravityFade + 500);
+    // ... and comes down somewhere new each time -- a field or the sea around home, never
+    // the runway or the pad (the refit brings the new stack to the pad afterwards)
+    const site = rocketLandingSite();
+    state.x = site.x; state.z = site.z; state.y = Math.max(state.y, RK.gravityFade + 500);
     rk.vx = 0; rk.vy = -150; rk.vz = 0;
     state.pitch = 90; state.heading = state.dirIdx === 0 ? 0 : Math.PI;
     flags.deorbits = (flags.deorbits || 0) + 1;
@@ -499,6 +501,19 @@ function rocketSkipToLanding() {
   return true;
 }
 
+function rocketLandingSite() {
+  const pad = rocketPad(state.originIdx), ap = AIRPORTS[state.originIdx];
+  for (let tries = 0; tries < 40; tries++) {
+    const a = rnd() * Math.PI * 2, r = 500 + rnd() * 700;
+    const x = Math.cos(a) * r, z = ap.cz + Math.sin(a) * r;
+    if (Math.abs(x) < TUNE.runwayWidth / 2 + 120 && Math.abs(z - ap.cz) < TUNE.runwayLength / 2 + 300) continue;   // the runway strip
+    if (Math.hypot(x - pad.x, z - pad.z) < 160) continue;
+    let clear = true;
+    forEachSolid(b => { if (Math.abs(x - b.x) < b.hw + 30 && Math.abs(z - b.z) < b.hd + 30) clear = false; });
+    if (clear) return { x, z };
+  }
+  return { x: pad.x + 400, z: pad.z };
+}
 function rocketLandOn(body) {
   rk.onBody = body;
   rk.vx = rk.vy = rk.vz = 0;
