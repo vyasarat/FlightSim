@@ -141,11 +141,26 @@ const station = new THREE.Group();
     for (const sx of [-10.5, 10.5]) {
       const panel = new THREE.Mesh(new THREE.BoxGeometry(13, 0.5, 7.5), lamSafe(0x2a4f9e));
       panel.position.set(sx, sy, 0);
+      panel.scale.x = 0.25;   // folded until something docks
       station.add(panel);
+      station.userData.panels = station.userData.panels || [];
+      station.userData.panels.push(panel);
     }
   }
+  // docking port on the core's top: a ring that glows when he is near; window strips that light up when docked
+  const portMat = new THREE.MeshBasicMaterial({ color: 0x5ff1ff, transparent: true, opacity: 0.35 });
+  const port = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.5, 8, 24), portMat);
+  port.rotation.x = Math.PI / 2; port.position.y = 10.4;
+  station.add(port);
+  const lightMat = new THREE.MeshBasicMaterial({ color: 0x2a3140 });
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2;
+    const w = new THREE.Mesh(new THREE.BoxGeometry(1.2, 6, 0.3), lightMat);
+    w.position.set(Math.cos(a) * 4.6, 0, Math.sin(a) * 4.6); w.rotation.y = -a; station.add(w);
+  }
+  station.userData.portMat = portMat; station.userData.lightMat = lightMat; station.userData.portY = 10.4;
 }
-station.position.set(-380, TUNE.spaceAltitude + 520, -1400 * (ROUTE_SCALE() || 1));
+station.position.set(-380, TUNE.rocketTune.gravityFade + 1100, -1400 * (ROUTE_SCALE() || 1));   // above the gravity band so the docking magnet is the only pull
 station.visible = false;
 scene.add(station);
 
