@@ -170,7 +170,9 @@ inside a two-half fairing. It stands upright on the runway (the pad).
   then the second stage -- and `F`/Enter does the same. Dropped stages tumble away;
   the **booster flips upright, burns to slow down and lands on its legs**
   (`flags.boosterLandings`). Fuel per stage in `fuel`; the capsule's thrusters
-  never run out. Landing anywhere gives the whole stack back.
+  never run out. Landing back at home rolls out a new full stack; on the Moon or
+  Mars you stay whatever you arrived as (a capsule lands as a capsule and lifts
+  off again on its thrusters).
 - **Space**: above `spaceAltitude` (blended over `spaceBlendBand`) the dome goes to
   stars, the Earth's curve sits below, a satellite and a station drift mid-route.
   The **Moon** and **Mars** hang above the atmosphere (`rocketTune.moon/mars`:
@@ -178,7 +180,7 @@ inside a two-half fairing. It stands upright on the runway (the pad).
   gently when you're near. A **landing assist** takes over within `assistRange` radii (and within `assistEarthAgl` of the
   ground at home): unless he is burning away, the rocket brakes to `assistDescent` and stands
   itself upright, so simply coasting in always ends in a landing. Touch down and you **land** --
-  fireworks, the stack is restored, the sky stays black -- then launch again from its
+  fireworks, the sky stays black -- then launch again from its
   surface (it's the new pad). Only ramming a surface under full power faster than `landSpeed` still explodes (and
   reassembles above it), like everything else.
 - **Landing button**: the runway button works for the rocket too. In space it jumps to a
