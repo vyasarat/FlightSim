@@ -38,7 +38,6 @@ the ship checklist; this file describes the game.
 | Round arrow button, bottom-right | Hold to throttle (takeoff roll; for the rocket, hold to burn). One pointer owns it; a palm tap won't release it |
 | Yellow flashing arrow | Rotation speed reached (latched -- releasing the throttle to free his finger doesn't lose it). Drag up past the threshold to lift off |
 | Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials; only the window frame hides |
-| Sky button, right column | Cycles **sun → rain → snow → night** (see Sky moods). Remembered across launches |
 | Gear button, bottom-left (planes) | Retract / extend the landing gear. Retracting is ignored while the wheels carry the plane. Distinct up/down icons, whirr/clunk, animated struts in chase view. **Landing with the gear up explodes** |
 | Missile button, bottom-left above gear (planes, airborne) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileCooldown`) |
 | Stage button (rocket, same slot, orange, pulsing) | Drops the next stage. Only appears above each stage's altitude (see The rocket) |
@@ -46,7 +45,7 @@ the ship checklist; this file describes the game.
 | Parachute button (rocket, same slot, red) | As the capsule low in the air: the drogue, then the mains. Each only below its `chuteAlt`; they pop by themselves below `chuteAutoAlt`, so nothing needs pressing |
 | Double-down / double-up chevrons, bottom-right (planes, airborne) | Step the set speed down / up one notch. Speed stays where he sets it -- no snap-back. Four steps (`TUNE.speedSteps`) |
 | Destination cards (rocket, after the direction card) | Moon / Mars / Station: where the landing button aims in space. Always all three |
-| Rover button (rocket, same slot, yellow; on the Moon / Mars) | Rolls the rover out; tap again and it drives itself back in. Stick drives, throttle plants a beacon |
+| Rover button (rocket, same slot, yellow; on the Moon / Mars) | Rolls the rover out; tap again and it drives itself back in. Throttle drives, stick steers |
 | Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, ~45 s to touchdown. Rocket, in space: **the go button** -- jump to a slow descent 350 m above the chosen destination (its icon is on the button); once he is heading home, the runway icon: **deorbit** as the capsule (plasma and parachutes down to a new spot around home), or a thruster descent to the pad for a full stack. Lower down: 200 m above the home pad; the landing assist does the rest |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker |
@@ -170,7 +169,9 @@ building, dry, or in a corridor (checked). Flying into one is a mid-air, like th
 
 ## Sky moods
 
-The sky button cycles four looks, each blending in over ~3 s and remembered across launches:
+There is no weather button any more (it made no sense to a four-year-old). The four looks are
+still in the code (`SKY_MOODS`, `state.sky` 0-3), blend in over ~3 s, and the harness renders
+the night one; the game itself always plays in the sunny mood:
 
 - **Sun** -- the default.
 - **Rain** -- grey sky, soft falling drops, a rain hiss.
@@ -276,10 +277,11 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   ones, one every 0.9 s with their own beep, fanning out in a line of blinking lights.
 - **Mission photos**: the camera in the rocket frames the shot as a round mission patch.
 - **The rover** (`js/rover.js`): landed on the Moon or Mars, the slot button shows a buggy.
-  Tap it and a yellow rover rolls out of the capsule; the stick drives it (drag **up** = go,
-  down = back, left/right = turn) on the curved ground, hopping over bumps in the body's own
-  gravity with a thump. Eight **glowing rocks** lie around the landing site: roll over one and
-  it chimes a note and sparkles. The throttle plants a **blinking beacon** with a flag. Tap the
+  Tap it and a yellow rover rolls out of the capsule; like everything else, **hold the throttle
+  to go** and **drag left / right to steer** (drag down backs up slowly) on the curved ground,
+  hopping over bumps in the body's own gravity with a thump. Eight **glowing rocks** lie around
+  the landing site: roll over one and it chimes a note, sparkles, and leaves a **blinking beacon**
+  with a flag where it was. Tap the
   button again and the rover drives itself back and climbs in -- nothing to line up -- and the
   rocket is ready to launch. Rocks and beacons come back fresh with the refit. Both views work
   (a seat on the rover, or the chase camera behind it).
@@ -313,7 +315,7 @@ costs nothing until pressed.
 
 ## Persistence (`localStorage`)
 
-`lp.vehicle`, `lp.dir` (relaunch goes straight to the runway), `lp.sky` (validated to 0-3),
+`lp.vehicle`, `lp.dir` (relaunch goes straight to the runway), `lp.dest` (moon / mars / station; a stale `lp.sky` is removed),
 `lp.spots` (which sparkle spots are lit; reset when all are found or the count changes).
 
 ## Tuning

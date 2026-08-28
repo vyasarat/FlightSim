@@ -117,10 +117,9 @@ function updateHud() {
   let v = null, d = null;
   try {
     v = localStorage.getItem("lp.vehicle"); d = localStorage.getItem("lp.dir");
-    const sk = parseInt(localStorage.getItem("lp.sky") || "0", 10);
-    state.sky = (sk >= 0 && sk < 4) ? sk : 0;   // never trust a stored mode outside 0..3
+    localStorage.removeItem("lp.sky");   // the sky button is gone; the sky is always the sunny one
   } catch (err) {}
-  el.skyBtn.dataset.mode = String(state.sky);
+  state.sky = 0;
   try {
     const de = localStorage.getItem("lp.dest");
     if (de === "moon" || de === "mars" || de === "station") state.dest = de;
