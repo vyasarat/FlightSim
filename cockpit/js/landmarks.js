@@ -716,6 +716,14 @@ function buildAirport(idx) {
     lmBox(g, 40, 13, 56, 0xd8dde4, px, 6.5, pz + 110, true);                    // integration hangar
     lmBox(g, 30, 10, 1, 0x3c4350, px, 5, pz + 81.5, false);
     lmBox(g, 8, 0.2, 60, 0x5e636b, px, 0.42, pz + 52, false);                   // road from the hangar to the pad
+    // pad edge lights: their own material so they can strobe through the countdown
+    const padLightMat = new THREE.MeshBasicMaterial({ color: 0xfff2b0, fog: false });
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2;
+      const lt = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 1.2), padLightMat);
+      lt.position.set(px + Math.cos(a) * 46, 0.9, pz + Math.sin(a) * 46); g.add(lt);
+    }
+    rec.padLightMat = padLightMat;
     rec.padX = px; rec.padZ = ap.cz + pz;
   }
   // addRouteLandmark anchors a group at terrain - 0.5 (so landmark bases sink

@@ -2116,6 +2116,34 @@ function check(name, ok, extra) {
     check("rocket: three manual drops (booster, fairing, second stage) each gated by altitude; ends as the capsule in space",
       launch.dropped && launch.stageAfter === 1 && launch.boosterKind === "booster" && launch.boosterNear && launch.finalStage === 3 && launch.spaceF > 0.9, JSON.stringify(launch));
     check("rocket: the dropped booster flies itself down and lands on its legs", launch.boosterLanded, JSON.stringify({ boosterLanded: launch.boosterLanded }));
+    const fx = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      const out = { shockwaves: L.flags.shockwaves || 0, booms: L.flags.sonicBooms || 0 };
+      // night: the plume lights the pad in chase view; by day it does not
+      L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.api.setView(true);
+      st.sky = 3; for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+      const a = L.airports.find(r => r.idx === st.originIdx);
+      const c0 = a.padLightMat.color.getHex();
+      L.api.setThrottle(true); const seen = new Set();
+      for (let i = 0; i < 60 * 1.2; i++) { L.update(1 / 60); seen.add(a.padLightMat.color.getHex()); }
+      out.strobed = seen.size >= 2 && !seen.has(c0) || seen.size >= 3;
+      out.nightLight = L.vehicleModel.userData.plumeLight.intensity > 1;
+      L.api.setThrottle(false);
+      st.sky = 0; L.api.placeOnRunway(); for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+      L.api.setThrottle(true); for (let i = 0; i < 60 * 1.2; i++) L.update(1 / 60);
+      out.dayLight = L.vehicleModel.userData.plumeLight.intensity;
+      L.api.setThrottle(false);
+      // reentry in the cockpit leans toward the horizon
+      L.api.setView(false); st.exploding = false; st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.onBody = null;
+      st.x = 0; st.z = L.AIRPORTS[0].cz; st.y = 1500; st.pitch = 90; st.heading = 0; L.rk.vy = -170; L.rk.vx = L.rk.vz = 0;
+      for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
+      const d = new THREE.Vector3(); L.camera.getWorldDirection(d);
+      out.reentry = +L.rk.reentry.toFixed(2); out.lookY = +d.y.toFixed(2);
+      L.api.setView(true);
+      return out;
+    });
+    check("rocket: launch flourishes -- shockwave at T-0, sonic booms as the booster comes down, pad lights strobe through the count, the plume lights the pad only at night, reentry view leans to the horizon",
+      fx.shockwaves > 0 && fx.booms > 0 && fx.strobed && fx.nightLight && fx.dayLight === 0 && fx.reentry > 0.5 && fx.lookY < 0.6, JSON.stringify(fx));
 
     const moon = await page.evaluate(() => {
       const L = window.__lp, st = L.state, R = L.TUNE.rocketTune, m = L.BODIES[0];
