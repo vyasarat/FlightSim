@@ -132,6 +132,15 @@ const TUNE = {
     assistEarthAgl: 220,            // ... and within this height of the ground at home
     assistDescent: 14,              // the assisted descent speed near the surface
     altMax: 12000,
+    // the capsule's way home (Dragon style): blunt-body drag in the air, plasma while
+    // fast, a drogue then the mains (button below chuteAlt, pop by themselves below
+    // chuteAutoAlt), a float down, and a refit on the pad a few seconds after touchdown
+    capsuleDrag: 0.14,
+    reentryAlt: 1900, reentrySpeed: 70,
+    chuteAlt: [900, 450], chuteAutoAlt: [650, 280],
+    chuteSink: [26, 6.5], chuteDrift: 9,
+    refitDelay: 5,
+    satAlt: 1400,                   // satellite button above this height (as the capsule)
     moon: { x: 1500, y: 7000, z: -2500, r: 520, g: 2.2 },
     mars: { x: -2600, y: 10800, z: 3200, r: 680, g: 3.0 },
   },

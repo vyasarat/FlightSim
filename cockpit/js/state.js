@@ -57,6 +57,8 @@ function applyVehicle(key) {
   document.documentElement.style.setProperty("--veh", cols[0]);
   document.documentElement.style.setProperty("--veh2", cols[1]);
   buildVehicleModel(key);
+  // the rocket is a thing to watch: it starts in the chase view (the view button still toggles)
+  if (state.vp.rocket && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
   if (vehicleModel) {
     vehicleModel.visible = state.viewChase && !state.exploding;
   }
