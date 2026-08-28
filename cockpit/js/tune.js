@@ -127,7 +127,10 @@ const TUNE = {
     drag: 0.05, maxSpeed: 280,
     turnRateDeg: 38,
     igniteTime: 1.4,                // hold the throttle this long on the pad before liftoff
-    landSpeed: 30,                  // slower than this on contact = a landing, faster = a crash
+    landSpeed: 90,                  // slower than this on contact = a landing, faster = a crash
+    assistRange: 2.2,               // landing assist engages within this many radii of a body
+    assistEarthAgl: 220,            // ... and within this height of the ground at home
+    assistDescent: 14,              // the assisted descent speed near the surface
     altMax: 12000,
     moon: { x: 1500, y: 7000, z: -2500, r: 520, g: 2.2 },
     mars: { x: -2600, y: 10800, z: 3200, r: 680, g: 3.0 },
