@@ -356,6 +356,7 @@ function update(dt) {
     const seeking = state.explodeTimer <= 0.5;
     updateExplosion(dt, safePos, seeking);
     setEngine(0.01);
+    if (state.vp.rocket) setRocketEngine(0, state.spaceF);
     state.engaged = false;
     updateChunks(state.x, state.z);
     updateShatter(dt);
