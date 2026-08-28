@@ -56,15 +56,19 @@ function updateAimMarker() {
   el.aimMarker.style.top = cy2 + "px";
 }
 
+const hudLast = {};   // last written HUD strings: write to the DOM only on change
 function updateHud() {
   const asiFrac = clamp(state.speed / TUNE.asiMaxSpeed, 0, 1);
-  el.asiNeedle.style.transform = `rotate(${-120 + asiFrac * 240}deg)`;
+  const asiT = `rotate(${(-120 + asiFrac * 240).toFixed(1)}deg)`;
+  if (hudLast.asi !== asiT) { hudLast.asi = asiT; el.asiNeedle.style.transform = asiT; }
   const altM = Math.max(0, state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel));
   const altFrac = clamp(altM / (state.vp.rocket ? TUNE.rocketTune.altMax : TUNE.altMaxMeters), 0, 1);
   el.altNeedle.style.transform = `rotate(${-120 + altFrac * 240}deg)`;
   const altStr = String(Math.round(altM));
   if (el.altDigits.textContent !== altStr) el.altDigits.textContent = altStr;
-  el.aiBall.style.transform = `rotate(${-state.bank}deg) translateY(${clamp(state.pitch, -40, 40) * TUNE.hudPitchPixelsPerDeg}px)`;
+  const aiT = `rotate(${(-state.bank).toFixed(1)}deg) translateY(${(clamp(state.pitch, -40, 40) * TUNE.hudPitchPixelsPerDeg).toFixed(1)}px)`;
+  if (hudLast.ai !== aiT) { hudLast.ai = aiT; el.aiBall.style.transform = aiT; }
+  if (hudLast.altLen !== altStr.length) { hudLast.altLen = altStr.length; el.altDigits.dataset.len = String(altStr.length); }
 
   if (state.engaged && state.approachData) {
     // `along` is negative while short of the threshold; distance-to-go is -along.
@@ -111,7 +115,7 @@ window.__lp = {
   TUNE, state, flags, update, terrainEff, shapedTerrain, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,
   get safePos(){return safePos;}, get blinkers(){return blinkers;}, get hiddenPieces(){return hiddenPieces;},
   get trainHead(){return trainHead;}, get trainSolids(){return trainSolids;}, resolveSolidWalls,
-  get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, rk, BODIES, dropStage, rocketCanDrop, rocketSkipToLanding, rocketCanSkip, rocketSkipTarget, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
+  get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, get clouds(){return clouds;}, rk, BODIES, dropStage, rocketCanDrop, rocketSkipToLanding, rocketCanSkip, rocketSkipTarget, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
   get cameraPos(){return camera.position;},
   forEachSolid(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);for(const b of trainSolids)cb(b);}, get vehicleModel(){return vehicleModel;},
