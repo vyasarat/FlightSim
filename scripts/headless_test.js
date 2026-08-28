@@ -323,7 +323,7 @@ function check(name, ok, extra) {
       sv.classList.remove("hiddenS");
       const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
       const hidden = [...sv.querySelectorAll(".card.hiddenS")];
-      if (visible.length !== 6) return { ok: false, why: "visible=" + visible.length };
+      if (visible.length !== 7) return { ok: false, why: "visible=" + visible.length };
       const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
@@ -333,14 +333,14 @@ function check(name, ok, extra) {
       const fromTune = hidden.every(c => window.__lp.TUNE.vehicles[c.dataset.v].hidden === true);
       return { ok: sized && hidden.length === 1 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && !keys.includes("helicopter"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
     });
-    check("vehicles: picker shows 6 incl fighter and rocket (heli shelved, not rendered, driven by TUNE.hidden)", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows 7 incl fighter, rocket and starship (heli shelved, not rendered, driven by TUNE.hidden)", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
       return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
     });
-    check("vehicles: six available, fighter and rocket distinct, airliners share stats",
-      combos.n === 6 && combos.uniq === 4, `n=${combos.n} uniq=${combos.uniq}`);
+    check("vehicles: seven available, fighter / rocket / starship distinct, airliners share stats",
+      combos.n === 7 && combos.uniq === 5, `n=${combos.n} uniq=${combos.uniq}`);
 
     await page.evaluate(() => {
       document.getElementById("screenDir").classList.add("hiddenS");
@@ -2121,6 +2121,45 @@ function check(name, ok, extra) {
     check("rocket: three manual drops (booster, fairing, second stage) each gated by altitude; ends as the capsule in space",
       launch.dropped && launch.stageAfter === 1 && launch.boosterKind === "booster" && launch.boosterNear && launch.finalStage === 3 && launch.spaceF > 0.9, JSON.stringify(launch));
     check("rocket: the dropped booster flies itself down and lands on its legs", launch.boosterLanded, JSON.stringify({ boosterLanded: launch.boosterLanded }));
+    const ss = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune;
+      const out = {};
+      L.api.setVehicle("starship"); L.api.placeOnRunway(); L.update(1 / 60);
+      const a = L.airports.find(r => r.idx === st.originIdx);
+      out.onPad = st.phase === "TAXI" && L.rk.stage === 0 && !document.getElementById("stageBtn").classList.contains("hidden") === false;
+      out.armsOpen = a.catchArms && Math.abs(a.catchArms[0].rotation.y) > 0.3;
+      L.api.setThrottle(true);
+      for (let i = 0; i < 60 * 40 && !L.rocketCanDrop(); i++) L.update(1 / 60);
+      out.canDrop = L.rocketCanDrop(); out.altAtDrop = Math.round(st.y - L.terrainEff(st.x, st.z));
+      L.rk.vx = 0; L.rk.vz = 0;   // straight up: the booster goes back to the arms
+      out.dropped = L.dropStage();
+      out.final = L.rk.stage === 1 && L.rocketCanDrop() === false;
+      const s = L.fallingStages.filter(f => f.kind === "booster").pop();
+      out.targetCatch = !!(s && s.target && s.target.catch);
+      L.api.setThrottle(false);
+      st.y = Math.max(st.y, 5000); L.rk.vx = L.rk.vy = L.rk.vz = 0;
+      const c0 = L.flags.boosterCatches || 0;
+      for (let i = 0; i < 60 * 90 && (L.flags.boosterCatches || 0) === c0; i++) L.update(1 / 60);
+      out.caught = (L.flags.boosterCatches || 0) > c0;
+      out.hangs = s && s.landed && Math.abs(s.y - (L.AIRPORTS[st.originIdx].elev + R.catch.armY)) < 3 && Math.abs(s.x - s.target.x) < 6;
+      for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
+      out.armsClosed = Math.abs(a.catchArms[0].rotation.y) < 0.2;
+      // the Ship: satellite yes, parachute never; it lands on its engines at the pad and refits
+      st.spaceF = 1; st.exploding = false; st.phase = "AIRBORNE"; L.update(1 / 60);
+      out.satBtn = !document.getElementById("satBtn").classList.contains("hidden");
+      const pad = L.rocketPad(st.originIdx);
+      st.x = pad.x; st.z = pad.z; st.y = pad.ground + 300; st.pitch = 90; L.rk.vx = L.rk.vz = 0; L.rk.vy = -10; st.spaceF = 0;
+      let chuteEver = false; const r0 = L.flags.rocketLandings || 0, e0 = L.flags.exploded;
+      for (let i = 0; i < 60 * 60 && st.phase !== "TAXI"; i++) { L.update(1 / 60); if (L.rk.chute > 0 || !document.getElementById("chuteBtn").classList.contains("hidden")) chuteEver = true; }
+      out.shipLanded = (L.flags.rocketLandings || 0) > r0 && L.flags.exploded === e0; out.noChute = !chuteEver;
+      for (let i = 0; i < 60 * (R.refitDelay + 1); i++) L.update(1 / 60);
+      out.refit = L.rk.stage === 0 && st.vehicleKey === "starship";
+      L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      return out;
+    });
+    check("starship: a second rocket -- one drop above its height; the booster flies back to the tower and the chopsticks catch it; the Ship deploys satellites, never a parachute, lands on its engines and refits",
+      ss.armsOpen && ss.canDrop && ss.altAtDrop >= 440 && ss.dropped && ss.final && ss.targetCatch && ss.caught && ss.hangs && ss.armsClosed && ss.satBtn && ss.shipLanded && ss.noChute && ss.refit, JSON.stringify(ss));
+
     const fx = await page.evaluate(() => {
       const L = window.__lp, st = L.state;
       const out = { shockwaves: L.flags.shockwaves || 0, booms: L.flags.sonicBooms || 0 };
@@ -2372,8 +2411,9 @@ function check(name, ok, extra) {
       for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
       out.unfolded = p0 < 0.1 && s.mesh.userData.panels[0].scale.x > 0.9;
       out.drifted = Math.hypot(s.x - st.x, s.y - st.y, s.z - st.z) > 8;
-      // with the satellite out, the landing button means home, not the Moon
-      out.skipHome = L.rocketSkipTarget() === null;
+      // the satellite does not change the route: the button still means the destination (and shows its icon)
+      L.update(1 / 60); out.skipHome = L.rocketSkipTarget() !== null && document.getElementById("skipBtn").dataset.target === st.dest;
+      L.rk.launchedFromBody = true; L.update(1 / 60); out.iconHome = document.getElementById("skipBtn").dataset.target === "home";   // (stays "on the way home": the deorbit below is the trip back)
       const d0 = L.flags.deorbits || 0;
       L.rocketSkipToLanding();
       out.deorbit = (L.flags.deorbits || 0) > d0 && st.y > R.gravityFade && L.rk.vy < -100;
@@ -2411,8 +2451,8 @@ function check(name, ok, extra) {
       out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x - L.rocketPad(st.originIdx).x) < 1 && st.phase === "TAXI" && out.recovery && out.lifted && out.carried && out.destAsked;
       return out;
     });
-    check("rocket: the capsule deploys a satellite in space (button only then; it unfolds and drifts off) and the landing button then means home",
-      ret.satShown && ret.chuteHiddenInSpace && ret.did && ret.satAdded && ret.satHiddenAfter && ret.unfolded && ret.drifted && ret.skipHome && ret.deorbit, JSON.stringify(ret));
+    check("rocket: the capsule deploys a satellite in space (button only then; it unfolds and drifts off); the go button keeps the destination's icon, and shows the runway once he is heading home",
+      ret.satShown && ret.chuteHiddenInSpace && ret.did && ret.satAdded && ret.satHiddenAfter && ret.unfolded && ret.drifted && ret.skipHome && ret.iconHome && ret.deorbit, JSON.stringify(ret));
     check("rocket: reentry glows (model + window overlay) heat-shield first; no chute button above the drogue height; the drogue pops by itself",
       ret.glowPeak > 0.5 && ret.overlayPeak > 0.2 && !ret.btnEarly && ret.pitchAtGlow > 60 && ret.reentries > 0 && ret.drogueAuto && ret.drogueAlt < 700 && ret.drogueAlt > 500, JSON.stringify(ret));
     check("rocket: drogue then mains (button below its height, auto below that), a slow float down, a soft landing as the capsule somewhere around home (not the pad or runway); the recovery ship/truck lifts it and carries it, then the pad refits",

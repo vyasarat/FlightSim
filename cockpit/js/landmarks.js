@@ -724,6 +724,22 @@ function buildAirport(idx) {
       lt.position.set(px + Math.cos(a) * 46, 0.9, pz + Math.sin(a) * 46); g.add(lt);
     }
     rec.padLightMat = padLightMat;
+    // the catch tower ("Mechazilla"): a tall lattice with two arms that close on a Super Heavy booster
+    {
+      const C = TUNE.rocketTune.catch, tz = pz + C.dz - 18;
+      lmBox(g, 6, 62, 6, 0x3c4350, px, 31, tz, true);
+      for (let y = 6; y < 62; y += 8) lmBox(g, 7, 0.5, 7, 0x8a93a0, px, y, tz, false);
+      lmBox(g, 8, 2, 8, 0x2f3a48, px, C.armY + 1.5, tz, false);
+      const arms = [];
+      for (const sx of [-1, 1]) {
+        const hinge = new THREE.Group(); hinge.position.set(px + sx * 3.2, C.armY, tz + 3.5);
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 22), lam(0x1f2328)); arm.position.set(sx * 1.1, 0, 11); hinge.add(arm);
+        const pad2 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 4), lam(0xffd23e)); pad2.position.set(sx * 0.4, 0, 20); hinge.add(pad2);
+        hinge.rotation.y = sx * 0.55;
+        g.add(hinge); arms.push(hinge);
+      }
+      rec.catchArms = arms; rec.catchClosed = false;
+    }
     rec.padX = px; rec.padZ = ap.cz + pz;
   }
   // addRouteLandmark anchors a group at terrain - 0.5 (so landmark bases sink

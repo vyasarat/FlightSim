@@ -33,7 +33,7 @@ function updateHomeArrow() {
 const spaceTarget = new THREE.Vector3();
 function updateSpaceArrow() {
   let tx, ty, tz;
-  const goingHome = rk.launchedFromBody || (rk.stage === 3 && rk.satOut);
+  const goingHome = rk.launchedFromBody;
   const body = goingHome ? null : BODIES.find(b => b.name === state.dest);
   if (body) { tx = body.x; ty = body.y; tz = body.z; }
   else { const pad = rocketPad(state.originIdx); tx = pad.x; ty = pad.ground; tz = pad.z; }
