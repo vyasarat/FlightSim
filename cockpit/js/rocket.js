@@ -277,10 +277,11 @@ function updateRocket(dt) {
     state.speed = 0;
     rumble = 0;
     setRolling(0);
+    setEngine(0);   // never the propeller drone
     if (state.throttleHeld) {
       rk.igniteT += dt;
       rumble = 0.03 + rk.igniteT * 0.02;
-      setEngine(0.4 + rk.igniteT * 0.4);
+      setRocketEngine(0.35 + 0.65 * clamp(rk.igniteT / RK.igniteTime, 0, 1), 0);
       if (rk.igniteT >= RK.igniteTime) {
         state.phase = "AIRBORNE";
         state.liftoffTimer = 0;
@@ -292,7 +293,7 @@ function updateRocket(dt) {
       }
     } else {
       rk.igniteT = 0;
-      setEngine(0.01);
+      setRocketEngine(0, 0);
     }
     forward.set(0, 1, 0);
     return;
@@ -330,7 +331,8 @@ function updateRocket(dt) {
   // velocity direction for the shared systems (alarm prediction, wall push-out)
   if (sp > 0.5) forward.set(rk.vx / sp, rk.vy / sp, rk.vz / sp); else forward.copy(rkAxis);
 
-  setEngine(burning ? 0.95 + 0.15 * Math.random() : 0.02);
+  setEngine(0);
+  setRocketEngine(burning ? 1 : 0, state.spaceF);
   rumble = burning ? 0.02 : 0;
   // reentry glow: fast and descending into the atmosphere
   rk.reentry = (rk.vy < -60 && inAtmo > 0.2 && inAtmo < 0.95) ? Math.min(1, rk.reentry + dt) : Math.max(0, rk.reentry - dt);

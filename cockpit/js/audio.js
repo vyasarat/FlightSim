@@ -275,6 +275,42 @@ function shutter() {
   synthBlip("square", 1800, 900, 0.05, 0.12, 0.03);
   noiseBurst(0.05, 2200, 0.25, 0.09);
 }
+// Rocket engine: a deep roar (low-passed noise) over a sub-bass rumble, with
+// crackle at full thrust. Thins to a soft hum in space (no air to carry it).
+let rocketNodes = null;
+function setRocketEngine(level, inSpace) {
+  if (!audioCtx || audioCtx.state !== "running") return;
+  if (!rocketNodes) {
+    const len = audioCtx.sampleRate * 2;
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const lp = audioCtx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 220; lp.Q.value = 0.7;
+    const roar = audioCtx.createGain(); roar.gain.value = 0;
+    src.connect(lp); lp.connect(roar); roar.connect(masterGain); src.start();
+    const src2 = audioCtx.createBufferSource(); src2.buffer = buf; src2.loop = true;
+    const hp = audioCtx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1800;
+    const crackle = audioCtx.createGain(); crackle.gain.value = 0;
+    src2.connect(hp); hp.connect(crackle); crackle.connect(masterGain); src2.start();
+    const sub = audioCtx.createOscillator(); sub.type = "sine"; sub.frequency.value = 38;
+    const subG = audioCtx.createGain(); subG.gain.value = 0;
+    sub.connect(subG); subG.connect(masterGain); sub.start();
+    const wob = audioCtx.createOscillator(); wob.type = "sine"; wob.frequency.value = 7;   // slow throb on the sub
+    const wobG = audioCtx.createGain(); wobG.gain.value = 6;
+    wob.connect(wobG); wobG.connect(sub.frequency); wob.start();
+    rocketNodes = { roar, crackle, subG, lp, last: -1, lastSpace: -1 };
+  }
+  const n = clamp(level, 0, 1), sp = clamp(inSpace, 0, 1);
+  if (Math.abs(n - rocketNodes.last) < 0.004 && Math.abs(sp - rocketNodes.lastSpace) < 0.01) return;
+  rocketNodes.last = n; rocketNodes.lastSpace = sp;
+  const t = audioCtx.currentTime;
+  const air = 1 - sp * 0.75;
+  rocketNodes.roar.gain.setTargetAtTime(n * 0.55 * air, t, 0.12);
+  rocketNodes.lp.frequency.setTargetAtTime(160 + n * 320 - sp * 120, t, 0.15);
+  rocketNodes.crackle.gain.setTargetAtTime(n > 0.85 ? (n - 0.85) * 1.2 * air : 0, t, 0.1);
+  rocketNodes.subG.gain.setTargetAtTime(n * 0.5 * air, t, 0.12);
+}
 function stageSep() {
   noiseBurst(0.18, 500, 0.4, 0);
   synthBlip("square", 220, 120, 0.2, 0.2, 0);
