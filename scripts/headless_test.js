@@ -2017,7 +2017,7 @@ function check(name, ok, extra) {
       for (let i = 0; i < 60 * 20 && (L.flags.moonLandings || 0) === l0; i++) L.update(1 / 60);
       const landed = (L.flags.moonLandings || 0) > l0;
       const onMoon = L.rk.onBody && L.rk.onBody.name === "moon";
-      const restocked = L.rk.stage === 0;
+      const restocked = L.rk.stage === 3;   // arrived as the capsule, stays the capsule (only home refits the stack)
       const spaceStays = st.spaceF > 0.5;
       // launch again from the Moon
       L.api.setThrottle(true);
@@ -2042,7 +2042,7 @@ function check(name, ok, extra) {
       const back = !st.exploding && Math.hypot(st.x - mars.x, st.y - mars.y, st.z - mars.z) > mars.r + 30 && L.rk.stage === 0;
       return { landed, onMoon, restocked, spaceStays, left, marsLanded, crashed, back };
     });
-    check("rocket: a slow approach lands on the Moon (stack restored, space stays), and it can launch again",
+    check("rocket: a slow approach lands on the Moon (still the capsule, space stays), and it can launch again",
       moon.landed && moon.onMoon && moon.restocked && moon.spaceStays && moon.left, JSON.stringify(moon));
     check("rocket: coasting at Mars from far out is braked to a landing; ramming it under power still explodes and reassembles",
       moon.marsLanded && moon.crashed && moon.back, JSON.stringify(moon));
@@ -2085,9 +2085,9 @@ function check(name, ok, extra) {
       // feather it down: burn when falling faster than 10
       for (let i = 0; i < 60 * 40 && st.phase !== "TAXI"; i++) { L.api.setThrottle(L.rk.vy < -9); L.update(1 / 60); }
       L.api.setThrottle(false);
-      return { landed: (L.flags.rocketLandings || 0) > r0, exploded: L.flags.exploded > e0, phase: st.phase, pitch: Math.round(st.pitch) };
+      return { landed: (L.flags.rocketLandings || 0) > r0, exploded: L.flags.exploded > e0, phase: st.phase, pitch: Math.round(st.pitch), refit: L.rk.stage === 0 };
     });
-    check("rocket: a slow upright descent onto the Earth lands (Falcon style)", home.landed && !home.exploded && home.phase === "TAXI", JSON.stringify(home));
+    check("rocket: a slow upright descent onto the Earth lands (Falcon style) and the pad refits the full stack", home.landed && !home.exploded && home.phase === "TAXI" && home.refit, JSON.stringify(home));
     await page.close();
   }
 
