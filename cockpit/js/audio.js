@@ -29,6 +29,7 @@ function unlockAudio() {
 
 function startEngine() {
   if (engineNodes || !audioCtx || audioCtx.state !== "running") return;
+  lastEngineNorm = -1;   // force the first setEngine after (re)start to apply
   const t = audioCtx.currentTime;
   const o = audioCtx.createOscillator();
   o.type = "sawtooth";

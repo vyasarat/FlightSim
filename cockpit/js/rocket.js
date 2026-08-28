@@ -145,7 +145,13 @@ function rocketRestock() {
   rk.fuel = [RK.fuel[0], RK.fuel[1], Infinity];
   if (vehicleModel) rocketApplyStages(vehicleModel);
 }
-function rocketHalfLen() { return (vehicleModel && vehicleModel.userData.halfLen || 7.6) * (state.vp.size || 1); }
+// Distance from the reference point down to the base of the lowest attached
+// part (booster 7.5, second stage -0.2, capsule -3.55 -- negative means the
+// base is above the reference), scaled. Used for ground contact and standing.
+function rocketHalfLen() {
+  const base = rk.stage === 0 ? 7.5 : rk.stage <= 2 ? -0.2 : -3.55;
+  return base * (state.vp.size || 1);
+}
 function rocketAlt() {
   return state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
 }
@@ -161,6 +167,8 @@ function dropStage() {
   const p = vehicleModel.userData.rocket;
   const parts = rk.stage === 0 ? [p.booster] : rk.stage === 1 ? p.fairing : [p.stage2];
   const kind = rk.stage === 0 ? "booster" : rk.stage === 1 ? "fairing" : "stage2";
+  vehicleModel.position.set(state.x, state.y, state.z);
+  vehicleModel.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
   vehicleModel.updateMatrixWorld(true);
   for (const part of parts) {
     const clone = part.clone();
@@ -173,7 +181,7 @@ function dropStage() {
     fallingStages.push({
       mesh: clone, kind,
       x: clone.position.x, y: clone.position.y, z: clone.position.z,
-      vx: rk.vx * 0.9 + sx * 6, vy: rk.vy * 0.9 - 4, vz: rk.vz * 0.9 + sz * 6,
+      vx: rk.vx * 0.9 + sx * 6, vy: kind === "booster" ? Math.min(rk.vy * 0.9 - 4, 25) : rk.vy * 0.9 - 4, vz: rk.vz * 0.9 + sz * 6,
       rx: (rnd() - 0.5) * 1.2, ry: (rnd() - 0.5) * 1.2, life: kind === "booster" ? 60 : 30, landed: false,
     });
   }
@@ -194,7 +202,9 @@ function updateFallingStages(dt) {
     const g = RK.gravity * clamp(1 - s.y / RK.gravityFade, 0, 1);
     s.vy -= g * dt;
     if (s.kind === "booster") {
-      // Falcon-style: it flips upright, burns to slow down, and lands on its legs.
+      // Falcon-style: boostback burn kills the inherited climb in the first
+      // seconds, it flips upright, brakes near the ground and lands on its legs.
+      if (s.life > 55 && s.vy > 0) s.vy *= 1 - Math.min(1, 1.6 * dt);
       const up = new THREE.Vector3(0, 1, 0);
       s.mesh.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), up), Math.min(1, 1.5 * dt));
       s.vx *= 1 - Math.min(1, 1.2 * dt); s.vz *= 1 - Math.min(1, 1.2 * dt);
@@ -270,7 +280,7 @@ function updateRocket(dt) {
       state.pitch = Math.asin(clamp(rkAxis.y, -1, 1)) / DEG;
       state.heading = Math.atan2(-rkAxis.x, -rkAxis.z);
     } else {
-      state.y = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + halfLen;
+      state.y = Math.max(rk.groundHere !== undefined ? rk.groundHere : -1e9, Math.max(terrainEff(state.x, state.z), TUNE.waterLevel)) + halfLen;
       state.pitch += (90 - state.pitch) * Math.min(1, 6 * dt);
     }
     state.bank = 0;
@@ -289,6 +299,9 @@ function updateRocket(dt) {
         state.maxAglSinceLiftoff = 1e9;
         flags.liftoff++;
         rk.igniteT = 0;
+        if (!rk.onBody) apronVehiclesTo(state.originIdx, false);
+        rk.launchedFromBody = !!rk.onBody;
+        rk.onBody = null;
         liftoffRoar();
         rumble = 0.05;
       }
@@ -307,7 +320,8 @@ function updateRocket(dt) {
 
   // attitude from the stick: up = nose up (toward vertical), down = pitch over; left/right = yaw
   if (state.touching) {
-    state.pitch = clamp(state.pitch + state.ctrlPitch * RK.turnRateDeg * dt, -90, 90);
+    const upSign = camUp.y < -0.2 ? -1 : 1;   // standing on a body's underside: screen-up is Earth-down
+    state.pitch = clamp(state.pitch + state.ctrlPitch * upSign * RK.turnRateDeg * dt, -90, 90);
     state.heading -= state.ctrlBank * RK.turnRateDeg * 0.8 * DEG * dt;
     state.bank += (state.ctrlBank * 18 - state.bank) * Math.min(1, 4 * dt);
   } else {
@@ -355,10 +369,15 @@ function updateRocket(dt) {
     }
     return;
   }
-  // ---- touching the Earth
-  const ground = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+  // ---- touching the Earth (or a rooftop: solid tops are landable ground)
+  let ground = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+  forEachSolid(b => {
+    if (isSolidHidden(b) || b.car !== undefined) return;
+    if (Math.abs(state.x - b.x) < b.hw && Math.abs(state.z - b.z) < b.hd && state.y - halfLen <= b.y1 + 1.5 && state.y > b.y0) ground = Math.max(ground, b.y1);
+  });
+  rk.groundHere = ground;
   if (state.y - halfLen <= ground && rk.vy <= 0) {
-    const upright = state.pitch > 40;
+    const upright = state.pitch > 40 || sp <= RK.landSpeed * 0.3;
     if (sp <= RK.landSpeed && upright) rocketLandOn(null);
     else rocketCrash(state.x, ground + 70, state.z);
   }
@@ -388,7 +407,7 @@ function rocketLandingAssist(dt, burning) {
   const tvx = -nx * want, tvy = -ny * want, tvz = -nz * want;
   rk.vx += (tvx - rk.vx) * k; rk.vy += (tvy - rk.vy) * k; rk.vz += (tvz - rk.vz) * k;
   // stand up: attitude eases toward the surface normal unless he is steering
-  if (!state.touching) {
+  if (!state.touching || Math.abs(state.ctrlPitch) < 0.15) {
     const wantPitch = Math.asin(clamp(ny, -1, 1)) / DEG;
     const wantHeading = Math.atan2(-nx, -nz);
     state.pitch += (wantPitch - state.pitch) * Math.min(1, 2 * dt);
@@ -400,8 +419,8 @@ function rocketLandingAssist(dt, burning) {
 // descent just above the nearest planet (in space) or the home pad (lower
 // down), and let the landing assist bring it in.
 function rocketSkipTarget() {
-  if (state.y > TUNE.spaceAltitude + TUNE.spaceBlendBand) return rocketNearestBody().body;
-  return null;   // Earth: the pad he took off from
+  if (state.y > TUNE.spaceAltitude + TUNE.spaceBlendBand && !rk.launchedFromBody) return rocketNearestBody().body;
+  return null;   // Earth: the pad he took off from (also after a planet visit -- the way home)
 }
 function rocketCanSkip() {
   if (state.phase !== "AIRBORNE" || state.exploding) return false;
@@ -454,6 +473,10 @@ function rocketLandOn(body) {
   }
 }
 function rocketCrash(sx, sy, sz) {
+  // reassemble beside anything solid at that spot so the assist lands next to it, not back onto it
+  forEachSolid(b => {
+    if (Math.abs(sx - b.x) < b.hw + 8 && Math.abs(sz - b.z) < b.hd + 8) { sx = b.x + (sx >= b.x ? 1 : -1) * (b.hw + 30); sz = b.z + (sz >= b.z ? 1 : -1) * (b.hd + 30); }
+  });
   state.exploding = true;
   state.explodeTimer = TUNE.reassembleDelay;
   safePos.x = sx; safePos.y = sy; safePos.z = sz;
@@ -469,6 +492,7 @@ function rocketAfterReassemble() {
 }
 // Camera for the rocket: cockpit looks along the body axis; chase sits behind and a little below.
 const camUp = new THREE.Vector3(0, 1, 0);
+const camQ = new THREE.Quaternion(), camQi = new THREE.Quaternion();
 function rocketCamera(dt) {
   const pr = state.pitch * DEG, hr = state.heading, cp = Math.cos(pr);
   rkAxis.set(-Math.sin(hr) * cp, Math.sin(pr), -Math.cos(hr) * cp);
@@ -479,7 +503,11 @@ function rocketCamera(dt) {
   if (nb.body && nb.dist < nb.body.r * 1.2) {
     rkTmp.set(state.x - nb.body.x, state.y - nb.body.y, state.z - nb.body.z).normalize();
     const k = clamp(1 - nb.dist / (nb.body.r * 1.2), 0, 1);
-    camUp.lerp(rkTmp, k).normalize();
+    // slerp Earth-up toward the surface normal (a vector lerp passes through zero on undersides)
+    camQ.setFromUnitVectors(camUp, rkTmp);
+    camQi.identity();
+    camQi.slerp(camQ, k);
+    camUp.applyQuaternion(camQi).normalize();
   }
   camera.up.copy(camUp);
   if (state.viewChase) {

@@ -73,7 +73,9 @@ function triggerExplosion(nx, ny, nz, intensity, small) {
     fb.userData.dur = 0.5 + rnd() * 0.25;
   }
   debrisMesh.visible = true;
-  shakeAmp = 1;
+  // shake falls off with distance so a missile hit 500 m away doesn't rattle the cockpit
+  const dist = Math.hypot(nx - state.x, ny - state.y, nz - state.z);
+  shakeAmp = Math.max(shakeAmp, clamp(1 - dist / 260, 0.08, 1));
   boomSound();
   flags.exploded++;
   const groundY = Math.max(terrainEff(nx, nz), TUNE.waterLevel);
