@@ -141,6 +141,11 @@ function buildInterior() {
   const hatch = new THREE.Mesh(new THREE.CircleGeometry(0.9, 24), new THREE.MeshLambertMaterial({ color: 0x8a93a0 })); hatch.position.z = -L + 0.02; g.add(hatch);
   const hatchRing = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.08, 8, 30), new THREE.MeshBasicMaterial({ color: 0x5ff1ff })); hatchRing.position.z = -L + 0.05; g.add(hatchRing);
   astro.hatchRing = hatchRing;
+  // the airlock: a red ring on the wall of module three -- float into it for a spacewalk
+  const aa = 3.9, ax = Math.cos(aa) * (R - 0.15), ay = Math.sin(aa) * (R - 0.15);
+  const airDoor = new THREE.Mesh(new THREE.CircleGeometry(0.8, 24), new THREE.MeshLambertMaterial({ color: 0x6b7078 })); airDoor.position.set(ax, ay, 8); airDoor.lookAt(0, 0, 8); g.add(airDoor);
+  const airRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.08, 8, 30), new THREE.MeshBasicMaterial({ color: 0xff3b30 })); airRing.position.set(ax, ay, 8); airRing.lookAt(0, 0, 8); g.add(airRing);
+  astro.airlock = { x: Math.cos(aa) * (R - 0.75), y: Math.sin(aa) * (R - 0.75), z: 8, ring: airRing };
   // floating things and their lockers
   astro.objects = [];
   const mk = (geo, color, i) => {
@@ -198,6 +203,7 @@ function enterStation() {
   return true;
 }
 function leaveStation() {
+  if (astro.mode === "eva") { astro.mode = "evaReturn"; toot(); return true; }   // outside: back to the airlock first
   if (astro.mode !== "inside") return false;
   astro.mode = "leaving";
   toot();
@@ -207,6 +213,7 @@ function toggleHatch() { return astro.mode === "none" ? enterStation() : leaveSt
 function astroReset() {
   astro.mode = "none";
   if (astro.group) astro.group.visible = false;
+  if (eva.mesh) { eva.mesh.visible = false; eva.tether.visible = false; eva.tool.visible = false; }
   if (el.hatchBtn) el.hatchBtn.dataset.mode = "in";
   setTone("fans", "sine", 120, 0);
 }
@@ -220,6 +227,7 @@ function astroFinishLeave() {
 }
 
 function updateAstronaut(dt) {
+  if (astro.mode === "eva" || astro.mode === "evaReturn") { updateEva(dt); return; }
   astro.t += dt;
   const A = ASTRO;
   // facing from yaw/pitch; drag up = look up
@@ -307,6 +315,8 @@ function updateAstronaut(dt) {
     }
   }
   for (const b of astro.blinkers) b.lamp.visible = ((astro.t + b.phase) % 1.6) < 0.9;
+  astro.airlock.ring.material.opacity = 1; astro.airlock.ring.scale.setScalar(1 + 0.06 * Math.sin(astro.t * 4));
+  if (astro.mode === "inside" && Math.hypot(astro.x - astro.airlock.x, astro.y - astro.airlock.y, astro.z - astro.airlock.z) < 0.9) { evaStart(); return; }
   astro.hatchRing.material.opacity = 0.6 + 0.4 * Math.sin(astro.t * 3);
   astro.earth.rotation.y += dt * 0.02;
   // the model
@@ -322,6 +332,7 @@ function updateAstronaut(dt) {
   forward.copy(astro.f);
 }
 function astroCamera(dt) {
+  if (astro.mode === "eva" || astro.mode === "evaReturn") { evaCamera(dt); return; }
   const o = astro.origin;
   camera.up.set(0, 1, 0);
   if (state.viewChase) {
@@ -334,6 +345,151 @@ function astroCamera(dt) {
     lookV.set(o.x + astro.x + astro.f.x * 3, o.y + astro.y + 0.3 + astro.f.y * 3, o.z + astro.z + astro.f.z * 3);
   } else {
     camera.position.set(o.x + astro.x + astro.f.x * 0.25, o.y + astro.y + 0.62, o.z + astro.z + astro.f.z * 0.25);
+    lookV.set(camera.position.x + astro.f.x * 10, camera.position.y + astro.f.y * 10, camera.position.z + astro.f.z * 10);
+  }
+  camera.lookAt(lookV);
+}
+
+// ===========================================================================
+// The spacewalk. Inside module three there is a red airlock ring: float into
+// it and he is outside the real station in his suit and helmet, on a glowing
+// tether that never lets him drift off (past its length it reels him back).
+// Same controls. Jobs, all pointing: fly into the glowing orange battery on the
+// truss and a new one slides in (that side of the station lights up), bump the
+// stuck solar array and it unfolds, catch the drifting wrench and it clips to
+// his belt. The button flies him back to the airlock and inside.
+// ===========================================================================
+const EVA = { tether: 60, thrust: 3.2, drag: 0.25, maxSpeed: 5 };
+const eva = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, anchor: new THREE.Vector3(), mesh: null, helmet: null, tether: null, battery: null, oldBattery: null, tool: null, toolHeld: false, stuck: null, jets: [], t: 0 };
+function evaWorldAnchor() {
+  const s = station.position;
+  return eva.anchor.set(s.x + 6.5, s.y - 2, s.z);   // the airlock, on the core's side
+}
+function buildEva() {
+  eva.mesh = buildAstronaut();
+  const gold = new THREE.MeshLambertMaterial({ color: 0xd4a72c, emissive: 0x3a2a08 });
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), new THREE.MeshLambertMaterial({ color: 0xf2f4f7 })); helmet.position.y = 0.7; eva.mesh.add(helmet);
+  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.27, 14, 10, -0.9, 1.8, 0.9, 1.3), gold); visor.position.y = 0.7; eva.mesh.add(visor);
+  for (const sx of [-1, 1]) { const jet = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 6), new THREE.MeshBasicMaterial({ color: 0xbfe9ff })); jet.position.set(sx * 0.2, -0.3, -0.5); jet.rotation.x = -Math.PI / 2; jet.visible = false; eva.mesh.add(jet); eva.jets.push(jet); }
+  eva.mesh.visible = false;
+  scene.add(eva.mesh);
+  eva.tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x5ff1ff }));
+  eva.tether.visible = false; scene.add(eva.tether);
+  // the jobs live on the station itself
+  const s = station;
+  const batMat = new THREE.MeshLambertMaterial({ color: 0xff7a1a, emissive: 0x6a2a00 });
+  eva.battery = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 1.2), batMat); eva.battery.position.set(-12, 6.5, 1.6); s.add(eva.battery);
+  eva.batteryDone = false;
+  eva.tool = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.18, 0.2), new THREE.MeshLambertMaterial({ color: 0xffd23e })); eva.tool.visible = false; scene.add(eva.tool);
+  eva.toolPos = new THREE.Vector3();
+}
+function evaStart() {
+  if (!eva.mesh) buildEva();
+  const a = evaWorldAnchor();
+  eva.x = a.x + 2.5; eva.y = a.y; eva.z = a.z; eva.vx = 0.6; eva.vy = 0; eva.vz = 0; eva.t = 0;
+  astro.yaw = Math.PI / 2; astro.pitch = 0;
+  astro.mode = "eva";
+  astro.group.visible = false;
+  eva.mesh.visible = true; eva.tether.visible = true;
+  // jobs re-arm for every walk
+  eva.batteryDone = false; eva.battery.visible = true; eva.battery.material.color.setHex(0xff7a1a); eva.battery.material.emissive.setHex(0x6a2a00);
+  eva.toolHeld = false; eva.tool.visible = true; eva.toolPos.set(a.x + 14, a.y + 6, a.z + 8); eva.toolVel = new THREE.Vector3(-0.15, -0.05, -0.1);
+  if (station.userData.panels && station.userData.panels.length) { eva.stuck = station.userData.panels[3]; eva.stuck.scale.x = 0.4; eva.stuckDone = false; }
+  camera.position.set(eva.x - 3, eva.y + 1, eva.z);
+  noiseBurst(0.6, 500, 0.25, 0); chirp();
+  flags.spacewalks = (flags.spacewalks || 0) + 1;
+}
+function evaFinish() {
+  astro.mode = "inside";
+  eva.mesh.visible = false; eva.tether.visible = false; eva.tool.visible = false;
+  for (const j of eva.jets) j.visible = false;
+  astro.group.visible = true;
+  astro.x = astro.airlock.x * 0.6; astro.y = astro.airlock.y * 0.6; astro.z = astro.airlock.z; astro.vx = -astro.airlock.x * 0.3; astro.vy = -astro.airlock.y * 0.3; astro.vz = 0;
+  astro.yaw = Math.atan2(-astro.airlock.x, 0.01); astro.pitch = 0;
+  camera.position.set(astro.origin.x + astro.x, astro.origin.y + astro.y + 0.9, astro.origin.z + astro.z - 2.8);
+  noiseBurst(0.5, 600, 0.2, 0); chirp();
+  flags.spacewalkReturns = (flags.spacewalkReturns || 0) + 1;
+}
+function updateEva(dt) {
+  eva.t += dt;
+  const a = evaWorldAnchor();
+  let push = 0;
+  if (astro.mode === "evaReturn") {
+    asTmp.set(a.x - eva.x, a.y - eva.y, a.z - eva.z);
+    const d = asTmp.length();
+    if (d < 1.8) { evaFinish(); return; }
+    asTmp.normalize();
+    const wantYaw = Math.atan2(asTmp.x, asTmp.z), wantPitch = Math.asin(clamp(asTmp.y, -1, 1));
+    astro.yaw += wrapPi(wantYaw - astro.yaw) * Math.min(1, 3 * dt);
+    astro.pitch += (wantPitch - astro.pitch) * Math.min(1, 3 * dt);
+    push = 1;
+  } else {
+    astro.yaw += -clamp(state.ctrlBank, -1, 1) * ASTRO.turn * dt;
+    astro.pitch = clamp(astro.pitch + clamp(state.ctrlPitch, -1, 1) * ASTRO.turn * 0.8 * dt, -1.3, 1.3);
+    push = state.throttleHeld ? 1 : 0;
+  }
+  const cp = Math.cos(astro.pitch);
+  astro.f.set(Math.sin(astro.yaw) * cp, Math.sin(astro.pitch), Math.cos(astro.yaw) * cp);
+  if (push) { eva.vx += astro.f.x * EVA.thrust * dt; eva.vy += astro.f.y * EVA.thrust * dt; eva.vz += astro.f.z * EVA.thrust * dt; }
+  const k = 1 - Math.min(1, EVA.drag * dt);
+  eva.vx *= k; eva.vy *= k; eva.vz *= k;
+  // the tether: past its length it reels him gently back
+  asTmp.set(eva.x - a.x, eva.y - a.y, eva.z - a.z);
+  const td = asTmp.length();
+  if (td > EVA.tether) { asTmp.normalize(); const pull = (td - EVA.tether) * 0.8 + 1.5; eva.vx -= asTmp.x * pull * dt * 3; eva.vy -= asTmp.y * pull * dt * 3; eva.vz -= asTmp.z * pull * dt * 3; if (!eva.tugged) { eva.tugged = true; synthBlip("sine", 200, 140, 0.2, 0.2, 0); } } else eva.tugged = false;
+  let sp = Math.hypot(eva.vx, eva.vy, eva.vz);
+  if (sp > EVA.maxSpeed) { const q = EVA.maxSpeed / sp; eva.vx *= q; eva.vy *= q; eva.vz *= q; sp = EVA.maxSpeed; }
+  eva.x += eva.vx * dt; eva.y += eva.vy * dt; eva.z += eva.vz * dt;
+  // keep out of the station's core (a soft bump)
+  const s = station.position, cdx = eva.x - s.x, cdz = eva.z - s.z, cr = Math.hypot(cdx, cdz);
+  if (cr < 5.2 && Math.abs(eva.y - s.y) < 11) { const nx = cdx / Math.max(cr, 0.01), nz = cdz / Math.max(cr, 0.01); eva.x = s.x + nx * 5.2; eva.z = s.z + nz * 5.2; const vn = eva.vx * nx + eva.vz * nz; if (vn < 0) { eva.vx -= vn * nx * 1.3; eva.vz -= vn * nz * 1.3; noiseBurst(0.08, 180, 0.2, 0); } }
+  // jobs
+  station.updateMatrixWorld();
+  if (!eva.batteryDone) {
+    asTmp.setFromMatrixPosition(eva.battery.matrixWorld);
+    if (asTmp.distanceTo(new THREE.Vector3(eva.x, eva.y, eva.z)) < 1.8) {
+      eva.batteryDone = true;
+      eva.battery.material.color.setHex(0xf2f4f7); eva.battery.material.emissive.setHex(0x3a3a3a);
+      if (station.userData.lightMat) station.userData.lightMat.color.setHex(0xfff2b0);
+      chime(); clang(); confettiBurst();
+      flags.evaBattery = (flags.evaBattery || 0) + 1;
+    }
+  }
+  if (eva.stuck && !eva.stuckDone) {
+    asTmp.setFromMatrixPosition(eva.stuck.matrixWorld);
+    if (asTmp.distanceTo(new THREE.Vector3(eva.x, eva.y, eva.z)) < 4) { eva.stuckDone = true; chime(); flags.evaArray = (flags.evaArray || 0) + 1; }
+  }
+  if (eva.stuck && eva.stuckDone) eva.stuck.scale.x += (1 - eva.stuck.scale.x) * Math.min(1, 1.5 * dt);
+  if (!eva.toolHeld) {
+    eva.toolPos.addScaledVector(eva.toolVel, dt);
+    // it always drifts back toward him eventually
+    asTmp.set(eva.x - eva.toolPos.x, eva.y - eva.toolPos.y, eva.z - eva.toolPos.z); const tdist = asTmp.length();
+    if (tdist > 20) eva.toolVel.addScaledVector(asTmp.normalize(), 0.25 * dt);
+    eva.tool.position.copy(eva.toolPos); eva.tool.rotation.x += dt; eva.tool.rotation.y += dt * 0.7;
+    if (tdist < 1.2) { eva.toolHeld = true; chime(); flags.evaTool = (flags.evaTool || 0) + 1; }
+  }
+  // the model, the tether, the jets
+  const m = eva.mesh;
+  m.visible = state.viewChase;
+  m.position.set(eva.x, eva.y, eva.z);
+  asQ.setFromEuler(new THREE.Euler(-astro.pitch * 0.6, astro.yaw, 0, "YXZ")); m.quaternion.copy(asQ);
+  for (const j of eva.jets) j.visible = push > 0 && state.viewChase;
+  if (eva.toolHeld) { eva.tool.visible = state.viewChase; eva.tool.position.set(eva.x, eva.y, eva.z).addScaledVector(astro.f, -0.1); eva.tool.position.y -= 0.3; eva.tool.quaternion.copy(asQ); }
+  const pts = eva.tether.geometry.attributes.position.array;
+  pts[0] = a.x; pts[1] = a.y; pts[2] = a.z; pts[3] = eva.x; pts[4] = eva.y - 0.3; pts[5] = eva.z;
+  eva.tether.geometry.attributes.position.needsUpdate = true;
+  setTone("fans", "sine", 90 + sp * 15, push ? 0.05 : 0);
+  setEngine(0); setRocketEngine(0, 1);
+  forward.copy(astro.f);
+}
+function evaCamera(dt) {
+  camera.up.set(0, 1, 0);
+  if (state.viewChase) {
+    camDesired.set(eva.x - astro.f.x * 4.5, eva.y + 1.4 - astro.f.y * 4.5, eva.z - astro.f.z * 4.5);
+    camera.position.lerp(camDesired, Math.min(1, 6 * dt));
+    lookV.set(eva.x + astro.f.x * 4, eva.y + 0.4 + astro.f.y * 4, eva.z + astro.f.z * 4);
+  } else {
+    camera.position.set(eva.x + astro.f.x * 0.3, eva.y + 0.7, eva.z + astro.f.z * 0.3);
     lookV.set(camera.position.x + astro.f.x * 10, camera.position.y + astro.f.y * 10, camera.position.z + astro.f.z * 10);
   }
   camera.lookAt(lookV);

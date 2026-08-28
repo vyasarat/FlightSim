@@ -2191,6 +2191,19 @@ function check(name, ok, extra) {
       const o = A.objects[0], l = o.locker; o.x = l.x; o.y = l.y; o.z = l.z + 0.5; L.update(1 / 60); out.tidy = o.home && (L.flags.stationTidy || 0) > 0;
       const s = A.switches[0]; A.x = s.x; A.y = s.y; A.z = s.z; A.vx = A.vy = A.vz = 0; L.update(1 / 60); out.lit = A.moduleLights[0].on;
       A.x = A.blob.x; A.y = A.blob.y; A.z = A.blob.z; L.update(1 / 60); out.gulp = (L.flags.stationGulps || 0) > 0;
+      // the airlock: float into the red ring and he is outside on the tether; jobs; the button brings him back in
+      A.x = A.airlock.x; A.y = A.airlock.y; A.z = A.airlock.z; A.vx = A.vy = A.vz = 0; L.update(1 / 60);
+      out.eva = A.mode === "eva" && (L.flags.spacewalks || 0) > 0;
+      const E = L.eva; for (let i = 0; i < 20; i++) L.update(1 / 60);
+      out.evaCam = L.cameraPos.distanceTo(new THREE.Vector3(E.x, E.y, E.z)) < 8;
+      L.api.setThrottle(true); const ex0 = E.x; for (let i = 0; i < 60 * 2; i++) L.update(1 / 60); L.api.setThrottle(false); out.evaMoves = Math.abs(E.x - ex0) > 1;
+      E.x = E.anchor.x + 90; E.y = E.anchor.y; E.z = E.anchor.z; E.vx = 2; for (let i = 0; i < 60 * 12; i++) L.update(1 / 60);
+      out.tether = Math.hypot(E.x - E.anchor.x, E.y - E.anchor.y, E.z - E.anchor.z) < 66;
+      const bw = new THREE.Vector3(); L.station.updateMatrixWorld(); bw.setFromMatrixPosition(E.battery.matrixWorld); E.x = bw.x; E.y = bw.y; E.z = bw.z; E.vx = E.vy = E.vz = 0; L.update(1 / 60); out.battery = (L.flags.evaBattery || 0) > 0;
+      bw.setFromMatrixPosition(E.stuck.matrixWorld); E.x = bw.x; E.y = bw.y; E.z = bw.z; L.update(1 / 60); for (let i = 0; i < 60 * 4; i++) L.update(1 / 60); out.arrayOpen = (L.flags.evaArray || 0) > 0 && E.stuck.scale.x > 0.9;
+      E.x = E.toolPos.x; E.y = E.toolPos.y; E.z = E.toolPos.z; L.update(1 / 60); out.tool = E.toolHeld && (L.flags.evaTool || 0) > 0;
+      out.evaBack = L.leaveStation(); for (let i = 0; i < 60 * 60 && A.mode !== "inside"; i++) L.update(1 / 60);
+      out.insideAgain = A.mode === "inside" && (L.flags.spacewalkReturns || 0) > 0 && A.group.visible && !E.mesh.visible;
       // back to the capsule by itself; the button returns to "in"; undock still works
       out.left = L.leaveStation(); for (let i = 0; i < 60 * 40 && L.astroActive(); i++) L.update(1 / 60);
       out.back = !L.astroActive() && !A.group.visible && document.getElementById("hatchBtn").dataset.mode === "in" && (L.flags.stationExits || 0) > 0;
@@ -2198,8 +2211,8 @@ function check(name, ok, extra) {
       L.api.placeOnRunway(); L.api.skipScreens();
       return out;
     });
-    check("station: docked, the hatch button floats him inside (chase camera in the tube, throttle pushes, he coasts and bounces off the walls, seat view at his head); tidy / lights / gulp all fire; the button brings him back and the capsule undocks",
-      inside.hiddenOnPad && inside.shownDocked && inside.entered && inside.interiorShown && inside.btnBack && inside.camInside && inside.moved && inside.coasts && inside.bounced && inside.seat && inside.capsuleWaits && inside.tidy && inside.lit && inside.gulp && inside.left && inside.back && inside.undocked, JSON.stringify(inside));
+    check("station: docked, the hatch button floats him inside (chase camera in the tube, throttle pushes, he coasts and bounces off the walls, seat view at his head); tidy / lights / gulp all fire; the airlock ring starts a spacewalk (tether, battery, array, wrench) and the button brings him in, then back to the capsule, and it undocks",
+      inside.hiddenOnPad && inside.shownDocked && inside.entered && inside.interiorShown && inside.btnBack && inside.camInside && inside.moved && inside.coasts && inside.bounced && inside.seat && inside.capsuleWaits && inside.tidy && inside.lit && inside.gulp && inside.eva && inside.evaCam && inside.evaMoves && inside.tether && inside.battery && inside.arrayOpen && inside.tool && inside.evaBack && inside.insideAgain && inside.left && inside.back && inside.undocked, JSON.stringify(inside));
 
     await freshR();
     const cov = await page.evaluate(() => {
