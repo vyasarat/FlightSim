@@ -125,7 +125,7 @@ function placeLandmark(cellX, cellZ) {
     inst.position.set(lx, gy, lz);
     const bl = inst.getObjectByName("blinker");
     if (bl) { inst.userData.blinker = bl; blinkers.push(bl); }
-    solids.push({ x: lx, z: lz, hw: 9, hd: 9, y0: gy, y1: gy + 101 });
+    solids.push({ x: lx, z: lz, hw: 5, hd: 5, y0: gy, y1: gy + 101 });   // the shaft; the ball is small
   } else {
     let deckY = TUNE.waterLevel + 15;
     let overWater = true;

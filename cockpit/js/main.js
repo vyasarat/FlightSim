@@ -7,7 +7,7 @@ function updateHomeArrow() {
   const thz = AIRPORTS[state.destIdx].cz;
   const rx = -state.x, rz = thz - state.z;
   const dist = Math.sqrt(rx * rx + rz * rz);
-  if (dist <= TUNE.homeIndicatorDistance || state.engaged) {
+  if (dist <= TUNE.homeIndicatorDistance || state.engaged || (state.vp.rocket && state.spaceF > 0.5)) {
     el.homeArrow.classList.remove("on");
     return;
   }
@@ -68,7 +68,7 @@ function updateHud() {
 
   if (state.engaged && state.approachData) {
     // `along` is negative while short of the threshold; distance-to-go is -along.
-    const idealY = AIRPORTS[state.destIdx].elev + 3 + Math.max(0, -state.approachData.along) * TUNE.glideSlope;
+    const idealY = AIRPORTS[state.approachIdx === undefined ? state.destIdx : state.approachIdx].elev + 3 + Math.max(0, -state.approachData.along) * TUNE.glideSlope;
     const diff = state.y - idealY;
     el.glideGuide.classList.add("on");
     const gs = diff > TUNE.glideBand ? "down" : (diff < -TUNE.glideBand ? "up" : "ok");
@@ -88,7 +88,8 @@ function updateHud() {
   let v = null, d = null;
   try {
     v = localStorage.getItem("lp.vehicle"); d = localStorage.getItem("lp.dir");
-    state.sky = parseInt(localStorage.getItem("lp.sky") || "0", 10) || 0;
+    const sk = parseInt(localStorage.getItem("lp.sky") || "0", 10);
+    state.sky = (sk >= 0 && sk < 4) ? sk : 0;   // never trust a stored mode outside 0..3
   } catch (err) {}
   el.skyBtn.dataset.mode = String(state.sky);
   restoreSpots();
@@ -110,7 +111,7 @@ window.__lp = {
   TUNE, state, flags, update, terrainEff, shapedTerrain, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,
   get safePos(){return safePos;}, get blinkers(){return blinkers;}, get hiddenPieces(){return hiddenPieces;},
   get trainHead(){return trainHead;}, get trainSolids(){return trainSolids;}, resolveSolidWalls,
-  get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, rk, BODIES, dropStage, rocketCanDrop, rocketSkipToLanding, rocketCanSkip, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
+  get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, rk, BODIES, dropStage, rocketCanDrop, rocketSkipToLanding, rocketCanSkip, rocketSkipTarget, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
   get cameraPos(){return camera.position;},
   forEachSolid(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);for(const b of trainSolids)cb(b);}, get vehicleModel(){return vehicleModel;},
