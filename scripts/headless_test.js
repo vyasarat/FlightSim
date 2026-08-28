@@ -117,7 +117,7 @@ function check(name, ok, extra) {
     const { page } = await newPage(844, 390);
     await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.teleportAirborne(3000, 200, 150, 0); window.__lp.update(1 / 60); });
     const phone = await page.evaluate(() => {
-      const ids = ["viewBtn", "skipBtn", "fastBtn", "slowBtn", "missileBtn", "gearBtn", "throttleBtn", "vehBtn", "skyBtn", "dash", "brow", "progressStrip"];
+      const ids = ["viewBtn", "skipBtn", "fastBtn", "slowBtn", "missileBtn", "gearBtn", "throttleBtn", "vehBtn", "skyBtn", "camBtn", "dash", "brow", "progressStrip"];
       const rects = [];
       for (const id of ids) {
         const e = document.getElementById(id);
@@ -1745,6 +1745,21 @@ function check(name, ok, extra) {
         arrival.celebrated && arrival.fireworksSeen && arrival.planeD.every(d => d < 40), JSON.stringify(arrival));
       await p2.close();
     }
+
+    // photo: the camera button grabs the rendered frame into a polaroid overlay
+    const photo = await page.evaluate(() => new Promise(resolve => {
+      const L = window.__lp, st = L.state;
+      L.noRender = false;
+      document.getElementById("camBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 21 }));
+      const pending = st.photoPending;
+      // run two real frames so the render + grab happen
+      const q1 = window.__rafQueue.splice(0); if (q1.length) q1[q1.length - 1](window.__simTime += 1000 / 60);
+      const q2 = window.__rafQueue.splice(0); if (q2.length) q2[q2.length - 1](window.__simTime += 1000 / 60);
+      L.noRender = true;
+      const img = document.getElementById("photoImg");
+      resolve({ pending, shown: document.getElementById("photo").classList.contains("on"), hasImage: img.src.startsWith("data:image/jpeg") && img.src.length > 5000, photos: L.flags.photos || 0 });
+    }));
+    check("photo: camera button captures the frame into the polaroid overlay", photo.pending && photo.shown && photo.hasImage && photo.photos >= 1, JSON.stringify(photo));
 
     // fly-by hellos: the tower cab flashes when you pass close
     const flyby = await page.evaluate(() => {

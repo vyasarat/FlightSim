@@ -2,7 +2,7 @@
 const el = {};
 ["hud", "pillarL", "pillarR", "brow", "dash", "asiDial", "aiDial", "altDial",
  "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow",
- "screenVehicle", "screenDir", "progressStrip", "viewBtn", "gearBtn", "slowBtn", "glideGuide", "skipBtn", "fastBtn", "missileBtn", "aimMarker", "vehBtn", "alarm", "wingman", "skyBtn"].forEach(id => {
+ "screenVehicle", "screenDir", "progressStrip", "viewBtn", "gearBtn", "slowBtn", "glideGuide", "skipBtn", "fastBtn", "missileBtn", "aimMarker", "vehBtn", "alarm", "wingman", "skyBtn", "camBtn", "photo", "photoImg", "flash"].forEach(id => {
   el[id] = document.getElementById(id);
 });
 el.homeArrow.style.setProperty("--home-sz", TUNE.homeIndicatorSize + "px");
