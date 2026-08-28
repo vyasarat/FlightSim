@@ -318,6 +318,7 @@ function updateRocket(dt) {
   rk.vx += (rkAxis.x * thrust + gx) * dt;
   rk.vy += (rkAxis.y * thrust + gy) * dt;
   rk.vz += (rkAxis.z * thrust + gz) * dt;
+  rocketLandingAssist(dt, burning);
   const inAtmo = clamp(1 - state.y / RK.gravityFade, 0, 1);
   const dragK = RK.drag * inAtmo;
   rk.vx *= 1 - Math.min(1, dragK * dt); rk.vy *= 1 - Math.min(1, dragK * dt); rk.vz *= 1 - Math.min(1, dragK * dt);
@@ -354,10 +355,41 @@ function updateRocket(dt) {
   // ---- touching the Earth
   const ground = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
   if (state.y - halfLen <= ground && rk.vy <= 0) {
-    const upright = state.pitch > 55;
-    const onLand = terrainEff(state.x, state.z) >= TUNE.waterLevel - 0.2;
-    if (sp <= RK.landSpeed && upright && onLand) rocketLandOn(null);
+    const upright = state.pitch > 40;
+    if (sp <= RK.landSpeed && upright) rocketLandOn(null);
     else rocketCrash(state.x, ground + 70, state.z);
+  }
+}
+
+// Landing assist: near the Moon / Mars / the ground, and not burning away from
+// it, the rocket brakes to a gentle descent and stands itself upright, so
+// coasting in always ends in a landing. Burning hard straight into a surface
+// is the only way to arrive fast.
+function rocketLandingAssist(dt, burning) {
+  const { body, dist } = rocketNearestBody();
+  let nx = 0, ny = 1, nz = 0, gap = Infinity;
+  if (body && dist < body.r * (RK.assistRange - 1)) {
+    rkTmp.set(state.x - body.x, state.y - body.y, state.z - body.z).normalize();
+    nx = rkTmp.x; ny = rkTmp.y; nz = rkTmp.z; gap = dist;
+  } else if (!body || dist > body.r) {
+    const agl = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+    if (agl < RK.assistEarthAgl && state.y < RK.gravityFade) gap = agl;
+  }
+  if (!Number.isFinite(gap)) return;
+  const inward = -(rk.vx * nx + rk.vy * ny + rk.vz * nz);   // speed toward the surface
+  const awayBurn = burning && (rkAxis.x * nx + rkAxis.y * ny + rkAxis.z * nz) > 0.3;
+  if (awayBurn || inward < -2) return;                      // leaving: no assist
+  // target: descend at assistDescent, faster when high, no sideways drift
+  const want = Math.max(RK.assistDescent, gap * 0.12);
+  const k = Math.min(1, 2.5 * dt);
+  const tvx = -nx * want, tvy = -ny * want, tvz = -nz * want;
+  rk.vx += (tvx - rk.vx) * k; rk.vy += (tvy - rk.vy) * k; rk.vz += (tvz - rk.vz) * k;
+  // stand up: attitude eases toward the surface normal unless he is steering
+  if (!state.touching) {
+    const wantPitch = Math.asin(clamp(ny, -1, 1)) / DEG;
+    const wantHeading = Math.atan2(-nx, -nz);
+    state.pitch += (wantPitch - state.pitch) * Math.min(1, 2 * dt);
+    state.heading += wrapPi(wantHeading - state.heading) * Math.min(1, 2 * dt);
   }
 }
 
