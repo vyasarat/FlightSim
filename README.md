@@ -245,6 +245,12 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   above a **new spot each time** -- a field or the sea 500-1200 m from home, never the runway
   or the pad -- so the whole show plays with nothing to press, and the refit still brings
   the new stack to the pad.
+- **Launch flourishes**: through the ignite hold the pad's edge lights strobe faster and
+  faster (his countdown, without a digit); at T-0 a white flash, a deep thump and a shockwave
+  ring racing out across the pad. The booster makes a double **sonic boom** on its way back
+  down. With the sky on night the plume is a light: it paints the pad, the towers and the
+  trucks orange. Through reentry the cockpit view leans over toward the horizon so the
+  Earth's curve rolls under the glow.
 - Both views work: the cockpit looks along the body axis, the chase camera sits beside and
   above and never enters a planet. **The rocket starts in the chase view** (the view button
   still toggles).
@@ -310,7 +316,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (150 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (151 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```

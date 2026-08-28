@@ -127,6 +127,10 @@ function buildRocketStack(g, mats) {
   flame.position.z = 9.2;
   g.add(flame);
   g.userData.flame = flame;
+  const plumeLight = new THREE.PointLight(0xff9a3a, 0, 320, 1.6);   // lights the pad at night
+  plumeLight.position.z = 9.5;
+  g.add(plumeLight);
+  g.userData.plumeLight = plumeLight;
   // plasma sheath for reentry: a bright shock layer on the heat shield (the capsule's
   // base, +z) and a wake streaming past the nose. Additive, faded by rk.reentry.
   const plasma = new THREE.Group();
@@ -227,6 +231,7 @@ function updateFallingStages(dt) {
       if (s.life > 55 && s.vy > 0) s.vy *= 1 - Math.min(1, 1.6 * dt);
       s.mesh.quaternion.slerp(Q_UPRIGHT, Math.min(1, 1.5 * dt));
       s.vx *= 1 - Math.min(1, 1.2 * dt); s.vz *= 1 - Math.min(1, 1.2 * dt);
+      if (!s.boomed && s.vy < -30 && alt < 700) { s.boomed = true; sonicBoom(); flags.sonicBooms = (flags.sonicBooms || 0) + 1; }
       if (s.vy < 0 && alt < 260) {
         const want = -Math.max(6, alt * 0.25);   // slow to ~6 m/s for touchdown
         s.vy += (want - s.vy) * Math.min(1, 3 * dt);
@@ -334,7 +339,7 @@ function updateRocket(dt) {
         rk.igniteT = 0;
         if (!rk.onBody) apronVehiclesTo(state.originIdx, false);
         rk.launchedFromBody = !!rk.onBody;
-        if (!rk.onBody) rk.delugeT = 2.2;
+        if (!rk.onBody) { rk.delugeT = 2.2; liftoffShockwave(); }
         rk.onBody = null;
         rk.refitT = 0;
         chuteReset();
@@ -610,7 +615,9 @@ function rocketCamera(dt) {
     camera.lookAt(lookV);
   } else {
     camera.position.set(state.x + rkAxis.x * (rocketHalfLen() - 1.5), state.y + rkAxis.y * (rocketHalfLen() - 1.5), state.z + rkAxis.z * (rocketHalfLen() - 1.5));
-    lookV.set(camera.position.x + rkAxis.x * 100, camera.position.y + rkAxis.y * 100, camera.position.z + rkAxis.z * 100);
+    // through reentry the view leans toward the horizon so the Earth's curve rolls under the glow
+    const lean = rk.reentry * 2.0, cl = Math.cos(lean), sl = Math.sin(lean), fx = -Math.sin(hr), fz = -Math.cos(hr);
+    lookV.set(camera.position.x + (rkAxis.x * cl + fx * sl) * 100, camera.position.y + rkAxis.y * cl * 100, camera.position.z + (rkAxis.z * cl + fz * sl) * 100);
     camera.lookAt(lookV);
     camera.rotateZ(-state.bank * DEG);
   }
@@ -629,12 +636,44 @@ function updatePad(dt, grounded) {
   const onPad = grounded && !rk.onBody && Math.hypot(state.x - a.padX, state.z - a.padZ) < 20;
   const want = onPad && rk.igniteT < 0.25 && !(rk.delugeT > 0) ? 0 : -0.55;
   a.strongback.rotation.x += (want - a.strongback.rotation.x) * Math.min(1, 1.6 * dt);
+  // countdown: the pad lights strobe faster and faster through the ignite hold
+  if (a.padLightMat) {
+    let hex = 0xfff2b0;
+    if (onPad && rk.igniteT > 0) { const rate = 3 + rk.igniteT * 9; hex = (Math.floor(rk.igniteT * rate) % 2) ? 0xffffff : 0x5a4a18; }
+    if (a.padLightMat.color.getHex() !== hex) a.padLightMat.color.setHex(hex);
+  }
+  updateShockwave(dt);
   const steaming = (onPad && rk.igniteT > 0.4) || (rk.delugeT || 0) > 0;
   if (rk.delugeT > 0) rk.delugeT -= dt;
   if (steaming) {
     const gy = AIRPORTS[state.originIdx].elev + 1;
     for (let i = 0; i < 2; i++) wakePuff(a.padX + (rnd() - 0.5) * 18, gy, a.padZ + 6 + rnd() * 40, 0xffffff, 2.6, 7, 1.6);
   }
+}
+
+// ---- T-0: a white flash and a ring racing out across the pad
+let shockwave = null;
+function liftoffShockwave() {
+  if (!shockwave) {
+    shockwave = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 40), new THREE.MeshBasicMaterial({ color: 0xfff4d6, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    shockwave.rotation.x = -Math.PI / 2;
+    scene.add(shockwave);
+  }
+  shockwave.position.set(state.x, Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + 1.5, state.z);
+  shockwave.userData.t = 0;
+  shockwave.visible = true;
+  el.flash.classList.add("on");
+  setTimeout(() => el.flash.classList.remove("on"), 110);
+  deepPop();
+  flags.shockwaves = (flags.shockwaves || 0) + 1;
+}
+function updateShockwave(dt) {
+  if (!shockwave || !shockwave.visible) return;
+  const t = (shockwave.userData.t += dt);
+  if (t > 1.4) { shockwave.visible = false; return; }
+  const r = 6 + t * 150;
+  shockwave.scale.set(r, r, 1);
+  shockwave.material.opacity = 0.8 * (1 - t / 1.4);
 }
 
 // ===========================================================================
