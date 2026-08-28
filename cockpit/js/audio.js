@@ -270,6 +270,11 @@ function squeak() {
   synthBlip("sine", 900, 1300, 0.12, 0.14, 0);
   synthBlip("sine", 1300, 900, 0.12, 0.12, 0.13);
 }
+function shutter() {
+  noiseBurst(0.04, 3000, 0.3, 0);
+  synthBlip("square", 1800, 900, 0.05, 0.12, 0.03);
+  noiseBurst(0.05, 2200, 0.25, 0.09);
+}
 function cheer() {
   const notes = [523, 659, 784, 1047];
   notes.forEach((f, i) => {

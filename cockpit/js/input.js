@@ -221,6 +221,29 @@ document.querySelectorAll(".dirCard").forEach(card => {
   });
 });
 
+// Camera: the next rendered frame is grabbed (before the buffer clears), shown
+// in a polaroid frame for a few seconds with a flash and a shutter click.
+let photoTimer = null;
+function takePhoto() {
+  if (state.photoPending) return;
+  state.photoPending = true;
+  unlockAudio();
+  shutter();
+  el.flash.classList.add("on");
+  setTimeout(() => el.flash.classList.remove("on"), 90);
+  flags.photos = (flags.photos || 0) + 1;
+}
+function showPhoto(dataUrl) {
+  el.photoImg.src = dataUrl;
+  el.photo.classList.add("on");
+  clearTimeout(photoTimer);
+  photoTimer = setTimeout(() => el.photo.classList.remove("on"), 3200);
+}
+el.camBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); pressFlash(el.camBtn);
+  takePhoto();
+});
+
 // Sky button cycles sun -> rain -> snow -> night.
 el.skyBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.skyBtn);
@@ -249,7 +272,7 @@ window.addEventListener("keydown", (e) => {
   const c = e.code;
   const handled = KEY_STICK[c] || c === "Space" || c === "ShiftLeft" || c === "ShiftRight" ||
     c === "KeyG" || c === "KeyV" || c === "KeyF" || c === "Enter" || c === "Equal" || c === "NumpadAdd" ||
-    c === "Minus" || c === "NumpadSubtract" || c === "KeyL" || c === "BracketRight" || c === "BracketLeft";
+    c === "Minus" || c === "NumpadSubtract" || c === "KeyL" || c === "BracketRight" || c === "BracketLeft" || c === "KeyP";
   if (!handled) return;
   e.preventDefault();
   if (e.repeat || menuOpen()) return;
@@ -261,6 +284,7 @@ window.addEventListener("keydown", (e) => {
   else if (c === "KeyF" || c === "Enter") { if (!el.missileBtn.classList.contains("hidden")) fireMissile(); }
   else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
   else if (c === "Minus" || c === "NumpadSubtract" || c === "BracketLeft") state.speedStep = Math.max(state.speedStep - 1, 0);
+  else if (c === "KeyP") takePhoto();
   else if (c === "KeyL") { if (!el.skipBtn.classList.contains("hidden") && !state.exploding) { restoreShattered(); skipToLanding(); } }
 });
 window.addEventListener("keyup", (e) => {

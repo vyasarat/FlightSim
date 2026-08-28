@@ -180,6 +180,11 @@ function frame(now) {
   try {
     update(dt);
     if (!(window.__lp && window.__lp.noRender)) renderer.render(scene, camera);
+    if (state.photoPending) {
+      // grab the frame we just drew (still in the buffer until the next clear)
+      state.photoPending = false;
+      try { showPhoto(renderer.domElement.toDataURL("image/jpeg", 0.85)); } catch (err) {}
+    }
   } catch (err) {
     console.error("frame error", err);
     window.__lp = window.__lp || {};

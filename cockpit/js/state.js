@@ -38,6 +38,7 @@ const state = {
   alarmOn: false,
   alarmBeepT: 0,
   sky: 0,            // 0 sun, 1 rain, 2 snow, 3 night
+  photoPending: false,
   rainF: 0, snowF: 0, nightF: 0,
   dirIdx: 0,
   originIdx: 0,
