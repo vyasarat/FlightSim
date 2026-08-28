@@ -131,15 +131,17 @@ const TUNE = {
     assistRange: 2.2,               // landing assist engages within this many radii of a body
     assistEarthAgl: 220,            // ... and within this height of the ground at home
     assistDescent: 14,              // the assisted descent speed near the surface
+    skipOut: 220,                   // the go button drops him this far out from a body (or the top of the docking rings)
     altMax: 12000,
     // the capsule's way home (Dragon style): blunt-body drag in the air, plasma while
     // fast, a drogue then the mains (button below chuteAlt, pop by themselves below
     // chuteAutoAlt), a float down, and a refit on the pad a few seconds after touchdown
     capsuleDrag: 0.14,
     reentryAlt: 1900, reentrySpeed: 70,
-    chuteAlt: [900, 450], chuteAutoAlt: [650, 280],
-    chuteSink: [26, 6.5], chuteDrift: 9,
-    refitDelay: 5,
+    chuteAlt: [700, 350], chuteAutoAlt: [450, 170],
+    chuteSink: [30, 9], chuteDrift: 9,
+    refitDelay: 4,
+    deorbitAlt: 2300,               // the deorbit starts here (plasma from reentryAlt down)
     satAlt: 1400,                   // satellite button above this height (as the capsule)
     pad: { dx: 200, dz: 0, mountH: 4 },   // launch complex on the far side of the runway; the rocket stands on the mount
     catch: { dz: -30, armY: 44 },         // the catch tower's arms: where a Super Heavy booster is caught (relative to the pad)
