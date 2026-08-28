@@ -251,6 +251,14 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   down. With the sky on night the plume is a light: it paints the pad, the towers and the
   trucks orange. Through reentry the cockpit view leans over toward the horizon so the
   Earth's curve rolls under the glow.
+- **Where things come down** (`js/recovery.js`): a **droneship** waits offshore of each
+  airport -- a barge with a painted deck. A booster dropped while the stack was tilting toward
+  the sea flies to it with its grid fins, hovers across, and lands on the deck with a horn;
+  a straight-up launch's booster comes back beside the pad. The **fairing halves** pop small
+  yellow chutes and drift to a **net boat**, which catches them with a splash. After the
+  capsule's parachute landing the **recovery ship** (at sea) or a **flatbed truck** (on land)
+  arrives, its crane swings out, lifts the capsule aboard and carries it toward the pad --
+  that ride *is* the refit; a new stack is on the pad when it ends. Nothing teleports.
 - Both views work: the cockpit looks along the body axis, the chase camera sits beside and
   above and never enters a planet. **The rocket starts in the chase view** (the view button
   still toggles).
@@ -296,6 +304,7 @@ cockpit/
     input.js          touch, buttons, keyboard, photo, persistence, lifecycle, SW
     flight.js         plane flight model, assists, alarm, sky, rewards, update()
     rocket.js         rocket flight model, staging, Moon / Mars, landing assist, satellite, reentry + parachutes
+    recovery.js       droneship, net boat, recovery ship / truck and the ride that refits the pad
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape
@@ -316,7 +325,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (151 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (152 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```
@@ -339,7 +348,7 @@ arrival show + apron trucks, tower fly-by, hangar doors, bridge bounce, sky cycl
 rule, overrun, bridge gates in legal air, boats on water, traffic corridor slip, blur releases
 keys) · persistence across launches · the rocket (launch complex + strongback + deluge, altitude-gated drops, booster landing,
 Moon landing + relaunch + staging afterwards, Mars coast-in and powered ram, landing button,
-Earth landing + delayed refit, fuel-out and apron trucks, satellite deploy, deorbit, reentry glow + overlay, drogue/mains gating and auto-pop, soft chute landing) · claimed feel effects (cloud whoosh, missile
+Earth landing + delayed refit, fuel-out and apron trucks, satellite deploy, deorbit, reentry glow + overlay, drogue/mains gating and auto-pop, soft chute landing) · recovery (droneship landing, pad-side landing, fairing catch, ride + refit) · claimed feel effects (cloud whoosh, missile
 self-destruct pop, boat-horn hello, spray wake) · visual regression · service worker and manifests
 for both builds. `Math.random` is seeded under test, so runs are repeatable; heavy sections run on
 fresh pages so state cannot leak between them.
