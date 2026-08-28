@@ -47,6 +47,7 @@ the ship checklist; this file describes the game.
 | Parachute button (rocket, same slot, red) | As the capsule low in the air: the drogue, then the mains. Each only below its `chuteAlt`; they pop by themselves below `chuteAutoAlt`, so nothing needs pressing |
 | Double-down / double-up chevrons, bottom-right (planes, airborne) | Step the set speed down / up one notch. Speed stays where he sets it -- no snap-back. Four steps (`TUNE.speedSteps`) |
 | Destination cards (rocket, after the direction card) | Moon / Mars / Station: where the landing button aims in space. Always all three |
+| Hatch button (rocket, same slot, cyan; docked at the station) | Floats the astronaut into the station; tap again and he flies himself back to the seat |
 | Rover button (rocket, same slot, yellow; on the Moon / Mars) | Rolls the rover out; tap again and it drives itself back in. Throttle drives, stick steers |
 | Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, 20-80 s to touchdown depending on the plane. Rocket, in space: **the go button** -- jump to a slow descent `skipOut` (220 m) above the chosen destination (its icon is on the button); once he is heading home, the runway icon: **deorbit** as the capsule (plasma and parachutes down to a new spot around home), or a thruster descent to the pad for a full stack. Lower down: 200 m above the home pad; the landing assist does the rest |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
@@ -56,7 +57,7 @@ the ship checklist; this file describes the game.
 | Route strip, top centre | Plane glyph slides NY <-> CA; dots fill in for landmarks passed (each one plays the next note of a scale) |
 | Small amber arrow / green ring under the strip | Glide-slope cue on an engaged approach: down = too high, up = too low, green ring = on the slope |
 | Two-plane icon under the strip | Wingman: dim while a traffic plane is near, bright when formation has been held |
-| **Keyboard** | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter = missile (rocket: drop stage / deploy satellite / parachute / rover out-and-back, whichever is up), `+`/`-` or `]`/`[` speed step, L landing / go button, P photo, B or Esc = the vehicle picker (on the ground). A finger on the screen always wins over the keys |
+| **Keyboard** | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter = missile (rocket: drop stage / deploy satellite / parachute / rover out-and-back / hatch in-and-out, whichever is up), `+`/`-` or `]`/`[` speed step, L landing / go button, P photo, B or Esc = the vehicle picker (on the ground). A finger on the screen always wins over the keys |
 
 Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h`, … in
 `cockpit/index.html`). Viewports under 520 px tall (phones in landscape) get a
@@ -275,6 +276,16 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   and a chime -- no speed to judge, no way to bounce off. Docked, the windows light and the solar
   arrays unfold (and stay out). Hold the throttle to undock: the capsule turns and backs away,
   and the landing button then means home.
+- **Inside the station** (`js/station.js`): docked, the slot shows a hatch. Tap it and he floats
+  through as **the astronaut** into a three-module interior -- handrails, lockers with glowing
+  rings, blinking panels, a treadmill, sleeping bags, and the **Cupola** at the end with the
+  Earth rolling past its windows. Zero g with the usual controls: hold the throttle to push off
+  along where he is looking, drag to look / steer (drag up = look up), and he coasts until he
+  bonks softly off the padded walls. Things to do, all pointing: nudge the four floating objects
+  back into their lockers (a chime each, a fanfare for all four, then they float out again after
+  `gateRearm`), fly into a yellow switch to light a module, drink the floating water blob. Tap the
+  button again and he flies himself back to the hatch and into the seat; the capsule waits
+  docked the whole time. Both views: the chase camera behind him, or his own eyes.
 - **The stack**: the satellite button releases the big satellite and then five flat Starlink-style
   ones, one every 0.9 s with their own beep, fanning out in a line of blinking lights.
 - **Mission photos**: the camera in the rocket frames the shot as a round mission patch.
@@ -352,6 +363,7 @@ cockpit/
     rocket.js         rocket flight model, staging, Moon / Mars, landing assist, satellite, reentry + parachutes
     recovery.js       droneship, net boat, recovery ship / truck and the ride that refits the pad
     rover.js          the Moon / Mars rover: drive on the sphere, rocks, beacons, drive-back
+    station.js        the station interior and the astronaut in zero g
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape
@@ -372,7 +384,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (158 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (159 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```

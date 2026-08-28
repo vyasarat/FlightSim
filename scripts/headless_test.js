@@ -149,7 +149,7 @@ function check(name, ok, extra) {
       L.api.setThrottle(true);
       for (let i = 0; i < 60 * 30 && !L.rocketCanDrop(); i++) L.update(1 / 60);
       L.api.setThrottle(false); L.update(1 / 60);
-      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "dash", "brow", "progressStrip"];
+      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "hatchBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "dash", "brow", "progressStrip"];
       const rects = [];
       for (const id of ids) { const e = document.getElementById(id); if (!e || e.classList.contains("hidden")) continue; const r = e.getBoundingClientRect(); if (r.width) rects.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom }); }
       const overlaps = [];
@@ -2165,6 +2165,41 @@ function check(name, ok, extra) {
     });
     check("starship: a second rocket -- one drop above its height; the booster flies back to the tower and the chopsticks catch it; the Ship deploys satellites, never a parachute, lands on its engines and refits",
       ss.onPad && ss.armsOpen && ss.canDrop && ss.altAtDrop >= 440 && ss.dropped && ss.final && ss.targetCatch && ss.caught && ss.hangs && ss.armsClosed && ss.satBtn && ss.shipLanded && ss.noChute && ss.refit, JSON.stringify(ss));
+
+    await freshR();
+    const inside = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, out = {}, hidden = id => document.getElementById(id).classList.contains("hidden");
+      const b = L.BODIES.find(q => q.name === "station");
+      L.api.skipScreens(); L.update(1 / 60); out.hiddenOnPad = hidden("hatchBtn");
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel);
+      st.x = b.x; st.y = b.y - 200; st.z = b.z; st.pitch = 90; st.spaceF = 1; L.rk.vx = L.rk.vz = 0; L.rk.vy = 25;
+      for (let i = 0; i < 60 * 40 && !L.rk.onBody; i++) L.update(1 / 60);
+      L.update(1 / 60); out.shownDocked = !hidden("hatchBtn");
+      out.entered = L.enterStation(); L.update(1 / 60);
+      const A = L.astro; out.interiorShown = A.group.visible; out.btnBack = document.getElementById("hatchBtn").dataset.mode === "back";
+      // chase camera is inside the tube; throttle pushes him along; he coasts; the wall bounces him
+      const camIn = () => { const c = L.cameraPos; const dx = c.x - A.origin.x, dy = c.y - A.origin.y, dz = c.z - A.origin.z; return Math.hypot(dx, dy) < 2.2 && Math.abs(dz) < 16; };
+      for (let i = 0; i < 30; i++) L.update(1 / 60); out.camInside = camIn();
+      const z0 = A.z; L.api.setThrottle(true); for (let i = 0; i < 60 * 2; i++) L.update(1 / 60); L.api.setThrottle(false);
+      out.moved = A.z - z0 > 1; const v0 = Math.hypot(A.vx, A.vy, A.vz); for (let i = 0; i < 60; i++) L.update(1 / 60); out.coasts = Math.hypot(A.vx, A.vy, A.vz) > v0 * 0.5;
+      A.vx = 3; A.vy = 0; A.vz = 0; const bk0 = L.flags.astroBonks || 0; for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
+      out.bounced = (L.flags.astroBonks || 0) > bk0 && Math.hypot(A.x, A.y) <= 2.0 - 0.55 + 0.01;
+      // first person is at his head; the capsule stays docked
+      L.api.setView(false); for (let i = 0; i < 3; i++) L.update(1 / 60); out.seat = L.cameraPos.distanceTo(new THREE.Vector3(A.origin.x + A.x, A.origin.y + A.y + 0.62, A.origin.z + A.z)) < 0.5; L.api.setView(true);
+      out.capsuleWaits = !!(L.rk.onBody && L.rk.onBody.dock) && st.phase === "TAXI";
+      // a nudge sends an object home; a switch lights a module; the blob is a gulp
+      const o = A.objects[0], l = o.locker; o.x = l.x; o.y = l.y; o.z = l.z + 0.5; L.update(1 / 60); out.tidy = o.home && (L.flags.stationTidy || 0) > 0;
+      const s = A.switches[0]; A.x = s.x; A.y = s.y; A.z = s.z; A.vx = A.vy = A.vz = 0; L.update(1 / 60); out.lit = A.moduleLights[0].on;
+      A.x = A.blob.x; A.y = A.blob.y; A.z = A.blob.z; L.update(1 / 60); out.gulp = (L.flags.stationGulps || 0) > 0;
+      // back to the capsule by itself; the button returns to "in"; undock still works
+      out.left = L.leaveStation(); for (let i = 0; i < 60 * 40 && L.astroActive(); i++) L.update(1 / 60);
+      out.back = !L.astroActive() && !A.group.visible && document.getElementById("hatchBtn").dataset.mode === "in" && (L.flags.stationExits || 0) > 0;
+      L.api.setThrottle(true); for (let i = 0; i < 60 * 3; i++) L.update(1 / 60); L.api.setThrottle(false); out.undocked = st.phase === "AIRBORNE" && !L.rk.onBody;
+      L.api.placeOnRunway(); L.api.skipScreens();
+      return out;
+    });
+    check("station: docked, the hatch button floats him inside (chase camera in the tube, throttle pushes, he coasts and bounces off the walls, seat view at his head); tidy / lights / gulp all fire; the button brings him back and the capsule undocks",
+      inside.hiddenOnPad && inside.shownDocked && inside.entered && inside.interiorShown && inside.btnBack && inside.camInside && inside.moved && inside.coasts && inside.bounced && inside.seat && inside.capsuleWaits && inside.tidy && inside.lit && inside.gulp && inside.left && inside.back && inside.undocked, JSON.stringify(inside));
 
     await freshR();
     const cov = await page.evaluate(() => {
