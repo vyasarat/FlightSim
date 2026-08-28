@@ -2091,6 +2091,26 @@ function check(name, ok, extra) {
     check("rocket: trucks wait by the pad and leave at ignition; an empty stage stops thrusting (flame out)", fuelAndTrucks.nearBefore && fuelAndTrucks.thrustEnded && fuelAndTrucks.trucksLeaving, JSON.stringify(fuelAndTrucks));
     await page.evaluate(() => { window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); });
 
+    const padT = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune;
+      L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.update(1 / 60);
+      const pad = L.rocketPad(st.originIdx), a = L.airports.find(r => r.idx === st.originIdx);
+      const out = { offRunway: Math.abs(st.x) > T.runwayWidth / 2 + 40, onPad: Math.abs(st.x - pad.x) < 0.5 && Math.abs(st.z - pad.z) < 0.5,
+        onMount: Math.abs(st.y - (L.AIRPORTS[st.originIdx].elev + R.pad.mountH + 7.5 * st.vp.size)) < 0.6 };
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);   // (eases back upright after an earlier launch)
+      out.sbUp = Math.abs(a.strongback.rotation.x) < 0.05;
+      for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
+      out.sbStillUp = Math.abs(a.strongback.rotation.x) < 0.05;
+      L.api.setThrottle(true);
+      for (let i = 0; i < 60 * 2.5; i++) L.update(1 / 60);
+      out.sbSwung = a.strongback.rotation.x < -0.25; out.steam = L.wakePuffsAlive() > 6; out.lifted = st.phase === "AIRBORNE";
+      L.api.setThrottle(false);
+      return out;
+    });
+    check("rocket: launches from the launch pad on the far side (standing on the mount, not on the runway); the strongback swings away at ignition and the deluge steams",
+      padT.offRunway && padT.onPad && padT.onMount && padT.sbUp && padT.sbStillUp && padT.sbSwung && padT.steam && padT.lifted, JSON.stringify(padT));
+    await page.evaluate(() => { window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); });
+
     check("rocket: sits upright on the pad; stage button only above the booster altitude",
       launch.pitchOnPad === 90 && launch.btnHiddenOnPad && launch.canDropLow === false && launch.canDropHigh === true && launch.btnShownHigh, JSON.stringify(launch));
     check("rocket: three manual drops (booster, fairing, second stage) each gated by altitude; ends as the capsule in space",
@@ -2160,7 +2180,8 @@ function check(name, ok, extra) {
       const shownHome = !document.getElementById("skipBtn").classList.contains("hidden");
       const r0 = L.flags.rocketLandings || 0;
       L.rocketSkipToLanding();
-      const overPad = Math.abs(st.x) < 1 && Math.abs(st.z - ap.cz) < 1;
+      const pad = L.rocketPad(st.originIdx);
+      const overPad = Math.abs(st.x - pad.x) < 1 && Math.abs(st.z - pad.z) < 1;
       for (let i = 0; i < 60 * 40 && (L.flags.rocketLandings || 0) === r0; i++) L.update(1 / 60);
       return { shown, did, near: Math.round(near), landed, shownHome, overPad, homeLanded: (L.flags.rocketLandings || 0) > r0 };
     });
@@ -2237,7 +2258,7 @@ function check(name, ok, extra) {
       out.notYetRefit = L.rk.stage === 3;
       const f0 = L.flags.refits || 0;
       for (let i = 0; i < 60 * (R.refitDelay + 1); i++) L.update(1 / 60);
-      out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x) < 1 && st.phase === "TAXI";
+      out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x - L.rocketPad(st.originIdx).x) < 1 && st.phase === "TAXI";
       return out;
     });
     check("rocket: the capsule deploys a satellite in space (button only then; it unfolds and drifts off) and the landing button then means home",

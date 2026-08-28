@@ -198,7 +198,12 @@ Precipitation stops in space. `SKY_MOODS` in `scene.js` holds the palettes.
 
 Loosely a Falcon 9: white booster with a black interstage, nine engines, four grid fins and
 four landing legs; a second stage with a single vacuum engine; the capsule inside a two-half
-fairing. It stands upright on the runway -- the pad -- with the trucks beside it.
+fairing. It stands on the **launch complex** on the far side of the runway from the terminal
+(`rocketTune.pad`, SLC-40 style): a concrete pad with a flame trench and deflector, the launch
+mount it stands on (a solid top, so it can land back on it), the strongback beside it that
+swings away at ignition, four lightning towers, a water tower and the integration hangar at the
+base of the pad. The trucks wait by the pad; the deluge steams out of the trench through
+ignition and liftoff. The landing button and the deorbit both aim for the pad.
 
 - **Launch**: hold the throttle `igniteTime` s (the engine spools with a rumble) and it lifts
   off with a roar; the trucks drive home. Keep holding to burn, release to coast. The stick
@@ -303,7 +308,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (146 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (150 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```
@@ -324,7 +329,7 @@ beacons, wall faces, shatter restore, deep water, corridors clear, centreline cl
 high landings, origin-runway landings, targets and their placement, train cars, sparkle spots,
 arrival show + apron trucks, tower fly-by, hangar doors, bridge bounce, sky cycle, photo, gear
 rule, overrun, bridge gates in legal air, boats on water, traffic corridor slip, blur releases
-keys) · persistence across launches · the rocket (pad, altitude-gated drops, booster landing,
+keys) · persistence across launches · the rocket (launch complex + strongback + deluge, altitude-gated drops, booster landing,
 Moon landing + relaunch + staging afterwards, Mars coast-in and powered ram, landing button,
 Earth landing + delayed refit, fuel-out and apron trucks, satellite deploy, deorbit, reentry glow + overlay, drogue/mains gating and auto-pop, soft chute landing) · claimed feel effects (cloud whoosh, missile
 self-destruct pop, boat-horn hello, spray wake) · visual regression · service worker and manifests

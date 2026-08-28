@@ -141,6 +141,7 @@ const TUNE = {
     chuteSink: [26, 6.5], chuteDrift: 9,
     refitDelay: 5,
     satAlt: 1400,                   // satellite button above this height (as the capsule)
+    pad: { dx: 200, dz: 0, mountH: 4 },   // launch complex on the far side of the runway; the rocket stands on the mount
     moon: { x: 1500, y: 7000, z: -2500, r: 520, g: 2.2 },
     mars: { x: -2600, y: 10800, z: 3200, r: 680, g: 3.0 },
   },
