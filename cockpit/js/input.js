@@ -222,10 +222,20 @@ document.querySelectorAll(".dirCard").forEach(card => {
   });
 });
 
-// Stage button (rocket only): drops the next stage when high enough.
+// Stage button (rocket only): drops the next stage when high enough. The same
+// slot holds the satellite button (capsule, in space) and the parachute button
+// (capsule, low in the air) -- never two at once.
 el.stageBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.stageBtn);
   dropStage();
+});
+el.satBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.satBtn);
+  deploySatellite();
+});
+el.chuteBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.chuteBtn);
+  deployChute();
 });
 
 // Camera: the next rendered frame is grabbed (before the buffer clears), shown
@@ -294,7 +304,7 @@ window.addEventListener("keydown", (e) => {
   else if (c === "KeyG") { if (state.vp.hasGear) toggleGearDebounced(); }
   else if (c === "KeyV") toggleView();
   else if (c === "KeyF" || c === "Enter") {
-    if (state.vp.rocket) dropStage();
+    if (state.vp.rocket) { if (!dropStage() && !deploySatellite()) deployChute(); }
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
   }
   else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
