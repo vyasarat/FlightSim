@@ -2047,6 +2047,33 @@ function check(name, ok, extra) {
     check("rocket: coasting at Mars from far out is braked to a landing; ramming it under power still explodes and reassembles",
       moon.marsLanded && moon.crashed && moon.back, JSON.stringify(moon));
 
+    // skip-to-landing: in deep space it jumps to a slow descent above the nearest planet and lands; low down, above the home pad
+    const skip = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, m = L.BODIES[0];
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null;
+      st.x = m.x + 200; st.y = m.y - m.r - 3000; st.z = m.z; st.pitch = 90; L.rk.vx = L.rk.vy = L.rk.vz = 0;
+      L.update(1 / 60);
+      const shown = !document.getElementById("skipBtn").classList.contains("hidden");
+      const l0 = L.flags.moonLandings || 0;
+      const did = L.rocketSkipToLanding();
+      const near = Math.hypot(st.x - m.x, st.y - m.y, st.z - m.z) - m.r;
+      for (let i = 0; i < 60 * 40 && (L.flags.moonLandings || 0) === l0; i++) L.update(1 / 60);
+      const landed = (L.flags.moonLandings || 0) > l0;
+      // low over home: skip puts it above the pad and it lands there
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null;
+      const ap = L.AIRPORTS[st.originIdx];
+      st.x = 900; st.z = ap.cz + 2000; st.y = ap.elev + 600; st.pitch = 90; L.rk.vx = L.rk.vy = L.rk.vz = 0;
+      L.update(1 / 60);
+      const shownHome = !document.getElementById("skipBtn").classList.contains("hidden");
+      const r0 = L.flags.rocketLandings || 0;
+      L.rocketSkipToLanding();
+      const overPad = Math.abs(st.x) < 1 && Math.abs(st.z - ap.cz) < 1;
+      for (let i = 0; i < 60 * 40 && (L.flags.rocketLandings || 0) === r0; i++) L.update(1 / 60);
+      return { shown, did, near: Math.round(near), landed, shownHome, overPad, homeLanded: (L.flags.rocketLandings || 0) > r0 };
+    });
+    check("rocket: the landing button jumps to a slow descent above the nearest planet (or the home pad) and lands",
+      skip.shown && skip.did && skip.near > 300 && skip.near < 400 && skip.landed && skip.shownHome && skip.overPad && skip.homeLanded, JSON.stringify(skip));
+
     // return to Earth: descend upright and slowly = a landing
     const home = await page.evaluate(() => {
       const L = window.__lp, st = L.state, T = L.TUNE;

@@ -181,6 +181,9 @@ inside a two-half fairing. It stands upright on the runway (the pad).
   fireworks, the stack is restored, the sky stays black -- then launch again from its
   surface (it's the new pad). Only ramming a surface under full power faster than `landSpeed` still explodes (and
   reassembles above it), like everything else.
+- **Landing button**: the runway button works for the rocket too. In space it jumps to a
+  slow descent 350 m above the nearest planet; lower down, 200 m above the home pad --
+  the assist does the rest. It hides once the assist already has him.
 - **Coming home**: descend into the atmosphere and the same assist feathers it down
   to a Falcon-style landing on land or water; only a powered ram is a crash. Both views work: the cockpit looks along the body axis (straight up at the
   stars on the pad), the chase camera sits behind and below.
