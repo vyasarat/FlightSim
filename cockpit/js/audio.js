@@ -39,7 +39,7 @@ function startEngine() {
   lp.frequency.value = TUNE.engineFilterFreq;
   const g = audioCtx.createGain();
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(TUNE.engineGainIdle, t + 0.8);
+  if (!(state.vp && state.vp.rocket)) g.gain.linearRampToValueAtTime(TUNE.engineGainIdle, t + 0.8);   // the rocket has its own voice
   const lfo = audioCtx.createOscillator();
   lfo.frequency.value = TUNE.engineLfoRate;
   const lfoG = audioCtx.createGain();

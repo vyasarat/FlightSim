@@ -67,8 +67,15 @@ main() {
       echo "  Verify by hand, then: echo $NEW_REV > $DEPLOYED_FILE  (or fix history) and re-run." >&2
       exit 1
     fi
+    local OLD_NAME NEW_NAME
+    OLD_NAME=$(git show "$DEPLOYED:cockpit/sw.js" 2>/dev/null | grep -o 'const CACHE_NAME = "[^"]*"' | head -1)
+    NEW_NAME=$(git show "$NEW_REV:cockpit/sw.js" 2>/dev/null | grep -o 'const CACHE_NAME = "[^"]*"' | head -1)
+    if [[ -n "$NEW_NAME" ]] && git log --oneline -S"$NEW_NAME" "$DEPLOYED" -- cockpit/sw.js | grep -q . && [[ "$NEW_NAME" != "$OLD_NAME" ]]; then
+      echo "✗ cockpit/sw.js CACHE_NAME ($NEW_NAME) was already used by an earlier published build; pick a new name." >&2
+      exit 1
+    fi
     if ! git diff --quiet "$DEPLOYED" "$NEW_REV" -- cockpit/index.html cockpit/js cockpit/three.min.js cockpit/manifest.json cockpit/icons \
-       && ! git diff "$DEPLOYED" "$NEW_REV" -- cockpit/sw.js | grep -q '^[-+]const CACHE_NAME'; then
+       && [[ "$NEW_NAME" == "$OLD_NAME" ]]; then
       echo "✗ cockpit/ changed since the published rev but cockpit/sw.js CACHE_NAME was not bumped; refusing to deploy." >&2
       echo "  (published: $DEPLOYED  candidate: $NEW_REV)" >&2
       exit 1
@@ -86,6 +93,7 @@ main() {
   # removes files a previous deploy left behind.
   rsync -a --delete --delete-excluded \
     --exclude='.DS_Store' --exclude='*.swp' --exclude='node_modules' --exclude='__pycache__' \
+    --exclude='.env' --exclude='*.log' --exclude='.claude' --exclude='qa-screenshots' \
     --include='/index.html' --include='/manifest.json' --include='/sw.js' \
     --include='/icons/' --include='/icons/**' \
     --include='/cockpit/' --include='/cockpit/**' \
@@ -102,7 +110,12 @@ main() {
   fi
 
   echo "✅ Deployed $NEW_REV at $(date)"
-  [[ -f "$PREV_FILE" ]] && echo "   Rollback: bash deploy/deploy.sh --rollback  (-> $(cat "$PREV_FILE"))"
+  if [[ $MODE == rollback ]]; then
+    local NEXT; NEXT=$(grep -vxF "$NEW_REV" "$HISTORY_FILE" 2>/dev/null | tail -1 || true)
+    [[ -n "$NEXT" ]] && echo "   Rollback again: bash deploy/deploy.sh --rollback  (-> $NEXT)"
+  else
+    [[ -f "$PREV_FILE" ]] && echo "   Rollback: bash deploy/deploy.sh --rollback  (-> $(cat "$PREV_FILE"))"
+  fi
   return 0
 }
 

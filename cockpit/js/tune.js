@@ -81,7 +81,6 @@ const TUNE = {
   autoThrottleResponse: 0.9,
   ringCount: 10,
   ringStartDistance: 1250,
-  ringStartAltitude: 230,
   ringRadius: 26,
   ringPulseRate: 2.2,
   touchdownLatTolMult: 3.5,
@@ -89,7 +88,6 @@ const TUNE = {
   touchdownClearance: 2.6,
   climbAwayPitchDeg: 14,
   climbAwayTime: 3.0,
-  climbAwayBankCapDeg: 10,
 
   sceneryRebuildDist: 256,
   sceneryRadius: 1450,
@@ -189,9 +187,6 @@ const TUNE = {
   flareStartAgl: 30,         // over the runway, descend from here into the flare band           // must reach this AGL after liftoff before a landing can count
   keyStickRamp: 4.0,
 
-  explodeDescentRate: 26,
-  explodeAngleDeg: 20,
-  explodeBuildingSpeed: 34,
   debrisCount: 26,
   reassembleDelay: 2.0,
 
