@@ -366,7 +366,7 @@ function update(dt) {
     state.gearAnim = clamp(state.gearAnim + (gT > state.gearAnim ? 1 : -1) * 1.7 * dt, 0, 1);
   }
   if (state.exploding) {
-    if (state.vp.rocket) { el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden"); el.missileBtn.classList.add("hidden"); el.skipBtn.classList.add("hidden"); el.stageBtn.classList.add("hidden"); el.satBtn.classList.add("hidden"); el.chuteBtn.classList.add("hidden"); }
+    if (state.vp.rocket) { el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden"); el.missileBtn.classList.add("hidden"); el.skipBtn.classList.add("hidden"); el.stageBtn.classList.add("hidden"); el.satBtn.classList.add("hidden"); el.chuteBtn.classList.add("hidden"); el.roverBtn.classList.add("hidden"); }
     state.explodeTimer -= dt;
     const seeking = state.explodeTimer <= 0.5;
     updateExplosion(dt, safePos, seeking);
