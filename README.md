@@ -285,7 +285,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (139 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (146 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```
@@ -308,11 +308,15 @@ arrival show + apron trucks, tower fly-by, hangar doors, bridge bounce, sky cycl
 rule, overrun, bridge gates in legal air, boats on water, traffic corridor slip, blur releases
 keys) · persistence across launches · the rocket (pad, altitude-gated drops, booster landing,
 Moon landing + relaunch + staging afterwards, Mars coast-in and powered ram, landing button,
-Earth landing + refit) · visual regression · service worker and manifests for both builds.
+Earth landing + refit, fuel-out and apron trucks) · claimed feel effects (cloud whoosh, missile
+self-destruct pop, boat-horn hello, spray wake) · visual regression · service worker and manifests
+for both builds. `Math.random` is seeded under test, so runs are repeatable; heavy sections run on
+fresh pages so state cannot leak between them.
 
-The visual pass renders four fixed scenes to 96x54 grey hashes and compares them with
-`scripts/visual_baseline.json` (mean diff < 6/255; a frame without contrast fails; a missing
-baseline fails). Re-baseline deliberately with `UPDATE_VISUAL=1` after an intentional look
+The visual pass renders eight fixed scenes (runway cockpit, canyon chase, approach rings, NY
+skyline, night skyline, rocket pad, capsule in space, CA airport chase) to 96x54 grey hashes and
+compares them with `scripts/visual_baseline.json` (`{meta, hashes}`; mean diff < 6/255; a frame
+without contrast fails; a missing baseline fails). Re-baseline deliberately with `UPDATE_VISUAL=1` after an intentional look
 change. Audio and feel are not covered: render and look, listen on the iPad.
 
 ## Deploy

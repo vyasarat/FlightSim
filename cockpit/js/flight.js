@@ -198,7 +198,7 @@ function updateCloudWhoosh(dt) {
   if (state.phase !== "AIRBORNE") return;
   for (const c of clouds) {
     const dx = c.position.x - state.x, dy = c.position.y - state.y, dz = c.position.z - state.z;
-    if (dx * dx + dy * dy + dz * dz < 40 * 40) { whoosh(); cloudWhooshT = 2.5; return; }
+    if (dx * dx + dy * dy + dz * dz < 40 * 40) { whoosh(); cloudWhooshT = 2.5; flags.whooshes = (flags.whooshes || 0) + 1; return; }
   }
 }
 

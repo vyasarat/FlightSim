@@ -32,6 +32,7 @@ const BODIES = [
   { name: "mars", x: RK.mars.x, y: RK.mars.y, z: RK.mars.z, r: RK.mars.r, g: RK.mars.g, color: 0xc65a2e },
 ];
 const rkAxis = new THREE.Vector3();
+const Q_UPRIGHT = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0));
 const rkTmp = new THREE.Vector3();
 
 // ---- the Moon and Mars (always in the scene; the fog hides them from the ground)
@@ -205,8 +206,7 @@ function updateFallingStages(dt) {
       // Falcon-style: boostback burn kills the inherited climb in the first
       // seconds, it flips upright, brakes near the ground and lands on its legs.
       if (s.life > 55 && s.vy > 0) s.vy *= 1 - Math.min(1, 1.6 * dt);
-      const up = new THREE.Vector3(0, 1, 0);
-      s.mesh.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), up), Math.min(1, 1.5 * dt));
+      s.mesh.quaternion.slerp(Q_UPRIGHT, Math.min(1, 1.5 * dt));
       s.vx *= 1 - Math.min(1, 1.2 * dt); s.vz *= 1 - Math.min(1, 1.2 * dt);
       if (s.vy < 0 && alt < 260) {
         const want = -Math.max(6, alt * 0.25);   // slow to ~6 m/s for touchdown
@@ -217,7 +217,7 @@ function updateFallingStages(dt) {
       if (alt <= 7.6 * (state.vp.size || 1)) {
         s.landed = true; s.vx = s.vy = s.vz = 0;
         s.y = ground + 7.6 * (state.vp.size || 1);
-        s.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0));
+        s.mesh.quaternion.copy(Q_UPRIGHT);
         s.mesh.position.set(s.x, s.y, s.z);
         boosterLand();
         flags.boosterLandings = (flags.boosterLandings || 0) + 1;
@@ -268,7 +268,7 @@ function updateRocket(dt) {
   el.gearBtn.classList.add("hidden");
   el.skipBtn.classList.toggle("hidden", !rocketCanSkip());
   el.stageBtn.classList.toggle("hidden", !rocketCanDrop());
-  el.stageBtn.dataset.stage = String(rk.stage);
+  if (el.stageBtn.dataset.stage !== String(rk.stage)) el.stageBtn.dataset.stage = String(rk.stage);
 
   if (grounded) {
     // sitting on the pad (or on a body): upright, still, restocked
