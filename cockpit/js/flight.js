@@ -260,10 +260,13 @@ function updateSky(dt) {
   if (mood.top && w > 0.001) { top.lerp(mood.top, w); hor.lerp(mood.hor, w); }
   let fogNear = mood.fogNear ? lerp(TUNE.fogNear, mood.fogNear, w) : TUNE.fogNear;
   let fogFar = mood.fogFar ? lerp(TUNE.fogFar, mood.fogFar, w) : TUNE.fogFar;
-  if (sf > 0.001) { top.lerp(SPACE_TOP, sf); hor.lerp(SPACE_HOR, sf); fogNear = lerp(fogNear, 2600, sf); fogFar = lerp(fogFar, 5400, sf); }
+  if (sf > 0.001) { top.lerp(SPACE_TOP, sf); hor.lerp(SPACE_HOR, sf); fogNear = lerp(fogNear, 4000, sf); fogFar = lerp(fogFar, 16000, sf); }
   scene.fog.color.copy(hor);
   scene.fog.near = fogNear;
   scene.fog.far = fogFar;
+  // deep space needs a far plane that reaches the Moon and Mars
+  const wantFar = sf > 0.3 ? 18000 : 6000;
+  if (camera.far !== wantFar) { camera.far = wantFar; camera.updateProjectionMatrix(); }
   sunLight.intensity = TUNE.sunIntensity * lerp(1, mood.sun, w);
   hemiLight.intensity = TUNE.hemiIntensity * lerp(1, mood.hemi, w);
   // snow: the ground and roofs whiten (emissive lift on the vertex-coloured terrain)
@@ -317,6 +320,7 @@ function updateRewards(dt) {
   updateWake(dt);
   updateFlightTones();
   updateSpots(dt);
+  updateFallingStages(dt);
 }
 
 // Stall wobble when slow and nose-high; a rising whistle in a fast dive.
@@ -385,6 +389,7 @@ function update(dt) {
       state.airVy = null;
       state.canRotate = false;
       state.approachLatch = false;
+      if (state.vp.rocket) rocketAfterReassemble();
       whoosh();
       boing();
       state.popTimer = 0.45;
@@ -398,7 +403,9 @@ function update(dt) {
     targetPitch = state.ctrlPitch * state.vp.pitchLimitDeg;
   }
 
-  if (state.phase === "TAXI" || state.phase === "ROLL") {
+  if (state.vp.rocket) {
+    updateRocket(dt);
+  } else if (state.phase === "TAXI" || state.phase === "ROLL") {
     groundPhase(dt);
     setEngine(state.speed / state.vp.cruiseSpeed);
     el.throttleBtn.classList.remove("hidden");
@@ -602,6 +609,8 @@ function update(dt) {
   let spaceTarget = 0;
   if (!state.vp.capped && state.phase === "AIRBORNE") {
     spaceTarget = clamp((aglSpace - TUNE.spaceAltitude) / TUNE.spaceBlendBand, 0, 1);
+  } else if (state.vp.rocket && rk.onBody) {
+    spaceTarget = 1;   // sitting on the Moon or Mars
   }
   state.spaceF += (spaceTarget - state.spaceF) * Math.min(1, 1.4 * dt);
   if (state.vp.capped && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY")) {
@@ -614,12 +623,14 @@ function update(dt) {
   const sf = state.spaceF;
   stars.material.opacity = Math.max(sf, state.nightF);
   earthMesh.material.opacity = sf * 0.96;
-  earthMesh.position.set(state.x, state.y - 3600, state.z);
+  // the Earth follows along below, but stops rising once you're in deep space so it
+  // looks like a ball far beneath the Moon rather than a wall next to it
+  earthMesh.position.set(state.x, Math.min(state.y - 3600, 2200), state.z);
   earthMesh.visible = sf > 0.02;
-  astronaut.visible = station.visible = sf > 0.05;
-  if (astronaut.visible) {
-    astronaut.rotation.y += dt * 0.4;
-    astronaut.rotation.x += dt * 0.12;
+  satellite.visible = station.visible = sf > 0.05;
+  if (satellite.visible) {
+    satellite.rotation.y += dt * 0.4;
+    satellite.rotation.x += dt * 0.12;
     station.rotation.y += dt * 0.16;
   }
   waterMesh.visible = sf < 0.9;

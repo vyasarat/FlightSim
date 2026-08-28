@@ -112,23 +112,23 @@ const earthMesh = new THREE.Mesh(
 );
 scene.add(earthMesh);
 
-const astronaut = new THREE.Group();
+// A satellite (no living things in this game): gold body, two solar wings, a dish.
+const satellite = new THREE.Group();
 {
-  const suit = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 5, 10), lamSafe(0xf2f4f7));
-  astronaut.add(suit);
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(1.8, 10, 8), lamSafe(0xf2f4f7));
-  helmet.position.y = 4;
-  astronaut.add(helmet);
-  const visor = new THREE.Mesh(new THREE.SphereGeometry(1.3, 10, 8), new THREE.MeshBasicMaterial({ color: 0x20262e }));
-  visor.position.set(0, 4, 0.95);
-  astronaut.add(visor);
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(3.6, 4.6, 1.8), lamSafe(0xd8dde4));
-  pack.position.set(0, 0.6, -2);
-  astronaut.add(pack);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 5), lamSafe(0xd8b04a));
+  satellite.add(body);
+  for (const s of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(12, 0.3, 4), lamSafe(0x1c3d8f));
+    wing.position.x = s * 8.5;
+    satellite.add(wing);
+  }
+  const dish = new THREE.Mesh(new THREE.ConeGeometry(2.4, 1.2, 12, 1, true), lamSafe(0xf2f4f7));
+  dish.position.set(0, 3.4, 0);
+  satellite.add(dish);
 }
-astronaut.position.set(420, TUNE.spaceAltitude + 320, -900 * ROUTE_SCALE() || -900);
-astronaut.visible = false;
-scene.add(astronaut);
+satellite.position.set(420, TUNE.spaceAltitude + 320, -900 * ROUTE_SCALE() || -900);
+satellite.visible = false;
+scene.add(satellite);
 
 const station = new THREE.Group();
 {

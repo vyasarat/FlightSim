@@ -221,6 +221,12 @@ document.querySelectorAll(".dirCard").forEach(card => {
   });
 });
 
+// Stage button (rocket only): drops the next stage when high enough.
+el.stageBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.stageBtn);
+  dropStage();
+});
+
 // Camera: the next rendered frame is grabbed (before the buffer clears), shown
 // in a polaroid frame for a few seconds with a flash and a shutter click.
 let photoTimer = null;
@@ -281,7 +287,10 @@ window.addEventListener("keydown", (e) => {
   if (c === "Space" || c === "ShiftLeft" || c === "ShiftRight") { el.throttleBtn.classList.add("pressed"); state.throttleHeld = true; }
   else if (c === "KeyG") { if (state.vp.hasGear) toggleGearDebounced(); }
   else if (c === "KeyV") toggleView();
-  else if (c === "KeyF" || c === "Enter") { if (!el.missileBtn.classList.contains("hidden")) fireMissile(); }
+  else if (c === "KeyF" || c === "Enter") {
+    if (state.vp.rocket) dropStage();
+    else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
+  }
   else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
   else if (c === "Minus" || c === "NumpadSubtract" || c === "BracketLeft") state.speedStep = Math.max(state.speedStep - 1, 0);
   else if (c === "KeyP") takePhoto();

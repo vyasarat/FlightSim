@@ -275,6 +275,19 @@ function shutter() {
   synthBlip("square", 1800, 900, 0.05, 0.12, 0.03);
   noiseBurst(0.05, 2200, 0.25, 0.09);
 }
+function stageSep() {
+  noiseBurst(0.18, 500, 0.4, 0);
+  synthBlip("square", 220, 120, 0.2, 0.2, 0);
+  noiseBurst(0.6, 2200, 0.16, 0.15);   // hiss of the pushers
+}
+function liftoffRoar() {
+  noiseBurst(1.6, 160, 0.5, 0);
+  synthBlip("sawtooth", 60, 40, 1.4, 0.3, 0);
+}
+function boosterLand() {
+  noiseBurst(0.4, 300, 0.3, 0);
+  synthBlip("sine", 90, 50, 0.5, 0.25, 0.05);
+}
 function cheer() {
   const notes = [523, 659, 784, 1047];
   notes.forEach((f, i) => {

@@ -118,6 +118,21 @@ const TUNE = {
   homeIndicatorDistance: 300,
   homeIndicatorSize: 40,
 
+  // rocket (see js/rocket.js) -- loosely a Falcon 9: booster, fairing, second stage, capsule
+  rocketTune: {
+    thrust: [26, 18, 18, 12],       // per stage index: booster, stage 2 (fairing on), stage 2 (fairing off), capsule
+    fuel: [70, 140],                // seconds of burn for booster and second stage (capsule is unlimited)
+    stageAlt: [450, 1100, 2600],    // drop allowed above these altitudes: booster, fairing, second stage
+    gravity: 7, gravityFade: 2400,  // Earth pull at the ground, gone above this height
+    drag: 0.05, maxSpeed: 280,
+    turnRateDeg: 38,
+    igniteTime: 1.4,                // hold the throttle this long on the pad before liftoff
+    landSpeed: 30,                  // slower than this on contact = a landing, faster = a crash
+    altMax: 12000,
+    moon: { x: 1500, y: 7000, z: -2500, r: 520, g: 2.2 },
+    mars: { x: -2600, y: 10800, z: 3200, r: 680, g: 3.0 },
+  },
+
   glideSlope: 0.085,
   glideBand: 9,
   minFlyingSpeed: 18,
@@ -166,7 +181,7 @@ const TUNE = {
   vehicles: {
     prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, hoverSpeed: 0, capped: true, size: 1.0, hasGear: true },
     helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6, capped: true, size: 1.05, hasGear: false, hidden: true },
-    rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 48, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.1, hasGear: false, hidden: true },
+    rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
     airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
