@@ -9,7 +9,7 @@ let shatterTimer = 0;
 const MAX_HIDDEN_PIECES = 24;
 
 function isSolidHidden(b) {
-  if (b.mesh) return b.mesh.visible === false;
+  if (b.mesh) return b.mesh.visible === false || (b.mesh.parent && b.mesh.parent.visible === false);
   if (b.idx !== undefined) return hiddenTownIdx.has(b.idx);
   return false;
 }

@@ -72,7 +72,12 @@ function check(name, ok, extra) {
   async function newPage(w, h) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
     // every harness page boots on the picker, even if a previous test saved a choice
-    await ctx.addInitScript(() => { try { localStorage.clear(); } catch (e) {} });
+    await ctx.addInitScript(() => {
+      try { localStorage.clear(); } catch (e) {}
+      // deterministic Math.random so scenes (stars, precipitation, traffic) are reproducible
+      let seed = 0x2F6E2B1;
+      Math.random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    });
     const page = await ctx.newPage();
     const errors = [];
     page.on("pageerror", e => errors.push("pageerror: " + e.message));
@@ -390,8 +395,9 @@ function check(name, ok, extra) {
     const aim = await page.evaluate(() => {
       let best = null;
       window.__lp.forEachSolid(b => {
-        // CA downtown cluster (addRouteLandmark(downtown, 460, ...)) -- beside the approach corridor
-        if (b.x > 300 && b.x < 620 && Math.abs(b.z + 4920) < 60 && (b.y1 - b.y0) > 80) {
+        // CA downtown cluster, found by landmark name
+        const dt = window.__lp.ROUTE_LANDMARKS.find(l => l.name === "downtown");
+        if (dt && Math.abs(b.x - dt.x) < 160 && Math.abs(b.z - dt.z) < 60 && (b.y1 - b.y0) > 80) {
           if (!best || (b.y1 - b.y0) > (best.y1 - best.y0)) best = b;
         }
       });
@@ -968,7 +974,7 @@ function check(name, ok, extra) {
     }
     const e1 = await page.evaluate(() => window.__lp.flags.exploded);
     check("missiles: shoot down a plane ahead",
-      shot && hit && e1 >= e0, `shot=${shot} hit=${hit}`);
+      shot && hit && e1 === e0 + 1, `shot=${shot} hit=${hit} exploded=${e0}->${e1}`);
 
     // missile into terrain also explodes
     const h0 = await page.evaluate(() => window.__lp.flags.missileHits);
@@ -1154,7 +1160,7 @@ function check(name, ok, extra) {
         }
         done++;
         if (done < batches) setTimeout(step, 30);
-        else resolve(Math.round((batches * 10) / ((performance.now() - wallStart) / 1000)));
+        else resolve(Math.round((batches * 10) / ((performance.now() - wallStart - (batches - 1) * 30) / 1000)));
       };
       step();
     }));
@@ -1320,14 +1326,16 @@ function check(name, ok, extra) {
   }
 
   // ---------- T-R rewards, feel, alarm, keyboard, persistence ----------
+  // Split across fresh pages: state carried between checks made the order load-bearing.
   {
-    const { page } = await newPage(1180, 820);
+    let page = (await newPage(1180, 820)).page;
+    const fresh = async () => { await page.close(); page = (await newPage(1180, 820)).page; await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.skipScreens(); }); };
     await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.skipScreens(); });
 
     // rings: fly the slope from 1200 out; every ring should be eaten, each plays a note
     const ringsR = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE, st = L.state;
-      L.api.teleportAirborne(1320, 0, 3 + 1320 * T.glideSlope, 0);  // behind the first ring (ringStartDistance)
+      L.api.teleportAirborne(T.ringStartDistance + 70, 0, 3 + (T.ringStartDistance + 70) * T.glideSlope, 0);  // behind the first ring
       L.api.setStick(0, -0.18);  // a gentle nose-down tracks the slope (same as the skip test)
       st.speedStep = 1;
       const e0 = L.flags.ringsEaten;
@@ -1437,6 +1445,7 @@ function check(name, ok, extra) {
     });
     check("gear: cannot retract on the ground, still cycles in the air", gearGround.taxi && gearGround.roll && gearGround.upInAir && gearGround.downInAir, JSON.stringify(gearGround));
 
+    await fresh();
     // shootable targets: balloons, blimp, UFO, boats; a missile pops one and it respawns
     const tg = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE, st = L.state;
@@ -1495,6 +1504,7 @@ function check(name, ok, extra) {
     });
     check("targets: a missile knocks a car off the freight train", !trainShot.err && trainShot.hit && trainShot.fewerCars, JSON.stringify(trainShot));
 
+    await fresh();
     // H4: crossing the threshold high with the stick released must still land (engaged stays on over the runway)
     const highCross = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE, st = L.state;
@@ -1565,6 +1575,7 @@ function check(name, ok, extra) {
     });
     check("rewards: rings re-arm on a go-around", rearm.eatenBefore > 0 && rearm.went && rearm.eatenAfter === 0, JSON.stringify(rearm));
 
+    await fresh();
     // bridge gates: the hoop must lie entirely in legal air (above water clearance, under the deck collider)
     const gateAir = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE;
@@ -1660,6 +1671,7 @@ function check(name, ok, extra) {
     });
     check("ground: fighter with throttle held past the end stops < 400 m out and respawns", overrun.respawned && overrun.maxPast < 400, JSON.stringify(overrun));
 
+    await fresh();
     // sky button: rain brings precipitation + rain loop, night lights the windows, sun clears it
     const sky = await page.evaluate(() => {
       const L = window.__lp, st = L.state;
@@ -1707,6 +1719,7 @@ function check(name, ok, extra) {
     });
     check("world: bridges bounce when flown under", !hoop.err && hoop.bounced, JSON.stringify(hoop));
 
+    await fresh();
     // sparkle spots: 20 gems in the open air; flying through one lights it for good and saves
     const spotsR = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE, st = L.state;
@@ -1729,6 +1742,30 @@ function check(name, ok, extra) {
     check("spots: 20 sparkle spots in clear air; flying through one lights it and it is remembered",
       spotsR.n === 20 && spotsR.bad.length === 0 && spotsR.lit && spotsR.gained === 1 && spotsR.saved, JSON.stringify(spotsR));
 
+    // README claims that had no check: spots reset once all found; a cloud whoosh; missile self-destruct pop; hellos; spray wake
+    const claims = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      const out = {};
+      // all spots lit -> a relaunch resets them (restoreSpots drops the saved list)
+      try { localStorage.setItem("lp.spots", JSON.stringify(L.spots.map(() => 1))); } catch (e) {}
+      out.spotsSavedAll = localStorage.getItem("lp.spots").indexOf("0") < 0;
+      // cloud whoosh: park inside a cloud
+      const c = L.clouds[0]; st.exploding = false; st.phase = "AIRBORNE"; st.speed = 30; st.x = c.position.x; st.y = c.position.y; st.z = c.position.z;
+      const w0 = L.flags.whooshes || 0; for (let i = 0; i < 20; i++) L.update(1 / 60); out.whoosh = (L.flags.whooshes || 0) > w0;
+      // missile end-of-range pop: fire into empty sky
+      st.x = 600; st.z = 0; st.y = 800; st.pitch = 30; st.speed = 60; L.update(1 / 60);
+      const x0 = L.flags.missileExpired || 0; L.fireMissile(); for (let i = 0; i < 60 * (T.missileLife + 1); i++) L.update(1 / 60); out.selfDestruct = (L.flags.missileExpired || 0) > x0;
+      // hello: overfly a boat
+      const b = L.targets.find(t => t.kind === "boat"); const h0 = L.flags.hellos || 0;
+      st.x = b.x; st.z = b.z; st.y = b.y + 30; st.pitch = 0; st.speed = 20; for (let i = 0; i < 10; i++) L.update(1 / 60); out.boatHello = (L.flags.hellos || 0) > h0;
+      // spray wake over water
+      let wx = b.x, wz = b.z;   // find deep water near the boat (it may hug a shore)
+      for (let r = 0; r <= 200 && L.terrainEff(wx, wz) > T.waterLevel - 2; r += 20) for (let k = 0; k < 8 && L.terrainEff(wx, wz) > T.waterLevel - 2; k++) { wx = b.x + Math.cos(k * Math.PI / 4) * r; wz = b.z + Math.sin(k * Math.PI / 4) * r; }
+      st.x = wx; st.z = wz; st.y = T.waterLevel + 10; st.pitch = 0; st.speed = 40; st.heading = 0; st.exploding = false; for (let i = 0; i < 30; i++) L.update(1 / 60); out.wake = L.wakePuffsAlive() > 3; out.wakeDbg = { phase: st.phase, exploding: st.exploding, agl: Math.round(st.y - T.waterLevel), terr: Math.round(L.terrainEff(st.x, st.z) - T.waterLevel), speed: Math.round(st.speed), puffs: L.wakePuffsAlive() };
+      return out;
+    });
+    check("claims: cloud whoosh, missile self-destruct pop, boat horn hello, spray wake all fire", claims.whoosh && claims.selfDestruct && claims.boatHello && claims.wake, JSON.stringify(claims));
+
     // arrival show + apron vehicles, on a fresh page (no state carried over)
     {
       const fresh = await newPage(1180, 820);
@@ -1749,7 +1786,7 @@ function check(name, ok, extra) {
         const planeD = a.vehicles.map(v => Math.round(Math.hypot(v.x - st.x, v.z - st.z)));
         const stillCelebrating = st.celebrated;
         let fireworksSeen = false;
-        for (let i = 0; i < 60 * 2; i++) { L.update(1 / 60); if (L.wakePuffsAlive() > 6) fireworksSeen = true; }
+        for (let i = 0; i < 60 * 2; i++) { L.update(1 / 60); if ((L.flags.fireworks || 0) > 0) fireworksSeen = true; }
         return { celebrated: stillCelebrating, landedIdx: st.landedIdx, homeD, planeD, fireworksSeen };
       });
       check("arrival: fireworks over the terminal and the apron trucks drive out to the plane",
@@ -1787,11 +1824,12 @@ function check(name, ok, extra) {
     check("rewards: ring corridor anchors at the near threshold in both directions",
       [0, 1].every(d => ringSides["dir" + d].lastAtNear && ringSides["dir" + d].outward && !ringSides["dir" + d].overRunway), JSON.stringify(ringSides));
 
+    await fresh();
     // gates: three kinds exist; flying through the canyon gate triggers a fanfare once, then re-arms
     const gate = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE, st = L.state;
       const gs = L.gates;
-      const canyon = gs.find(g => !g.follow && Math.abs(g.z + 3800 * (T.routeLength / 12000)) < 1);
+      const canyon = gs.find(g => g.name === "canyon");
       const train = gs.find(g => g.follow);
       const bridges = gs.filter(g => !g.follow && g !== canyon).length;
       if (!canyon) return { err: "no canyon gate", n: gs.length };
@@ -1848,6 +1886,7 @@ function check(name, ok, extra) {
     check("crash: leaves a smoke column and a crater that outlast the reassemble",
       aftermath.exploded && aftermath.smoke > 0 && aftermath.crater > 0 && aftermath.smokeLater > 0 && aftermath.craterLater > 0, JSON.stringify(aftermath));
 
+    await fresh();
     // alarm: diving at terrain strobes + beeps; a normal approach does not
     const alarm = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE, st = L.state;
@@ -1912,20 +1951,29 @@ function check(name, ok, extra) {
       await p1.waitForFunction(() => window.__lp);
       await p1.click('[data-v="fighter"]');
       await p1.click('[data-d="1"]');
+      await p1.evaluate(() => { window.__lp.update(1 / 60); document.getElementById("skyBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 31 })); for (let i = 0; i < 25; i++) window.__lp.update(1 / 60); });
       const p2 = await ctx.newPage();
       await p2.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
       await p2.goto(URL);
       await p2.waitForFunction(() => window.__lp);
       const restored = await p2.evaluate(() => ({
-        key: window.__lp.state.vehicleKey, dir: window.__lp.state.dirIdx, phase: window.__lp.state.phase,
+        key: window.__lp.state.vehicleKey, dir: window.__lp.state.dirIdx, phase: window.__lp.state.phase, sky: window.__lp.state.sky,
         pickerHidden: document.getElementById("screenVehicle").classList.contains("hiddenS"),
       }));
+      const spotsReset = await p2.evaluate(() => { try { localStorage.setItem("lp.spots", JSON.stringify(window.__lp.spots.map(() => 1))); } catch (e) {} return true; });
+      const p3 = await ctx.newPage();
+      await p3.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
+      await p3.goto(URL);
+      await p3.waitForFunction(() => window.__lp);
+      const spotsAfter = await p3.evaluate(() => ({ lit: window.__lp.spots.filter(s => s.lit).length, saved: localStorage.getItem("lp.spots") }));
+      check("spots: once all twenty are found, the next launch starts them fresh", spotsReset && spotsAfter.lit === 0 && spotsAfter.saved === null, JSON.stringify(spotsAfter));
+      await p3.close();
       await p2.evaluate(() => { window.__lp.update(1 / 60); });
       const vehBtnShown = await p2.evaluate(() => !document.getElementById("vehBtn").classList.contains("hidden"));
       await p2.click("#vehBtn");
       const pickerBack = await p2.evaluate(() => !document.getElementById("screenVehicle").classList.contains("hiddenS"));
       check("persistence: relaunch restores vehicle + direction straight to the runway; plane button reopens the picker",
-        restored.key === "fighter" && restored.dir === 1 && restored.phase === "TAXI" && restored.pickerHidden && vehBtnShown && pickerBack, JSON.stringify({ restored, vehBtnShown, pickerBack }));
+        restored.key === "fighter" && restored.dir === 1 && restored.sky === 1 && restored.phase === "TAXI" && restored.pickerHidden && vehBtnShown && pickerBack, JSON.stringify({ restored, vehBtnShown, pickerBack }));
       await ctx.close();
     }
   }
@@ -1936,7 +1984,7 @@ function check(name, ok, extra) {
     const baselinePath = path.resolve(__dirname, "visual_baseline.json");
     const update = !!process.env.UPDATE_VISUAL;
     let baseline = {};
-    try { baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8")); } catch (e) {}
+    try { const raw = JSON.parse(fs.readFileSync(baselinePath, "utf8")); baseline = raw.hashes || raw; } catch (e) {}
     const { page } = await newPage(1180, 820);
     await page.evaluate(() => { window.__lp.api.skipScreens(); for (const t of window.__lp.traffic) t.mesh.visible = false; });
     const scenes = {
@@ -1944,6 +1992,10 @@ function check(name, ok, extra) {
       "chase-canyon": () => { const T = window.__lp.TUNE; window.__lp.api.setView(true); const st = window.__lp.state; st.phase = "AIRBORNE"; st.x = 0; st.z = -3800 * (T.routeLength / 12000) + 420; st.y = T.waterLevel + 140; st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; },
       "approach-rings": () => { const T = window.__lp.TUNE; window.__lp.api.setView(false); window.__lp.api.teleportAirborne(700, 0, 3 + 700 * T.glideSlope, 0); window.__lp.state.speed = 0; },
       "ny-skyline-chase": () => { const T = window.__lp.TUNE; window.__lp.api.setView(true); const st = window.__lp.state; st.phase = "AIRBORNE"; st.x = 0; st.z = T.routeLength / 2 - 1900; st.y = 160; st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; },
+      "night-skyline": () => { const L = window.__lp, T = L.TUNE, st = L.state; st.sky = 3; L.api.setView(true); st.phase = "AIRBORNE"; st.x = -60; st.z = T.routeLength / 2 - 1650; st.y = 90; st.heading = 0; st.pitch = -4; st.bank = 0; st.speed = 0; for (let i = 0; i < 60 * 8; i++) L.update(1 / 60); },
+      "rocket-pad": () => { const L = window.__lp, st = L.state; st.sky = 0; L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.api.setView(true); for (let i = 0; i < 60 * 8; i++) L.update(1 / 60); },
+      "space-capsule": () => { const L = window.__lp, st = L.state, m = L.BODIES[0]; L.api.setView(true); st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity]; if (L.vehicleModel) rocketApplyStages(L.vehicleModel); st.x = m.x; st.y = m.y - m.r - 260; st.z = m.z + 120; st.pitch = 70; st.heading = 0; st.speed = 0; L.rk.vx = L.rk.vy = L.rk.vz = 0; for (let i = 0; i < 60 * 6; i++) L.update(1 / 60); L.rk.vx = L.rk.vy = L.rk.vz = 0; },
+      "ca-airport-chase": () => { const L = window.__lp, T = L.TUNE, st = L.state; L.api.setVehicle("prop"); st.sky = 0; L.api.setView(true); st.phase = "AIRBORNE"; const ap = L.AIRPORTS[1]; st.x = -120; st.z = ap.cz + 620; st.y = ap.elev + 95; st.heading = 0; st.pitch = -22; st.bank = 0; st.speed = 0; for (let i = 0; i < 60 * 6; i++) L.update(1 / 60); },
     };
     const got = {};
     for (const [name, setup] of Object.entries(scenes)) {
@@ -1967,7 +2019,8 @@ function check(name, ok, extra) {
       await page.screenshot({ path: path.join(SHOTS, `visual-${name}.png`) });
     }
     if (update) {
-      fs.writeFileSync(baselinePath, JSON.stringify(got));
+      const meta = { rev: require("child_process").execSync("git rev-parse --short HEAD", { cwd: path.resolve(__dirname, "..") }).toString().trim(), date: new Date().toISOString().slice(0, 10), size: "96x54", scenes: Object.keys(got) };
+      fs.writeFileSync(baselinePath, "{\n  \"meta\": " + JSON.stringify(meta) + ",\n  \"hashes\": {\n" + Object.entries(got).map(([k, v]) => "    " + JSON.stringify(k) + ": " + JSON.stringify(v)).join(",\n") + "\n  }\n}\n");
       console.log("INFO  visual: baseline written to scripts/visual_baseline.json");
     } else {
       for (const [name, hash] of Object.entries(got)) {
@@ -2012,12 +2065,31 @@ function check(name, ok, extra) {
       for (let i = 0; i < 60 * 90 && L.rk.stage < 3; i++) { L.update(1 / 60); if (L.rocketCanDrop()) L.dropStage(); }
       out.finalStage = L.rk.stage; out.altEnd = Math.round(st.y - L.terrainEff(st.x, st.z)); out.spaceF = +st.spaceF.toFixed(2);
       // the booster should have landed on its legs by now
+      // park the capsule high in space (coasting) while the booster comes down; otherwise it
+      // could fall back and land at home first
+      st.y = Math.max(st.y, 5000); L.rk.vx = L.rk.vy = L.rk.vz = 0; st.throttleHeld = false;
       let boosterLanded = false;
       for (let i = 0; i < 60 * 70 && !boosterLanded; i++) { L.update(1 / 60); boosterLanded = (L.flags.boosterLandings || 0) > 0; }
       out.boosterLanded = boosterLanded;
       L.api.setThrottle(false);
       return out;
     });
+    const fuelAndTrucks = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune;
+      L.api.placeOnRunway(); for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);   // trucks drive in
+      const a = L.airports.find(r => r.idx === st.originIdx);
+      const nearBefore = a.vehicles.every(v => Math.hypot(v.x - st.x, v.z - st.z) < 60);
+      L.rk.fuel[0] = 1.5;   // nearly empty booster
+      L.api.setThrottle(true);
+      let thrustEnded = false, alt = 0, vyPeak = -1e9;
+      for (let i = 0; i < 60 * 8; i++) { L.update(1 / 60); alt = st.y - L.terrainEff(st.x, st.z); if (st.phase === "AIRBORNE") { if (L.rk.fuel[0] > 0) vyPeak = Math.max(vyPeak, L.rk.vy); else if (L.rk.vy < vyPeak - 2) thrustEnded = true; } }
+      L.api.setThrottle(false);
+      const trucksLeaving = a.vehicles.every(v => Math.abs(v.tx - v.homeX) < 1 && Math.abs(v.tz - v.homeZ) < 1);
+      return { nearBefore, thrustEnded, trucksLeaving, alt: Math.round(alt) };
+    });
+    check("rocket: trucks wait by the pad and leave at ignition; an empty stage stops thrusting (flame out)", fuelAndTrucks.nearBefore && fuelAndTrucks.thrustEnded && fuelAndTrucks.trucksLeaving, JSON.stringify(fuelAndTrucks));
+    await page.evaluate(() => { window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); });
+
     check("rocket: sits upright on the pad; stage button only above the booster altitude",
       launch.pitchOnPad === 90 && launch.btnHiddenOnPad && launch.canDropLow === false && launch.canDropHigh === true && launch.btnShownHigh, JSON.stringify(launch));
     check("rocket: three manual drops (booster, fairing, second stage) each gated by altitude; ends as the capsule in space",
@@ -2029,6 +2101,7 @@ function check(name, ok, extra) {
       // approach the Moon slowly from below: land
       st.exploding = false; st.phase = "AIRBORNE"; st.throttleHeld = false;
       st.x = m.x; st.y = m.y - m.r - 60; st.z = m.z; st.pitch = 90; st.heading = 0;
+      L.rk.stage = 3;   // arrive as the capsule (the pad refit above rebuilt the full stack)
       L.rk.vx = 0; L.rk.vy = 12; L.rk.vz = 0;
       const l0 = L.flags.moonLandings || 0;
       for (let i = 0; i < 60 * 20 && (L.flags.moonLandings || 0) === l0; i++) L.update(1 / 60);

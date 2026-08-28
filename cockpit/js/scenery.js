@@ -116,6 +116,7 @@ function placeLandmark(cellX, cellZ) {
   let lz = czw + (hashSalt(cellX, cellZ, 93) - 0.5) * TUNE.landmarkGrid * 0.5;
   if (Math.abs(lx) < 1700 && Math.abs(lz) < 1700) return null;
   if (inCorridor(lx, lz, 200)) return null;
+  if (flattenMask(lx - 190, lz) > 0 || flattenMask(lx + 190, lz) > 0 || flattenMask(lx, lz - 190) > 0 || flattenMask(lx, lz + 190) > 0) return null;   // never across an airport pad
   const proto = isTower ? towerProto : bridgeProto;
   const inst = proto.clone();
   const solids = [];

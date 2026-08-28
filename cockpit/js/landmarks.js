@@ -47,12 +47,12 @@ const casinoLights = [];    // casino light strips (declared early: filled by bu
 const gateMatGold = new THREE.MeshBasicMaterial({ color: 0xffc43a, transparent: true, opacity: 0.9, fog: false });
 const gateMatGreen = new THREE.MeshBasicMaterial({ color: 0x3fdc6a, transparent: true, opacity: 0.95, fog: false });
 const gateGeo = new THREE.TorusGeometry(1, 0.06, 8, 32);
-function addGate(x, y, z, hw, hh, follow) {
+function addGate(x, y, z, hw, hh, follow, name) {
   const mesh = new THREE.Mesh(gateGeo, gateMatGold);
   mesh.position.set(x, y, z);
   mesh.scale.set(hw, hh, 1);
   scene.add(mesh);
-  const g = { mesh, x, y, z, hw, hh, cooldown: 0, green: 0, follow: follow || null };
+  const g = { mesh, x, y, z, hw, hh, cooldown: 0, green: 0, follow: follow || null, name: name || "" };
   gates.push(g);
   return g;
 }
@@ -226,10 +226,11 @@ function updateTyrePuffs(dt) {
   }
 }
 
-function addRouteLandmark(g, x, z) {
+function addRouteLandmark(g, x, z, name) {
   g.position.set(x, terrainEff(x, z) - 0.5, z);
+  g.userData.name = name || g.userData.name || "";
   scene.add(g);
-  ROUTE_LANDMARKS.push({ g, x, z });
+  ROUTE_LANDMARKS.push({ g, x, z, name: g.userData.name });
   if (g.userData.pending) {
     for (const p of g.userData.pending) {
       addSolidBox(x + p.lx, p.ly0 + g.position.y, z + p.lz, p.hw, p.hd, p.y1 + g.position.y, p.mesh);
@@ -274,7 +275,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   }
   lmCyl(ny, 5, 7.5, 165, 0xaebccd, 40, 82.5, 30, 10);
   lmCyl(ny, 1.4, 2.6, 48, 0xcdd8e4, 40, 178, 30, 8);
-  addRouteLandmark(ny, -260, skylineZ);
+  addRouteLandmark(ny, -260, skylineZ, "skyline");
 
   const statue = new THREE.Group();
   statue.userData.trackSolids = true;
@@ -293,14 +294,14 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   const island = new THREE.Mesh(new THREE.CylinderGeometry(46, 54, 7, 12), lam(0x77c95f));
   island.position.y = 3.5;
   statue.add(island);
-  addRouteLandmark(statue, -520, half - 2350 * RS);
+  addRouteLandmark(statue, -520, half - 2350 * RS, "statue");
 
   // Decks high enough to fly under with room (plane needs 8 m over the water
   // and 3 m under the deck) and no deck crossing the departure/arrival
   // centreline (|x| < 150 is kept clear of every bridge).
   const harborZ = half - 1480 * RS;
-  addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 34, 18), -520, harborZ);
-  addRouteLandmark(suspensionBridge(0xd0342c, 540, 52, 32, 16), 480, harborZ - 260 * RS);
+  addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 34, 18), -520, harborZ, "bridgeNY1");
+  addRouteLandmark(suspensionBridge(0xd0342c, 540, 52, 32, 16), 480, harborZ - 260 * RS, "bridgeNY2");
 
   const silosFarm = new THREE.Group();
   silosFarm.userData.trackSolids = true;
@@ -308,7 +309,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   for (let i = 0; i < 6; i++) {
     lmCyl(silosFarm, 6, 6, 26, i % 2 ? 0xc9ccd4 : 0xb0413a, -80 + i * 34, 13, i % 2 * 20, 10);
   }
-  addRouteLandmark(silosFarm, 560, half * 0.28);   // east of the lake (x=240 was on the lake bed)
+  addRouteLandmark(silosFarm, 560, half * 0.28, "silosFarm");   // east of the lake (x=240 was on the lake bed)
 
   const midCity = new THREE.Group();
   midCity.userData.trackSolids = true;
@@ -319,7 +320,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
     lmBox(midCity, 20 + hashSalt(i, 9, 213) * 10, bh, 18, i % 2 ? 0x5a6470 : 0x6e7a88, bx, bh / 2, (hashSalt(i, 9, 214) - 0.5) * 100);
   }
   lmBox(midCity, 22, 155, 22, 0x22262c, 8, 77.5, 0);
-  addRouteLandmark(midCity, -340, half * 0.55);
+  addRouteLandmark(midCity, -340, half * 0.55, "midCity");
 
   const silosPlains = new THREE.Group();
   silosPlains.userData.trackSolids = true;
@@ -327,7 +328,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   for (let i = 0; i < 4; i++) {
     lmCyl(silosPlains, 5.5, 5.5, 22, 0xd8cdb4, i * 30 - 45, 11, 0, 10);
   }
-  addRouteLandmark(silosPlains, 430, -half * 0.18);
+  addRouteLandmark(silosPlains, 430, -half * 0.18, "silosPlains");
 
   const casinos = new THREE.Group();
   casinos.userData.trackSolids = true;
@@ -350,10 +351,10 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   ball.position.set(100, 105, 13);
   casinos.add(ball);
   casinos.userData.pending.push({ lx: 100, ly0: 93, lz: 13, hw: 12, hd: 12, y1: 117, mesh: ball });
-  addRouteLandmark(casinos, -250, -half * 0.555);
+  addRouteLandmark(casinos, -250, -half * 0.555, "casinos");
 
   const caBridge = suspensionBridge(0xd0342c, 700, 78, 30, 20);
-  addRouteLandmark(caBridge, -530, -half + 1480 * RS);  // clear of the runway, apron and centreline
+  addRouteLandmark(caBridge, -530, -half + 1480 * RS, "bridgeCA");  // clear of the runway, apron and centreline
 
   const letters = new THREE.Group();
   letters.userData.trackSolids = true;
@@ -366,7 +367,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
     const blk = lmBox(letters, 16, 22, 4, 0xf4f8fa, -84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
     blk.rotation.x = -0.4;
   }
-  addRouteLandmark(letters, 560, -half + 1700 * RS);  // well clear of the CA runway, pad and downtown
+  addRouteLandmark(letters, 560, -half + 1700 * RS, "letters");  // well clear of the CA runway, pad and downtown
 
   const downtown = new THREE.Group();
   downtown.userData.trackSolids = true;
@@ -378,7 +379,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   }
   // Beside the approach, not under it: the corridor is clear of solids for
   // ringStartDistance beyond both runway ends (see inCorridor + harness check).
-  addRouteLandmark(downtown, 460, -half + 1080 * RS);
+  addRouteLandmark(downtown, 460, -half + 1080 * RS, "downtown");
 })();
 
 // ---- sparkle spots: twenty hidden gems tucked around the world. Fly through
@@ -404,19 +405,20 @@ function addSpot(x, y, z) {
 (function placeSpots() {
   const half = ROUTE_HALF(), RS = ROUTE_SCALE(), W = TUNE.waterLevel;
   const g = (x, z) => Math.max(terrainEff(x, z), W);
-  const L = ROUTE_LANDMARKS;
-  const top = (i) => { const l = L[i]; let t = 0; for (const p of l.g.userData.pending || []) t = Math.max(t, p.y1); return l.g.position.y + t; };
-  // on landmarks
-  addSpot(L[0].x + 40, top(0) + 14, L[0].z + 30);                // NY spire tip
-  addSpot(L[1].x + 11, L[1].g.position.y + 66, L[1].z);          // the statue's torch
-  addSpot(L[2].x, L[2].g.position.y + 34 + 58 + 6, L[2].z);      // NY bridge tower top
-  addSpot(L[4].x, top(4) + 14, L[4].z + 20);                     // farm silos
-  addSpot(L[5].x + 8, top(5) + 14, L[5].z);                      // mid-city tower top
-  addSpot(L[6].x, top(6) + 14, L[6].z);                          // plains silos
-  addSpot(L[7].x + 100, L[7].g.position.y + 105 + 28, L[7].z + 13); // above the casino ball
-  addSpot(L[8].x, L[8].g.position.y + 30 + 78 + 6, L[8].z);      // CA bridge tower top
-  addSpot(L[9].x, top(9) + 14, L[9].z + 30);                     // above the hillside letters
-  addSpot(L[10].x, top(10) + 14, L[10].z);                       // downtown roof
+  // landmarks are looked up by name so reordering/adding one can't misplace a spot
+  const L = (name) => ROUTE_LANDMARKS.find(l => l.name === name);
+  const top = (l) => { let t = 0; for (const p of l.g.userData.pending || []) t = Math.max(t, p.y1); return l.g.position.y + t; };
+  const on = (name, dx, dyAboveTop, dz) => { const l = L(name); if (l) addSpot(l.x + dx, top(l) + dyAboveTop, l.z + dz); };
+  on("skyline", 40, 14, 30);          // NY spire tip
+  on("statue", 11, 14, 0);            // over the statue's torch
+  on("bridgeNY1", 0, 14, 0);          // over the NY bridge towers
+  on("silosFarm", 0, 14, 20);         // farm silos
+  on("midCity", 8, 14, 0);            // mid-city tower top
+  on("silosPlains", 0, 14, 0);        // plains silos
+  on("casinos", 100, 14, 13);         // above the casino ball
+  on("bridgeCA", 0, 14, 0);           // over the CA bridge towers
+  on("letters", 0, 14, 30);           // above the hillside letters
+  on("downtown", 0, 14, 0);           // downtown roof
   // in the landscape
   {
     const zc = -1500 * RS; let best = -1e9, bx = 0, bz = zc;
@@ -518,14 +520,14 @@ for (const L of ROUTE_LANDMARKS) {
   const top = L.g.position.y + deckY - 2.25 - 3.5;
   if (top - bottom < 10) continue;
   const hh = (top - bottom) / 2;
-  const gate = addGate(L.x, bottom + hh, L.z, 70, hh, null);
+  const gate = addGate(L.x, bottom + hh, L.z, 70, hh, null, "bridge:" + (L.name || ""));
   gate.bounceGroup = L.g;
   gate.bounceBaseY = L.g.position.y;
 }
 {
   const zc = -3800 * ROUTE_SCALE();
   const gy = Math.max(terrainEff(0, zc), TUNE.waterLevel);
-  addGate(0, gy + TUNE.terrainClearance + 1 + 30, zc, 42, 30, null);   // bottom of the hoop is legal air
+  addGate(0, gy + TUNE.terrainClearance + 1 + 30, zc, 42, 30, null, "canyon");   // bottom of the hoop is legal air
 }
 
 // ---- airports: a terminal complex beside each runway, on the side away from
@@ -563,6 +565,7 @@ function updateFireworks(dt) {
   if (!fwQueue.length) return;
   for (const f of fwQueue) f.t -= dt;
   const due = fwQueue.filter(f => f.t <= 0);
+  if (due.length) flags.fireworks = (flags.fireworks || 0) + due.length;
   fwQueue = fwQueue.filter(f => f.t > 0);
   for (const f of due) {
     for (let i = 0; i < 14; i++) {
@@ -994,7 +997,7 @@ function updateTargets(dt) {
     } else if (t.kind === "ufo") {
       if (!(t.zip > 0)) {
         const dx = t.x - state.x, dy = t.y - state.y, dz = t.z - state.z;
-        if (dx * dx + dy * dy + dz * dz < 150 * 150) { t.zip = 2.5; sciFi(); }
+        if (dx * dx + dy * dy + dz * dz < 150 * 150) { t.zip = 2.5; sciFi(); flags.hellos = (flags.hellos || 0) + 1; }
       }
       if (t.zip > 0) { t.zip -= dt; t.t += dt * 5; }
       t.x = t.cx + Math.sin(t.t * 0.9) * 320;
@@ -1038,7 +1041,7 @@ function updateTargets(dt) {
     if ((state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding && !(t.hello > 0)) {
       const hx = t.x - state.x, hy = t.y - state.y, hz = t.z - state.z;
       const hd2 = hx * hx + hy * hy + hz * hz;
-      if (t.kind === "boat" && hd2 < 70 * 70) { t.hello = 8; boatHorn(); }
+      if (t.kind === "boat" && hd2 < 70 * 70) { t.hello = 8; boatHorn(); flags.hellos = (flags.hellos || 0) + 1; }
       else if (t.kind === "balloon" && hd2 < 45 * 45) { t.hello = 6; squeak(); t.wobble = 1.2; }
     }
     if (t.wobble > 0) { t.wobble -= dt; t.mesh.rotation.z = Math.sin(t.t * 12) * 0.25 * t.wobble; }
@@ -1073,7 +1076,7 @@ const TRAIN_X = 340;
 const TRAIN_ZMIN = -600 * ROUTE_SCALE(), TRAIN_ZMAX = 1600 * ROUTE_SCALE();
 let trainHead = TRAIN_ZMAX;
 addGate(TRAIN_X, 0, trainHead, 30, 30, g => {
-  g.z = trainHead + 8;
+  g.z = trainHead - 26;   // just ahead of the locomotive, clear of its collider
   g.y = terrainEff(TRAIN_X, g.z) + 6 + 42;
 });
 
@@ -1088,7 +1091,7 @@ function updateTrain(dt, px, pz) {
   trainTootT -= dt;
   {
     const dx = px - TRAIN_X, dz = pz - trainHead;
-    if (trainTootT <= 0 && dx * dx + dz * dz < 160 * 160 && state.phase === "AIRBORNE") { toot(); trainTootT = 9; }
+    if (trainTootT <= 0 && dx * dx + dz * dz < 160 * 160 && state.phase === "AIRBORNE") { toot(); trainTootT = 9; flags.hellos = (flags.hellos || 0) + 1; }
   }
   trainSolids.length = 0;
   if (Math.abs(pz - mid) > 2800 || Math.abs(px - TRAIN_X) > 2800) return;
