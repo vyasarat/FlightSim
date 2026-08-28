@@ -522,6 +522,9 @@
     width: clamp(180px, 30vmin, 270px);
     height: clamp(140px, 23vmin, 215px);
   }
+  .destCard { width: clamp(150px, 24vmin, 220px); height: clamp(150px, 24vmin, 220px); }
+  #photo.patch .frame { border-radius: 50%; padding: 16px; background: #1b2a44; border: 6px solid #d4a72c; transform: rotate(0deg); }
+  #photo.patch img { border-radius: 50%; width: min(52vw, 560px); aspect-ratio: 1 / 1; object-fit: cover; }
   #progressStrip {
     position: fixed;
     top: calc(clamp(30px, 6.5vh, 74px) + env(safe-area-inset-top) + 12px);
@@ -805,6 +808,30 @@
       <path d="M44 62 Q30 48 16 54 Q30 66 44 62 Z M98 70 Q112 52 130 56 Q114 74 98 70 Z M118 92 Q136 80 148 90 Q132 102 118 92 Z M34 98 Q18 90 8 100 Q24 110 34 98 Z M106 108 Q122 96 134 106 Q120 120 106 108 Z" fill="#2f8f4e" stroke="#1d5f33" stroke-width="3"/>
       <path d="M8 146 Q34 132 60 144 Q86 156 112 144 Q138 132 164 144 Q186 154 212 146 L212 158 L8 158 Z" fill="#3f9bd8" stroke="#2a70a3" stroke-width="3"/>
       <path d="M8 146 Q34 134 60 145" fill="none" stroke="#e8f4fc" stroke-width="4" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
+<div id="screenDest" class="screen hiddenS">
+  <button class="card destCard" data-dest="moon">
+    <svg viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="36" fill="#c9ccd3"/>
+      <circle cx="36" cy="40" r="7" fill="#9a9ea8"/><circle cx="60" cy="58" r="10" fill="#9a9ea8"/><circle cx="58" cy="32" r="4" fill="#9a9ea8"/><circle cx="38" cy="66" r="5" fill="#9a9ea8"/>
+    </svg>
+  </button>
+  <button class="card destCard" data-dest="mars">
+    <svg viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="36" fill="#c65a2e"/>
+      <ellipse cx="50" cy="18" rx="14" ry="5" fill="#f2f4f7"/>
+      <circle cx="40" cy="52" r="6" fill="#9c4322"/><circle cx="62" cy="40" r="4" fill="#9c4322"/><circle cx="58" cy="66" r="7" fill="#9c4322"/>
+    </svg>
+  </button>
+  <button class="card destCard" data-dest="station">
+    <svg viewBox="0 0 100 100">
+      <rect x="6" y="40" width="26" height="20" fill="#2b4fb0" stroke="#5ff1ff" stroke-width="2"/>
+      <rect x="68" y="40" width="26" height="20" fill="#2b4fb0" stroke="#5ff1ff" stroke-width="2"/>
+      <rect x="32" y="46" width="36" height="8" fill="#9aa2ad"/>
+      <rect x="42" y="30" width="16" height="40" rx="4" fill="#cfd6df" stroke="#23282f" stroke-width="2"/>
+      <circle cx="50" cy="28" r="6" fill="none" stroke="#5ff1ff" stroke-width="3"/>
     </svg>
   </button>
 </div>
