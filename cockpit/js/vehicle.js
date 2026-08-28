@@ -59,7 +59,6 @@ function buildVehicleModel(key) {
     buildStarshipStack(g, { mA, mB, glassM });
   } else if (key === "fighter") {
     const fus = add(new THREE.CylinderGeometry(0.75, 0.55, 11, 10), mA, 0, 0, 0, Math.PI / 2);
-    void fus;
     const nose = new THREE.Mesh(new THREE.ConeGeometry(0.75, 3.4, 10), mA);
     nose.rotation.x = -Math.PI / 2;
     nose.position.z = -6.8;
@@ -69,7 +68,6 @@ function buildVehicleModel(key) {
       wing.rotation.y = sx > 0 ? -0.55 : 0.55;
     }
     const tail = add(new THREE.BoxGeometry(0.14, 2.6, 1.6), mB, 0, 1.4, 4.6);
-    void tail;
     for (const sx of [-1.6, 1.6]) {
       add(new THREE.BoxGeometry(2.4, 0.12, 1.2), mA, sx, 0.2, 4.8);
     }
@@ -81,7 +79,6 @@ function buildVehicleModel(key) {
     g.userData.flame = flame;
   } else if (key.startsWith("airliner")) {
     const fus = add(new THREE.CylinderGeometry(1.05, 1.05, 13.4, 12), mA, 0, 0, 0, Math.PI / 2);
-    void fus;
     const nose = new THREE.Mesh(new THREE.SphereGeometry(1.05, 12, 9), mA);
     nose.position.z = -6.7;
     g.add(nose);
@@ -160,7 +157,7 @@ function updateVehicleModel(dt) {
   if (vehicleModel.userData.propDisc) vehicleModel.userData.propDisc.rotation.z += dt * 40;
   if (vehicleModel.userData.flame) {
     vehicleModel.userData.flame.scale.y = 0.8 + Math.random() * 0.5;
-    vehicleModel.userData.flame.visible = state.vp.rocket ? (state.throttleHeld && rk.fuel[Math.min(rk.stage, 2)] > 0 && (state.phase === "AIRBORNE" || rk.igniteT > 0.6)) : state.speed > 2;
+    vehicleModel.userData.flame.visible = state.vp.rocket ? (state.throttleHeld && rk.fuel[rocketTank()] > 0 && (state.phase === "AIRBORNE" || rk.igniteT > 0.6)) : state.speed > 2;
   }
   if (vehicleModel.userData.plumeLight) {
     const on = vehicleModel.userData.flame.visible && state.nightF > 0.3;

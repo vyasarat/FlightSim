@@ -362,7 +362,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   const hill = new THREE.Mesh(new THREE.CylinderGeometry(140, 200, 42, 14), lam(0x9a8f6a));
   hill.position.y = 18;
   letters.add(hill);
-  letters.userData.pending.push({ lx: 0, ly0: -3, lz: 0, hw: 140, hd: 140, y1: 39, mesh: hill });
+  letters.userData.pending.push({ lx: 0, ly0: -3, lz: 0, hw: 200, hd: 200, y1: 39, mesh: hill });   // the skirt reaches r 200
   for (let i = 0; i < 7; i++) {
     const blk = lmBox(letters, 16, 22, 4, 0xf4f8fa, -84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
     blk.rotation.x = -0.4;

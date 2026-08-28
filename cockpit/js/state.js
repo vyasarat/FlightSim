@@ -60,6 +60,11 @@ function applyVehicle(key) {
   buildVehicleModel(key);
   // the rocket is a thing to watch: it starts in the chase view (the view button still toggles)
   if (state.vp.rocket && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
+  if (!state.vp.rocket) {
+    for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn]) b.classList.add("hidden");
+    if (typeof roverReset === "function") roverReset();
+    if (typeof cancelRecovery === "function") cancelRecovery();
+  }
   if (vehicleModel) {
     vehicleModel.visible = state.viewChase && !state.exploding;
   }
@@ -102,6 +107,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.engaged = false;
   state.canRotate = false;
   state.approachLatch = false;
+  state.approachData = null;   // a stale approach from the last landing must not silence the alarm
   state.exploding = false;
   state.explodeTimer = 0;
   state.gearDown = true;

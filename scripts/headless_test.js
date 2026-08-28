@@ -197,7 +197,7 @@ function check(name, ok, extra) {
     let sawVr = false;
     for (let i = 0; i < 80 && !sawVr; i++) {
       sawVr = await page.evaluate(() =>
-        window.__lp.state.speed >= window.__lp.TUNE.rotateSpeed || window.__lp.flags.repositioned > 0);
+        window.__lp.state.speed >= window.__lp.TUNE.rotateSpeed || (window.__lp.state.phase !== "TAXI" && window.__lp.state.phase !== "ROLL"));
       if (!sawVr) await pump(page, 0.5);
     }
     check("takeoff: reaches rotation speed on throttle alone", sawVr);
@@ -1449,7 +1449,7 @@ function check(name, ok, extra) {
       tap(); const downInAir = st.gearDown;
       return { taxi, roll, upInAir, downInAir, flagsUnchangedOnGround: L.flags.gear === g0 + 2 };
     });
-    check("gear: cannot retract on the ground, still cycles in the air", gearGround.taxi && gearGround.roll && gearGround.upInAir && gearGround.downInAir, JSON.stringify(gearGround));
+    check("gear: cannot retract on the ground, still cycles in the air", gearGround.taxi && gearGround.roll && gearGround.upInAir && gearGround.downInAir && gearGround.flagsUnchangedOnGround, JSON.stringify(gearGround));
 
     await fresh();
     // shootable targets: balloons, blimp, UFO, boats; a missile pops one and it respawns
@@ -1770,7 +1770,7 @@ function check(name, ok, extra) {
       st.x = wx; st.z = wz; st.y = T.waterLevel + 10; st.pitch = 0; st.speed = 40; st.heading = 0; st.exploding = false; for (let i = 0; i < 30; i++) L.update(1 / 60); out.wake = L.wakePuffsAlive() > 3; out.wakeDbg = { phase: st.phase, exploding: st.exploding, agl: Math.round(st.y - T.waterLevel), terr: Math.round(L.terrainEff(st.x, st.z) - T.waterLevel), speed: Math.round(st.speed), puffs: L.wakePuffsAlive() };
       return out;
     });
-    check("claims: cloud whoosh, missile self-destruct pop, boat horn hello, spray wake all fire", claims.whoosh && claims.selfDestruct && claims.boatHello && claims.wake, JSON.stringify(claims));
+    check("claims: cloud whoosh, missile self-destruct pop, boat horn hello, spray wake all fire", claims.whoosh && claims.selfDestruct && claims.boatHello && claims.wake && claims.spotsSavedAll, JSON.stringify(claims));
 
     // arrival show + apron vehicles, on a fresh page (no state carried over)
     {
@@ -1869,7 +1869,7 @@ function check(name, ok, extra) {
       }
       return { nearSeen, gained: L.flags.wingman - w0, done: document.getElementById("wingman").classList.contains("done") };
     });
-    check("rewards: wingman icon lights when close and fires after the hold", wing.nearSeen && wing.gained === 1, JSON.stringify(wing));
+    check("rewards: wingman icon lights when close, fires after the hold, and shows the held state", wing.nearSeen && wing.gained === 1 && wing.done, JSON.stringify(wing));
 
     // crash aftermath: smoke + crater linger, shattered pieces stay hidden longer than the plane
     const aftermath = await page.evaluate(() => {
@@ -1955,9 +1955,13 @@ function check(name, ok, extra) {
       await p1.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
       await p1.goto(URL);
       await p1.waitForFunction(() => window.__lp);
+      await p1.click('[data-v="rocket"]');
+      await p1.click('[data-d="1"]');
+      await p1.click('[data-dest="station"]');   // the destination card is what writes lp.dest
+      await p1.evaluate(() => { document.getElementById("screenVehicle").classList.remove("hiddenS"); });
       await p1.click('[data-v="fighter"]');
       await p1.click('[data-d="1"]');
-      await p1.evaluate(() => { window.__lp.update(1 / 60); for (let i = 0; i < 25; i++) window.__lp.update(1 / 60); try { localStorage.setItem("lp.dest", "station"); localStorage.setItem("lp.sky", "3"); } catch (e) {} });
+      await p1.evaluate(() => { window.__lp.update(1 / 60); for (let i = 0; i < 25; i++) window.__lp.update(1 / 60); try { localStorage.setItem("lp.sky", "3"); } catch (e) {} });
       const p2 = await ctx.newPage();
       await p2.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
       await p2.goto(URL);
@@ -2045,7 +2049,8 @@ function check(name, ok, extra) {
 
   // ---------- T-K rocket: staging, booster landing, Moon and Mars ----------
   {
-    const { page } = await newPage(1180, 820);
+    let page = (await newPage(1180, 820)).page;
+    const freshR = async () => { await page.close(); page = (await newPage(1180, 820)).page; await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.skipScreens(); window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); }); };
     await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); });
 
     const launch = await page.evaluate(() => {
@@ -2121,12 +2126,13 @@ function check(name, ok, extra) {
     check("rocket: three manual drops (booster, fairing, second stage) each gated by altitude; ends as the capsule in space",
       launch.dropped && launch.stageAfter === 1 && launch.boosterKind === "booster" && launch.boosterNear && launch.finalStage === 3 && launch.spaceF > 0.9, JSON.stringify(launch));
     check("rocket: the dropped booster flies itself down and lands on its legs", launch.boosterLanded, JSON.stringify({ boosterLanded: launch.boosterLanded }));
+    await freshR();
     const ss = await page.evaluate(() => {
       const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune;
       const out = {};
       L.api.setVehicle("starship"); L.api.placeOnRunway(); L.update(1 / 60);
       const a = L.airports.find(r => r.idx === st.originIdx);
-      out.onPad = st.phase === "TAXI" && L.rk.stage === 0 && !document.getElementById("stageBtn").classList.contains("hidden") === false;
+      out.onPad = st.phase === "TAXI" && L.rk.stage === 0 && document.getElementById("stageBtn").classList.contains("hidden");
       out.armsOpen = a.catchArms && Math.abs(a.catchArms[0].rotation.y) > 0.3;
       L.api.setThrottle(true);
       for (let i = 0; i < 60 * 40 && !L.rocketCanDrop(); i++) L.update(1 / 60);
@@ -2158,13 +2164,72 @@ function check(name, ok, extra) {
       return out;
     });
     check("starship: a second rocket -- one drop above its height; the booster flies back to the tower and the chopsticks catch it; the Ship deploys satellites, never a parachute, lands on its engines and refits",
-      ss.armsOpen && ss.canDrop && ss.altAtDrop >= 440 && ss.dropped && ss.final && ss.targetCatch && ss.caught && ss.hangs && ss.armsClosed && ss.satBtn && ss.shipLanded && ss.noChute && ss.refit, JSON.stringify(ss));
+      ss.onPad && ss.armsOpen && ss.canDrop && ss.altAtDrop >= 440 && ss.dropped && ss.final && ss.targetCatch && ss.caught && ss.hangs && ss.armsClosed && ss.satBtn && ss.shipLanded && ss.noChute && ss.refit, JSON.stringify(ss));
 
+    await freshR();
+    const cov = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune, out = {};
+      const key = (code) => { window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true })); window.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true })); };
+      const hidden = id => document.getElementById(id).classList.contains("hidden");
+      // keys: P photo, B picker (on the pad), F drops a stage, Enter deploys the satellite, L is the go button
+      L.api.skipScreens(); st.photoPending = false; const ph0 = L.flags.photos || 0; key("KeyP"); out.keyPhoto = (L.flags.photos || 0) > ph0; st.photoPending = false;
+      key("KeyB"); out.keyPicker = !document.getElementById("screenVehicle").classList.contains("hiddenS"); L.api.skipScreens();
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; st.y = R.stageAlt[0] + 300; L.rk.vy = 5; L.update(1 / 60);
+      const s0 = L.rk.stage; key("KeyF"); out.keyStage = L.rk.stage === s0 + 1;
+      st.y = 5000; st.spaceF = 1; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel); L.rk.vx = L.rk.vy = L.rk.vz = 0; L.update(1 / 60);
+      const n0 = L.satellites.length; key("Enter"); out.keySat = L.satellites.length > n0;
+      st.dest = "moon"; L.update(1 / 60); const sk0 = L.flags.rocketSkips || 0; key("KeyL"); out.keyGo = (L.flags.rocketSkips || 0) > sk0;
+      // undock: the capsule is pushed away from the port
+      const b = L.BODIES.find(q => q.name === "station");
+      L.api.placeOnRunway(); L.api.skipScreens(); st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel);
+      st.x = b.x; st.y = b.y - 200; st.z = b.z; st.pitch = 90; st.spaceF = 1; L.rk.vx = L.rk.vz = 0; L.rk.vy = 25;
+      for (let i = 0; i < 60 * 40 && !L.rk.onBody; i++) L.update(1 / 60);
+      const u0 = L.flags.undocks || 0; L.api.setThrottle(true); for (let i = 0; i < 60 * 2.5; i++) L.update(1 / 60); L.api.setThrottle(false);
+      out.undock = (L.flags.undocks || 0) > u0 && Math.hypot(st.x - b.x, st.y - b.y, st.z - b.z) > 14 && !L.rk.onBody;
+      // the catch arms let go at the next launch
+      L.api.setVehicle("starship"); L.api.placeOnRunway(); L.api.skipScreens();
+      const a = L.airports.find(r => r.idx === st.originIdx); a.catchClosed = true; for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      out.armsWereClosed = Math.abs(a.catchArms[0].rotation.y) < 0.2;
+      L.api.setThrottle(true); for (let i = 0; i < 60 * 2; i++) L.update(1 / 60); L.api.setThrottle(false); for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      out.armsReopen = Math.abs(a.catchArms[0].rotation.y) > 0.3;
+      // rain stops in space; the alarm stays quiet through an assisted rocket landing
+      L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.api.skipScreens(); st.sky = 1; for (let i = 0; i < 60 * 5; i++) L.update(1 / 60);
+      out.rainOnPad = L.precip.visible;
+      st.exploding = false; st.phase = "AIRBORNE"; st.y = 5000; L.rk.vx = L.rk.vy = L.rk.vz = 0; for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+      out.rainOffInSpace = !L.precip.visible; st.sky = 0;
+      const pad = L.rocketPad(st.originIdx); st.x = pad.x; st.z = pad.z; st.y = pad.ground + 150; st.pitch = 90; L.rk.vx = L.rk.vz = 0; L.rk.vy = -12; st.spaceF = 0;
+      let alarmEver = false; for (let i = 0; i < 60 * 25 && st.phase !== "TAXI"; i++) { L.update(1 / 60); if (document.getElementById("alarm").classList.contains("on")) alarmEver = true; }
+      out.quietAssist = !alarmEver && st.phase === "TAXI";
+      // the parachute button works by tap
+      L.api.placeOnRunway(); L.api.skipScreens(); st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel);
+      st.x = pad.x + 600; st.z = pad.z; st.y = pad.ground + R.chuteAlt[0] - 40; st.pitch = 90; L.rk.vx = L.rk.vz = 0; L.rk.vy = -30;
+      for (let i = 0; i < 60 * 3 && hidden("chuteBtn"); i++) L.update(1 / 60);
+      document.getElementById("chuteBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 41 })); L.update(1 / 60);
+      out.chuteTap = L.rk.chute === 1;
+      // the recovery vehicle matches the ground: a ship at sea, a truck on land
+      const rec = L.RECOVERY[st.originIdx];
+      const landWith = (x, z) => { L.api.placeOnRunway(); L.api.skipScreens(); st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel); st.x = x; st.z = z; st.y = Math.max(L.terrainEff(x, z), T.waterLevel) + 60; st.pitch = 90; L.rk.vx = L.rk.vz = 0; L.rk.vy = -8; L.rk.chute = 2; L.rk.chuteT = 5; for (let i = 0; i < 60 * 30 && st.phase !== "TAXI"; i++) L.update(1 / 60); for (let i = 0; i < 60; i++) L.update(1 / 60); };
+      landWith(rec.barge.x + 150, rec.barge.z + 120); out.shipAtSea = rec.ship.visible && !rec.truck.visible;
+      landWith(pad.x + 500, pad.z); out.truckOnLand = rec.truck.visible && !rec.ship.visible;
+      // the rover has a seat view too
+      const m = L.BODIES[0];
+      L.api.placeOnRunway(); L.api.skipScreens(); st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel);
+      st.x = m.x; st.y = m.y + m.r + 60; st.z = m.z; st.pitch = 90; L.rk.vx = L.rk.vz = 0; L.rk.vy = -12; for (let i = 0; i < 60 * 30 && st.phase !== "TAXI"; i++) L.update(1 / 60); L.update(1 / 60);
+      L.roverDeploy(); L.api.setView(false); for (let i = 0; i < 5; i++) L.update(1 / 60);
+      out.roverSeat = L.cameraPos.distanceTo(new THREE.Vector3(L.rover.x, L.rover.y, L.rover.z)) < 5; L.api.setView(true);
+      L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.api.skipScreens();
+      return out;
+    });
+    check("coverage: keys (P photo, B picker, F stage, Enter satellite, L go); undock pushes off; arms let go at the next launch; rain stops in space; assisted landing is alarm-free; parachute by tap; ship at sea vs truck on land; rover seat view",
+      cov.keyPhoto && cov.keyPicker && cov.keyStage && cov.keySat && cov.keyGo && cov.undock && cov.armsWereClosed && cov.armsReopen && cov.rainOnPad && cov.rainOffInSpace && cov.quietAssist && cov.chuteTap && cov.shipAtSea && cov.truckOnLand && cov.roverSeat, JSON.stringify(cov));
+
+    await freshR();
     const fx = await page.evaluate(() => {
       const L = window.__lp, st = L.state;
-      const out = { shockwaves: L.flags.shockwaves || 0, booms: L.flags.sonicBooms || 0 };
+      const out = {};
+      const sw0 = L.flags.shockwaves || 0, bm0 = L.flags.sonicBooms || 0;
       // night: the plume lights the pad in chase view; by day it does not
-      L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.api.setView(true);
+      L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.api.skipScreens(); L.api.setView(true);   // (the refit above asked for a destination)
       st.sky = 3; for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
       const a = L.airports.find(r => r.idx === st.originIdx);
       const c0 = a.padLightMat.color.getHex();
@@ -2176,7 +2241,12 @@ function check(name, ok, extra) {
       st.sky = 0; L.api.placeOnRunway(); for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
       L.api.setThrottle(true); for (let i = 0; i < 60 * 1.2; i++) L.update(1 / 60);
       out.dayLight = L.vehicleModel.userData.plumeLight.intensity;
-      L.api.setThrottle(false);
+      // keep climbing, drop the booster, and it booms on its way down
+      for (let i = 0; i < 60 * 40 && !L.rocketCanDrop(); i++) L.update(1 / 60);
+      L.rk.vx = L.rk.vz = 0; L.dropStage(); L.api.setThrottle(false);
+      st.y = Math.max(st.y, 5000); L.rk.vx = L.rk.vy = L.rk.vz = 0;
+      for (let i = 0; i < 60 * 70 && (L.flags.sonicBooms || 0) === bm0; i++) L.update(1 / 60);
+      out.shockwaves = (L.flags.shockwaves || 0) - sw0; out.booms = (L.flags.sonicBooms || 0) - bm0;
       // reentry in the cockpit leans toward the horizon
       L.api.setView(false); st.exploding = false; st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.onBody = null;
       st.x = 0; st.z = L.AIRPORTS[0].cz; st.y = 1500; st.pitch = 90; st.heading = 0; L.rk.vy = -170; L.rk.vx = L.rk.vz = 0;
@@ -2189,6 +2259,7 @@ function check(name, ok, extra) {
     check("rocket: launch flourishes -- shockwave at T-0, sonic booms as the booster comes down, pad lights strobe through the count, the plume lights the pad only at night, reentry view leans to the horizon",
       fx.shockwaves > 0 && fx.booms > 0 && fx.strobed && fx.nightLight && fx.dayLight === 0 && fx.reentry > 0.5 && fx.lookY < 0.6, JSON.stringify(fx));
 
+    await freshR();
     const sea = await page.evaluate(() => {
       const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune;
       const out = {};
@@ -2221,6 +2292,7 @@ function check(name, ok, extra) {
       sea.dropped && sea.targetBarge && sea.bargeLanded && sea.onDeck && sea.targetPad && sea.fairingChutes === 2 && sea.fairingsCaught === 2, JSON.stringify(sea));
 
     // the station: dock with a magnet, lights and arrays, undock, and the destination drives the landing button
+    await freshR();
     const dock = await page.evaluate(() => {
       const L = window.__lp, st = L.state, R = L.TUNE.rocketTune, b = L.BODIES.find(q => q.name === "station");
       const out = {};
@@ -2313,6 +2385,7 @@ function check(name, ok, extra) {
       moon.marsLanded && moon.crashed && moon.back, JSON.stringify(moon));
 
     // the rover: out of the capsule on the Moon, drives on the sphere, rocks + beacon, drives itself back
+    await freshR();
     const rov = await page.evaluate(() => {
       const L = window.__lp, st = L.state, m = L.BODIES[0], hidden = b => b.classList.contains("hidden");
       const btn = document.getElementById("roverBtn");
@@ -2406,6 +2479,7 @@ function check(name, ok, extra) {
     check("rocket: a slow upright descent onto the Earth lands (Falcon style) and the pad refits the full stack", home.landed && !home.exploded && home.phase === "TAXI" && home.refit, JSON.stringify(home));
 
     // the way home, Dragon style: satellite out in space, deorbit, plasma, drogue, mains, float down, refit
+    await freshR();
     const ret = await page.evaluate(() => {
       const L = window.__lp, st = L.state, T = L.TUNE, R = T.rocketTune, ap = L.AIRPORTS[0];
       const satBtn = document.getElementById("satBtn"), chuteBtn = document.getElementById("chuteBtn"), glow = document.getElementById("reentryGlow");

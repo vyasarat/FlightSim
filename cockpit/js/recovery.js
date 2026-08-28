@@ -109,7 +109,10 @@ function startRecovery() {
   const ax = state.x, az = state.z;
   const dx = pad.x - ax, dz = pad.z - az, d = Math.max(1, Math.hypot(dx, dz));
   const ux = dx / d, uz = dz / d;                    // toward the pad
-  const from = { x: ax - ux * 260 + uz * 40, z: az - uz * 260 - ux * 40 };
+  // it comes from where it can drive: shorten the run-in until that point is wet (ship) or dry (truck)
+  let inRun = 260;
+  for (let d = 260; d >= 40; d -= 20) { const fx = ax - ux * d + uz * 40, fz = az - uz * d - ux * 40; if ((terrainEff(fx, fz) < TUNE.waterLevel - 0.3) === overWater) { inRun = d; break; } }
+  const from = { x: ax - ux * inRun + uz * 40, z: az - uz * inRun - ux * 40 };
   const beside = { x: ax + uz * 9, z: az - ux * 9 };
   // the ship stays on the water: it heads for the pad but stops short of the shore; the
   // truck stays on land the same way (it will not drive into the sea)
@@ -121,7 +124,7 @@ function startRecovery() {
   }
   const to = { x: ax + ux * run + uz * 9, z: az + uz * run - ux * 9 };
   const groundY = overWater ? TUNE.waterLevel : Math.max(terrainEff(ax, az), TUNE.waterLevel);
-  ride = { r, v, overWater, t: 0, from, beside, to, groundY, capX: ax, capZ: az, capY: state.y, done: false,
+  ride = { v, overWater, t: 0, from, beside, to, groundY, capX: ax, capZ: az, capY: state.y,
     heading: Math.atan2(ux, uz), deckY: overWater ? 2.7 : 1.7 };
   v.visible = true;
   v.position.set(from.x, groundY, from.z);
@@ -168,7 +171,6 @@ function updateRecovery(dt) {
   if (t >= RIDE.arrive + RIDE.lift) state.y = ride.groundY + ride.deckY + rocketHalfLen();
   v.position.set(vx, ride.groundY, vz);
   v.rotation.y = ride.heading;
-  if (ride.t > RIDE.arrive) v.userData.cable.scale.y = 1;
   return true;
 }
 function recoveryActive() { return !!ride; }

@@ -24,7 +24,6 @@ const rk = {                     // rocket-specific state (plane fields stay in 
   fuel: [0, 0, 0],               // booster, second stage, capsule (Infinity)
   igniteT: 0,                    // engine spool before liftoff
   onBody: null,                  // null (Earth pad / ground), or a BODIES entry when landed on it
-  landedT: 0,
   reentry: 0,                    // plasma glow 0..1
   chute: 0, chuteT: 0,           // 0 none, 1 drogue, 2 mains; seconds since the last pop
   satOut: false,                 // the satellite has been deployed on this flight
@@ -223,7 +222,7 @@ function rocketApplyStages(g) {
 
 function rocketRestock() {
   rk.stage = 0;
-  rk.fuel = state.vp && state.vp.starship ? [RK.starship.fuel[0], Infinity, Infinity] : [RK.fuel[0], RK.fuel[1], Infinity];
+  rk.fuel = rocketFullTanks();
   rk.satOut = false;             // a new satellite rides up with every new stack
   rk.refitT = 0;
   if (typeof roverReset === "function") roverReset();   // rocks and beacons come back fresh
@@ -245,6 +244,9 @@ function rocketAlt() {
 // Which rocket: the Falcon stack has three drops (final stage 3, the capsule); Starship has one (final stage 1, the Ship).
 function rocketFinalStage() { return state.vp && state.vp.starship ? 1 : 3; }
 function rocketIsFinal() { return rk.stage >= rocketFinalStage(); }
+// Which tank the live engine drinks from: Falcon booster / second stage (fairing on or off) / capsule; Starship booster / Ship.
+function rocketTank() { if (state.vp && state.vp.starship) return rk.stage === 0 ? 0 : 1; return rk.stage === 0 ? 0 : rk.stage <= 2 ? 1 : 2; }
+function rocketFullTanks() { return state.vp && state.vp.starship ? [RK.starship.fuel[0], Infinity, Infinity] : [RK.fuel[0], RK.fuel[1], Infinity]; }
 function rocketNoseLen() { return (state.vp && state.vp.starship ? 7.5 : 6.2) * (state.vp.size || 1); }
 function rocketNextDropAlt() {
   if (rk.stage >= rocketFinalStage()) return Infinity;
@@ -296,16 +298,17 @@ function updateFallingStages(dt) {
     s.t += dt;
     let ground = Math.max(terrainEff(s.x, s.z), TUNE.waterLevel);
     if (s.target && s.target.barge && Math.abs(s.x - s.target.x) < 26 && Math.abs(s.z - s.target.z) < 44) ground = Math.max(ground, s.target.y);
-    if (s.target && s.target.catch && Math.abs(s.x - s.target.x) < 6 && Math.abs(s.z - s.target.z) < 6) ground = Math.max(ground, s.target.y - 9.5 * (state.vp.size || 1));   // the arms take it here
+    if (s.target && s.target.catch && Math.abs(s.x - s.target.x) < 6 && Math.abs(s.z - s.target.z) < 6) ground = Math.max(ground, s.target.y - (s.mesh.userData.baseZ || 7.6) * (state.vp.size || 1));   // the arms take it here
     const alt = s.y - ground;
-    const g = RK.gravity * clamp(1 - s.y / RK.gravityFade, 0, 1);
-    s.vy -= g * dt;
+    const [gx, gy, gz] = rocketGravityAt(s.x, s.y, s.z);   // Earth's pull fades out; the Moon and Mars pull their own
+    s.vx += gx * dt; s.vy += gy * dt; s.vz += gz * dt;
+    const inSpace = s.y > RK.gravityFade;
     if (s.kind === "booster") {
       // Falcon-style: boostback burn kills the inherited climb in the first
       // seconds, it flips upright, brakes near the ground and lands on its legs.
       if (s.life > 55 && s.vy > 0) s.vy *= 1 - Math.min(1, 1.6 * dt);
       s.mesh.quaternion.slerp(Q_UPRIGHT, Math.min(1, 1.5 * dt));
-      if (s.target && s.life < 57) {
+      if (s.target && s.life < 57 && !inSpace) {
         // grid fins: fly to the target (the droneship or the pad side), arriving over it
         const dx = s.target.x - s.x, dz = s.target.z - s.z, d = Math.hypot(dx, dz);
         const want = Math.min(60, d * 0.3);
@@ -317,12 +320,12 @@ function updateFallingStages(dt) {
       if (s.vy < 0 && alt < 260) {
         const want = -Math.max(6, alt * 0.25);   // slow to ~6 m/s for touchdown
         s.vy += (want - s.vy) * Math.min(1, 3 * dt);
-        for (const c of s.mesh.children) if (c.userData.leg) c.rotation.z = c.userData.a + 0.9 * clamp(1 - alt / 200, 0, 1) * 0;  // legs stay; deploy = swing out below
         for (const c of s.mesh.children) if (c.userData.leg) { c.rotation.set(0, 0, c.userData.a); c.position.x = Math.cos(c.userData.a) * (0.95 + 0.1 + 1.1 * clamp(1 - alt / 200, 0, 1)); c.position.y = Math.sin(c.userData.a) * (0.95 + 0.1 + 1.1 * clamp(1 - alt / 200, 0, 1)); }
       }
-      if (alt <= 7.6 * (state.vp.size || 1)) {
+      const baseLen = (s.mesh.userData.baseZ || 7.6) * (state.vp.size || 1);
+      if (alt <= baseLen) {
         s.landed = true; s.vx = s.vy = s.vz = 0;
-        s.y = ground + 7.6 * (state.vp.size || 1);
+        s.y = ground + baseLen;
         s.mesh.quaternion.copy(Q_UPRIGHT);
         s.mesh.position.set(s.x, s.y, s.z);
         boosterLand();
@@ -372,8 +375,10 @@ function updateFallingStages(dt) {
 }
 
 // ---- gravity / atmosphere helpers
+const gScratch = [0, 0, 0];
 function rocketGravityAt(x, y, z) {
   // Earth pulls down, fading out above the atmosphere; a nearby body pulls toward itself.
+  // (Returns a shared scratch array: read it before the next call.)
   let gx = 0, gy = -RK.gravity * clamp(1 - y / RK.gravityFade, 0, 1), gz = 0;
   for (const b of BODIES) {
     const dx = b.x - x, dy = b.y - y, dz = b.z - z;
@@ -383,15 +388,21 @@ function rocketGravityAt(x, y, z) {
       gx += dx * k; gy += dy * k; gz += dz * k;
     }
   }
-  return [gx, gy, gz];
+  gScratch[0] = gx; gScratch[1] = gy; gScratch[2] = gz;
+  return gScratch;
 }
+// Cached per frame and per position: it is asked for by the assist, the camera, the
+// station and the landing check every frame (callers only read the result).
+const nbCache = { body: null, dist: Infinity, frame: -1, x: NaN, y: NaN, z: NaN };
 function rocketNearestBody() {
+  if (nbCache.frame === frameCount && nbCache.x === state.x && nbCache.y === state.y && nbCache.z === state.z) return nbCache;
   let best = null, bd = Infinity;
   for (const b of BODIES) {
     const d = Math.hypot(b.x - state.x, b.y - state.y, b.z - state.z) - b.r;
     if (d < bd) { bd = d; best = b; }
   }
-  return { body: best, dist: bd };
+  nbCache.body = best; nbCache.dist = bd; nbCache.frame = frameCount; nbCache.x = state.x; nbCache.y = state.y; nbCache.z = state.z;
+  return nbCache;
 }
 
 // ---- the flight model. Runs instead of the plane branch; the common tail of
@@ -399,7 +410,6 @@ function rocketNearestBody() {
 function updateRocket(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
   const halfLen = rocketHalfLen();
-  updateSatellites(dt);
   updateChuteVisual(dt);
   updatePad(dt, grounded);
   el.roverBtn.classList.toggle("hidden", !(roverCan() || roverActive()));
@@ -455,7 +465,7 @@ function updateRocket(dt) {
       rk.refitT -= dt;
       if (rk.refitT <= 0) rocketRefit();
     }
-    if (state.throttleHeld) {
+    if (state.throttleHeld && !menuOpen()) {   // never launch behind the destination cards
       rk.igniteT += dt;
       rumble = 0.03 + rk.igniteT * 0.02;
       setRocketEngine(0.35 + 0.65 * clamp(rk.igniteT / RK.igniteTime, 0, 1), 0);
@@ -492,8 +502,8 @@ function updateRocket(dt) {
   }
 
   // ---- in flight
-  const burning = state.throttleHeld && rk.fuel[Math.min(rk.stage, 2)] > 0;
-  if (burning) rk.fuel[Math.min(rk.stage, 2)] -= dt;
+  const burning = state.throttleHeld && rk.fuel[rocketTank()] > 0;
+  if (burning) rk.fuel[rocketTank()] -= dt;
   const thrust = burning ? (state.vp.starship ? RK.starship.thrust[Math.min(rk.stage, 1)] : RK.thrust[Math.min(rk.stage, 3)]) : 0;
 
   // attitude from the stick: up = nose up (toward vertical), down = pitch over; left/right = yaw
@@ -608,7 +618,7 @@ function rocketSkipTarget() {
   return null;   // Earth: the pad he took off from (also after a planet visit -- the way home)
 }
 function rocketCanSkip() {
-  if (state.phase !== "AIRBORNE" || state.exploding) return false;
+  if (state.phase !== "AIRBORNE" || state.exploding || rk.chute > 0) return false;   // under a chute the chute is the landing
   const body = rocketSkipTarget();
   if (body) return Math.hypot(body.x - state.x, body.y - state.y, body.z - state.z) - body.r > body.r * RK.assistRange;
   return rocketAlt() > RK.assistEarthAgl + 60;
@@ -671,6 +681,7 @@ function rocketLandOn(body) {
   // Only the home pad rolls out a new rocket, and only after a few seconds sitting
   // where you came down. On the Moon or Mars you stay whatever you arrived as -- a
   // capsule lands as a capsule and lifts off again on its thrusters.
+  if (body) rk.fuel = rocketFullTanks();   // every landing or docking refuels: nothing is ever stuck out there
   if (body && body.dock) {
     flags.stationDockings = (flags.stationDockings || 0) + 1;
     clang(); chime(); confettiBurst();
@@ -679,12 +690,10 @@ function rocketLandOn(body) {
       flags.dockPerfect = (flags.dockPerfect || 0) + 1;
     }
     dockRingsReset();
-    rk.showT = 4;
   } else if (body) {
     flags[body.name + "Landings"] = (flags[body.name + "Landings"] || 0) + 1;
     confettiBurst(); cheer();
     for (let i = 0; i < 6; i++) fireworkSound(i * 0.5);
-    rk.showT = 4;
   } else {
     rk.refitT = RK.refitDelay;
     flags.rocketLandings = (flags.rocketLandings || 0) + 1;
@@ -727,6 +736,7 @@ function rocketRefit() {
   rk.refitT = 0;
   spawnForTakeoff(state.originIdx, state.dirIdx);
   el.screenDest.classList.remove("hiddenS");   // a fresh stack: pick the next destination
+  if (typeof keys !== "undefined") keys.clear();
   chime(); stageSep();
   flags.refits = (flags.refits || 0) + 1;
 }
@@ -913,8 +923,8 @@ function deployStackPiece(k) {
 }
 function updateSatellites(dt) {
   if (rk.stackLeft > 0) {
-    if (state.phase !== "AIRBORNE" || !rocketIsFinal() || state.exploding) rk.stackLeft = 0;
-    else { rk.stackT -= dt; if (rk.stackT <= 0) { rk.stackT = 0.9; rk.stackLeft--; deployStackPiece(4 - rk.stackLeft); } }
+    if (state.exploding || !rocketIsFinal()) rk.stackLeft = 0;
+    else if (state.phase === "AIRBORNE") { rk.stackT -= dt; if (rk.stackT <= 0) { rk.stackT = 0.9; rk.stackLeft--; deployStackPiece(4 - rk.stackLeft); } }   // (waits while landed)
   }
   for (const s of satellites) {
     s.t += dt;
@@ -972,6 +982,7 @@ function updateStationDocked(dt, docked) {
   const pulse = 0.35 + near * 0.65 * (0.6 + 0.4 * Math.sin(frameCount * 0.25));
   if (Math.abs(u.portMat.opacity - pulse) > 0.02) u.portMat.opacity = pulse;
   if (docked) {
+    if (dockRings) for (const r of dockRings) r.mesh.visible = false;
     u.lightMat.color.setHex(0xfff2b0);
     for (const p of u.panels) p.scale.x += (1 - p.scale.x) * Math.min(1, 1.2 * dt);
   }
