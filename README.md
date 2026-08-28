@@ -47,7 +47,7 @@ the ship checklist; this file describes the game.
 | Double-down / double-up chevrons, bottom-right (planes, airborne) | Step the set speed down / up one notch. Speed stays where he sets it -- no snap-back. Four steps (`TUNE.speedSteps`) |
 | Destination cards (rocket, after the direction card) | Moon / Mars / Station: where the landing button aims in space. Always all three |
 | Rover button (rocket, same slot, yellow; on the Moon / Mars) | Rolls the rover out; tap again and it drives itself back in. Stick drives, throttle plants a beacon |
-| Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, ~45 s to touchdown. Rocket: jump to a slow descent 350 m above the nearest planet, or 200 m above the home pad; the landing assist does the rest. Capsule with the satellite out: **deorbit** -- drop out of space above home and ride the plasma and parachutes down |
+| Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, ~45 s to touchdown. Rocket, in space: **the go button** -- jump to a slow descent 350 m above the chosen destination (its icon is on the button); once he is heading home, the runway icon: **deorbit** as the capsule (plasma and parachutes down to a new spot around home), or a thruster descent to the pad for a full stack. Lower down: 200 m above the home pad; the landing assist does the rest |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker |
 | Crosshair, centre (airborne) | Flight-path marker: where the plane is really aimed; doubles as the missile aiming point; clamps to the screen edge when off-view |
@@ -74,6 +74,7 @@ the flag at boot): the helicopter.
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (colour only); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
 | Rocket | see `rocketTune` | 38°/s tilt | vertical launch | Its own flight model (The rocket below); no gear, no missiles. The `vehicles.rocket` entry only feeds the picker and dials |
+| Starship | `rocketTune.starship` | 38°/s tilt | vertical launch | Same flight model, one drop; the booster is caught by the tower's arms; the Ship lands on its engines |
 
 Every non-rocket vehicle is ceiling-capped at `otherVehicleCeiling`.
 
@@ -282,6 +283,15 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   button again and the rover drives itself back and climbs in -- nothing to line up -- and the
   rocket is ready to launch. Rocks and beacons come back fresh with the refit. Both views work
   (a seat on the rover, or the chase camera behind it).
+- **Starship**: a second rocket card (silver). Same pad, same buttons, one drop: the Super Heavy
+  booster above `starship.stageAlt`, leaving the **Ship** (black tiles, four flaps). Launched
+  straight up, the booster flies back to the **catch tower** beside the pad and the two arms close
+  on it with a clang -- it hangs there until the next launch; tilted seaward it goes to the
+  droneship like the Falcon booster. The Ship deploys satellites, docks, carries the rover, glows
+  on reentry, and lands on its engines on the assist (no parachutes); it refits like the Falcon.
+- **The go button** (top-left, in space) shows **where it will take him**: the Moon, Mars or the
+  Station icon in cyan while that is the destination, the runway once he is heading home (after
+  a landing on a body or a docking). Deploying the satellite does not change the route.
 - Both views work: the cockpit looks along the body axis, the chase camera sits beside and
   above and never enters a planet. **The rocket starts in the chase view** (the view button
   still toggles).
@@ -349,7 +359,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (156 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (157 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```

@@ -142,6 +142,8 @@ const TUNE = {
     refitDelay: 5,
     satAlt: 1400,                   // satellite button above this height (as the capsule)
     pad: { dx: 200, dz: 0, mountH: 4 },   // launch complex on the far side of the runway; the rocket stands on the mount
+    catch: { dz: -30, armY: 44 },         // the catch tower's arms: where a Super Heavy booster is caught (relative to the pad)
+    starship: { thrust: [32, 22], fuel: [70], stageAlt: [450] },   // Super Heavy + Ship: one drop
     moon: { x: 1500, y: 7000, z: -2500, r: 520, g: 2.2 },
     mars: { x: -2600, y: 10800, z: 3200, r: 680, g: 3.0 },
   },
@@ -195,6 +197,7 @@ const TUNE = {
     prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, hoverSpeed: 0, capped: true, size: 1.0, hasGear: true },
     helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6, capped: true, size: 1.05, hasGear: false, hidden: true },
     rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
+    starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
     airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
@@ -205,6 +208,7 @@ const TUNE = {
     prop:             ["#e0483e", "#f2f4f7"],
     helicopter:       ["#20a39e", "#f2f4f7"],
     rocket:           ["#b8bec9", "#d71920"],
+    starship:         ["#c9ced6", "#1f2328"],
     airlinerDelta:    ["#0b4ea2", "#d0342c"],
     airlinerJetblue:  ["#1c75bc", "#e8edf4"],
     airlinerEmirates: ["#c9a227", "#d71920"],
