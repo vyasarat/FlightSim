@@ -255,7 +255,8 @@ function updateRocket(dt) {
   el.throttleBtn.classList.remove("hidden");
   el.rotateArrow.classList.remove("on");
   el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden"); el.missileBtn.classList.add("hidden");
-  el.skipBtn.classList.add("hidden"); el.gearBtn.classList.add("hidden");
+  el.gearBtn.classList.add("hidden");
+  el.skipBtn.classList.toggle("hidden", !rocketCanSkip());
   el.stageBtn.classList.toggle("hidden", !rocketCanDrop());
   el.stageBtn.dataset.stage = String(rk.stage);
 
@@ -393,6 +394,42 @@ function rocketLandingAssist(dt, burning) {
     state.pitch += (wantPitch - state.pitch) * Math.min(1, 2 * dt);
     state.heading += wrapPi(wantHeading - state.heading) * Math.min(1, 2 * dt);
   }
+}
+
+// Skip-to-landing, the rocket's version of the runway button: jump to a slow
+// descent just above the nearest planet (in space) or the home pad (lower
+// down), and let the landing assist bring it in.
+function rocketSkipTarget() {
+  if (state.y > TUNE.spaceAltitude + TUNE.spaceBlendBand) return rocketNearestBody().body;
+  return null;   // Earth: the pad he took off from
+}
+function rocketCanSkip() {
+  if (state.phase !== "AIRBORNE" || state.exploding) return false;
+  const body = rocketSkipTarget();
+  if (body) return Math.hypot(body.x - state.x, body.y - state.y, body.z - state.z) - body.r > body.r * RK.assistRange;
+  return rocketAlt() > RK.assistEarthAgl + 60;
+}
+function rocketSkipToLanding() {
+  if (!rocketCanSkip()) return false;
+  const body = rocketSkipTarget();
+  if (body) {
+    rkTmp.set(state.x - body.x, state.y - body.y, state.z - body.z).normalize();
+    state.x = body.x + rkTmp.x * (body.r + 350); state.y = body.y + rkTmp.y * (body.r + 350); state.z = body.z + rkTmp.z * (body.r + 350);
+    rk.vx = -rkTmp.x * 20; rk.vy = -rkTmp.y * 20; rk.vz = -rkTmp.z * 20;
+    state.pitch = Math.asin(clamp(rkTmp.y, -1, 1)) / DEG;
+    state.heading = Math.atan2(-rkTmp.x, -rkTmp.z);
+  } else {
+    const ap = AIRPORTS[state.originIdx];
+    state.x = 0; state.z = ap.cz; state.y = ap.elev + 200;
+    rk.vx = 0; rk.vy = -12; rk.vz = 0;
+    state.pitch = 90; state.heading = state.dirIdx === 0 ? 0 : Math.PI;
+  }
+  state.bank = 0;
+  state.throttleHeld = false;
+  releaseThrottle();
+  flags.rocketSkips = (flags.rocketSkips || 0) + 1;
+  unlockAudio();
+  return true;
 }
 
 function rocketLandOn(body) {
