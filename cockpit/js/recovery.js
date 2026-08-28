@@ -89,6 +89,7 @@ function boosterTargetFor(vx, vz) {
   const seaward = (vx * toSeaX + vz * toSeaZ) > 0 && Math.hypot(vx, vz) > 3;
   if (seaward) return { x: r.barge.x, z: r.barge.z, y: r.barge.deckY, barge: true };
   const pad = rocketPad(state.originIdx);
+  if (state.vp.starship) { const C = TUNE.rocketTune.catch; return { x: pad.x, z: pad.z + C.dz, y: AIRPORTS[state.originIdx].elev + C.armY, catch: true }; }
   return { x: pad.x - r.m * 60, z: pad.z + 30, y: AIRPORTS[state.originIdx].elev, barge: false };
 }
 function fairingBoatFor() {
