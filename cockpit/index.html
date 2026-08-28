@@ -384,8 +384,9 @@
     bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
     left: calc(var(--edge) + env(safe-area-inset-left));
     z-index: 10;
-    animation: homePulse 1.2s ease-in-out infinite;
   }
+  #chuteBtn { animation: homePulse 1.2s ease-in-out infinite; }
+  #roverBtn[data-mode="out"] { animation: homePulse 1.2s ease-in-out infinite; }
   #satBtn { border-color: #5ff1ff; }
   #chuteBtn { border-color: #e0483e; }
   #satBtn.hidden, #chuteBtn.hidden { display: none; }

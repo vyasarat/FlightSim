@@ -130,7 +130,7 @@ function startRecovery() {
   if (overWater) boatHorn(); else toot();
   flags.recoveries = (flags.recoveries || 0) + 1;
 }
-const RIDE = { arrive: 4.5, lift: 2.5, carry: 5 };
+const RIDE = { arrive: 3, lift: 2, carry: 3.5 };
 function updateRecovery(dt) {
   if (!ride) return false;
   ride.t += dt;

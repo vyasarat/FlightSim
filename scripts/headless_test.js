@@ -2228,7 +2228,8 @@ function check(name, ok, extra) {
       st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel);
       st.x = b.x; st.y = b.y - 220; st.z = b.z; st.pitch = 90; st.heading = 0; st.spaceF = 1; L.rk.vx = L.rk.vz = 0; L.rk.vy = 20;
       const d0 = L.flags.stationDockings || 0, e0 = L.flags.exploded;
-      for (let i = 0; i < 60 * 40 && (L.flags.stationDockings || 0) === d0; i++) L.update(1 / 60);
+      let i0 = 0; for (; i0 < 60 * 40 && (L.flags.stationDockings || 0) === d0; i0++) L.update(1 / 60);
+      out.dockSecs = Math.round(i0 / 60);
       out.docked = (L.flags.stationDockings || 0) > d0; out.noBoom = L.flags.exploded === e0; out.onStation = !!(L.rk.onBody && L.rk.onBody.name === "station"); out.phase = st.phase;
       out.noseIn = st.pitch > 60;   // nose up = toward the port, approaching from below
       for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
@@ -2239,6 +2240,13 @@ function check(name, ok, extra) {
       // a fresh flight in space: the destination picks the landing button's target
       L.rk.launchedFromBody = false; L.rk.satOut = false; st.y = 5000; st.x = 0; st.z = 0; L.rk.vx = L.rk.vy = L.rk.vz = 0; L.update(1 / 60);
       st.dest = "station"; out.destStation = L.rocketSkipTarget() && L.rocketSkipTarget().name === "station";
+      // the ring line: the go button drops him at the top of it; down through all three and the dock is a party
+      const p0 = L.flags.dockPerfect || 0, g0 = L.flags.dockRings || 0, d1 = L.flags.stationDockings || 0;
+      L.rocketSkipToLanding(); out.atTop = Math.abs(st.x - b.x) < 1 && Math.abs(st.z - b.z) < 1 && st.y > b.y + 200;
+      let i1 = 0; for (; i1 < 60 * 40 && (L.flags.stationDockings || 0) === d1; i1++) L.update(1 / 60);
+      out.rings = (L.flags.dockRings || 0) - g0; out.perfect = (L.flags.dockPerfect || 0) > p0; out.ringDockSecs = Math.round(i1 / 60);
+      L.api.setThrottle(true); for (let i = 0; i < 60 * 3; i++) L.update(1 / 60); L.api.setThrottle(false);
+      L.rk.launchedFromBody = false; st.y = 5000; st.x = 0; st.z = 0; L.rk.vx = L.rk.vy = L.rk.vz = 0; L.update(1 / 60);
       st.dest = "mars"; out.destMars = L.rocketSkipTarget() && L.rocketSkipTarget().name === "mars";
       // the big arrow points at the destination when it is off screen (nose straight down in the cockpit: everything is behind)
       L.api.setView(false); st.pitch = -90; st.heading = 0; L.update(1 / 60); L.update(1 / 60);
@@ -2257,7 +2265,7 @@ function check(name, ok, extra) {
       return out;
     });
     check("station: the capsule noses into the port on the magnet (no explosion), the windows light and the arrays unfold; throttle undocks and the landing button then means home; the destination picks the landing button's target",
-      dock.docked && dock.noBoom && dock.onStation && dock.phase === "TAXI" && dock.noseIn && dock.unfolded && dock.lit && dock.undocked && dock.skipHome && dock.destStation && dock.destMars && dock.arrowOn, JSON.stringify(dock));
+      dock.docked && dock.noBoom && dock.onStation && dock.phase === "TAXI" && dock.noseIn && dock.unfolded && dock.lit && dock.undocked && dock.skipHome && dock.destStation && dock.destMars && dock.arrowOn && dock.atTop && dock.rings === 3 && dock.perfect && dock.ringDockSecs < 16, JSON.stringify(dock));
     check("satellite: the big satellite is followed by a stack of five flat ones, each with a beep; rocket photos get the mission-patch frame",
       dock.stackStart && dock.stackCount === 6 && dock.stackBeeps === 6 && dock.patch && dock.noPatchPlane, JSON.stringify({ stackStart: dock.stackStart, stackCount: dock.stackCount, stackBeeps: dock.stackBeeps, patch: dock.patch, noPatchPlane: dock.noPatchPlane }));
 
@@ -2318,7 +2326,7 @@ function check(name, ok, extra) {
       L.update(1 / 60);
       out.landed = st.phase === "TAXI" && !!L.rk.onBody; out.shownOnMoon = !hidden(btn);
       out.deployed = L.roverDeploy(); L.update(1 / 60);
-      out.rocks = L.rover.rocks.length;
+      out.rocks = L.rover.rocks.length; out.arches = L.rover.arches.length;
       const x0 = L.rover.x, y0 = L.rover.y, z0 = L.rover.z;
       st.touching = true; st.ctrlPitch = 1; st.ctrlBank = 0;
       let hMin = 1e9, hMax = -1e9;
@@ -2326,6 +2334,11 @@ function check(name, ok, extra) {
       st.ctrlPitch = 0; st.touching = false;
       out.moved = Math.round(Math.hypot(L.rover.x - x0, L.rover.y - y0, L.rover.z - z0)); out.hMin = +hMin.toFixed(1); out.hMax = +hMax.toFixed(1);
       out.rocketStayed = st.phase === "TAXI" && !!L.rk.onBody;
+      // the loop: through all six arches (teleport to each) = a finale, then they re-arm
+      const l0 = L.flags.roverLoops || 0, a0 = L.flags.roverArches || 0;
+      for (const a of L.rover.arches) { L.rover.x = a.x; L.rover.y = a.y; L.rover.z = a.z; L.update(1 / 60); }
+      out.archesLit = (L.flags.roverArches || 0) - a0; out.loop = (L.flags.roverLoops || 0) > l0;
+      for (let i = 0; i < 60 * (L.TUNE.gateRearm + 1); i++) L.update(1 / 60); out.rearmed = L.rover.arches.every(a => !a.lit);
       // roll onto a rock
       const r = L.rover.rocks[0]; L.rover.x = r.x; L.rover.y = r.y; L.rover.z = r.z; const k0 = L.flags.roverRocks || 0;
       L.update(1 / 60); out.rock = (L.flags.roverRocks || 0) > k0 && !r.mesh.visible;
@@ -2344,7 +2357,7 @@ function check(name, ok, extra) {
       return out;
     });
     check("rover: only on a body; rolls out, drives on the sphere with hops, collects a rock, plants a beacon, drives itself back, and the rocket launches after",
-      rov.hiddenOnPad && rov.landed && rov.shownOnMoon && rov.deployed && rov.rocks === 8 && rov.moved > 20 && rov.hMin > 0.5 && rov.hMax < 15 && rov.rocketStayed && rov.rock && rov.beacon && rov.ret && rov.back && rov.launched && rov.reset, JSON.stringify(rov));
+      rov.hiddenOnPad && rov.landed && rov.shownOnMoon && rov.deployed && rov.rocks === 8 && rov.arches === 6 && rov.archesLit === 6 && rov.loop && rov.rearmed && rov.moved > 20 && rov.hMin > 0.5 && rov.hMax < 15 && rov.rocketStayed && rov.rock && rov.beacon && rov.ret && rov.back && rov.launched && rov.reset, JSON.stringify(rov));
 
     // skip-to-landing: in deep space it jumps to a slow descent above the nearest planet and lands; low down, above the home pad
     const skip = await page.evaluate(() => {
@@ -2372,7 +2385,7 @@ function check(name, ok, extra) {
       return { shown, did, near: Math.round(near), landed, shownHome, overPad, homeLanded: (L.flags.rocketLandings || 0) > r0 };
     });
     check("rocket: the landing button jumps to a slow descent above the nearest planet (or the home pad) and lands",
-      skip.shown && skip.did && skip.near > 300 && skip.near < 400 && skip.landed && skip.shownHome && skip.overPad && skip.homeLanded, JSON.stringify(skip));
+      skip.shown && skip.did && skip.near > 200 && skip.near < 240 && skip.landed && skip.shownHome && skip.overPad && skip.homeLanded, JSON.stringify(skip));
 
     // return to Earth: descend upright and slowly = a landing
     const home = await page.evaluate(() => {
@@ -2416,7 +2429,7 @@ function check(name, ok, extra) {
       L.rk.launchedFromBody = true; L.update(1 / 60); out.iconHome = document.getElementById("skipBtn").dataset.target === "home";   // (stays "on the way home": the deorbit below is the trip back)
       const d0 = L.flags.deorbits || 0;
       L.rocketSkipToLanding();
-      out.deorbit = (L.flags.deorbits || 0) > d0 && st.y > R.gravityFade && L.rk.vy < -100;
+      out.deorbit = (L.flags.deorbits || 0) > d0 && st.y >= R.deorbitAlt - 1 && L.rk.vy < -100;
       // the fall: plasma glows (state + overlay), no chute button above chuteAlt, drogue pops by itself
       let glowPeak = 0, overlayPeak = 0, btnEarly = false, pitchAtGlow = null;
       for (let i = 0; i < 60 * 120 && L.rk.chute === 0; i++) {
@@ -2445,7 +2458,7 @@ function check(name, ok, extra) {
       out.notYetRefit = L.rk.stage === 3;
       out.recovery = (L.flags.recoveries || 0) > 0;
       const f0 = L.flags.refits || 0; const y0 = st.y; let yPeak = y0, moved = false;
-      for (let i = 0; i < 60 * 14 && (L.flags.refits || 0) === f0; i++) { L.update(1 / 60); yPeak = Math.max(yPeak, st.y); if (L.rk.stage === 3 && Math.hypot(st.x - padP.x, st.z - padP.z) < dPad - 100) moved = true; }
+      for (let i = 0; i < 60 * 11 && (L.flags.refits || 0) === f0; i++) { L.update(1 / 60); yPeak = Math.max(yPeak, st.y); if (L.rk.stage === 3 && Math.hypot(st.x - padP.x, st.z - padP.z) < dPad - 100) moved = true; }
       out.lifted = yPeak > y0 + 3; out.carried = moved;
       out.destAsked = !document.getElementById("screenDest").classList.contains("hiddenS"); document.getElementById("screenDest").classList.add("hiddenS");
       out.refit = L.rk.stage === 0 && !L.rk.satOut && (L.flags.refits || 0) > f0 && Math.abs(st.x - L.rocketPad(st.originIdx).x) < 1 && st.phase === "TAXI" && out.recovery && out.lifted && out.carried && out.destAsked;
@@ -2454,9 +2467,9 @@ function check(name, ok, extra) {
     check("rocket: the capsule deploys a satellite in space (button only then; it unfolds and drifts off); the go button keeps the destination's icon, and shows the runway once he is heading home",
       ret.satShown && ret.chuteHiddenInSpace && ret.did && ret.satAdded && ret.satHiddenAfter && ret.unfolded && ret.drifted && ret.skipHome && ret.iconHome && ret.deorbit, JSON.stringify(ret));
     check("rocket: reentry glows (model + window overlay) heat-shield first; no chute button above the drogue height; the drogue pops by itself",
-      ret.glowPeak > 0.5 && ret.overlayPeak > 0.2 && !ret.btnEarly && ret.pitchAtGlow > 60 && ret.reentries > 0 && ret.drogueAuto && ret.drogueAlt < 700 && ret.drogueAlt > 500, JSON.stringify(ret));
+      ret.glowPeak > 0.5 && ret.overlayPeak > 0.2 && !ret.btnEarly && ret.pitchAtGlow > 60 && ret.reentries > 0 && ret.drogueAuto && ret.drogueAlt < 480 && ret.drogueAlt > 330, JSON.stringify(ret));
     check("rocket: drogue then mains (button below its height, auto below that), a slow float down, a soft landing as the capsule somewhere around home (not the pad or runway); the recovery ship/truck lifts it and carries it, then the pad refits",
-      ret.mainsBtn && ret.drogueSink > 18 && ret.drogueSink < 34 && ret.mainsAuto && ret.landedSoft && ret.maxSink < 10 && ret.stillCapsule && ret.nearPad && ret.notYetRefit && ret.refit, JSON.stringify(ret));
+      ret.mainsBtn && ret.drogueSink > 22 && ret.drogueSink < 38 && ret.mainsAuto && ret.landedSoft && ret.maxSink < 13 && ret.stillCapsule && ret.nearPad && ret.notYetRefit && ret.refit, JSON.stringify(ret));
     await page.close();
   }
 

@@ -586,7 +586,7 @@ function rocketLandingAssist(dt, burning) {
   const awayBurn = burning && (rkAxis.x * nx + rkAxis.y * ny + rkAxis.z * nz) > 0.3;
   if (awayBurn || inward < -2) return;                      // leaving: no assist
   // target: descend at assistDescent, faster when high, no sideways drift
-  const want = Math.max(RK.assistDescent, gap * 0.12);
+  const want = Math.max(RK.assistDescent, gap * 0.16);
   const k = Math.min(1, 2.5 * dt);
   const tvx = -nx * want, tvy = -ny * want, tvz = -nz * want;
   rk.vx += (tvx - rk.vx) * k; rk.vy += (tvy - rk.vy) * k; rk.vz += (tvz - rk.vz) * k;
@@ -617,9 +617,11 @@ function rocketSkipToLanding() {
   if (!rocketCanSkip()) return false;
   const body = rocketSkipTarget();
   if (body) {
-    rkTmp.set(state.x - body.x, state.y - body.y, state.z - body.z).normalize();
-    state.x = body.x + rkTmp.x * (body.r + 350); state.y = body.y + rkTmp.y * (body.r + 350); state.z = body.z + rkTmp.z * (body.r + 350);
-    rk.vx = -rkTmp.x * 20; rk.vy = -rkTmp.y * 20; rk.vz = -rkTmp.z * 20;
+    if (body.dock) rkTmp.set(0, 1, 0);   // the station: come down its ring line onto the port
+    else rkTmp.set(state.x - body.x, state.y - body.y, state.z - body.z).normalize();
+    const out = body.r + RK.skipOut;
+    state.x = body.x + rkTmp.x * out; state.y = body.y + rkTmp.y * out; state.z = body.z + rkTmp.z * out;
+    rk.vx = -rkTmp.x * 30; rk.vy = -rkTmp.y * 30; rk.vz = -rkTmp.z * 30;
     state.pitch = Math.asin(clamp(rkTmp.y, -1, 1)) / DEG;
     state.heading = Math.atan2(-rkTmp.x, -rkTmp.z);
   } else if (rocketIsFinal() && state.y > TUNE.spaceAltitude) {
@@ -628,7 +630,7 @@ function rocketSkipToLanding() {
     // ... and comes down somewhere new each time -- a field or the sea around home, never
     // the runway or the pad (the refit brings the new stack to the pad afterwards)
     const site = rocketLandingSite();
-    state.x = site.x; state.z = site.z; state.y = Math.max(state.y, RK.gravityFade + 500);
+    state.x = site.x; state.z = site.z; state.y = RK.deorbitAlt;
     rk.vx = 0; rk.vy = -150; rk.vz = 0;
     state.pitch = 90; state.heading = state.dirIdx === 0 ? 0 : Math.PI;
     flags.deorbits = (flags.deorbits || 0) + 1;
@@ -672,6 +674,11 @@ function rocketLandOn(body) {
   if (body && body.dock) {
     flags.stationDockings = (flags.stationDockings || 0) + 1;
     clang(); chime(); confettiBurst();
+    if (dockRings && dockRings.every(r => r.lit)) {   // the whole ring line: the finale
+      fanfare(); for (let i = 0; i < 5; i++) fireworkSound(0.3 + i * 0.4);
+      flags.dockPerfect = (flags.dockPerfect || 0) + 1;
+    }
+    dockRingsReset();
     rk.showT = 4;
   } else if (body) {
     flags[body.name + "Landings"] = (flags[body.name + "Landings"] || 0) + 1;
@@ -923,11 +930,42 @@ function updateSatellites(dt) {
   }
 }
 
+// ---- the docking rings: three glowing hoops stacked above the port. Fly down through
+// them for rising notes; dock with all three lit and the station throws a party.
+let dockRings = null;
+function buildDockRings() {
+  const b = BODIES[2];
+  dockRings = [];
+  [170, 115, 60].forEach((h, i) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(9, 0.9, 8, 28), new THREE.MeshBasicMaterial({ color: 0x5ff1ff, transparent: true, opacity: 0.55 }));
+    m.rotation.x = Math.PI / 2;
+    m.position.set(b.x, b.y + h, b.z);
+    m.visible = false;
+    scene.add(m);
+    dockRings.push({ mesh: m, x: b.x, y: b.y + h, z: b.z, lit: false, i });
+  });
+}
+function dockRingsReset() { if (dockRings) for (const r of dockRings) { r.lit = false; r.mesh.material.opacity = 0.55; r.mesh.material.color.setHex(0x5ff1ff); } }
+function updateDockRings(dt) {
+  if (!dockRings) buildDockRings();
+  const show = state.spaceF > 0.5 && rocketIsFinal() && !rk.onBody;
+  for (const r of dockRings) {
+    r.mesh.visible = show;
+    if (!show) continue;
+    r.mesh.rotation.z += dt * (r.lit ? 2.5 : 0.6);
+    if (!r.lit && Math.hypot(state.x - r.x, state.z - r.z) < 9 && Math.abs(state.y - r.y) < 6) {
+      r.lit = true; r.mesh.material.opacity = 1; r.mesh.material.color.setHex(0x7cff5a);
+      ringNote(4 + r.i * 2);
+      flags.dockRings = (flags.dockRings || 0) + 1;
+    }
+  }
+}
 // ---- the station: the port glows as the capsule closes in; docked, the windows
 // light up and the solar arrays unfold (and stay out).
 function updateStationDocked(dt, docked) {
   const u = station.userData;
   if (!u || !u.portMat) return;
+  if (!docked) updateDockRings(dt);
   const b = BODIES[2];
   const d = Math.hypot(b.x - state.x, b.y - state.y, b.z - state.z);
   const near = clamp(1 - d / 160, 0, 1);

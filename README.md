@@ -289,6 +289,15 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   on it with a clang -- it hangs there until the next launch; tilted seaward it goes to the
   droneship like the Falcon booster. The Ship deploys satellites, docks, carries the rover, glows
   on reentry, and lands on its engines on the assist (no parachutes); it refits like the Falcon.
+- **Two mini games**: on the Moon or Mars the rover finds **six glowing arches** in a ring
+  around the landing site -- drive through each for a rising note, all six for fireworks, and
+  they re-arm after `gateRearm` like the flight gates. At the station **three glowing rings**
+  hang stacked above the port: the go button drops him at the top of the line, fly down through
+  all three (a note each) and the docking clang becomes a fanfare with fireworks.
+- **Pace**: the go button drops him `skipOut` (220 m) out at 30 m/s; the deorbit starts at
+  `deorbitAlt`; drogue and mains open at `chuteAutoAlt` and sink at `chuteSink`; the recovery
+  ride is ~8 s and the refit `refitDelay`. A Moon landing from the button is ~10 s, a docking
+  ~12 s, the whole way home under a minute.
 - **The go button** (top-left, in space) shows **where it will take him**: the Moon, Mars or the
   Station icon in cyan while that is the destination, the runway once he is heading home (after
   a landing on a body or a docking). Deploying the satellite does not change the route.
