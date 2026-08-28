@@ -33,6 +33,8 @@ const rk = {                     // rocket-specific state (plane fields stay in 
 const BODIES = [
   { name: "moon", x: RK.moon.x, y: RK.moon.y, z: RK.moon.z, r: RK.moon.r, g: RK.moon.g, color: 0xb9bcc4 },
   { name: "mars", x: RK.mars.x, y: RK.mars.y, z: RK.mars.z, r: RK.mars.r, g: RK.mars.g, color: 0xc65a2e },
+  // the station's docking port: a tiny "body" with no gravity that the capsule noses into
+  { name: "station", x: station.position.x, y: station.position.y + station.userData.portY, z: station.position.z, r: 3, g: 0, dock: true, assistR: 140, mesh: station },
 ];
 const rkAxis = new THREE.Vector3();
 const Q_UPRIGHT = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0));
@@ -40,6 +42,7 @@ const rkTmp = new THREE.Vector3();
 
 // ---- the Moon and Mars (always in the scene; the fog hides them from the ground)
 for (const b of BODIES) {
+  if (b.dock) continue;
   const g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: b.color, emissive: b.name === "moon" ? 0x7a7e88 : 0x6e2a12 });
   const sphere = new THREE.Mesh(new THREE.SphereGeometry(b.r, 36, 24), mat);
@@ -342,10 +345,19 @@ function updateRocket(dt) {
     if (rk.onBody) {
       const b = rk.onBody;
       rkAxis.set(state.x - b.x, state.y - b.y, state.z - b.z).normalize();
-      rkTmp.copy(rkAxis).multiplyScalar(b.r + halfLen);
-      state.x = b.x + rkTmp.x; state.y = b.y + rkTmp.y; state.z = b.z + rkTmp.z;
-      state.pitch = Math.asin(clamp(rkAxis.y, -1, 1)) / DEG;
-      state.heading = Math.atan2(-rkAxis.x, -rkAxis.z);
+      if (b.dock) {
+        // docked nose-first: the nose tip sits on the port, the body points away from it
+        rkTmp.copy(rkAxis).multiplyScalar(b.r + 6.2 * (state.vp.size || 1));
+        state.x = b.x + rkTmp.x; state.y = b.y + rkTmp.y; state.z = b.z + rkTmp.z;
+        state.pitch = Math.asin(clamp(-rkAxis.y, -1, 1)) / DEG;
+        state.heading = Math.atan2(rkAxis.x, rkAxis.z);
+        updateStationDocked(dt, true);
+      } else {
+        rkTmp.copy(rkAxis).multiplyScalar(b.r + halfLen);
+        state.x = b.x + rkTmp.x; state.y = b.y + rkTmp.y; state.z = b.z + rkTmp.z;
+        state.pitch = Math.asin(clamp(rkAxis.y, -1, 1)) / DEG;
+        state.heading = Math.atan2(-rkAxis.x, -rkAxis.z);
+      }
     } else {
       state.y = Math.max(rk.groundHere !== undefined ? rk.groundHere : -1e9, Math.max(terrainEff(state.x, state.z), TUNE.waterLevel)) + halfLen;
       state.pitch += (90 - state.pitch) * Math.min(1, 6 * dt);
@@ -378,6 +390,15 @@ function updateRocket(dt) {
         rk.igniteT = 0;
         if (!rk.onBody) apronVehiclesTo(state.originIdx, false);
         rk.launchedFromBody = !!rk.onBody;
+        if (rk.onBody && rk.onBody.dock) {
+          // undock: turn away from the port and back off on the thrusters
+          const b = rk.onBody;
+          rkAxis.set(state.x - b.x, state.y - b.y, state.z - b.z).normalize();
+          state.pitch = Math.asin(clamp(rkAxis.y, -1, 1)) / DEG;
+          state.heading = Math.atan2(-rkAxis.x, -rkAxis.z);
+          rk.vx = rkAxis.x * 8; rk.vy = rkAxis.y * 8; rk.vz = rkAxis.z * 8;
+          flags.undocks = (flags.undocks || 0) + 1;
+        }
         if (!rk.onBody) { rk.delugeT = 2.2; liftoffShockwave(); }
         rk.onBody = null;
         rk.refitT = 0;
@@ -440,7 +461,9 @@ function updateRocket(dt) {
 
   // ---- touching a body
   const { body, dist } = rocketNearestBody();
-  if (body && dist <= halfLen + 1) {
+  updateStationDocked(dt, false);
+  const contact = body && body.dock ? 6.2 * (state.vp.size || 1) : halfLen;
+  if (body && dist <= contact + 1) {
     rkAxis.set(state.x - body.x, state.y - body.y, state.z - body.z).normalize();
     const inward = rk.vx * rkAxis.x + rk.vy * rkAxis.y + rk.vz * rkAxis.z;
     if (inward > 0) {
@@ -474,7 +497,7 @@ function rocketLandingAssist(dt, burning) {
   if (rk.chute > 0 || rk.reentry > 0.3) return;   // the parachutes are the capsule's landing assist
   const { body, dist } = rocketNearestBody();
   let nx = 0, ny = 1, nz = 0, gap = Infinity;
-  if (body && dist < body.r * (RK.assistRange - 1)) {
+  if (body && dist < (body.assistR || body.r * (RK.assistRange - 1))) {
     rkTmp.set(state.x - body.x, state.y - body.y, state.z - body.z).normalize();
     nx = rkTmp.x; ny = rkTmp.y; nz = rkTmp.z; gap = dist;
   } else if (!body || dist > body.r) {
@@ -492,8 +515,9 @@ function rocketLandingAssist(dt, burning) {
   rk.vx += (tvx - rk.vx) * k; rk.vy += (tvy - rk.vy) * k; rk.vz += (tvz - rk.vz) * k;
   // stand up: attitude eases toward the surface normal unless he is steering
   if (!state.touching || Math.abs(state.ctrlPitch) < 0.15) {
-    const wantPitch = Math.asin(clamp(ny, -1, 1)) / DEG;
-    const wantHeading = (Math.abs(nx) + Math.abs(nz)) < 1e-4 ? state.heading : Math.atan2(-nx, -nz);   // straight up: keep his heading
+    const f = body && body.dock ? -1 : 1;   // docking: nose toward the port
+    const wantPitch = Math.asin(clamp(f * ny, -1, 1)) / DEG;
+    const wantHeading = (Math.abs(nx) + Math.abs(nz)) < 1e-4 ? state.heading : Math.atan2(-f * nx, -f * nz);   // straight up: keep his heading
     state.pitch += (wantPitch - state.pitch) * Math.min(1, 2 * dt);
     state.heading += wrapPi(wantHeading - state.heading) * Math.min(1, 2 * dt);
   }
@@ -503,7 +527,7 @@ function rocketLandingAssist(dt, burning) {
 // descent just above the nearest planet (in space) or the home pad (lower
 // down), and let the landing assist bring it in.
 function rocketSkipTarget() {
-  if (state.y > TUNE.spaceAltitude + TUNE.spaceBlendBand && !rk.launchedFromBody && !(rk.stage === 3 && rk.satOut)) return rocketNearestBody().body;
+  if (state.y > TUNE.spaceAltitude + TUNE.spaceBlendBand && !rk.launchedFromBody && !(rk.stage === 3 && rk.satOut)) return BODIES.find(b => b.name === state.dest) || rocketNearestBody().body;
   return null;   // Earth: the pad he took off from (also after a planet visit -- the way home)
 }
 function rocketCanSkip() {
@@ -568,7 +592,11 @@ function rocketLandOn(body) {
   // Only the home pad rolls out a new rocket, and only after a few seconds sitting
   // where you came down. On the Moon or Mars you stay whatever you arrived as -- a
   // capsule lands as a capsule and lifts off again on its thrusters.
-  if (body) {
+  if (body && body.dock) {
+    flags.stationDockings = (flags.stationDockings || 0) + 1;
+    clang(); chime(); confettiBurst();
+    rk.showT = 4;
+  } else if (body) {
     flags[body.name + "Landings"] = (flags[body.name + "Landings"] || 0) + 1;
     confettiBurst(); cheer();
     for (let i = 0; i < 6; i++) fireworkSound(i * 0.5);
@@ -627,7 +655,7 @@ function rocketCamera(dt) {
   // near the Moon or Mars, "up" is away from its centre so its surface reads as the ground
   const nb = rocketNearestBody();
   camUp.set(0, 1, 0);
-  if (nb.body && nb.dist < nb.body.r * 1.2) {
+  if (nb.body && !nb.body.dock && nb.dist < nb.body.r * 1.2) {
     rkTmp.set(state.x - nb.body.x, state.y - nb.body.y, state.z - nb.body.z).normalize();
     const k = clamp(1 - nb.dist / (nb.body.r * 1.2), 0, 1);
     // slerp Earth-up toward the surface normal (a vector lerp passes through zero on undersides)
@@ -765,13 +793,39 @@ function deploySatellite() {
     vx: rk.vx + rkAxis.x * 3 + side * 0.8, vy: rk.vy + rkAxis.y * 3, vz: rk.vz + rkAxis.z * 3 + sidez * 0.8,
     rx: 0.15, ry: 0.25,
   });
-  while (satellites.length > 3) { const old = satellites.shift(); scene.remove(old.mesh); }
+  while (satellites.length > 10) { const old = satellites.shift(); scene.remove(old.mesh); }
   rk.satOut = true;
+  rk.stackLeft = 5; rk.stackT = 0.9;   // ... then five flat ones follow, one by one
   stageSep(); satBeep();
   flags.satDeploys = (flags.satDeploys || 0) + 1;
   return true;
 }
+function buildFlatSat() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.22, 1.5), new THREE.MeshLambertMaterial({ color: 0x1e2a44, emissive: 0x0a1020 })); g.add(body);
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 4.2), new THREE.MeshLambertMaterial({ color: 0x2b4fb0, emissive: 0x0d1a44 })); panel.position.set(0, 0.2, 0); g.add(panel);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), new THREE.MeshBasicMaterial({ color: 0x5ff1ff })); lamp.position.set(1.2, 0.3, 0); g.add(lamp);
+  g.userData = { panels: [], lamp, flat: true };
+  return g;
+}
+function deployStackPiece(k) {
+  const g = buildFlatSat();
+  const vs = state.vp.size || 1;
+  g.scale.setScalar(vs);
+  g.position.set(state.x + rkAxis.x * 5 * vs, state.y + rkAxis.y * 5 * vs, state.z + rkAxis.z * 5 * vs);
+  scene.add(g);
+  const side = Math.cos(state.heading), sidez = -Math.sin(state.heading), fan = (k - 2) * 0.9;
+  satellites.push({ mesh: g, t: 0, x: g.position.x, y: g.position.y, z: g.position.z,
+    vx: rk.vx + rkAxis.x * 2.5 + side * fan, vy: rk.vy + rkAxis.y * 2.5 + 0.3 * k, vz: rk.vz + rkAxis.z * 2.5 + sidez * fan, rx: 0.08, ry: 0.4 });
+  while (satellites.length > 10) { const old = satellites.shift(); scene.remove(old.mesh); }
+  synthBlip("sine", 1500 + k * 120, 1500 + k * 120, 0.1, 0.18, 0);
+  flags.satDeploys = (flags.satDeploys || 0) + 1;
+}
 function updateSatellites(dt) {
+  if (rk.stackLeft > 0) {
+    if (state.phase !== "AIRBORNE" || rk.stage !== 3 || state.exploding) rk.stackLeft = 0;
+    else { rk.stackT -= dt; if (rk.stackT <= 0) { rk.stackT = 0.9; rk.stackLeft--; deployStackPiece(4 - rk.stackLeft); } }
+  }
   for (const s of satellites) {
     s.t += dt;
     const [gx, gy, gz] = rocketGravityAt(s.x, s.y, s.z);
@@ -783,6 +837,22 @@ function updateSatellites(dt) {
     const k = 0.03 + 0.97 * (1 - Math.pow(1 - unfold, 3));
     for (const p of s.mesh.userData.panels) p.scale.x = k;
     s.mesh.userData.lamp.visible = (s.t % 1.2) < 0.15;
+  }
+}
+
+// ---- the station: the port glows as the capsule closes in; docked, the windows
+// light up and the solar arrays unfold (and stay out).
+function updateStationDocked(dt, docked) {
+  const u = station.userData;
+  if (!u || !u.portMat) return;
+  const b = BODIES[2];
+  const d = Math.hypot(b.x - state.x, b.y - state.y, b.z - state.z);
+  const near = clamp(1 - d / 160, 0, 1);
+  const pulse = 0.35 + near * 0.65 * (0.6 + 0.4 * Math.sin(frameCount * 0.25));
+  if (Math.abs(u.portMat.opacity - pulse) > 0.02) u.portMat.opacity = pulse;
+  if (docked) {
+    u.lightMat.color.setHex(0xfff2b0);
+    for (const p of u.panels) p.scale.x += (1 - p.scale.x) * Math.min(1, 1.2 * dt);
   }
 }
 

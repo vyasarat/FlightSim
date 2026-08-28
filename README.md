@@ -45,6 +45,7 @@ the ship checklist; this file describes the game.
 | Satellite button (rocket, same slot, cyan) | As the capsule in space: pops the satellite out ahead of the nose; it unfolds its panels and drifts off blinking. One per stack |
 | Parachute button (rocket, same slot, red) | As the capsule low in the air: the drogue, then the mains. Each only below its `chuteAlt`; they pop by themselves below `chuteAutoAlt`, so nothing needs pressing |
 | Double-down / double-up chevrons, bottom-right (planes, airborne) | Step the set speed down / up one notch. Speed stays where he sets it -- no snap-back. Four steps (`TUNE.speedSteps`) |
+| Destination cards (rocket, after the direction card) | Moon / Mars / Station: where the landing button aims in space. Always all three |
 | Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, ~45 s to touchdown. Rocket: jump to a slow descent 350 m above the nearest planet, or 200 m above the home pad; the landing assist does the rest. Capsule with the satellite out: **deorbit** -- drop out of space above home and ride the plasma and parachutes down |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
 | Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker |
@@ -259,6 +260,17 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   capsule's parachute landing the **recovery ship** (at sea) or a **flatbed truck** (on land)
   arrives, its crane swings out, lifts the capsule aboard and carries it toward the pad --
   that ride *is* the refit; a new stack is on the pad when it ends. Nothing teleports.
+- **Destination**: after the direction card the rocket gets a third card row -- **Moon, Mars,
+  Station** (`lp.dest`, remembered). It only sets what the landing button aims at in space; the
+  flying is the same. All three are always there.
+- **The station** is somewhere to go: it hangs above the gravity band with a glowing docking
+  port on top. Coast at it and the port's magnet (`assistR`) noses the capsule in with a clang
+  and a chime -- no speed to judge, no way to bounce off. Docked, the windows light and the solar
+  arrays unfold (and stay out). Hold the throttle to undock: the capsule turns and backs away,
+  and the landing button then means home.
+- **The stack**: the satellite button releases the big satellite and then five flat Starlink-style
+  ones, one every 0.9 s with their own beep, fanning out in a line of blinking lights.
+- **Mission photos**: the camera in the rocket frames the shot as a round mission patch.
 - Both views work: the cockpit looks along the body axis, the chase camera sits beside and
   above and never enters a planet. **The rocket starts in the chase view** (the view button
   still toggles).
@@ -325,7 +337,7 @@ qa-screenshots/       harness captures (gitignored)
 ## Testing
 
 `scripts/headless_test.js` drives the real game in headless Chromium (SwiftShader WebGL),
-~45 s on an M-series Mac, and prints its check count (152 today). It refuses to start if
+~45 s on an M-series Mac, and prints its check count (155 today). It refuses to start if
 something else is on port 8177, and it serves the repo live -- don't edit `cockpit/` while it runs.
 
 ```

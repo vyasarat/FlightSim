@@ -353,13 +353,18 @@ function check(name, ok, extra) {
 
     await page.click('[data-d="1"]');
     await pump(page, 0.3);
+    const destShown = await page.evaluate(() => !document.getElementById("screenDest").classList.contains("hiddenS") && window.__lp.state.phase === "TAXI");
+    check("vehicles: the rocket's direction tap opens the destination screen (Moon / Mars / Station)", destShown);
+    await page.click('[data-dest="mars"]');
+    await pump(page, 0.3);
     const sel = await page.evaluate(() => ({
       key: window.__lp.state.vehicleKey,
       cs: window.__lp.state.vp.cruiseSpeed,
       heading: window.__lp.state.heading,
       z: window.__lp.state.z,
+      dest: window.__lp.state.dest,
       screensGone: document.getElementById("screenVehicle").classList.contains("hiddenS")
-        && document.getElementById("screenDir").classList.contains("hiddenS"),
+        && document.getElementById("screenDir").classList.contains("hiddenS") && document.getElementById("screenDest").classList.contains("hiddenS"),
       accent: getComputedStyle(document.documentElement).getPropertyValue("--veh").trim()
     }));
     check("vehicles: selection applies (rocket, northbound spawn)",
@@ -1952,13 +1957,13 @@ function check(name, ok, extra) {
       await p1.waitForFunction(() => window.__lp);
       await p1.click('[data-v="fighter"]');
       await p1.click('[data-d="1"]');
-      await p1.evaluate(() => { window.__lp.update(1 / 60); document.getElementById("skyBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 31 })); for (let i = 0; i < 25; i++) window.__lp.update(1 / 60); });
+      await p1.evaluate(() => { window.__lp.update(1 / 60); document.getElementById("skyBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 31 })); for (let i = 0; i < 25; i++) window.__lp.update(1 / 60); try { localStorage.setItem("lp.dest", "station"); } catch (e) {} });
       const p2 = await ctx.newPage();
       await p2.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
       await p2.goto(URL);
       await p2.waitForFunction(() => window.__lp);
       const restored = await p2.evaluate(() => ({
-        key: window.__lp.state.vehicleKey, dir: window.__lp.state.dirIdx, phase: window.__lp.state.phase, sky: window.__lp.state.sky,
+        key: window.__lp.state.vehicleKey, dir: window.__lp.state.dirIdx, phase: window.__lp.state.phase, sky: window.__lp.state.sky, dest: window.__lp.state.dest,
         pickerHidden: document.getElementById("screenVehicle").classList.contains("hiddenS"),
       }));
       const spotsReset = await p2.evaluate(() => { try { localStorage.setItem("lp.spots", JSON.stringify(window.__lp.spots.map(() => 1))); } catch (e) {} return true; });
@@ -1974,7 +1979,7 @@ function check(name, ok, extra) {
       await p2.click("#vehBtn");
       const pickerBack = await p2.evaluate(() => !document.getElementById("screenVehicle").classList.contains("hiddenS"));
       check("persistence: relaunch restores vehicle + direction straight to the runway; plane button reopens the picker",
-        restored.key === "fighter" && restored.dir === 1 && restored.sky === 1 && restored.phase === "TAXI" && restored.pickerHidden && vehBtnShown && pickerBack, JSON.stringify({ restored, vehBtnShown, pickerBack }));
+        restored.key === "fighter" && restored.dir === 1 && restored.sky === 1 && restored.dest === "station" && restored.phase === "TAXI" && restored.pickerHidden && vehBtnShown && pickerBack, JSON.stringify({ restored, vehBtnShown, pickerBack }));
       await ctx.close();
     }
   }
@@ -2176,6 +2181,43 @@ function check(name, ok, extra) {
     check("recovery: a seaward booster flies to the droneship and lands on its deck; a straight one comes back to the pad; both fairing halves chute into the net boat",
       sea.dropped && sea.targetBarge && sea.bargeLanded && sea.onDeck && sea.targetPad && sea.fairingChutes === 2 && sea.fairingsCaught === 2, JSON.stringify(sea));
 
+    // the station: dock with a magnet, lights and arrays, undock, and the destination drives the landing button
+    const dock = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, R = L.TUNE.rocketTune, b = L.BODIES.find(q => q.name === "station");
+      const out = {};
+      L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false; L.rk.stage = 3; L.rocketApplyStages(L.vehicleModel);
+      st.x = b.x; st.y = b.y - 220; st.z = b.z; st.pitch = 90; st.heading = 0; st.spaceF = 1; L.rk.vx = L.rk.vz = 0; L.rk.vy = 20;
+      const d0 = L.flags.stationDockings || 0, e0 = L.flags.exploded;
+      for (let i = 0; i < 60 * 40 && (L.flags.stationDockings || 0) === d0; i++) L.update(1 / 60);
+      out.docked = (L.flags.stationDockings || 0) > d0; out.noBoom = L.flags.exploded === e0; out.onStation = !!(L.rk.onBody && L.rk.onBody.name === "station"); out.phase = st.phase;
+      out.noseIn = st.pitch > 60;   // nose up = toward the port, approaching from below
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      const u = L.station.userData;
+      out.unfolded = u.panels.every(p => p.scale.x > 0.9); out.lit = u.lightMat.color.getHex() !== 0x2a3140;
+      L.api.setThrottle(true); for (let i = 0; i < 60 * 3; i++) L.update(1 / 60); L.api.setThrottle(false);
+      out.undocked = st.phase === "AIRBORNE" && !L.rk.onBody && L.rk.launchedFromBody; out.skipHome = L.rocketSkipTarget() === null;
+      // a fresh flight in space: the destination picks the landing button's target
+      L.rk.launchedFromBody = false; L.rk.satOut = false; st.y = 5000; st.x = 0; st.z = 0; L.rk.vx = L.rk.vy = L.rk.vz = 0; L.update(1 / 60);
+      st.dest = "station"; out.destStation = L.rocketSkipTarget() && L.rocketSkipTarget().name === "station";
+      st.dest = "mars"; out.destMars = L.rocketSkipTarget() && L.rocketSkipTarget().name === "mars";
+      st.dest = "moon";
+      // the stack: the big satellite, then five flat ones one by one
+      st.phase = "AIRBORNE"; st.exploding = false; const n0 = L.satellites.length, s0 = L.flags.satDeploys || 0;
+      out.stackStart = L.deploySatellite();
+      for (let i = 0; i < 60 * 7; i++) L.update(1 / 60);
+      out.stackCount = L.satellites.length - n0; out.stackBeeps = (L.flags.satDeploys || 0) - s0;
+      // mission-patch frame for rocket photos only
+      st.photoPending = false; L.takePhoto(); out.patch = document.getElementById("photo").classList.contains("patch");
+      st.photoPending = false; L.api.setVehicle("prop"); L.takePhoto(); out.noPatchPlane = !document.getElementById("photo").classList.contains("patch"); st.photoPending = false;
+      L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      return out;
+    });
+    check("station: the capsule noses into the port on the magnet (no explosion), the windows light and the arrays unfold; throttle undocks and the landing button then means home; the destination picks the landing button's target",
+      dock.docked && dock.noBoom && dock.onStation && dock.phase === "TAXI" && dock.noseIn && dock.unfolded && dock.lit && dock.undocked && dock.skipHome && dock.destStation && dock.destMars, JSON.stringify(dock));
+    check("satellite: the big satellite is followed by a stack of five flat ones, each with a beep; rocket photos get the mission-patch frame",
+      dock.stackStart && dock.stackCount === 6 && dock.stackBeeps === 6 && dock.patch && dock.noPatchPlane, JSON.stringify({ stackStart: dock.stackStart, stackCount: dock.stackCount, stackBeeps: dock.stackBeeps, patch: dock.patch, noPatchPlane: dock.noPatchPlane }));
+
     const moon = await page.evaluate(() => {
       const L = window.__lp, st = L.state, R = L.TUNE.rocketTune, m = L.BODIES[0];
       // approach the Moon slowly from below: land
@@ -2276,9 +2318,9 @@ function check(name, ok, extra) {
       st.x = 0; st.z = ap.cz; st.y = 4000; st.pitch = 90; st.heading = 0; L.rk.vx = L.rk.vy = L.rk.vz = 0; st.spaceF = 1;
       L.update(1 / 60);
       out.satShown = !hidden(satBtn); out.chuteHiddenInSpace = hidden(chuteBtn);
-      const n0 = L.satellites.length;
+      const last0 = L.satellites[L.satellites.length - 1];
       out.did = L.deploySatellite();
-      out.satAdded = L.satellites.length === n0 + 1; L.update(1 / 60); out.satHiddenAfter = hidden(satBtn);
+      out.satAdded = L.satellites.length > 0 && L.satellites[L.satellites.length - 1] !== last0; L.update(1 / 60); out.satHiddenAfter = hidden(satBtn);
       const s = L.satellites[L.satellites.length - 1];
       const p0 = s.mesh.userData.panels[0].scale.x;
       for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);

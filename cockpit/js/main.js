@@ -96,6 +96,11 @@ function updateHud() {
     state.sky = (sk >= 0 && sk < 4) ? sk : 0;   // never trust a stored mode outside 0..3
   } catch (err) {}
   el.skyBtn.dataset.mode = String(state.sky);
+  try {
+    const de = localStorage.getItem("lp.dest");
+    if (de === "moon" || de === "mars" || de === "station") state.dest = de;
+  } catch (err) {}
+  document.querySelectorAll(".destCard").forEach(c2 => c2.classList.toggle("sel", c2.dataset.dest === state.dest));
   restoreSpots();
   if (window.__lp && window.__lp.noRestore) return;
   if (!v || d === null || !TUNE.vehicles[v] || TUNE.vehicles[v].hidden) return;
@@ -105,6 +110,7 @@ function updateHud() {
   spawnForTakeoff(di, di);
   el.screenVehicle.classList.add("hiddenS");
   el.screenDir.classList.add("hiddenS");
+  el.screenDest.classList.add("hiddenS");
 })();
 updateChunks(state.x, state.z, true);
 updateScenery(state.x, state.z, true);
@@ -117,7 +123,7 @@ window.__lp = {
   get trainHead(){return trainHead;}, get trainSolids(){return trainSolids;}, resolveSolidWalls,
   get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, get clouds(){return clouds;}, rk, BODIES, RECOVERY, dropStage, rocketCanDrop, rocketApplyStages, rocketPad, deploySatellite, rocketCanDeploySat, deployChute, rocketCanChute, get satellites(){return satellites;}, rocketSkipToLanding, rocketCanSkip, rocketSkipTarget, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
-  get cameraPos(){return camera.position;}, camera, scene,
+  get cameraPos(){return camera.position;}, camera, scene, station, takePhoto,
   forEachSolid(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);for(const b of trainSolids)cb(b);}, get vehicleModel(){return vehicleModel;},
   get traffic(){return traffic;},
   get missilesList(){return missiles;},
