@@ -30,27 +30,33 @@ function stationInteriorOrigin() {
   return astro.origin.set(b.x, b.y + 1400, b.z);   // above the station, out of everyone's way
 }
 
-function buildAstronaut() {
+// suit = true: the white EVA suit with backpack and gloves (the helmet is added by the
+// spacewalk). Inside the station he wears a polo shirt and trousers, like a real crew.
+function buildAstronaut(suit) {
   const g = new THREE.Group();
   const white = new THREE.MeshLambertMaterial({ color: 0xf2f4f7 });
   const grey = new THREE.MeshLambertMaterial({ color: 0xb8bec8 });
   const skin = new THREE.MeshLambertMaterial({ color: 0xf1c9a5 });
   const dark = new THREE.MeshLambertMaterial({ color: 0x23282f });
   const blue = new THREE.MeshLambertMaterial({ color: 0x2b4fb0 });
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.27, 0.95, 12), white); g.add(torso);
-  const shoulders = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8), white); shoulders.position.y = 0.42; g.add(shoulders);
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.25), grey); pack.position.set(0, 0.05, -0.35); g.add(pack);
+  const shirt = suit ? white : new THREE.MeshLambertMaterial({ color: 0x2b4fb0 });
+  const pants = suit ? white : new THREE.MeshLambertMaterial({ color: 0x6b7078 });
+  const hands = suit ? white : skin;
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.27, 0.95, 12), shirt); g.add(torso);
+  const shoulders = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8), shirt); shoulders.position.y = 0.42; g.add(shoulders);
+  if (suit) { const pack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.25), grey); pack.position.set(0, 0.05, -0.35); g.add(pack); }
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), skin); head.position.y = 0.7; g.add(head);
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.235, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), white); cap.position.y = 0.72; g.add(cap);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.235, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), suit ? white : new THREE.MeshLambertMaterial({ color: 0x3a2a1a })); hair.position.y = 0.72; g.add(hair);
   for (const sx of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), dark); eye.position.set(sx * 0.08, 0.72, 0.19); g.add(eye);
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.7, 8), white); arm.position.set(sx * 0.42, 0.05, 0.1); arm.rotation.z = sx * 0.5; arm.rotation.x = -0.4; g.add(arm);
-    const glove = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), white); glove.position.set(sx * 0.58, -0.22, 0.3); g.add(glove);
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.75, 8), white); leg.position.set(sx * 0.16, -0.75, 0.05); leg.rotation.x = 0.25; g.add(leg);
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.3), dark); boot.position.set(sx * 0.16, -1.12, 0.18); g.add(boot);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.7, 8), suit ? white : skin); arm.position.set(sx * 0.42, 0.05, 0.1); arm.rotation.z = sx * 0.5; arm.rotation.x = -0.4; g.add(arm);
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.095, 0.3, 8), shirt); sleeve.position.set(sx * 0.36, 0.22, 0.02); sleeve.rotation.z = sx * 0.5; sleeve.rotation.x = -0.4; g.add(sleeve);
+    const glove = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), hands); glove.position.set(sx * 0.58, -0.22, 0.3); g.add(glove);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.75, 8), pants); leg.position.set(sx * 0.16, -0.75, 0.05); leg.rotation.x = 0.25; g.add(leg);
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.3), suit ? dark : new THREE.MeshLambertMaterial({ color: 0xf2f4f7 })); boot.position.set(sx * 0.16, -1.12, 0.18); g.add(boot);
   }
   const smile = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.015, 6, 10, Math.PI), dark); smile.position.set(0, 0.64, 0.2); smile.rotation.z = Math.PI; g.add(smile);
-  const patch = new THREE.Mesh(new THREE.CircleGeometry(0.07, 10), blue); patch.position.set(-0.18, 0.2, 0.31); g.add(patch);
+  const patch = new THREE.Mesh(new THREE.CircleGeometry(0.07, 10), suit ? blue : new THREE.MeshLambertMaterial({ color: 0xffd23e })); patch.position.set(-0.18, 0.2, 0.31); g.add(patch);
   g.visible = false;
   return g;
 }
@@ -163,7 +169,7 @@ function buildInterior() {
   g.visible = false;
   scene.add(g);
   astro.group = g;
-  astro.mesh = buildAstronaut();
+  astro.mesh = buildAstronaut(false);
   g.add(astro.mesh);
   astro.built = true;
 }
@@ -196,7 +202,7 @@ function enterStation() {
   camera.position.set(astro.origin.x + astro.x, astro.origin.y + astro.y + 0.9, astro.origin.z + astro.z - 2.8);   // no lerp in from a kilometre away
   for (const m of astro.moduleLights) { m.on = false; m.mat.color.setHex(0x3a3f47); m.light.intensity = 0; }
   astro.blob.gone = 0; astro.blob.mesh.visible = true;
-  el.hatchBtn.dataset.mode = "back";
+  el.hatchBtn.dataset.mode = "eva";
   if (typeof keys !== "undefined") keys.clear();
   chirp(); noiseBurst(0.5, 600, 0.2, 0);   // the hatch hiss
   flags.stationEntries = (flags.stationEntries || 0) + 1;
@@ -209,7 +215,19 @@ function leaveStation() {
   toot();
   return true;
 }
-function toggleHatch() { return astro.mode === "none" ? enterStation() : leaveStation(); }
+// The go button while he is out of the seat: all the way back to the capsule from anywhere.
+function leaveStationAll() {
+  if (astro.mode === "inside") return leaveStation();
+  if (astro.mode === "eva" || astro.mode === "evaReturn") { astro.exitAfter = true; if (astro.mode === "eva") leaveStation(); return true; }
+  return false;
+}
+// The slot button: docked -> go inside; inside -> spacewalk; outside -> back inside.
+function toggleHatch() {
+  if (astro.mode === "none") return enterStation();
+  if (astro.mode === "inside") { evaStart(); return true; }
+  if (astro.mode === "eva") return leaveStation();
+  return false;
+}
 function astroReset() {
   astro.mode = "none";
   if (astro.group) astro.group.visible = false;
@@ -233,15 +251,16 @@ function updateAstronaut(dt) {
   // facing from yaw/pitch; drag up = look up
   let yawIn = 0, pitchIn = 0, push = 0;
   if (astro.mode === "leaving") {
-    // fly himself to the hatch
+    // fly himself to the hatch: the velocity is steered straight at it, so it always arrives
     asTmp.set(0 - astro.x, 0 - astro.y, (-A.halfLen + 1.2) - astro.z);
     const d = asTmp.length();
     if (d < 1.0) { astroFinishLeave(); return; }
     asTmp.normalize();
     const wantYaw = Math.atan2(asTmp.x, asTmp.z), wantPitch = Math.asin(clamp(asTmp.y, -1, 1));
-    astro.yaw += wrapPi(wantYaw - astro.yaw) * Math.min(1, 3 * dt);
-    astro.pitch += (wantPitch - astro.pitch) * Math.min(1, 3 * dt);
-    push = 1;
+    astro.yaw += wrapPi(wantYaw - astro.yaw) * Math.min(1, 4 * dt);
+    astro.pitch += (wantPitch - astro.pitch) * Math.min(1, 4 * dt);
+    const v = Math.min(A.maxSpeed, 0.8 + d * 0.5);
+    astro.vx += (asTmp.x * v - astro.vx) * Math.min(1, 4 * dt); astro.vy += (asTmp.y * v - astro.vy) * Math.min(1, 4 * dt); astro.vz += (asTmp.z * v - astro.vz) * Math.min(1, 4 * dt);
   } else {
     yawIn = -clamp(state.ctrlBank, -1, 1); pitchIn = clamp(state.ctrlPitch, -1, 1);
     push = state.throttleHeld ? 1 : 0;
@@ -366,7 +385,7 @@ function evaWorldAnchor() {
   return eva.anchor.set(s.x + 6.5, s.y - 2, s.z);   // the airlock, on the core's side
 }
 function buildEva() {
-  eva.mesh = buildAstronaut();
+  eva.mesh = buildAstronaut(true);
   const gold = new THREE.MeshLambertMaterial({ color: 0xd4a72c, emissive: 0x3a2a08 });
   const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), new THREE.MeshLambertMaterial({ color: 0xf2f4f7 })); helmet.position.y = 0.7; eva.mesh.add(helmet);
   const visor = new THREE.Mesh(new THREE.SphereGeometry(0.27, 14, 10, -0.9, 1.8, 0.9, 1.3), gold); visor.position.y = 0.7; eva.mesh.add(visor);
@@ -396,6 +415,7 @@ function evaStart() {
   eva.toolHeld = false; eva.tool.visible = true; eva.toolPos.set(a.x + 14, a.y + 6, a.z + 8); eva.toolVel = new THREE.Vector3(-0.15, -0.05, -0.1);
   if (station.userData.panels && station.userData.panels.length) { eva.stuck = station.userData.panels[3]; eva.stuck.scale.x = 0.4; eva.stuckDone = false; }
   camera.position.set(eva.x - 3, eva.y + 1, eva.z);
+  el.hatchBtn.dataset.mode = "back";
   noiseBurst(0.6, 500, 0.25, 0); chirp();
   flags.spacewalks = (flags.spacewalks || 0) + 1;
 }
@@ -407,21 +427,26 @@ function evaFinish() {
   astro.x = astro.airlock.x * 0.6; astro.y = astro.airlock.y * 0.6; astro.z = astro.airlock.z; astro.vx = -astro.airlock.x * 0.3; astro.vy = -astro.airlock.y * 0.3; astro.vz = 0;
   astro.yaw = Math.atan2(-astro.airlock.x, 0.01); astro.pitch = 0;
   camera.position.set(astro.origin.x + astro.x, astro.origin.y + astro.y + 0.9, astro.origin.z + astro.z - 2.8);
+  el.hatchBtn.dataset.mode = "eva";
   noiseBurst(0.5, 600, 0.2, 0); chirp();
   flags.spacewalkReturns = (flags.spacewalkReturns || 0) + 1;
+  if (astro.exitAfter) { astro.exitAfter = false; leaveStation(); }
 }
 function updateEva(dt) {
   eva.t += dt;
   const a = evaWorldAnchor();
   let push = 0;
   if (astro.mode === "evaReturn") {
+    // the tether reels him straight to the airlock: velocity steered at it, never a circle
     asTmp.set(a.x - eva.x, a.y - eva.y, a.z - eva.z);
     const d = asTmp.length();
-    if (d < 1.8) { evaFinish(); return; }
+    if (d < 2.2) { evaFinish(); return; }
     asTmp.normalize();
     const wantYaw = Math.atan2(asTmp.x, asTmp.z), wantPitch = Math.asin(clamp(asTmp.y, -1, 1));
-    astro.yaw += wrapPi(wantYaw - astro.yaw) * Math.min(1, 3 * dt);
-    astro.pitch += (wantPitch - astro.pitch) * Math.min(1, 3 * dt);
+    astro.yaw += wrapPi(wantYaw - astro.yaw) * Math.min(1, 4 * dt);
+    astro.pitch += (wantPitch - astro.pitch) * Math.min(1, 4 * dt);
+    const v = Math.min(EVA.maxSpeed, 1 + d * 0.4);
+    eva.vx += (asTmp.x * v - eva.vx) * Math.min(1, 4 * dt); eva.vy += (asTmp.y * v - eva.vy) * Math.min(1, 4 * dt); eva.vz += (asTmp.z * v - eva.vz) * Math.min(1, 4 * dt);
     push = 1;
   } else {
     astro.yaw += -clamp(state.ctrlBank, -1, 1) * ASTRO.turn * dt;

@@ -355,9 +355,11 @@ function update(dt) {
   el.gearBtn.classList.toggle("gear-up", !state.gearDown);
   const thOffVis = Math.round(Math.cos(state.dirIdx === 0 ? 0 : Math.PI)) * (TUNE.runwayLength / 2);
   const dzVis = state.z - (AIRPORTS[state.destIdx].cz + thOffVis);
-  if (el.skipBtn.dataset.target !== "home") el.skipBtn.dataset.target = "home";
-  el.skipBtn.classList.toggle("hidden",
-    state.phase !== "AIRBORNE" || state.engaged || (dzVis * dzVis) < TUNE.approachEngageDist * TUNE.approachEngageDist);
+  if (!state.vp.rocket) {   // the rocket's go button is updateRocket's (destination icons, the capsule)
+    if (el.skipBtn.dataset.target !== "home") el.skipBtn.dataset.target = "home";
+    el.skipBtn.classList.toggle("hidden",
+      state.phase !== "AIRBORNE" || state.engaged || (dzVis * dzVis) < TUNE.approachEngageDist * TUNE.approachEngageDist);
+  }
   const inFlight = state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY";
   el.slowBtn.classList.toggle("hidden", !inFlight);
   el.fastBtn.classList.toggle("hidden", !inFlight);
