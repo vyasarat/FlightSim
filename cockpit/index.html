@@ -353,7 +353,7 @@
   }
   #skipBtn.hidden { display: none; }
   #skipBtn .tgt { display: none; }
-  #skipBtn[data-target="home"] .home, #skipBtn[data-target="moon"] .moon, #skipBtn[data-target="mars"] .mars, #skipBtn[data-target="station"] .station { display: block; }
+  #skipBtn[data-target="home"] .home, #skipBtn[data-target="moon"] .moon, #skipBtn[data-target="mars"] .mars, #skipBtn[data-target="station"] .station, #skipBtn[data-target="capsule"] .capsule { display: block; }
   #skipBtn[data-target="moon"], #skipBtn[data-target="mars"], #skipBtn[data-target="station"] { border-color: #5ff1ff; animation: homePulse 1.4s ease-in-out infinite; }
   #vehBtn {
     top: calc(var(--top-row) + env(safe-area-inset-top));
@@ -382,9 +382,10 @@
   }
   #hatchBtn.hidden { display: none; }
   #hatchBtn[data-mode="in"] { animation: homePulse 1.2s ease-in-out infinite; }
-  #hatchBtn .back { display: none; }
-  #hatchBtn[data-mode="back"] .back { display: block; }
-  #hatchBtn[data-mode="back"] .in { display: none; }
+  #hatchBtn .back, #hatchBtn .eva { display: none; }
+  #hatchBtn[data-mode="back"] .back, #hatchBtn[data-mode="eva"] .eva { display: block; }
+  #hatchBtn[data-mode="back"] .in, #hatchBtn[data-mode="eva"] .in { display: none; }
+  #hatchBtn[data-mode="eva"] { border-color: #ffd23e; }
   #roverBtn .back { display: none; }
   #roverBtn[data-mode="back"] .back { display: block; }
   #roverBtn[data-mode="back"] .out { display: none; }
@@ -617,6 +618,12 @@
     <circle cx="40" cy="52" r="6" fill="#9c4322"/><circle cx="62" cy="40" r="4" fill="#9c4322"/>
     <path d="M50 88 l0 8 M42 92 l8 6 l8 -6" fill="none" stroke="#5ff1ff" stroke-width="4" stroke-linecap="round"/>
   </svg>
+  <svg class="tgt capsule" viewBox="0 0 100 100">
+    <path d="M50 10 Q60 22 60 38 L60 56 L40 56 L40 38 Q40 22 50 10 Z" fill="#f4f6f8" stroke="#23282f" stroke-width="3"/>
+    <path d="M44 56 Q50 66 56 56 Z" fill="#ffb43a"/>
+    <path d="M14 80 h22 M30 72 l8 8 l-8 8" fill="none" stroke="#5ff1ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="76" cy="76" r="6" fill="#f1c9a5"/><path d="M66 94 a10 10 0 0 1 20 0" fill="#2b4fb0"/>
+  </svg>
   <svg class="tgt station" viewBox="0 0 100 100">
     <rect x="8" y="42" width="26" height="18" fill="#2b4fb0" stroke="#5ff1ff" stroke-width="2"/>
     <rect x="66" y="42" width="26" height="18" fill="#2b4fb0" stroke="#5ff1ff" stroke-width="2"/>
@@ -682,11 +689,17 @@
     <circle cx="50" cy="42" r="6" fill="#f1c9a5"/><path d="M40 62 a10 10 0 0 1 20 0" fill="#f2f4f7"/>
     <path d="M50 78 l0 10 M44 84 l6 6 l6 -6" fill="none" stroke="#5ff1ff" stroke-width="4" stroke-linecap="round"/>
   </svg>
+  <svg class="eva" viewBox="0 0 100 100">
+    <circle cx="50" cy="34" r="18" fill="#f2f4f7" stroke="#23282f" stroke-width="3"/>
+    <path d="M36 34 a14 14 0 0 1 28 0 v6 h-28 z" fill="#d4a72c"/>
+    <path d="M32 54 h36 v30 h-36 z" fill="#f2f4f7" stroke="#23282f" stroke-width="3"/>
+    <path d="M26 58 l-10 22 M74 58 l10 22" stroke="#f2f4f7" stroke-width="8" stroke-linecap="round"/>
+    <path d="M12 70 q-8 10 4 18" fill="none" stroke="#5ff1ff" stroke-width="3" stroke-linecap="round"/>
+  </svg>
   <svg class="back" viewBox="0 0 100 100">
-    <path d="M50 10 Q60 22 60 38 L60 56 L40 56 L40 38 Q40 22 50 10 Z" fill="#f4f6f8" stroke="#23282f" stroke-width="3"/>
-    <path d="M44 56 Q50 66 56 56 Z" fill="#ffb43a"/>
-    <path d="M14 78 h22 M30 70 l8 8 l-8 8" fill="none" stroke="#5ff1ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="76" cy="76" r="6" fill="#f1c9a5"/><path d="M66 94 a10 10 0 0 1 20 0" fill="#f2f4f7"/>
+    <circle cx="50" cy="50" r="34" fill="#8a93a0" stroke="#23282f" stroke-width="3"/>
+    <circle cx="50" cy="50" r="24" fill="#2f3a48" stroke="#5ff1ff" stroke-width="4"/>
+    <path d="M62 50 h-24 M46 42 l-8 8 l8 8" fill="none" stroke="#5ff1ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
 </button>
 <div id="reentryGlow" aria-hidden="true"></div>
