@@ -296,6 +296,7 @@ function showPhoto(dataUrl) {
 }
 el.camBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.camBtn);
+  if (typeof roverHorn === "function") roverHorn();   // driving: the camera button honks too
   takePhoto();
 });
 

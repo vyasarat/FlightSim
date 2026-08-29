@@ -13,7 +13,7 @@ const rover = {
   active: false, body: null, returning: false,
   x: 0, y: 0, z: 0, h: 0, vh: 0, speed: 0, t: 0, thrPrev: false,
   n: new THREE.Vector3(0, 1, 0), f: new THREE.Vector3(0, 0, -1),
-  mesh: null, wheels: [], rocks: [], beacons: [], arches: [], loopT: 0,
+  mesh: null, wheels: [], rocks: [], beacons: [], toys: [], craters: [], stuck: false,
 };
 const rvTmp = new THREE.Vector3(), rvTmp2 = new THREE.Vector3();
 
@@ -68,45 +68,89 @@ function placeRocks(b) {
     rover.rocks.push({ mesh: m, x: m.position.x, y: m.position.y, z: m.position.z, lit: false, i });
   }
 }
-// The loop: six glowing arches in a ring around the landing site. Drive through each for a
-// rising note; all six and it is fireworks, then they re-arm (like the flight gates).
-function placeArches(b) {
-  for (const a of rover.arches) scene.remove(a.mesh);
-  rover.arches = [];
-  for (let i = 0; i < 6; i++) {
-    const ang = i / 6 * Math.PI * 2, p = surfacePoint(b, rover.n, 60, ang);
+// The toys. Three ramps on the crater rims (drive over one fast and it is a big low-g
+// jump with a whoop), a patch of soft sand where the wheels spin and dust flies until he
+// wiggles the stick -- or it pops him out by itself -- and three boulders to shove, which
+// roll off and thud into one of two craters with confetti. The camera button honks.
+function placeToys(b) {
+  for (const t of rover.toys) scene.remove(t.mesh);
+  rover.toys = [];
+  const tan = new THREE.MeshLambertMaterial({ color: b.name === "mars" ? 0xc98a5a : 0xd9d2b8 });
+  const rockM = new THREE.MeshLambertMaterial({ color: b.name === "mars" ? 0x8a3f22 : 0x777b84 });
+  const put = (mesh, p, lift) => { mesh.position.set(p.x + p.dir.x * lift, p.y + p.dir.y * lift, p.z + p.dir.z * lift); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.dir); scene.add(mesh); };
+  for (let i = 0; i < 3; i++) {   // ramps: a wedge, its high lip facing away from the capsule
+    const ang = 0.4 + i * 2.1, p = surfacePoint(b, rover.n, 40 + i * 12, ang);
     const g = new THREE.Group();
-    const mat = new THREE.MeshBasicMaterial({ color: 0x5ff1ff });
-    for (const sx of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 5, 8), mat); post.position.set(sx * 4, 2.5, 0); g.add(post); }
-    const bar = new THREE.Mesh(new THREE.TorusGeometry(4, 0.35, 8, 20, Math.PI), mat); bar.position.y = 5; g.add(bar);
-    g.position.set(p.x, p.y, p.z);
-    // stand on the ground, facing along the ring (tangent) so the loop drives through them
-    const up = p.dir.clone();
-    const q = surfacePoint(b, rover.n, 60, ang + 0.1);
-    const t = new THREE.Vector3(q.x - p.x, q.y - p.y, q.z - p.z); t.addScaledVector(up, -t.dot(up)).normalize();
-    g.up.copy(up); g.lookAt(p.x + t.x, p.y + t.y, p.z + t.z);
-    scene.add(g);
-    rover.arches.push({ mesh: g, mat, x: p.x, y: p.y, z: p.z, lit: false, i });
+    const wedge = new THREE.Mesh(new THREE.BoxGeometry(6, 2.2, 8), tan); wedge.position.y = 0.4; wedge.rotation.x = -0.32; g.add(wedge);
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.3, 0.6), new THREE.MeshBasicMaterial({ color: 0xffd23e })); lip.position.set(0, 2.05, -3.6); g.add(lip);
+    put(g, p, 0);
+    // turn it to face outward along the ground
+    const q = surfacePoint(b, rover.n, 52 + i * 12, ang), out = new THREE.Vector3(q.x - p.x, q.y - p.y, q.z - p.z); out.addScaledVector(p.dir, -out.dot(p.dir)).normalize();
+    g.up.copy(p.dir); g.lookAt(p.x - out.x, p.y - out.y, p.z - out.z);
+    rover.toys.push({ kind: "ramp", mesh: g, x: p.x, y: p.y, z: p.z, dir: out });
   }
-  rover.loopT = 0;
+  { const p = surfacePoint(b, rover.n, 75, 3.6);   // the sand
+    const disc = new THREE.Mesh(new THREE.SphereGeometry(b.r + 0.35, 20, 6, 0, Math.PI * 2, 0, 13 / b.r), tan);
+    disc.position.set(b.x, b.y, b.z); disc.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.dir); scene.add(disc);
+    rover.toys.push({ kind: "sand", mesh: disc, x: p.x, y: p.y, z: p.z, r: 12, wiggles: 0, lastSign: 0, inT: 0 }); }
+  const craters = [];
+  for (let i = 0; i < 2; i++) { const p = surfacePoint(b, rover.n, 95, 1.0 + i * 3.3);   // the craters that swallow boulders
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(6, 0.7, 8, 24), rockM); put(ring, p, 0.3);
+    craters.push({ x: p.x, y: p.y, z: p.z }); rover.toys.push({ kind: "crater", mesh: ring, x: p.x, y: p.y, z: p.z }); }
+  rover.craters = craters;
+  for (let i = 0; i < 3; i++) {   // boulders between the capsule and the craters
+    const p = surfacePoint(b, rover.n, 60, 0.9 + i * 0.9 + (i === 2 ? 2.2 : 0));
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5, 0), rockM); put(m, p, 1.5);
+    rover.toys.push({ kind: "boulder", mesh: m, x: m.position.x, y: m.position.y, z: m.position.z, vx: 0, vy: 0, vz: 0, sunk: false });
+  }
 }
-function archesReset() { for (const a of rover.arches) { a.lit = false; a.mat.color.setHex(0x5ff1ff); } rover.loopT = 0; }
-function updateArches(dt) {
-  if (rover.loopT > 0) { rover.loopT -= dt; if (rover.loopT <= 0) archesReset(); return; }
-  for (const a of rover.arches) {
-    if (a.lit) continue;
-    if (Math.hypot(a.x - rover.x, a.y - rover.y, a.z - rover.z) < 6) {
-      a.lit = true; a.mat.color.setHex(0x7cff5a);
-      ringNote(a.i * 2);
-      flags.roverArches = (flags.roverArches || 0) + 1;
+function updateToys(dt, b) {
+  const sp = Math.abs(rover.speed);
+  for (const t of rover.toys) {
+    if (t.kind === "ramp") {
+      const d = Math.hypot(t.x - rover.x, t.y - rover.y, t.z - rover.z);
+      if (d < 4.5 && sp > 5 && rover.h < 0.4 && !t.armed && rover.f.dot(t.dir) > 0.3) {
+        t.armed = true; rover.vh = Math.max(rover.vh, 4 + sp * 0.45); rover.h = Math.max(rover.h, 0.05);
+        synthBlip("sine", 400, 900, 0.35, 0.28, 0); noiseBurst(0.15, 700, 0.15, 0);
+        flags.roverJumps = (flags.roverJumps || 0) + 1;
+      }
+      if (d > 8) t.armed = false;   // one jump per pass
+    } else if (t.kind === "sand") {
+      const inside = Math.hypot(t.x - rover.x, t.y - rover.y, t.z - rover.z) < t.r && rover.h <= 0;
+      if (inside && !rover.stuck) { rover.stuck = true; t.inT = 0; t.wiggles = 0; t.lastSign = 0; noiseBurst(0.3, 250, 0.2, 0); flags.roverSandIn = (flags.roverSandIn || 0) + 1; }
+      if (rover.stuck) {
+        t.inT += dt;
+        rover.speed = clamp(rover.speed * (1 - Math.min(1, 4 * dt)), -1.2, 1.2);   // wheels spin, it barely moves
+        if (state.throttleHeld && rnd() < dt * 8) { wakePuff(rover.x + (rnd() - 0.5) * 2, rover.y, rover.z + (rnd() - 0.5) * 2, 0xd9c9a0, 0.5, 1.4, 0.6); if (rnd() < 0.3) noiseBurst(0.06, 500, 0.1, 0); }
+        const sgn = Math.sign(state.ctrlBank) * (Math.abs(state.ctrlBank) > 0.4 ? 1 : 0);
+        if (sgn && sgn !== t.lastSign) { if (t.lastSign) t.wiggles++; t.lastSign = sgn; }
+        if (t.wiggles >= 4 || t.inT > 7) {   // out it pops (by itself if he does not wiggle: nothing is ever stuck)
+          rover.stuck = false; rover.vh = 2.5; rover.h = 0.05;
+          rover.x += rover.f.x * 3; rover.y += rover.f.y * 3; rover.z += rover.f.z * 3; rover.speed = 8;
+          for (let k = 0; k < 10; k++) wakePuff(rover.x + (rnd() - 0.5) * 3, rover.y, rover.z + (rnd() - 0.5) * 3, 0xd9c9a0, 0.8, 2.5, 0.8);
+          deepPop(); chirp(); flags.roverSandOut = (flags.roverSandOut || 0) + 1;
+        }
+      }
+      if (!inside && rover.stuck && Math.hypot(t.x - rover.x, t.y - rover.y, t.z - rover.z) > t.r + 4) rover.stuck = false;
+    } else if (t.kind === "boulder" && !t.sunk) {
+      // shove it: it rolls along the ground and slows
+      const dx = t.x - rover.x, dy = t.y - rover.y, dz = t.z - rover.z, d = Math.hypot(dx, dy, dz);
+      if (d < 3.2 && sp > 1) { const s = Math.max(6, sp * 1.1); t.vx = rover.f.x * s; t.vy = rover.f.y * s; t.vz = rover.f.z * s; noiseBurst(0.12, 200, 0.25, 0); rover.speed *= 0.5; }
+      const n = new THREE.Vector3(t.x - b.x, t.y - b.y, t.z - b.z).normalize();
+      const v = new THREE.Vector3(t.vx, t.vy, t.vz); v.addScaledVector(n, -v.dot(n)); v.multiplyScalar(1 - Math.min(1, 0.12 * dt));
+      t.vx = v.x; t.vy = v.y; t.vz = v.z;
+      t.x += t.vx * dt; t.y += t.vy * dt; t.z += t.vz * dt;
+      const rr = Math.hypot(t.x - b.x, t.y - b.y, t.z - b.z); t.x = b.x + (t.x - b.x) / rr * (b.r + 1.5); t.y = b.y + (t.y - b.y) / rr * (b.r + 1.5); t.z = b.z + (t.z - b.z) / rr * (b.r + 1.5);
+      t.mesh.position.set(t.x, t.y, t.z);
+      const vs = v.length(); if (vs > 0.2) { t.mesh.rotateOnWorldAxis(new THREE.Vector3().crossVectors(n, v).normalize(), vs * dt / 1.5); if (rnd() < dt * 2) noiseBurst(0.08, 150, 0.08 * Math.min(1, vs / 6), 0); }
+      for (const c of rover.craters) if (Math.hypot(c.x - t.x, c.y - t.y, c.z - t.z) < 5) {
+        t.sunk = true; t.mesh.position.addScaledVector(n, -1.2); t.vx = t.vy = t.vz = 0;
+        deepPop(); confettiBurst(); chime(); flags.roverBoulders = (flags.roverBoulders || 0) + 1;
+      }
     }
   }
-  if (rover.arches.length && rover.arches.every(a => a.lit)) {
-    fanfare(); confettiBurst(); for (let i = 0; i < 5; i++) fireworkSound(0.3 + i * 0.4);
-    flags.roverLoops = (flags.roverLoops || 0) + 1;
-    rover.loopT = TUNE.gateRearm;
-  }
 }
+function roverHorn() { if (!rover.active) return false; synthBlip("square", 330, 330, 0.25, 0.22, 0); synthBlip("square", 262, 262, 0.25, 0.18, 0.3); flags.roverHorns = (flags.roverHorns || 0) + 1; return true; }
 function roverDeploy() {
   if (!roverCan()) return false;
   if (!rover.mesh) buildRover();
@@ -119,7 +163,7 @@ function roverDeploy() {
   rover.f.set(rover.x - state.x, rover.y - state.y, rover.z - state.z);
   rover.f.addScaledVector(rover.n, -rover.f.dot(rover.n)).normalize();
   placeRocks(b);
-  placeArches(b);
+  placeToys(b); rover.stuck = false;
   rover.mesh.visible = true;
   rover.active = true;
   rover.thrPrev = state.throttleHeld;
@@ -141,8 +185,8 @@ function roverReset() {
   if (rover.mesh) rover.mesh.visible = false;
   for (const r of rover.rocks) scene.remove(r.mesh);
   rover.rocks = [];
-  for (const a of rover.arches) scene.remove(a.mesh);
-  rover.arches = [];
+  for (const t of rover.toys) scene.remove(t.mesh);
+  rover.toys = []; rover.stuck = false;
   for (const bc of rover.beacons) scene.remove(bc.mesh);
   rover.beacons = [];
   if (el.roverBtn) el.roverBtn.dataset.mode = "out";
@@ -218,7 +262,7 @@ function updateRover(dt) {
       r.mesh.rotation.y += dt * 0.8;
     }
   }
-  updateArches(dt);
+  updateToys(dt, b);
   for (const bc of rover.beacons) bc.lamp.visible = (frameCount % 40) < 22;
   // the model
   const m = rover.mesh;
