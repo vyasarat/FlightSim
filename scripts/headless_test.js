@@ -2447,7 +2447,7 @@ function check(name, ok, extra) {
       L.update(1 / 60);
       out.landed = st.phase === "TAXI" && !!L.rk.onBody; out.shownOnMoon = !hidden(btn);
       out.deployed = L.roverDeploy(); L.update(1 / 60);
-      out.rocks = L.rover.rocks.length; out.arches = L.rover.arches.length;
+      out.rocks = L.rover.rocks.length; out.toys = L.rover.toys.length;
       const x0 = L.rover.x, y0 = L.rover.y, z0 = L.rover.z;
       // throttle drives it forward; the stick steers (drag right = turn right)
       L.api.setThrottle(true); st.touching = true; st.ctrlPitch = 0; st.ctrlBank = 0;
@@ -2457,11 +2457,19 @@ function check(name, ok, extra) {
       st.ctrlBank = 0; L.api.setThrottle(false); st.touching = false;
       out.moved = Math.round(Math.hypot(L.rover.x - x0, L.rover.y - y0, L.rover.z - z0)); out.hMin = +hMin.toFixed(1); out.hMax = +hMax.toFixed(1);
       out.rocketStayed = st.phase === "TAXI" && !!L.rk.onBody;
-      // the loop: through all six arches (teleport to each) = a finale, then they re-arm
-      const l0 = L.flags.roverLoops || 0, a0 = L.flags.roverArches || 0;
-      for (const a of L.rover.arches) { L.rover.x = a.x; L.rover.y = a.y; L.rover.z = a.z; L.update(1 / 60); }
-      out.archesLit = (L.flags.roverArches || 0) - a0; out.loop = (L.flags.roverLoops || 0) > l0;
-      for (let i = 0; i < 60 * (L.TUNE.gateRearm + 1); i++) L.update(1 / 60); out.rearmed = L.rover.arches.every(a => !a.lit);
+      // the toys: a ramp jump, the sand (wiggle out), a boulder into a crater, the horn
+      const R0 = L.rover, ramp = R0.toys.find(t => t.kind === "ramp"), sand = R0.toys.find(t => t.kind === "sand"), bould = R0.toys.find(t => t.kind === "boulder"), crat = R0.craters[0];
+      R0.x = ramp.x; R0.y = ramp.y; R0.z = ramp.z; R0.f.copy(ramp.dir); R0.speed = 9; R0.h = 0; R0.vh = 0; R0.stuck = false; const j0 = L.flags.roverJumps || 0; L.update(1 / 60); out.jump = (L.flags.roverJumps || 0) > j0 && R0.vh > 5;
+      let hTop = 0; for (let i = 0; i < 60 * 8; i++) { L.update(1 / 60); hTop = Math.max(hTop, R0.h); } out.jumpHigh = hTop > 3;
+      R0.x = sand.x; R0.y = sand.y; R0.z = sand.z; R0.h = 0; R0.vh = 0; R0.speed = 6; L.update(1 / 60); out.sandIn = R0.stuck && (L.flags.roverSandIn || 0) > 0;
+      L.api.setThrottle(true); for (let i = 0; i < 30; i++) L.update(1 / 60); out.sandSlow = Math.abs(R0.speed) < 2; L.api.setThrottle(false);
+      st.touching = true; for (let k = 0; k < 5; k++) { st.ctrlBank = k % 2 ? 1 : -1; for (let i = 0; i < 6; i++) L.update(1 / 60); } st.ctrlBank = 0; st.touching = false;
+      out.sandOut = !R0.stuck && (L.flags.roverSandOut || 0) > 0;
+      const tb = new THREE.Vector3(bould.x - crat.x, bould.y - crat.y, bould.z - crat.z); tb.normalize();   // push it toward the crater
+      R0.x = bould.x + tb.x * 2.5; R0.y = bould.y + tb.y * 2.5; R0.z = bould.z + tb.z * 2.5; R0.f.copy(tb).negate(); R0.speed = 12; R0.h = 0; R0.vh = 0; R0.stuck = false;
+      const b0 = L.flags.roverBoulders || 0; for (let i = 0; i < 60 * 12 && (L.flags.roverBoulders || 0) === b0; i++) { L.update(1 / 60); R0.speed = 0; }
+      out.boulder = (L.flags.roverBoulders || 0) > b0 && bould.sunk;
+      const h0 = L.flags.roverHorns || 0; st.photoPending = false; document.getElementById("camBtn").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 51 })); out.horn = (L.flags.roverHorns || 0) > h0; st.photoPending = false;
       // roll onto a rock
       const r = L.rover.rocks[0]; L.rover.x = r.x; L.rover.y = r.y; L.rover.z = r.z; const k0 = L.flags.roverRocks || 0;
       L.update(1 / 60); out.rock = (L.flags.roverRocks || 0) > k0 && !r.mesh.visible;
@@ -2478,8 +2486,8 @@ function check(name, ok, extra) {
       L.api.placeOnRunway(); out.reset = L.rover.rocks.length === 0 && L.rover.beacons.length === 0;
       return out;
     });
-    check("rover: only on a body; rolls out, drives on the sphere with hops, collects a rock, plants a beacon, drives itself back, and the rocket launches after",
-      rov.hiddenOnPad && rov.landed && rov.shownOnMoon && rov.deployed && rov.rocks === 8 && rov.arches === 6 && rov.archesLit === 6 && rov.loop && rov.rearmed && rov.moved > 20 && rov.steered && rov.hMin > 0.5 && rov.hMax < 15 && rov.rocketStayed && rov.rock && rov.beacon && rov.ret && rov.back && rov.launched && rov.reset, JSON.stringify(rov));
+    check("rover: only on a body; rolls out, drives on the sphere with hops, jumps a ramp, spins out of the sand, shoves a boulder into a crater, honks, collects a rock (beacon), drives itself back, and the rocket launches after",
+      rov.hiddenOnPad && rov.landed && rov.shownOnMoon && rov.deployed && rov.rocks === 8 && rov.toys === 9 && rov.jump && rov.jumpHigh && rov.sandIn && rov.sandSlow && rov.sandOut && rov.boulder && rov.horn && rov.moved > 20 && rov.steered && rov.hMin > 0.5 && rov.hMax < 15 && rov.rocketStayed && rov.rock && rov.beacon && rov.ret && rov.back && rov.launched && rov.reset, JSON.stringify(rov));
 
     // skip-to-landing: in deep space it jumps to a slow descent above the nearest planet and lands; low down, above the home pad
     const skip = await page.evaluate(() => {
