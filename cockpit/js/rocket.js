@@ -408,6 +408,14 @@ function rocketNearestBody() {
 
 // ---- the flight model. Runs instead of the plane branch; the common tail of
 // update() (camera, HUD, sky, rewards) follows.
+// The go button: where it will take him (a destination's icon, the runway home, or the
+// capsule seat while he is floating about the station).
+function updateGoButton() {
+  const out = astroActive() && astro.mode !== "leaving";
+  el.skipBtn.classList.toggle("hidden", !(rocketCanSkip() || out));
+  const tb = rocketSkipTarget(); const tname = out ? "capsule" : tb ? tb.name : "home";
+  if (el.skipBtn.dataset.target !== tname) el.skipBtn.dataset.target = tname;
+}
 function updateRocket(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
   const halfLen = rocketHalfLen();
@@ -416,15 +424,14 @@ function updateRocket(dt) {
   el.roverBtn.classList.toggle("hidden", !(roverCan() || roverActive()));
   el.hatchBtn.classList.toggle("hidden", !(stationCanEnter() || astroActive()));
   if (roverActive()) { updateRover(dt); rk.igniteT = 0; return; }   // driving: the capsule waits
-  if (astroActive()) { updateAstronaut(dt); rk.igniteT = 0; updateStationDocked(dt, true); return; }   // floating inside: the capsule waits at the port
+  if (astroActive()) { updateGoButton(); updateAstronaut(dt); rk.igniteT = 0; updateStationDocked(dt, true); return; }   // floating inside: the capsule waits at the port
 
   // buttons: throttle always (hold to burn); the rocket has no missiles/speed steps/gear
   el.throttleBtn.classList.remove("hidden");
   el.rotateArrow.classList.remove("on");
   el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden"); el.missileBtn.classList.add("hidden");
   el.gearBtn.classList.add("hidden");
-  el.skipBtn.classList.toggle("hidden", !rocketCanSkip());
-  { const tb = rocketSkipTarget(); const tname = tb ? tb.name : "home"; if (el.skipBtn.dataset.target !== tname) el.skipBtn.dataset.target = tname; }
+  updateGoButton();
   el.stageBtn.classList.toggle("hidden", !rocketCanDrop());
   if (el.stageBtn.dataset.stage !== String(rk.stage)) el.stageBtn.dataset.stage = String(rk.stage);
   el.satBtn.classList.toggle("hidden", !rocketCanDeploySat());
