@@ -286,14 +286,17 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   `gateRearm`), fly into a yellow switch to light a module, drink the floating water blob. Tap the
   button again and he flies himself back to the hatch and into the seat; the capsule waits
   docked the whole time. Both views: the chase camera behind him, or his own eyes.
-- **The spacewalk**: module three has a red **airlock** ring on its wall. Float into it and he
-  is outside the real station in his suit and gold-visored helmet, on a glowing **tether**
+- **The spacewalk**: inside, the slot button becomes a spacesuit -- tap it (or float into the red
+  **airlock** ring in module three) and he is outside the real station in his suit and
+  gold-visored helmet (inside he is in a polo shirt), on a glowing **tether**
   (`EVA.tether`, 60 m) that reels him gently back if he drifts past it, jets puffing when he
   pushes, the station's core bumping him softly. Three jobs, all pointing: fly into the glowing
   orange **battery** on the truss and a fresh one slides in (the windows light), bump the
   **stuck solar array** and it unfolds, and catch the drifting **wrench** (it always drifts back
-  toward him) -- it clips to his belt. The slot button flies him back to the airlock and inside;
-  from inside, the same button takes him to the seat. Both views again.
+  toward him) -- it clips to his belt. Outside, the slot button reels him straight back to the
+  airlock and inside (it steers his speed at it, so it can never circle or get stuck). The
+  top-left **go button** shows the capsule the whole time he is out of the seat: from inside or
+  outside it takes him all the way back to the seat. Both views again.
 - **The stack**: the satellite button releases the big satellite and then five flat Starlink-style
   ones, one every 0.9 s with their own beep, fanning out in a line of blinking lights.
 - **Mission photos**: the camera in the rocket frames the shot as a round mission patch.

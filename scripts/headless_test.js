@@ -2176,7 +2176,7 @@ function check(name, ok, extra) {
       for (let i = 0; i < 60 * 40 && !L.rk.onBody; i++) L.update(1 / 60);
       L.update(1 / 60); out.shownDocked = !hidden("hatchBtn");
       out.entered = L.enterStation(); L.update(1 / 60);
-      const A = L.astro; out.interiorShown = A.group.visible; out.btnBack = document.getElementById("hatchBtn").dataset.mode === "back";
+      const A = L.astro; out.interiorShown = A.group.visible; out.btnBack = document.getElementById("hatchBtn").dataset.mode === "eva" && document.getElementById("skipBtn").dataset.target === "capsule" && !hidden("skipBtn");
       // chase camera is inside the tube; throttle pushes him along; he coasts; the wall bounces him
       const camIn = () => { const c = L.cameraPos; const dx = c.x - A.origin.x, dy = c.y - A.origin.y, dz = c.z - A.origin.z; return Math.hypot(dx, dy) < 2.2 && Math.abs(dz) < 16; };
       for (let i = 0; i < 30; i++) L.update(1 / 60); out.camInside = camIn();
@@ -2191,9 +2191,9 @@ function check(name, ok, extra) {
       const o = A.objects[0], l = o.locker; o.x = l.x; o.y = l.y; o.z = l.z + 0.5; L.update(1 / 60); out.tidy = o.home && (L.flags.stationTidy || 0) > 0;
       const s = A.switches[0]; A.x = s.x; A.y = s.y; A.z = s.z; A.vx = A.vy = A.vz = 0; L.update(1 / 60); out.lit = A.moduleLights[0].on;
       A.x = A.blob.x; A.y = A.blob.y; A.z = A.blob.z; L.update(1 / 60); out.gulp = (L.flags.stationGulps || 0) > 0;
-      // the airlock: float into the red ring and he is outside on the tether; jobs; the button brings him back in
-      A.x = A.airlock.x; A.y = A.airlock.y; A.z = A.airlock.z; A.vx = A.vy = A.vz = 0; L.update(1 / 60);
-      out.eva = A.mode === "eva" && (L.flags.spacewalks || 0) > 0;
+      // the slot button starts the spacewalk (the red ring works too); outside it means back inside
+      out.evaBtn = L.toggleHatch(); L.update(1 / 60);
+      out.eva = A.mode === "eva" && (L.flags.spacewalks || 0) > 0 && document.getElementById("hatchBtn").dataset.mode === "back";
       const E = L.eva; for (let i = 0; i < 20; i++) L.update(1 / 60);
       out.evaCam = L.cameraPos.distanceTo(new THREE.Vector3(E.x, E.y, E.z)) < 8;
       L.api.setThrottle(true); const ex0 = E.x; for (let i = 0; i < 60 * 2; i++) L.update(1 / 60); L.api.setThrottle(false); out.evaMoves = Math.abs(E.x - ex0) > 1;
@@ -2202,8 +2202,14 @@ function check(name, ok, extra) {
       const bw = new THREE.Vector3(); L.station.updateMatrixWorld(); bw.setFromMatrixPosition(E.battery.matrixWorld); E.x = bw.x; E.y = bw.y; E.z = bw.z; E.vx = E.vy = E.vz = 0; L.update(1 / 60); out.battery = (L.flags.evaBattery || 0) > 0;
       bw.setFromMatrixPosition(E.stuck.matrixWorld); E.x = bw.x; E.y = bw.y; E.z = bw.z; L.update(1 / 60); for (let i = 0; i < 60 * 4; i++) L.update(1 / 60); out.arrayOpen = (L.flags.evaArray || 0) > 0 && E.stuck.scale.x > 0.9;
       E.x = E.toolPos.x; E.y = E.toolPos.y; E.z = E.toolPos.z; L.update(1 / 60); out.tool = E.toolHeld && (L.flags.evaTool || 0) > 0;
-      out.evaBack = L.leaveStation(); for (let i = 0; i < 60 * 60 && A.mode !== "inside"; i++) L.update(1 / 60);
-      out.insideAgain = A.mode === "inside" && (L.flags.spacewalkReturns || 0) > 0 && A.group.visible && !E.mesh.visible;
+      // from a bad spot (moving fast, right beside the core) the button still reels him in
+      E.x = E.anchor.x + 2; E.y = E.anchor.y + 30; E.z = E.anchor.z + 4; E.vx = -4; E.vy = 2; E.vz = 3; A.yaw = 2.5;
+      out.evaBack = L.toggleHatch(); for (let i = 0; i < 60 * 30 && A.mode !== "inside"; i++) L.update(1 / 60);
+      out.insideAgain = A.mode === "inside" && (L.flags.spacewalkReturns || 0) > 0 && A.group.visible && !E.mesh.visible && document.getElementById("hatchBtn").dataset.mode === "eva";
+      // the go button from outside goes all the way to the seat
+      L.toggleHatch(); L.update(1 / 60); E.x = E.anchor.x + 20; E.y = E.anchor.y - 10; E.z = E.anchor.z;
+      out.goAll = L.leaveStationAll(); for (let i = 0; i < 60 * 60 && L.astroActive(); i++) L.update(1 / 60); out.goAllDone = !L.astroActive();
+      out.entered2 = L.enterStation(); L.update(1 / 60);
       // back to the capsule by itself; the button returns to "in"; undock still works
       out.left = L.leaveStation(); for (let i = 0; i < 60 * 40 && L.astroActive(); i++) L.update(1 / 60);
       out.back = !L.astroActive() && !A.group.visible && document.getElementById("hatchBtn").dataset.mode === "in" && (L.flags.stationExits || 0) > 0;
@@ -2212,7 +2218,7 @@ function check(name, ok, extra) {
       return out;
     });
     check("station: docked, the hatch button floats him inside (chase camera in the tube, throttle pushes, he coasts and bounces off the walls, seat view at his head); tidy / lights / gulp all fire; the airlock ring starts a spacewalk (tether, battery, array, wrench) and the button brings him in, then back to the capsule, and it undocks",
-      inside.hiddenOnPad && inside.shownDocked && inside.entered && inside.interiorShown && inside.btnBack && inside.camInside && inside.moved && inside.coasts && inside.bounced && inside.seat && inside.capsuleWaits && inside.tidy && inside.lit && inside.gulp && inside.eva && inside.evaCam && inside.evaMoves && inside.tether && inside.battery && inside.arrayOpen && inside.tool && inside.evaBack && inside.insideAgain && inside.left && inside.back && inside.undocked, JSON.stringify(inside));
+      inside.hiddenOnPad && inside.shownDocked && inside.entered && inside.interiorShown && inside.btnBack && inside.camInside && inside.moved && inside.coasts && inside.bounced && inside.seat && inside.capsuleWaits && inside.tidy && inside.lit && inside.gulp && inside.evaBtn && inside.eva && inside.evaCam && inside.evaMoves && inside.tether && inside.battery && inside.arrayOpen && inside.tool && inside.evaBack && inside.insideAgain && inside.goAll && inside.goAllDone && inside.entered2 && inside.left && inside.back && inside.undocked, JSON.stringify(inside));
 
     await freshR();
     const cov = await page.evaluate(() => {
