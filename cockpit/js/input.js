@@ -246,6 +246,7 @@ document.querySelectorAll(".destCard").forEach(card => {
     state.dest = card.dataset.dest;
     try { localStorage.setItem("lp.dest", state.dest); } catch (err) {}
     document.querySelectorAll(".destCard").forEach(c2 => c2.classList.toggle("sel", c2 === card));
+    eventsOnDest();   // the draw was made before he chose: redraw against where he is going
     el.screenDest.classList.add("hiddenS");
     unlockAudio();
   });
@@ -337,7 +338,11 @@ window.addEventListener("keydown", (e) => {
   else if (c === "KeyV") toggleView();
   else if (c === "KeyB" || c === "Escape") openPicker();
   else if (c === "KeyF" || c === "Enter") {
-    if (state.vp.rocket) { if (!dropStage() && !deploySatellite() && !deployChute() && !toggleRover()) toggleHatch(); }
+    if (state.vp.rocket) {
+      // ... and during a meteor shower, with nothing else in the slot, F shoots
+      if (!dropStage() && !deploySatellite() && !deployChute() && !toggleRover() && !toggleHatch() &&
+          !el.missileBtn.classList.contains("hidden")) fireMissile();
+    }
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
   }
   else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
