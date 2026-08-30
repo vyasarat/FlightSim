@@ -2610,6 +2610,489 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+
+  // ---------- T-EV space events: one big thing every launch ----------
+  {
+    // A context whose pages start with a chosen localStorage instead of a cleared one.
+    async function seededPage(seed) {
+      const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 1 });
+      await ctx.addInitScript(s => {
+        try { localStorage.clear(); for (const k in s) localStorage.setItem(k, s[k]); } catch (e) {}
+        let sd = 0x2F6E2B1;
+        Math.random = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; };
+      }, seed);
+      const p = await ctx.newPage();
+      await p.addInitScript(`window.__rafQueue=[];window.__simTime=0;window.requestAnimationFrame=cb=>{__rafQueue.push(cb);return __rafQueue.length;};`);
+      await p.goto(URL);
+      await p.waitForFunction(() => !!window.__lp, null, { timeout: 15000 });
+      await p.evaluate(() => { window.__lp.noRender = true; window.__lp.api.skipScreens(); });
+      return { ctx, page: p };
+    }
+    // Counts calls to the real sound functions (audio.js declares them, so they are
+    // properties of window and the game's own unqualified calls go through these).
+    const TAP = `window.__snd = {};
+      for (const n of ["liftoffRoar","stageSep","whoosh","ringNote","fanfare","boomSound","chime","fireworkSound","cheer","noiseBurst"]) {
+        const orig = window[n]; window.__snd[n] = 0;
+        window[n] = function () { window.__snd[n]++; return orig.apply(null, arguments); };
+      }`;
+
+    let page = (await newPage(1180, 820)).page;
+    await page.evaluate(() => { window.__lp.noRender = true; window.__lp.api.setVehicle("rocket"); window.__lp.api.placeOnRunway(); });
+
+    // ---- the draw
+    const draw = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      const out = { seq: [], repeats: 0, impactsOnMars: 0, impactsOnMoon: 0 };
+      st.dest = "moon";
+      for (let i = 0; i < 60; i++) {
+        L.api.placeOnRunway();
+        out.seq.push(L.ev.kind);
+        if (i && L.ev.kind === out.seq[i - 1]) out.repeats++;
+        if (L.ev.kind === "impacts") out.impactsOnMoon++;
+      }
+      out.allKnown = out.seq.every(k => L.EVENT_KINDS.indexOf(k) >= 0);
+      out.covered = L.EVENT_KINDS.every(k => out.seq.indexOf(k) >= 0);
+      st.dest = "mars";
+      for (let i = 0; i < 60; i++) { L.api.placeOnRunway(); if (L.ev.kind === "impacts") out.impactsOnMars++; }
+      // picking a destination redraws against it, so `impacts` is reachable from any pad state
+      st.dest = "mars"; L.api.placeOnRunway(); st.dest = "moon"; L.eventsOnDest();
+      out.redrawValid = L.ev.dest === "moon" && L.EVENT_KINDS.indexOf(L.ev.kind) >= 0;
+      out.stored = localStorage.getItem("lp.lastEvent");
+      out.storedIsLast = out.stored === L.ev.kind;
+      // an event only stages after a real liftoff: a teleport into space must not arm one
+      L.api.placeOnRunway();
+      out.armedOnPad = L.ev.armed;
+      st.phase = "AIRBORNE"; st.y = 4000; st.spaceF = 1;
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      out.armedAfterTeleport = L.ev.armed;
+      out.startedAfterTeleport = L.ev.started;
+      return out;
+    });
+    check("events: every pad spawn draws one of the six, never the same twice running; all six come up; lp.lastEvent records it",
+      draw.allKnown && draw.covered && draw.repeats === 0 && draw.storedIsLast && draw.redrawValid, JSON.stringify({ ...draw, seq: draw.seq.slice(0, 10) }));
+    check("events: only a real liftoff arms one -- a teleport into space stages nothing",
+      draw.armedOnPad === false && draw.armedAfterTeleport === false && draw.startedAfterTeleport === false, JSON.stringify(draw));
+    check("events: the Moon's impacts are only ever drawn for a Moon flight",
+      draw.impactsOnMars === 0 && draw.impactsOnMoon > 0, JSON.stringify({ mars: draw.impactsOnMars, moon: draw.impactsOnMoon }));
+
+    // lp.lastEvent round-trips into a fresh session, and a corrupt one is ignored
+    {
+      const good = await seededPage({ "lp.lastEvent": "comet" });
+      const r1 = await good.page.evaluate(() => {
+        const L = window.__lp;
+        const boot = L.ev.prev;                     // read before a draw overwrites it
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        return { boot, first: L.ev.kind };
+      });
+      await good.ctx.close();
+      const bad = await seededPage({ "lp.lastEvent": "{not-an-event}" });
+      const r2 = await bad.page.evaluate(() => {
+        const L = window.__lp;
+        const boot = L.ev.prev;
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        return { boot, first: L.ev.kind, errors: (window.__lp.frameErrors || 0) };
+      });
+      await bad.ctx.close();
+      check("events: lp.lastEvent round-trips into the next session (never repeated first); a corrupt value is ignored silently",
+        r1.boot === "comet" && r1.first !== "comet" && r2.boot === null && !!r2.first && r2.errors === 0,
+        JSON.stringify({ r1, r2 }));
+    }
+
+    // ---- a real launch, with nothing forced: the drawn event stages by itself
+    {
+      await page.close();
+      page = (await newPage(1180, 820)).page;
+      const live = await page.evaluate(() => {
+        const L = window.__lp, st = L.state, R = L.TUNE.rocketTune;
+        L.noRender = true;
+        L.api.setVehicle("rocket");
+        // spawn until the draw comes up "race" (an ascent event, so it stages on the way up)
+        let tries = 0;
+        do { L.api.placeOnRunway(); tries++; } while (L.ev.kind !== "race" && tries < 60);
+        const out = { tries, kind: L.ev.kind, armed: L.ev.armed, started: L.ev.started };
+        // ... then just fly it: hold the throttle through the ignite hold and climb
+        L.api.setThrottle(true);
+        for (let i = 0; i < 60 * 30; i++) {
+          L.update(1 / 60);
+          if (L.rocketCanDrop()) L.dropStage();          // the normal flight still works
+        }
+        L.api.setThrottle(false);
+        out.liftoff = L.flags.liftoff > 0;
+        out.armedAfter = L.ev.armed;
+        out.staged = L.ev.started && (L.flags.evRace || 0) === 1;
+        out.rivalOut = !!(L.ev.race && L.ev.race.g.visible);
+        out.stageDrops = L.flags.stageDrops || 0;        // the event never blocked anything
+        out.exploded = L.flags.exploded;
+        out.frameErrors = L.frameErrors || 0;
+        return out;
+      });
+      check("events: a plain launch -- throttle held, nothing forced -- arms the drawn event and stages it, and the flight goes on exactly as before",
+        live.kind === "race" && live.armed === false && live.started === false && live.liftoff &&
+        live.armedAfter && live.staged && live.rivalOut && live.stageDrops >= 2 &&
+        live.exploded === 0 && live.frameErrors === 0, JSON.stringify(live));
+    }
+
+    // ---- race to orbit
+    await page.close();
+    page = (await newPage(1180, 820)).page;
+    await page.evaluate(TAP);
+    const race = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      L.eventsForce("race");
+      const out = { before: L.evGroup.children.length };
+      L.api.setThrottle(true);
+      let seen = 0, minD = 1e9, maxD = 0;
+      for (let i = 0; i < 60 * 70 && !(L.ev.race && L.ev.race.parked); i++) {
+        L.update(1 / 60);
+        if (L.ev.race && L.ev.race.g.visible) {
+          seen++;
+          const d = Math.hypot(L.ev.race.g.position.x - st.x, L.ev.race.g.position.y - st.y, L.ev.race.g.position.z - st.z);
+          minD = Math.min(minD, d); maxD = Math.max(maxD, d);
+        }
+      }
+      L.api.setThrottle(false);
+      out.seen = seen; out.minD = Math.round(minD); out.maxD = Math.round(maxD);
+      out.flag = L.flags.evRace || 0; out.stages = L.flags.evRaceStages || 0;
+      out.parked = !!(L.ev.race && L.ev.race.parked);
+      out.plumeOff = !!(L.ev.race && !L.ev.race.g.userData.rocket.flame.visible);
+      out.boosterGone = !!(L.ev.race && !L.ev.race.g.userData.rocket.booster.visible);
+      // the dropped booster is a real prop in the world
+      out.debris = L.evProps.filter(p => p.kind === "debris").length;
+      out.snd = { ...window.__snd };
+      return out;
+    });
+    check("events: race to orbit -- a second rocket lights up beside him, is rubber-banded near him the whole climb, stages, then parks with its plume out",
+      race.flag === 1 && race.seen > 600 && race.minD > 20 && race.maxD < 400 && race.stages === 1 &&
+      race.boosterGone && race.parked && race.plumeOff && race.snd.liftoffRoar > 0 && race.snd.stageSep > 0,
+      JSON.stringify(race));
+
+    // ---- meteor shower
+    await page.close();
+    page = (await newPage(1180, 820)).page;
+    await page.evaluate(TAP);
+    const met = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE;
+      const btn = document.getElementById("missileBtn");
+      const hidden = () => btn.classList.contains("hidden");
+      L.noRender = true; L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      L.update(1 / 60);                       // the buttons are set by the frame, not the spawn
+      const out = { btnOnPad: hidden() };
+      L.eventsForce("meteors");
+      st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity];
+      st.y = 4000; st.pitch = 10; st.spaceF = 1;
+      const park = () => { L.rk.vx = L.rk.vy = L.rk.vz = 0; st.y = 4000; };
+      for (let i = 0; i < 60 * 4; i++) { L.update(1 / 60); park(); }
+      out.rocks = L.evProps.filter(p => p.kind === "meteor" && p.life > 0).length;
+      out.btnInShower = !hidden();
+      // A four-year-old: point the nose straight at the nearest rock and tap. No
+      // lead, no timing -- and only as often as the cooldown allows.
+      let shots = 0;
+      for (let f = 0; f < 60 * 40; f++) {
+        let best = null, bd = 1e9;
+        for (const p of L.evProps) {
+          if (p.kind !== "meteor" || p.life <= 0) continue;
+          const d = Math.hypot(p.mesh.position.x - st.x, p.mesh.position.y - st.y, p.mesh.position.z - st.z);
+          if (d < bd) { bd = d; best = p; }
+        }
+        if (best) {
+          const dx = best.mesh.position.x - st.x, dy = best.mesh.position.y - st.y, dz = best.mesh.position.z - st.z;
+          st.heading = Math.atan2(-dx, -dz); st.pitch = Math.asin(dy / bd) / (Math.PI / 180);
+          if (st.missileCooldown <= 0) { const n0 = L.flags.missiles; L.fireMissile(); if (L.flags.missiles > n0) shots++; }
+        }
+        L.update(1 / 60); park();
+        if (f === 60 * 6) out.chunks = L.evProps.filter(p => p.kind === "chunk").length;
+      }
+      out.shots = shots; out.hits = L.flags.evMeteorHits || 0;
+      out.exploded = L.flags.exploded;   // rocks never hurt him
+      out.snd = { ...window.__snd };
+      // the button goes away with the shower, and never comes back for a plain flight
+      out.btnAfter = hidden();
+      L.api.placeOnRunway();
+      st.phase = "AIRBORNE"; st.y = 4000; st.spaceF = 1; L.update(1 / 60);
+      out.btnNoShower = hidden();
+      return out;
+    });
+    check("events: meteor shower -- rocks stream past with whooshes, and the missile button comes up only while it runs (the rocket has none otherwise)",
+      met.btnOnPad && met.rocks >= 6 && met.btnInShower && met.btnAfter && met.btnNoShower && met.snd.whoosh > 3, JSON.stringify(met));
+    check("events: shooting a rock bursts it into tumbling chunks with a note -- a dozen easy hits from plain aiming, and a rock can never hurt him",
+      met.hits >= 12 && met.chunks > 0 && met.snd.ringNote >= met.hits && met.exploded === 0, JSON.stringify(met));
+
+    // ---- comet
+    await page.close();
+    page = (await newPage(1180, 820)).page;
+    await page.evaluate(TAP);
+    const com = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      L.eventsForce("comet");
+      st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity];
+      st.y = 4000; st.spaceF = 1;
+      const park = () => { L.rk.vx = L.rk.vy = L.rk.vz = 0; st.y = 4000; };
+      for (let i = 0; i < 60 * 2; i++) { L.update(1 / 60); park(); }
+      const out = { started: L.ev.started, flag: L.flags.evComet || 0, has: !!L.ev.comet };
+      const c = L.ev.comet;
+      out.moved0 = c ? [c.x, c.y, c.z].map(Math.round) : null;
+      out.coatBefore = !!L.ev.coat;
+      // fly into the tail
+      for (let i = 0; i < 60 * 2 && c; i++) {
+        st.x = c.x - c.d.x * 420; st.y = c.y - c.d.y * 420; st.z = c.z - c.d.z * 420;
+        L.update(1 / 60); L.rk.vx = L.rk.vy = L.rk.vz = 0;
+      }
+      out.moved = c ? Math.hypot(c.x - out.moved0[0], c.y - out.moved0[1], c.z - out.moved0[2]) > 100 : false;
+      out.tail = L.flags.evCometTail || 0;
+      out.coat = !!L.ev.coat;
+      out.coatSpecks = L.ev.coat ? L.ev.coat.g.children.length : 0;
+      // the glitter rides along with him, and stays on until recovery
+      st.x += 300; L.update(1 / 60);
+      out.coatFollows = L.ev.coat ? Math.hypot(L.ev.coat.g.position.x - st.x, L.ev.coat.g.position.z - st.z) < 1 : false;
+      out.snd = { ...window.__snd };
+      return out;
+    });
+    check("events: comet flyby -- one enormous comet crosses his orbit, and flying through the tail sparkles and coats the rocket in glitter that rides along",
+      com.started && com.has && com.flag === 1 && com.moved && com.tail > 0 && com.coatBefore === false &&
+      com.coat && com.coatSpecks > 10 && com.coatFollows && com.snd.fanfare >= 2, JSON.stringify(com));
+
+    // ---- moon impacts
+    await page.close();
+    page = (await newPage(1180, 820)).page;
+    await page.evaluate(TAP);
+    const imp = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      st.dest = "moon";
+      L.eventsForce("impacts");
+      const b = L.BODIES[0];
+      st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 3;
+      st.x = b.x; st.y = b.y + b.r + 10; st.z = b.z;
+      L.update(1 / 60);
+      const out = { deployed: L.roverDeploy(), startedBefore: L.ev.started };
+      for (let i = 0; i < 60 * 40; i++) L.update(1 / 60);
+      out.hits = L.flags.evImpactHits || 0;
+      out.craters = L.evCraters.length;
+      out.flag = L.flags.evImpacts || 0;
+      // they land near him but never on him
+      out.nearest = Math.round(Math.min(...L.evCraters.map(c => Math.hypot(c.x - L.rover.x, c.y - L.rover.y, c.z - L.rover.z))));
+      out.furthest = Math.round(Math.max(...L.evCraters.map(c => Math.hypot(c.x - L.rover.x, c.y - L.rover.y, c.z - L.rover.z))));
+      // drive into one and it bursts; it can only be burst once
+      const c = L.evCraters[0];
+      L.rover.x = c.x; L.rover.y = c.y; L.rover.z = c.z;
+      for (let i = 0; i < 40; i++) L.update(1 / 60);
+      out.pops = L.flags.evCraterPops || 0;
+      for (let i = 0; i < 60; i++) L.update(1 / 60);
+      out.popsAgain = L.flags.evCraterPops || 0;
+      out.snd = { ...window.__snd };
+      return out;
+    });
+    check("events: Moon impacts -- meteors thump down around the rover (near, never on it) and each leaves a glowing crater; driving into one bursts it, once",
+      imp.deployed && imp.hits >= 4 && imp.craters === imp.hits && imp.flag === 1 &&
+      imp.nearest > 8 && imp.furthest < 120 && imp.pops === 1 && imp.popsAgain === 1 &&
+      imp.snd.boomSound >= imp.hits && imp.snd.chime > 0, JSON.stringify(imp));
+
+    // ---- escort
+    await page.close();
+    page = (await newPage(1180, 820)).page;
+    await page.evaluate(TAP);
+    const esc = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, R = L.TUNE.rocketTune;
+      L.noRender = true; L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      L.eventsForce("escort");
+      const out = {};
+      // coasting in space: no plasma, so nothing stages
+      st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity];
+      st.y = 5000; st.pitch = 90; st.spaceF = 1;
+      for (let i = 0; i < 60 * 3; i++) { L.update(1 / 60); L.rk.vx = L.rk.vy = L.rk.vz = 0; st.y = 5000; }
+      out.glowInSpace = +L.rk.reentry.toFixed(2);
+      out.beforeGlow = L.evProps.filter(p => p.kind === "streak").length;
+      out.startedBefore = L.ev.started;
+      // now let it really fall: the plasma builds by itself and the escort comes with it
+      st.y = 1800; L.rk.vx = L.rk.vz = 0; L.rk.vy = -200;
+      let peak = 0, peakGlow = 0, farthest = 0;
+      for (let i = 0; i < 60 * 6 && st.phase === "AIRBORNE"; i++) {
+        L.update(1 / 60);
+        peakGlow = Math.max(peakGlow, L.rk.reentry);
+        const live = L.evProps.filter(p => p.kind === "streak");
+        peak = Math.max(peak, live.length);
+        for (const p of live) farthest = Math.max(farthest, Math.hypot(p.mesh.position.x - st.x, p.mesh.position.y - st.y, p.mesh.position.z - st.z));
+      }
+      out.peakGlow = +peakGlow.toFixed(2);
+      out.streaks = peak;
+      out.farthest = Math.round(farthest);   // they fall with him, not left hanging in the sky
+      out.flag = L.flags.evEscort || 0;
+      out.snd = { ...window.__snd };
+      out.exploded = L.flags.exploded;
+      // they burn out on their own and the event finishes
+      for (let i = 0; i < 60 * 10; i++) L.update(1 / 60);
+      out.burntOut = L.evProps.filter(p => p.kind === "streak").length;
+      out.done = L.ev.done;
+      return out;
+    });
+    check("events: shooting-star escort -- nothing until the plasma phase, then a spread of meteors burns up alongside him and goes out by itself",
+      esc.glowInSpace === 0 && esc.beforeGlow === 0 && esc.startedBefore === false &&
+      esc.peakGlow > 0.3 && esc.streaks >= 8 && esc.flag === 1 && esc.farthest < 500 &&
+      esc.snd.whoosh >= 8 && esc.burntOut === 0 && esc.done && esc.exploded === 0, JSON.stringify(esc));
+
+    // ---- fireworks welcome
+    await page.close();
+    page = (await newPage(1180, 820)).page;
+    await page.evaluate(TAP);
+    const fw = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      L.eventsForce("fireworks");
+      const rec = L.RECOVERY[st.originIdx];
+      st.phase = "AIRBORNE"; L.rk.stage = 3;
+      st.x = rec.barge.x; st.z = rec.barge.z + 120; st.y = 60;
+      L.rk.vx = L.rk.vz = 0; L.rk.vy = -8; L.rk.chute = 2;
+      const out = {};
+      for (let i = 0; i < 60 * 25 && st.phase !== "TAXI"; i++) L.update(1 / 60);
+      out.landed = st.phase === "TAXI";
+      out.startedAtOnce = L.ev.started;
+      for (let i = 0; i < 60 * 7; i++) L.update(1 / 60);
+      out.flag = L.flags.evFireworks || 0;
+      out.shells = L.flags.evFireworkShells || 0;
+      out.shellsWanted = L.TUNE.events.fireworks.count;
+      out.wet = L.ev.wet;
+      out.snd = { ...window.__snd };
+      out.exploded = L.flags.exploded;
+      return out;
+    });
+    // ... and the same show on an upright landing at home, where the pad refits
+    // after only refitDelay: every shell must still get off before that.
+    const fwDry = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      L.eventsForce("fireworks");
+      const s0 = L.flags.evFireworkShells || 0, r0 = L.flags.refits || 0;
+      st.phase = "AIRBORNE"; st.y += 120; L.rk.vx = L.rk.vz = 0; L.rk.vy = -10;
+      const out = {};
+      for (let i = 0; i < 60 * 30 && st.phase !== "TAXI"; i++) L.update(1 / 60);
+      out.landed = st.phase === "TAXI"; out.chute = L.rk.chute;
+      L.update(1 / 60);                     // the barrage starts on the frame after the touchdown
+      out.wet = L.ev.wet; out.base = Math.round(L.ev.base);
+      for (let i = 0; i < 60 * 20 && (L.flags.refits || 0) === r0; i++) L.update(1 / 60);
+      out.refit = (L.flags.refits || 0) > r0;
+      out.shells = (L.flags.evFireworkShells || 0) - s0;
+      return out;
+    });
+    check("events: fireworks welcome -- a full barrage goes up over the splashdown as the recovery ship comes for the capsule, and fits before the refit on an upright landing too",
+      fw.landed && fw.wet && fw.flag === 1 && fw.shells === fw.shellsWanted &&
+      fw.snd.fireworkSound >= 10 && fw.snd.cheer > 0 && fw.exploded === 0 &&
+      fwDry.landed && !fwDry.wet && fwDry.refit && fwDry.shells === fw.shellsWanted,
+      JSON.stringify({ fw, fwDry }));
+
+    // ---- despawn, text and frame time
+    await page.close();
+    page = (await newPage(1180, 820)).page;
+    const clean = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true;
+      const out = { leaks: [], text: [] };
+      const badText = () => {
+        const bad = [];
+        const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        while (w.nextNode()) {
+          const n = w.currentNode, p = n.parentElement && n.parentElement.tagName;
+          if (p === "SCRIPT" || p === "STYLE") continue;
+          const t = n.nodeValue.trim();
+          if (t && !/^[0-9]+$/.test(t)) bad.push(t.slice(0, 30));
+        }
+        return bad;
+      };
+      const stage = (k) => {
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        st.dest = "moon";
+        L.eventsForce(k);
+        if (k === "race") {
+          L.api.setThrottle(true);
+          for (let i = 0; i < 60 * 25; i++) L.update(1 / 60);
+          L.api.setThrottle(false);
+        } else if (k === "meteors" || k === "comet") {
+          st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity]; st.y = 4000; st.spaceF = 1;
+          for (let i = 0; i < 60 * 8; i++) { L.update(1 / 60); L.rk.vx = L.rk.vy = L.rk.vz = 0; st.y = 4000; }
+        } else if (k === "impacts") {
+          const b = L.BODIES[0];
+          st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 3;
+          st.x = b.x; st.y = b.y + b.r + 10; st.z = b.z;
+          L.update(1 / 60); L.roverDeploy();
+          for (let i = 0; i < 60 * 20; i++) L.update(1 / 60);
+        } else if (k === "escort") {
+          st.phase = "AIRBORNE"; L.rk.stage = 3; st.y = 1800; L.rk.vx = L.rk.vz = 0; L.rk.vy = -200;
+          for (let i = 0; i < 60 * 4 && st.phase === "AIRBORNE"; i++) L.update(1 / 60);
+        } else if (k === "fireworks") {
+          const rec = L.RECOVERY[st.originIdx];
+          st.phase = "AIRBORNE"; L.rk.stage = 3;
+          st.x = rec.barge.x; st.z = rec.barge.z + 120; st.y = 60; L.rk.vx = L.rk.vz = 0; L.rk.vy = -8; L.rk.chute = 2;
+          for (let i = 0; i < 60 * 25 && st.phase !== "TAXI"; i++) L.update(1 / 60);
+          for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
+        }
+        // whatever this one puts in the world: props, the two reused models, or sparks
+        return L.evGroup.children.length + (L.ev.race ? 1 : 0) + (L.ev.comet ? 1 : 0) + L.evSparksAlive();
+      };
+      const pass = () => {
+        for (const k of L.EVENT_KINDS) {
+          const staged = stage(k);
+          out.text = out.text.concat(badText());
+          // ... then a fresh stack on the pad puts it all away
+          L.api.setVehicle("rocket"); L.api.placeOnRunway();
+          for (let i = 0; i < 30; i++) L.update(1 / 60);
+          out.leaks.push({ k, staged, left: L.evGroup.children.length, props: L.evProps.length,
+            craters: L.evCraters.length, sparks: L.evSparksAlive(),
+            race: !!L.ev.race, comet: !!L.ev.comet, coat: !!L.ev.coat });
+        }
+        return L.scene.children.length;
+      };
+      const after1 = pass();
+      const after2 = pass();
+      out.sceneGrowth = after2 - after1;   // the two reused models are built once, not per launch
+      out.everyStaged = out.leaks.every(r => r.staged > 0);
+      out.everyClear = out.leaks.every(r => r.left === 0 && r.props === 0 && r.craters === 0 && r.sparks === 0 && !r.race && !r.comet && !r.coat);
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("events: every event puts props in the world and a pad spawn takes them all away again -- no leaked meshes, no growing scene",
+      clean.everyStaged && clean.everyClear && clean.sceneGrowth <= 2 && clean.frameErrors === 0,
+      JSON.stringify({ ...clean, text: clean.text.slice(0, 3) }));
+    check("events: zero text anywhere in the UI while any of the six is staged",
+      clean.text.length === 0, JSON.stringify(clean.text.slice(0, 6)));
+
+    const perf = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      const park = () => { L.rk.vx = L.rk.vy = L.rk.vz = 0; st.y = 4000; };
+      const space = () => {
+        st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity];
+        st.y = 4000; st.pitch = 10; st.spaceF = 1;
+      };
+      // the real cost of a shower is draw calls, not the simulation, so both are timed
+      const sim = (n) => { const t0 = performance.now(); for (let i = 0; i < n; i++) { L.update(1 / 60); park(); } return (performance.now() - t0) / n; };
+      const drawn = (n) => {
+        L.noRender = false;
+        const t0 = performance.now();
+        for (let i = 0; i < n; i++) { const q = window.__rafQueue.splice(0); if (q.length) q[q.length - 1](window.__simTime += 1000 / 60); park(); }
+        const ms = (performance.now() - t0) / n;
+        L.noRender = true;
+        return ms;
+      };
+      L.noRender = true;
+      L.api.setVehicle("rocket"); L.api.placeOnRunway(); space();
+      sim(60); drawn(20);                              // warm the pipeline
+      const baseSim = sim(300), baseDraw = drawn(90);   // in space, no event staged
+      L.api.placeOnRunway(); L.eventsForce("meteors"); space();
+      for (let i = 0; i < 60 * 8; i++) { L.update(1 / 60); park(); }   // let the shower fill up
+      const rocks = L.evProps.length;
+      const showSim = sim(300), showDraw = drawn(90);
+      return { baseSim: +baseSim.toFixed(3), showSim: +showSim.toFixed(3),
+               baseDraw: +baseDraw.toFixed(2), showDraw: +showDraw.toFixed(2), rocks };
+    });
+    console.log(`INFO  events: ${perf.baseSim.toFixed(2)} -> ${perf.showSim.toFixed(2)} ms of update(), ` +
+      `${perf.baseDraw.toFixed(1)} -> ${perf.showDraw.toFixed(1)} ms of CPU per drawn frame with ${perf.rocks} props (swiftshader)`);
+    check("events: frame time holds during the meteor shower",
+      perf.rocks > 5 &&
+      perf.showSim < Math.max(perf.baseSim * 2.5 + 0.5, 4) &&
+      perf.showDraw < perf.baseDraw * 1.8 + 6, JSON.stringify(perf));
+    await page.close();
+  }
+
   // ---------- T8 service worker reachable ----------
   {
     const { page } = await newPage(1180, 820);

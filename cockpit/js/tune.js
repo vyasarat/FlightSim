@@ -148,6 +148,62 @@ const TUNE = {
     mars: { x: -2600, y: 10800, z: 3200, r: 680, g: 3.0 },
   },
 
+  // Space events (js/events.js). Every rocket launch draws ONE of six and stages it
+  // in its phase of flight -- never the same one twice in a row. An event is never
+  // required and never blocks: ignored, it just does not happen this flight.
+  events: {
+    eventChance: 1.0,               // how often a launch draws an event at all (1 = every launch)
+    minStandoff: 45,                // events laid out around him assume at least this much
+                                    // camera standoff, so the cockpit view frames them too
+    race: {                         // ascent: a second rocket climbs alongside
+      startAlt: 90,                 // it lights up once he is this high
+      // Offsets in the chase camera's terms -- further down the view, off to one
+      // side, and higher or lower than him. The height drifts up and down: a rubber
+      // band, never a finish line. Keeps it framed however he is pointing.
+      far: 55, side: 40, upBase: 10, upSwing: 40, bob: 0.32,
+      plume: 2.4,                   // its plume is drawn long so it reads from over there
+      stageAlt: 1500,               // its booster separates here (late: the big stack is the show)
+      parkAlt: 3200,                // above this it stops burning and parks in orbit, glinting
+      debrisLife: 9, debrisSpin: 1.4,
+      rumbleFreq: 40, rumbleGain: 0.05, rumbleFar: 900,
+    },
+    meteors: {                      // orbit: glowing rocks to shoot
+      count: 22, interval: 0.5,     // how many, and how often one arrives
+      speed: 58, size: 3.2,         // slow enough to aim at, and well inside a missile's reach
+      ahead: 190, pass: 80, range: 330,   // where they cross in front of him, and how far out they start
+      hitR: 30,                     // generous: a dozen easy hits, not three hard ones
+      // pointing, not timing: a missile fired at a rock bends onto it, so he never
+      // has to lead a crossing target -- aiming the nose at it is enough
+      lockR: 300, lockDot: 0.55, lockRate: 4.5,
+      trail: 0.09, whooshDist: 190,
+      chunks: 8, chunkSpeed: 24, chunkLife: 3.2, chunkSize: 0.55,
+      volume: 0.22,
+    },
+    comet: {                        // orbit: one enormous comet, tail across the sky
+      r: 34, tail: 1100, tailR: 95,
+      speed: 62, dist: 820, life: 55,
+      coat: 44, coatR: 13,          // the glitter it leaves on the rocket, until recovery
+      freq: 52, gain: 0.05, hearDist: 1400,
+    },
+    impacts: {                      // Moon surface: meteors thump down around the rover
+      count: 7, interval: 4.0,
+      speed: 90, from: 320,         // they come in from this high above the surface
+      near: [14, 42],               // ... and land this close (the Moon's horizon is ~50 m off)
+      craterR: 6.5, dust: 14, shake: 0.5,
+      popR: 7,                      // drive this close to a glowing crater and it bursts
+    },
+    escort: {                       // reentry: his fireball is one of many
+      count: 16, interval: 0.18,
+      spread: 70, ahead: 150, drift: 26, life: 4.0, size: 5.0,
+    },
+    fireworks: {                    // recovery: a barrage over the landing site
+      // The whole barrage must fit inside the shortest wait there is -- an upright
+      // landing at home refits after rocketTune.refitDelay -- or the show gets cut
+      // off halfway by the fresh stack rolling out.
+      count: 14, interval: 0.24, spread: 70, height: 42, puffs: 20, size: 7.0, burst: 22,
+    },
+  },
+
   glideSlope: 0.085,
   glideBand: 9,
   minFlyingSpeed: 18,

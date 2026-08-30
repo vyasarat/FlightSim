@@ -350,6 +350,7 @@ function update(dt) {
   frameCount++;
   if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
   applyKeyboard(dt);
+  updateEvents(dt);
   el.vehBtn.classList.toggle("hidden", !(state.phase === "TAXI" && state.speed === 0 && !state.exploding));
   el.gearBtn.classList.toggle("hidden", !state.vp.hasGear);
   el.gearBtn.classList.toggle("gear-up", !state.gearDown);

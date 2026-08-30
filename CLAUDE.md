@@ -29,9 +29,12 @@ the checklist for shipping one.
   used *at load time* must be declared in an earlier file (TDZ). Using it later,
   inside a function, is fine.
 - `cockpit/js/tune.js` — every gameplay number (`TUNE`, `TUNE.rocketTune`, `rocketTune.starship`).
-- `rocket.js` (Falcon / Starship spine), `recovery.js` (droneship, net boat, recovery ride) and
-  `rover.js` (surface buggy) load after `flight.js` and before `main.js`; they call into each
-  other only inside functions, so order among them is safe as long as all three precede `main.js`.
+- `rocket.js` (Falcon / Starship spine), `recovery.js` (droneship, net boat, recovery ride),
+  `rover.js` (surface buggy) and `events.js` (the per-launch space event) load after `flight.js`
+  and before `main.js`; they call into each other only inside functions, so order among them is
+  safe as long as they all precede `main.js`.
+- Space events are drawn once per pad spawn and armed only by a real liftoff. An event may
+  never be required, block anything, or take anything away; keep every number in `TUNE.events`.
 - There is no weather/sky button; the sky moods stay in code (`state.sky`) for the harness.
 - `scripts/headless_test.js` — the harness. `scripts/visual_baseline.json` — generated;
   never edit by hand (`UPDATE_VISUAL=1` regenerates it after an intentional look change).

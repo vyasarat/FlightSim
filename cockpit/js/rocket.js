@@ -429,7 +429,10 @@ function updateRocket(dt) {
   // buttons: throttle always (hold to burn); the rocket has no missiles/speed steps/gear
   el.throttleBtn.classList.remove("hidden");
   el.rotateArrow.classList.remove("on");
-  el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden"); el.missileBtn.classList.add("hidden");
+  el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden");
+  // the rocket has no missiles -- except during a meteor shower, when the plane's
+  // (unused) missile slot comes up so the rocks are there to be shot
+  el.missileBtn.classList.toggle("hidden", !eventsWantMissile());
   el.gearBtn.classList.add("hidden");
   updateGoButton();
   el.stageBtn.classList.toggle("hidden", !rocketCanDrop());
@@ -484,6 +487,7 @@ function updateRocket(dt) {
         state.liftoffTimer = 0;
         state.maxAglSinceLiftoff = 1e9;
         flags.liftoff++;
+        eventsArm();       // only a real liftoff arms this launch's event
         rk.igniteT = 0;
         if (!rk.onBody) apronVehiclesTo(state.originIdx, false);
         rk.launchedFromBody = !!rk.onBody;
