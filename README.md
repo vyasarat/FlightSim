@@ -41,7 +41,7 @@ the ship checklist; this file describes the game.
 | Yellow flashing arrow | Rotation speed reached (latched -- releasing the throttle to free his finger doesn't lose it). Drag up past the threshold to lift off |
 | Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials; only the window frame hides |
 | Gear button, bottom-left (planes) | Retract / extend the landing gear. Retracting is ignored while the wheels carry the plane. Distinct up/down icons, whirr/clunk, animated struts in chase view. **Landing with the gear up explodes** |
-| Missile button, bottom-left above gear (planes, airborne) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileLife` × `missileSpeed`; `missileCooldown` is the refire gap) |
+| Missile button, bottom-left above gear (planes, airborne; the rocket, during a meteor shower) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileLife` × `missileSpeed`; `missileCooldown` is the refire gap) |
 | Stage button (rocket, same slot, orange, pulsing) | Drops the next stage. Only appears above each stage's altitude (see The rocket) |
 | Satellite button (rocket, same slot, cyan) | As the capsule in space: pops the satellite out ahead of the nose; it unfolds its panels and drifts off blinking. One per stack |
 | Parachute button (rocket, same slot, red) | As the capsule low in the air: the drogue, then the mains. Each only below its `chuteAlt`; they pop by themselves below `chuteAutoAlt`, so nothing needs pressing |
@@ -334,6 +334,30 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   above and never enters a planet. **The rocket starts in the chase view** (the view button
   still toggles).
 
+## Space events -- every launch, one big thing happens (`js/events.js`, `TUNE.events`)
+
+Every rocket launch the game secretly draws **one** of six events -- never the same one
+twice in a row (`lp.lastEvent`) -- and stages it in its phase of flight. They are huge,
+loud and self-announcing: there is nothing on the HUD that points at one, and nothing to
+press to start it. An event is never required, never blocks and can never be lost --
+ignored, it simply does not happen this flight. Only machines and rocks are ever burst.
+
+Only a real liftoff arms the draw, and picking the destination redraws against it (so a
+Mars or station flight never gets the Moon's impacts). Everything an event puts in the
+world goes away when the pad rolls out the next stack.
+
+| Event | When | What happens |
+|---|---|---|
+| **Race to orbit** | ascent | Seconds after liftoff a second rocket lights up beside him -- full plume, its own rumble, its own visible staging -- and climbs alongside the whole way. It is rubber-banded to his own camera, so the two of them go up side by side however he flies; there is nothing to win. High up it stops burning and parks in a nearby orbit, glinting |
+| **Meteor shower** | orbit | Glowing rocks stream past on shallow, slow trajectories with sparkle trails and whooshes. The rocket has no missiles -- except here, where the plane's unused missile slot comes up so they can be shot. A missile fired at a rock bends onto it (`lock*`), so aiming the nose at one is enough: no leading, no timing. Each one bursts into glittering tumbling chunks with a note. Flying into one bursts it too, and a rock can never hurt him |
+| **Comet flyby** | orbit | One enormous comet, its tail stretching across the sky, crosses his orbit. Flying through the tail is a full-screen sparkle rush and coats the rocket in glitter that rides along until recovery. Nothing to shoot: the size is the event |
+| **Meteor impacts** | Moon surface | While he is out in the rover, meteors streak in and **thump** down nearby -- dust plume, screen rumble -- each leaving a glowing crater for the rest of the visit. Driving into a glowing crater bursts it. Moon only; a Mars flight draws from the other five |
+| **Shooting-star escort** | reentry | Through the plasma phase a spread of meteors reenters alongside, burning up around the capsule and going out by themselves. His fireball is one of many |
+| **Fireworks welcome** | recovery | On splashdown or landing the recovery ship fires a full barrage over the site, reflections on the water included. Pure payoff, nothing to press. The whole show fits inside `refitDelay`, so an upright landing at home gets all of it too |
+
+Every number is under `TUNE.events` (counts, sizes, speeds, distances, volumes), plus
+`eventChance` -- how often a launch draws an event at all.
+
 ## Photo
 
 The camera button (or `P`): white flash, shutter click, and the pure 3D frame (no HUD)
@@ -343,7 +367,8 @@ costs nothing until pressed.
 ## Persistence (`localStorage`)
 
 `lp.vehicle`, `lp.dir` (relaunch goes straight to the runway), `lp.dest` (moon / mars / station; a stale `lp.sky` is removed),
-`lp.spots` (which sparkle spots are lit; reset when all are found or the count changes).
+`lp.spots` (which sparkle spots are lit; reset when all are found or the count changes),
+`lp.lastEvent` (the space event the last launch drew, so the next is never the same; a corrupt value is ignored).
 
 ## Tuning
 
@@ -378,6 +403,7 @@ cockpit/
     recovery.js       droneship, net boat, recovery ship / truck and the ride that refits the pad
     rover.js          the Moon / Mars rover: drive on the sphere, rocks, beacons, drive-back
     station.js        the station interior and the astronaut in zero g
+    events.js         space events: the per-launch draw and all six of them
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape

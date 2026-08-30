@@ -126,6 +126,8 @@ function spawnForTakeoff(originIdx, dirIdx) {
   }
   if (typeof apronVehiclesTo === "function") apronVehiclesTo(originIdx, true);
   placeRings();
+  // last flight's event goes away and a new one is drawn for this stack
+  if (typeof eventsSpawn === "function") eventsSpawn();
   flags.repositioned++;
 }
 
