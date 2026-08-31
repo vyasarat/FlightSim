@@ -125,10 +125,26 @@ const TUNE = {
     drag: 0.05, maxSpeed: 280,
     turnRateDeg: 38,
     igniteTime: 1.4,                // hold the throttle this long on the pad before liftoff
-    landSpeed: 90,                  // slower than this on contact = a landing, faster = a crash
+    landSpeed: 90,                  // the outer bound: faster than this on contact is always a crash
+    // The landing envelope. A landing only counts if he arrives the way a rocket
+    // should: nose near vertical (so the engines are down), coming down slowly, not
+    // sliding sideways, and over somewhere a rocket lands. Anything else -- nose
+    // first, on its side, too fast, or nowhere near a pad -- is a crash, and a crash
+    // costs nothing. Widen these to make landing easier, narrow them as he improves.
+    landMaxTiltDeg: 25,             // how far the nose may be off vertical
+    landMaxVspeed: 22,              // how fast he may be coming down (the assist settles at assistDescent)
+    landMaxHspeed: 16,              // ... and how much he may be sliding sideways
+    landPadR: 95,                   // the pad counts out to here; likewise the deck and the tower
+    landDeckR: 30, landCatchR: 45,
     assistRange: 2.2,               // landing assist engages within this many radii of a body
     assistEarthAgl: 220,            // ... and within this height of the ground at home
     assistDescent: 14,              // the assisted descent speed near the surface
+    // The assist may stand him up, but only as fast as this and only if there is room
+    // to finish before he arrives. Far out it will turn him the whole way round, so
+    // coasting in still works; on short final it can tidy a lean and no more, so a
+    // rocket diving at the ground stays diving at the ground -- and crashes.
+    assistUprightRateDeg: 45,
+    assistMaxTiltDeg: 180,          // it never begins a turn from beyond this (180 = from anywhere)
     skipOut: 220,                   // the go button drops him this far out from a body (or the top of the docking rings)
     altMax: 12000,
     // the capsule's way home (Dragon style): blunt-body drag in the air, plasma while

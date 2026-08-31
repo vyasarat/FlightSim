@@ -510,6 +510,9 @@
     left: calc(var(--edge) + env(safe-area-inset-left));
     z-index: 10;
   }
+  /* on a rocket it drops to the gear row, which is empty there: the shared slot
+     above already holds stage / satellite / parachute / rover / hatch */
+  #missileBtn.lowSlot { bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
   #missileBtn.hidden { display: none; }
   #missileBtn.pressed { transform: scale(.93); }
   #missileBtn.cooldown { opacity: .45; }

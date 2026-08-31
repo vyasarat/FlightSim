@@ -209,7 +209,7 @@ function enterStation() {
   return true;
 }
 function leaveStation() {
-  if (astro.mode === "eva") { astro.mode = "evaReturn"; toot(); return true; }   // outside: back to the airlock first
+  if (astro.mode === "eva") { astro.mode = "evaReturn"; eva.returnT = 0; toot(); return true; }   // outside: back to the airlock first
   if (astro.mode !== "inside") return false;
   astro.mode = "leaving";
   toot();
@@ -378,7 +378,17 @@ function astroCamera(dt) {
 // stuck solar array and it unfolds, catch the drifting wrench and it clips to
 // his belt. The button flies him back to the airlock and inside.
 // ===========================================================================
-const EVA = { tether: 60, thrust: 3.2, drag: 0.25, maxSpeed: 5 };
+const EVA = {
+  tether: 60, thrust: 3.2, drag: 0.25, maxSpeed: 5,
+  dockR: 2.2,                  // this close to the airlock and he is in
+  coreR: 5.2, coreHalf: 11,    // the station core he bumps off, and how tall it is
+  // The airlock is on the *side* of the core, so a straight line home can run
+  // right through it. Inside this radius, on the far side, he is steered around
+  // the core instead of into it -- otherwise the push-out cancels the reel-in
+  // exactly and he hangs there against the wall for ever.
+  aroundR: 9, aroundTangent: 1.0, aroundOut: 0.55, aroundLevel: 0.5,
+  returnMaxTime: 12,           // ... and past this, nothing keeps him out at all
+};
 const eva = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, anchor: new THREE.Vector3(), mesh: null, helmet: null, tether: null, battery: null, oldBattery: null, tool: null, toolHeld: false, stuck: null, jets: [], t: 0 };
 function evaWorldAnchor() {
   const s = station.position;
@@ -437,11 +447,27 @@ function updateEva(dt) {
   const a = evaWorldAnchor();
   let push = 0;
   if (astro.mode === "evaReturn") {
-    // the tether reels him straight to the airlock: velocity steered at it, never a circle
+    // the tether reels him to the airlock: velocity steered at it, never a circle
+    eva.returnT = (eva.returnT || 0) + dt;
     asTmp.set(a.x - eva.x, a.y - eva.y, a.z - eva.z);
     const d = asTmp.length();
-    if (d < 2.2) { evaFinish(); return; }
+    if (d < EVA.dockR) { evaFinish(); return; }
     asTmp.normalize();
+    // ... except when the core is in the way. The airlock sits on the side of it,
+    // so from the far side the straight line home goes through the station: the
+    // push-out below cancels the reel-in exactly and he sticks to the wall. When
+    // that is the case, steer around the core (and level with the hatch) instead.
+    const sp0 = station.position;
+    const rx = eva.x - sp0.x, rz = eva.z - sp0.z, cr = Math.hypot(rx, rz);
+    const ax = a.x - sp0.x, az = a.z - sp0.z;
+    if (cr < EVA.aroundR && Math.abs(eva.y - sp0.y) < EVA.coreHalf && (rx * ax + rz * az) <= 0) {
+      const nx = rx / Math.max(cr, 0.01), nz = rz / Math.max(cr, 0.01);
+      let tx = -nz, tz = nx;                                   // round the short way
+      if (tx * ax + tz * az < 0) { tx = nz; tz = -nx; }
+      asTmp.set(tx * EVA.aroundTangent + nx * EVA.aroundOut,
+                clamp((a.y - eva.y) * EVA.aroundLevel, -1, 1),
+                tz * EVA.aroundTangent + nz * EVA.aroundOut).normalize();
+    }
     const wantYaw = Math.atan2(asTmp.x, asTmp.z), wantPitch = Math.asin(clamp(asTmp.y, -1, 1));
     astro.yaw += wrapPi(wantYaw - astro.yaw) * Math.min(1, 4 * dt);
     astro.pitch += (wantPitch - astro.pitch) * Math.min(1, 4 * dt);
@@ -466,8 +492,10 @@ function updateEva(dt) {
   if (sp > EVA.maxSpeed) { const q = EVA.maxSpeed / sp; eva.vx *= q; eva.vy *= q; eva.vz *= q; sp = EVA.maxSpeed; }
   eva.x += eva.vx * dt; eva.y += eva.vy * dt; eva.z += eva.vz * dt;
   // keep out of the station's core (a soft bump)
+  // (a reel-in that has somehow taken this long passes straight through: nothing is ever stuck)
+  const coreOn = !(astro.mode === "evaReturn" && (eva.returnT || 0) > EVA.returnMaxTime);
   const s = station.position, cdx = eva.x - s.x, cdz = eva.z - s.z, cr = Math.hypot(cdx, cdz);
-  if (cr < 5.2 && Math.abs(eva.y - s.y) < 11) { const nx = cdx / Math.max(cr, 0.01), nz = cdz / Math.max(cr, 0.01); eva.x = s.x + nx * 5.2; eva.z = s.z + nz * 5.2; const vn = eva.vx * nx + eva.vz * nz; if (vn < 0) { eva.vx -= vn * nx * 1.3; eva.vz -= vn * nz * 1.3; noiseBurst(0.08, 180, 0.2, 0); } }
+  if (coreOn && cr < EVA.coreR && Math.abs(eva.y - s.y) < EVA.coreHalf) { const nx = cdx / Math.max(cr, 0.01), nz = cdz / Math.max(cr, 0.01); eva.x = s.x + nx * EVA.coreR; eva.z = s.z + nz * EVA.coreR; const vn = eva.vx * nx + eva.vz * nz; if (vn < 0) { eva.vx -= vn * nx * 1.3; eva.vz -= vn * nz * 1.3; noiseBurst(0.08, 180, 0.2, 0); } }
   // jobs
   station.updateMatrixWorld();
   if (!eva.batteryDone) {

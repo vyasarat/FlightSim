@@ -41,7 +41,7 @@ the ship checklist; this file describes the game.
 | Yellow flashing arrow | Rotation speed reached (latched -- releasing the throttle to free his finger doesn't lose it). Drag up past the threshold to lift off |
 | Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials; only the window frame hides |
 | Gear button, bottom-left (planes) | Retract / extend the landing gear. Retracting is ignored while the wheels carry the plane. Distinct up/down icons, whirr/clunk, animated struts in chase view. **Landing with the gear up explodes** |
-| Missile button, bottom-left above gear (planes, airborne; the rocket, during a meteor shower) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileLife` × `missileSpeed`; `missileCooldown` is the refire gap) |
+| Missile button, bottom-left above gear (planes, airborne; the rocket, during a meteor shower -- on a rocket it drops to the empty gear row, clear of the shared slot) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileLife` × `missileSpeed`; `missileCooldown` is the refire gap) |
 | Stage button (rocket, same slot, orange, pulsing) | Drops the next stage. Only appears above each stage's altitude (see The rocket) |
 | Satellite button (rocket, same slot, cyan) | As the capsule in space: pops the satellite out ahead of the nose; it unfolds its panels and drifts off blinking. One per stack |
 | Parachute button (rocket, same slot, red) | As the capsule low in the air: the drogue, then the mains. Each only below its `chuteAlt`; they pop by themselves below `chuteAutoAlt`, so nothing needs pressing |
@@ -51,7 +51,7 @@ the ship checklist; this file describes the game.
 | Rover button (rocket, same slot, yellow; on the Moon / Mars) | Rolls the rover out; tap again and it drives itself back in. Throttle drives, stick steers |
 | Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, 20-80 s to touchdown depending on the plane. Rocket, in space: **the go button** -- jump to a slow descent `skipOut` (220 m) above the chosen destination (its icon is on the button); once he is heading home, the runway icon: **deorbit** as the capsule (plasma and parachutes down to a new spot around home), or a thruster descent to the pad for a full stack. Lower down: 200 m above the home pad; the landing assist does the rest |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
-| Plane button, top-left (on the runway, stopped) | Reopens the vehicle picker |
+| Plane button, top-left (parked at home, stopped) | Reopens the vehicle picker. It shares the top-left slot with the go button, so it stays away while he is docked, on a spacewalk or out in the rover -- there, that corner means "take me back" |
 | Crosshair, centre (airborne) | Flight-path marker: where the plane is really aimed; doubles as the missile aiming point; clamps to the screen edge when off-view |
 | White arrow at the screen edge | Bearing to the destination airport; hides within `homeIndicatorDistance` and when approach assists engage. In space (rocket) it points at the chosen destination, or at the pad once he is heading home, and hides while the target is in view |
 | Route strip, top centre | Plane glyph slides NY <-> CA; dots fill in for landmarks passed (each one plays the next note of a scale) |
@@ -226,9 +226,25 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   satellite and a station drift mid-route. The **Moon** and **Mars** hang above the atmosphere
   (`rocketTune.moon/mars`), cratered and self-lit (Mars has a polar cap), each with a gentle pull.
 - **Landing assist**: within `assistRange` radii of a body, or `assistEarthAgl` of the ground at
-  home, unless he is burning away the rocket brakes to `assistDescent` and stands itself upright
-  (a resting finger doesn't stop that), so coasting in always ends in a landing. Only ramming a
-  surface under power faster than `landSpeed` explodes -- and it reassembles beside whatever it hit.
+  home, unless he is burning away the rocket brakes to `assistDescent` (a resting finger doesn't
+  stop that) and stands itself upright -- but only as fast as `assistUprightRateDeg`, and only as
+  far as it could gently manage in the time he has left. Coasting in from a long way out it turns
+  him the whole way round, so arriving at the Moon nose-first still ends in a landing; on short
+  final there is only room to tidy a lean. It never flips a rocket upright at the last second,
+  and it stops helping the moment he steers.
+- **The landing envelope**: a landing only counts if he arrives the way a rocket should -- nose
+  within `landMaxTiltDeg` of vertical (engines down), coming down slower than `landMaxVspeed`,
+  not sliding sideways faster than `landMaxHspeed`, and over somewhere a rocket lands: the pad
+  (`landPadR`), a droneship deck (`landDeckR`), the catch tower (`landCatchR`), or anywhere on
+  the Moon or Mars. Anything else -- nose-first, on its side, too fast, or out in a field --
+  **crashes**: the full fireball, debris, a shockwave ring racing out across the ground and a
+  boom, with the camera stepping outside for it in either view. It costs nothing, so crashing on
+  purpose is its own thing to do. Under the parachutes there is no envelope: the canopies are the
+  capsule's landing assist and it arrives wherever the wind took it. Docking keeps its magnet.
+- **After a crash**: the pieces fly back together and, at home, the pad has a fresh stack standing
+  on it a couple of seconds later (it asks where it is going, like any refit). Away from Earth he
+  reassembles right there above the surface instead, so he can just try the landing again. Nothing
+  is lost either way: satellites left in the sky stay up, sparkle spots stay lit.
 - **On a planet**: fireworks, the sky stays black, the surface is "down" for the camera. You stay
   whatever you arrived as -- a capsule lands as a capsule and lifts off again on its thrusters.
   Rooftops at home are landable too.
@@ -296,7 +312,11 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   toward him) -- it clips to his belt. Outside, the slot button reels him straight back to the
   airlock and inside (it steers his speed at it, so it can never circle or get stuck). The
   top-left **go button** shows the capsule the whole time he is out of the seat: from inside or
-  outside it takes him all the way back to the seat. Both views again.
+  outside it takes him all the way back to the seat (and the vehicle picker keeps out of that slot
+  while he is out there, so it can never eat the tap). The reel-in routes *around* the station
+  core rather than straight through it -- the airlock is on the core's side, so from behind the
+  station a straight pull only pressed him against the wall -- and past `EVA.returnMaxTime`
+  nothing keeps him out at all. He is never stuck. Both views again.
 - **The stack**: the satellite button releases the big satellite and then five flat Starlink-style
   ones, one every 0.9 s with their own beep, fanning out in a line of blinking lights.
 - **Mission photos**: the camera in the rocket frames the shot as a round mission patch.
