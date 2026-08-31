@@ -2528,7 +2528,8 @@ function check(name, ok, extra) {
       const L = window.__lp, st = L.state, T = L.TUNE;
       const ap = L.AIRPORTS[0];
       st.exploding = false; st.phase = "AIRBORNE"; L.rk.onBody = null; L.rk.launchedFromBody = false; L.rk.stage = 0;   // the full stack, Falcon style
-      st.x = 0; st.z = ap.cz; st.y = ap.elev + 120; st.pitch = 90; st.heading = 0;
+      const padH = L.rocketPad(0);   // a Falcon comes back to the pad, not the runway
+      st.x = padH.x; st.z = padH.z; st.y = ap.elev + 120; st.pitch = 90; st.heading = 0;
       L.rk.vx = 0; L.rk.vy = -8; L.rk.vz = 0;
       const r0 = L.flags.rocketLandings || 0, e0 = L.flags.exploded;
       // feather it down: burn when falling faster than 10
@@ -3090,6 +3091,345 @@ function check(name, ok, extra) {
       perf.rocks > 5 &&
       perf.showSim < Math.max(perf.baseSim * 2.5 + 0.5, 4) &&
       perf.showDraw < perf.baseDraw * 1.8 + 6, JSON.stringify(perf));
+    await page.close();
+  }
+
+
+  // ---------- T-EVA the spacewalk round trip, with every event staged ----------
+  {
+    // The regression this guards: the reel-in steered straight at the airlock, which
+    // sits on the side of the core -- so from behind the station the push-out
+    // cancelled it exactly and he hung against the wall for ever.
+    const runs = [];
+    for (const kind of [null, "race", "meteors", "comet", "impacts", "escort", "fireworks"]) {
+      const { page } = await newPage(1180, 820);
+      const r = await page.evaluate((k) => {
+        const L = window.__lp, st = L.state;
+        L.noRender = true;
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        if (k) L.eventsForce(k);
+        const hatch = document.getElementById("hatchBtn"), go = document.getElementById("skipBtn");
+        // tap whatever is actually on top at that button's centre, like a finger would
+        const tap = (btn) => {
+          const b = btn.getBoundingClientRect();
+          const x = b.left + b.width / 2, y = b.top + b.height / 2;
+          const hit = document.elementFromPoint(x, y);
+          if (!hit) return null;
+          hit.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: x, clientY: y, pointerId: 1 }));
+          return hit.id || hit.tagName;
+        };
+        const o = { kind: k || "none" };
+        // fly out and dock
+        const dock = L.BODIES.find(b => b.name === "station");
+        st.dest = "station";
+        st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity]; st.spaceF = 1;
+        st.x = dock.x; st.y = dock.y + 200; st.z = dock.z;
+        L.rk.vx = 0; L.rk.vy = -20; L.rk.vz = 0;
+        for (let i = 0; i < 60 * 40 && !L.rk.onBody; i++) L.update(1 / 60);
+        L.update(1 / 60);
+        o.docked = !!(L.rk.onBody && L.rk.onBody.dock);
+        // the hatch button is the one under the finger, not something stacked over it
+        o.hatchOnTop = tap(hatch) === "hatchBtn";
+        for (let i = 0; i < 30; i++) L.update(1 / 60);
+        o.inside = L.astro.mode === "inside";
+        // ... and out on the tether
+        o.evaOnTop = tap(hatch) === "hatchBtn";
+        for (let i = 0; i < 30; i++) L.update(1 / 60);
+        o.eva = L.astro.mode === "eva";
+        L.api.setThrottle(true);
+        for (let i = 0; i < 60 * 14; i++) L.update(1 / 60);
+        L.api.setThrottle(false);
+        const s = L.station.position;
+        o.floated = Math.round(Math.hypot(L.eva.x - s.x, L.eva.y - s.y, L.eva.z - s.z));
+        o.tethered = o.floated <= L.EVA.tether * 1.3;   // it reels him back gently, so a thrusting overshoot is fine
+        // the regression: park him dead behind the core, where the way home is blocked
+        L.eva.x = s.x - 26; L.eva.y = s.y - 2; L.eva.z = s.z;
+        L.eva.vx = L.eva.vy = L.eva.vz = 0;
+        const back0 = L.flags.spacewalkReturns || 0;
+        o.backOnTop = tap(hatch) === "hatchBtn";
+        let f = 0;
+        for (; f < 60 * 45 && L.astro.mode === "evaReturn"; f++) L.update(1 / 60);
+        o.returnSecs = +(f / 60).toFixed(1);
+        o.cameHome = (L.flags.spacewalkReturns || 0) > back0 && L.astro.mode === "inside";
+        // the go button takes him from there back to the seat
+        o.goOnTop = tap(go) === "skipBtn";
+        for (let i = 0; i < 60 * 45 && L.astro.mode !== "none"; i++) L.update(1 / 60);
+        o.inSeat = L.astro.mode === "none" && st.phase === "TAXI" && !!L.rk.onBody;
+        // ... and the flight carries on: undock, deorbit, glow, come down
+        L.api.setThrottle(true);
+        for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+        L.api.setThrottle(false);
+        o.undocked = !L.rk.onBody && st.phase === "AIRBORNE";
+        for (let i = 0; i < 60 * 6; i++) L.update(1 / 60);
+        L.rk.launchedFromBody = true;
+        o.canGoHome = L.rocketCanSkip();
+        L.rocketSkipToLanding();
+        for (let i = 0; i < 60 * 200 && st.phase !== "TAXI"; i++) L.update(1 / 60);
+        o.reentered = (L.flags.reentries || 0) > 0;
+        o.landed = st.phase === "TAXI";
+        o.exploded = L.flags.exploded;
+        o.frameErrors = L.frameErrors || 0;
+        return o;
+      }, kind);
+      runs.push(r);
+      await page.close();
+    }
+    const bad = runs.filter(r => !(r.docked && r.hatchOnTop && r.inside && r.evaOnTop && r.eva &&
+      r.tethered && r.backOnTop && r.cameHome && r.returnSecs < 40 && r.goOnTop && r.inSeat &&
+      r.undocked && r.canGoHome && r.reentered && r.landed && r.frameErrors === 0));
+    check("eva: the whole spacewalk round trip -- inside, out on the tether, home from behind the core, back to the seat, then on to reentry -- works with every event staged",
+      bad.length === 0, JSON.stringify(bad.length ? bad : runs.map(r => `${r.kind}:${r.returnSecs}s`)));
+  }
+
+  // ---------- T-EVA2 the reel-in comes home from anywhere ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const sweep = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true;
+      L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      const dock = L.BODIES.find(b => b.name === "station");
+      st.dest = "station";
+      st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity]; st.spaceF = 1;
+      st.x = dock.x; st.y = dock.y + 200; st.z = dock.z;
+      L.rk.vx = 0; L.rk.vy = -20; L.rk.vz = 0;
+      for (let i = 0; i < 60 * 40 && !L.rk.onBody; i++) L.update(1 / 60);
+      L.toggleHatch(); for (let i = 0; i < 20; i++) L.update(1 / 60);
+      L.toggleHatch(); for (let i = 0; i < 20; i++) L.update(1 / 60);
+      const s = L.station.position;
+      const stuck = [];
+      let worst = 0, n = 0;
+      // all the way round, near and far, high and low, with and without a finger
+      // resting on the throttle
+      for (const hold of [false, true]) {
+        for (let i = 0; i < 16; i++) {
+          const th = i / 16 * Math.PI * 2;
+          for (const [rad, dy] of [[8, 0], [22, 0], [50, 0], [22, -9], [22, 9], [58, 3]]) {
+            n++;
+            L.astro.mode = "eva";
+            L.eva.x = s.x + Math.cos(th) * rad; L.eva.y = s.y + dy; L.eva.z = s.z + Math.sin(th) * rad;
+            L.eva.vx = L.eva.vy = L.eva.vz = 0;
+            const r0 = L.flags.spacewalkReturns || 0;
+            L.api.setThrottle(hold);
+            L.leaveStation();
+            let f = 0;
+            for (; f < 60 * 40 && L.astro.mode === "evaReturn"; f++) L.update(1 / 60);
+            L.api.setThrottle(false);
+            if ((L.flags.spacewalkReturns || 0) > r0) {
+              worst = Math.max(worst, f / 60);
+              L.toggleHatch(); for (let q = 0; q < 20; q++) L.update(1 / 60);   // back outside for the next one
+            } else {
+              stuck.push({ hold, deg: Math.round(th * 180 / Math.PI), rad, dy });
+              L.astro.mode = "eva";
+            }
+          }
+        }
+      }
+      return { n, stuck: stuck.length, worst: +worst.toFixed(1), examples: stuck.slice(0, 5) };
+    });
+    check("eva: the tether reels him home from every direction around the station -- behind the core included -- and never leaves him stuck",
+      sweep.stuck === 0 && sweep.n > 150 && sweep.worst < 25, JSON.stringify(sweep));
+    await page.close();
+  }
+
+
+  // ---------- T-SLOT no two visible buttons share a slot ----------
+  {
+    // Buttons are stacked into a few fixed slots. Two visible at once and the one
+    // later in the DOM silently eats the tap -- which is how the go button stopped
+    // working at the station (the vehicle picker sat on it).
+    const { page } = await newPage(1180, 820);
+    const clashes = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true;
+      const overlaps = () => {
+        const btns = [...document.querySelectorAll(".roundBtn")].filter(b => {
+          const cs = getComputedStyle(b);
+          return cs.display !== "none" && cs.visibility !== "hidden" && +cs.opacity > 0.05;
+        });
+        const bad = [];
+        for (const b of btns) {
+          const r = b.getBoundingClientRect();
+          if (!r.width) continue;
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          const owner = hit && hit.closest(".roundBtn");
+          if (owner && owner !== b) bad.push(b.id + " under " + owner.id);
+        }
+        return bad;
+      };
+      const out = [];
+      const at = (name, setup) => {
+        setup();
+        for (let i = 0; i < 12; i++) L.update(1 / 60);
+        const bad = overlaps();
+        if (bad.length) out.push({ name, bad });
+      };
+      const toStation = () => {
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        const dock = L.BODIES.find(b => b.name === "station");
+        st.dest = "station";
+        st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity]; st.spaceF = 1;
+        st.x = dock.x; st.y = dock.y + 200; st.z = dock.z;
+        L.rk.vx = 0; L.rk.vy = -20; L.rk.vz = 0;
+        for (let i = 0; i < 60 * 40 && !L.rk.onBody; i++) L.update(1 / 60);
+      };
+      const toMoon = () => {
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        st.dest = "moon";
+        const b = L.BODIES[0];
+        st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 3;
+        st.x = b.x; st.y = b.y + b.r + 10; st.z = b.z;
+      };
+      at("plane on the runway", () => { L.api.setVehicle("prop"); L.api.placeOnRunway(); });
+      at("plane airborne", () => { L.api.setVehicle("prop"); L.api.teleportAirborne(1200, 0, 200, 0); });
+      at("rocket on the pad", () => { L.api.setVehicle("rocket"); L.api.placeOnRunway(); });
+      at("rocket climbing (stage button up)", () => {
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        L.api.setThrottle(true);
+        for (let i = 0; i < 60 * 40 && !L.rocketCanDrop(); i++) L.update(1 / 60);
+        L.api.setThrottle(false);
+      });
+      at("capsule in space with a meteor shower", () => {
+        L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.eventsForce("meteors");
+        st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity]; st.y = 4000; st.spaceF = 1;
+        for (let i = 0; i < 60 * 5; i++) { L.update(1 / 60); L.rk.vx = L.rk.vy = L.rk.vz = 0; st.y = 4000; }
+      });
+      at("capsule under the mains", () => {
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        st.phase = "AIRBORNE"; L.rk.stage = 3; st.y += 400; L.rk.vy = -30; L.rk.chute = 2;
+      });
+      at("docked at the station", toStation);
+      at("inside the station", () => { toStation(); L.toggleHatch(); });
+      at("out on a spacewalk", () => { toStation(); L.toggleHatch(); for (let i = 0; i < 20; i++) L.update(1 / 60); L.toggleHatch(); });
+      at("landed on the Moon", toMoon);
+      at("driving the rover", () => { toMoon(); L.update(1 / 60); L.roverDeploy(); });
+      return out;
+    });
+    check("layout: no two visible buttons ever land in the same slot -- one would silently eat the other's tap",
+      clashes.length === 0, JSON.stringify(clashes));
+    await page.close();
+  }
+
+
+  // ---------- T-ENV the rocket landing envelope ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const env = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, R = L.TUNE.rocketTune;
+      L.noRender = true;
+      const out = {};
+      const reset = () => {
+        L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.api.clearStick(); L.api.setThrottle(false);
+        st.exploding = false; L.rk.onBody = null; L.rk.chute = 0;
+        for (let i = 0; i < 5; i++) L.update(1 / 60);
+      };
+      // fly an approach and say what happened. `stick` holds the nose where it is put,
+      // which is what a finger on the screen does -- and what stops the assist tidying it.
+      const approach = (o) => {
+        reset();
+        const l0 = L.flags.rocketLandings || 0, mo0 = L.flags.moonLandings || 0, e0 = L.flags.exploded;
+        st.phase = "AIRBORNE"; L.rk.stage = o.stage === undefined ? 3 : o.stage;
+        st.x = o.x; st.y = o.y; st.z = o.z;
+        st.pitch = o.pitch; st.heading = 0;
+        L.rk.vx = o.vx || 0; L.rk.vy = o.vy; L.rk.vz = o.vz || 0;
+        if (o.stick) L.api.setStick(0, o.stick);
+        let f = 0;
+        for (; f < 60 * (o.secs || 30) && !st.exploding && st.phase === "AIRBORNE"; f++) L.update(1 / 60);
+        L.api.clearStick();
+        return {
+          landed: (L.flags.rocketLandings || 0) > l0 || (L.flags.moonLandings || 0) > mo0,
+          exploded: L.flags.exploded > e0,
+          secs: +(f / 60).toFixed(1),
+          at: L.rk.lastArrival,
+        };
+      };
+      // The full stack, Falcon style: that is what comes down on a pad. (The bare
+      // capsule pops its parachutes low down, and under the canopies it simply
+      // arrives -- there is no envelope to be outside of.)
+      const pad = L.rocketPad(0), ap = L.AIRPORTS[0];
+      out.padUpright = approach({ stage: 0, x: pad.x, y: pad.ground + 90, z: pad.z, pitch: 90, vy: -10 });
+      out.padNoseDown = approach({ stage: 0, x: pad.x, y: pad.ground + 150, z: pad.z, pitch: -90, vy: -60, stick: -1, secs: 12 });
+      out.padSideways = approach({ stage: 0, x: pad.x, y: pad.ground + 25, z: pad.z, pitch: 0, vy: -20, secs: 12 });
+      // ---- the droneship deck
+      const barge = L.RECOVERY[0].barge;
+      out.deckUpright = approach({ stage: 0, x: barge.x, y: barge.deckY + 90, z: barge.z, pitch: 90, vy: -10 });
+      out.deckNoseDown = approach({ stage: 0, x: barge.x, y: barge.deckY + 150, z: barge.z, pitch: -90, vy: -60, stick: -1, secs: 12 });
+      // ---- out in a field: not a place a rocket lands
+      out.field = approach({ stage: 0, x: pad.x + 700, y: ap.elev + 90, z: pad.z + 700, pitch: 90, vy: -10 });
+      // ---- the Moon. He arrives at its underside, where "up" is -y: the stick follows
+      // the local up, so a pull that means "nose up" there is a negative one here.
+      const m = L.BODIES[0];
+      out.moonUpright = approach({ x: m.x, y: m.y - m.r - 60, z: m.z, pitch: -90, vy: 12, secs: 25 });
+      out.moonNoseFirst = approach({ x: m.x, y: m.y - m.r - 90, z: m.z, pitch: 90, vy: 40, stick: -1, secs: 25 });
+
+      // ---- a crash costs nothing: the pieces come back and the pad has a fresh one
+      reset();
+      // put something in the world first, and check it survives
+      st.phase = "AIRBORNE"; L.rk.stage = 3; st.y = 4000; st.spaceF = 1; L.update(1 / 60);
+      L.deploySatellite();
+      const sats = L.satellites.length, spots = L.spots.filter(q => q.lit).length;
+      const e0 = L.flags.exploded, f0 = L.flags.refits || 0, c0 = L.flags.rocketCrashes || 0;
+      st.phase = "AIRBORNE"; L.rk.stage = 0; st.spaceF = 0;
+      st.x = pad.x; st.y = pad.ground + 150; st.z = pad.z; st.pitch = -90;
+      L.rk.vx = L.rk.vz = 0; L.rk.vy = -60;
+      L.api.setStick(0, -1);
+      let f = 0;
+      for (; f < 60 * 12 && !st.exploding; f++) L.update(1 / 60);
+      L.api.clearStick();
+      out.crashed = st.exploding && L.flags.exploded > e0;
+      out.crashCounted = (L.flags.rocketCrashes || 0) > c0;
+      out.debris = L.flags.exploded > e0;
+      let g = 0;
+      for (; g < 60 * 8 && st.phase !== "TAXI"; g++) L.update(1 / 60);
+      out.backSecs = +(g / 60).toFixed(1);   // from the bang to a fresh stack on the pad
+      out.freshOnPad = st.phase === "TAXI" && L.rk.stage === 0 && !L.rk.onBody &&
+        Math.abs(st.x - pad.x) < 1 && Math.abs(st.z - pad.z) < 1;
+      out.refit = (L.flags.refits || 0) > f0;
+      out.satsKept = L.satellites.length === sats && sats > 0;
+      out.spotsKept = L.spots.filter(q => q.lit).length === spots;
+      out.destAsked = !document.getElementById("screenDest").classList.contains("hiddenS");
+      out.canLaunchAgain = (() => {
+        L.api.skipScreens();          // a fresh stack asks where it is going, as after any refit
+        L.api.setThrottle(true);
+        let ok = false;
+        for (let i = 0; i < 60 * 10; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE") { ok = true; break; } }
+        L.api.setThrottle(false);
+        return ok;
+      })();
+
+      // ---- a crash away from Earth puts him back above that surface, not home
+      reset();
+      const m2 = L.BODIES[0];
+      st.phase = "AIRBORNE"; L.rk.stage = 3;
+      st.x = m2.x; st.y = m2.y - m2.r - 90; st.z = m2.z; st.pitch = 90;
+      L.rk.vx = L.rk.vz = 0; L.rk.vy = 40;
+      L.api.setStick(0, -1);
+      for (let i = 0; i < 60 * 20 && !st.exploding; i++) L.update(1 / 60);
+      L.api.clearStick();
+      out.moonCrashed = st.exploding;
+      for (let i = 0; i < 60 * 8 && st.exploding; i++) L.update(1 / 60);
+      out.moonStaysThere = !st.exploding && Math.hypot(st.x - m2.x, st.y - m2.y, st.z - m2.z) < m2.r + 400;
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("rocket: a landing only counts inside the envelope -- upright and slow onto the pad, the droneship deck or the Moon lands; nose-down or sideways crashes",
+      env.padUpright.landed && !env.padUpright.exploded &&
+      env.deckUpright.landed && !env.deckUpright.exploded &&
+      env.moonUpright.landed && !env.moonUpright.exploded &&
+      env.padNoseDown.exploded && !env.padNoseDown.landed &&
+      env.padSideways.exploded && !env.padSideways.landed &&
+      env.deckNoseDown.exploded && !env.deckNoseDown.landed &&
+      env.moonNoseFirst.exploded && !env.moonNoseFirst.landed,
+      JSON.stringify(env));
+    check("rocket: a powered arrival out in a field is not a landing either -- the pad, the deck, the tower and the planets are",
+      env.field.exploded && !env.field.landed, JSON.stringify(env.field));
+    check("rocket: a crash costs nothing -- it explodes, the pieces come back together and a fresh stack is on the pad a few seconds later, with the flight's satellites still up there",
+      env.crashed && env.crashCounted && env.freshOnPad && env.refit && env.backSecs < 4 &&
+      env.destAsked && env.satsKept && env.spotsKept && env.canLaunchAgain && env.frameErrors === 0,
+      JSON.stringify({ ...env, padUpright: undefined, padNoseDown: undefined, padSideways: undefined,
+        deckUpright: undefined, deckNoseDown: undefined, field: undefined, moonUpright: undefined, moonNoseFirst: undefined }));
+    check("rocket: crashing away from Earth leaves him right there above the surface to try again, not back at the pad",
+      env.moonCrashed && env.moonStaysThere, JSON.stringify({ moonCrashed: env.moonCrashed, moonStaysThere: env.moonStaysThere }));
     await page.close();
   }
 

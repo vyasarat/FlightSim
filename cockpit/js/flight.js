@@ -351,7 +351,13 @@ function update(dt) {
   if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
   applyKeyboard(dt);
   updateEvents(dt);
-  el.vehBtn.classList.toggle("hidden", !(state.phase === "TAXI" && state.speed === 0 && !state.exploding));
+  // The picker shares the top-left slot with the go button, and sits over it in the
+  // DOM -- so it may only appear where the go button cannot: parked at home. Out at
+  // the station, on a spacewalk or on the Moon it would eat the tap that means
+  // "take me back", and drop him into the vehicle screen instead.
+  const parkedHome = state.phase === "TAXI" && state.speed === 0 && !state.exploding &&
+    !(state.vp.rocket && (rk.onBody || astroActive() || roverActive()));
+  el.vehBtn.classList.toggle("hidden", !parkedHome);
   el.gearBtn.classList.toggle("hidden", !state.vp.hasGear);
   el.gearBtn.classList.toggle("gear-up", !state.gearDown);
   const thOffVis = Math.round(Math.cos(state.dirIdx === 0 ? 0 : Math.PI)) * (TUNE.runwayLength / 2);

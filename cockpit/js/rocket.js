@@ -421,24 +421,28 @@ function updateRocket(dt) {
   const halfLen = rocketHalfLen();
   updateChuteVisual(dt);
   updatePad(dt, grounded);
+  // Every button that lives in the shared slot is decided here, ABOVE the rover and
+  // astronaut early returns below. Deciding them after meant whatever was up when he
+  // climbed out of the seat stayed up for the whole visit, stacked over the button he
+  // actually needed -- and the one later in the DOM silently eats the tap.
   el.roverBtn.classList.toggle("hidden", !(roverCan() || roverActive()));
   el.hatchBtn.classList.toggle("hidden", !(stationCanEnter() || astroActive()));
-  if (roverActive()) { updateRover(dt); rk.igniteT = 0; return; }   // driving: the capsule waits
-  if (astroActive()) { updateGoButton(); updateAstronaut(dt); rk.igniteT = 0; updateStationDocked(dt, true); return; }   // floating inside: the capsule waits at the port
-
-  // buttons: throttle always (hold to burn); the rocket has no missiles/speed steps/gear
-  el.throttleBtn.classList.remove("hidden");
-  el.rotateArrow.classList.remove("on");
-  el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden");
-  // the rocket has no missiles -- except during a meteor shower, when the plane's
-  // (unused) missile slot comes up so the rocks are there to be shot
-  el.missileBtn.classList.toggle("hidden", !eventsWantMissile());
-  el.gearBtn.classList.add("hidden");
-  updateGoButton();
   el.stageBtn.classList.toggle("hidden", !rocketCanDrop());
   if (el.stageBtn.dataset.stage !== String(rk.stage)) el.stageBtn.dataset.stage = String(rk.stage);
   el.satBtn.classList.toggle("hidden", !rocketCanDeploySat());
   el.chuteBtn.classList.toggle("hidden", !rocketCanChute());
+  // the rocket has no missiles -- except during a meteor shower, when one comes up in
+  // the gear row (empty on a rocket), clear of everything in the shared slot above it
+  el.missileBtn.classList.toggle("hidden", !eventsWantMissile());
+  if (roverActive()) { updateRover(dt); rk.igniteT = 0; return; }   // driving: the capsule waits
+  if (astroActive()) { updateGoButton(); updateAstronaut(dt); rk.igniteT = 0; updateStationDocked(dt, true); return; }   // floating inside: the capsule waits at the port
+
+  // buttons: throttle always (hold to burn); the rocket has no speed steps or gear
+  el.throttleBtn.classList.remove("hidden");
+  el.rotateArrow.classList.remove("on");
+  el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden");
+  el.gearBtn.classList.add("hidden");
+  updateGoButton();
 
   if (grounded) {
     // sitting on the pad (or on a body): upright, still, restocked
@@ -569,7 +573,12 @@ function updateRocket(dt) {
     const inward = rk.vx * rkAxis.x + rk.vy * rkAxis.y + rk.vz * rkAxis.z;
     if (inward > 0) {
       // just launched from it: still touching but moving away -- not a landing
-    } else if (sp <= RK.landSpeed) {
+    } else if (body.dock) {
+      // docking has its own magnet: it noses in, there is no way to get it wrong
+      if (sp <= RK.landSpeed) rocketLandOn(body);
+      else rocketCrash(body.x + rkAxis.x * (body.r + 90), body.y + rkAxis.y * (body.r + 90), body.z + rkAxis.z * (body.r + 90));
+    } else if (sp <= RK.landSpeed && (rk.lastArrival = Object.assign({ where: body.name, sp: +sp.toFixed(1) },
+        rocketArrival(rkAxis.x, rkAxis.y, rkAxis.z))).ok) {
       rocketLandOn(body);
     } else {
       rocketCrash(body.x + rkAxis.x * (body.r + 90), body.y + rkAxis.y * (body.r + 90), body.z + rkAxis.z * (body.r + 90));
@@ -584,9 +593,14 @@ function updateRocket(dt) {
   });
   rk.groundHere = ground;
   if (state.y - halfLen <= ground && rk.vy <= 0) {
-    const upright = state.pitch > 40 || sp <= RK.landSpeed * 0.3 || rk.chute > 0;
-    if (sp <= RK.landSpeed && upright) rocketLandOn(null);
-    else rocketCrash(state.x, ground + 70, state.z);
+    // Under the canopies it simply arrives -- the parachutes are the capsule's
+    // landing assist, and it comes down wherever the wind took it.
+    const arr = rocketArrival(0, 1, 0), zone = rocketLandingZone();
+    rk.lastArrival = { where: "earth", chute: rk.chute, sp: +sp.toFixed(1), zone,
+      tilt: +arr.tilt.toFixed(1), vDown: +arr.vDown.toFixed(1), hSpeed: +arr.hSpeed.toFixed(1), ok: arr.ok };
+    if (rk.chute > 0) rocketLandOn(null);
+    else if (sp <= RK.landSpeed && arr.ok && zone) rocketLandOn(null);
+    else rocketCrash(state.x, ground + 70, state.z, true);
   }
 }
 
@@ -597,10 +611,10 @@ function updateRocket(dt) {
 function rocketLandingAssist(dt, burning) {
   if (rk.chute > 0 || rk.reentry > 0.3) return;   // the parachutes are the capsule's landing assist
   const { body, dist } = rocketNearestBody();
-  let nx = 0, ny = 1, nz = 0, gap = Infinity;
+  let nx = 0, ny = 1, nz = 0, gap = Infinity, onto = null;   // `onto`: the body it is actually working, if any
   if (body && dist < (body.assistR || body.r * (RK.assistRange - 1))) {
     rkTmp.set(state.x - body.x, state.y - body.y, state.z - body.z).normalize();
-    nx = rkTmp.x; ny = rkTmp.y; nz = rkTmp.z; gap = dist;
+    nx = rkTmp.x; ny = rkTmp.y; nz = rkTmp.z; gap = dist; onto = body;
   } else if (!body || dist > body.r) {
     const agl = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
     if (agl < RK.assistEarthAgl && state.y < RK.gravityFade) gap = agl;
@@ -614,13 +628,25 @@ function rocketLandingAssist(dt, burning) {
   const k = Math.min(1, 2.5 * dt);
   const tvx = -nx * want, tvy = -ny * want, tvz = -nz * want;
   rk.vx += (tvx - rk.vx) * k; rk.vy += (tvy - rk.vy) * k; rk.vz += (tvz - rk.vz) * k;
-  // stand up: attitude eases toward the surface normal unless he is steering
-  if (!state.touching || Math.abs(state.ctrlPitch) < 0.15) {
-    const f = body && body.dock ? -1 : 1;   // docking: nose toward the port
+  // Stand up: attitude eases toward the surface normal unless he is steering -- but
+  // only as far as it could gently get in the time he has left, at
+  // assistUprightRateDeg. Coasting in from a long way out it will turn him the whole
+  // way round, which is how arriving at the Moon nose-first still ends in a landing.
+  // On short final there is only room to tidy a lean, so a rocket diving at the
+  // ground is never flipped upright at the last second: that one crashes.
+  const secsLeft = gap / Math.max(inward, 0.5);
+  const mayTurn = Math.min(RK.assistMaxTiltDeg, secsLeft * RK.assistUprightRateDeg);
+  if (rocketTiltDeg(nx, ny, nz) <= mayTurn && (!state.touching || Math.abs(state.ctrlPitch) < 0.15)) {
+    // Docking: nose toward the port. This has to key off the body the assist is
+    // actually flying to, not merely the nearest one -- coming home, the nearest
+    // body can be the station while the assist is working the ground, and that put
+    // the nose at -90: straight down. Which is how it kept arriving nose-first.
+    const f = onto && onto.dock ? -1 : 1;
     const wantPitch = Math.asin(clamp(f * ny, -1, 1)) / DEG;
     const wantHeading = (Math.abs(nx) + Math.abs(nz)) < 1e-4 ? state.heading : Math.atan2(-f * nx, -f * nz);   // straight up: keep his heading
-    state.pitch += (wantPitch - state.pitch) * Math.min(1, 2 * dt);
-    state.heading += wrapPi(wantHeading - state.heading) * Math.min(1, 2 * dt);
+    const step = RK.assistUprightRateDeg * dt;   // a nudge per frame, never a snap
+    state.pitch += clamp((wantPitch - state.pitch) * Math.min(1, 2 * dt), -step, step);
+    state.heading += clamp(wrapPi(wantHeading - state.heading) * Math.min(1, 2 * dt), -step * DEG, step * DEG);
   }
 }
 
@@ -672,6 +698,41 @@ function rocketSkipToLanding() {
   return true;
 }
 
+// ===========================================================================
+// The landing envelope. Arriving like a rocket -- nose up, slow, over a pad --
+// is a landing. Nose-first, on its side, too fast, or out in a field is a crash:
+// the full fireball, and a fresh stack a few seconds later. Nothing is lost
+// either way, so crashing on purpose is its own thing to do.
+// ===========================================================================
+const envN = new THREE.Vector3(), envV = new THREE.Vector3();
+// The angle between where the nose points and "up" here (away from the body's
+// centre, or the sky at home). 0 is perfectly upright, 180 is straight down.
+function rocketTiltDeg(nx, ny, nz) {
+  const pr = state.pitch * DEG, cp = Math.cos(pr);
+  const ax = -Math.sin(state.heading) * cp, ay = Math.sin(pr), az = -Math.cos(state.heading) * cp;
+  return Math.acos(clamp(ax * nx + ay * ny + az * nz, -1, 1)) / DEG;
+}
+// Somewhere a rocket lands: the pad, a droneship deck, or the catch tower. (On the
+// Moon or Mars the whole surface counts -- that is the point of going.)
+function rocketLandingZone() {
+  const pad = rocketPad(state.originIdx);
+  if (Math.hypot(state.x - pad.x, state.z - pad.z) <= RK.landPadR) return "pad";
+  const a = airports.find(r => r.idx === state.originIdx);
+  if (a && a.catchArms && Math.hypot(state.x - a.padX, state.z - (a.padZ + RK.catch.dz)) <= RK.landCatchR) return "catch";
+  for (const r of RECOVERY) {
+    if (r && r.barge && Math.hypot(state.x - r.barge.x, state.z - r.barge.z) <= RK.landDeckR) return "deck";
+  }
+  return null;
+}
+// How he is arriving, against the envelope. `n` is "up" at the point of contact.
+function rocketArrival(nx, ny, nz) {
+  const tilt = rocketTiltDeg(nx, ny, nz);
+  const vDown = -(rk.vx * nx + rk.vy * ny + rk.vz * nz);          // toward the surface
+  envV.set(rk.vx, rk.vy, rk.vz).addScaledVector(envN.set(nx, ny, nz), vDown);   // the sideways part
+  const hSpeed = envV.length();
+  return { tilt, vDown, hSpeed,
+    ok: tilt <= RK.landMaxTiltDeg && vDown <= RK.landMaxVspeed && hSpeed <= RK.landMaxHspeed };
+}
 function rocketLandingSite() {
   const pad = rocketPad(state.originIdx), ap = AIRPORTS[state.originIdx];
   for (let tries = 0; tries < 40; tries++) {
@@ -726,7 +787,7 @@ function rocketLandOn(body) {
     }
   }
 }
-function rocketCrash(sx, sy, sz) {
+function rocketCrash(sx, sy, sz, atHome) {
   // reassemble beside anything solid at that spot so the assist lands next to it, not back onto it
   forEachSolid(b => {
     if (Math.abs(sx - b.x) < b.hw + 8 && Math.abs(sz - b.z) < b.hd + 8) { sx = b.x + (sx >= b.x ? 1 : -1) * (b.hw + 30); sz = b.z + (sz >= b.z ? 1 : -1) * (b.hd + 30); }
@@ -737,6 +798,14 @@ function rocketCrash(sx, sy, sz) {
   rk.reentry = 0; reentryOverlay(); setReentryRoar(0); chuteReset();
   triggerExplosion(state.x, state.y, state.z, 1);
   shatterAround(state.x, state.y, state.z);
+  if (atHome) {
+    // arriving badly at home is its own show: a ring races out across the ground,
+    // and the pad has a new one standing on it by the time the smoke clears
+    rk.crashToPad = true;
+    shockRing(state.x, state.z);
+    deepPop();
+    flags.rocketCrashes = (flags.rocketCrashes || 0) + 1;
+  }
 }
 // Called from the shared reassemble: point the rocket up again with the full stack.
 function rocketAfterReassemble() {
@@ -744,6 +813,10 @@ function rocketAfterReassemble() {
   state.pitch = 90; state.bank = 0;
   rk.onBody = null;
   rocketRestock();
+  // A bad arrival at home ends where a launch begins: the pieces come back together
+  // and there is a fresh stack on the pad. (Away from Earth he reassembles right
+  // there above the surface instead, so he can just try the landing again.)
+  if (rk.crashToPad) { rk.crashToPad = false; rocketRefit(); }
 }
 // The pad rolls out a fresh stack (same as picking the rocket again), with a chime.
 function rocketRefit() {
@@ -774,7 +847,9 @@ function rocketCamera(dt) {
     camUp.applyQuaternion(camQi).normalize();
   }
   camera.up.copy(camUp);
-  if (state.viewChase) {
+  // The camera steps outside for the bang: from the seat, a nose-down crash looks
+  // straight into the ground and the whole fireball happens behind your head.
+  if (state.viewChase || state.exploding) {
     const fx = -Math.sin(hr), fz = -Math.cos(hr);
     // beside/behind the rocket, a little toward its nose, and lifted along "up"
     camDesired.set(state.x - fx * 34 + rkAxis.x * 4 + camUp.x * 8, state.y + rkAxis.y * 4 + camUp.y * 8, state.z - fz * 34 + rkAxis.z * 4 + camUp.z * 8);
@@ -793,6 +868,10 @@ function rocketCamera(dt) {
     camera.lookAt(lookV);
   } else {
     camera.position.set(state.x + rkAxis.x * (rocketHalfLen() - 1.5), state.y + rkAxis.y * (rocketHalfLen() - 1.5), state.z + rkAxis.z * (rocketHalfLen() - 1.5));
+    // never below the ground: a nose-down crash points the seat straight into it,
+    // and the whole explosion would play out behind a grey screen
+    const camGnd = Math.max(terrainEff(camera.position.x, camera.position.z), TUNE.waterLevel) + 1.5;
+    if (camera.position.y < camGnd && state.y < RK.gravityFade) camera.position.y = camGnd;
     // through reentry the view leans toward the horizon so the Earth's curve rolls under the glow
     const lean = rk.reentry * 2.0, cl = Math.cos(lean), sl = Math.sin(lean), fx = -Math.sin(hr), fz = -Math.cos(hr);
     lookV.set(camera.position.x + (rkAxis.x * cl + fx * sl) * 100, camera.position.y + rkAxis.y * cl * 100, camera.position.z + (rkAxis.z * cl + fz * sl) * 100);
@@ -836,15 +915,18 @@ function updatePad(dt, grounded) {
 
 // ---- T-0: a white flash and a ring racing out across the pad
 let shockwave = null;
-function liftoffShockwave() {
+function shockRing(x, z) {
   if (!shockwave) {
     shockwave = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 40), new THREE.MeshBasicMaterial({ color: 0xfff4d6, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
     shockwave.rotation.x = -Math.PI / 2;
     scene.add(shockwave);
   }
-  shockwave.position.set(state.x, Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + 1.5, state.z);
+  shockwave.position.set(x, Math.max(terrainEff(x, z), TUNE.waterLevel) + 1.5, z);
   shockwave.userData.t = 0;
   shockwave.visible = true;
+}
+function liftoffShockwave() {
+  shockRing(state.x, state.z);
   el.flash.classList.add("on");
   setTimeout(() => el.flash.classList.remove("on"), 110);
   deepPop();
