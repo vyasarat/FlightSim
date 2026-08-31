@@ -35,6 +35,13 @@ the checklist for shipping one.
   safe as long as they all precede `main.js`.
 - Space events are drawn once per pad spawn and armed only by a real liftoff. An event may
   never be required, block anything, or take anything away; keep every number in `TUNE.events`.
+- Buttons share a few fixed slots (`--stack-bottom` and the top-left corner). Two visible at once
+  and the one later in the DOM silently eats the tap -- the harness checks this across every
+  state. Decide a slot button's visibility *before* `updateRocket`'s rover / astronaut early
+  returns, or whatever was up when he climbed out stays up over the button he needs.
+- The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`) says what counts
+  as a landing; everything else crashes, and a crash must stay free. Assist strengths are separate
+  knobs (`assist*`) -- the assist may stand him up, never rescue a last-second dive.
 - There is no weather/sky button; the sky moods stay in code (`state.sky`) for the harness.
 - `scripts/headless_test.js` — the harness. `scripts/visual_baseline.json` — generated;
   never edit by hand (`UPDATE_VISUAL=1` regenerates it after an intentional look change).
