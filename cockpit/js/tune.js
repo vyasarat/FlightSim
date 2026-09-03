@@ -238,6 +238,37 @@ const TUNE = {
     alarmMuteRadius: 240,           // no crash alarm inside the fence: the numerals are the
                                     // only lead-in there, and he is meant to fly straight at it
   },
+  firefight: {                      // the burning rig off the coast, and the water bucket
+    rig: { x: 750, z: -8250 },      // out on open water, well clear of the approach and the fleet
+    deckY: 26, legH: 30,            // the platform stands this high on its legs
+    flames: 9, flameH: 22, flicker: 7,
+    smokePuffs: 26, smokeH: 300, smokeRise: 26, smokeSize: 20,   // the column, seen from a long way off
+    scoopAlt: 40,                   // this low over open water and the bucket can go down
+    scoopTime: 1.4,
+    dropR: 150,                     // this near the rig and the same button becomes DROP
+    drops: 3,                       // three of them put it out
+    sheet: 24, sheetLife: 1.5, sheetFall: 26,
+    steam: 20, steamLife: 2.2, steamRise: 14,
+    relight: 22, relightGlow: 3.5,  // it comes back on its own, announced by a glow
+    bucketDrop: 14,                 // how far the bucket hangs below him
+  },
+
+  carrier: {                        // the carrier off the California coast
+    at: { x: -900, z: -8100 },      // open sea, clear of the approach, the pad and the fleet
+    deckY: 20, deckL: 300, deckW: 78, hullW: 62,
+    angleDeg: 9,                    // the landing strip runs a little off the ship's axis
+    // The trap is generous on purpose: he is four, and a miss is only a loop-around.
+    trapAlt: 30, trapHeadingDeg: 45, arrestTime: 1.1,
+    catX: -19, cat2X: 15, catZ: 60, // the two catapults, forward on the deck
+    countFrom: 3,                   // the wind-up before the shove
+    shoveSpeed: 100, shoveTime: 1.6,
+    steam: 26, steamLife: 1.6,
+    crew: 12, crewWave: 3.2,
+    jets: 4,                        // parked on the deck, plus a helicopter aft
+    aiEvery: 16, aiCount: 3, aiSpeed: 95,   // the other jets go off cat 2 on their own
+    alarmMuteRadius: 320,
+  },
+
   towerCatch: {                     // the Starship booster, caught by the tower arms
     catchR: 14,                     // how far off centre the arms will still take it
     armIdle: 0.55, armWide: 0.98, armClosed: 0.08, armRate: 1.8,
@@ -293,7 +324,7 @@ const TUNE = {
 
   vehicles: {
     prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, hoverSpeed: 0, capped: true, size: 1.0, hasGear: true },
-    helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6, capped: true, size: 1.05, hasGear: false, hidden: true },
+    helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6, capped: true, size: 1.05, hasGear: false },   // back off the shelf: it is the firefighter
     rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
     starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },

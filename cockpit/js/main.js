@@ -151,6 +151,8 @@ window.__lp = {
   get cameraPos(){return camera.position;}, camera, scene, station, takePhoto,
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,
+  fire, bucket, FF, bucketPress, bucketCanScoop, bucketCanDrop, fireReset,
+  carrier, CV, carrierLaunchPress, carrierReset, carrierCanLaunch, carrierOnDeck, carrierTryTrap, updateSetpiecesLate,
   ev, EVENT_KINDS, eventsDraw, eventsForce, eventsReset, eventsArm, eventsSpawn, eventsOnDest, eventsWantMissile,
   get evGroup(){return evGroup;}, get evProps(){return ev.props;}, get evCraters(){return ev.craters;}, evSparksAlive,
   audio: { ctxState(){return audioCtx ? audioCtx.state : null;}, rocketNodes(){return !!rocketNodes;}, roarGain(){return rocketNodes ? +rocketNodes.roar.gain.value.toFixed(3) : null;}, engineGain(){return engineNodes ? +engineNodes.g.gain.value.toFixed(3) : null;} },
