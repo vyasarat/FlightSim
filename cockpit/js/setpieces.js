@@ -563,7 +563,7 @@ function fireOverWater() {
 }
 function fireAgl() { return state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel); }
 function fireNear() { return Math.hypot(state.x - fire.x, state.z - fire.z); }
-function isHeli() { return !!(state.vp && state.vp.hoverSpeed > 0); }
+function isHeli() { return !!(state.vp && state.vp.heli); }
 function bucketCanScoop() {
   return isHeli() && state.phase === "AIRBORNE" && !state.exploding &&
     bucket.state === "empty" && fireOverWater() && fireAgl() < FF.scoopAlt;
