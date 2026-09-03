@@ -130,6 +130,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   // last flight's event goes away and a new one is drawn for this stack
   if (typeof eventsSpawn === "function") eventsSpawn();
   if (typeof towerCatchReset === "function") towerCatchReset();
+  if (typeof carrierReset === "function") carrierReset();
   flags.repositioned++;
 }
 

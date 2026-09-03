@@ -323,7 +323,7 @@ function check(name, ok, extra) {
       sv.classList.remove("hiddenS");
       const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
       const hidden = [...sv.querySelectorAll(".card.hiddenS")];
-      if (visible.length !== 7) return { ok: false, why: "visible=" + visible.length };
+      if (visible.length !== 8) return { ok: false, why: "visible=" + visible.length };
       const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
@@ -331,16 +331,18 @@ function check(name, ok, extra) {
       const keys = visible.map(c => c.dataset.v);
       const hiddenGone = hidden.every(c => c.getBoundingClientRect().width === 0);
       const fromTune = hidden.every(c => window.__lp.TUNE.vehicles[c.dataset.v].hidden === true);
-      return { ok: sized && hidden.length === 1 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && !keys.includes("helicopter"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
+      // nothing is shelved any more: the helicopter came back off the shelf to fight
+      // the rig fire. The TUNE.hidden mechanism itself is still exercised below.
+      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
     });
-    check("vehicles: picker shows 7 incl fighter, rocket and starship (heli shelved, not rendered, driven by TUNE.hidden)", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows all 8 incl the helicopter, fighter, rocket and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
       return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
     });
-    check("vehicles: seven available, fighter / rocket / starship distinct, airliners share stats",
-      combos.n === 7 && combos.uniq === 5, `n=${combos.n} uniq=${combos.uniq}`);
+    check("vehicles: eight available, fighter / rocket / starship distinct, airliners share stats",
+      combos.n === 8 && combos.uniq === 6, `n=${combos.n} uniq=${combos.uniq}`);
 
     await page.evaluate(() => {
       document.getElementById("screenDir").classList.add("hiddenS");
@@ -3303,6 +3305,27 @@ function check(name, ok, extra) {
       at("out on a spacewalk", () => { toStation(); L.toggleHatch(); for (let i = 0; i < 20; i++) L.update(1 / 60); L.toggleHatch(); });
       at("landed on the Moon", toMoon);
       at("driving the rover", () => { toMoon(); L.update(1 / 60); L.roverDeploy(); });
+      at("helicopter low over open water", () => {
+        L.api.setVehicle("helicopter");
+        st.phase = "AIRBORNE"; st.x = L.FF.rig.x + 400; st.z = L.FF.rig.z + 400;
+        st.y = L.TUNE.waterLevel + 20; st.speed = 0;
+      });
+      at("helicopter over the fire with a full bucket", () => {
+        L.api.setVehicle("helicopter");
+        st.phase = "AIRBORNE"; st.x = L.FF.rig.x + 400; st.z = L.FF.rig.z + 400;
+        st.y = L.TUNE.waterLevel + 20; st.speed = 0;
+        for (let i = 0; i < 10; i++) L.update(1 / 60);
+        L.bucketPress();
+        for (let i = 0; i < 60 * (L.FF.scoopTime + 0.4); i++) { L.update(1 / 60); st.y = L.TUNE.waterLevel + 20; st.speed = 0; }
+        st.x = L.FF.rig.x + 30; st.z = L.FF.rig.z + 30; st.y = L.fire.deck + 70;
+      });
+      at("parked on the carrier deck", () => {
+        L.api.setVehicle("fighter"); L.carrierReset();
+        st.phase = "AIRBORNE"; st.exploding = false;
+        st.x = L.carrier.x + 2; st.z = L.carrier.z + L.CV.deckL / 2 - 20; st.y = L.carrier.deck + 10;
+        st.heading = 0; st.pitch = 0; st.speed = 90; st.bank = 0;
+        for (let i = 0; i < 60 * 8 && L.carrier.state !== "parked"; i++) L.update(1 / 60);
+      });
       return out;
     });
     check("layout: no two visible buttons ever land in the same slot -- one would silently eat the other's tap",
@@ -3710,6 +3733,191 @@ function check(name, ok, extra) {
     });
     check("set-piece: the big numeral is on screen only while a wind-up is running -- never on the runway, never in the air, and never a word",
       n.idleOnRunway && n.idleAirborne && n.duringWindUp && n.noWords && n.clearedAfter, JSON.stringify(n));
+    await page.close();
+  }
+
+
+  // ---------- T-SP4 set-pieces: the firefighting helicopter ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const f = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, F = L.FF;
+      L.noRender = true;
+      const o = {};
+      o.heliPickable = !T.vehicles.helicopter.hidden;
+      o.rigOnWater = L.terrainEff(F.rig.x, F.rig.z) < T.waterLevel - 1;
+      o.clearOfCorridor = Math.abs(F.rig.x) > 300 ||
+        Math.abs(F.rig.z - L.AIRPORTS[1].cz) > T.runwayLength / 2 + T.ringStartDistance + 300;
+      o.hasColumn = L.fire.smoke.length > 10;
+      o.burning = L.fire.level === 1;
+      // nobody is ever aboard, and nothing on the rig is a target
+      o.noTargetsOnRig = L.targets.every(t => Math.hypot(t.x - F.rig.x, t.z - F.rig.z) > 120);
+
+      L.api.setVehicle("helicopter");
+      const btn = document.getElementById("bucketBtn");
+      const hid = () => btn.classList.contains("hidden");
+      const at = (x, z, y) => { st.phase = "AIRBORNE"; st.x = x; st.z = z; st.y = y; st.speed = 0; st.pitch = 0; st.bank = 0; };
+      const settle = (x, z, y, n) => { for (let i = 0; i < (n || 10); i++) { at(x, z, y); L.update(1 / 60); } at(x, z, y); };
+
+      // one button, and only where it means something
+      settle(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 200);
+      o.hiddenHigh = hid();
+      settle(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20);
+      o.scoopOverWater = !hid() && btn.dataset.mode === "scoop";
+      // over dry land it is not offered
+      settle(0, L.AIRPORTS[1].cz, L.AIRPORTS[1].elev + 20);
+      o.hiddenOverLand = hid();
+
+      // scoop, then drop
+      settle(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20);
+      L.bucketPress();
+      for (let i = 0; i < 60 * (F.scoopTime + 0.5); i++) { L.update(1 / 60); at(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20); }
+      o.full = L.bucket.state === "full";
+      o.bucketHangs = L.bucket.g.visible;
+      settle(F.rig.x + 30, F.rig.z + 30, L.fire.deck + 70);
+      o.dropOverFire = !hid() && btn.dataset.mode === "drop";
+      const lv0 = L.fire.level;
+      L.bucketPress();
+      for (let i = 0; i < 20; i++) { L.update(1 / 60); at(F.rig.x + 30, F.rig.z + 30, L.fire.deck + 70); }
+      o.fireShrank = L.fire.level < lv0;
+      o.emptyAfterDrop = L.bucket.state === "empty";
+
+      // three of them put it out
+      const cycle = () => {
+        settle(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20);
+        L.bucketPress();
+        for (let i = 0; i < 60 * (F.scoopTime + 0.4); i++) { L.update(1 / 60); at(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20); }
+        settle(F.rig.x + 30, F.rig.z + 30, L.fire.deck + 70);
+        L.bucketPress();
+        for (let i = 0; i < 20; i++) { L.update(1 / 60); at(F.rig.x + 30, F.rig.z + 30, L.fire.deck + 70); }
+      };
+      cycle(); cycle();
+      o.drops = L.flags.ffDrops || 0;
+      o.out = L.fire.level <= 0;
+      o.flamesOut = L.fire.flames.every(q => !q.mesh.visible);
+      o.columnGone = L.fire.smoke.every(q => !q.mesh.visible);
+      o.putOut = L.flags.ffPutOut || 0;
+      o.noDropWhenOut = hid();
+
+      // it relights itself -- and says so first
+      let glowBefore = false, litDuringGlow = false;
+      for (let i = 0; i < 60 * (F.relight + F.relightGlow + 3) && L.fire.level <= 0; i++) {
+        L.update(1 / 60); at(F.rig.x + 30, F.rig.z + 30, L.fire.deck + 70);
+        if (L.fire.glowT > 0) { glowBefore = true; if (L.fire.level > 0) litDuringGlow = true; }
+      }
+      o.glowFirst = glowBefore && !litDuringGlow;
+      o.relit = L.fire.level === 1;
+      o.relights = L.flags.ffRelights || 0;
+      o.exploded = L.flags.exploded;
+      o.frameErrors = L.frameErrors || 0;
+      return o;
+    });
+    check("set-piece: a derelict rig burns on open water clear of the approach, under a smoke column, and the helicopter is off the shelf to go and fight it",
+      f.heliPickable && f.rigOnWater && f.clearOfCorridor && f.hasColumn && f.burning && f.noTargetsOnRig, JSON.stringify(f));
+    check("set-piece: one contextual button does both jobs -- SCOOP low over open water, DROP over the fire, and nothing at all anywhere else",
+      f.hiddenHigh && f.scoopOverWater && f.hiddenOverLand && f.full && f.bucketHangs && f.dropOverFire && f.fireShrank && f.emptyAfterDrop, JSON.stringify(f));
+    check("set-piece: three sheets of water put the fire out, and it relights itself later -- announced by a glow first, so the flames never just reappear",
+      f.drops === 3 && f.out && f.flamesOut && f.columnGone && f.putOut === 1 && f.noDropWhenOut &&
+      f.glowFirst && f.relit && f.relights === 1 && f.exploded === 0 && f.frameErrors === 0, JSON.stringify(f));
+    await page.close();
+  }
+
+  // ---------- T-SP5 set-pieces: the aircraft carrier ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const c = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, C = L.CV;
+      L.noRender = true;
+      const o = {};
+      o.onWater = L.terrainEff(C.at.x, C.at.z) < T.waterLevel - 1;
+      o.clearOfCorridor = Math.abs(C.at.x) > 300 ||
+        Math.abs(C.at.z - L.AIRPORTS[1].cz) > T.runwayLength / 2 + T.ringStartDistance + 300;
+      o.crew = L.carrier.crew.length;
+      // the crew are scenery: never solid, and never a target
+      let crewSolid = 0;
+      L.forEachSolid(b => { if (b.mesh && L.carrier.crew.some(q => q.g === b.mesh || q.arm === b.mesh)) crewSolid++; });
+      o.crewSolid = crewSolid;
+      o.noTargetsOnShip = L.targets.every(t => Math.hypot(t.x - C.at.x, t.z - C.at.z) > 160);
+      // ... and they wave
+      const a0 = L.carrier.crew[0].arm.rotation.z;
+      for (let i = 0; i < 30; i++) L.update(1 / 60);
+      o.crewWave = Math.abs(L.carrier.crew[0].arm.rotation.z - a0) > 0.05;
+
+      const btn = document.getElementById("catBtn");
+      const hid = () => btn.classList.contains("hidden");
+      L.api.setVehicle("fighter");
+      const approach = (dy) => {
+        L.carrierReset();
+        st.phase = "AIRBORNE"; st.exploding = false;
+        st.x = L.carrier.x + 2; st.z = L.carrier.z + C.deckL / 2 - 20; st.y = L.carrier.deck + dy;
+        st.heading = 0; st.pitch = 0; st.speed = 90; st.bank = 0;
+      };
+      // ---- the trap
+      const e0 = L.flags.exploded, t0 = L.flags.carrierTraps || 0;
+      approach(10);
+      for (let i = 0; i < 60 * 6 && L.carrier.state === "none"; i++) L.update(1 / 60);
+      o.trapped = (L.flags.carrierTraps || 0) > t0;
+      let maxAlarm = false;
+      for (let i = 0; i < 60 * 4; i++) { L.update(1 / 60); if (st.alarmOn) maxAlarm = true; }
+      o.parked = L.carrier.state === "parked";
+      o.stopped = st.speed < 0.5;
+      o.sitsOnDeck = Math.abs(st.y - (L.carrier.deck + T.gearHeight)) < 0.6;
+      o.noBang = L.flags.exploded === e0;
+      o.alarmQuiet = !maxAlarm;
+      // spotted on the catapult, with the light green
+      o.onTheCat = Math.abs(st.x - (L.carrier.x + C.catX)) < 6 && Math.abs(st.z - (L.carrier.z - C.catZ)) < 8;
+      o.catGreen = L.carrier.catMat.color.getHex() === 0x36c46a;
+      o.btnShown = !hid();
+
+      // ---- the shove, announced
+      const nums = new Set();
+      L.carrierLaunchPress();
+      for (let i = 0; i < 60 * (C.countFrom + 0.2); i++) { L.update(1 / 60); const t = document.getElementById("bigNum").textContent; if (t) nums.add(t); }
+      o.countdown = [...nums].sort().join("");
+      const z0 = st.z;
+      for (let i = 0; i < 60 * (C.shoveTime + 0.5); i++) L.update(1 / 60);
+      o.offTheBow = L.carrier.state === "none";
+      o.fast = st.speed > C.shoveSpeed * 0.8;
+      o.wentForward = st.z < z0 - 60;
+      o.clearOfShip = st.z < L.carrier.z - C.deckL / 2;
+      o.shoves = L.flags.carrierShoves || 0;
+      o.numClear = document.getElementById("bigNum").textContent === "";
+      o.btnGone = hid();
+
+      // ---- a miss is only a loop-around
+      approach(120);
+      const e1 = L.flags.exploded;
+      for (let i = 0; i < 60 * 6; i++) L.update(1 / 60);
+      o.missNoTrap = L.carrier.state === "none";
+      o.missNoBang = L.flags.exploded === e1;
+      // ... and he can come straight back and get it
+      const t1 = L.flags.carrierTraps || 0;
+      approach(10);
+      for (let i = 0; i < 60 * 6 && L.carrier.state === "none"; i++) L.update(1 / 60);
+      o.secondGo = (L.flags.carrierTraps || 0) > t1;
+
+      // ---- the other jets go on their own, each with its own light
+      L.carrierReset();
+      let seen = 0, lightUsed = false;
+      for (let i = 0; i < 60 * (C.aiEvery + C.countFrom + 6); i++) {
+        L.update(1 / 60);
+        seen = Math.max(seen, L.carrier.ai.length);
+        if (L.carrier.cat2Mat.color.getHex() !== 0x2a2f38) lightUsed = true;
+      }
+      o.aiJets = seen; o.aiLight = lightUsed;
+      o.frameErrors = L.frameErrors || 0;
+      return o;
+    });
+    check("set-piece: the carrier floats off the coast with a deck crew who wave, are never solid and can never be hit",
+      c.onWater && c.clearOfCorridor && c.crew >= 8 && c.crewSolid === 0 && c.noTargetsOnShip && c.crewWave, JSON.stringify(c));
+    check("set-piece: coming in low along the deck takes a wire -- a violent stop on the deck, no bang, no alarm -- and he is spotted on the catapult with the light green",
+      c.trapped && c.parked && c.stopped && c.sitsOnDeck && c.noBang && c.alarmQuiet && c.onTheCat && c.catGreen && c.btnShown, JSON.stringify(c));
+    check("set-piece: the catapult counts him down and throws him off the bow, clear of the ship, and the button goes away again",
+      c.countdown === "123" && c.offTheBow && c.fast && c.wentForward && c.clearOfShip && c.shoves === 1 && c.numClear && c.btnGone, JSON.stringify(c));
+    check("set-piece: a miss is only a loop-around -- he flies over the deck, nothing happens, and the next go works",
+      c.missNoTrap && c.missNoBang && c.secondGo, JSON.stringify(c));
+    check("set-piece: the other jets launch themselves off the second catapult, each with its own countdown light",
+      c.aiJets >= 1 && c.aiLight && c.frameErrors === 0, JSON.stringify(c));
     await page.close();
   }
 
