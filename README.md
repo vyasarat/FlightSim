@@ -375,12 +375,16 @@ running -- the HUD gains nothing permanent.
   with its own dust burst and thud. The fold is choreographed, not physics, and a folding tower
   stops being a wall the moment it starts going (`noSolid`), so nothing invisible is ever solid.
   `rebuild` seconds later the whole block stands itself back up and the reticle pulses again.
+  The crash alarm is silenced inside `alarmMuteRadius`: flying straight at those towers is the
+  point of the place, and the numerals are its only lead-in.
 - **Booster tower-catch** (Starship). The tower and its arms already existed; this is the theatre
   around them. As the booster comes down the arms swing **wide**, the catch zone lights up, its
   engines burn under it and big numerals count 5-4-3-2-1 off its closing rate. Inside `catchR`
   the arms shut with a heavy clunk, the engines cut, and it hangs there swaying while the tower
   lights sweep and the boats sound off. Outside `catchR` it goes bang instead -- a machine, and
-  free -- and the tower re-arms for the next launch.
+  free -- and the tower re-arms for the next launch. A caught booster hangs there as a trophy
+  until the next T-0, when the arms let go of it and it is taken away, so two boosters can
+  never be on the tower at once.
 
 ## Space events -- every launch, one big thing happens (`js/events.js`, `TUNE.events`)
 
