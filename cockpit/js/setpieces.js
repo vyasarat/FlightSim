@@ -140,6 +140,12 @@ function buildDemolition() {
   demo.g = g; demo.x = x; demo.z = z; demo.base = g.position.y;
 }
 
+// Inside the fence the crash alarm is silenced: he is supposed to fly at these.
+function demoAlarmMuted() {
+  if (!demo.g) return false;
+  return Math.hypot(state.x - demo.x, state.z - demo.z) < DEMO.alarmMuteRadius;
+}
+
 function demoTowerWorld(t) { return { x: demo.x + t.lx, y: demo.base, z: demo.z + t.lz }; }
 
 // Set it off. Only ever called from a missile landing in the block.
@@ -333,6 +339,23 @@ function towerCatchCaught(s) {
   flags.boosterCatches = (flags.boosterCatches || 0) + 1;
 }
 
+// A new launch: the arms let go of whatever they are holding and it is taken away,
+// so the old booster and the new one can never both be on the tower at once.
+function towerCatchClear() {
+  const a = towerRec();
+  if (a) a.catchClosed = false;
+  if (tcatch.hanging && typeof fallingStages !== "undefined") {
+    for (let i = fallingStages.length - 1; i >= 0; i--) {
+      if (fallingStages[i].mesh === tcatch.hanging) { scene.remove(fallingStages[i].mesh); fallingStages.splice(i, 1); }
+    }
+    if (tcatch.hanging.parent) scene.remove(tcatch.hanging);
+    flags.catchCleared = (flags.catchCleared || 0) + 1;
+  }
+  tcatch.hanging = null; tcatch.sway = 0; tcatch.sweep = 0; tcatch.hornT = 0;
+  tcatch.counting = false;
+  countdownClear();
+}
+
 function towerCatchMissed() {
   const a = towerRec();
   if (a) a.catchClosed = false;
@@ -408,8 +431,12 @@ function updateTowerCatch(dt) {
   }
 }
 
+// A fresh stack on the pad resets the show, but deliberately leaves a caught
+// booster hanging: it stays up there as the trophy it is until the next T-0, and
+// towerCatchClear takes it away then. Nulling it here orphaned it on the arms,
+// and the next catch arrived on top of it.
 function towerCatchReset() {
-  tcatch.hanging = null; tcatch.sway = 0; tcatch.sweep = 0; tcatch.hornT = 0;
+  tcatch.sway = 0; tcatch.sweep = 0; tcatch.hornT = 0;
   tcatch.glowT = 0; tcatch.counting = false;
   const a = towerRec();
   if (a && a.catchZone) { a.catchZone.visible = false; }

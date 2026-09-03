@@ -510,7 +510,7 @@ function updateRocket(dt) {
           rk.vx = rkAxis.x * 8; rk.vy = rkAxis.y * 8; rk.vz = rkAxis.z * 8;
           flags.undocks = (flags.undocks || 0) + 1;
         }
-        if (!rk.onBody) { rk.delugeT = 2.2; liftoffShockwave(); }
+        if (!rk.onBody) { rk.delugeT = 2.2; liftoffShockwave(); towerCatchClear(); }   // the arms let go of the last one
         rk.onBody = null;
         rk.refitT = 0;
         chuteReset();
