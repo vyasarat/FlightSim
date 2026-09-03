@@ -299,7 +299,7 @@ function updateFallingStages(dt) {
     s.t += dt;
     let ground = Math.max(terrainEff(s.x, s.z), TUNE.waterLevel);
     if (s.target && s.target.barge && Math.abs(s.x - s.target.x) < 26 && Math.abs(s.z - s.target.z) < 44) ground = Math.max(ground, s.target.y);
-    if (s.target && s.target.catch && Math.abs(s.x - s.target.x) < 6 && Math.abs(s.z - s.target.z) < 6) ground = Math.max(ground, s.target.y - (s.mesh.userData.baseZ || 7.6) * (state.vp.size || 1));   // the arms take it here
+    if (s.target && s.target.catch && Math.hypot(s.x - s.target.x, s.z - s.target.z) < TUNE.towerCatch.catchR) ground = Math.max(ground, s.target.y - (s.mesh.userData.baseZ || 7.6) * (state.vp.size || 1));   // the arms take it here
     const alt = s.y - ground;
     const [gx, gy, gz] = rocketGravityAt(s.x, s.y, s.z);   // Earth's pull fades out; the Moon and Mars pull their own
     s.vx += gx * dt; s.vy += gy * dt; s.vz += gz * dt;
@@ -325,6 +325,17 @@ function updateFallingStages(dt) {
       }
       const baseLen = (s.mesh.userData.baseZ || 7.6) * (state.vp.size || 1);
       if (alt <= baseLen) {
+        // Aiming for the arms and outside the envelope: it comes down past the
+        // tower instead, and a booster that misses is a machine going bang. The
+        // tower re-arms itself, so the next launch simply has another go.
+        if (s.target && s.target.catch && Math.hypot(s.x - s.target.x, s.z - s.target.z) >= TUNE.towerCatch.catchR) {
+          triggerExplosion(s.x, s.y, s.z, 1);
+          scene.remove(s.mesh);
+          fallingStages.splice(i, 1);
+          flags.catchMisses = (flags.catchMisses || 0) + 1;
+          towerCatchMissed();
+          continue;
+        }
         s.landed = true; s.vx = s.vy = s.vz = 0;
         s.y = ground + baseLen;
         s.mesh.quaternion.copy(Q_UPRIGHT);
@@ -332,12 +343,7 @@ function updateFallingStages(dt) {
         boosterLand();
         flags.boosterLandings = (flags.boosterLandings || 0) + 1;
         if (s.target && s.target.barge && Math.abs(s.x - s.target.x) < 26 && Math.abs(s.z - s.target.z) < 44) { flags.bargeLandings = (flags.bargeLandings || 0) + 1; boatHorn(); }
-        if (s.target && s.target.catch && Math.abs(s.x - s.target.x) < 6 && Math.abs(s.z - s.target.z) < 6) {
-          // caught: the arms close on it and it hangs there
-          const a = airports.find(r => r.idx === state.originIdx);
-          if (a) a.catchClosed = true;
-          clang(); flags.boosterCatches = (flags.boosterCatches || 0) + 1;
-        }
+        if (s.target && s.target.catch) towerCatchCaught(s);   // the arms close on it: the whole show
         continue;
       }
     } else if (s.kind === "fairing" && s.t > 1.5 && s.y < RK.gravityFade) {
@@ -902,8 +908,10 @@ function updatePad(dt, grounded) {
   updateShockwave(dt);
   if (a.catchArms) {
     if (rk.delugeT > 0) a.catchClosed = false;   // a launch: let go for the next one
-    const wantA = a.catchClosed ? 0.08 : 0.55;
-    for (const [i, arm] of a.catchArms.entries()) { const sgn = i === 0 ? 1 : -1; arm.rotation.y += (sgn * wantA - arm.rotation.y) * Math.min(1, 1.8 * dt); }
+    const TC = TUNE.towerCatch;
+    // open wide the moment one is on its way down: that is the wind-up
+    const wantA = a.catchClosed ? TC.armClosed : (towerCatchInbound() ? TC.armWide : TC.armIdle);
+    for (const [i, arm] of a.catchArms.entries()) { const sgn = i === 0 ? 1 : -1; arm.rotation.y += (sgn * wantA - arm.rotation.y) * Math.min(1, TC.armRate * dt); }
   }
   const steaming = (onPad && rk.igniteT > 0.4) || (rk.delugeT || 0) > 0;
   if (rk.delugeT > 0) rk.delugeT -= dt;

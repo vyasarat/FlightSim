@@ -351,6 +351,7 @@ function update(dt) {
   if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
   applyKeyboard(dt);
   updateEvents(dt);
+  updateSetpieces(dt);
   // The picker shares the top-left slot with the go button, and sits over it in the
   // DOM -- so it may only appear where the go button cannot: parked at home. Out at
   // the station, on a spacewalk or on the Moon it would eat the tap that means

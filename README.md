@@ -354,6 +354,34 @@ ignition and liftoff. The landing button (lower down) aims for the pad; the deor
   above and never enters a planet. **The rocket starts in the chase view** (the view button
   still toggles).
 
+## Set-pieces (`js/setpieces.js`, `TUNE.demolition` / `TUNE.towerCatch`)
+
+Big staged moments out in the world. Every one runs the same loop: **a giant obvious thing ->
+one aim or one pulsing control -> a visible wind-up -> a huge payoff -> a free reset that comes
+round on its own**. Nothing here can be failed; a miss just means turning round and going again,
+with no message and no sound of disapproval. Only structures and machines are ever wrecked.
+
+Every bang is **announced**. A four-year-old is thrilled by a boom he saw coming and frightened
+by one he did not, so nothing detonates without a build-up first: beacons hurrying, a rumble
+climbing, and a **big numeral** counting down. Numbers are allowed in this game; words are not.
+The numeral (`#bigNum`) is shared by every set-piece and is on screen *only* while a wind-up is
+running -- the HUD gains nothing permanent.
+
+- **Demolition district** (planes, mid-route at `x` / `f` on dry ground, well clear of both
+  approach corridors). A fenced block of condemned towers -- hoarding, hazard beacons, boarded
+  windows -- with a big pulsing reticle on the tallest one. Put a missile anywhere in the block
+  (`hitR` is generous: he is four) and it winds up for `charge` seconds -- beacons hurrying, dust
+  lifting, 3-2-1 -- then the towers fold one at a time in a domino chain, `foldDelay` apart, each
+  with its own dust burst and thud. The fold is choreographed, not physics, and a folding tower
+  stops being a wall the moment it starts going (`noSolid`), so nothing invisible is ever solid.
+  `rebuild` seconds later the whole block stands itself back up and the reticle pulses again.
+- **Booster tower-catch** (Starship). The tower and its arms already existed; this is the theatre
+  around them. As the booster comes down the arms swing **wide**, the catch zone lights up, its
+  engines burn under it and big numerals count 5-4-3-2-1 off its closing rate. Inside `catchR`
+  the arms shut with a heavy clunk, the engines cut, and it hangs there swaying while the tower
+  lights sweep and the boats sound off. Outside `catchR` it goes bang instead -- a machine, and
+  free -- and the tower re-arms for the next launch.
+
 ## Space events -- every launch, one big thing happens (`js/events.js`, `TUNE.events`)
 
 Every rocket launch the game secretly draws **one** of six events -- never the same one
@@ -424,6 +452,7 @@ cockpit/
     rover.js          the Moon / Mars rover: drive on the sphere, rocks, beacons, drive-back
     station.js        the station interior and the astronaut in zero g
     events.js         space events: the per-launch draw and all six of them
+    setpieces.js      set-pieces: the demolition block, the tower-catch theatre
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape
