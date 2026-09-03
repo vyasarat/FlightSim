@@ -3518,6 +3518,23 @@ function check(name, ok, extra) {
       for (let i = 0; i < 60 * 8 && L.demo.phase === "armed"; i++) L.update(1 / 60);
       o.again = (L.flags.demolitions || 0) === g0 + 2;
       o.exploded = L.flags.exploded;        // the missile itself bangs; he never does
+
+      // ---- the alarm: quiet over the block, awake everywhere else
+      L.demoReset();
+      const alarmAt = (x, z, y) => {
+        st.phase = "AIRBORNE"; st.exploding = false;
+        st.x = x; st.z = z; st.y = y;
+        st.heading = -Math.PI / 2; st.pitch = -20; st.speed = 70; st.bank = 0;
+        st.alarmOn = false;
+        let on = false;
+        for (let i = 0; i < 24; i++) { L.update(1 / 60); if (st.alarmOn) on = true; st.x = x; st.z = z; st.y = y; }
+        return on;
+      };
+      // diving at a tower from inside the fence
+      o.alarmQuietInside = !alarmAt(L.demo.x + 40, L.demo.z + t0.lz, L.demo.base + 30);
+      o.muted = L.demoAlarmMuted();
+      // the same dive at a town well away from the block still sounds
+      o.alarmWorksOutside = alarmAt(L.demo.x + 2200, L.demo.z, L.terrainEff(L.demo.x + 2200, L.demo.z) + 30);
       o.frameErrors = L.frameErrors || 0;
       return o;
     });
@@ -3527,6 +3544,8 @@ function check(name, ok, extra) {
       d.armed && d.reticlePulses && d.triggered && d.charging && d.nothingFoldedYet && d.countdown === "123" && d.windUpHeldOff, JSON.stringify(d));
     check("set-piece: the towers then fold one at a time in a readable domino chain, and a folding tower is never an invisible wall",
       d.foldedAll && d.readableGap && d.solidWhileDown === 0 && d.allShort && d.numClear, JSON.stringify(d));
+    check("set-piece: the crash alarm stays quiet inside the block -- he is meant to fly straight at those towers -- and speaks up again outside it",
+      d.alarmQuietInside && d.alarmWorksOutside, JSON.stringify({ inside: d.alarmQuietInside, outside: d.alarmWorksOutside }));
     check("set-piece: the block puts itself back up on its own and can be brought down again, for free, for ever",
       d.rebuilt && d.reticleBack && d.rebuilds === 1 && d.again && d.frameErrors === 0, JSON.stringify(d));
     await page.close();
@@ -3597,6 +3616,24 @@ function check(name, ok, extra) {
       o.lightsSwept = swept;
       o.numClear = document.getElementById("bigNum").textContent === "";
 
+      // ---- launch again and catch a second one: the first must be gone from the arms
+      const firstMesh = L.tcatch.hanging;
+      const cl0 = L.flags.catchCleared || 0, cA = L.flags.boosterCatches || 0;
+      L.api.placeOnRunway();
+      toDrop();
+      o.oldCleared = (L.flags.catchCleared || 0) > cl0 && (!firstMesh || !firstMesh.parent);
+      for (let i = 0; i < 60 * 100 && (L.flags.boosterCatches || 0) === cA; i++) { L.update(1 / 60); hold(); }
+      o.twoCatches = (L.flags.boosterCatches || 0) === cA + 1;
+      // exactly one booster is sitting on the arms
+      const armY = L.rocketPad(st.originIdx).ground + L.TUNE.rocketTune.catch.armY;
+      let onArms = 0;
+      for (const fs of L.fallingStages) {
+        if (fs.kind !== "booster" || !fs.landed) continue;
+        if (Math.abs(fs.y - fs.target.y) < 3 && Math.hypot(fs.x - fs.target.x, fs.z - fs.target.z) < TC.catchR) onArms++;
+      }
+      o.onArmsAfter = onArms;
+      o.oneOnTower = onArms === 1;
+
       // ---- outside the envelope: it goes bang instead, and the tower re-arms
       L.api.placeOnRunway();
       L.fallingStages.length = 0;          // the caught one is still up there; start clean
@@ -3622,6 +3659,8 @@ function check(name, ok, extra) {
       c.hasZone && c.hasLights && c.targetsTower && c.armsOpenedWide && c.zoneLit && c.engineGlow && c.countdown === "12345", JSON.stringify(c));
     check("set-piece: it is caught inside a generous envelope -- engines cut, it hangs upright on the arms, sways and settles, and the tower lights sweep",
       c.caught && c.engineCut && c.hangsUpright && c.onTheArms && c.armsShut && c.swayed && c.settles && c.lightsSwept && c.numClear, JSON.stringify(c));
+    check("set-piece: two catches in a row -- the arms let go of the first booster at the next launch, so two are never on the tower at once",
+      c.twoCatches && c.oneOnTower && c.oldCleared, JSON.stringify({ twoCatches: c.twoCatches, oneOnTower: c.oneOnTower, oldCleared: c.oldCleared, onArmsAfter: c.onArmsAfter }));
     check("set-piece: a booster that arrives outside the envelope goes bang instead of being quietly caught, and the tower re-arms for the next one",
       c.missed && c.missBanged && c.missNotCaught && c.rearmed && c.frameErrors === 0, JSON.stringify(c));
     await page.close();
