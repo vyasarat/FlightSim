@@ -29,6 +29,8 @@ the checklist for shipping one.
   used *at load time* must be declared in an earlier file (TDZ). Using it later,
   inside a function, is fine.
 - `cockpit/js/tune.js` — every gameplay number (`TUNE`, `TUNE.rocketTune`, `rocketTune.starship`).
+- `heli.js` — the helicopter's own flight model (`TUNE.heli`); it owns both the ground and the
+  air for that vehicle, so the plane path in `flight.js` never runs for it.
 - `rocket.js` (Falcon / Starship spine), `recovery.js` (droneship, net boat, recovery ride),
   `rover.js` (surface buggy) and `events.js` (the per-launch space event) load after `flight.js`
   and before `main.js`; they call into each other only inside functions, so order among them is

@@ -3749,6 +3749,12 @@ function check(name, ok, extra) {
       o.clearOfCorridor = Math.abs(F.rig.x) > 300 ||
         Math.abs(F.rig.z - L.AIRPORTS[1].cz) > T.runwayLength / 2 + T.ringStartDistance + 300;
       o.hasColumn = L.fire.smoke.length > 10;
+      // near enough to be worth flying to: about half a minute in the helicopter
+      o.transitSecs = Math.round(Math.hypot(F.rig.x, F.rig.z - L.AIRPORTS[1].cz) / T.vehicles.helicopter.cruiseSpeed);
+      o.closeEnough = o.transitSecs <= 45;
+      // ... and not on top of the carrier or the recovery fleet
+      o.clearOfShips = Math.hypot(F.rig.x - L.CV.at.x, F.rig.z - L.CV.at.z) > 400 &&
+        Math.hypot(F.rig.x - L.RECOVERY[1].barge.x, F.rig.z - L.RECOVERY[1].barge.z) > 400;
       o.burning = L.fire.level === 1;
       // nobody is ever aboard, and nothing on the rig is a target
       o.noTargetsOnRig = L.targets.every(t => Math.hypot(t.x - F.rig.x, t.z - F.rig.z) > 120);
@@ -3758,20 +3764,30 @@ function check(name, ok, extra) {
       const hid = () => btn.classList.contains("hidden");
       const at = (x, z, y) => { st.phase = "AIRBORNE"; st.x = x; st.z = z; st.y = y; st.speed = 0; st.pitch = 0; st.bank = 0; };
       const settle = (x, z, y, n) => { for (let i = 0; i < (n || 10); i++) { at(x, z, y); L.update(1 / 60); } at(x, z, y); };
+      // real open water near the rig, found rather than assumed (it moves)
+      const sea = (() => {
+        for (let d = 140; d <= 700; d += 60)
+          for (const [ax, az] of [[0, -1], [-1, -1], [1, -1], [-1, 0], [1, 0], [0, 1]]) {
+            const x = F.rig.x + ax * d, z = F.rig.z + az * d;
+            if (L.terrainEff(x, z) < T.waterLevel - 2) return { x, z };
+          }
+        return { x: F.rig.x, z: F.rig.z - 300 };
+      })();
+      o.sea = [Math.round(sea.x), Math.round(sea.z)];
 
       // one button, and only where it means something
-      settle(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 200);
+      settle(sea.x, sea.z, T.waterLevel + 200);
       o.hiddenHigh = hid();
-      settle(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20);
+      settle(sea.x, sea.z, T.waterLevel + 20);
       o.scoopOverWater = !hid() && btn.dataset.mode === "scoop";
       // over dry land it is not offered
       settle(0, L.AIRPORTS[1].cz, L.AIRPORTS[1].elev + 20);
       o.hiddenOverLand = hid();
 
       // scoop, then drop
-      settle(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20);
+      settle(sea.x, sea.z, T.waterLevel + 20);
       L.bucketPress();
-      for (let i = 0; i < 60 * (F.scoopTime + 0.5); i++) { L.update(1 / 60); at(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20); }
+      for (let i = 0; i < 60 * (F.scoopTime + 0.5); i++) { L.update(1 / 60); at(sea.x, sea.z, T.waterLevel + 20); }
       o.full = L.bucket.state === "full";
       o.bucketHangs = L.bucket.g.visible;
       settle(F.rig.x + 30, F.rig.z + 30, L.fire.deck + 70);
@@ -3784,9 +3800,9 @@ function check(name, ok, extra) {
 
       // three of them put it out
       const cycle = () => {
-        settle(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20);
+        settle(sea.x, sea.z, T.waterLevel + 20);
         L.bucketPress();
-        for (let i = 0; i < 60 * (F.scoopTime + 0.4); i++) { L.update(1 / 60); at(F.rig.x + 400, F.rig.z + 400, T.waterLevel + 20); }
+        for (let i = 0; i < 60 * (F.scoopTime + 0.4); i++) { L.update(1 / 60); at(sea.x, sea.z, T.waterLevel + 20); }
         settle(F.rig.x + 30, F.rig.z + 30, L.fire.deck + 70);
         L.bucketPress();
         for (let i = 0; i < 20; i++) { L.update(1 / 60); at(F.rig.x + 30, F.rig.z + 30, L.fire.deck + 70); }
@@ -3813,7 +3829,8 @@ function check(name, ok, extra) {
       return o;
     });
     check("set-piece: a derelict rig burns on open water clear of the approach, under a smoke column, and the helicopter is off the shelf to go and fight it",
-      f.heliPickable && f.rigOnWater && f.clearOfCorridor && f.hasColumn && f.burning && f.noTargetsOnRig, JSON.stringify(f));
+      f.heliPickable && f.rigOnWater && f.clearOfCorridor && f.hasColumn && f.burning &&
+      f.noTargetsOnRig && f.closeEnough && f.clearOfShips, JSON.stringify(f));
     check("set-piece: one contextual button does both jobs -- SCOOP low over open water, DROP over the fire, and nothing at all anywhere else",
       f.hiddenHigh && f.scoopOverWater && f.hiddenOverLand && f.full && f.bucketHangs && f.dropOverFire && f.fireShrank && f.emptyAfterDrop, JSON.stringify(f));
     check("set-piece: three sheets of water put the fire out, and it relights itself later -- announced by a glow first, so the flames never just reappear",
@@ -3918,6 +3935,141 @@ function check(name, ok, extra) {
       c.missNoTrap && c.missNoBang && c.secondGo, JSON.stringify(c));
     check("set-piece: the other jets launch themselves off the second catapult, each with its own countdown light",
       c.aiJets >= 1 && c.aiLight && c.frameErrors === 0, JSON.stringify(c));
+    await page.close();
+  }
+
+
+  // ---------- T-HELI the helicopter's own flight model ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const h = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, H = L.H;
+      L.noRender = true;
+      const o = {};
+      L.api.setVehicle("helicopter");
+      const air = () => {
+        L.api.placeOnRunway(); L.heliReset(); L.api.clearStick(); L.api.setThrottle(false);
+        st.phase = "AIRBORNE"; st.x = 0; st.z = 0; st.y = 300;
+        st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; st.airVy = 0;
+      };
+      const run = (secs, stick, thr) => {
+        if (stick) L.api.setStick(stick[0], stick[1]); else L.api.clearStick();
+        L.api.setThrottle(!!thr);
+        for (let i = 0; i < 60 * secs; i++) L.update(1 / 60);
+      };
+
+      // ---- it leaves the ground straight up, with no runway roll at all
+      L.api.placeOnRunway(); L.heliReset();
+      o.startsOnGround = st.phase === "TAXI";
+      L.api.setThrottle(true);
+      let lift = -1;
+      for (let i = 0; i < 60 * 6; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE") { lift = i / 60; break; } }
+      L.api.setThrottle(false);
+      o.liftSecs = lift; o.liftedVertically = lift >= 0 && st.speed < 1;
+
+      // ---- stick right for 2 s turns about turnRate * 2
+      air();
+      const h0 = st.heading;
+      run(2, [1, 0], false);
+      o.turned = Math.abs((st.heading - h0) * 180 / Math.PI);
+      o.turnRight = (st.heading - h0) < 0;                  // right stick = right turn
+      o.turnedAbout = Math.abs(o.turned - H.turnRate * 2) < H.turnRate * 0.45;
+      o.leaned = Math.abs(st.bank) > H.bankDeg * 0.6;
+
+      // ---- stick forward for 3 s: it goes, nose down
+      air();
+      const x0 = st.x, z0 = st.z;
+      run(3, [0, -1], false);
+      o.movedFwd = Math.hypot(st.x - x0, st.z - z0);
+      o.wentForward = (z0 - st.z) > 60;                     // heading 0 travels -z
+      o.noseDown = st.pitch < -H.noseDeg * 0.6;
+      o.reachedCruise = st.speed > H.cruise * 0.9;
+
+      // ---- pull back: it slows, stops and hovers
+      run(2.5, [0, 1], false);
+      o.stopped = Math.abs(st.speed) < 9;
+      o.canBackUp = st.speed <= 0.01;
+
+      // ---- throttle up, then let go: it sinks, but never hard
+      air();
+      const y0 = st.y;
+      run(2, null, true);
+      o.climbed = st.y - y0;
+      const y1 = st.y;
+      let worstSink = 0;
+      L.api.clearStick(); L.api.setThrottle(false);
+      for (let i = 0; i < 60 * 3; i++) { const p = st.y; L.update(1 / 60); worstSink = Math.max(worstSink, (p - st.y) * 60); }
+      o.descended = y1 - st.y;
+      o.worstSink = +worstSink.toFixed(2);
+      o.neverHard = worstSink <= H.maxSink + 0.4;
+
+      // ---- let go of everything: it settles within about a second
+      air();
+      run(2, [1, -1], true);                                 // turning and moving
+      L.api.clearStick(); L.api.setThrottle(false);
+      for (let i = 0; i < 60 * 1.5; i++) L.update(1 / 60);
+      o.settledSpeed = Math.abs(st.speed);
+      o.settled = o.settledSpeed < 3;
+      o.levelled = Math.abs(st.bank) < 4 && Math.abs(st.pitch) < 4;
+
+      // ---- the coast to the rig, at cruise, inside 35 s
+      L.api.placeOnRunway(); L.heliReset();
+      const ap = L.AIRPORTS[1], F = L.FF;
+      st.phase = "AIRBORNE"; st.x = 0; st.z = ap.cz; st.y = ap.elev + 120;
+      st.heading = Math.atan2(-(F.rig.x - st.x), -(F.rig.z - st.z));
+      st.pitch = 0; st.bank = 0; st.speed = 0; st.airVy = 0;
+      L.api.setStick(0, -1); L.api.setThrottle(false);
+      let arrive = -1;
+      for (let i = 0; i < 60 * 60; i++) {
+        st.y = ap.elev + 120;                               // hold height; this is a speed test
+        L.update(1 / 60);
+        if (Math.hypot(st.x - F.rig.x, st.z - F.rig.z) < 150) { arrive = i / 60; break; }
+      }
+      L.api.clearStick();
+      o.transit = arrive;
+      o.reachesRig = arrive >= 0 && arrive <= 35;
+
+      // ---- it still sets down at the airport, softly
+      L.api.placeOnRunway(); L.heliReset();
+      const e0 = L.flags.exploded;
+      st.phase = "AIRBORNE"; st.x = 0; st.z = ap.cz; st.y = ap.elev + 80;
+      st.speed = 0; st.pitch = 0; st.bank = 0; st.airVy = 0;
+      L.api.clearStick(); L.api.setThrottle(false);
+      let down = -1;
+      for (let i = 0; i < 60 * 30; i++) { L.update(1 / 60); if (st.phase === "TAXI") { down = i / 60; break; } }
+      o.landedAtAirport = down >= 0;
+      o.softLanding = L.flags.exploded === e0;
+      o.sitsOnGround = Math.abs(st.y - (Math.max(L.terrainEff(st.x, st.z), T.waterLevel) + T.gearHeight)) < 0.5;
+      // ... and lifts straight off again
+      L.api.setThrottle(true);
+      let up = false;
+      for (let i = 0; i < 60 * 6; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE") { up = true; break; } }
+      L.api.setThrottle(false);
+      o.liftsAgain = up;
+
+      // ---- and it can still be trapped on the carrier deck
+      L.carrierReset(); L.heliReset();
+      const t0 = L.flags.carrierTraps || 0;
+      st.phase = "AIRBORNE"; st.exploding = false;
+      st.x = L.carrier.x + 2; st.z = L.carrier.z + L.CV.deckL / 2 - 20; st.y = L.carrier.deck + 12;
+      st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 26; st.airVy = 0;
+      for (let i = 0; i < 60 * 6 && L.carrier.state === "none"; i++) L.update(1 / 60);
+      o.carrierTrap = (L.flags.carrierTraps || 0) > t0;
+      o.frameErrors = L.frameErrors || 0;
+      return o;
+    });
+    check("helicopter: it lifts straight off the ground on the throttle alone -- no runway, no rotate speed",
+      h.startsOnGround && h.liftedVertically && h.liftSecs >= 0 && h.liftSecs < 3, JSON.stringify(h));
+    check("helicopter: the stick steers it -- left/right turns at about turnRate with a visible lean, forward drops the nose and it goes, back slows it to a stop",
+      h.turnRight && h.turnedAbout && h.leaned && h.wentForward && h.noseDown && h.reachedCruise && h.stopped && h.canBackUp, JSON.stringify(h));
+    check("helicopter: the throttle is up and down -- hold to climb, let go and it sinks gently and never faster than maxSink",
+      h.climbed > 15 && h.descended > 5 && h.neverHard, JSON.stringify(h));
+    check("helicopter: let go of everything and it settles into a hover within a second and a half, level and stopped -- the safe state he can always fall back to",
+      h.settled && h.levelled, JSON.stringify(h));
+    check("helicopter: from the California coast it reaches the burning rig inside 35 seconds",
+      h.reachesRig, JSON.stringify({ transit: h.transit, reaches: h.reachesRig }));
+    check("helicopter: it still sets down softly at the airport and lifts off again, and can still be trapped on the carrier deck",
+      h.landedAtAirport && h.softLanding && h.sitsOnGround && h.liftsAgain && h.carrierTrap && h.frameErrors === 0, JSON.stringify(h));
     await page.close();
   }
 

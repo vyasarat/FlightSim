@@ -75,11 +75,27 @@ mechanism (the picker reads the flag at boot) is still there for anything that n
 | Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (colour only); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
-| Helicopter | 30 | 27°/s | ±22° | Hovers when the stick is released; the firefighter -- it carries the water bucket |
+| Helicopter | 36 | 55°/s | n/a | **Its own flight model** (`js/heli.js`, `TUNE.heli`): throttle is up/down, the stick is turn and speed. The firefighter -- it carries the water bucket |
 | Rocket | see `rocketTune` | 38°/s tilt | vertical launch | Its own flight model (The rocket below); no gear, no missiles. The `vehicles.rocket` entry only feeds the picker and dials |
 | Starship | `rocketTune.starship` | 38°/s tilt (turnRateDeg 7 vs the rocket's 8) | vertical launch | Same flight model, one drop; the booster is caught by the tower's arms; the Ship lands on its engines |
 
 Every non-rocket vehicle is ceiling-capped at `otherVehicleCeiling`.
+
+## The helicopter (`js/heli.js`, `TUNE.heli`)
+
+It used to fly the plane model, which meant pitch *was* altitude, the throttle did nothing in the
+air, and it could never take off at all -- the plane needs `rotateSpeed` 44 m/s to rotate and the
+helicopter tops out at 34. It has its own model now, on the two controls he already knows:
+
+| Input | Effect |
+|---|---|
+| Throttle | **Up.** Hold to climb at `climb`; let go and it sinks gently, never faster than `maxSink`, and sets itself down softly wherever it is -- grass, runway, or the sea. Hold again and it lifts straight back off. No runway, no rotate speed |
+| Stick left / right | **Turn** at `turnRate`, leaning `bankDeg` into it so it reads as steering |
+| Stick down / up | **Speed.** Push forward and the nose drops `noseDeg` and it accelerates to `cruise`; pull back to slow, stop and hover, or back up slowly at `reverse`. (Drag up still raises the nose) |
+| Let go of everything | It stops and levels within about a second. **Hovering is the safe state** -- he can always take his finger off |
+
+Walls are still walls (fly into a tower and it goes bang), but the ground never is: it can only
+ever arrive at `maxSink`, so touching down is always soft.
 
 ## The world: New York <-> California
 
@@ -380,7 +396,9 @@ running -- the HUD gains nothing permanent.
   point of the place, and the numerals are its only lead-in.
 - **Firefighting helicopter** (`TUNE.firefight`). A derelict rig burns on open water off the
   California coast -- **nobody aboard, ever** -- under a smoke column you can see from the shore.
-  The helicopter is back off the shelf for it. Fly low over open water and one button pulses:
+  The helicopter is back off the shelf for it, with a flight model of its own. It is about half a
+  minute out from the California coast -- close enough that you can see the airport from the fire.
+  Fly low over open water and one button pulses:
   **SCOOP** (the bucket lowers on its line and fills, with a slosh). Over the fire the same button
   becomes **DROP** (the icon swaps) -- a sheet of water, steam, a hiss, and the flames visibly
   shrink. Three of them put it out. It relights itself `relight` seconds later, announced by a
@@ -467,6 +485,7 @@ cockpit/
     state.js          state object, vehicle apply, spawn
     input.js          touch, buttons, keyboard, photo, persistence, lifecycle, SW
     flight.js         plane flight model, assists, alarm, sky, rewards, update()
+    heli.js           the helicopter's own model: throttle = up, stick = turn + speed
     rocket.js         rocket flight model, staging, Moon / Mars, landing assist, satellite, reentry + parachutes
     recovery.js       droneship, net boat, recovery ship / truck and the ride that refits the pad
     rover.js          the Moon / Mars rover: drive on the sphere, rocks, beacons, drive-back
