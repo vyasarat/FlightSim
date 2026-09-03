@@ -739,6 +739,24 @@ function buildAirport(idx) {
         g.add(hinge); arms.push(hinge);
       }
       rec.catchArms = arms; rec.catchClosed = false;
+      // the catch-zone glow: the column of air the booster drops into. Off unless
+      // one is actually coming down, so the pad is not permanently lit up.
+      const TC = TUNE.towerCatch;
+      const zone = new THREE.Mesh(new THREE.CylinderGeometry(TC.glowR, TC.glowR, TC.glowH, 20, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0x5ff1ff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+      zone.position.set(px, C.armY + TC.glowH / 2, tz + 14);
+      zone.visible = false;
+      g.add(zone);
+      rec.catchZone = zone;
+      // a ladder of lights up the tower, to sweep after a catch
+      rec.catchLights = [];
+      for (let y = 8; y < 60; y += 5) {
+        const lt = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.4),
+          new THREE.MeshBasicMaterial({ color: 0x2a2f38, fog: false }));
+        lt.position.set(px + 3.6, y, tz);
+        g.add(lt);
+        rec.catchLights.push(lt);
+      }
     }
     rec.padX = px; rec.padZ = ap.cz + pz;
   }
