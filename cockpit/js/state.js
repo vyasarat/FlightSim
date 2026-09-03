@@ -131,6 +131,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   if (typeof eventsSpawn === "function") eventsSpawn();
   if (typeof towerCatchReset === "function") towerCatchReset();
   if (typeof carrierReset === "function") carrierReset();
+  if (typeof heliReset === "function") heliReset();
   flags.repositioned++;
 }
 
