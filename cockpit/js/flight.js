@@ -441,6 +441,8 @@ function update(dt) {
 
   if (state.vp.rocket) {
     updateRocket(dt);
+  } else if (state.vp.heli) {
+    updateHelicopter(dt);   // its own model: it owns the ground and the air alike
   } else if (state.phase === "TAXI" || state.phase === "ROLL") {
     groundPhase(dt);
     setEngine(state.speed / state.vp.cruiseSpeed);
@@ -528,11 +530,9 @@ function update(dt) {
           state.flaring = true;
         }
       }
-      const hover = state.vp.hoverSpeed > 0 && !state.touching;
       let targetSpeed = state.vp.cruiseSpeed * TUNE.speedSteps[state.speedStep];
-      if (hover) targetSpeed = state.vp.hoverSpeed;
-      else if (state.engaged) targetSpeed = Math.max(targetSpeed, TUNE.minFlyingSpeed);
-      state.speed += (targetSpeed - state.speed) * Math.min(1, (hover ? 0.5 : TUNE.autoThrottleResponse * 1.6) * dt);
+      if (state.engaged) targetSpeed = Math.max(targetSpeed, TUNE.minFlyingSpeed);
+      state.speed += (targetSpeed - state.speed) * Math.min(1, TUNE.autoThrottleResponse * 1.6 * dt);
     }
 
     const k = Math.min(1, resp * dt);

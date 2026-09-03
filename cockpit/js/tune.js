@@ -220,6 +220,17 @@ const TUNE = {
     },
   },
 
+  // The helicopter's own model (js/heli.js). Tuned against the plane's feel:
+  // immediate but smoothed, nothing to fight, and hovering is the safe state.
+  heli: {
+    turnRate: 55, turnAccel: 6, bankDeg: 26,   // stick left/right, with a lean
+    cruise: 36, reverse: 8, accel: 2.2,        // stick up/down is speed, not altitude
+    noseDeg: 14, levelRate: 3.5,
+    climb: 14, maxSink: 6, vAccel: 3.0,        // throttle up; let go and it sinks gently
+    hoverDamp: 4.0,                            // let go of the stick and it stops in about a second
+    stopBelow: 0.4,
+  },
+
   // ---- set-pieces. Each one is the same loop: a giant obvious thing, one aim or
   // one pulsing button, a visible wind-up, a huge payoff, and a free reset that
   // comes round on its own. Only machines and structures are ever wrecked.
@@ -239,7 +250,9 @@ const TUNE = {
                                     // only lead-in there, and he is meant to fly straight at it
   },
   firefight: {                      // the burning rig off the coast, and the water bucket
-    rig: { x: 750, z: -8250 },      // out on open water, well clear of the approach and the fleet
+    rig: { x: -550, z: -6900 },     // just off the coast: about 35 s in the helicopter, on open
+                                    // water clear of the approach corridor, the pad, the recovery
+                                    // fleet and the carrier
     deckY: 26, legH: 30,            // the platform stands this high on its legs
     flames: 9, flameH: 22, flicker: 7,
     smokePuffs: 26, smokeH: 300, smokeRise: 26, smokeSize: 20,   // the column, seen from a long way off
@@ -323,14 +336,14 @@ const TUNE = {
   reassembleDelay: 2.0,
 
   vehicles: {
-    prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, hoverSpeed: 0, capped: true, size: 1.0, hasGear: true },
-    helicopter:       { cruiseSpeed: 30, turnRateDeg: 27, pitchLimitDeg: 22, bankLimitDeg: 35, accel: 10, hoverSpeed: 6, capped: true, size: 1.05, hasGear: false },   // back off the shelf: it is the firefighter
-    rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
-    starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, hoverSpeed: 0, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
-    airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
-    airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
-    airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, hoverSpeed: 0, capped: true, size: 1.85, hasGear: true },
-    fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, hoverSpeed: 0, capped: true, size: 1.25, hasGear: true }
+    prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, capped: true, size: 1.0, hasGear: true },
+    helicopter:       { cruiseSpeed: 36, turnRateDeg: 55, pitchLimitDeg: 22, bankLimitDeg: 26, accel: 10, capped: true, size: 1.05, hasGear: false, heli: true },   // its own model: TUNE.heli
+    rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
+    starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
+    airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
+    airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
+    airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
+    fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true }
   },
 
   vehicleColors: {
