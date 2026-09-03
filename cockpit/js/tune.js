@@ -220,6 +220,33 @@ const TUNE = {
     },
   },
 
+  // ---- set-pieces. Each one is the same loop: a giant obvious thing, one aim or
+  // one pulsing button, a visible wind-up, a huge payoff, and a free reset that
+  // comes round on its own. Only machines and structures are ever wrecked.
+  demolition: {                     // a condemned block, mid-route, with a reticle on one tower
+    x: 300, f: 0.46,                // where it stands (f = fraction of half the route, +ve = NY side)
+    towers: 7, blockR: 96,
+    towerW: 15, towerH: [44, 98],
+    reticleR: 20, reticleRate: 2.4,
+    beaconRate: 1.6, beaconFast: 8, // hazard beacons: the idle blink, and the wind-up blink
+    hitR: 46,                       // a missile landing this near a tower sets it off (generous: he is four)
+    charge: 3.0,                    // the wind-up: rumble, fast beacons, 3-2-1
+    foldDelay: 0.5, foldTime: 1.6,  // the domino gap, and how long one tower takes to go down
+    dust: 16, dustLife: 2.4, dustRise: 5,
+    rumble: 0.4, rumbleFreq: 34,
+    rebuild: 10, riseTime: 1.8,     // ... and then the whole block stands itself back up
+  },
+  towerCatch: {                     // the Starship booster, caught by the tower arms
+    catchR: 14,                     // how far off centre the arms will still take it
+    armIdle: 0.55, armWide: 0.98, armClosed: 0.08, armRate: 1.8,
+    inboundAlt: 300,                // the show starts when the booster is this far above the arms
+    countFrom: 5,                   // big numerals from here down to 1
+    glowR: 15, glowH: 26,           // the catch-zone glow the booster drops into
+    swayAmp: 0.055, swayRate: 2.2, swayDamp: 0.5,
+    sweepRate: 2.6, sweepTime: 6,   // the tower lights sweep after a catch
+    hornDelay: 0.9,
+  },
+
   glideSlope: 0.085,
   glideBand: 9,
   minFlyingSpeed: 18,

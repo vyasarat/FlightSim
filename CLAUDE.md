@@ -39,6 +39,11 @@ the checklist for shipping one.
   and the one later in the DOM silently eats the tap -- the harness checks this across every
   state. Decide a slot button's visibility *before* `updateRocket`'s rover / astronaut early
   returns, or whatever was up when he climbed out stays up over the button he needs.
+- Set-pieces (`setpieces.js`) all run one loop: giant obvious thing -> one aim or one pulsing
+  control -> visible wind-up -> huge payoff -> free reset. **No unannounced bangs**: every
+  explosion or collapse gets a build first (beacons, rumble, the shared `#bigNum` countdown --
+  numerals only, and only while a wind-up runs). One hero effect each, structures and machines
+  only, and at most one new contextual button per feature.
 - The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`) says what counts
   as a landing; everything else crashes, and a crash must stay free. Assist strengths are separate
   knobs (`assist*`) -- the assist may stand him up, never rescue a last-second dive.
