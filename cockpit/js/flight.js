@@ -210,7 +210,8 @@ function updateCrashWarning(dt) {
   let warn = false;
   // Over the demolition block the alarm stays quiet: flying straight at those towers
   // is the whole point of the place, and the wind-up numerals are its only lead-in.
-  const muted = typeof demoAlarmMuted === "function" && demoAlarmMuted();
+  const muted = (typeof demoAlarmMuted === "function" && demoAlarmMuted()) ||
+                (typeof carrierAlarmMuted === "function" && carrierAlarmMuted());
   if (!muted && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding && state.liftoffTimer <= 0) {
     const vx = forward.x * state.speed, vz = forward.z * state.speed, vy = forward.y * state.speed + (state.airVy || 0) - (state.flaring ? TUNE.flareSink : 0);
     // Gear up, lined up with the runway and low: that's a belly landing about
@@ -371,7 +372,10 @@ function update(dt) {
     el.skipBtn.classList.toggle("hidden",
       state.phase !== "AIRBORNE" || state.engaged || (dzVis * dzVis) < TUNE.approachEngageDist * TUNE.approachEngageDist);
   }
-  const inFlight = state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY";
+  // Parked on the carrier deck he is stopped on a ship: no speed steps, and no
+  // missiles -- the catapult button owns that slot while he is up there.
+  const onDeck = typeof carrierOnDeck === "function" && carrierOnDeck();
+  const inFlight = (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !onDeck;
   el.slowBtn.classList.toggle("hidden", !inFlight);
   el.fastBtn.classList.toggle("hidden", !inFlight);
   el.missileBtn.classList.toggle("hidden", !inFlight);
@@ -686,6 +690,7 @@ function update(dt) {
   const blinkOn = Math.sin(performance.now() * 0.004) > -0.3;
   for (const b of blinkers) if (!b.userData.override) b.visible = blinkOn;
 
+  updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
   applyCamera(dt);
   shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
   updateVehicleModel(dt);

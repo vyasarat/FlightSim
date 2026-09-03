@@ -67,14 +67,15 @@ the rocket with its stage button up.
 ## Vehicles
 
 Defined in `TUNE.vehicles` + `TUNE.vehicleColors`; the cockpit accent recolours per
-vehicle via the `--veh` CSS variable. Shelved behind `hidden: true` (the picker reads
-the flag at boot): the helicopter.
+vehicle via the `--veh` CSS variable. Nothing is shelved at the moment; the `hidden: true`
+mechanism (the picker reads the flag at boot) is still there for anything that needs it.
 
 | Vehicle | Cruise | Turn rate | Pitch limit | Notes |
 |---|---|---|---|---|
 | Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (colour only); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
+| Helicopter | 30 | 27°/s | ±22° | Hovers when the stick is released; the firefighter -- it carries the water bucket |
 | Rocket | see `rocketTune` | 38°/s tilt | vertical launch | Its own flight model (The rocket below); no gear, no missiles. The `vehicles.rocket` entry only feeds the picker and dials |
 | Starship | `rocketTune.starship` | 38°/s tilt (turnRateDeg 7 vs the rocket's 8) | vertical launch | Same flight model, one drop; the booster is caught by the tower's arms; the Ship lands on its engines |
 
@@ -377,6 +378,21 @@ running -- the HUD gains nothing permanent.
   `rebuild` seconds later the whole block stands itself back up and the reticle pulses again.
   The crash alarm is silenced inside `alarmMuteRadius`: flying straight at those towers is the
   point of the place, and the numerals are its only lead-in.
+- **Firefighting helicopter** (`TUNE.firefight`). A derelict rig burns on open water off the
+  California coast -- **nobody aboard, ever** -- under a smoke column you can see from the shore.
+  The helicopter is back off the shelf for it. Fly low over open water and one button pulses:
+  **SCOOP** (the bucket lowers on its line and fills, with a slosh). Over the fire the same button
+  becomes **DROP** (the icon swaps) -- a sheet of water, steam, a hiss, and the flames visibly
+  shrink. Three of them put it out. It relights itself `relight` seconds later, announced by a
+  glow first, so the flames never simply reappear. Whooshes and hisses; never a siren.
+- **Aircraft carrier** (`TUNE.carrier`). A grey slab of a ship off the same coast, with parked
+  jets, a helicopter spot aft, and a **deck crew who wave and to whom nothing can ever happen** --
+  never solid, never a target, never removed. Come in low along the angled deck and the hook takes
+  a wire: a violent stop, a cheer, and the crew spot him on the catapult with its light green.
+  One button then pulses: it counts **3-2-1** and throws him off the bow. Miss and nothing at all
+  happens -- he flies over the deck and comes round again. The other jets launch themselves off
+  the second catapult, each with its own countdown light. The deck is deliberately not a solid
+  and the crash alarm is quiet nearby: a near miss must never be an explosion.
 - **Booster tower-catch** (Starship). The tower and its arms already existed; this is the theatre
   around them. As the booster comes down the arms swing **wide**, the catch zone lights up, its
   engines burn under it and big numerals count 5-4-3-2-1 off its closing rate. Inside `catchR`
@@ -456,7 +472,8 @@ cockpit/
     rover.js          the Moon / Mars rover: drive on the sphere, rocks, beacons, drive-back
     station.js        the station interior and the astronaut in zero g
     events.js         space events: the per-launch draw and all six of them
-    setpieces.js      set-pieces: the demolition block, the tower-catch theatre
+    setpieces.js      set-pieces: the demolition block, the tower-catch theatre,
+                      the burning rig and its bucket, the aircraft carrier
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape

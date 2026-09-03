@@ -271,6 +271,14 @@ el.roverBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.roverBtn);
   toggleRover();
 });
+el.catBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.catBtn);
+  carrierLaunchPress();
+});
+el.bucketBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.bucketBtn);
+  bucketPress();
+});
 el.hatchBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.hatchBtn);
   toggleHatch();
@@ -343,6 +351,8 @@ window.addEventListener("keydown", (e) => {
       if (!dropStage() && !deploySatellite() && !deployChute() && !toggleRover() && !toggleHatch() &&
           !el.missileBtn.classList.contains("hidden")) fireMissile();
     }
+    else if (!el.catBtn.classList.contains("hidden")) carrierLaunchPress();   // parked on the deck: the catapult
+    else if (!el.bucketBtn.classList.contains("hidden")) bucketPress();   // the helicopter's bucket comes first
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
   }
   else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
