@@ -235,6 +235,8 @@ const TUNE = {
     dust: 16, dustLife: 2.4, dustRise: 5,
     rumble: 0.4, rumbleFreq: 34,
     rebuild: 10, riseTime: 1.8,     // ... and then the whole block stands itself back up
+    alarmMuteRadius: 240,           // no crash alarm inside the fence: the numerals are the
+                                    // only lead-in there, and he is meant to fly straight at it
   },
   towerCatch: {                     // the Starship booster, caught by the tower arms
     catchR: 14,                     // how far off centre the arms will still take it

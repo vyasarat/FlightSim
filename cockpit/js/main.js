@@ -150,7 +150,7 @@ window.__lp = {
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
   get cameraPos(){return camera.position;}, camera, scene, station, takePhoto,
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
-  tcatch, towerCatchInbound, towerCatchReset,
+  tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,
   ev, EVENT_KINDS, eventsDraw, eventsForce, eventsReset, eventsArm, eventsSpawn, eventsOnDest, eventsWantMissile,
   get evGroup(){return evGroup;}, get evProps(){return ev.props;}, get evCraters(){return ev.craters;}, evSparksAlive,
   audio: { ctxState(){return audioCtx ? audioCtx.state : null;}, rocketNodes(){return !!rocketNodes;}, roarGain(){return rocketNodes ? +rocketNodes.roar.gain.value.toFixed(3) : null;}, engineGain(){return engineNodes ? +engineNodes.g.gain.value.toFixed(3) : null;} },
