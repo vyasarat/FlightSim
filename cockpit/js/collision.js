@@ -9,7 +9,9 @@ let shatterTimer = 0;
 const MAX_HIDDEN_PIECES = 24;
 
 function isSolidHidden(b) {
-  if (b.mesh) return b.mesh.visible === false || (b.mesh.parent && b.mesh.parent.visible === false);
+  // `noSolid`: standing there but not a wall -- a set-piece tower part-way through
+  // its collapse, say. Nothing visible-and-solid is ever left inconsistent.
+  if (b.mesh) return b.mesh.visible === false || !!b.mesh.userData.noSolid || (b.mesh.parent && b.mesh.parent.visible === false);
   if (b.idx !== undefined) return hiddenTownIdx.has(b.idx);
   return false;
 }
@@ -18,6 +20,7 @@ function shatterAround(px, py, pz) {
   forEachSolid(b => {
     if (hiddenPieces.length >= MAX_HIDDEN_PIECES) return;
     if (isSolidHidden(b)) return;
+    if (b.mesh && b.mesh.userData.noShatter) return;   // set-piece collapses are choreographed, not blast-deleted
     const dx = Math.max(b.x - b.hw - px, px - (b.x + b.hw), 0);
     const dz = Math.max(b.z - b.hd - pz, pz - (b.z + b.hd), 0);
     const dy = Math.max(b.y0 - py, py - b.y1, 0);

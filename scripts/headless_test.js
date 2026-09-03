@@ -3433,6 +3433,247 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+
+  // ---------- T-SP1 set-pieces: demolition district ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const d = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, D = L.DEMO;
+      L.noRender = true;
+      const o = {};
+      // ---- where it stands: clear of both approach corridors, on dry ground
+      const half = T.routeLength / 2;
+      o.towers = L.demo.towers.length;
+      o.dry = L.terrainEff(L.demo.x, L.demo.z) > T.waterLevel + 1;
+      o.clearOfCorridors = L.AIRPORTS.every(ap => {
+        const dz = Math.abs(L.demo.z - ap.cz);
+        const inCorridor = dz < T.runwayLength / 2 + T.ringStartDistance + 400;
+        return !inCorridor || Math.abs(L.demo.x) > 400;
+      });
+      // every tower is a registered solid, and none of them is a shatter target
+      let solid = 0, noShatter = 0;
+      L.forEachSolid(b => { if (b.mesh && L.demo.towers.some(t => t.mesh === b.mesh)) { solid++; if (b.mesh.userData.noShatter) noShatter++; } });
+      o.towerSolids = solid; o.towerNoShatter = noShatter;
+
+      // ---- armed: the reticle is up and pulsing, nothing has happened yet
+      const t0 = L.demo.reticleTower;
+      const put = () => {
+        st.phase = "AIRBORNE";
+        st.x = L.demo.x - 300; st.z = L.demo.z + t0.lz; st.y = L.demo.base + t0.h * 0.6;
+        st.heading = -Math.PI / 2; st.pitch = 0; st.speed = 60; st.bank = 0;
+        for (let i = 0; i < 4; i++) L.update(1 / 60);
+      };
+      L.api.setVehicle("prop"); put();
+      o.armed = L.demo.phase === "armed" && L.demo.reticle.visible;
+      let s0 = L.demo.reticle.scale.x;
+      for (let i = 0; i < 40; i++) L.update(1 / 60);
+      o.reticlePulses = Math.abs(L.demo.reticle.scale.x - s0) > 0.01;
+
+      // ---- one missile sets it off, and it is ANNOUNCED, not sudden
+      const g0 = L.flags.demolitions || 0, f0 = L.flags.demoTowersFolded || 0;
+      st.missileCooldown = 0; L.fireMissile();
+      let hit = 0;
+      for (; hit < 60 * 8 && L.demo.phase === "armed"; hit++) L.update(1 / 60);
+      o.triggered = (L.flags.demolitions || 0) > g0;
+      o.charging = L.demo.phase === "charging";
+      o.nothingFoldedYet = (L.flags.demoTowersFolded || 0) === f0;
+      // the wind-up: numerals on screen, and no tower down until it finishes
+      const nums = new Set();
+      let foldedDuringCharge = 0;
+      for (let i = 0; i < 60 * D.charge - 6; i++) {
+        L.update(1 / 60);
+        const t = document.getElementById("bigNum").textContent;
+        if (t) nums.add(t);
+        if (L.demo.phase === "folding") foldedDuringCharge++;
+      }
+      o.countdown = [...nums].sort().join("");
+      o.windUpHeldOff = foldedDuringCharge === 0;
+
+      // ---- the domino: one at a time, with a readable gap, and never a wall while down
+      const foldTimes = [];
+      let prevFolded = 0, solidWhileDown = 0;
+      for (let i = 0; i < 60 * 30 && L.demo.phase !== "down"; i++) {
+        L.update(1 / 60);
+        const n = L.flags.demoTowersFolded || 0;
+        if (n > prevFolded) { foldTimes.push(i / 60); prevFolded = n; }
+        L.forEachSolid(b => {
+          const t = L.demo.towers.find(q => q.mesh === b.mesh);
+          if (t && t.down && !L.__lpIsHidden(b)) solidWhileDown++;
+        });
+      }
+      o.foldedAll = (L.flags.demoTowersFolded || 0) - f0 === D.towers;
+      o.gaps = foldTimes.slice(1).map((t, i) => +(t - foldTimes[i]).toFixed(2));
+      o.readableGap = o.gaps.length > 0 && o.gaps.every(g => g > D.foldDelay * 0.6 && g < D.foldDelay * 2.5);
+      o.solidWhileDown = solidWhileDown;
+      o.allShort = L.demo.towers.every(t => t.mesh.scale.y < 0.15);
+      o.numClear = document.getElementById("bigNum").textContent === "";
+
+      // ---- it stands itself back up, for free, and goes again
+      for (let i = 0; i < 60 * 40 && L.demo.phase !== "armed"; i++) L.update(1 / 60);
+      o.rebuilt = L.demo.phase === "armed" && L.demo.towers.every(t => Math.abs(t.mesh.scale.y - 1) < 0.02 && !t.mesh.userData.noSolid);
+      o.reticleBack = L.demo.reticle.visible;
+      o.rebuilds = L.flags.demoRebuilds || 0;
+      put();
+      st.missileCooldown = 0; L.fireMissile();
+      for (let i = 0; i < 60 * 8 && L.demo.phase === "armed"; i++) L.update(1 / 60);
+      o.again = (L.flags.demolitions || 0) === g0 + 2;
+      o.exploded = L.flags.exploded;        // the missile itself bangs; he never does
+      o.frameErrors = L.frameErrors || 0;
+      return o;
+    });
+    check("set-piece: the demolition block stands mid-route on dry ground clear of both approach corridors, every tower solid and none of them blast-deleted",
+      d.towers === 7 && d.dry && d.clearOfCorridors && d.towerSolids === 7 && d.towerNoShatter === 7, JSON.stringify(d));
+    check("set-piece: one missile in the block sets it off -- and it is announced, not sudden: a wind-up with big numerals runs first and nothing folds until it finishes",
+      d.armed && d.reticlePulses && d.triggered && d.charging && d.nothingFoldedYet && d.countdown === "123" && d.windUpHeldOff, JSON.stringify(d));
+    check("set-piece: the towers then fold one at a time in a readable domino chain, and a folding tower is never an invisible wall",
+      d.foldedAll && d.readableGap && d.solidWhileDown === 0 && d.allShort && d.numClear, JSON.stringify(d));
+    check("set-piece: the block puts itself back up on its own and can be brought down again, for free, for ever",
+      d.rebuilt && d.reticleBack && d.rebuilds === 1 && d.again && d.frameErrors === 0, JSON.stringify(d));
+    await page.close();
+  }
+
+  // ---------- T-SP2 set-pieces: the booster tower-catch ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const c = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, TC = L.TUNE.towerCatch;
+      L.noRender = true;
+      const o = {};
+      const toDrop = () => {
+        L.api.setVehicle("starship"); L.api.placeOnRunway();
+        L.api.setThrottle(true);
+        for (let i = 0; i < 60 * 40 && !L.rocketCanDrop(); i++) { L.update(1 / 60); L.rk.vx = 0; L.rk.vz = 0; }
+        L.dropStage(); L.api.setThrottle(false);
+        st.y = Math.max(st.y, 6000); L.rk.vx = L.rk.vy = L.rk.vz = 0;   // park the Ship out of the way
+      };
+      const hold = () => { st.y = 6000; L.rk.vx = L.rk.vy = L.rk.vz = 0; };
+      toDrop();
+      const a = L.airports.find(r => r.idx === st.originIdx);
+      o.hasZone = !!a.catchZone && !a.catchZone.visible;   // dark until one is coming
+      o.hasLights = (a.catchLights || []).length > 6;
+      o.targetsTower = !!(L.fallingStages[0] && L.fallingStages[0].target && L.fallingStages[0].target.catch);
+
+      // ---- the wind-up, all the way down
+      const nums = new Set();
+      let wide = false, zoneLit = false, glowOn = false, noseDir = [];
+      const c0 = L.flags.boosterCatches || 0;
+      for (let i = 0; i < 60 * 100 && (L.flags.boosterCatches || 0) === c0; i++) {
+        L.update(1 / 60); hold();
+        if (Math.abs(a.catchArms[0].rotation.y) > TC.armIdle + 0.15) wide = true;
+        if (a.catchZone.visible && a.catchZone.material.opacity > 0.05) zoneLit = true;
+        const s0 = L.fallingStages[0];
+        if (s0 && s0.glow && s0.glow.visible) glowOn = true;
+        const t = document.getElementById("bigNum").textContent;
+        if (t) nums.add(t);
+      }
+      o.armsOpenedWide = wide; o.zoneLit = zoneLit; o.engineGlow = glowOn;
+      o.countdown = [...nums].sort().join("");
+      o.caught = (L.flags.boosterCatches || 0) > c0;
+
+      // ---- caught: engines out, hanging upright on the arms, swaying, lights sweeping
+      const bm = L.tcatch.hanging;
+      o.engineCut = !!(L.fallingStages[0] && L.fallingStages[0].glow && !L.fallingStages[0].glow.visible);
+      bm.updateMatrixWorld(true);
+      const up = new THREE.Vector3(0, 0, -1).applyQuaternion(bm.quaternion);
+      o.hangsUpright = up.y > 0.9;
+      const tgt = L.fallingStages[0].target;
+      o.onTheArms = Math.abs(bm.position.y - tgt.y) < 2 && Math.hypot(bm.position.x - tgt.x, bm.position.z - tgt.z) < TC.catchR;
+      o.catchClosed = a.catchClosed;
+      // the sway: the nose wanders, then settles
+      const dirs = [];
+      let swept = false;
+      for (let i = 0; i < 60 * 6; i++) {
+        L.update(1 / 60); hold();
+        bm.updateMatrixWorld(true);
+        const v = new THREE.Vector3(0, 0, -1).applyQuaternion(bm.quaternion);
+        dirs.push(v.x);
+        if ((a.catchLights || []).some(lt => lt.material.color.getHex() !== 0x2a2f38)) swept = true;
+      }
+      // ... and by the end of that the arms have shut on it
+      o.armAngle = +a.catchArms[0].rotation.y.toFixed(3);
+      o.armsShut = Math.abs(a.catchArms[0].rotation.y) < TC.armClosed + 0.06;
+      o.swayed = Math.max(...dirs) - Math.min(...dirs) > 0.004;
+      o.settles = Math.abs(dirs[dirs.length - 1] - dirs[dirs.length - 2]) < Math.abs(dirs[2] - dirs[1]);
+      o.lightsSwept = swept;
+      o.numClear = document.getElementById("bigNum").textContent === "";
+
+      // ---- outside the envelope: it goes bang instead, and the tower re-arms
+      L.api.placeOnRunway();
+      L.fallingStages.length = 0;          // the caught one is still up there; start clean
+      L.tcatch.hanging = null;
+      toDrop();
+      const s = L.fallingStages[L.fallingStages.length - 1];
+      const m0 = L.flags.catchMisses || 0, cc0 = L.flags.boosterCatches || 0, e0 = L.flags.exploded;
+      for (let i = 0; i < 60 * 100 && s.y - s.target.y > 40; i++) { L.update(1 / 60); hold(); }
+      // shove it clear of the arms on short final
+      s.x = s.target.x + TC.catchR + 12; s.vx = 0; s.vz = 0;
+      for (let i = 0; i < 60 * 20 && (L.flags.catchMisses || 0) === m0 && L.fallingStages.length; i++) {
+        L.update(1 / 60); hold();
+        s.x = s.target.x + TC.catchR + 12; s.vx = 0; s.vz = 0;
+      }
+      o.missed = (L.flags.catchMisses || 0) > m0;
+      o.missBanged = L.flags.exploded > e0;
+      o.missNotCaught = (L.flags.boosterCatches || 0) === cc0;
+      o.rearmed = !a.catchClosed;
+      o.frameErrors = L.frameErrors || 0;
+      return o;
+    });
+    check("set-piece: the tower announces the catch -- arms swing wide, the catch zone lights up, the booster's engines are burning and big numerals count it down",
+      c.hasZone && c.hasLights && c.targetsTower && c.armsOpenedWide && c.zoneLit && c.engineGlow && c.countdown === "12345", JSON.stringify(c));
+    check("set-piece: it is caught inside a generous envelope -- engines cut, it hangs upright on the arms, sways and settles, and the tower lights sweep",
+      c.caught && c.engineCut && c.hangsUpright && c.onTheArms && c.armsShut && c.swayed && c.settles && c.lightsSwept && c.numClear, JSON.stringify(c));
+    check("set-piece: a booster that arrives outside the envelope goes bang instead of being quietly caught, and the tower re-arms for the next one",
+      c.missed && c.missBanged && c.missNotCaught && c.rearmed && c.frameErrors === 0, JSON.stringify(c));
+    await page.close();
+  }
+
+  // ---------- T-SP3 the big numeral is never permanent ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const n = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true;
+      const num = document.getElementById("bigNum");
+      const o = {};
+      const text = () => num.textContent.trim();
+      const bad = () => {
+        const out = [];
+        const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        while (w.nextNode()) {
+          const t = w.currentNode, p = t.parentElement && t.parentElement.tagName;
+          if (p === "SCRIPT" || p === "STYLE") continue;
+          const v = t.nodeValue.trim();
+          if (v && !/^[0-9]+$/.test(v)) out.push(v.slice(0, 30));
+        }
+        return out;
+      };
+      L.api.setVehicle("prop"); L.api.placeOnRunway();
+      for (let i = 0; i < 20; i++) L.update(1 / 60);
+      o.idleOnRunway = text() === "";
+      L.api.teleportAirborne(1200, 0, 200, 0);
+      for (let i = 0; i < 20; i++) L.update(1 / 60);
+      o.idleAirborne = text() === "";
+      // ... and during a wind-up it is a numeral and nothing else (in sight of the
+      // block: out of range it is culled and nothing is staged at all)
+      const t0 = L.demo.reticleTower;
+      st.phase = "AIRBORNE";
+      st.x = L.demo.x - 260; st.z = L.demo.z + t0.lz; st.y = L.demo.base + t0.h * 0.6;
+      st.heading = -Math.PI / 2; st.pitch = 0; st.speed = 0;
+      for (let i = 0; i < 6; i++) L.update(1 / 60);
+      L.demoTrigger();
+      let seen = "", words = [];
+      for (let i = 0; i < 60 * 2; i++) { L.update(1 / 60); if (text()) seen = text(); words = words.concat(bad()); }
+      o.duringWindUp = /^[0-9]+$/.test(seen);
+      o.noWords = words.length === 0;
+      for (let i = 0; i < 60 * 30 && L.demo.phase !== "armed"; i++) L.update(1 / 60);
+      o.clearedAfter = text() === "";
+      return o;
+    });
+    check("set-piece: the big numeral is on screen only while a wind-up is running -- never on the runway, never in the air, and never a word",
+      n.idleOnRunway && n.idleAirborne && n.duringWindUp && n.noWords && n.clearedAfter, JSON.stringify(n));
+    await page.close();
+  }
+
   // ---------- T8 service worker reachable ----------
   {
     const { page } = await newPage(1180, 820);
