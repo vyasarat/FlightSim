@@ -24,10 +24,20 @@ function heliActive() { return !!(state.vp && state.vp.heli); }
 function heliReset() { heli.vy = 0; heli.turn = 0; heli.speed = 0; heli.braking = false; }
 function heliDead(v) { return Math.abs(v) < H.deadzone ? 0 : (v - Math.sign(v) * H.deadzone) / (1 - H.deadzone); }
 
-// Low over open water, or up by the fire: the places he has a job to do.
+// The places he has a job to do, and only those.
+//
+//   the fire      within jobRadius of the rig, whatever he is carrying
+//   the water     the water he would actually scoop from: an empty bucket, low,
+//                 over water, and near enough to the rig to be part of the job
+//
+// Open sea further out is just sea -- he flies straight over it -- and a full
+// bucket never brakes anywhere, so the trip back to the fire is at full speed.
 function heliJobNear() {
   if (typeof fire === "undefined" || !fire.g) return false;
-  if (Math.hypot(state.x - fire.x, state.z - fire.z) < H.jobRadius) return true;
+  const d = Math.hypot(state.x - fire.x, state.z - fire.z);
+  if (d < H.jobRadius) return true;
+  if (typeof bucket !== "undefined" && bucket.state !== "empty") return false;
+  if (d > TUNE.firefight.scoopRadius) return false;
   const g = terrainEff(state.x, state.z);
   return g < TUNE.waterLevel - 1 && (state.y - TUNE.waterLevel) < TUNE.firefight.scoopAlt;
 }
