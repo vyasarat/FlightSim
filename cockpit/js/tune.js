@@ -222,12 +222,18 @@ const TUNE = {
 
   // The helicopter's own model (js/heli.js). Tuned against the plane's feel:
   // immediate but smoothed, nothing to fight, and hovering is the safe state.
+  // One finger, and the stick means exactly what it means in the plane -- drag up
+  // to go up. A finger on the screen flies it forward; taking the finger off stops
+  // it and holds the height. Deliberate and heavy, never darty.
   heli: {
-    turnRate: 55, turnAccel: 6, bankDeg: 26,   // stick left/right, with a lean
-    cruise: 36, reverse: 8, accel: 2.2,        // stick up/down is speed, not altitude
-    noseDeg: 14, levelRate: 3.5,
-    climb: 14, maxSink: 6, vAccel: 3.0,        // throttle up; let go and it sinks gently
-    hoverDamp: 4.0,                            // let go of the stick and it stops in about a second
+    cruise: 36,                     // a finger on the screen = forward, at this
+    accel: 2.0, hoverDamp: 3.0,     // ... picked up gently, and shed in about a second
+    turnRate: 35, turnAccel: 3.0, bankDeg: 22,   // slower than a plane: 55 was twitchy on a tablet
+    climb: 12, maxSink: 6, vAccel: 2.2,          // drag up climbs, drag down descends
+    deadzone: 0.14,                 // a real one: a resting thumb must not fly it
+    levelRate: 2.5,                 // heavier smoothing than the plane on every axis
+    noseDeg: 10, climbPitchDeg: 8,  // it noses down with speed, and lifts as he climbs
+    jobRadius: 170, jobBrake: 3.5,  // near the water or the fire it stops for him
     stopBelow: 0.4,
   },
 
