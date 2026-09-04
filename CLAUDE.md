@@ -49,6 +49,9 @@ the checklist for shipping one.
   explosion or collapse gets a build first (beacons, rumble, the shared `#bigNum` countdown --
   numerals only, and only while a wind-up runs). One hero effect each, structures and machines
   only, and at most one new contextual button per feature.
+- `marsbase.js` — the Mars base (`TUNE.marsBase`). Built around wherever he lands, so the lit
+  pad is the rocket's own spot and driving back onto it is the way home; no new control.
+  Mars only — the Moon stays as it was.
 - The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`) says what counts
   as a landing; everything else crashes, and a crash must stay free. Assist strengths are separate
   knobs (`assist*`) -- the assist may stand him up, never rescue a last-second dive.
