@@ -153,6 +153,7 @@ window.__lp = {
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,
   fire, bucket, FF, bucketPress, bucketCanScoop, bucketCanDrop, fireReset,
   heli, H, heliActive, heliReset, updateHelicopter,
+  mars, MB, marsBuild, marsClear, marsIsHome,
   carrier, CV, carrierLaunchPress, carrierReset, carrierCanLaunch, carrierOnDeck, carrierTryTrap, updateSetpiecesLate,
   ev, EVENT_KINDS, eventsDraw, eventsForce, eventsReset, eventsArm, eventsSpawn, eventsOnDest, eventsWantMissile,
   get evGroup(){return evGroup;}, get evProps(){return ev.props;}, get evCraters(){return ev.craters;}, evSparksAlive,

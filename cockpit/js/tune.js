@@ -246,6 +246,18 @@ const TUNE = {
                                     // (sitting on the water would end the flight and hide the bucket)
     stopBelow: 0.4,
     pickRange: 3000, pickStep: 30,  // how far it looks for what he touched, and how finely
+    // A shallow ray grazes the crest in front of him and dips under the ground for
+    // a moment before coming out the other side. Taken at face value that put the
+    // target forty metres away when he was pointing at the sea a kilometre off --
+    // so he stopped, or landed, on the field instead of setting out over the water.
+    // A crossing only counts if the ray STAYS under for this many more steps.
+    // Nothing in this game is ever stuck. If he is holding a finger on somewhere
+    // far off and the helicopter is not actually getting there, it stops trying to
+    // be clever and simply flies at it.
+    stallTime: 2.0, stallSpeed: 3,
+    grazeSteps: 6, grazeMargin: 4,   // ... and only if it comes back out by a real margin:
+                                    // meeting a flat sea almost edge-on re-emerges by centimetres,
+                                    // and that is a genuine arrival, not a graze
   },
 
   // ---- set-pieces. Each one is the same loop: a giant obvious thing, one aim or
@@ -299,6 +311,26 @@ const TUNE = {
     jets: 4,                        // parked on the deck, plus a helicopter aft
     aiEvery: 16, aiCount: 3, aiSpeed: 95,   // the other jets go off cat 2 on their own
     alarmMuteRadius: 320,
+  },
+
+  marsBase: {                       // Mars is a place, not a patch of red ground
+    domes: 3, domeR: 15,
+    masts: 3, mastH: 26,
+    parked: 3,                      // a row of Starships already standing there
+    astros: 5,                      // tiny, and nothing can ever happen to them
+    dunes: 10, duneR: [22, 46],
+    groundR: 420,                   // a rust floor laid over the planet under the base: the sphere
+                                    // itself shades out almost white this close up
+    spread: 130,                    // how far the base sprawls from the pad
+    padR: 26, padLights: 14,        // the lit pad: it is drawn around wherever he came down
+    armDist: 70, triggerR: 22,      // drive out this far, then back inside this, and it takes him home
+    padCount: 3,                    // the countdown on the pad before he goes
+    boost: 6,                       // ... and it keeps his throttle in this long after lift-off,
+                                    // or Mars simply pulls him straight back down onto the pad
+    cargoDelay: 12,                 // once he is out driving, the cargo ship is announced
+    cargoCount: 5,
+    cargoFrom: 700, cargoSpeed: 80, cargoOffset: 130,
+    cargoLegs: 1.2, dust: 28, dustLife: 2.8, dustRise: 7,
   },
 
   towerCatch: {                     // the Starship booster, caught by the tower arms

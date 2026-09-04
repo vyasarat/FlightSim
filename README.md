@@ -94,6 +94,12 @@ does not have one. **He puts a finger on a place and it goes there.**
 | Finger at the left / right edge (`edgeYawBand`) | Keep turning that way, so he can spin round to something behind him |
 | Finger off | It stops, levels and holds its height in about a second. Hovering is the safe state |
 
+A crossing only counts as "what he touched" if the ray **stays** under the surface past it: a
+shallow ray dips under the crest in front of him and comes out the other side, and taken at face
+value that put the target forty metres away when he was pointing at the sea a kilometre off. And
+nothing is ever stuck: a finger held on somewhere he is plainly not reaching (`stallTime`) makes
+it give up being clever and simply fly at the bearing at cruise.
+
 There is **no throttle button**: any touch gets it off the ground, and a finger on the ground
 brings it back down. Nothing about the helicopter ever needs a second finger, and the harness
 checks that across every state it can be in. Descent is clamped to `maxSink`, so it can only ever
@@ -421,6 +427,17 @@ running -- the HUD gains nothing permanent.
   happens -- he flies over the deck and comes round again. The other jets launch themselves off
   the second catapult, each with its own countdown light. The deck is deliberately not a solid
   and the crash alarm is quiet nearby: a near miss must never be an explosion.
+- **Mars base** (`TUNE.marsBase`). Landing on Mars used to be a patch of red ground with eight
+  glowing rocks on it. Now it is somewhere: glass domes, antenna masts, a rover garage, a row of
+  Starships already standing there, red dunes, and tiny astronauts to whom nothing can ever
+  happen. It is built around **wherever he comes down**, with the lit pad drawn as a ring on the
+  ground about the rocket itself -- so he always lands in the middle of the base, and the whole
+  thing needs no new control at all. Shortly after he starts driving, a light appears on the
+  horizon and big numerals count down a **cargo Starship**, which comes down under power beside
+  the base -- engine glow, dust wash, legs deploying, a thump -- and stays for the visit. To go
+  home he simply **drives back onto the lit pad**: the rover parks itself, the pad counts him
+  down, and his rocket lifts off (the pad keeps his throttle in for `boost` seconds, or Mars just
+  pulls him straight back down). The Moon is left exactly as it was.
 - **Booster tower-catch** (Starship). The tower and its arms already existed; this is the theatre
   around them. As the booster comes down the arms swing **wide**, the catch zone lights up, its
   engines burn under it and big numerals count 5-4-3-2-1 off its closing rate. Inside `catchR`
@@ -503,6 +520,7 @@ cockpit/
     events.js         space events: the per-launch draw and all six of them
     setpieces.js      set-pieces: the demolition block, the tower-catch theatre,
                       the burning rig and its bucket, the aircraft carrier
+    marsbase.js       the Mars base, its cargo Starship and the pad that flies him home
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape
