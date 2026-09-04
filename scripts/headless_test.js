@@ -3950,9 +3950,15 @@ function check(name, ok, extra) {
         L.api.setVehicle("helicopter"); L.api.setView(isChase);
         const air = (x, z, y, head) => {
           L.api.placeOnRunway(); L.heliReset(); L.api.clearStick();
-          st.phase = "AIRBORNE"; st.x = x; st.z = z; st.y = y;
-          st.heading = head || 0; st.pitch = 0; st.bank = 0; st.speed = 0; st.airVy = 0;
-          for (let i = 0; i < 8; i++) L.update(1 / 60);   // let the camera settle where it is
+          st.phase = "AIRBORNE";
+          // Hold it here while the chase camera lerps in. Eight frames left the
+          // camera kilometres behind, and the pick is a ray FROM the camera.
+          for (let i = 0; i < 90; i++) {
+            st.x = x; st.z = z; st.y = y;
+            st.heading = head || 0; st.pitch = 0; st.bank = 0; st.speed = 0; st.airVy = 0;
+            L.update(1 / 60);
+          }
+          st.x = x; st.z = z; st.y = y; st.speed = 0;
         };
         // point the camera at a world spot and return where on screen it lands
         const screenOf = (x, y, z) => {
@@ -4020,6 +4026,25 @@ function check(name, ok, extra) {
         for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
         o.holdsAlt = Math.abs(st.y - yh) < 2;
 
+        // ---- never stuck: pinned at zero speed with a finger on a far target, it
+        // gives up being clever and flies at it
+        {
+          air(0, ap.cz + 900, ap.elev + 60);
+          const far = { x: 0, y: L.terrainEff(0, ap.cz - 200), z: ap.cz - 200 };
+          const sx0 = st.z;
+          let forced = false;
+          for (let i = 0; i < 60 * 6; i++) {
+            const p = screenOf(far.x, far.y, far.z);
+            L.api.setTouch(p.nx, clamp(p.ny, -0.92, 0.92));
+            if (i < 60 * 3) { st.speed = 0; L.heli.speed = 0; }   // hold it still for three seconds
+            L.update(1 / 60);
+            if (L.heli.forced) forced = true;
+          }
+          L.api.clearStick();
+          o.stallForced = forced;
+          o.stallMoved = Math.round(sx0 - st.z);
+        }
+
         // ---- touch the ground beside it: it sets down softly
         air(0, ap.cz + 900, ap.elev + 70);
         const e0 = L.flags.exploded;
@@ -4029,6 +4054,50 @@ function check(name, ok, extra) {
         L.api.clearStick();
         o.landed = st.phase === "TAXI";
         o.softLanding = L.flags.exploded === e0;
+
+        // ---- low over land by the coast, a finger on the sea at the horizon must
+        // set him off over the water -- not stop him, and not land him, on the
+        // field in front of him (which is what a grazing ray used to resolve to)
+        {
+          const apc = L.AIRPORTS[1];
+          const landZ = apc.cz - 500, seaZ = apc.cz - 1700;
+          // down at rooftop height, where the ray to the sea grazes the field in front
+          air(0, landZ, L.terrainEff(0, landZ) + 12, 0);
+          o.startWet = L.terrainEff(st.x, st.z) < T.waterLevel;
+          // the rule itself: a finger on the far sea is "that way", not "that place"
+          {
+            const p = screenOf(0, T.waterLevel, seaZ);
+            L.api.setTouch(p.nx, clamp(p.ny, -0.92, 0.92));
+            L.update(1 / 60);
+            // it must resolve to the SEA, not to the field in front of him
+            const tg = L.heli.target;
+            o.horizonHitsSea = !!tg && L.terrainEff(tg.x, tg.z) < T.waterLevel;
+            o.horizonHitDist = tg ? Math.round(Math.hypot(tg.x - st.x, tg.z - st.z)) : -1;
+            o.horizonHitAt = tg ? [Math.round(tg.x), Math.round(tg.y), Math.round(tg.z)] : null;
+            o.me = [Math.round(st.x), Math.round(st.y), Math.round(st.z)];
+            o.camAt = [Math.round(camera.position.x), Math.round(camera.position.y), Math.round(camera.position.z)];
+            o.aimNdc = [+p.nx.toFixed(3), +p.ny.toFixed(3), p.behind];
+            o.seaTarget = [0, Math.round(T.waterLevel), Math.round(seaZ)];
+            // ... while a finger just in front of him still resolves to that ground
+            const q = screenOf(st.x, L.terrainEff(st.x, st.z), st.z - 18);
+            L.api.setTouch(q.nx, clamp(q.ny, -0.95, 0.95));
+            L.update(1 / 60);
+            o.downIsPlace = !!L.heli.target && L.heli.targetDist < 60;
+            L.api.clearStick();
+          }
+          air(0, landZ, L.terrainEff(0, landZ) + 12, 0);
+          const lands0 = L.flags.heliLandings || 0;
+          // holding the horizon he should get up to cruise, not creep from one
+          // patch of ground to the next
+          flyTo(0, T.waterLevel, seaZ, 4);
+          o.horizonSpeed = +st.speed.toFixed(1);
+          o.cruises = st.speed > H.cruise * 0.8;
+          flyTo(0, T.waterLevel, seaZ, 45, () => L.terrainEff(st.x, st.z) < T.waterLevel - 1);
+          L.api.clearStick();
+          o.overWaterNow = L.terrainEff(st.x, st.z) < T.waterLevel - 1;
+          o.zMade = Math.round(landZ - st.z);
+          o.didNotLand = (L.flags.heliLandings || 0) === lands0;
+        }
 
         // ---- touch the fire from 800 m with a full bucket: it arrives and the drop button is up
         air(F.rig.x, F.rig.z + 800, L.fire.deck + 90, 0);
@@ -4074,6 +4143,11 @@ function check(name, ok, extra) {
         h.arrived && h.hovered && h.hoverAgl > 6 && h.stops && h.levels && h.holdsAlt, JSON.stringify(h));
       check(`helicopter (${v}): a finger on the sky goes that way and climbs; a finger at the screen edge keeps turning`,
         h.climbedOnSky && h.edgeTurnedAbout, JSON.stringify({ skyClimb: h.skyClimb, edgeTurned: h.edgeTurned }));
+      check(`helicopter (${v}): low over the coast, a finger on the sea at the horizon sets him off over the water -- it never strands him on the field in front of him`,
+        !h.startWet && h.horizonHitsSea && h.downIsPlace && h.cruises && h.overWaterNow && h.zMade > 400 && h.didNotLand,
+        JSON.stringify({ startWet: h.startWet, horizonHitsSea: h.horizonHitsSea, hitDist: h.horizonHitDist, hitAt: h.horizonHitAt, me: h.me, cam: h.camAt, ndc: h.aimNdc, want: h.seaTarget, downIsPlace: h.downIsPlace, horizonSpeed: h.horizonSpeed, cruises: h.cruises, overWater: h.overWaterNow, zMade: h.zMade, didNotLand: h.didNotLand }));
+      check(`helicopter (${v}): a finger held on somewhere it is plainly not reaching makes it simply go -- it can never sit there failing to get anywhere`,
+        h.stallForced && h.stallMoved > 60, JSON.stringify({ forced: h.stallForced, moved: h.stallMoved }));
       check(`helicopter (${v}): touching the ground beside it sets it down softly`,
         h.landed && h.softLanding, JSON.stringify({ landed: h.landed, soft: h.softLanding }));
       check(`helicopter (${v}): touching the fire from 800 m flies him to it and hovers, with the drop button up and firing on one tap`,
@@ -4140,6 +4214,122 @@ function check(name, ok, extra) {
     });
     check("helicopter: no state anywhere needs two fingers at once -- the stick is the only thing ever held, and scoop and drop each fire on a single tap",
       two.bad.length === 0 && two.scoopUp && two.dropUp && two.droppedOnTap, JSON.stringify(two));
+    await page.close();
+  }
+
+
+  // ---------- T-SP6 set-pieces: the Mars base ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const m = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, M = L.MB;
+      L.noRender = true;
+      const o = {};
+      const b = L.BODIES[1];
+      const landOn = (body) => {
+        L.api.setVehicle("starship"); L.api.placeOnRunway();
+        st.dest = body.name;
+        st.phase = "TAXI"; L.rk.onBody = body; L.rk.stage = 1;
+        // off the pole: dead on b.y + r is the polar ice cap
+        const n = new THREE.Vector3(0.62, 0.5, 0.6).normalize();
+        st.x = body.x + n.x * (body.r + 12);
+        st.y = body.y + n.y * (body.r + 12);
+        st.z = body.z + n.z * (body.r + 12);
+        L.update(1 / 60);
+      };
+
+      // ---- it is built around wherever he comes down, so he always lands in it
+      landOn(b);
+      o.built = !!L.mars.g && L.mars.phase === "idle";
+      o.pieces = L.mars.g ? L.mars.g.children.length : 0;
+      o.padLights = L.mars.lights.length;
+      // the pad ring sits on the ground directly beneath him
+      {
+        const n = new THREE.Vector3(st.x - b.x, st.y - b.y, st.z - b.z).normalize();
+        o.padOnHim = Math.hypot(L.mars.x - (b.x + n.x * b.r), L.mars.y - (b.y + n.y * b.r), L.mars.z - (b.z + n.z * b.r)) < 3;
+      }
+      // nothing about it is solid, a target, or shatterable
+      let solid = 0;
+      L.forEachSolid(bx => {
+        if (!bx.mesh) return;
+        let p = bx.mesh; while (p) { if (p === L.mars.g) { solid++; return; } p = p.parent; }
+      });
+      o.baseSolid = solid;
+      o.noTargets = L.targets.every(t => Math.hypot(t.x - L.mars.x, t.z - L.mars.z) > 200);
+
+      // ---- the Moon is left exactly as it was
+      landOn(L.BODIES[0]);
+      o.moonHasNoBase = L.mars.phase === "none" && !L.mars.g;
+      o.moonRoverStillWorks = L.roverCan();
+      landOn(b);
+
+      // ---- the cargo ship: announced first, then flown down, and it stays
+      o.roverOut = L.roverDeploy();
+      const nums = new Set();
+      let sawLight = false, shipDuringCount = false;
+      for (let i = 0; i < 60 * (M.cargoDelay + M.cargoCount + 1); i++) {
+        L.update(1 / 60);
+        const t = document.getElementById("bigNum").textContent; if (t) nums.add(t);
+        if (L.mars.horizonLight) sawLight = true;
+        if (L.mars.cargoPhase === "count" && L.mars.cargo) shipDuringCount = true;
+      }
+      o.cargoCountdown = [...nums].sort().join("");
+      o.horizonLight = sawLight;
+      o.announcedFirst = !shipDuringCount;         // nothing lands before the count finishes
+      for (let i = 0; i < 60 * 25 && L.mars.cargoPhase !== "down"; i++) L.update(1 / 60);
+      o.cargoDown = L.mars.cargoPhase === "down";
+      o.cargoArrivals = L.flags.marsCargoArrivals || 0;
+      o.cargoBesideBase = L.mars.cargo ? Math.round(Math.hypot(L.mars.cargo.position.x - L.mars.x, L.mars.cargo.position.z - L.mars.z)) : -1;
+      for (let i = 0; i < 60 * 8; i++) L.update(1 / 60);
+      o.cargoStays = !!L.mars.cargo && !!L.mars.cargo.parent;
+
+      // ---- the way home needs no new control: drive out, then back onto the pad
+      o.armedBefore = L.mars.phase;
+      for (let i = 0; i < 60 * 50 && L.mars.phase !== "armed"; i++) { L.api.setThrottle(true); L.update(1 / 60); }
+      L.api.setThrottle(false);
+      o.armed = L.mars.phase === "armed";
+      o.outDist = Math.round(Math.hypot(L.rover.x - L.mars.x, L.rover.y - L.mars.y, L.rover.z - L.mars.z));
+      for (let i = 0; i < 60 * 80 && L.mars.phase === "armed"; i++) {
+        const f = new THREE.Vector3(L.mars.x - L.rover.x, L.mars.y - L.rover.y, L.mars.z - L.rover.z);
+        f.addScaledVector(L.rover.n, -f.dot(L.rover.n)).normalize();
+        L.rover.f.copy(f);
+        L.api.setThrottle(true); L.update(1 / 60);
+      }
+      L.api.setThrottle(false);
+      o.taken = L.mars.phase !== "armed" && L.mars.phase !== "idle";
+      o.padCalls = L.flags.marsPadCalls || 0;
+      // it parks itself, the pad counts down, and he goes
+      const padNums = new Set();
+      for (let i = 0; i < 60 * 50 && st.phase !== "AIRBORNE"; i++) {
+        L.update(1 / 60);
+        const t = document.getElementById("bigNum").textContent; if (t) padNums.add(t);
+      }
+      o.padCountdown = [...padNums].sort().join("");
+      o.roverStowed = !L.roverActive();
+      o.airborne = st.phase === "AIRBORNE";
+      // ... and it lets go of the throttle once he is properly away
+      for (let i = 0; i < 60 * 14; i++) L.update(1 / 60);
+      o.away = Math.round(Math.hypot(st.x - b.x, st.y - b.y, st.z - b.z) - b.r);
+      o.gotAway = o.away > 300 && !L.rk.onBody;
+      o.handsOff = !st.throttleHeld;
+      o.departures = L.flags.marsDepartures || 0;
+      o.baseCleared = !L.mars.g;
+      o.numClear = document.getElementById("bigNum").textContent === "";
+      o.exploded = L.flags.exploded;
+      o.frameErrors = L.frameErrors || 0;
+      return o;
+    });
+    check("set-piece: Mars is a place -- domes, masts, a garage, parked Starships, dunes and astronauts, built around wherever he came down, and none of it solid or hittable",
+      m.built && m.pieces > 20 && m.padLights >= 10 && m.padOnHim && m.baseSolid === 0 && m.noTargets, JSON.stringify(m));
+    check("set-piece: the Moon is left exactly as it was -- no base, and its rover still rolls out",
+      m.moonHasNoBase && m.moonRoverStillWorks, JSON.stringify({ noBase: m.moonHasNoBase, rover: m.moonRoverStillWorks }));
+    check("set-piece: a cargo Starship is announced by a horizon light and big numerals, then comes down under power beside the base and stays for the visit",
+      m.roverOut && m.cargoCountdown === "12345" && m.horizonLight && m.announcedFirst &&
+      m.cargoDown && m.cargoArrivals === 1 && m.cargoBesideBase > 60 && m.cargoBesideBase < 260 && m.cargoStays, JSON.stringify(m));
+    check("set-piece: the way home needs no new control -- drive out and back onto the lit pad, it parks itself, the pad counts him down and his rocket goes",
+      m.armed && m.outDist >= 60 && m.taken && m.padCalls === 1 && m.padCountdown === "123" &&
+      m.roverStowed && m.airborne && m.gotAway && m.handsOff && m.departures === 1 &&
+      m.baseCleared && m.numClear && m.exploded === 0 && m.frameErrors === 0, JSON.stringify(m));
     await page.close();
   }
 
