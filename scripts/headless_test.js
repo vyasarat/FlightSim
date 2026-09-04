@@ -3939,7 +3939,7 @@ function check(name, ok, extra) {
   }
 
 
-  // ---------- T-HELI the helicopter's own flight model ----------
+  // ---------- T-HELI the helicopter: one finger, plane-identical stick ----------
   {
     const { page } = await newPage(1180, 820);
     const h = await page.evaluate(() => {
@@ -3947,105 +3947,125 @@ function check(name, ok, extra) {
       L.noRender = true;
       const o = {};
       L.api.setVehicle("helicopter");
-      const air = () => {
+      const air = (y) => {
         L.api.placeOnRunway(); L.heliReset(); L.api.clearStick(); L.api.setThrottle(false);
-        st.phase = "AIRBORNE"; st.x = 0; st.z = 0; st.y = 300;
+        st.phase = "AIRBORNE"; st.x = 0; st.z = 0; st.y = y || 300;
         st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; st.airVy = 0;
       };
-      const run = (secs, stick, thr) => {
-        if (stick) L.api.setStick(stick[0], stick[1]); else L.api.clearStick();
-        L.api.setThrottle(!!thr);
+      const run = (secs, bank, up) => {
+        if (bank === null && up === null) L.api.clearStick(); else L.api.setStick(bank || 0, up || 0);
         for (let i = 0; i < 60 * secs; i++) L.update(1 / 60);
       };
 
-      // ---- it leaves the ground straight up, with no runway roll at all
+      // ---- takeoff is a drag up. There is no throttle button to find.
       L.api.placeOnRunway(); L.heliReset();
+      L.update(1 / 60);                       // the buttons are set by the frame, not the spawn
       o.startsOnGround = st.phase === "TAXI";
-      L.api.setThrottle(true);
+      o.noThrottleOnGround = document.getElementById("throttleBtn").classList.contains("hidden");
+      L.api.setStick(0, 1);
       let lift = -1;
       for (let i = 0; i < 60 * 6; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE") { lift = i / 60; break; } }
-      L.api.setThrottle(false);
-      o.liftSecs = lift; o.liftedVertically = lift >= 0 && st.speed < 1;
+      L.api.clearStick();
+      o.liftSecs = lift; o.liftedByDragUp = lift >= 0;
+      L.update(1 / 60);
+      o.noThrottleInAir = document.getElementById("throttleBtn").classList.contains("hidden");
 
-      // ---- stick right for 2 s turns about turnRate * 2
+      // ---- a finger on the screen flies it forward
       air();
-      const h0 = st.heading;
-      run(2, [1, 0], false);
-      o.turned = Math.abs((st.heading - h0) * 180 / Math.PI);
-      o.turnRight = (st.heading - h0) < 0;                  // right stick = right turn
-      o.turnedAbout = Math.abs(o.turned - H.turnRate * 2) < H.turnRate * 0.45;
-      o.leaned = Math.abs(st.bank) > H.bankDeg * 0.6;
+      const x0 = st.x, z0 = st.z, y0 = st.y;
+      run(3, 0, 0);
+      o.wentForward = (z0 - st.z) > 60;          // heading 0 travels -z
+      o.reachedCruise = st.speed > H.cruise * 0.85;
+      o.heldHeight = Math.abs(st.y - y0) < 6;    // level stick, level flight
 
-      // ---- stick forward for 3 s: it goes, nose down
+      // ---- drag up climbs, drag down descends -- the same as the plane
       air();
-      const x0 = st.x, z0 = st.z;
-      run(3, [0, -1], false);
-      o.movedFwd = Math.hypot(st.x - x0, st.z - z0);
-      o.wentForward = (z0 - st.z) > 60;                     // heading 0 travels -z
-      o.noseDown = st.pitch < -H.noseDeg * 0.6;
-      o.reachedCruise = st.speed > H.cruise * 0.9;
-
-      // ---- pull back: it slows, stops and hovers
-      run(2.5, [0, 1], false);
-      o.stopped = Math.abs(st.speed) < 9;
-      o.canBackUp = st.speed <= 0.01;
-
-      // ---- throttle up, then let go: it sinks, but never hard
+      const yc = st.y;
+      run(2.5, 0, 1);
+      o.climbed = st.y - yc;
       air();
-      const y0 = st.y;
-      run(2, null, true);
-      o.climbed = st.y - y0;
-      const y1 = st.y;
+      const yd = st.y;
       let worstSink = 0;
-      L.api.clearStick(); L.api.setThrottle(false);
+      L.api.setStick(0, -1);
       for (let i = 0; i < 60 * 3; i++) { const p = st.y; L.update(1 / 60); worstSink = Math.max(worstSink, (p - st.y) * 60); }
-      o.descended = y1 - st.y;
+      L.api.clearStick();
+      o.descended = yd - st.y;
       o.worstSink = +worstSink.toFixed(2);
       o.neverHard = worstSink <= H.maxSink + 0.4;
 
-      // ---- let go of everything: it settles within about a second
+      // ---- drag left/right turns, at about turnRate, with a lean
       air();
-      run(2, [1, -1], true);                                 // turning and moving
-      L.api.clearStick(); L.api.setThrottle(false);
-      for (let i = 0; i < 60 * 1.5; i++) L.update(1 / 60);
-      o.settledSpeed = Math.abs(st.speed);
-      o.settled = o.settledSpeed < 3;
-      o.levelled = Math.abs(st.bank) < 4 && Math.abs(st.pitch) < 4;
+      const hh = st.heading;
+      run(2, 1, 0);
+      o.turned = Math.abs((st.heading - hh) * 180 / Math.PI);
+      o.turnRight = (st.heading - hh) < 0;
+      o.turnedAbout = Math.abs(o.turned - H.turnRate * 2) < H.turnRate * 0.5;
+      o.leaned = Math.abs(st.bank) > H.bankDeg * 0.55;
 
-      // ---- the coast to the rig, at cruise, inside 35 s
+      // ---- a resting thumb does not fly it
+      air();
+      const zdz = st.z, ydz = st.y, hdz = st.heading;
+      run(2, H.deadzone * 0.6, H.deadzone * 0.6);
+      o.deadzoneHolds = Math.abs(st.y - ydz) < 2 && Math.abs(st.heading - hdz) < 0.02;
+
+      // ---- finger off: it stops, holds height and levels, inside a second and a half
+      air();
+      run(2.5, 1, 1);                            // moving, turning and climbing
+      const yHover = st.y;
+      L.api.clearStick();
+      for (let i = 0; i < 60 * 1.5; i++) L.update(1 / 60);
+      o.settledSpeed = +st.speed.toFixed(2);
+      o.settled = st.speed < 3;
+      o.levelled = Math.abs(st.bank) < 4 && Math.abs(st.pitch) < 5;
+      const yAfter = st.y;
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      o.holdsAltitude = Math.abs(st.y - yAfter) < 2;
+
+      // ---- the job assist: it brakes to a hover for him, finger still down
+      air(T.waterLevel + 25);
+      const F = L.FF;
+      st.x = F.rig.x; st.z = F.rig.z + 120; st.y = L.fire.deck + 40;
+      st.heading = Math.atan2(-(F.rig.x - st.x), -(F.rig.z - st.z));
+      L.api.setStick(0, 0);
+      for (let i = 0; i < 60 * 5; i++) L.update(1 / 60);
+      o.braking = L.heli.braking;
+      o.brakedSpeed = +st.speed.toFixed(2);
+      o.stoppedForHim = st.speed < 2;
+      L.api.clearStick();
+
+      // ---- the coast to the job, inside 35 s, finger down the whole way
       L.api.placeOnRunway(); L.heliReset();
-      const ap = L.AIRPORTS[1], F = L.FF;
+      const ap = L.AIRPORTS[1];
       st.phase = "AIRBORNE"; st.x = 0; st.z = ap.cz; st.y = ap.elev + 120;
       st.heading = Math.atan2(-(F.rig.x - st.x), -(F.rig.z - st.z));
       st.pitch = 0; st.bank = 0; st.speed = 0; st.airVy = 0;
-      L.api.setStick(0, -1); L.api.setThrottle(false);
+      L.api.setStick(0, 0);
       let arrive = -1;
       for (let i = 0; i < 60 * 60; i++) {
-        st.y = ap.elev + 120;                               // hold height; this is a speed test
         L.update(1 / 60);
-        if (Math.hypot(st.x - F.rig.x, st.z - F.rig.z) < 150) { arrive = i / 60; break; }
+        if (Math.hypot(st.x - F.rig.x, st.z - F.rig.z) < H.jobRadius) { arrive = i / 60; break; }
       }
       L.api.clearStick();
       o.transit = arrive;
       o.reachesRig = arrive >= 0 && arrive <= 35;
 
-      // ---- it still sets down at the airport, softly
+      // ---- it still sets down softly, by dragging down, and lifts off again
       L.api.placeOnRunway(); L.heliReset();
       const e0 = L.flags.exploded;
       st.phase = "AIRBORNE"; st.x = 0; st.z = ap.cz; st.y = ap.elev + 80;
       st.speed = 0; st.pitch = 0; st.bank = 0; st.airVy = 0;
-      L.api.clearStick(); L.api.setThrottle(false);
+      L.api.setStick(0, -1);
       let down = -1;
       for (let i = 0; i < 60 * 30; i++) { L.update(1 / 60); if (st.phase === "TAXI") { down = i / 60; break; } }
-      o.landedAtAirport = down >= 0;
+      L.api.clearStick();
+      o.landed = down >= 0;
       o.softLanding = L.flags.exploded === e0;
       o.sitsOnGround = Math.abs(st.y - (Math.max(L.terrainEff(st.x, st.z), T.waterLevel) + T.gearHeight)) < 0.5;
-      // ... and lifts straight off again
-      L.api.setThrottle(true);
-      let up = false;
-      for (let i = 0; i < 60 * 6; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE") { up = true; break; } }
-      L.api.setThrottle(false);
-      o.liftsAgain = up;
+      L.api.setStick(0, 1);
+      let up2 = false;
+      for (let i = 0; i < 60 * 6; i++) { L.update(1 / 60); if (st.phase === "AIRBORNE") { up2 = true; break; } }
+      L.api.clearStick();
+      o.liftsAgain = up2;
 
       // ---- and it can still be trapped on the carrier deck
       L.carrierReset(); L.heliReset();
@@ -4058,18 +4078,79 @@ function check(name, ok, extra) {
       o.frameErrors = L.frameErrors || 0;
       return o;
     });
-    check("helicopter: it lifts straight off the ground on the throttle alone -- no runway, no rotate speed",
-      h.startsOnGround && h.liftedVertically && h.liftSecs >= 0 && h.liftSecs < 3, JSON.stringify(h));
-    check("helicopter: the stick steers it -- left/right turns at about turnRate with a visible lean, forward drops the nose and it goes, back slows it to a stop",
-      h.turnRight && h.turnedAbout && h.leaned && h.wentForward && h.noseDown && h.reachedCruise && h.stopped && h.canBackUp, JSON.stringify(h));
-    check("helicopter: the throttle is up and down -- hold to climb, let go and it sinks gently and never faster than maxSink",
-      h.climbed > 15 && h.descended > 5 && h.neverHard, JSON.stringify(h));
-    check("helicopter: let go of everything and it settles into a hover within a second and a half, level and stopped -- the safe state he can always fall back to",
-      h.settled && h.levelled, JSON.stringify(h));
+    check("helicopter: one finger, everywhere -- takeoff is a drag up, and there is no throttle button to hold on the ground or in the air",
+      h.startsOnGround && h.noThrottleOnGround && h.liftedByDragUp && h.liftSecs < 3 && h.noThrottleInAir, JSON.stringify(h));
+    check("helicopter: a finger on the screen flies it forward at cruise, and the stick means what it means in the plane -- drag up climbs, drag down descends, never faster than maxSink",
+      h.wentForward && h.reachedCruise && h.heldHeight && h.climbed > 12 && h.descended > 8 && h.neverHard, JSON.stringify(h));
+    check("helicopter: drag left/right turns at about turnRate with a lean, and a resting thumb inside the deadzone does not fly it",
+      h.turnRight && h.turnedAbout && h.leaned && h.deadzoneHolds, JSON.stringify(h));
+    check("helicopter: take the finger off and it stops, levels and holds its height inside a second and a half -- and stays there",
+      h.settled && h.levelled && h.holdsAltitude, JSON.stringify(h));
+    check("helicopter: by the water or the fire it brakes to a hover for him with his finger still down -- he aims at the job and it stops",
+      h.braking && h.stoppedForHim, JSON.stringify(h));
     check("helicopter: from the California coast it reaches the burning rig inside 35 seconds",
-      h.reachesRig, JSON.stringify({ transit: h.transit, reaches: h.reachesRig }));
-    check("helicopter: it still sets down softly at the airport and lifts off again, and can still be trapped on the carrier deck",
-      h.landedAtAirport && h.softLanding && h.sitsOnGround && h.liftsAgain && h.carrierTrap && h.frameErrors === 0, JSON.stringify(h));
+      h.reachesRig, JSON.stringify({ transit: h.transit }));
+    check("helicopter: dragging down sets it down softly, it lifts off again, and it can still be trapped on the carrier deck",
+      h.landed && h.softLanding && h.sitsOnGround && h.liftsAgain && h.carrierTrap && h.frameErrors === 0, JSON.stringify(h));
+    await page.close();
+  }
+
+  // ---------- T-HELI2 nothing ever needs two fingers ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const two = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, T = L.TUNE, F = L.FF;
+      L.noRender = true;
+      const bad = [];
+      // Controls that must be HELD. The stick is one of them by definition, so if
+      // any held button is also up, some state needs two fingers at once.
+      const held = ["throttleBtn"];
+      const look = (name) => {
+        for (const id of held) {
+          const b = document.getElementById(id);
+          if (b && !b.classList.contains("hidden") && getComputedStyle(b).display !== "none") bad.push(name + ": " + id);
+        }
+      };
+      L.api.setVehicle("helicopter");
+      const settle = (n) => { for (let i = 0; i < (n || 10); i++) L.update(1 / 60); };
+      L.api.placeOnRunway(); L.heliReset(); settle(); look("on the ground");
+      st.phase = "AIRBORNE"; st.y = 300; settle(); look("airborne");
+      L.api.setStick(0, 1); settle(); look("climbing"); L.api.clearStick();
+      L.api.setStick(1, 0); settle(); look("turning"); L.api.clearStick();
+      // low over open water, and over the fire with a full bucket
+      const sea = (() => {
+        for (let d = 140; d <= 700; d += 60)
+          for (const [ax, az] of [[0, -1], [-1, -1], [1, -1], [-1, 0], [1, 0]]) {
+            const x = F.rig.x + ax * d, z = F.rig.z + az * d;
+            if (L.terrainEff(x, z) < T.waterLevel - 2) return { x, z };
+          }
+        return { x: F.rig.x, z: F.rig.z - 300 };
+      })();
+      st.x = sea.x; st.z = sea.z; st.y = T.waterLevel + 20; settle(); look("low over water");
+      const scoopBtn = document.getElementById("bucketBtn");
+      const scoopUp = !scoopBtn.classList.contains("hidden");
+      L.bucketPress();
+      for (let i = 0; i < 60 * (F.scoopTime + 0.5); i++) { L.update(1 / 60); st.x = sea.x; st.z = sea.z; st.y = T.waterLevel + 20; }
+      look("scooping");
+      st.x = F.rig.x + 30; st.z = F.rig.z + 30; st.y = L.fire.deck + 60; settle();
+      look("over the fire");
+      const dropUp = !scoopBtn.classList.contains("hidden");
+      // ... and each of those is a single tap, not a hold
+      const d0 = L.flags.ffDrops || 0;
+      scoopBtn.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1 }));
+      settle(4);
+      const droppedOnTap = (L.flags.ffDrops || 0) > d0;
+      // the carrier deck
+      L.carrierReset();
+      st.phase = "AIRBORNE"; st.exploding = false;
+      st.x = L.carrier.x + 2; st.z = L.carrier.z + L.CV.deckL / 2 - 20; st.y = L.carrier.deck + 12;
+      st.heading = 0; st.speed = 26;
+      for (let i = 0; i < 60 * 6 && L.carrier.state === "none"; i++) L.update(1 / 60);
+      settle(); look("on the carrier deck");
+      return { bad, scoopUp, dropUp, droppedOnTap };
+    });
+    check("helicopter: no state anywhere needs two fingers at once -- the stick is the only thing ever held, and scoop and drop each fire on a single tap",
+      two.bad.length === 0 && two.scoopUp && two.dropUp && two.droppedOnTap, JSON.stringify(two));
     await page.close();
   }
 
