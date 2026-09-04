@@ -4033,6 +4033,35 @@ function check(name, ok, extra) {
       o.stoppedForHim = st.speed < 2;
       L.api.clearStick();
 
+      // ---- the scoop brake is the rig's water, not every sea in the world
+      const wetAt = (want) => {           // a wet point about `want` metres from the rig
+        for (let r = want; r <= want + 260; r += 40)
+          for (let a = 0; a < 12; a++) {
+            const th = a / 12 * Math.PI * 2;
+            const x = F.rig.x + Math.cos(th) * r, z = F.rig.z + Math.sin(th) * r;
+            if (L.terrainEff(x, z) < T.waterLevel - 2) return { x, z, d: Math.hypot(x - F.rig.x, z - F.rig.z) };
+          }
+        return null;
+      };
+      const near = wetAt(200), far = wetAt(1000);
+      const brakeAt = (pt, full) => {
+        air(T.waterLevel + 20);
+        L.bucket.state = full ? "full" : "empty";
+        st.x = pt.x; st.z = pt.z; st.y = T.waterLevel + 20;
+        st.heading = 0; st.speed = 0;
+        L.api.setStick(0, 0);
+        for (let i = 0; i < 60 * 4; i++) { L.update(1 / 60); st.y = T.waterLevel + 20; }
+        const r = { braking: L.heli.braking, speed: +st.speed.toFixed(2) };
+        L.api.clearStick(); L.bucket.state = "empty";
+        return r;
+      };
+      o.cruise = H.cruise;
+      o.nearD = near ? Math.round(near.d) : null;
+      o.farD = far ? Math.round(far.d) : null;
+      o.openSea = far ? brakeAt(far, false) : null;          // 1 km out: just sea
+      o.rigWater = near ? brakeAt(near, false) : null;       // 200 m out, empty: the job
+      o.rigWaterFull = near ? brakeAt(near, true) : null;    // ... but not with a full bucket
+
       // ---- the coast to the job, inside 35 s, finger down the whole way
       L.api.placeOnRunway(); L.heliReset();
       const ap = L.AIRPORTS[1];
@@ -4088,6 +4117,11 @@ function check(name, ok, extra) {
       h.settled && h.levelled && h.holdsAltitude, JSON.stringify(h));
     check("helicopter: by the water or the fire it brakes to a hover for him with his finger still down -- he aims at the job and it stops",
       h.braking && h.stoppedForHim, JSON.stringify(h));
+    check("helicopter: the water brake is the rig's water only -- open sea a kilometre out never brakes, the water by the rig does, and a full bucket flies home at speed",
+      h.openSea && !h.openSea.braking && h.openSea.speed > h.cruise * 0.8 &&
+      h.rigWater && h.rigWater.braking && h.rigWater.speed < 2 &&
+      h.rigWaterFull && !h.rigWaterFull.braking && h.rigWaterFull.speed > h.cruise * 0.8,
+      JSON.stringify({ nearD: h.nearD, farD: h.farD, openSea: h.openSea, rigWater: h.rigWater, rigWaterFull: h.rigWaterFull }));
     check("helicopter: from the California coast it reaches the burning rig inside 35 seconds",
       h.reachesRig, JSON.stringify({ transit: h.transit }));
     check("helicopter: dragging down sets it down softly, it lifts off again, and it can still be trapped on the carrier deck",

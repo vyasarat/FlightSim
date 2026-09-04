@@ -99,9 +99,12 @@ There is **no throttle button**: taking off is dragging up, landing is dragging 
 settles. Nothing about the helicopter ever needs a second finger, and the harness checks that
 across every state it can be in.
 
-Near a job -- low over open water, or within `jobRadius` of the burning rig -- it **brakes to a
-hover by itself**, even with a finger still down, so he can aim at the thing and have it stop for
-him. Pointing, not timing. The scoop / drop button appears in exactly those places and is a
+Near a job it **brakes to a hover by itself**, even with a finger still down, so he can aim at
+the thing and have it stop for him. Pointing, not timing. Two places count, and only those: within
+`jobRadius` of the burning rig whatever he is carrying, and the water he would actually scoop
+from -- an empty bucket, low, over water, and inside `firefight.scoopRadius` of the rig. Open sea
+further out is just sea, and a full bucket never brakes anywhere, so the trip back to the fire is
+at full speed. The scoop / drop button appears in exactly those places and is a
 single tap. Both axes have a real `deadzone` and heavier smoothing than the plane: it is meant to
 feel deliberate and heavy.
 

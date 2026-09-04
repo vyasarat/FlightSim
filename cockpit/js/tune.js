@@ -263,6 +263,8 @@ const TUNE = {
     flames: 9, flameH: 22, flicker: 7,
     smokePuffs: 26, smokeH: 300, smokeRise: 26, smokeSize: 20,   // the column, seen from a long way off
     scoopAlt: 40,                   // this low over open water and the bucket can go down
+    scoopRadius: 400,               // ... and only this near the rig does the helicopter brake for
+                                    // it. Open sea further out is just sea: it flies straight over
     scoopTime: 1.4,
     dropR: 150,                     // this near the rig and the same button becomes DROP
     drops: 3,                       // three of them put it out
