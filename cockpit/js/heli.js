@@ -21,13 +21,15 @@
 const H = TUNE.heli;
 const heli = {
   vy: 0, turn: 0, speed: 0,
-  braking: false, target: null, targetDist: 0, sky: false,
+  braking: false, target: null, targetDist: 0, sky: false, heading: false,
+  stallT: 0, forced: false,
 };
 
 function heliActive() { return !!(state.vp && state.vp.heli); }
 function heliReset() {
   heli.vy = 0; heli.turn = 0; heli.speed = 0;
   heli.braking = false; heli.target = null; heli.targetDist = 0; heli.sky = false;
+  heli.stallT = 0; heli.forced = false;
 }
 
 // The places he has a job to do, and only those: the fire, whatever he carries,
@@ -52,12 +54,21 @@ const heliPickList = [];
 // same wherever the terrain chunks happen to be streamed in.
 function heliGroundHit(o, d, maxD) {
   if (d.y > -0.0005) return null;                       // pointing up: sky
+  const under = (t) => (o.y + d.y * t) <= Math.max(terrainEff(o.x + d.x * t, o.z + d.z * t), TUNE.waterLevel);
   let prev = 0;
   const lim = Math.min(maxD, H.pickRange);
   for (let t = H.pickStep; t <= lim; t += H.pickStep) {
-    const y = o.y + d.y * t;
-    const g = Math.max(terrainEff(o.x + d.x * t, o.z + d.z * t), TUNE.waterLevel);
-    if (y <= g) {
+    if (under(t)) {
+      // A graze: the ray dips under a crest and comes out again beyond it. That is
+      // not what he is pointing at -- keep going until it stays under.
+      let stays = true;
+      for (let k = 1; k <= H.grazeSteps; k++) {
+        const q = t + k * H.pickStep;
+        if (q > lim) break;
+        const sy = Math.max(terrainEff(o.x + d.x * q, o.z + d.z * q), TUNE.waterLevel);
+        if ((o.y + d.y * q) > sy + H.grazeMargin) { stays = false; break; }
+      }
+      if (!stays) { prev = t; continue; }
       let lo = prev, hi = t;
       for (let i = 0; i < 8; i++) {
         const m = (lo + hi) / 2;
@@ -111,7 +122,7 @@ function updateHelicopter(dt) {
   const ny = touching ? (state.touchIsPoint ? state.touchNY : clamp(state.ctrlPitch, -1, 1)) : 0;
 
   let wantYaw = null, wantSpeed = 0, wantVy = 0, edgeYaw = 0;
-  heli.target = null; heli.sky = false;
+  heli.target = null; heli.sky = false; heli.heading = false;
 
   if (touching) {
     if (nx < -1 + H.edgeYawBand) edgeYaw = -1;
@@ -153,6 +164,15 @@ function updateHelicopter(dt) {
 
   // ---- forward: it turns first and then goes, and stops itself at a job
   heli.braking = !grounded && heliJobNear();
+  // Never stuck: a finger held on somewhere he is plainly not reaching means go.
+  // Whatever the reason -- a rise in the way, a target that keeps resolving short --
+  // holding on for stallTime makes it simply fly at the bearing at cruise.
+  const goingSomewhere = touching && !grounded && !heli.braking && heli.targetDist > H.arriveDist * 2;
+  if (goingSomewhere && heli.speed < H.stallSpeed) heli.stallT += dt;
+  else heli.stallT = 0;
+  heli.forced = goingSomewhere && heli.stallT > H.stallTime;
+  if (heli.forced) wantSpeed = H.cruise;
+
   if (heli.braking || grounded) wantSpeed = 0;
   else if (wantYaw !== null) wantSpeed *= Math.max(0, Math.cos(yawErr));
   const k = wantSpeed > heli.speed ? H.accel : (heli.braking ? H.jobBrake : H.hoverDamp);
