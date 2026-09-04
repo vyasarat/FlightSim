@@ -225,16 +225,27 @@ const TUNE = {
   // One finger, and the stick means exactly what it means in the plane -- drag up
   // to go up. A finger on the screen flies it forward; taking the finger off stops
   // it and holds the height. Deliberate and heavy, never darty.
+  // Point-to-go. He touches a place and it goes there -- a stick cannot say
+  // "up and forward and round" at once to a four-year-old, but a finger on the
+  // fire can. One finger, always; letting go is always a hover.
   heli: {
-    cruise: 36,                     // a finger on the screen = forward, at this
-    accel: 2.0, hoverDamp: 3.0,     // ... picked up gently, and shed in about a second
-    turnRate: 35, turnAccel: 3.0, bankDeg: 22,   // slower than a plane: 55 was twitchy on a tablet
-    climb: 12, maxSink: 6, vAccel: 2.2,          // drag up climbs, drag down descends
-    deadzone: 0.14,                 // a real one: a resting thumb must not fly it
-    levelRate: 2.5,                 // heavier smoothing than the plane on every axis
-    noseDeg: 10, climbPitchDeg: 8,  // it noses down with speed, and lifts as he climbs
-    jobRadius: 170, jobBrake: 3.5,  // near the water or the fire it stops for him
+    cruise: 36, approach: 0.55,     // speed eases off with the distance left to run
+    hoverAgl: 26,                   // it hovers this high over the spot he touched
+    landRadius: 34,                 // ... but settles onto one this close, instead of hovering
+    arriveDist: 60,                 // "there" for the purposes of arriving
+    turnRate: 35, turnAccel: 3.0, yawGain: 2.2, bankDeg: 22,
+    edgeYawBand: 0.18, edgeYawRate: 34,   // a finger at the screen edge spins it round
+    climb: 12, maxSink: 6, vAccel: 2.2, vGain: 0.5,
+    liftKick: 2.0,                  // on the ground, any touch gets it off the deck
+    accel: 2.0, hoverDamp: 3.0,     // finger off: stopped in about a second
+    levelRate: 2.5, noseDeg: 10,
+    jobRadius: 120, jobBrake: 3.5,  // by the fire or its water it settles for him. This has to
+                                    // sit INSIDE firefight.dropR, or the assist stops him too far
+                                    // out to do the job it stopped him for.
+    waterFloor: 5,                  // it hovers this far over the sea and never sets down on it
+                                    // (sitting on the water would end the flight and hide the bucket)
     stopBelow: 0.4,
+    pickRange: 3000, pickStep: 30,  // how far it looks for what he touched, and how finely
   },
 
   // ---- set-pieces. Each one is the same loop: a giant obvious thing, one aim or

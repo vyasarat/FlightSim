@@ -30,9 +30,10 @@ the checklist for shipping one.
   inside a function, is fine.
 - `cockpit/js/tune.js` — every gameplay number (`TUNE`, `TUNE.rocketTune`, `rocketTune.starship`).
 - `heli.js` — the helicopter's own flight model (`TUNE.heli`); it owns both the ground and the
-  air for that vehicle, so the plane path in `flight.js` never runs for it. **One finger only**:
-  the stick means what it means in the plane (drag up = up) and there is no throttle button —
-  nothing about that vehicle may ever need two simultaneous touches.
+  air for that vehicle, so the plane path in `flight.js` never runs for it. **Point-to-go, one finger**:
+  he touches a place and it flies there and hovers over it; there is no stick and no throttle
+  button, and nothing about that vehicle may ever need two simultaneous touches. The touch point
+  reaches it as `state.touchNX/NY` (NDC); the plane and rocket ignore those entirely.
 - `rocket.js` (Falcon / Starship spine), `recovery.js` (droneship, net boat, recovery ride),
   `rover.js` (surface buggy) and `events.js` (the per-launch space event) load after `flight.js`
   and before `main.js`; they call into each other only inside functions, so order among them is
