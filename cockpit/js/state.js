@@ -5,6 +5,7 @@ const state = {
   ctrlBank: 0, ctrlPitch: 0,
   touching: false,
   startX: 0, startY: 0,
+  touchNX: 0, touchNY: 0, touchIsPoint: false,   // where the finger is, for the helicopter
   airVy: null,
   speed: 0,
   phase: "TAXI",
