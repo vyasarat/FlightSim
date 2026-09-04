@@ -3,6 +3,13 @@
 // is ignored entirely -- it must neither move the stick nor release it.
 let stickPointerId = null;
 const stickPointers = new Map();   // every finger on the canvas, oldest first: the next one takes over when the owner lifts
+function setTouchPoint(x, y) {
+  // where the finger actually is, in normalised device coords. The plane and the
+  // rocket ignore this entirely; the helicopter flies to whatever it is over.
+  state.touchNX = (x / window.innerWidth) * 2 - 1;
+  state.touchNY = -((y / window.innerHeight) * 2 - 1);
+  state.touchIsPoint = true;
+}
 function takeStick(id, x, y) {
   keyStickActive = false;
   state.touching = true;
@@ -11,6 +18,7 @@ function takeStick(id, x, y) {
   state.startY = y;
   state.ctrlBank = 0;
   state.ctrlPitch = 0;
+  setTouchPoint(x, y);
   try { glEl.setPointerCapture(id); } catch (err) {}
 }
 glEl.addEventListener("pointerdown", (e) => {
@@ -27,11 +35,13 @@ glEl.addEventListener("pointermove", (e) => {
   const span = Math.min(window.innerWidth, window.innerHeight);
   state.ctrlBank = clamp((e.clientX - state.startX) / (span * TUNE.dragRangeX), -1, 1);
   state.ctrlPitch = clamp(-(e.clientY - state.startY) / (span * TUNE.dragRangeY), -1, 1);
+  setTouchPoint(e.clientX, e.clientY);
 });
 const releaseDrag = (e) => {
   if (e && e.pointerId !== undefined) stickPointers.delete(e.pointerId);
   if (e && e.pointerId !== undefined && stickPointerId !== null && e.pointerId !== stickPointerId) return;
   state.touching = false;
+  state.touchIsPoint = false;
   stickPointerId = null;
   if (e && e.pointerId !== undefined && stickPointers.size) {   // a resting second finger becomes the stick, from where it is
     const [id, p] = stickPointers.entries().next().value;
@@ -53,6 +63,7 @@ const releaseAllInputs = () => {
   state.ctrlBank = 0;
   state.ctrlPitch = 0;
   state.touching = false;
+  state.touchIsPoint = false;
   stickPointerId = null;
 };
 window.addEventListener("blur", releaseAllInputs);
