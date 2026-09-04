@@ -169,7 +169,9 @@ window.__lp = {
       state.ctrlBank = clamp(bank, -1, 1);
       state.ctrlPitch = clamp(pitch, -1, 1);
     },
-    clearStick() { state.touching = false; state.ctrlBank = 0; state.ctrlPitch = 0; },
+    clearStick() { state.touching = false; state.touchIsPoint = false; state.ctrlBank = 0; state.ctrlPitch = 0; },
+    // a finger at a point on the screen, in normalised device coords (the helicopter flies there)
+    setTouch(nx, ny) { state.touching = true; state.touchIsPoint = true; state.touchNX = nx; state.touchNY = ny; },
     placeOnRunway() { spawnForTakeoff(0, 0); },
     setView(chase) {
       state.viewChase = !!chase;

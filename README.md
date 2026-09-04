@@ -75,40 +75,37 @@ mechanism (the picker reads the flag at boot) is still there for anything that n
 | Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (colour only); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
-| Helicopter | 36 | 35°/s | n/a | **Its own one-finger model** (`js/heli.js`, `TUNE.heli`): finger on = forward, drag up = climb. The firefighter -- it carries the water bucket |
+| Helicopter | 36 | 35°/s | n/a | **Point-to-go** (`js/heli.js`, `TUNE.heli`): touch a place and it flies there. The firefighter -- it carries the water bucket |
 | Rocket | see `rocketTune` | 38°/s tilt | vertical launch | Its own flight model (The rocket below); no gear, no missiles. The `vehicles.rocket` entry only feeds the picker and dials |
 | Starship | `rocketTune.starship` | 38°/s tilt (turnRateDeg 7 vs the rocket's 8) | vertical launch | Same flight model, one drop; the booster is caught by the tower's arms; the Ship lands on its engines |
 
 Every non-rocket vehicle is ceiling-capped at `otherVehicleCeiling`.
 
-## The helicopter (`js/heli.js`, `TUNE.heli`)
+## The helicopter -- point-to-go (`js/heli.js`, `TUNE.heli`)
 
-It used to fly the plane model, which meant pitch *was* altitude, the throttle did nothing in the
-air, and it could never take off at all -- the plane needs `rotateSpeed` 44 m/s to rotate and the
-helicopter tops out at 34. It has its own model now, and it is **one finger, everywhere, always**,
-with the stick meaning exactly what it means in the plane:
+A stick cannot say "up, and forward, and round" at once to a four-year-old, so the helicopter
+does not have one. **He puts a finger on a place and it goes there.**
 
 | Input | Effect |
 |---|---|
-| Finger on the screen | It flies **forward** at `cruise`. That is all going anywhere takes |
-| Drag up / down | **Climb / descend** -- the same as the plane. Never faster down than `maxSink`, so it can only ever arrive gently |
-| Drag left / right | **Turn** at `turnRate`, leaning `bankDeg` into it. 35°/s, not the plane's rate: faster was darty on a tablet |
-| Finger off | It stops, levels and **holds its height** in about a second, and stays there. Hovering is the safe state -- letting go always works |
+| Finger on a place -- the sea, the fire, a deck, a hillside | It turns toward it and flies there, easing off with the distance left, and settles into a hover `hoverAgl` above it. The raycast is from whichever camera he is using, so touching the fire through the windshield works |
+| Finger on a place he has all but reached | It sets down on it instead of hovering. The threshold grows with height, so holding a finger on the ground always walks him down to it -- which is the only way to land from the cockpit, where he can only touch what is ahead |
+| Finger on the sky | Go that way, and up. Higher on the screen climbs harder |
+| Finger at the left / right edge (`edgeYawBand`) | Keep turning that way, so he can spin round to something behind him |
+| Finger off | It stops, levels and holds its height in about a second. Hovering is the safe state |
 
-There is **no throttle button**: taking off is dragging up, landing is dragging down until it
-settles. Nothing about the helicopter ever needs a second finger, and the harness checks that
-across every state it can be in.
+There is **no throttle button**: any touch gets it off the ground, and a finger on the ground
+brings it back down. Nothing about the helicopter ever needs a second finger, and the harness
+checks that across every state it can be in. Descent is clamped to `maxSink`, so it can only ever
+arrive gently; the sea is a hover floor rather than a landing place, since sitting on it would end
+the flight and take the bucket button away in the one spot he needs it.
 
-Near a job it **brakes to a hover by itself**, even with a finger still down, so he can aim at
-the thing and have it stop for him. Pointing, not timing. Two places count, and only those: within
-`jobRadius` of the burning rig whatever he is carrying, and the water he would actually scoop
-from -- an empty bucket, low, over water, and inside `firefight.scoopRadius` of the rig. Open sea
-further out is just sea, and a full bucket never brakes anywhere, so the trip back to the fire is
-at full speed. The scoop / drop button appears in exactly those places and is a
-single tap. Both axes have a real `deadzone` and heavier smoothing than the plane: it is meant to
-feel deliberate and heavy.
-
-Walls are still walls (fly into a tower and it goes bang), but the ground never is.
+Near a job it **brakes to a hover by itself**: within `jobRadius` of the burning rig whatever he
+is carrying, and over the water he would actually scoop from -- an empty bucket, low, inside
+`firefight.scoopRadius` of the rig. (`jobRadius` sits *inside* `firefight.dropR`, or the assist
+would stop him too far out to do the job it stopped him for.) Open sea further out is just sea,
+and a full bucket never brakes, so the run back to the fire is at full speed. Touching the water
+and touching the fire are the whole loop.
 
 ## The world: New York <-> California
 
@@ -498,7 +495,7 @@ cockpit/
     state.js          state object, vehicle apply, spawn
     input.js          touch, buttons, keyboard, photo, persistence, lifecycle, SW
     flight.js         plane flight model, assists, alarm, sky, rewards, update()
-    heli.js           the helicopter's own one-finger model (finger on = forward, drag up = climb)
+    heli.js           the helicopter: point-to-go (touch a place, it flies there and hovers)
     rocket.js         rocket flight model, staging, Moon / Mars, landing assist, satellite, reentry + parachutes
     recovery.js       droneship, net boat, recovery ship / truck and the ride that refits the pad
     rover.js          the Moon / Mars rover: drive on the sphere, rocks, beacons, drive-back
