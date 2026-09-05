@@ -33,10 +33,12 @@ the checklist for shipping one.
 - `cockpit/js/tune.js` — every gameplay number (`TUNE`, `TUNE.rocketTune`, `rocketTune.starship`).
   The Mars block is `TUNE.marsBase` (the base itself plus `.jumps`, `.boulders`, `.drone`).
 - `heli.js` — the helicopter's own flight model (`TUNE.heli`); it owns both the ground and the
-  air for that vehicle, so the plane path in `flight.js` never runs for it. **Point-to-go, one finger**:
-  he touches a place and it flies there and hovers over it; there is no stick and no throttle
-  button, and nothing about that vehicle may ever need two simultaneous touches. The touch point
-  reaches it as `state.touchNX/NY` (NDC); the plane and rocket ignore those entirely.
+  air for that vehicle, so the plane path in `flight.js` never runs for it. **Sequential controls, one finger**:
+  a tap sets a fixed horizontal destination; up/down change altitude without cancelling travel,
+  and releasing them holds height. The hover button stops travel. No throttle and no mandatory
+  simultaneous touches. The touch point reaches it as `state.touchNX/NY` (NDC); the plane and
+  rocket ignore those entirely. Separate altitude controls and helicopter-only tuning changes
+  were explicitly authorized; preserve plane, rocket and Mars drone tuning.
 - `rocket.js` (Falcon / Starship spine), `recovery.js` (droneship, net boat, recovery ride),
   `rover.js` (surface buggy) and `events.js` (the per-launch space event) load after `flight.js`
   and before `main.js`; they call into each other only inside functions, so order among them is
@@ -52,14 +54,21 @@ the checklist for shipping one.
   explosion or collapse gets a build first (beacons, rumble, the shared `#bigNum` countdown --
   numerals only, and only while a wind-up runs). One hero effect each, structures and machines
   only, and at most one new contextual button per feature.
+- `toyworld.js` — airport magnet yards, guided wash/welcome and color trails. All
+  settings live in `TUNE.toyWorld`. The fixed cargo and bubble pools never grow;
+  the trail is one capped buffer with logarithmic-depth shader support. Batch only
+  static siblings, leaving individually revealed construction pieces independent.
+  `twWashGuide` owns motion only during the optional wash. Keep magnet/bucket
+  eligibility exclusive, and clear a dropped magnet's pickup lock only after he
+  moves away. Both airport variants must stay clear of the runway and launch pad.
 - `marsbase.js` — the Mars base (`TUNE.marsBase`). Built around wherever he lands, so the lit
   pad is the rocket's own spot and driving back onto it is the way home; no new control.
   Mars only — the Moon stays as it was. It also owns the things to do out there: dune jumps
   (`.jumps`), the boulder field (`.boulders`) and the little drone (`.drone`). The jump *launch*
   runs in `updateMarsToys` (before `updateRover`, so it sets the hop the rover's own gravity
   then flies); the *tumble* runs in `marsLate` off `updateSetpiecesLate`, because `updateRover`
-  rewrites the mesh orientation every frame. The drone reuses the helicopter's point-to-go
-  wholesale — but on a sphere, so distances that decide "arrived" must be measured along the
+  rewrites the mesh orientation every frame. The drone keeps its original point-to-go
+  on a sphere, so distances that decide "arrived" must be measured along the
   ground, never through the air, or its own hover height keeps it permanently "far away".
 - The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`) says what counts
   as a landing; everything else crashes, and a crash must stay free. Assist strengths are separate

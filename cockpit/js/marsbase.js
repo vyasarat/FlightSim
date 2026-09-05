@@ -41,9 +41,11 @@ function marsIsHome() {
 }
 
 function marsClear() {
-  if (mars.g) { scene.remove(mars.g); mars.g = null; }
-  if (mars.cargo) scene.remove(mars.cargo);          // it lives in the scene, not the base group
-  if (mars.horizonLight) scene.remove(mars.horizonLight);
+  disposeSurfaceObjects([mars.g, mars.cargo, mars.horizonLight]);
+  mars.g = null;
+  const flagIndex = ambFlags.indexOf(mars.flag);
+  if (flagIndex !== -1) ambFlags.splice(flagIndex, 1);
+  mars.flag = null;
   countdownClear();
   mars.pad = null; mars.padMat = null; mars.lights = []; mars.padGlow = null;
   mars.cargo = null; mars.cargoGlow = null; mars.horizonLight = null;
@@ -317,7 +319,7 @@ function updateMarsBase(dt) {
     mars.horizonLight.visible = (frameCount % 26) < 14;
     if (mars.cargoT <= 0) {
       countdownClear();
-      if (mars.horizonLight) { scene.remove(mars.horizonLight); mars.horizonLight = null; }
+      if (mars.horizonLight) { disposeSurfaceObjects([mars.horizonLight]); mars.horizonLight = null; }
       marsCargoStart();
     }
   } else if (mars.cargoPhase === "falling") {
@@ -881,7 +883,7 @@ function marsToysBuild(g) {
   marsBuildDrone(g);
 }
 function marsToysClear() {
-  if (mars.drone) { scene.remove(mars.drone.g); mars.drone = null; }
+  if (mars.drone) { disposeSurfaceObjects([mars.drone.g]); mars.drone = null; }
   mars.jumps = []; mars.rocks = []; mars.rocksAway = false;
   mars.jump.air = false; mars.jump.peaked = false; mars.jump.t = 0; mars.jump.roll = 0; mars.jump.flipT = 0;
 }
