@@ -63,6 +63,19 @@ the checklist for shipping one.
   as a landing; everything else crashes, and a crash must stay free. Assist strengths are separate
   knobs (`assist*`) -- the assist may stand him up, never rescue a last-second dive.
 - There is no weather/sky button; the sky moods stay in code (`state.sky`) for the harness.
+- Lighting lives in `scene.js` + `TUNE.light`: one sun at a real angle, one hemisphere fill, and
+  one shadow box that follows the camera. Two things about it are load-bearing. **The box resizes
+  to the scale he is working at** (`radius` flying / `radiusMid` on the ground / `radiusClose` in
+  the rover or drone): one size cannot resolve both an airliner and a 3 m rover. And **shadow
+  receiving is per-mesh, switched on only for the terrain chunks inside the box** — the ground is
+  most of the screen, so letting every distant chunk run the lookup was the biggest bill in the
+  pass. Anything lit that must take a shadow across a big flat face has to be Phong, not Lambert:
+  Lambert shades per vertex, so on the Mars sphere (40 m triangles) a rover's shadow landed as a
+  blob the size of a dune field.
+- `scripts/polish_check.js <tag>` — the polish rig: four vantage points in both camera views plus
+  frame time, draw calls and triangles for the three heaviest scenes, with the shadow pass priced
+  by an in-place A/B. It runs under swiftshader, which over-prices fill rate by a wide margin and
+  under-prices draw calls, so read `calls`/`tris` as the iPad proxy and `cpuMs` as a bound.
 - `scripts/headless_test.js` — the harness. `scripts/visual_baseline.json` — generated;
   never edit by hand (`UPDATE_VISUAL=1` regenerates it after an intentional look change).
 - `deploy/` — the droplet deploy script and the nginx reference config.

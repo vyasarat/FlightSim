@@ -43,8 +43,13 @@ const rkTmp = new THREE.Vector3();
 for (const b of BODIES) {
   if (b.dock) continue;
   const g = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color: b.color, emissive: b.name === "moon" ? 0x3a3d44 : 0x3a1608 });   // dim enough not to burn out up close (the rover drives on it)
+  // Phong, not Lambert: this sphere is the ground out there and it has to take a
+  // shadow per fragment. Lambert shades per vertex, and its triangles are 40 units
+  // wide here -- a rover shadow came out as a dark blob the size of a dune field.
+  const mat = new THREE.MeshPhongMaterial({ color: b.color, flatShading: true, shininess: 0, specular: 0x000000,
+    emissive: b.name === "moon" ? 0x3a3d44 : 0x3a1608 });   // dim enough not to burn out up close (the rover drives on it)
   const sphere = new THREE.Mesh(new THREE.SphereGeometry(b.r, 96, 64), mat);   // fine enough that the ground is where the rover drives (facet sag < 1 m)
+  sphere.receiveShadow = true;     // out there this sphere IS the ground
   g.add(sphere);
   // craters / features: darker discs pressed into the surface
   const seedBase = b.name === "moon" ? 51 : 77;

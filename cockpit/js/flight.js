@@ -283,8 +283,7 @@ function updateSky(dt) {
   // deep space needs a far plane that reaches the Moon and Mars
   const wantFar = sf > 0.3 ? 18000 : 6000;
   if (camera.far !== wantFar) { camera.far = wantFar; camera.updateProjectionMatrix(); }
-  sunLight.intensity = TUNE.sunIntensity * lerp(1, mood.sun, w);
-  hemiLight.intensity = TUNE.hemiIntensity * lerp(1, mood.hemi, w);
+  updateLightMood(dt, w, mood);
   // snow: the ground and roofs whiten (emissive lift on the vertex-coloured terrain)
   terrainMat.emissive.setScalar(0.32 * state.snowF);
   // precipitation rides with the camera
@@ -692,6 +691,7 @@ function update(dt) {
 
   updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
   applyCamera(dt);
+  updateSunRig();            // the shadow box rides the camera, so it must follow it
   shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
   updateVehicleModel(dt);
 
