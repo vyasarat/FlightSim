@@ -1998,7 +1998,12 @@ function check(name, ok, extra) {
     let baseline = {};
     try { const raw = JSON.parse(fs.readFileSync(baselinePath, "utf8")); baseline = raw.hashes || raw; } catch (e) {}
     const { page } = await newPage(1180, 820);
-    await page.evaluate(() => { window.__lp.api.skipScreens(); for (const t of window.__lp.traffic) t.mesh.visible = false; });
+    await page.evaluate(() => {
+      // Ring pulses and heat shimmer read this clock directly. Freeze them to
+      // the simulated frame time so machine load cannot change visual hashes.
+      performance.now = () => window.__simTime;
+      window.__lp.api.skipScreens(); for (const t of window.__lp.traffic) t.mesh.visible = false;
+    });
     const scenes = {
       "runway-ny-cockpit": () => { window.__lp.api.placeOnRunway(); window.__lp.api.setView(false); },
       "chase-canyon": () => { const T = window.__lp.TUNE; window.__lp.api.setView(true); const st = window.__lp.state; st.phase = "AIRBORNE"; st.x = 0; st.z = -3800 * (T.routeLength / 12000) + 420; st.y = T.waterLevel + 140; st.heading = 0; st.pitch = 0; st.bank = 0; st.speed = 0; },
@@ -3939,224 +3944,9 @@ function check(name, ok, extra) {
   }
 
 
-  // ---------- T-HELI the helicopter: point-to-go ----------
-  {
-    for (const chase of [true, false]) {
-      const { page } = await newPage(1180, 820);
-      const h = await page.evaluate((isChase) => {
-        const L = window.__lp, st = L.state, T = L.TUNE, H = L.H, F = L.FF;
-        L.noRender = true;
-        const o = { view: isChase ? "chase" : "cockpit" };
-        L.api.setVehicle("helicopter"); L.api.setView(isChase);
-        const air = (x, z, y, head) => {
-          L.api.placeOnRunway(); L.heliReset(); L.api.clearStick();
-          st.phase = "AIRBORNE";
-          // Hold it here while the chase camera lerps in. Eight frames left the
-          // camera kilometres behind, and the pick is a ray FROM the camera.
-          for (let i = 0; i < 90; i++) {
-            st.x = x; st.z = z; st.y = y;
-            st.heading = head || 0; st.pitch = 0; st.bank = 0; st.speed = 0; st.airVy = 0;
-            L.update(1 / 60);
-          }
-          st.x = x; st.z = z; st.y = y; st.speed = 0;
-        };
-        // point the camera at a world spot and return where on screen it lands
-        const screenOf = (x, y, z) => {
-          camera.updateMatrixWorld();
-          const v = new THREE.Vector3(x, y, z).project(camera);
-          return { nx: v.x, ny: v.y, behind: v.z > 1 };
-        };
-        const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-        // Hold a finger on a world spot, re-aiming as the view moves. If the spot
-        // is off screen or behind, put the finger at the screen edge on that side
-        // and let the edge-yaw spin him round to it -- which is what a child does.
-        const flyTo = (tx, ty, tz, secs, stop) => {
-          for (let i = 0; i < 60 * secs; i++) {
-            const p = screenOf(tx, ty, tz);
-            if (p.behind || Math.abs(p.nx) > 0.95) {
-              const rel = L.wrapPi(Math.atan2(-(tx - st.x), -(tz - st.z)) - st.heading);
-              L.api.setTouch(rel > 0 ? -0.97 : 0.97, 0.1);
-            } else {
-              L.api.setTouch(p.nx, clamp(p.ny, -0.92, 0.92));
-            }
-            L.update(1 / 60);
-            if (stop && stop()) break;
-          }
-        };
-
-        // ---- touch a point 300 m ahead: it arrives and hovers
-        const ap = L.AIRPORTS[0];
-        air(0, ap.cz + 900, ap.elev + 120);
-        const tx = 0, tz = ap.cz + 600, ty = L.terrainEff(tx, tz);
-        flyTo(tx, ty, tz, 40, () => Math.hypot(st.x - tx, st.z - tz) < H.arriveDist);
-        const dArr = Math.hypot(st.x - tx, st.z - tz);
-        o.arriveDist = +dArr.toFixed(1);
-        o.arrived = dArr <= H.arriveDist;
-        L.api.clearStick();
-        for (let i = 0; i < 60 * 1.5; i++) L.update(1 / 60);
-        o.hoverSpeed = +st.speed.toFixed(2);
-        o.hovered = st.speed < 3;
-        o.hoverAgl = Math.round(st.y - Math.max(L.terrainEff(st.x, st.z), T.waterLevel));
-
-        // ---- a finger on the sky climbs
-        air(0, ap.cz + 900, ap.elev + 150);
-        const y0 = st.y;
-        for (let i = 0; i < 60 * 3; i++) { L.api.setTouch(0, 0.75); L.update(1 / 60); }
-        L.api.clearStick();
-        o.skyClimb = +(st.y - y0).toFixed(1);
-        o.climbedOnSky = o.skyClimb > 12;
-
-        // ---- a finger at the left edge keeps turning
-        air(0, ap.cz + 900, ap.elev + 200);
-        const hh = st.heading;
-        for (let i = 0; i < 60 * 2; i++) { L.api.setTouch(-0.95, 0.2); L.update(1 / 60); }
-        L.api.clearStick();
-        o.edgeTurned = Math.abs((st.heading - hh) * 180 / Math.PI);
-        o.edgeTurnedAbout = o.edgeTurned > H.edgeYawRate * 2 * 0.45;
-
-        // ---- finger off mid-flight: hover inside 1.5 s, height held
-        air(0, ap.cz + 900, ap.elev + 200);
-        flyTo(0, L.terrainEff(0, ap.cz + 200), ap.cz + 200, 4);
-        L.api.clearStick();
-        for (let i = 0; i < 60 * 1.5; i++) L.update(1 / 60);
-        o.offSpeed = +st.speed.toFixed(2);
-        o.stops = st.speed < 3;
-        o.levels = Math.abs(st.bank) < 4;
-        const yh = st.y;
-        for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
-        o.holdsAlt = Math.abs(st.y - yh) < 2;
-
-        // ---- never stuck: pinned at zero speed with a finger on a far target, it
-        // gives up being clever and flies at it
-        {
-          air(0, ap.cz + 900, ap.elev + 60);
-          const far = { x: 0, y: L.terrainEff(0, ap.cz - 200), z: ap.cz - 200 };
-          const sx0 = st.z;
-          let forced = false;
-          for (let i = 0; i < 60 * 6; i++) {
-            const p = screenOf(far.x, far.y, far.z);
-            L.api.setTouch(p.nx, clamp(p.ny, -0.92, 0.92));
-            if (i < 60 * 3) { st.speed = 0; L.heli.speed = 0; }   // hold it still for three seconds
-            L.update(1 / 60);
-            if (L.heli.forced) forced = true;
-          }
-          L.api.clearStick();
-          o.stallForced = forced;
-          o.stallMoved = Math.round(sx0 - st.z);
-        }
-
-        // ---- touch the ground beside it: it sets down softly
-        air(0, ap.cz + 900, ap.elev + 70);
-        const e0 = L.flags.exploded;
-        // a spot just ahead of it on the ground: on screen in both views
-        const lx = st.x, lz = st.z - 30;
-        flyTo(lx, L.terrainEff(lx, lz), lz, 30, () => st.phase === "TAXI");
-        L.api.clearStick();
-        o.landed = st.phase === "TAXI";
-        o.softLanding = L.flags.exploded === e0;
-
-        // ---- low over land by the coast, a finger on the sea at the horizon must
-        // set him off over the water -- not stop him, and not land him, on the
-        // field in front of him (which is what a grazing ray used to resolve to)
-        {
-          const apc = L.AIRPORTS[1];
-          const landZ = apc.cz - 500, seaZ = apc.cz - 1700;
-          // down at rooftop height, where the ray to the sea grazes the field in front
-          air(0, landZ, L.terrainEff(0, landZ) + 12, 0);
-          o.startWet = L.terrainEff(st.x, st.z) < T.waterLevel;
-          // the rule itself: a finger on the far sea is "that way", not "that place"
-          {
-            const p = screenOf(0, T.waterLevel, seaZ);
-            L.api.setTouch(p.nx, clamp(p.ny, -0.92, 0.92));
-            L.update(1 / 60);
-            // it must resolve to the SEA, not to the field in front of him
-            const tg = L.heli.target;
-            o.horizonHitsSea = !!tg && L.terrainEff(tg.x, tg.z) < T.waterLevel;
-            o.horizonHitDist = tg ? Math.round(Math.hypot(tg.x - st.x, tg.z - st.z)) : -1;
-            o.horizonHitAt = tg ? [Math.round(tg.x), Math.round(tg.y), Math.round(tg.z)] : null;
-            o.me = [Math.round(st.x), Math.round(st.y), Math.round(st.z)];
-            o.camAt = [Math.round(camera.position.x), Math.round(camera.position.y), Math.round(camera.position.z)];
-            o.aimNdc = [+p.nx.toFixed(3), +p.ny.toFixed(3), p.behind];
-            o.seaTarget = [0, Math.round(T.waterLevel), Math.round(seaZ)];
-            // ... while a finger just in front of him still resolves to that ground
-            const q = screenOf(st.x, L.terrainEff(st.x, st.z), st.z - 18);
-            L.api.setTouch(q.nx, clamp(q.ny, -0.95, 0.95));
-            L.update(1 / 60);
-            o.downIsPlace = !!L.heli.target && L.heli.targetDist < 60;
-            L.api.clearStick();
-          }
-          air(0, landZ, L.terrainEff(0, landZ) + 12, 0);
-          const lands0 = L.flags.heliLandings || 0;
-          // holding the horizon he should get up to cruise, not creep from one
-          // patch of ground to the next
-          flyTo(0, T.waterLevel, seaZ, 4);
-          o.horizonSpeed = +st.speed.toFixed(1);
-          o.cruises = st.speed > H.cruise * 0.8;
-          flyTo(0, T.waterLevel, seaZ, 45, () => L.terrainEff(st.x, st.z) < T.waterLevel - 1);
-          L.api.clearStick();
-          o.overWaterNow = L.terrainEff(st.x, st.z) < T.waterLevel - 1;
-          o.zMade = Math.round(landZ - st.z);
-          o.didNotLand = (L.flags.heliLandings || 0) === lands0;
-        }
-
-        // ---- touch the fire from 800 m with a full bucket: it arrives and the drop button is up
-        air(F.rig.x, F.rig.z + 800, L.fire.deck + 90, 0);
-        L.bucket.state = "full"; L.bucket.anim = 1;
-        flyTo(F.rig.x, L.fire.deck + 14, F.rig.z, 75, () => Math.hypot(st.x - F.rig.x, st.z - F.rig.z) < H.jobRadius + 10 && st.speed < 2);
-        L.api.clearStick();
-        for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
-        o.fireDist = Math.round(Math.hypot(st.x - F.rig.x, st.z - F.rig.z));
-        o.reachedFire = o.fireDist < T.firefight.dropR;
-        o.fireHover = st.speed < 3;
-        const btn = document.getElementById("bucketBtn");
-        o.dropUp = !btn.classList.contains("hidden") && btn.dataset.mode === "drop";
-        const d0 = L.flags.ffDrops || 0;
-        btn.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1 }));
-        for (let i = 0; i < 6; i++) L.update(1 / 60);
-        o.dropped = (L.flags.ffDrops || 0) > d0;
-
-        // ---- touch the scoop water with an empty bucket: it goes down to scoop height
-        L.bucket.state = "empty";
-        let sea = null;
-        for (let d = 150; d <= 380 && !sea; d += 40)
-          for (let a = 0; a < 12 && !sea; a++) {
-            const th = a / 12 * Math.PI * 2;
-            const x = F.rig.x + Math.cos(th) * d, z = F.rig.z + Math.sin(th) * d;
-            if (L.terrainEff(x, z) < T.waterLevel - 2) sea = { x, z };
-          }
-        air(sea.x, sea.z + 420, T.waterLevel + 140, 0);
-        flyTo(sea.x, T.waterLevel, sea.z, 75, () => Math.hypot(st.x - sea.x, st.z - sea.z) < 45 && st.y - T.waterLevel < T.firefight.scoopAlt);
-        L.api.clearStick();
-        for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
-        o.seaAgl = Math.round(st.y - T.waterLevel);
-        o.lowOverWater = o.seaAgl < T.firefight.scoopAlt;
-        o.scoopUp = !btn.classList.contains("hidden") && btn.dataset.mode === "scoop";
-        const s0 = L.flags.ffScoops || 0;
-        btn.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1 }));
-        for (let i = 0; i < 60 * (T.firefight.scoopTime + 0.5); i++) L.update(1 / 60);
-        o.scooped = (L.flags.ffScoops || 0) > s0 && L.bucket.state === "full";
-        o.frameErrors = L.frameErrors || 0;
-        return o;
-      }, chase);
-      const v = h.view;
-      check(`helicopter (${v}): a finger on a place 300 m off turns it, flies it there and hovers over it -- and letting go stops it, level, holding height`,
-        h.arrived && h.hovered && h.hoverAgl > 6 && h.stops && h.levels && h.holdsAlt, JSON.stringify(h));
-      check(`helicopter (${v}): a finger on the sky goes that way and climbs; a finger at the screen edge keeps turning`,
-        h.climbedOnSky && h.edgeTurnedAbout, JSON.stringify({ skyClimb: h.skyClimb, edgeTurned: h.edgeTurned }));
-      check(`helicopter (${v}): low over the coast, a finger on the sea at the horizon sets him off over the water -- it never strands him on the field in front of him`,
-        !h.startWet && h.horizonHitsSea && h.downIsPlace && h.cruises && h.overWaterNow && h.zMade > 400 && h.didNotLand,
-        JSON.stringify({ startWet: h.startWet, horizonHitsSea: h.horizonHitsSea, hitDist: h.horizonHitDist, hitAt: h.horizonHitAt, me: h.me, cam: h.camAt, ndc: h.aimNdc, want: h.seaTarget, downIsPlace: h.downIsPlace, horizonSpeed: h.horizonSpeed, cruises: h.cruises, overWater: h.overWaterNow, zMade: h.zMade, didNotLand: h.didNotLand }));
-      check(`helicopter (${v}): a finger held on somewhere it is plainly not reaching makes it simply go -- it can never sit there failing to get anywhere`,
-        h.stallForced && h.stallMoved > 60, JSON.stringify({ forced: h.stallForced, moved: h.stallMoved }));
-      check(`helicopter (${v}): touching the ground beside it sets it down softly`,
-        h.landed && h.softLanding, JSON.stringify({ landed: h.landed, soft: h.softLanding }));
-      check(`helicopter (${v}): touching the fire from 800 m flies him to it and hovers, with the drop button up and firing on one tap`,
-        h.reachedFire && h.fireHover && h.dropUp && h.dropped, JSON.stringify(h));
-      check(`helicopter (${v}): touching the scoop water takes him down to scoop height, with the scoop button up and filling on one tap`,
-        h.lowOverWater && h.scoopUp && h.scooped && h.frameErrors === 0, JSON.stringify(h));
-      await page.close();
-    }
-  }
+  // The old coupled point-and-climb assertions are replaced by the authorized
+  // sequential destination/altitude interaction checks, using real touch events.
+  await require("./heli_control_checks")({ newPage, check, shots: SHOTS });
 
   // ---------- T-HELI2 nothing ever needs two fingers ----------
   {
@@ -4212,7 +4002,7 @@ function check(name, ok, extra) {
       settle(); look("on the carrier deck");
       return { bad, scoopUp, dropUp, droppedOnTap };
     });
-    check("helicopter: no state anywhere needs two fingers at once -- the stick is the only thing ever held, and scoop and drop each fire on a single tap",
+    check("helicopter: no state anywhere needs two fingers at once -- no throttle is required, and scoop and drop each fire on a single tap",
       two.bad.length === 0 && two.scoopUp && two.dropUp && two.droppedOnTap, JSON.stringify(two));
     await page.close();
   }
@@ -4760,6 +4550,120 @@ function check(name, ok, extra) {
     check("pwa: both manifests parse, 2D build and root sw.js served", Object.values(pwa).every(Boolean), JSON.stringify(pwa));
     await page.close();
   }
+
+  // ---------- Audit regressions: contextual keys and surface resource ownership ----------
+  {
+    const { page } = await newPage(1180, 760);
+    const keyboard = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, out = {};
+      L.noRender = true; L.api.skipScreens();
+      const key = code => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { code }));
+        window.dispatchEvent(new KeyboardEvent('keyup', { code }));
+      };
+      const hidden = id => document.getElementById(id).classList.contains('hidden');
+      const pickerClosed = () => document.getElementById('screenVehicle').classList.contains('hiddenS');
+      const blocked = () => {
+        L.update(1 / 60);
+        let ok = hidden('vehBtn');
+        for (const code of ['KeyB', 'Escape']) { key(code); ok = ok && pickerClosed(); L.api.skipScreens(); }
+        return ok;
+      };
+      for (const vehicle of ['prop', 'starship']) {
+        L.api.setVehicle(vehicle); L.api.placeOnRunway(); L.update(1 / 60);
+        for (const code of ['KeyB', 'Escape']) {
+          key(code); out[vehicle + code] = !hidden('vehBtn') && !pickerClosed(); L.api.skipScreens();
+        }
+      }
+      const b = L.BODIES[1], n = new THREE.Vector3(.62, .5, .6).normalize();
+      st.phase = 'TAXI'; st.speed = 0; st.dest = 'mars'; L.rk.onBody = b; L.rk.stage = 1;
+      st.x = b.x + n.x * (b.r + 12); st.y = b.y + n.y * (b.r + 12); st.z = b.z + n.z * (b.r + 12);
+      out.marsParked = blocked();
+      key('KeyF'); out.roverLaunch = L.roverActive();
+      out.roverPicker = blocked();
+      for (const code of ['KeyF', 'Enter']) {
+        const dr = L.mars.drone;
+        L.rover.x = dr.x; L.rover.y = dr.y; L.rover.z = dr.z;
+        L.rover.speed = 0; L.rover.returning = false; L.update(1 / 60);
+        const ready = !hidden('droneBtn') && L.marsDroneCan();
+        key(code); out[code + 'Launch'] = ready && L.marsDroneActive() && !L.rover.returning;
+        out[code + 'Picker'] = blocked();
+        for (let i = 0; i < 120; i++) L.update(1 / 60);
+        key(code); out[code + 'Return'] = L.mars.drone.home && !L.rover.returning;
+        for (let i = 0; i < 3600 && L.marsDroneActive(); i++) L.update(1 / 60);
+        out[code + 'Landed'] = !L.marsDroneActive() && L.roverActive();
+      }
+      L.rover.x += 200; L.update(1 / 60); key('Enter'); out.roverReturn = L.rover.returning;
+      L.api.placeOnRunway();
+      const dock = L.BODIES.find(b => b.name === 'station');
+      st.phase = 'TAXI'; st.speed = 0; L.rk.onBody = dock; L.rk.stage = 3;
+      st.x = dock.x; st.y = dock.y; st.z = dock.z;
+      out.dockedPicker = blocked();
+      key('KeyF'); out.hatch = L.astroActive(); out.stationPicker = blocked();
+      return out;
+    });
+    check('audit: F/Enter launch and return the drone; rover and hatch actions remain available; B/Escape share home-only picker eligibility', Object.values(keyboard).every(Boolean), JSON.stringify(keyboard));
+    const memory = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.api.placeOnRunway(); L.api.skipScreens(); L.api.setVehicle('starship'); L.api.placeOnRunway();
+      const b = L.BODIES[1], n = new THREE.Vector3(.62, .5, .6).normalize();
+      st.phase = 'TAXI'; st.speed = 0; L.rk.onBody = b; L.rk.stage = 1;
+      st.x = b.x + n.x * (b.r + 12); st.y = b.y + n.y * (b.r + 12); st.z = b.z + n.z * (b.r + 12);
+      L.marsClear(); roverReset();
+      const flagsBefore = ambFlags.length, samples = [], built = [];
+      let sharedDisposed = 0, ownedMissed = 0, duplicateDisposals = 0;
+      const onShared = () => sharedDisposed++;
+      const shared = [...Object.values(matCache), glowTex];
+      shared.forEach(r => r.addEventListener('dispose', onShared));
+      const draw = () => L.renderer.render(L.scene, L.camera);
+      for (let cycle = 0; cycle < 5; cycle++) {
+        L.marsBuild(); L.roverDeploy();
+        mars.cargoPhase = 'count'; mars.cargoT = 1; updateMarsBase(0);
+        const counts = new Map();
+        const track = roots => roots.filter(Boolean).forEach(root => root.traverse(o => {
+          o.frustumCulled = false; o.visible = true;
+          const resources = [o.isSprite ? null : o.geometry, ...(Array.isArray(o.material) ? o.material : [o.material])];
+          for (const r of resources) if (r && !Object.values(matCache).includes(r) && !counts.has(r)) {
+            counts.set(r, 0); r.addEventListener('dispose', () => counts.set(r, counts.get(r) + 1));
+          }
+        }));
+        track([mars.g, mars.drone.g, mars.horizonLight, ...rover.rocks.map(r => r.mesh), ...rover.toys.map(t => t.mesh)]);
+        draw(); updateMarsBase(2); // horizon light retires as the cargo arrives
+        track([mars.cargo]);
+        for (let i = 0; i < 8; i++) { plantBeacon(); track([rover.beacons[rover.beacons.length - 1].mesh]); draw(); }
+        draw(); built.push(L.renderer.info.memory.geometries);
+        L.marsClear(); roverReset(); draw();
+        for (const count of counts.values()) { if (!count) ownedMissed++; if (count > 1) duplicateDisposals++; }
+        samples.push({ ...L.renderer.info.memory, programs: L.renderer.info.programs.length, flags: ambFlags.length });
+      }
+      shared.forEach(r => r.removeEventListener('dispose', onShared));
+      return { samples, built, flagsBefore, sharedDisposed, ownedMissed, duplicateDisposals };
+    });
+    const stable = memory.samples.slice(1).every(s => JSON.stringify(s) === JSON.stringify(memory.samples[1]));
+    check('audit: five Mars/cargo/drone/rover build-render-clear cycles stabilize after warm-up; owned resources disposed once, shared resources survive',
+      stable && memory.built.every((v, i) => v > memory.samples[i].geometries) && !memory.sharedDisposed && !memory.ownedMissed && !memory.duplicateDisposals && memory.samples.every(s => s.flags === memory.flagsBefore), JSON.stringify(memory));
+    // Inspect rebuilt resources in context, including the separate cargo and drone.
+    await page.evaluate(() => {
+      const L = window.__lp; L.marsBuild(); L.roverDeploy();
+      marsCargoStart(); mars.cargoH = 0; updateMarsBase(0);
+      L.rover.x = mars.drone.x; L.rover.y = mars.drone.y; L.rover.z = mars.drone.z;
+      for (let i = 0; i < 120; i++) L.update(1 / 60);
+      const n = mars.n, t = new THREE.Vector3().crossVectors(n, new THREE.Vector3(0, 1, 0)).normalize();
+      camera.up.copy(n);
+      camera.position.set(mars.x + n.x * 150 + t.x * 240, mars.y + n.y * 150 + t.y * 240, mars.z + n.z * 150 + t.z * 240);
+      camera.lookAt(mars.x, mars.y, mars.z); renderer.render(scene, camera);
+    });
+    await page.screenshot({ path: path.join(SHOTS, 'mars-rebuilt-base-cargo.png') });
+    await page.evaluate(() => {
+      const L = window.__lp; L.api.setView(true); L.marsDronePress();
+      for (let i = 0; i < 180; i++) L.update(1 / 60);
+      renderer.render(scene, camera);
+    });
+    await page.screenshot({ path: path.join(SHOTS, 'mars-rebuilt-drone.png') });
+    await page.close();
+  }
+
+  await require("./toyworld_checks")({ newPage, check, shots: SHOTS });
 
   await browser.close();
   server.kill();

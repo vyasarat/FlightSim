@@ -378,28 +378,38 @@ const TUNE = {
     },
   },
 
-  // The helicopter's own model (js/heli.js). Tuned against the plane's feel:
-  // immediate but smoothed, nothing to fight, and hovering is the safe state.
-  // One finger, and the stick means exactly what it means in the plane -- drag up
-  // to go up. A finger on the screen flies it forward; taking the finger off stops
-  // it and holds the height. Deliberate and heavy, never darty.
-  // Point-to-go. He touches a place and it goes there -- a stick cannot say
-  // "up and forward and round" at once to a four-year-old, but a finger on the
-  // fire can. One finger, always; letting go is always a hover.
+  // The helicopter's own model (js/heli.js).
+  // Helicopter only: tap-to-travel plus sequential altitude adjustment.
+  toyWorld: {
+    visibleRange: 2200,
+    colors: [0xe0483e, 0xffd23e, 0x36c46a, 0x5ff1ff, 0x2b4fb0],
+    playground: {
+      x: 330, z: 520, radius: 110, floorRadius: 104, objects: 9,
+      cable: 10, pickupR: 22, pickupHeight: 28, previewR: 55, pickupSpeed: 16,
+      dwell: 0.55, releaseDelay: 2, leaveR: 38, recycleAfter: 45,
+      gravity: 18, drag: 4, maxSpeed: 22, deliveryR: 23, deliveryTime: 5,
+      craneH: 56, buildPieces: 12,
+    },
+    wash: { x: -135, z: 525, gateW: 48, gateH: 32, length: 56,
+      entryR: 34, duration: 8, repeatDelay: 3, bubbles: 56, openOffset: 90 },
+    welcome: { duration: 5, clearance: 58, hornRange: 240, replyDelay: 0.45, cooldown: 2.5 },
+    trails: { capacity: 1200, life: 36, every: 0.055, size: 8,
+      cloudR: 54, cloudY: 105, cloudZ: 380, cloudSide: 120, gap: 210, rainbowR: 76 },
+  },
+
   heli: {
-    cruise: 36, approach: 0.55,     // speed eases off with the distance left to run
-    hoverAgl: 26,                   // it hovers this high over the spot he touched
-    landRadius: 34,                 // ... but settles onto one this close, instead of hovering
-    arriveDist: 60,                 // "there" for the purposes of arriving
-    turnRate: 35, turnAccel: 3.0, yawGain: 2.2, bankDeg: 22,
-    edgeYawBand: 0.18, edgeYawRate: 34,   // a finger at the screen edge spins it round
-    climb: 12, maxSink: 6, vAccel: 2.2, vGain: 0.5,
+    cruise: 64, approach: 0.9,     // speed eases off with the distance left to run
+    hoverAgl: 26,                   // initial takeoff height for a destination tap
+    landingBrakeH: 24,              // slow horizontal travel on the last metres of a descent
+    arriveDist: 4,                  // stop and clear the destination inside this radius
+    turnRate: 70, turnAccel: 5.0, yawGain: 3.2, bankDeg: 22,
+    headingRange: 1400, altitudeLead: 24, // sky touches set a horizontal bearing; altitude buttons lead the height hold
+    climb: 16, maxSink: 6, vAccel: 4.0, vGain: 1.2,
     liftKick: 2.0,                  // on the ground, any touch gets it off the deck
-    accel: 2.0, hoverDamp: 3.0,     // finger off: stopped in about a second
+    accel: 2.8, hoverDamp: 4.5,     // responsive travel, short stopping distance
     levelRate: 2.5, noseDeg: 10,
-    jobRadius: 120, jobBrake: 3.5,  // by the fire or its water it settles for him. This has to
-                                    // sit INSIDE firefight.dropR, or the assist stops him too far
-                                    // out to do the job it stopped him for.
+    jobRadius: 120, jobBrake: 3.5,  // gentler deceleration near the fire; arrival still uses
+                                    // the selected destination, never the edge of this radius
     waterFloor: 5,                  // it hovers this far over the sea and never sets down on it
                                     // (sitting on the water would end the flight and hide the bucket)
     stopBelow: 0.4,
@@ -409,10 +419,6 @@ const TUNE = {
     // target forty metres away when he was pointing at the sea a kilometre off --
     // so he stopped, or landed, on the field instead of setting out over the water.
     // A crossing only counts if the ray STAYS under for this many more steps.
-    // Nothing in this game is ever stuck. If he is holding a finger on somewhere
-    // far off and the helicopter is not actually getting there, it stops trying to
-    // be clever and simply flies at it.
-    stallTime: 2.0, stallSpeed: 3,
     grazeSteps: 6, grazeMargin: 4,   // ... and only if it comes back out by a real margin:
                                     // meeting a flat sea almost edge-on re-emerges by centimetres,
                                     // and that is a genuine arrival, not a graze
@@ -444,8 +450,6 @@ const TUNE = {
     flames: 9, flameH: 22, flicker: 7,
     smokePuffs: 26, smokeH: 300, smokeRise: 26, smokeSize: 20,   // the column, seen from a long way off
     scoopAlt: 40,                   // this low over open water and the bucket can go down
-    scoopRadius: 400,               // ... and only this near the rig does the helicopter brake for
-                                    // it. Open sea further out is just sea: it flies straight over
     scoopTime: 1.4,
     dropR: 150,                     // this near the rig and the same button becomes DROP
     drops: 3,                       // three of them put it out
@@ -579,7 +583,7 @@ const TUNE = {
 
   vehicles: {
     prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, capped: true, size: 1.0, hasGear: true },
-    helicopter:       { cruiseSpeed: 36, turnRateDeg: 55, pitchLimitDeg: 22, bankLimitDeg: 26, accel: 10, capped: true, size: 1.05, hasGear: false, heli: true },   // its own model: TUNE.heli
+    helicopter:       { cruiseSpeed: 64, turnRateDeg: 55, pitchLimitDeg: 22, bankLimitDeg: 26, accel: 10, capped: true, size: 1.05, hasGear: false, heli: true },   // its own model: TUNE.heli
     rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
     starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },

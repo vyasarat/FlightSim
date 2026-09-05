@@ -17,6 +17,26 @@ const rover = {
 };
 const rvTmp = new THREE.Vector3(), rvTmp2 = new THREE.Vector3();
 
+// These temporary surface groups own their geometry and non-cached materials.
+// Textures and Three's Sprite geometry are shared; lam() belongs to matCache.
+// Pass the whole retiring collection so materials shared within it dispose once.
+function disposeSurfaceObjects(objects) {
+  const geometries = new Set(), materials = new Set();
+  const sharedMaterials = new Set(Object.values(matCache));
+  for (const root of objects) {
+    if (!root) continue;
+    if (root.parent) root.parent.remove(root);
+    root.traverse(o => {
+      if (o.geometry && !o.isSprite) geometries.add(o.geometry);
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+        if (m && !sharedMaterials.has(m)) materials.add(m);
+      }
+    });
+  }
+  for (const g of geometries) g.dispose();
+  for (const m of materials) m.dispose();
+}
+
 function buildRover() {
   const g = new THREE.Group();
   const white = new THREE.MeshLambertMaterial({ color: 0xf2f4f7 });
@@ -56,7 +76,7 @@ function surfacePoint(b, fromN, dist, angle) {
   return { x: b.x + dir.x * b.r, y: b.y + dir.y * b.r, z: b.z + dir.z * b.r, dir };
 }
 function placeRocks(b) {
-  for (const r of rover.rocks) scene.remove(r.mesh);
+  disposeSurfaceObjects(rover.rocks.map(o => o.mesh));
   rover.rocks = [];
   rover.n.set(state.x - b.x, state.y - b.y, state.z - b.z).normalize();
   const colors = [0x5ff1ff, 0xff7ab8, 0x7cff5a, 0xffd23e, 0xff9a3a, 0xb388ff, 0x5ff1ff, 0xff7ab8];
@@ -74,7 +94,7 @@ function placeRocks(b) {
 // wiggles the stick -- or it pops him out by itself -- and three boulders to shove, which
 // roll off and thud into one of two craters with confetti. The camera button honks.
 function placeToys(b) {
-  for (const t of rover.toys) scene.remove(t.mesh);
+  disposeSurfaceObjects(rover.toys.map(o => o.mesh));
   rover.toys = [];
   const tan = new THREE.MeshLambertMaterial({ color: b.name === "mars" ? 0xc98a5a : 0xd9d2b8 });
   const rockM = new THREE.MeshLambertMaterial({ color: b.name === "mars" ? 0x8a3f22 : 0x777b84 });
@@ -184,11 +204,11 @@ function roverReset() {
   rover.active = false; rover.returning = false;
   if (typeof setTone === "function") setTone("rover", "sawtooth", 60, 0);
   if (rover.mesh) rover.mesh.visible = false;
-  for (const r of rover.rocks) scene.remove(r.mesh);
+  disposeSurfaceObjects(rover.rocks.map(o => o.mesh));
   rover.rocks = [];
-  for (const t of rover.toys) scene.remove(t.mesh);
-  rover.toys = []; rover.stuck = false;
-  for (const bc of rover.beacons) scene.remove(bc.mesh);
+  disposeSurfaceObjects(rover.toys.map(o => o.mesh));
+  rover.toys = []; rover.craters = []; rover.stuck = false;
+  disposeSurfaceObjects(rover.beacons.map(o => o.mesh));
   rover.beacons = [];
   if (el.roverBtn) el.roverBtn.dataset.mode = "out";
 }
@@ -201,7 +221,7 @@ function plantBeacon() {
   g.up.copy(rover.n); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), rover.n);
   scene.add(g);
   rover.beacons.push({ mesh: g, lamp });
-  while (rover.beacons.length > 6) { const old = rover.beacons.shift(); scene.remove(old.mesh); }
+  while (rover.beacons.length > 6) { const old = rover.beacons.shift(); disposeSurfaceObjects([old.mesh]); }
   chirp(); noiseBurst(0.12, 900, 0.25, 0);
   flags.roverBeacons = (flags.roverBeacons || 0) + 1;
 }
