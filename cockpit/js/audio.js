@@ -10,7 +10,7 @@ function unlockAudio() {
     audioCtx = new AC();
     masterGain = audioCtx.createGain();
     // Boom stacks three sources (~1.65 peak); keep headroom so crashes don't clip.
-    masterGain.gain.value = 0.6;
+    masterGain.gain.value = TUNE.audio.master;
     // A crash boom on top of engine + rolling + alarm can exceed 1.0; the
     // compressor keeps it loud without clipping.
     const comp = audioCtx.createDynamicsCompressor();
@@ -388,4 +388,156 @@ function cheer() {
   });
   noiseBurst(0.7, 1800, 0.14, 0.05);
   synthBlip("triangle", 1319, 1319, 0.4, 0.26, 0.44);
+}
+
+// ===========================================================================
+// Polish pass 5. Everything below is mix and texture: no sound here decides
+// anything, and every one of them no-ops safely until the context is unlocked.
+// ===========================================================================
+
+const AU = TUNE.audio;
+
+// ---- positional: a pan and a falloff for anything that happens out in the
+// world rather than in his own cockpit. Distance is measured from the camera,
+// because that is where he is listening from.
+function sfxPlace(x, y, z) {
+  if (x === undefined || typeof camera === "undefined") return null;
+  const dx = x - camera.position.x, dy = y - camera.position.y, dz = z - camera.position.z;
+  const d = Math.hypot(dx, dy, dz);
+  if (d > AU.falloff) return { gain: 0, pan: 0 };
+  // right-hand side of the screen is positive pan: project onto the camera's own right
+  const fwd = sfxTmpA, right = sfxTmpB;
+  camera.getWorldDirection(fwd);
+  right.set(fwd.z, 0, -fwd.x).normalize();
+  const pan = clamp((dx * right.x + dz * right.z) / AU.panWidth, -1, 1);
+  return { gain: 1 - d / AU.falloff, pan };
+}
+const sfxTmpA = new THREE.Vector3(), sfxTmpB = new THREE.Vector3();
+
+// A pan stage for one sound. Returns the node to connect into.
+function sfxBus(place, layer) {
+  const g = audioCtx.createGain();
+  g.gain.value = (place ? place.gain : 1) * (layer === undefined ? AU.event : layer);
+  if (place && audioCtx.createStereoPanner) {
+    const p = audioCtx.createStereoPanner();
+    p.pan.value = place.pan;
+    g.connect(p); p.connect(masterGain);
+  } else {
+    g.connect(masterGain);
+  }
+  return g;
+}
+
+// ---- the ambient bed -------------------------------------------------------
+// One looping noise source and one low oscillator, filtered and gated. Which
+// bed is playing is decided by where he is, and they crossfade.
+let bedNodes = null;
+function ensureBed() {
+  if (bedNodes || !audioCtx || audioCtx.state !== "running") return;
+  const len = Math.floor(audioCtx.sampleRate * 2.5);
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  // brown-ish noise: white noise is a hiss, and a hiss is harsh
+  let last = 0;
+  for (let i = 0; i < len; i++) {
+    const w = Math.random() * 2 - 1;
+    last = (last + 0.02 * w) / 1.02;
+    d[i] = last * 3.2;
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf; src.loop = true;
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = "lowpass"; lp.frequency.value = 500; lp.Q.value = 0.4;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.0001;
+  // the beat: rotor wash and the slow breath in space are the same node
+  const lfo = audioCtx.createOscillator();
+  lfo.type = "sine"; lfo.frequency.value = 0.3;
+  const lfoG = audioCtx.createGain();
+  lfoG.gain.value = 0;
+  lfo.connect(lfoG); lfoG.connect(g.gain);
+  src.connect(lp); lp.connect(g); g.connect(masterGain);
+  src.start(); lfo.start();
+  bedNodes = { src, lp, g, lfo, lfoG, level: 0, cut: 500, thump: 0 };
+}
+
+function currentBedName() {
+  if (typeof rk !== "undefined" && rk && rk.onBody) return rk.onBody.name === "mars" ? "mars" : "moon";
+  if (state.spaceF > 0.55) return "space";
+  if (state.vp && state.vp.heli) return "heli";
+  // the keys are airlinerDelta / airlinerJetblue / airlinerEmirates, never "airliner"
+  if (state.vehicleKey && state.vehicleKey.indexOf("airliner") === 0) return "airliner";
+  if (state.phase === "TAXI" || state.phase === "ROLL") return "ground";
+  return "wind";
+}
+
+function updateAmbientAudio(dt) {
+  if (!audioCtx || audioCtx.state !== "running") return;
+  ensureBed();
+  if (!bedNodes) return;
+  const name = currentBedName();
+  const B = AU.beds[name] || AU.beds.ground;
+  let gain = B.gain;
+  if (name === "wind") {
+    // aloft the wind grows with how fast and how high he is going
+    const agl = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+    const alt = clamp((agl - AU.windFromAlt[0]) / (AU.windFromAlt[1] - AU.windFromAlt[0]), 0, 1);
+    const sp = clamp(state.speed / (state.vp ? state.vp.cruiseSpeed : 60), 0, 1.3);
+    gain *= 0.45 + AU.windFromSpeed * sp + 0.5 * alt;
+  }
+  const k = Math.min(1, AU.bedBlend * dt);
+  bedNodes.level += (gain * AU.bed - bedNodes.level) * k;
+  bedNodes.cut += (B.cut - bedNodes.cut) * k;
+  bedNodes.thump += (B.thump - bedNodes.thump) * k;
+  const t = audioCtx.currentTime;
+  bedNodes.g.gain.setTargetAtTime(Math.max(0.00005, bedNodes.level), t, 0.25);
+  bedNodes.lp.frequency.setTargetAtTime(bedNodes.cut, t, 0.3);
+  bedNodes.lfoG.gain.setTargetAtTime(bedNodes.level * bedNodes.thump, t, 0.3);
+  if (B.thumpRate) bedNodes.lfo.frequency.setTargetAtTime(B.thumpRate, t, 0.4);
+}
+
+// ---- layered events --------------------------------------------------------
+// A single sample is what a toy sounds like. Every big thing in the game is a
+// stack now: a body, a texture, and a tail.
+
+// boom + crackle + debris tinkle + a low rumble that outlasts them both
+function bigBoom(x, y, z) {
+  // The bang itself goes first and unguarded: boomSound no-ops on its own when
+  // there is no context, and it stays the one call that means "something blew
+  // up" for anything watching from outside.
+  boomSound();
+  if (!audioCtx || audioCtx.state !== "running") return;
+  const place = sfxPlace(x, y, z);
+  if (place && place.gain <= 0) return;
+  // crackle: three short bright bursts, staggered
+  for (let i = 0; i < 3; i++) noiseBurst(0.12 + Math.random() * 0.1, 900 + Math.random() * 1400, 0.11, 0.05 + i * 0.07);
+  // debris tinkle
+  for (let i = 0; i < 4; i++) synthBlip("triangle", 1400 + Math.random() * 1200, 700, 0.09, 0.05, 0.12 + i * 0.06);
+  // the tail: a long low sine that decays well after the bang
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  o.type = "sine"; o.frequency.setValueAtTime(48, t); o.frequency.exponentialRampToValueAtTime(22, t + 1.6);
+  const g = sfxBus(place, AU.event);
+  const gg = audioCtx.createGain();
+  gg.gain.setValueAtTime(0.0001, t);
+  gg.gain.linearRampToValueAtTime(0.34, t + 0.04);
+  gg.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
+  o.connect(gg); gg.connect(g);
+  o.start(t); o.stop(t + 1.9);
+}
+
+// steam + clank + roar, in that order, which is what a catapult actually is
+function catapultSound() {
+  noiseBurst(0.55, 2600, 0.16, 0);          // steam
+  noiseBurst(0.5, 1800, 0.10, 0.06);
+  synthBlip("square", 220, 90, 0.09, 0.20, 0.16);   // the clank of the shuttle
+  synthBlip("sawtooth", 90, 150, 0.9, 0.26, 0.18);  // the roar as it goes
+  noiseBurst(0.8, 320, 0.20, 0.2);
+}
+
+// a crackle bed for the fire, and a hiss when water lands on it
+function fireHiss() {
+  noiseBurst(1.1, 2200, 0.20, 0);
+  noiseBurst(0.8, 900, 0.13, 0.05);
+  synthBlip("sine", 320, 120, 0.5, 0.07, 0.05);
 }

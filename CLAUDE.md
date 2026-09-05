@@ -74,6 +74,11 @@ the checklist for shipping one.
   pass. Anything lit that must take a shadow across a big flat face has to be Phong, not Lambert:
   Lambert shades per vertex, so on the Mars sphere (40 m triangles) a rover's shadow landed as a
   blob the size of a dune field.
+- `audio.js` — `TUNE.audio` has the master and a gain per layer. The ambient bed (`beds.*`) is one
+  looping brown-noise source whose gain, lowpass corner and beat are chosen by where he is;
+  `currentBedName()` decides. Big events are stacks, not samples (`bigBoom`, `catapultSound`,
+  `fireHiss`). `sfxPlace(x,y,z)` gives a pan and a falloff off the camera. Note the vehicle keys
+  are `helicopter` and `airlinerDelta`/`Jetblue`/`Emirates` — there is no "heli" or "airliner".
 - `ambient.js` — things that move on their own (`TUNE.ambient`): bird flocks, high airliners
   with contrails, flags. **Everything in here is prefixed** — these files share one global scope
   and a later `function foo` silently replaces an earlier one. `placeFlock` here was overwritten

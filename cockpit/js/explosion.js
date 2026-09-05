@@ -82,7 +82,7 @@ function triggerExplosion(nx, ny, nz, intensity, small) {
   // shake falls off with distance so a missile hit 500 m away doesn't rattle the cockpit
   const dist = Math.hypot(nx - state.x, ny - state.y, nz - state.z);
   shakeAmp = Math.max(shakeAmp, clamp(1 - dist / 260, 0.08, 1));
-  boomSound();
+  bigBoom(nx, ny, nz);
   flags.exploded++;
   const groundY = Math.max(terrainEff(nx, nz), TUNE.waterLevel);
   startSmoke(nx, Math.max(ny, groundY), nz, 8);
