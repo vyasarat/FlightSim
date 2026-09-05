@@ -4581,6 +4581,49 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-BED the ambient sound bed follows where he actually is ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const o = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true;
+      const out = {};
+      L.api.skipScreens();
+      L.api.setVehicle("prop"); L.api.placeOnRunway(); L.update(1 / 60);
+      out.onRunway = L.audio.bedName();
+      st.phase = "AIRBORNE"; st.y = 600; L.update(1 / 60);
+      out.aloft = L.audio.bedName();
+      L.api.setVehicle("airlinerDelta"); L.api.placeOnRunway(); st.phase = "AIRBORNE"; st.y = 600; L.update(1 / 60);
+      out.airliner = L.audio.bedName();
+      L.api.setVehicle("helicopter"); L.api.placeOnRunway(); st.phase = "AIRBORNE"; st.y = 300; L.update(1 / 60);
+      out.heli = L.audio.bedName();
+      L.api.setVehicle("rocket"); L.api.placeOnRunway();
+      st.phase = "AIRBORNE"; L.rk.stage = 3; st.y = 4000; st.spaceF = 1; L.update(1 / 60);
+      out.space = L.audio.bedName();
+      const b = L.BODIES[1];
+      st.dest = "mars"; st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 1;
+      const n = new THREE.Vector3(0.62, 0.5, 0.6).normalize();
+      st.x = b.x + n.x * (b.r + 12); st.y = b.y + n.y * (b.r + 12); st.z = b.z + n.z * (b.r + 12);
+      L.update(1 / 60);
+      out.mars = L.audio.bedName();
+      L.rk.onBody = L.BODIES[0]; L.update(1 / 60);
+      out.moon = L.audio.bedName();
+      // and every bed is a real, distinct mix -- no two the same
+      const beds = L.TUNE.audio.beds;
+      out.bedCount = Object.keys(beds).length;
+      out.distinct = new Set(Object.values(beds).map(b2 => b2.gain + ":" + b2.cut)).size;
+      // moon is the quietest of the lot: there is no air out there
+      out.moonQuietest = Object.entries(beds).every(([k, v]) => k === "moon" || v.gain > beds.moon.gain);
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("sound: the ambient bed follows where he actually is -- ground, wind aloft, cabin hum, rotor wash, near-silence in space, dust on Mars, and almost nothing on the airless Moon",
+      o.onRunway === "ground" && o.aloft === "wind" && o.airliner === "airliner" && o.heli === "heli" &&
+      o.space === "space" && o.mars === "mars" && o.moon === "moon" &&
+      o.bedCount === 7 && o.distinct === 7 && o.moonQuietest && o.frameErrors === 0, JSON.stringify(o));
+    await page.close();
+  }
+
   // ---------- T-BIRDS the one living thing out here, and nothing can touch it ----------
   {
     const { page } = await newPage(1180, 820);

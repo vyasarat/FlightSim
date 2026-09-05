@@ -620,7 +620,7 @@ function fireDropWater() {
     ffPuff(fire.x + (rnd() - 0.5) * 34, fire.deck + 4 + rnd() * 14, fire.z + (rnd() - 0.5) * 34,
       1, 3 + rnd() * 3, FF.steamRise, FF.steamLife, 9);
   }
-  noiseBurst(0.9, 1500, 0.2, 0.1);           // the hiss
+  fireHiss();                                // hiss, steam and a low sizzle, not one burst
   if (fire.dropped >= FF.drops) {
     fire.relightT = FF.relight;
     chime(); fanfare(); confettiBurst();
@@ -881,7 +881,7 @@ function carrierShove() {
     ffPuff(state.x + (rnd() - 0.5) * 14, carrier.deck + 1 + rnd() * 5, state.z - 8 - rnd() * 24,
       1, 3 + rnd() * 3, 9, CV.steamLife, 8);
   }
-  noiseBurst(0.55, 240, 0.35, 0);
+  catapultSound();          // steam, then the clank of the shuttle, then the roar
   whoosh();
   shakeAmp = Math.max(shakeAmp, 0.75);
 }
