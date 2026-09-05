@@ -67,6 +67,30 @@ const TUNE = {
     blend: 2.2,                        // how fast a mood crossfades (per second)
   },
 
+  // ---- Sound (js/audio.js). One master and a gain per layer, so anything can be
+  // pulled down without touching the mix around it. Nothing here is harsh: every
+  // bed is filtered noise or a low tone, and the compressor still catches peaks.
+  audio: {
+    master: 0.6,
+    engine: 1.0, rocket: 1.0, event: 1.0, bed: 1.0,
+    // The ambient bed, one per place he can be. `cut` is the lowpass corner in
+    // Hz -- low is a rumble, high is a hiss.
+    beds: {
+      ground:   { gain: 0.030, cut:  380, thumpRate: 0,   thump: 0 },
+      wind:     { gain: 0.085, cut: 1400, thumpRate: 0,   thump: 0 },   // aloft, and it grows with speed
+      heli:     { gain: 0.115, cut:  520, thumpRate: 12,  thump: 0.55 }, // rotor wash: a beat, not a drone
+      airliner: { gain: 0.070, cut:  240, thumpRate: 0,   thump: 0 },    // cabin hum
+      space:    { gain: 0.016, cut:  120, thumpRate: 0.28, thump: 0.8 }, // near silence, breathing
+      mars:     { gain: 0.055, cut:  700, thumpRate: 0.5, thump: 0.35 }, // thin dust wind
+      moon:     { gain: 0.006, cut:  100, thumpRate: 0,   thump: 0 },    // no air: almost nothing
+    },
+    bedBlend: 1.4,               // how fast one bed crossfades into another
+    windFromSpeed: 0.55,         // how much of the wind bed comes from airspeed
+    windFromAlt: [60, 900],      // ... and how much from being high up
+    // Positional sound: how far away before it is inaudible, and how wide the pan
+    falloff: 900, panWidth: 260,
+  },
+
   // ---- Ambient life (js/ambient.js). Nothing here is a target, solid, or
   // reachable. The birds live under the same rule as the astronaut: they are
   // fine because nothing can happen to them. Make them hittable and they have to
