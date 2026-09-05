@@ -30,8 +30,8 @@ const rk = {                     // rocket-specific state (plane fields stay in 
   refitT: 0,                     // seconds until the pad rolls out a new stack after an Earth landing
 };
 const BODIES = [
-  { name: "moon", x: RK.moon.x, y: RK.moon.y, z: RK.moon.z, r: RK.moon.r, g: RK.moon.g, color: 0x9a9ea8 },
-  { name: "mars", x: RK.mars.x, y: RK.mars.y, z: RK.mars.z, r: RK.mars.r, g: RK.mars.g, color: 0xb04f28 },
+  { name: "moon", x: RK.moon.x, y: RK.moon.y, z: RK.moon.z, r: RK.moon.r, g: RK.moon.g, color: 0x9a9ea6 },
+  { name: "mars", x: RK.mars.x, y: RK.mars.y, z: RK.mars.z, r: RK.mars.r, g: RK.mars.g, color: 0xb5522e },
   // the station's docking port: a tiny "body" with no gravity that the capsule noses into
   { name: "station", x: station.position.x, y: station.position.y + station.userData.portY, z: station.position.z, r: 3, g: 0, dock: true, assistR: 140, mesh: station },
 ];
@@ -47,7 +47,7 @@ for (const b of BODIES) {
   // shadow per fragment. Lambert shades per vertex, and its triangles are 40 units
   // wide here -- a rover shadow came out as a dark blob the size of a dune field.
   const mat = new THREE.MeshPhongMaterial({ color: b.color, flatShading: true, shininess: 0, specular: 0x000000,
-    emissive: b.name === "moon" ? 0x3a3d44 : 0x3a1608 });   // dim enough not to burn out up close (the rover drives on it)
+    emissive: b.name === "moon" ? 0x2f3a48 : 0x3a1608 });   // dim enough not to burn out up close (the rover drives on it)
   const sphere = new THREE.Mesh(new THREE.SphereGeometry(b.r, 96, 64), mat);   // fine enough that the ground is where the rover drives (facet sag < 1 m)
   sphere.receiveShadow = true;     // out there this sphere IS the ground
   g.add(sphere);
@@ -58,7 +58,7 @@ for (const b of BODIES) {
     const th = hashSalt(i, seedBase, 1) * Math.PI * 2, ph = (hashSalt(i, seedBase, 2) - 0.5) * Math.PI;
     const cr = b.r * (0.05 + hashSalt(i, seedBase, 3) * 0.09);
     // a cap of the sphere itself (a flat disc would stand proud of the ground at its rim)
-    const c = new THREE.Mesh(new THREE.SphereGeometry(b.r + 0.25, 16, 6, 0, Math.PI * 2, 0, cr / b.r), new THREE.MeshLambertMaterial({ color: b.name === "moon" ? 0x6e727b : 0x7c3319, emissive: b.name === "moon" ? 0x24272c : 0x22100a }));
+    const c = new THREE.Mesh(new THREE.SphereGeometry(b.r + 0.25, 16, 6, 0, Math.PI * 2, 0, cr / b.r), new THREE.MeshLambertMaterial({ color: b.name === "moon" ? 0x6e727b : 0x7c3319, emissive: b.name === "moon" ? 0x1f2328 : 0x22100a }));
     const dir = new THREE.Vector3(Math.cos(ph) * Math.cos(th), Math.sin(ph), Math.cos(ph) * Math.sin(th));
     c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     g.add(c);
@@ -75,7 +75,7 @@ for (const b of BODIES) {
 // ---- the stack. Nose points -z in model space (same convention as the planes,
 // so pitch 90 = straight up with the shared forward() maths).
 function buildRocketStack(g, mats) {
-  const white = new THREE.MeshLambertMaterial({ color: 0xf4f6f8 });
+  const white = new THREE.MeshLambertMaterial({ color: 0xf2f4f7 });
   const black = new THREE.MeshLambertMaterial({ color: 0x1f2328 });
   const grey = new THREE.MeshLambertMaterial({ color: 0x8a93a0 });
   const R = 0.95;
@@ -142,7 +142,7 @@ function buildRocketStack(g, mats) {
   // base, +z) and a wake streaming past the nose. Additive, faded by rk.reentry.
   const plasma = new THREE.Group();
   const plasmaMats = [];
-  [[-3.3, 1.5, 1.0, 0xffd27a], [-4.6, 1.9, 0.55, 0xff8a2a], [-6.4, 2.4, 0.32, 0xff6a1a], [-8.8, 3.0, 0.18, 0xff4a10]].forEach(([z, r, a, c]) => {
+  [[-3.3, 1.5, 1.0, 0xffd27a], [-4.6, 1.9, 0.55, 0xff8a2a], [-6.4, 2.4, 0.32, 0xff7a1a], [-8.8, 3.0, 0.18, 0xff4a10]].forEach(([z, r, a, c]) => {
     const m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     m.userData.peak = a; plasmaMats.push(m);
     const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), m);
@@ -158,8 +158,8 @@ function buildRocketStack(g, mats) {
 // Starship: a stainless Super Heavy booster (grid fins, a ring of engines) and the
 // Ship on top (black tiles down one side, two small fore flaps, two big aft flaps).
 function buildStarshipStack(g, mats) {
-  const steel = new THREE.MeshLambertMaterial({ color: 0xc9ced6, emissive: 0x1a1d22 });
-  const tiles = new THREE.MeshLambertMaterial({ color: 0x23272d });
+  const steel = new THREE.MeshLambertMaterial({ color: 0xc9ced6, emissive: 0x1f2328 });
+  const tiles = new THREE.MeshLambertMaterial({ color: 0x1f2328 });
   const grey = new THREE.MeshLambertMaterial({ color: 0x6b7078 });
   const R = 1.15;
   const mk = (geo, mat, x, y, z, rx, ry, rz) => { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); m.rotation.set(rx || 0, ry || 0, rz || 0); return m; };
@@ -194,7 +194,7 @@ function buildStarshipStack(g, mats) {
   g.userData.plumeLight = plumeLight;
   const plasma = new THREE.Group();
   const plasmaMats = [];
-  [[0.3, 1.9, 1.0, 0xffd27a], [-1.4, 2.3, 0.55, 0xff8a2a], [-3.6, 2.8, 0.32, 0xff6a1a], [-6.4, 3.4, 0.18, 0xff4a10]].forEach(([z, r, a, c]) => {
+  [[0.3, 1.9, 1.0, 0xffd27a], [-1.4, 2.3, 0.55, 0xff8a2a], [-3.6, 2.8, 0.32, 0xff7a1a], [-6.4, 3.4, 0.18, 0xff4a10]].forEach(([z, r, a, c]) => {
     const m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     m.userData.peak = a; plasmaMats.push(m);
     const sph = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), m);
@@ -912,7 +912,7 @@ function updatePad(dt, grounded) {
   // countdown: the pad lights strobe faster and faster through the ignite hold
   if (a.padLightMat) {
     let hex = 0xfff2b0;
-    if (onPad && rk.igniteT > 0) { const rate = 3 + rk.igniteT * 9; hex = (Math.floor(rk.igniteT * rate) % 2) ? 0xffffff : 0x5a4a18; }
+    if (onPad && rk.igniteT > 0) { const rate = 3 + rk.igniteT * 9; hex = (Math.floor(rk.igniteT * rate) % 2) ? 0xf2f4f7 : 0x5a4a18; }
     if (a.padLightMat.color.getHex() !== hex) a.padLightMat.color.setHex(hex);
   }
   updateShockwave(dt);
@@ -927,7 +927,7 @@ function updatePad(dt, grounded) {
   if (rk.delugeT > 0) rk.delugeT -= dt;
   if (steaming) {
     const gy = AIRPORTS[state.originIdx].elev + 1;
-    for (let i = 0; i < 2; i++) wakePuff(a.padX + (rnd() - 0.5) * 18, gy, a.padZ + 6 + rnd() * 40, 0xffffff, 2.6, 7, 1.6);
+    for (let i = 0; i < 2; i++) wakePuff(a.padX + (rnd() - 0.5) * 18, gy, a.padZ + 6 + rnd() * 40, 0xf2f4f7, 2.6, 7, 1.6);
   }
 }
 
@@ -1108,7 +1108,7 @@ let chuteGroup = null, chuteParts = null, chuteCollapseT = 0;
 function buildCanopy(r, red) {
   // eight gores, white and red in turn; lit from inside too (he looks up at them from the window)
   const g = new THREE.Group();
-  const white = new THREE.MeshLambertMaterial({ color: 0xf4f6f8, emissive: 0x8e9297, side: THREE.DoubleSide });
+  const white = new THREE.MeshLambertMaterial({ color: 0xf2f4f7, emissive: 0x8a93a0, side: THREE.DoubleSide });
   const stripe = new THREE.MeshLambertMaterial({ color: red, emissive: 0x7a2420, side: THREE.DoubleSide });
   for (let k = 0; k < 8; k++) g.add(new THREE.Mesh(new THREE.SphereGeometry(r, 4, 8, k * Math.PI / 4, Math.PI / 4, 0, Math.PI / 2), k % 2 ? stripe : white));
   return g;
@@ -1116,7 +1116,7 @@ function buildCanopy(r, red) {
 function buildChutes() {
   chuteGroup = new THREE.Group();
   const vs = state.vp.size || 1;
-  const lineMat = new THREE.LineBasicMaterial({ color: 0xe8ecf2 });
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xf2f4f7 });
   const mk = (r, h, ox, oz, red) => {
     const c = new THREE.Group();
     const canopy = buildCanopy(r, red); canopy.position.set(ox, h, oz); c.add(canopy);

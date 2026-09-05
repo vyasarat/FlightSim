@@ -62,9 +62,42 @@ const TUNE = {
     // SKY_MOODS still multiply on top of these.
     earth: { sun: 0xfff1d4, sunI: 1.02, sky: 0xbfd9ff, ground: 0x6f8f57, hemiI: 0.50, shadow: 1, elev: 44 },
     mars:  { sun: 0xffe9d8, sunI: 1.00, sky: 0xffeee2, ground: 0xd49a78, hemiI: 0.84, shadow: 1, elev: 38 },
-    moon:  { sun: 0xffffff, sunI: 1.30, sky: 0xa8b2c6, ground: 0x646b7d, hemiI: 0.22, shadow: 1, elev: 34 },
-    space: { sun: 0xffffff, sunI: 1.05, sky: 0x0b1024, ground: 0x04050d, hemiI: 0.12, shadow: 0, elev: 44 },
+    moon:  { sun: 0xf2f4f7, sunI: 1.30, sky: 0xa8b2c6, ground: 0x646b7d, hemiI: 0.22, shadow: 1, elev: 34 },
+    space: { sun: 0xf2f4f7, sunI: 1.05, sky: 0x0b1024, ground: 0x04050d, hemiI: 0.12, shadow: 0, elev: 44 },
     blend: 2.2,                        // how fast a mood crossfades (per second)
+  },
+
+  // ---- The palette. Every colour in the game snaps to one of these unless it
+  // is a livery (airliners keep their own) or a signal lamp. This is not a new
+  // scheme -- each one was already the dominant value for its role; the job was
+  // pulling 238 near-duplicate literals down onto them, so a dome and the dune
+  // behind it are no longer two different greys that were never meant to differ.
+  palette: {
+    white:    0xf2f4f7, steel:  0xc9ced6, grey:      0x8a93a0, slate: 0x3c4350,
+    ink:      0x1f2328, night:  0x2f3a48, concrete:  0x9a9ea6,
+    grassLow: 0x7cbf58, grassMid: 0x67a34e, grassHigh: 0xa8a06b, sand: 0xd9c27e,
+    rust:     0xb5522e, warning: 0xffd23e, gold:     0xd4a72c,
+    fire:     0xff7a1a, flame:  0xffb43a, red:       0xe0483e,
+    green:    0x36c46a, cyan:   0x5ff1ff, blue:      0x2b4fb0, sea: 0x2f74b8,
+  },
+
+  // ---- The sea (js/scene.js). One quad, and a scrolling normal map doing all
+  // the work: real ripple geometry over 8000 units would cost more than the rest
+  // of the polish put together.
+  water: {
+    color: 0x2f74b8, specular: 0x8fc4e8, shininess: 70,
+    bump: 3.2,                  // how steep the generated wave normals are
+    repeat: 60,                 // tiles across the 8000-unit quad
+    tileWorld: 8000 / 60,       // world size of one tile: the anchor maths needs it
+    // Ripple strength has to fall off with height or the sea turns into white
+    // static from altitude: every micro-facet catches the sun and the whole lot
+    // reads as noise. Near the deck it is water; from a mile up it is a smooth
+    // sheet with one broad sun path on it, which is what it looks like.
+    normalScale: 0.5, normalFade: [70, 700],
+    anisotropy: 4,              // the horizon crawls with moire without it
+    driftX: 0.010, driftY: 0.006,
+    foamBand: 1.1,              // how far above the waterline the foam colour reaches
+    foamColor: 0xf2f4f7,
   },
 
   // ---- Atmosphere (js/sky.js). Billboards and fog only: a full-screen bloom
@@ -101,7 +134,7 @@ const TUNE = {
   colorHigh: 0xa8a06b,
   colorLowHeight: -4,
   colorHighHeight: 10,
-  colorJitter: 0.06,
+  colorJitter: 0.085,   // a little more variation so big flat fields are not one solid colour
 
   cloudCount: 14,
   cloudAltitudeMin: 120,
@@ -415,6 +448,7 @@ const TUNE = {
       landR: 9,                       // this near the rover and it settles beside it
       graceTime: 1.6,                 // ... but not in the first moments, with the rover still underneath
       rotor: 26,                      // how fast the blades spin
+      modelScale: 0.55,               // scale audit: it read bigger than the rover it scouts for
       stallTime: 2.0, stallSpeed: 2,  // never stuck, same guarantee as the helicopter
     },
     boost: 6,                       // ... and it keeps his throttle in this long after lift-off,
