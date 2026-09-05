@@ -674,12 +674,17 @@ function buildAirport(idx) {
   const n = Math.floor(TUNE.runwayLength / 50);
   const lights = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), edgeLightMat, n * 2);
   const d = new THREE.Object3D();
+  const edgePts = [];
   let li = 0;
   for (let i = 0; i < n; i++) for (const sx of [-1, 1]) {
     d.position.set(sx * (halfW + 2.5), 0.45, -halfL + 25 + i * 50);
+    edgePts.push(d.position.clone());
     d.updateMatrix(); lights.setMatrixAt(li++, d.matrix);
   }
   g.add(lights);
+  // a soft glow over the edge lights: one draw call, and the runway reads as a
+  // runway from a long way out instead of as a grey strip
+  g.add(glowField(edgePts, 0xfff0c0, 5, 0.35));
   for (const [endZ, mat] of [[halfL + 3, greenLightMat], [-halfL - 3, greenLightMat]]) {
     const bar = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), mat, 12);
     for (let k = 0; k < 12; k++) { d.position.set(-halfW + 2.5 + k * (TUNE.runwayWidth - 5) / 11, 0.45, endZ); d.updateMatrix(); bar.setMatrixAt(k, d.matrix); }

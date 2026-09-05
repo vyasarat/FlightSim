@@ -487,7 +487,7 @@ function ffPuffsClear() { for (const p of ffPuffs) { p.life = 0; p.mesh.visible 
 
 const fire = {
   g: null, x: 0, z: 0, deck: 0,
-  flames: [], flameMat: null,
+  flames: [], flameMat: null, glow: null,
   smoke: [], smokeT: 0,
   level: 1,            // 1 burning, 0 out -- derived from `dropped`, never accumulated
   dropped: 0,          // how many sheets have landed on it (three puts it out)
@@ -544,6 +544,12 @@ function buildFireRig() {
   }
   scene.add(g);
   castsShadow(g);
+  // one big additive glow over the whole blaze: it is what makes it read as fire
+  // from a mile out rather than as orange cones
+  const fglow = glowSprite(TUNE.sky.fireGlowColor, TUNE.sky.fireGlowSize, 0);
+  fglow.position.set(0, deck + 18, 0);
+  g.add(fglow);
+  fire.glow = fglow;
   fire.g = g; fire.x = x; fire.z = z; fire.deck = deck;
 }
 
@@ -631,6 +637,12 @@ function updateFirefight(dt) {
   // ---- the fire itself: flames flicker, and there are fewer of them as it goes out
   const lit = fire.level > 0;
   const lvl = fire.level;
+  if (fire.glow) {
+    const want = (lit ? TUNE.sky.fireGlowOpacity * (0.55 + 0.45 * lvl) : 0) * (0.85 + 0.15 * Math.sin(fire.clock * 5.5));
+    fire.glow.material.opacity += (want - fire.glow.material.opacity) * Math.min(1, 4 * dt);
+    fire.glow.visible = fire.glow.material.opacity > 0.006;
+    fire.glow.scale.setScalar(TUNE.sky.fireGlowSize * (0.5 + 0.5 * lvl) * (0.95 + 0.05 * Math.sin(fire.clock * 3.1)));
+  }
   for (let i = 0; i < fire.flames.length; i++) {
     const f = fire.flames[i];
     const on = lit && i < Math.ceil(fire.flames.length * lvl);

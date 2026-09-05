@@ -72,6 +72,12 @@ the checklist for shipping one.
   pass. Anything lit that must take a shadow across a big flat face has to be Phong, not Lambert:
   Lambert shades per vertex, so on the Mars sphere (40 m triangles) a rover's shadow landed as a
   blob the size of a dune field.
+- `sky.js` — atmosphere (`TUNE.sky`): the sun billboard and halo, the cockpit-only lens glow,
+  the drifting cirrus sheet, twinkling stars (one draw call, per-star phase in a shader) and the
+  per-body haze. **There is no post-processing stack and there is not going to be one**: every
+  glow in the game is an additive billboard on one shared texture (`glowSprite` for one,
+  `glowField` for many at one draw call). Leave `glowField` frustum-culled — disabling culling on
+  a static field draws it while he is looking the other way, for nothing.
 - `scripts/polish_check.js <tag>` — the polish rig: four vantage points in both camera views plus
   frame time, draw calls and triangles for the three heaviest scenes, with the shadow pass priced
   by an in-place A/B. It runs under swiftshader, which over-prices fill rate by a wide margin and
