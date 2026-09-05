@@ -29,6 +29,12 @@ for (let i = 0; i < 5; i++) {
   scene.add(fb);
   fireballs.push(fb);
 }
+// One additive flash that rides the biggest live fireball. Explosions are the
+// loudest thing in the game and they were pure geometry before this.
+const blastGlow = glowSprite(TUNE.sky.blastGlowColor, 1, 0);
+blastGlow.visible = false;
+scene.add(blastGlow);
+
 let shakeAmp = 0;
 let rumble = 0; // runway rumble while rolling; separate from explosion shake
 
@@ -85,7 +91,18 @@ function triggerExplosion(nx, ny, nz, intensity, small) {
 
 function updateExplosion(dt, homePos, seeking) {
   // Nothing burning, nothing to home in on: skip the 26 matrix writes.
-  if (!debrisMesh.visible && !fireballs.some(fb => fb.visible)) return;
+  if (!debrisMesh.visible && !fireballs.some(fb => fb.visible)) { if (blastGlow.visible) blastGlow.visible = false; return; }
+  {
+    // the flash follows whichever fireball is currently brightest
+    let best = null;
+    for (const fb of fireballs) if (fb.visible && (!best || fb.material.opacity > best.material.opacity)) best = fb;
+    blastGlow.visible = !!best && best.material.opacity > 0.02;
+    if (blastGlow.visible) {
+      blastGlow.position.copy(best.position);
+      blastGlow.scale.setScalar(best.scale.x * TUNE.sky.blastGlowScale);
+      blastGlow.material.opacity = best.material.opacity * TUNE.sky.blastGlowOpacity;
+    }
+  }
   let anyAlive = false;
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];

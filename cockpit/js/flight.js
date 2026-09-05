@@ -280,6 +280,10 @@ function updateSky(dt) {
   scene.fog.color.copy(hor);
   scene.fog.near = fogNear;
   scene.fog.far = fogFar;
+  // Standing on another world the space fog is wrong: Mars has air full of dust
+  // and wants a pink haze at the horizon, the Moon has none and wants a knife
+  // edge. Eased, so arriving and leaving is never a cut.
+  applyBodyHaze(dt);
   // deep space needs a far plane that reaches the Moon and Mars
   const wantFar = sf > 0.3 ? 18000 : 6000;
   if (camera.far !== wantFar) { camera.far = wantFar; camera.updateProjectionMatrix(); }
@@ -692,6 +696,7 @@ function update(dt) {
   updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
   applyCamera(dt);
   updateSunRig();            // the shadow box rides the camera, so it must follow it
+  updateAtmosphere(dt);      // ... and the sun billboard is pinned off the camera too
   shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
   updateVehicleModel(dt);
 
