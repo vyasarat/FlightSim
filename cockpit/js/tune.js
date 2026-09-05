@@ -36,6 +36,38 @@ const TUNE = {
   hemiSkyColor: 0xbfd9ff,
   hemiGroundColor: 0x6f8f57,
 
+  // ---- Lighting (js/scene.js). One directional sun at a real angle with a tight
+  // shadow box that follows him, plus a hemisphere fill so shaded sides are never
+  // black. Readability first: nothing here may make a thing he needs darker.
+  light: {
+    sunElevDeg: 44, sunAzimDeg: 133,   // a real angle: shadows fall across the runway, not down it
+    shadow: {
+      on: true,
+      mapSize: 1024,                   // sized for an iPad, not a desktop
+      // Half-width of the box that follows him. One size cannot do both jobs: at
+      // 165 m a 3 m rover is eleven texels across and its shadow comes out as a
+      // staircase, and at 25 m an airliner has no shadow at all. So the box
+      // resizes to the scale of whatever he is actually in. Cheaper than cascades
+      // and there is only ever one thing to look at.
+      radius: 165,                     // flying
+      radiusMid: 70,                   // on the ground at home, or in the helicopter
+      radiusClose: 45,                 // out in the rover, the drone or the suit
+      radiusRate: 2.5,                 // how fast it resizes (per second) so it never pops
+      depth: 1200,                     // how far back the light stands
+      bias: -0.0004, normalBiasTexels: 2.6,   // in texels, not metres: the box resizes, so a fixed bias
+                                       // either stripes the ground or lifts the shadow clean off it
+      softRadius: 2.0,                 // PCF blur width: soft edges without a blur pass
+    },
+    // Per-environment moods. `sunI` / `hemiI` are absolute; the weather moods in
+    // SKY_MOODS still multiply on top of these.
+    earth: { sun: 0xfff1d4, sunI: 1.02, sky: 0xbfd9ff, ground: 0x6f8f57, hemiI: 0.50, shadow: 1, elev: 44 },
+    mars:  { sun: 0xffe9d8, sunI: 1.00, sky: 0xffeee2, ground: 0xd49a78, hemiI: 0.84, shadow: 1, elev: 38 },
+    moon:  { sun: 0xffffff, sunI: 1.30, sky: 0xa8b2c6, ground: 0x646b7d, hemiI: 0.22, shadow: 1, elev: 34 },
+    space: { sun: 0xffffff, sunI: 1.05, sky: 0x0b1024, ground: 0x04050d, hemiI: 0.12, shadow: 0, elev: 44 },
+    blend: 2.2,                        // how fast a mood crossfades (per second)
+  },
+
+
   colorLow: 0x7cbf58,
   colorMid: 0x67a34e,
   colorHigh: 0xa8a06b,

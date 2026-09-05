@@ -11,6 +11,10 @@ scene.add(camera);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
+// Soft shadows, one tight box that follows him. PCFSoft costs a few taps per lit
+// fragment; the map itself is small and only what is near him is ever drawn into it.
+renderer.shadowMap.enabled = !!TUNE.light.shadow.on;
+renderer.shadowMap.type = THREE.PCFShadowMap;   // PCFSoft ignores shadow.radius, and costs more for a softness we cannot dial
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.domElement.id = "gl";
 document.body.appendChild(renderer.domElement);
@@ -53,6 +57,185 @@ scene.add(hemiLight);
 const sunLight = new THREE.DirectionalLight(0xfff3d6, TUNE.sunIntensity);
 sunLight.position.set(400, 1000, 250);
 scene.add(sunLight);
+scene.add(sunLight.target);
+
+// ---------------------------------------------------------------------------
+// The sun rig. One directional light at a real angle, and one small shadow box
+// that rides along with him -- so a shadow costs the same whether he is over an
+// empty field or in the middle of the base, and nothing beyond the box is ever
+// drawn into the map at all.
+// ---------------------------------------------------------------------------
+{
+  const S = TUNE.light.shadow;
+  sunLight.castShadow = !!S.on;
+  sunLight.shadow.mapSize.set(S.mapSize, S.mapSize);
+  sunLight.shadow.radius = S.softRadius;
+  sunLight.shadow.bias = S.bias;
+  const sc = sunLight.shadow.camera;
+  sc.left = -S.radius; sc.right = S.radius; sc.top = S.radius; sc.bottom = -S.radius;
+  // Tight. The light stands depth/2 away and everything worth shadowing is inside
+  // the box, so the depth range only has to span the box -- give it 1 to 1530 and
+  // the map has no precision left and the ground stipples itself with acne.
+  sc.near = Math.max(1, S.depth * 0.5 - S.radius * 2.2);
+  sc.far = S.depth * 0.5 + S.radius * 2.2;
+  sc.updateProjectionMatrix();
+}
+
+let shadowR = TUNE.light.shadow.radius;         // the box resizes to the scale he is working at
+const sunDir = new THREE.Vector3(0, 1, 0);      // unit vector FROM the ground TOWARD the sun
+const sunFocus = new THREE.Vector3();
+const sunTmp = new THREE.Vector3(), sunTmp2 = new THREE.Vector3(), sunTmp3 = new THREE.Vector3();
+
+// Where the sun stands. On Earth it is a fixed bearing; on a sphere it is set
+// against the local up, so "low sun, long shadows" means the same thing on Mars
+// as it does at home.
+function sunDirection(elevDeg, up) {
+  const el = elevDeg * DEG, az = TUNE.light.sunAzimDeg * DEG;
+  if (!up) return sunDir.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).normalize();
+  sunTmp.set(0, 1, 0);
+  if (Math.abs(up.y) > 0.9) sunTmp.set(1, 0, 0);
+  sunTmp2.copy(sunTmp).cross(up).normalize();       // east
+  sunTmp3.copy(up).cross(sunTmp2).normalize();      // north
+  return sunDir.copy(up).multiplyScalar(Math.sin(el))
+    .addScaledVector(sunTmp2, Math.sin(az) * Math.cos(el))
+    .addScaledVector(sunTmp3, Math.cos(az) * Math.cos(el))
+    .normalize();
+}
+
+// Keep the box on what he is actually looking at, and snap it to whole texels --
+// without the snap the shadow edges crawl and sparkle as he moves.
+// What scale is he working at? A rover on Mars and an airliner on final want
+// wildly different boxes, and he is only ever inside one of them.
+function shadowRadiusWanted() {
+  const S = TUNE.light.shadow;
+  if (typeof roverActive === "function" && roverActive()) return S.radiusClose;
+  if (typeof marsDroneActive === "function" && marsDroneActive()) return S.radiusClose;
+  if (typeof astroActive === "function" && astroActive()) return S.radiusClose;
+  if (state.vp && state.vp.heli) return S.radiusMid;
+  if (state.phase === "TAXI" || state.phase === "ROLL") return S.radiusMid;
+  return S.radius;
+}
+
+function updateSunRig() {
+  const S = TUNE.light.shadow;
+  const want = shadowRadiusWanted();
+  if (Math.abs(want - shadowR) > 0.05) {
+    shadowR += (want - shadowR) * Math.min(1, S.radiusRate * (1 / 60));
+    const sc = sunLight.shadow.camera;
+    sc.left = -shadowR; sc.right = shadowR; sc.top = shadowR; sc.bottom = -shadowR;
+    sc.near = Math.max(1, S.depth * 0.5 - shadowR * 2.2 - 40);
+    sc.far = S.depth * 0.5 + shadowR * 2.2 + 40;
+    sc.updateProjectionMatrix();
+  }
+  // the bias has to follow the box: it is a texel-sized offset, not a fixed one
+  sunLight.shadow.normalBias = (shadowR * 2 / S.mapSize) * S.normalBiasTexels;
+  camera.getWorldDirection(sunTmp);
+  sunFocus.copy(camera.position).addScaledVector(sunTmp, shadowR * 0.55);
+  const texel = (shadowR * 2) / S.mapSize;
+  sunFocus.set(Math.round(sunFocus.x / texel) * texel,
+               Math.round(sunFocus.y / texel) * texel,
+               Math.round(sunFocus.z / texel) * texel);
+  sunLight.target.position.copy(sunFocus);
+  sunLight.position.copy(sunFocus).addScaledVector(sunDir, S.depth * 0.5);
+
+  // Only the chunks actually inside the box pay for a shadow lookup. A fragment
+  // in a chunk a kilometre away can only ever come back "lit", but it still runs
+  // the whole test -- and the ground is most of the screen, so that is the single
+  // biggest bill in the pass. Three.js keys the shader on receiveShadow per mesh,
+  // so switching it off out there really does buy the cheaper one.
+  const reach = shadowR + TUNE.chunkSize;
+  for (const m of chunks.values()) {
+    const near = Math.abs(m.position.x - sunFocus.x) < reach && Math.abs(m.position.z - sunFocus.z) < reach;
+    if (m.receiveShadow !== near) m.receiveShadow = near;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Light moods. Earth is a warm 44-degree sun with a good blue fill. Mars is
+// cold, dim and low -- long shadows, pinkish bounce. The Moon is a hard white
+// sun with almost no fill, so its shadows go properly black. Space is unchanged
+// bar the fill, and casts nothing: there is no ground out there to catch it.
+// Everything crossfades, so crossing from one to another is never a hard cut.
+// ---------------------------------------------------------------------------
+const lightMood = {
+  sun: new THREE.Color(TUNE.light.earth.sun), sunI: TUNE.light.earth.sunI,
+  sky: new THREE.Color(TUNE.light.earth.sky), ground: new THREE.Color(TUNE.light.earth.ground),
+  hemiI: TUNE.light.earth.hemiI, shadow: 1, elev: TUNE.light.earth.elev,
+};
+const moodTarget = { sun: new THREE.Color(), sky: new THREE.Color(), ground: new THREE.Color() };
+const moodUp = new THREE.Vector3();
+
+function currentLightEnv() {
+  if (typeof rk !== "undefined" && rk && rk.onBody) return rk.onBody.name === "mars" ? "mars" : "moon";
+  if (state.spaceF > 0.55) return "space";
+  return "earth";
+}
+
+function updateLightMood(dt, weatherW, weatherMood) {
+  const L = TUNE.light;
+  const env = currentLightEnv();
+  const M = L[env] || L.earth;
+  const k = Math.min(1, L.blend * dt);
+  moodTarget.sun.setHex(M.sun); moodTarget.sky.setHex(M.sky); moodTarget.ground.setHex(M.ground);
+  lightMood.sun.lerp(moodTarget.sun, k);
+  lightMood.sky.lerp(moodTarget.sky, k);
+  lightMood.ground.lerp(moodTarget.ground, k);
+  lightMood.sunI += (M.sunI - lightMood.sunI) * k;
+  lightMood.hemiI += (M.hemiI - lightMood.hemiI) * k;
+  lightMood.shadow += (M.shadow - lightMood.shadow) * k;
+  lightMood.elev += (M.elev - lightMood.elev) * k;
+
+  // the weather moods still multiply on top: rain really is dimmer
+  sunLight.color.copy(lightMood.sun);
+  sunLight.intensity = lightMood.sunI * lerp(1, weatherMood.sun, weatherW);
+  hemiLight.color.copy(lightMood.sky);
+  hemiLight.groundColor.copy(lightMood.ground);
+  hemiLight.intensity = lightMood.hemiI * lerp(1, weatherMood.hemi, weatherW);
+  // nothing out there to catch a shadow, so do not spend a pass drawing one
+  sunLight.castShadow = !!TUNE.light.shadow.on && lightMood.shadow > 0.5;
+
+  // on a sphere the sun is set against the local up, so a low sun means the same
+  // thing on Mars as it does at home
+  if (env === "mars" || env === "moon") {
+    const b = rk.onBody;
+    moodUp.set(camera.position.x - b.x, camera.position.y - b.y, camera.position.z - b.z).normalize();
+    sunDirection(lightMood.elev, moodUp);
+  } else {
+    sunDirection(lightMood.elev, null);
+  }
+}
+
+// Marking things up. Casters are deliberately few: the vehicle he is flying, the
+// things he lands on and drives round, and the structures big enough to throw a
+// shadow worth seeing. Everything else just receives.
+function castsShadow(obj, on) {
+  if (!obj) return obj;
+  const v = on !== false;
+  obj.traverse((o) => { if (o.isMesh) o.castShadow = v; });
+  return obj;
+}
+function receivesShadow(obj, on) {
+  if (!obj) return obj;
+  const v = on !== false;
+  obj.traverse((o) => { if (o.isMesh) o.receiveShadow = v; });
+  return obj;
+}
+function castsAndReceives(obj) { castsShadow(obj); receivesShadow(obj); return obj; }
+
+// ---- the one lit material family -------------------------------------------
+// Phong, not Standard: it is a fraction of the cost on a tablet, it lights per
+// fragment (so shadows land smoothly on big low-poly faces, which Lambert cannot
+// do -- Lambert lights per vertex), and it has the specular we want on metal.
+function metalMat(color, shininess, spec) {
+  return new THREE.MeshPhongMaterial({
+    color, flatShading: true,
+    shininess: shininess === undefined ? 42 : shininess,
+    specular: spec === undefined ? 0x4a5058 : spec,
+  });
+}
+function mattMat(color) {
+  return new THREE.MeshPhongMaterial({ color, flatShading: true, shininess: 0, specular: 0x000000 });
+}
 
 const SPACE_TOP = new THREE.Color(0x04050d);
 const SPACE_HOR = new THREE.Color(0x0b1024);
@@ -115,7 +298,7 @@ scene.add(earthMesh);
 // A satellite (no living things in this game): gold body, two solar wings, a dish.
 const satellite = new THREE.Group();
 {
-  const body = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 5), lamSafe(0xd8b04a));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 5), metalMat(0xd8b04a, 60, 0x6a5c2a));
   satellite.add(body);
   for (const s of [-1, 1]) {
     const wing = new THREE.Mesh(new THREE.BoxGeometry(12, 0.3, 4), lamSafe(0x1c3d8f));
@@ -132,10 +315,10 @@ scene.add(satellite);
 
 const station = new THREE.Group();
 {
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 20, 12), lamSafe(0xcfd6df));
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 20, 12), metalMat(0xcfd6df, 55));
   station.add(core);
   for (const sy of [-6.5, 6.5]) {
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(30, 1.4, 5), lamSafe(0x9aa2ad));
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(30, 1.4, 5), metalMat(0x9aa2ad, 48));
     arm.position.y = sy;
     station.add(arm);
     for (const sx of [-10.5, 10.5]) {
@@ -176,7 +359,7 @@ waterMesh.position.y = TUNE.waterLevel;
 scene.add(waterMesh);
 
 {
-  const asphaltMat = new THREE.MeshLambertMaterial({ color: TUNE.runwaySurfaceColor });
+  const asphaltMat = mattMat(TUNE.runwaySurfaceColor);
   const paintMat = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
   const dashCount = Math.floor(TUNE.runwayLength / 95) - 1;
   const stripesPerEnd = 6;
@@ -186,6 +369,7 @@ scene.add(waterMesh);
       asphaltMat
     );
     surface.position.set(0, ap.elev + 0.1, ap.cz);
+    surface.receiveShadow = true;
     scene.add(surface);
 
     const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.08, 20), paintMat, dashCount);
@@ -223,11 +407,14 @@ const cPlains = new THREE.Color(0xc4b478);
 const cDesert = new THREE.Color(0xe0c48f);
 const tmpColor = new THREE.Color();
 
-const terrainMat = new THREE.MeshStandardMaterial({
+// Per-fragment, and deliberately matt: the ground never glints. Phong here is
+// both cheaper than Standard and the only one of the three that puts a smooth
+// shadow across a big flat-shaded triangle.
+const terrainMat = new THREE.MeshPhongMaterial({
   vertexColors: true,
   flatShading: true,
-  roughness: 1.0,
-  metalness: 0.0
+  shininess: 0,
+  specular: 0x000000,
 });
 
 function buildChunk(cx, cz) {
@@ -281,6 +468,7 @@ function buildChunk(cx, cz) {
   flat.computeVertexNormals();
 
   const mesh = new THREE.Mesh(flat, terrainMat);
+  mesh.receiveShadow = false;   // switched on per frame, only for the few near him
   mesh.position.set(ox, 0, oz);
   mesh.matrixAutoUpdate = false;
   mesh.updateMatrix();

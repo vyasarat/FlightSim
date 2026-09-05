@@ -229,6 +229,10 @@ function updateTyrePuffs(dt) {
 function addRouteLandmark(g, x, z, name) {
   g.position.set(x, terrainEff(x, z) - 0.5, z);
   g.userData.name = name || g.userData.name || "";
+  // Every landmark throws a shadow and takes one. This looks expensive and is
+  // not: the sun's box is only a couple of hundred metres across and follows
+  // him, so the shadow pass only ever draws the handful he is standing among.
+  castsAndReceives(g);
   scene.add(g);
   ROUTE_LANDMARKS.push({ g, x, z, name: g.userData.name });
   if (g.userData.pending) {

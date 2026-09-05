@@ -38,6 +38,7 @@ function buildRover() {
   }
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), new THREE.MeshBasicMaterial({ color: 0x5ff1ff })); lamp.position.set(-0.6, 1.7, 1.75); g.add(lamp);
   g.visible = false;
+  castsShadow(g);
   scene.add(g);
   rover.mesh = g;
 }
