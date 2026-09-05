@@ -540,7 +540,7 @@ function impactLand(p) {
       0xd9d2b8, 1.2, 3 + rnd() * 4, 1.4);
   }
   evSparkle(p.tx + p.nx * 2, p.ty + p.ny * 2, p.tz + p.nz * 2, 9, 5, 14, 0.9);
-  boomSound();
+  bigBoom(p.tx, p.ty, p.tz);
   shakeAmp = Math.max(shakeAmp, I.shake);
   flags.evImpactHits = (flags.evImpactHits || 0) + 1;
 }
