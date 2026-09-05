@@ -410,7 +410,7 @@ function update(dt) {
     updateHud();
     updateSky(dt);   // rain, snow and the dome keep moving while it reassembles
     updateFx(dt);
-    shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
+    shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));   // proportional, so a big bang lingers and a small one is gone
     if (state.explodeTimer <= 0) {
       state.exploding = false;
       state.x = safePos.x;
@@ -695,12 +695,13 @@ function update(dt) {
   for (const b of blinkers) if (!b.userData.override) b.visible = blinkOn;
 
   updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
+  updateFeel(dt);            // field of view, bob, the nod and the hit-stop -- picture only
   applyCamera(dt);
   updateSunRig();            // the shadow box rides the camera, so it must follow it
   updateAtmosphere(dt);      // ... and the sun billboard is pinned off the camera too
   updateAmbient(dt, state.x, state.y, state.z);
   updateAmbientAudio(dt);    // the bed for wherever he is: wind, rotor wash, cabin hum, dust, or almost nothing
-  shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
+  shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));   // proportional, so a big bang lingers and a small one is gone
   updateVehicleModel(dt);
 
   updateHud();

@@ -4581,6 +4581,50 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-FOV the picture may move, but never enough to hide the target ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const o = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true;
+      const out = { base: L.TUNE.fov };
+      L.api.skipScreens(); L.api.setVehicle("prop"); L.api.placeOnRunway();
+      for (let i = 0; i < 120; i++) L.update(1 / 60);
+      out.parked = +L.camera.fov.toFixed(1);
+      // flat out, and punched by a catapult on the same frame: the worst case
+      st.phase = "AIRBORNE"; st.y = 300;
+      let widest = 0;
+      for (let i = 0; i < 60 * 8; i++) {
+        st.speed = st.vp.cruiseSpeed * 1.25;
+        if (i % 90 === 0) L.cameraPunch(1);
+        L.update(1 / 60);
+        widest = Math.max(widest, L.camera.fov);
+      }
+      out.widest = +widest.toFixed(1);
+      out.opened = +(widest - L.TUNE.fov).toFixed(1);
+      // and it comes back down when he slows
+      for (let i = 0; i < 60 * 6; i++) { st.speed = 0; L.update(1 / 60); }
+      out.settled = +L.camera.fov.toFixed(1);
+      // shake is capped too, however hard he hits
+      L.api.placeOnRunway(); st.phase = "AIRBORNE"; st.y = 300;
+      let maxShake = 0;
+      for (let i = 0; i < 60 * 4; i++) {
+        if (i % 40 === 0) L.triggerExplosion(st.x, st.y, st.z, 3);
+        L.update(1 / 60);
+        maxShake = Math.max(maxShake, L.shakeNow());
+      }
+      out.maxShake = +maxShake.toFixed(3);
+      out.shakeCap = L.TUNE.camera.shakeCap;
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("camera: the view widens with speed and punches on a launch, but never far enough to shrink what he is aiming at -- and it always comes back",
+      o.opened > 2 && o.opened <= 16 && o.widest <= o.base + 16 &&
+      Math.abs(o.settled - o.base) < 1.5 &&
+      o.maxShake <= o.shakeCap + 0.001 && o.frameErrors === 0, JSON.stringify(o));
+    await page.close();
+  }
+
   // ---------- T-BED the ambient sound bed follows where he actually is ----------
   {
     const { page } = await newPage(1180, 820);

@@ -74,6 +74,11 @@ the checklist for shipping one.
   pass. Anything lit that must take a shadow across a big flat face has to be Phong, not Lambert:
   Lambert shades per vertex, so on the Mars sphere (40 m triangles) a rover's shadow landed as a
   blob the size of a dune field.
+- Camera feel is `TUNE.camera` + `updateFeel`/`applyCamera` in `vehicle.js`. It moves the picture
+  and nothing else — no value in there is ever read by the flight model. `fovSpeed` is capped by
+  readability, not by taste: every degree wider makes the thing he is aiming at smaller. Shake is
+  a curve (`shakeGamma`) and hard-capped (`shakeCap`) so a bang can never hide a target; the
+  harness asserts both bounds. `cameraHitStop` freezes the MODEL, never the world.
 - `audio.js` — `TUNE.audio` has the master and a gain per layer. The ambient bed (`beds.*`) is one
   looping brown-noise source whose gain, lowpass corner and beat are chosen by where he is;
   `currentBedName()` decides. Big events are stacks, not samples (`bigBoom`, `catapultSound`,

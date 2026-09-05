@@ -83,6 +83,7 @@ function triggerExplosion(nx, ny, nz, intensity, small) {
   const dist = Math.hypot(nx - state.x, ny - state.y, nz - state.z);
   shakeAmp = Math.max(shakeAmp, clamp(1 - dist / 260, 0.08, 1));
   bigBoom(nx, ny, nz);
+  cameraHitStop(1);          // the model holds for a beat; the world does not
   flags.exploded++;
   const groundY = Math.max(terrainEff(nx, nz), TUNE.waterLevel);
   startSmoke(nx, Math.max(ny, groundY), nz, 8);
