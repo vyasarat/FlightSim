@@ -1,5 +1,5 @@
 "use strict";
-const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const cloudMat = new THREE.MeshLambertMaterial({ color: 0xf2f4f7 });
 function makeCloud() {
   const g = new THREE.Group();
   const puffs = 3 + Math.floor(rnd() * 3);
@@ -44,14 +44,14 @@ const trunkInst = new THREE.InstancedMesh(
 );
 const canopyInst = new THREE.InstancedMesh(
   new THREE.ConeGeometry(3.4, 9.5, 7),
-  new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }),
   TUNE.treeMaxInstances
 );
 canopyInst.setColorAt(0, tmpColor.setHex(TUNE.treeCanopyColor));
 
 const buildingInst = new THREE.InstancedMesh(
   new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
-  new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }),
   TUNE.buildingMaxInstances
 );
 buildingInst.setColorAt(0, tmpColor.setHex(0xcfc4ae));
@@ -89,7 +89,7 @@ const towerProto = (() => {
 
 const bridgeProto = (() => {
   const g = new THREE.Group();
-  const steel = new THREE.MeshLambertMaterial({ color: 0x9aa2ad });
+  const steel = new THREE.MeshLambertMaterial({ color: 0x9a9ea6 });
   const deck = new THREE.Mesh(new THREE.BoxGeometry(360, 5, 18), steel);
   g.add(deck);
   for (const sx of [-115, 115]) {

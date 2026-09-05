@@ -1,6 +1,6 @@
 "use strict";
 const traffic = [];
-const trafficPalette = [0x0b4ea2, 0x1c75bc, 0xc9a227, 0x8a97a8];
+const trafficPalette = [0x0b4ea2, 0x2f74b8, 0xd4a72c, 0x8a93a0];
 function makeTrafficModel(colorHex) {
   const g = new THREE.Group();
   const mA = new THREE.MeshLambertMaterial({ color: colorHex });

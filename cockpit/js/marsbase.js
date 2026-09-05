@@ -72,7 +72,7 @@ function marsBuild() {
   mars.y = b.y + mars.n.y * b.r;
   mars.z = b.z + mars.n.z * b.r;
   const g = new THREE.Group();
-  const rust = 0xb4552c, pale = 0xd8dde4, steel = 0xc9ced6, dark = 0x3c4350;
+  const rust = 0xb5522e, pale = 0xd8dde4, steel = 0xc9ced6, dark = 0x3c4350;
 
   // (Mars's own surface is the right rust already -- it only ever looked white in
   // testing because that was landing on the polar ice cap, dead on the north pole.)
@@ -105,7 +105,7 @@ function marsBuild() {
     const gar = new THREE.Group();
     const shed = new THREE.Mesh(new THREE.BoxGeometry(22, 9, 16), lam(pale));
     shed.position.y = 4.5; gar.add(shed);
-    const mouth = new THREE.Mesh(new THREE.BoxGeometry(14, 7, 1), lam(0x23282f));
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(14, 7, 1), lam(0x1f2328));
     mouth.position.set(0, 3.6, 8.2); gar.add(mouth);
     const roof = new THREE.Mesh(new THREE.BoxGeometry(24, 1, 18), lam(0xd4a72c));
     roof.position.y = 9.4; gar.add(roof);
@@ -132,7 +132,7 @@ function marsBuild() {
     const nose = new THREE.Mesh(new THREE.ConeGeometry(3.4, 11, 14), lam(steel));
     nose.position.y = 39.5; sh.add(nose);
     for (const sx of [-1, 1]) {
-      const flap = new THREE.Mesh(new THREE.BoxGeometry(1, 9, 4), lam(0x23272d));
+      const flap = new THREE.Mesh(new THREE.BoxGeometry(1, 9, 4), lam(0x1f2328));
       flap.position.set(sx * 3.4, 30, -1.5); sh.add(flap);
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.9, 7, 0.9), lam(dark));
       leg.position.set(sx * 3.2, 3.2, 0); leg.rotation.z = sx * 0.28; sh.add(leg);
@@ -188,7 +188,7 @@ function marsBuild() {
 // ---- the cargo Starship that comes down beside the base
 function marsBuildCargo() {
   const g = new THREE.Group();
-  const steel = 0xc9ced6, dark = 0x23272d;
+  const steel = 0xc9ced6, dark = 0x1f2328;
   const hull = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 36, 14), lam(steel));
   hull.position.y = 18; g.add(hull);
   const nose = new THREE.Mesh(new THREE.ConeGeometry(3.6, 12, 14), lam(steel));
@@ -274,10 +274,10 @@ function updateMarsBase(dt) {
   if (mars.padMat) {
     const counting = mars.phase === "count" || mars.phase === "launch";
     const on = counting ? (Math.floor(mars.clock * 9) % 2 === 0) : (Math.sin(mars.clock * 2.2) > -0.3);
-    mars.padMat.color.setHex(on ? (counting ? 0xffffff : 0xffd23e) : 0x5a4a18);
+    mars.padMat.color.setHex(on ? (counting ? 0xf2f4f7 : 0xffd23e) : 0x5a4a18);
     if (mars.padGlow) {
       mars.padGlow.material.opacity = on ? TUNE.sky.padLightOpacity : TUNE.sky.padLightOpacity * 0.15;
-      mars.padGlow.material.color.setHex(counting ? 0xffffff : TUNE.sky.padLightColor);
+      mars.padGlow.material.color.setHex(counting ? 0xf2f4f7 : TUNE.sky.padLightColor);
     }
   }
 
@@ -360,7 +360,7 @@ function updateMarsBase(dt) {
 
 const mbT2 = new THREE.Vector3(), mbT3 = new THREE.Vector3(), mbT4 = new THREE.Vector3();
 const mbBasis = new THREE.Matrix4();
-const MARS_ROCK = 0x8c4a2a, MARS_ROCK2 = 0xa85c34;
+const MARS_ROCK = 0x8c4a2a, MARS_ROCK2 = 0xb5522e;
 
 // Point a group along the surface: +Y is the local up, -Z is `fwd`.
 function marsAim(g, up, fwd) {
@@ -627,7 +627,7 @@ function marsBuildDrone(g) {
   for (let i = 0; i < 2; i++) {
     const hub = new THREE.Group(); hub.position.y = 2.9 + i * 0.5; dg.add(hub);
     for (let k = 0; k < 2; k++) {
-      const bl = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.16, 0.5), new THREE.MeshLambertMaterial({ color: 0xf2f4f7, emissive: 0x30343a }));
+      const bl = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.16, 0.5), new THREE.MeshLambertMaterial({ color: 0xf2f4f7, emissive: 0x2f3a48 }));
       bl.rotation.y = k * Math.PI / 2;
       hub.add(bl);
     }
@@ -640,6 +640,11 @@ function marsBuildDrone(g) {
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.26, 7, 6), new THREE.MeshBasicMaterial({ color: 0x5ff1ff, fog: false }));
   lamp.position.set(0, 1.6, 0.95); dg.add(lamp);
   castsShadow(dg);
+  // Scale audit: it was coming out 6.7 m tall with a 5.8 m rotor span, against a
+  // 4.9 m rover -- the little scout drone was bigger than the thing it scouts
+  // for. This is the model only; every distance that decides anything is
+  // untouched.
+  dg.scale.setScalar(MB.drone.modelScale);
   scene.add(dg);                       // it flies away from the base, so it lives in the scene
   const p = surfacePoint(mars.body, mars.n, D.parkDist, D.parkAngle);
   mars.drone = {

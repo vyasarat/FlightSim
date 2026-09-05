@@ -44,7 +44,7 @@ const ROUTE_LANDMARKS = [];
 const gates = [];
 const airports = [];        // per-airport reactive parts (beacon, windsock, hangar doors)
 const casinoLights = [];    // casino light strips (declared early: filled by buildRouteLandmarks)
-const gateMatGold = new THREE.MeshBasicMaterial({ color: 0xffc43a, transparent: true, opacity: 0.9, fog: false });
+const gateMatGold = new THREE.MeshBasicMaterial({ color: 0xffd23e, transparent: true, opacity: 0.9, fog: false });
 const gateMatGreen = new THREE.MeshBasicMaterial({ color: 0x3fdc6a, transparent: true, opacity: 0.95, fog: false });
 const gateGeo = new THREE.TorusGeometry(1, 0.06, 8, 32);
 function addGate(x, y, z, hw, hh, follow, name) {
@@ -123,7 +123,7 @@ function updateSmoke(dt) {
     p.mesh.material.opacity = 0.55 * (1 - t);
   }
 }
-const craterMat = new THREE.MeshBasicMaterial({ color: 0x1e1a18, transparent: true, opacity: 0.6, depthWrite: false });
+const craterMat = new THREE.MeshBasicMaterial({ color: 0x1f2328, transparent: true, opacity: 0.6, depthWrite: false });
 const craters = [];
 for (let i = 0; i < 4; i++) {
   const m = new THREE.Mesh(new THREE.CircleGeometry(9, 14), craterMat.clone());
@@ -151,7 +151,7 @@ function updateCraters(dt) {
 // ---- touchdown: tyre puffs under the wheels
 const tyrePuffs = [];
 for (let i = 0; i < 4; i++) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshLambertMaterial({ color: 0xd8d2c8, transparent: true, opacity: 0.7 }));
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshLambertMaterial({ color: 0xc9ced6, transparent: true, opacity: 0.7 }));
   m.visible = false;
   scene.add(m);
   tyrePuffs.push({ mesh: m, life: 0 });
@@ -169,7 +169,7 @@ function tyrePuffAt(x, y, z) {
 // ---- wake: spray over water, dust over the desert, and bomb splashes
 const wakePuffs = [];
 for (let i = 0; i < 64; i++) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }));
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshLambertMaterial({ color: 0xf2f4f7, transparent: true, opacity: 0.6 }));
   m.visible = false;
   scene.add(m);
   wakePuffs.push({ mesh: m, life: 0, max: 1, rise: 0, grow: 0 });
@@ -185,7 +185,7 @@ function wakePuff(x, y, z, color, size, rise, life) {
   p.mesh.scale.setScalar(size);
 }
 function splashAt(x, y, z, big) {
-  for (let i = 0; i < 8; i++) wakePuff(x + (rnd() - 0.5) * 6 * big, y + 0.5, z + (rnd() - 0.5) * 6 * big, 0xe8f6ff, 1.5 * big, 9 * big, 0.9);
+  for (let i = 0; i < 8; i++) wakePuff(x + (rnd() - 0.5) * 6 * big, y + 0.5, z + (rnd() - 0.5) * 6 * big, 0xf2f4f7, 1.5 * big, 9 * big, 0.9);
 }
 function updateWake(dt) {
   wakeEmitT -= dt;
@@ -199,7 +199,7 @@ function updateWake(dt) {
         wakeEmitT = 0.06;
         const bx = state.x + forward.x * -6, bz = state.z + forward.z * -6;
         wakePuff(bx + (rnd() - 0.5) * 3, Math.max(terr, TUNE.waterLevel) + 0.6, bz + (rnd() - 0.5) * 3,
-          overWater ? 0xe8f6ff : 0xe9d9a8, 1.2, overWater ? 3 : 2, 0.7);
+          overWater ? 0xf2f4f7 : 0xe9d9a8, 1.2, overWater ? 3 : 2, 0.7);
       }
     }
   }
@@ -251,7 +251,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
     lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, 0);
     lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, deckW);
   }
-  lmBox(g, len, 4.5, deckW + 2, 0x9aa2ad, 0, deckY, deckW / 2);
+  lmBox(g, len, 4.5, deckW + 2, 0x9a9ea6, 0, deckY, deckW / 2);
   for (const sz of [0, deckW]) {
     lmBox(g, len * 0.44, 1.6, 1.6, cableColor, -len * 0.28, deckY + towerH * 0.4, sz, false);
     lmBox(g, len * 0.44, 1.6, 1.6, cableColor, len * 0.28, deckY + towerH * 0.4, sz, false);
@@ -278,13 +278,13 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
     lmBox(ny, bw, bh, bw * 0.85, i % 3 === 0 ? 0x5d6b7d : 0x77879a, bx, bh / 2, bz);
   }
   lmCyl(ny, 5, 7.5, 165, 0xaebccd, 40, 82.5, 30, 10);
-  lmCyl(ny, 1.4, 2.6, 48, 0xcdd8e4, 40, 178, 30, 8);
+  lmCyl(ny, 1.4, 2.6, 48, 0xc9ced6, 40, 178, 30, 8);
   addRouteLandmark(ny, -260, skylineZ, "skyline");
 
   const statue = new THREE.Group();
   statue.userData.trackSolids = true;
   statue.userData.pending = [];
-  lmCyl(statue, 36, 42, 8, 0x8d9299, 0, 4, 0, 12);
+  lmCyl(statue, 36, 42, 8, 0x8a93a0, 0, 4, 0, 12);
   lmBox(statue, 12, 15, 12, 0x6d7a70, 0, 15.5, 0);
   lmCyl(statue, 4.5, 6.5, 24, 0x3f8f5a, 0, 35, 0, 10);
   const head = new THREE.Mesh(new THREE.SphereGeometry(3.6, 10, 8), lam(0x3f8f5a));
@@ -295,7 +295,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   const torch = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd23e }));
   torch.position.set(11, 60, 0);
   statue.add(torch);
-  const island = new THREE.Mesh(new THREE.CylinderGeometry(46, 54, 7, 12), lam(0x77c95f));
+  const island = new THREE.Mesh(new THREE.CylinderGeometry(46, 54, 7, 12), lam(0x7cbf58));
   island.position.y = 3.5;
   statue.add(island);
   addRouteLandmark(statue, -520, half - 2350 * RS, "statue");
@@ -311,7 +311,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   silosFarm.userData.trackSolids = true;
   silosFarm.userData.pending = [];
   for (let i = 0; i < 6; i++) {
-    lmCyl(silosFarm, 6, 6, 26, i % 2 ? 0xc9ccd4 : 0xb0413a, -80 + i * 34, 13, i % 2 * 20, 10);
+    lmCyl(silosFarm, 6, 6, 26, i % 2 ? 0xc9ced6 : 0xb0413a, -80 + i * 34, 13, i % 2 * 20, 10);
   }
   addRouteLandmark(silosFarm, 560, half * 0.28, "silosFarm");   // east of the lake (x=240 was on the lake bed)
 
@@ -323,7 +323,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
     const bh = 50 + hashSalt(i, 9, 212) * 64;
     lmBox(midCity, 20 + hashSalt(i, 9, 213) * 10, bh, 18, i % 2 ? 0x5a6470 : 0x6e7a88, bx, bh / 2, (hashSalt(i, 9, 214) - 0.5) * 100);
   }
-  lmBox(midCity, 22, 155, 22, 0x22262c, 8, 77.5, 0);
+  lmBox(midCity, 22, 155, 22, 0x1f2328, 8, 77.5, 0);
   addRouteLandmark(midCity, -340, half * 0.55, "midCity");
 
   const silosPlains = new THREE.Group();
@@ -339,7 +339,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   casinos.userData.pending = [];
   for (let i = 0; i < 5; i++) {
     const bh2 = 52 + hashSalt(i, 11, 221) * 50;
-    lmBox(casinos, 24 + i * 2, bh2, 20, [0xd8b04a, 0xc9963f, 0xb87f2f, 0xd8b04a, 0xcf9d3a][i], -95 + i * 47, bh2 / 2, (i % 2) * 26 - 13);
+    lmBox(casinos, 24 + i * 2, bh2, 20, [0xd8b04a, 0xc9963f, 0xb87f2f, 0xd8b04a, 0xd4a72c][i], -95 + i * 47, bh2 / 2, (i % 2) * 26 - 13);
   }
   for (let i = 0; i < 5; i++) {
     const bh2 = 52 + hashSalt(i, 11, 221) * 50;
@@ -368,7 +368,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   letters.add(hill);
   letters.userData.pending.push({ lx: 0, ly0: -3, lz: 0, hw: 200, hd: 200, y1: 39, mesh: hill });   // the skirt reaches r 200
   for (let i = 0; i < 7; i++) {
-    const blk = lmBox(letters, 16, 22, 4, 0xf4f8fa, -84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
+    const blk = lmBox(letters, 16, 22, 4, 0xf2f4f7, -84 + i * 28, 38 + Math.sin(i / 6 * Math.PI) * 9, -10);
     blk.rotation.x = -0.4;
   }
   addRouteLandmark(letters, 560, -half + 1700 * RS, "letters");  // well clear of the CA runway, pad and downtown
@@ -379,7 +379,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   for (let i = 0; i < 10; i++) {
     const bx = -125 + i * 28 + hashSalt(i, 13, 231) * 10;
     const bh3 = 55 + hashSalt(i, 13, 232) * 68;
-    lmBox(downtown, 18 + hashSalt(i, 13, 233) * 10, bh3, 18, i % 3 === 0 ? 0x8a97a8 : 0xb8c2cf, bx, bh3 / 2, (hashSalt(i, 13, 234) - 0.5) * 76);
+    lmBox(downtown, 18 + hashSalt(i, 13, 233) * 10, bh3, 18, i % 3 === 0 ? 0x8a93a0 : 0xb8c2cf, bx, bh3 / 2, (hashSalt(i, 13, 234) - 0.5) * 76);
   }
   // Beside the approach, not under it: the corridor is clear of solids for
   // ringStartDistance beyond both runway ends (see inCorridor + harness check).
@@ -555,7 +555,7 @@ function apronVehiclesTo(idx, toPlane) {
   });
 }
 // The arrival show: fireworks over the terminal, edge lights chasing.
-const fireworkColors = [0xff3b6b, 0xffd23e, 0x3ad1ff, 0x7cff5a, 0xff7ab8, 0xffffff];
+const fireworkColors = [0xff3b6b, 0xffd23e, 0x3ad1ff, 0x7cff5a, 0xff7ab8, 0xf2f4f7];
 let fwQueue = [];
 function arrivalShow(idx) {
   const a = airports.find(r => r.idx === idx);
@@ -610,7 +610,7 @@ function buildAirport(idx) {
     lmBox(g, 5, 6, 5, 0x8a93a0, m * 188, 3, z, true);
   }
   // control tower with cab and beacon
-  lmCyl(g, 4, 5, 42, 0xe6eaf0, m * 150, 21, 260, 10, true);
+  lmCyl(g, 4, 5, 42, 0xf2f4f7, m * 150, 21, 260, 10, true);
   const cab = lmBox(g, 15, 6, 15, 0x2f3a48, m * 150, 45, 260, true);
   cab.material = new THREE.MeshLambertMaterial({ color: 0x2f3a48 });   // own material: it flashes on a fly-by
   lmBox(g, 17, 1, 17, 0x8a93a0, m * 150, 48.5, 260, false);
@@ -626,7 +626,7 @@ function buildAirport(idx) {
   const truck = new THREE.Group();
   part(truck, new THREE.BoxGeometry(3.2, 2.6, 7), 0xffd23e, 0, 1.8, 0);
   part(truck, new THREE.BoxGeometry(3, 2.2, 2.2), 0x2f3a48, 0, 1.6, 4.3);
-  part(truck, new THREE.CylinderGeometry(1.2, 1.2, 5.5, 10), 0xeef1f4, 0, 3.6, -0.5, Math.PI / 2);
+  part(truck, new THREE.CylinderGeometry(1.2, 1.2, 5.5, 10), 0xf2f4f7, 0, 3.6, -0.5, Math.PI / 2);
   const cart = new THREE.Group();
   part(cart, new THREE.BoxGeometry(2.2, 1.8, 3), 0x36c46a, 0, 1.2, 0);
   for (const dz of [-3.6, -7]) part(cart, new THREE.BoxGeometry(2, 1.4, 2.6), 0x8a93a0, 0, 1, dz);
@@ -636,7 +636,7 @@ function buildAirport(idx) {
   // hangars with arched roofs
   for (const z of [-300, -370]) {
     lmBox(g, 56, 14, 44, 0xb0b6bf, m * 215, 7, z, true);
-    const roof = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 56, 12, 1, false, 0, Math.PI), lam(0x8f96a0));
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 56, 12, 1, false, 0, Math.PI), lam(0x8a93a0));
     roof.rotation.set(0, 0, Math.PI / 2);   // cylinder axis -> x: the arch spans the 56 m width
     roof.position.set(m * 215, 14, z);
     g.add(roof);
@@ -646,7 +646,7 @@ function buildAirport(idx) {
     rec.doors.push(door);
   }
   // fuel tanks
-  for (const z of [340, 372]) lmCyl(g, 9, 9, 12, 0xeef1f4, m * 245, 6, z, 14, true);
+  for (const z of [340, 372]) lmCyl(g, 9, 9, 12, 0xf2f4f7, m * 245, 6, z, 14, true);
   // parked airliners at the gates, nose to the terminal
   for (const [z, ci] of [[-70, 0], [0, 1], [70, 2]]) {
     const plane = makeTrafficModel(trafficPalette[ci % trafficPalette.length]);
@@ -657,7 +657,7 @@ function buildAirport(idx) {
     g.userData.pending.push({ lx: m * 160, ly0: 0, lz: z, hw: 12, hd: 12, y1: 8, mesh: plane });
   }
   // radar dish (spins) and windsock on the far side
-  lmCyl(g, 1.2, 1.6, 10, 0xe6eaf0, -m * 95, 5, -470, 8, false);
+  lmCyl(g, 1.2, 1.6, 10, 0xf2f4f7, -m * 95, 5, -470, 8, false);
   const dish = new THREE.Mesh(new THREE.BoxGeometry(12, 4, 0.8), lam(0xf2f4f7));
   dish.position.set(-m * 95, 11, -470);
   dish.rotation.x = -0.35;
@@ -712,16 +712,16 @@ function buildAirport(idx) {
     const part = (w, h, d, c, x, y, z) => { const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(c)); mm.position.set(x, y, z); sb.add(mm); return mm; };
     part(4.5, 22, 3, 0x3c4350, 0, 11, 0);
     for (let y = 3; y < 22; y += 4.5) part(5.2, 0.5, 3.6, 0x8a93a0, 0, y, 0);
-    part(1.2, 1.2, 5.5, 0xe6eaf0, 0, 8, 3.2); part(1.2, 1.2, 5.5, 0xe6eaf0, 0, 15, 3.2);   // umbilical arms toward the rocket
+    part(1.2, 1.2, 5.5, 0xf2f4f7, 0, 8, 3.2); part(1.2, 1.2, 5.5, 0xf2f4f7, 0, 15, 3.2);   // umbilical arms toward the rocket
     part(6, 0.8, 6, 0x2f3a48, 0, 0.4, -1);
     g.add(sb);
     rec.strongback = sb;
     for (const [cx, cz] of [[-42, -42], [42, -42], [-42, 42], [42, 42]]) {      // lightning towers
-      lmCyl(g, 0.9, 1.6, 40, 0xe6eaf0, px + cx, 20, pz + cz, 8, true);
+      lmCyl(g, 0.9, 1.6, 40, 0xf2f4f7, px + cx, 20, pz + cz, 8, true);
       lmBox(g, 1.6, 1.6, 1.6, 0xd71920, px + cx, 40.8, pz + cz, false);
     }
     lmCyl(g, 1.4, 1.4, 16, 0x8a93a0, px - m * 44, 8, pz - 70, 8, false);       // water tower
-    lmCyl(g, 6, 6, 9, 0xeef1f4, px - m * 44, 20.5, pz - 70, 14, true);
+    lmCyl(g, 6, 6, 9, 0xf2f4f7, px - m * 44, 20.5, pz - 70, 14, true);
     lmBox(g, 40, 13, 56, 0xd8dde4, px, 6.5, pz + 110, true);                    // integration hangar
     lmBox(g, 30, 10, 1, 0x3c4350, px, 5, pz + 81.5, false);
     lmBox(g, 8, 0.2, 60, 0x5e636b, px, 0.42, pz + 52, false);                   // road from the hangar to the pad
@@ -837,7 +837,7 @@ function updateAirports(dt) {
 // later somewhere else. Nothing is counted, nothing is lost.
 const targets = [];
 const TARGET_HIT_R = { balloon: 11, blimp: 17, ufo: 12, boat: 9, flock: 15, kite: 9, disc: 11 };
-const balloonPalette = [0xe0483e, 0xffd23e, 0x3aa0ff, 0x36c46a, 0xff7ab8, 0xff8a1f];
+const balloonPalette = [0xe0483e, 0xffd23e, 0x3aa0ff, 0x36c46a, 0xff7ab8, 0xff7a1a];
 function makeBalloon(color) {
   const g = new THREE.Group();
   const env = new THREE.Mesh(new THREE.SphereGeometry(7, 10, 8), lam(color));
@@ -898,7 +898,7 @@ function makeBoat(color) {
 // pops into a puff of paper.
 function makeFlock() {
   const g = new THREE.Group();
-  const mat = lam(0xf4f6f8), edge = lam(0xd4d9e0);
+  const mat = lam(0xf2f4f7), edge = lam(0xc9ced6);
   for (let i = 0; i < 7; i++) {
     const k = i === 0 ? 0 : Math.ceil(i / 2), side = i % 2 ? -1 : 1;
     const plane = new THREE.Group();
@@ -1038,7 +1038,7 @@ function initTargets() {
   addTarget("blimp", makeBlimp(), placeBlimp);
   addTarget("blimp", makeBlimp(), placeBlimp);
   addTarget("ufo", makeUfo(), placeUfo);
-  for (let i = 0; i < 5; i++) addTarget("boat", makeBoat([0xf2f4f7, 0xe0483e, 0x1c75bc, 0xffd23e, 0x36c46a][i]), placeBoat);
+  for (let i = 0; i < 5; i++) addTarget("boat", makeBoat([0xf2f4f7, 0xe0483e, 0x2f74b8, 0xffd23e, 0x36c46a][i]), placeBoat);
   for (let i = 0; i < 4; i++) addTarget("flock", makeFlock(), placeFlock);
   for (let i = 0; i < 5; i++) addTarget("kite", makeKite([0xe0483e, 0x3aa0ff, 0xffd23e, 0x36c46a, 0xff7ab8][i]), placeKite);
   for (let i = 0; i < 8; i++) addTarget("disc", makeDisc(), placeDisc);
@@ -1150,7 +1150,7 @@ function updateTargets(dt) {
 const TRAIN_CARS = 22;
 const trainInst = new THREE.InstancedMesh(
   new THREE.BoxGeometry(7, 9, 15),
-  new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }),
   TRAIN_CARS
 );
 for (let i = 0; i < TRAIN_CARS; i++) {

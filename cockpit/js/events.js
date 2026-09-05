@@ -65,7 +65,7 @@ const evSpeckMat = new THREE.MeshBasicMaterial({ color: 0xfff2a8 });
 // They shrink away instead of fading, so one material can serve them all.
 // 0..EV_FW0-1 are trail and burst colours; from EV_FW0 on they are firework
 // colours, saturated enough to read against a bright daytime sky.
-const EV_SPARK_MATS = [0xffd23e, 0xffffff, 0xff9a3a, 0xfff2a8, 0x9fe6ff,
+const EV_SPARK_MATS = [0xffd23e, 0xf2f4f7, 0xff9a3a, 0xfff2a8, 0x9fe6ff,
                        0xff3b6b, 0xffd23e, 0x36c46a, 0x3aa0ff, 0xff7ab8].map(c => new THREE.MeshBasicMaterial({ color: c, fog: false }));
 const EV_FW0 = 5;
 const evSparks = [];
@@ -226,14 +226,14 @@ function raceBuild() {
   if (raceModel) return raceModel;
   const g = new THREE.Group();
   buildRocketStack(g, {
-    mA: new THREE.MeshLambertMaterial({ color: 0xe8ecf2 }),
+    mA: new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }),
     mB: new THREE.MeshLambertMaterial({ color: 0x2b6cd4 }),
     glassM: new THREE.MeshLambertMaterial({ color: 0x2f3a48 }),
   });
   const p = g.userData.rocket;
   if (g.userData.plumeLight) g.remove(g.userData.plumeLight);   // one extra light would recompile every shader
   if (p.plasma) g.remove(p.plasma);
-  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.5, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }));
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.5, 6, 5), new THREE.MeshBasicMaterial({ color: 0xf2f4f7, fog: false }));
   glint.position.z = -7;
   glint.visible = false;
   g.add(glint);

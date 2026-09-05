@@ -78,6 +78,14 @@ the checklist for shipping one.
   glow in the game is an additive billboard on one shared texture (`glowSprite` for one,
   `glowField` for many at one draw call). Leave `glowField` frustum-culled — disabling culling on
   a static field draws it while he is looking the other way, for nothing.
+- `TUNE.palette` — the canonical ~21 colours. Every colour snaps to one unless it is an airliner
+  livery or a signal lamp. Add a new colour only if none of them is the right role.
+- `TUNE.water` — the sea is ONE quad with a scrolling normal map, not geometry. Its ripple
+  strength fades with altitude (`normalFade`): at full strength from a mile up the specular turns
+  the whole sea into white static. The texture is anchored in world space, or the sea slides
+  along with the aeroplane.
+- Flat shading is applied once, at the top of `scene.js`, by defaulting `flatShading: true` on the
+  two lit material constructors — don't chase it per literal.
 - `scripts/polish_check.js <tag>` — the polish rig: four vantage points in both camera views plus
   frame time, draw calls and triangles for the three heaviest scenes, with the shadow pass priced
   by an in-place A/B. It runs under swiftshader, which over-prices fill rate by a wide margin and

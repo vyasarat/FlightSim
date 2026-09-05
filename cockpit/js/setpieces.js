@@ -457,7 +457,7 @@ function towerCatchReset() {
 const FF = TUNE.firefight;
 
 // A puff pool of its own: water, steam and smoke would drain the shared one.
-const FF_MATS = [0x9fd8ff, 0xffffff, 0x6b7078, 0xffb43a].map(c => new THREE.MeshLambertMaterial({ color: c }));
+const FF_MATS = [0x9fd8ff, 0xf2f4f7, 0x6b7078, 0xffb43a].map(c => new THREE.MeshLambertMaterial({ color: c }));
 const ffPuffs = [];
 for (let i = 0; i < 96; i++) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 5), FF_MATS[0]);
@@ -500,7 +500,7 @@ function buildFireRig() {
   const g = new THREE.Group();
   const x = FF.rig.x, z = FF.rig.z;
   const w = TUNE.waterLevel, deck = w + FF.legH;
-  const steel = 0xd87a3a, dark = 0x4a4f57, pale = 0xb8bec8;
+  const steel = 0xd87a3a, dark = 0x3c4350, pale = 0xb8bec8;
   // four legs standing out of the sea, a platform, a derrick and a flare stack
   for (const [lx, lz] of [[-16, -22], [16, -22], [-16, 22], [16, 22]]) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, FF.legH + 8, 8), lam(dark));
@@ -519,7 +519,7 @@ function buildFireRig() {
     l.rotation.set(dz * 0.012, 0, -dx * 0.012);
     g.add(l);
   }
-  const tank = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 9, 12), lam(0xc9542c));
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 9, 12), lam(0xb5522e));
   tank.position.set(x - 14, deck + 6.5, z - 20); g.add(tank);
 
   // the flames: cartoon orange, flickering, and fewer as it goes out
@@ -535,7 +535,7 @@ function buildFireRig() {
     fire.flames.push({ mesh: f, baseY: f.position.y, phase: i * 1.7 });
   }
   // the smoke column: its own meshes, unfogged, so it reads from the coast
-  const smokeMat = new THREE.MeshLambertMaterial({ color: 0x4a4f57, transparent: true, opacity: 0.85, fog: false });
+  const smokeMat = new THREE.MeshLambertMaterial({ color: 0x3c4350, transparent: true, opacity: 0.85, fog: false });
   fire.smoke = [];
   for (let i = 0; i < FF.smokePuffs; i++) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(1, 7, 6), smokeMat);
@@ -733,7 +733,7 @@ function carrierLocal(x, z) { return { s: x - carrier.x, f: z - carrier.z }; }
 function buildCarrier() {
   const g = new THREE.Group();
   const x = CV.at.x, z = CV.at.z, w = TUNE.waterLevel;
-  const grey = 0x6d747d, dark = 0x3c4350, pale = 0x9aa2ad;
+  const grey = 0x6d747d, dark = 0x3c4350, pale = 0x9a9ea6;
   const deck = w + CV.deckY;
   // hull
   const hull = new THREE.Mesh(new THREE.BoxGeometry(CV.hullW, CV.deckY + 10, CV.deckL - 26), lam(dark));
@@ -754,7 +754,7 @@ function buildCarrier() {
     line.position.set(0, 0.35, -CV.deckL * 0.2 + i * 11); strip.add(line);
   }
   for (let i = 0; i < 4; i++) {   // arrestor wires
-    const wire = new THREE.Mesh(new THREE.BoxGeometry(19, 0.35, 0.35), lam(0x23282f));
+    const wire = new THREE.Mesh(new THREE.BoxGeometry(19, 0.35, 0.35), lam(0x1f2328));
     wire.position.set(0, 0.7, -CV.deckL * 0.06 + i * 9); strip.add(wire);
   }
   // the two catapults, forward, each with its own light
@@ -773,9 +773,9 @@ function buildCarrier() {
   const isl = new THREE.Mesh(new THREE.BoxGeometry(13, 22, 40), lam(pale));
   isl.position.set(x + CV.deckW / 2 - 8, deck + 11, z + 16); g.add(isl);
   addSolidBox(x + CV.deckW / 2 - 8, deck, z + 16, 6.5, 20, deck + 22, isl);
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 26, 6), lam(0xe6eaf0));
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 26, 6), lam(0xf2f4f7));
   mast.position.set(x + CV.deckW / 2 - 8, deck + 34, z + 10); g.add(mast);
-  const dish = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 3), lam(0xe6eaf0));
+  const dish = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 3), lam(0xf2f4f7));
   dish.position.set(x + CV.deckW / 2 - 8, deck + 26, z + 22); g.add(dish);
   carrier.dish = dish;
   // parked jets along the starboard edge, and a helicopter aft
@@ -791,7 +791,7 @@ function buildCarrier() {
     const h = new THREE.Group();
     const body = new THREE.Mesh(new THREE.SphereGeometry(2.4, 10, 8), lam(0x20a39e)); h.add(body);
     const boom = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 9), lam(0x20a39e)); boom.position.z = -5; h.add(boom);
-    const rotor = new THREE.Mesh(new THREE.BoxGeometry(15, 0.25, 1), lam(0x23282f)); rotor.position.y = 2.8; h.add(rotor);
+    const rotor = new THREE.Mesh(new THREE.BoxGeometry(15, 0.25, 1), lam(0x1f2328)); rotor.position.y = 2.8; h.add(rotor);
     h.position.set(x - CV.deckW / 2 + 14, deck + 3, z + CV.deckL / 2 - 40); g.add(h);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(9, 0.5, 6, 22), lam(0xffd23e));
     ring.rotation.x = -Math.PI / 2;
@@ -934,7 +934,7 @@ function updateCarrier(dt) {
   // catapult 1: lit when he is parked on it, strobing through the count
   const ready = carrier.state === "parked";
   const counting = carrier.state === "count";
-  carrier.catMat.color.setHex(counting ? (Math.floor(carrier.clock * 9) % 2 ? 0xffffff : 0x36c46a)
+  carrier.catMat.color.setHex(counting ? (Math.floor(carrier.clock * 9) % 2 ? 0xf2f4f7 : 0x36c46a)
     : ready ? 0x36c46a : 0x2a2f38);
 
   // catapult 2: the other jets go on their own, each with its own countdown light

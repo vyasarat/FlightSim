@@ -21,7 +21,7 @@ function buildVehicleModel(key) {
   const mA = new THREE.MeshLambertMaterial({ color: cA });
   const mB = new THREE.MeshLambertMaterial({ color: cB });
   const mW = new THREE.MeshLambertMaterial({ color: 0xf2f4f7 });
-  const darkM = new THREE.MeshLambertMaterial({ color: 0x23282f });
+  const darkM = new THREE.MeshLambertMaterial({ color: 0x1f2328 });
   const glassM = new THREE.MeshLambertMaterial({ color: 0xbfeaff });
   const g = new THREE.Group();
   const add = (geo, mat, x, y, z, rx, ry, rz) => {
@@ -102,7 +102,7 @@ function buildVehicleModel(key) {
     add(new THREE.BoxGeometry(3.1, 0.1, 0.9), mB, 0, 0.15, 2.6);
     const propDisc = new THREE.Mesh(
       new THREE.CircleGeometry(1.5, 14),
-      new THREE.MeshBasicMaterial({ color: 0x39404b, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+      new THREE.MeshBasicMaterial({ color: 0x3c4350, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
     );
     propDisc.position.set(0, 0, -3.05);
     g.add(propDisc);
