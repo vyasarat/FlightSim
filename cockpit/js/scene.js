@@ -1,4 +1,21 @@
 "use strict";
+
+// ---------------------------------------------------------------------------
+// Flat-with-facets, everywhere, in one place. The alternative was chasing a
+// couple of hundred material literals across fourteen files and then losing to
+// the next one somebody adds. The two lit materials default to flatShading from
+// here on; anything that genuinely wants smooth still gets it by asking.
+//
+// This must run before the first material in the game is built, which is why it
+// is the first thing in the first file that builds one.
+// ---------------------------------------------------------------------------
+for (const name of ["MeshLambertMaterial", "MeshPhongMaterial"]) {
+  const Orig = THREE[name];
+  const Wrapped = function (params) { return new Orig(Object.assign({ flatShading: true }, params || {})); };
+  Wrapped.prototype = Orig.prototype;     // three.js dispatches on .isMeshXMaterial, never instanceof
+  THREE[name] = Wrapped;
+}
+
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(TUNE.skyHorizonColor, TUNE.fogNear, TUNE.fogFar);
 
@@ -243,8 +260,8 @@ const SPACE_HOR = new THREE.Color(0x0b1024);
 // space palette for the dome and stars; rain and snow are grey and pale.
 const SKY_MOODS = [
   { top: null, hor: null, fogNear: null, fogFar: null, sun: 1, hemi: 1 },
-  { top: new THREE.Color(0x5f6c7a), hor: new THREE.Color(0x98a3ae), fogNear: 260, fogFar: 950, sun: 0.45, hemi: 0.75 },
-  { top: new THREE.Color(0xb3c1cf), hor: new THREE.Color(0xe7edf2), fogNear: 380, fogFar: 1150, sun: 0.75, hemi: 0.95 },
+  { top: new THREE.Color(0x5f6c7a), hor: new THREE.Color(0x9a9ea6), fogNear: 260, fogFar: 950, sun: 0.45, hemi: 0.75 },
+  { top: new THREE.Color(0xb3c1cf), hor: new THREE.Color(0xf2f4f7), fogNear: 380, fogFar: 1150, sun: 0.75, hemi: 0.95 },
   { top: new THREE.Color(0x070a18), hor: new THREE.Color(0x1a2240), fogNear: 700, fogFar: 2000, sun: 0.12, hemi: 0.3 },
 ];
 // Precipitation: a box of points that rides with the camera and wraps.
@@ -283,7 +300,7 @@ const starsGeo = new THREE.BufferGeometry();
   starsGeo.setAttribute("position", new THREE.BufferAttribute(pts, 3));
 }
 const starsMat = new THREE.PointsMaterial({
-  color: 0xffffff, size: 2.2, sizeAttenuation: false,
+  color: 0xf2f4f7, size: 2.2, sizeAttenuation: false,
   transparent: true, opacity: 0, fog: false
 });
 const stars = new THREE.Points(starsGeo, starsMat);
@@ -315,14 +332,14 @@ scene.add(satellite);
 
 const station = new THREE.Group();
 {
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 20, 12), metalMat(0xcfd6df, 55));
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 20, 12), metalMat(0xc9ced6, 55));
   station.add(core);
   for (const sy of [-6.5, 6.5]) {
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(30, 1.4, 5), metalMat(0x9aa2ad, 48));
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(30, 1.4, 5), metalMat(0x9a9ea6, 48));
     arm.position.y = sy;
     station.add(arm);
     for (const sx of [-10.5, 10.5]) {
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(13, 0.5, 7.5), lamSafe(0x2a4f9e));
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(13, 0.5, 7.5), lamSafe(0x2b4fb0));
       panel.position.set(sx, sy, 0);
       panel.scale.x = 0.25;   // folded until something docks
       station.add(panel);
@@ -335,7 +352,7 @@ const station = new THREE.Group();
   const port = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.5, 8, 24), portMat);
   port.rotation.x = Math.PI / 2; port.position.y = 10.4;
   station.add(port);
-  const lightMat = new THREE.MeshBasicMaterial({ color: 0x2a3140 });
+  const lightMat = new THREE.MeshBasicMaterial({ color: 0x2f3a48 });
   for (let i = 0; i < 6; i++) {
     const a = i / 6 * Math.PI * 2;
     const w = new THREE.Mesh(new THREE.BoxGeometry(1.2, 6, 0.3), lightMat);
@@ -351,12 +368,91 @@ function lamSafe(color) {
   return new THREE.MeshLambertMaterial({ color });
 }
 
+// ---------------------------------------------------------------------------
+// The sea. A flat blue plane is the single loudest "this is a toy" signal in
+// the game, and the carrier and the burning rig both sit on it.
+//
+// It stays ONE quad. Rippling real vertices over 8000 units would need a mesh
+// dense enough to cost more than everything else in this pass put together, so
+// the ripple lives in a tiling normal map that scrolls -- two layers at
+// different speeds and scales so it never reads as one sliding sheet. That
+// buys a real specular sun path off the actual sun direction for the price of
+// a texture lookup.
+// ---------------------------------------------------------------------------
+const waterNormalTex = (() => {
+  const N = 128;
+  const c = document.createElement("canvas");
+  c.width = c.height = N;
+  const cx = c.getContext("2d");
+  const img = cx.createImageData(N, N);
+  // A tileable height field of crossed swells, differenced into a normal map.
+  // The frequencies have to be whole numbers for the tile to wrap, but three of
+  // them in a row reads as a grid from the air -- so this is six waves running
+  // at unrelated angles with unrelated phases, which is enough to stop the eye
+  // finding the repeat at any altitude he actually flies at.
+  const WAVES = [
+    [2, 1, 0.55, 0.0], [1, 3, 0.40, 1.7], [3, 2, 0.30, 3.1],
+    [5, 1, 0.18, 5.2], [1, 5, 0.15, 2.4], [4, 4, 0.12, 0.8],
+  ];
+  const h = (x, y) => {
+    const u = x / N * Math.PI * 2, v = y / N * Math.PI * 2;
+    let a = 0;
+    for (const [fx, fy, amp, ph] of WAVES) a += Math.sin(u * fx + v * fy + ph) * amp;
+    return a;
+  };
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const dx = h((x + 1) % N, y) - h((x - 1 + N) % N, y);
+      const dy = h(x, (y + 1) % N) - h(x, (y - 1 + N) % N);
+      const s = TUNE.water.bump;
+      let nx = -dx * s, ny = -dy * s, nz = 1;
+      const len = Math.hypot(nx, ny, nz);
+      const i = (y * N + x) * 4;
+      img.data[i] = (nx / len * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny / len * 0.5 + 0.5) * 255;
+      img.data[i + 2] = (nz / len * 0.5 + 0.5) * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  cx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(TUNE.water.repeat, TUNE.water.repeat);
+  // without anisotropy the sea crawls with moire wherever it meets the horizon
+  t.anisotropy = Math.min(TUNE.water.anisotropy, renderer.capabilities.getMaxAnisotropy());
+  return t;
+})();
+
 // Water wins ties against shallow shore terrain instead of flickering.
-const waterMat = new THREE.MeshLambertMaterial({ color: 0x3f7fbf, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+const waterMat = new THREE.MeshPhongMaterial({
+  color: TUNE.water.color,
+  specular: TUNE.water.specular,
+  shininess: TUNE.water.shininess,
+  normalMap: waterNormalTex,
+  polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+});
+waterMat.normalScale.set(TUNE.water.normalScale, TUNE.water.normalScale);
 const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), waterMat);
 waterMesh.rotation.x = -Math.PI / 2;
 waterMesh.position.y = TUNE.waterLevel;
 scene.add(waterMesh);
+
+// The second layer: the same map at a different scale and speed, so the surface
+// never reads as one sheet sliding past. Driven in updateWater below.
+let waterClock = 0;
+function updateWater(dt) {
+  if (!waterMesh.visible) return;
+  waterClock += dt;
+  const W = TUNE.water;
+  waterNormalTex.offset.set((waterClock * W.driftX) % 1, (waterClock * W.driftY) % 1);
+  // The plane follows him, so the texture has to be anchored in the WORLD or the
+  // whole sea slides along with the aeroplane and the illusion dies instantly.
+  waterNormalTex.offset.x += (waterMesh.position.x / W.tileWorld) % 1;
+  waterNormalTex.offset.y -= (waterMesh.position.z / W.tileWorld) % 1;
+  const agl = Math.abs(camera.position.y - TUNE.waterLevel);
+  const fade = 1 - smoothstep(W.normalFade[0], W.normalFade[1], agl);
+  waterMat.normalScale.set(W.normalScale * fade, W.normalScale * fade);
+}
 
 {
   const asphaltMat = mattMat(TUNE.runwaySurfaceColor);
@@ -392,6 +488,24 @@ scene.add(waterMesh);
       }
     }
     scene.add(stripes);
+
+    // Edge lines down both sides. Real runways have them and they make the strip
+    // read as a strip from the air; numerals and letters are of course out.
+    for (const sx of [-1, 1]) {
+      const edge = new THREE.Mesh(
+        new THREE.BoxGeometry(1.4, 0.08, TUNE.runwayLength - 40),
+        paintMat
+      );
+      edge.position.set(sx * (TUNE.runwayWidth / 2 - 2.2), ap.elev + 0.42, ap.cz);
+      scene.add(edge);
+    }
+    // a centre line the full length, between the existing dashes
+    const centre = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.08, TUNE.runwayLength - 120),
+      new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor, transparent: true, opacity: 0.35 })
+    );
+    centre.position.set(0, ap.elev + 0.41, ap.cz);
+    scene.add(centre);
   }
 }
 
@@ -399,12 +513,13 @@ const cLow = new THREE.Color(TUNE.colorLow);
 const cMid = new THREE.Color(TUNE.colorMid);
 const cHigh = new THREE.Color(TUNE.colorHigh);
 const cSand = new THREE.Color(TUNE.sandColor);
-const cSnow = new THREE.Color(0xf4f8fb);
+const cSnow = new THREE.Color(0xf2f4f7);
 const cRock = new THREE.Color(0xb5522e);
+const cFoam = new THREE.Color(TUNE.water.foamColor);
 const cFarmA = new THREE.Color(0x9ec46a);
-const cFarmB = new THREE.Color(0xc9b978);
+const cFarmB = new THREE.Color(0xd9c27e);
 const cPlains = new THREE.Color(0xc4b478);
-const cDesert = new THREE.Color(0xe0c48f);
+const cDesert = new THREE.Color(0xd9c27e);
 const tmpColor = new THREE.Color();
 
 // Per-fragment, and deliberately matt: the ground never glints. Phong here is
@@ -458,6 +573,10 @@ function buildChunk(cx, cz) {
     if (pm > 0 && hy > TUNE.waterLevel + 2) tmpColor.lerp(cPlains, pm * 0.55);
     const dm = desertMask(wz);
     if (dm > 0) tmpColor.lerp(cDesert, dm * 0.8);
+    // foam: a bright line exactly where the sea meets the land, which is what
+    // makes a coast read as a coast rather than as two colours meeting
+    const foam = 1 - Math.min(1, Math.abs(hy - TUNE.waterLevel) / TUNE.water.foamBand);
+    if (foam > 0) tmpColor.lerp(cFoam, foam * foam * 0.75);
     for (let v = 0; v < 3; v++) {
       colors[(f + v) * 3] = tmpColor.r * j;
       colors[(f + v) * 3 + 1] = tmpColor.g * j;

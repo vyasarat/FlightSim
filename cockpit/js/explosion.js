@@ -4,15 +4,15 @@ const debrisMesh = new THREE.InstancedMesh(
   new THREE.MeshBasicMaterial({}),
   TUNE.debrisCount
 );
-debrisMesh.setColorAt(0, tmpColor.setHex(0xffffff));
+debrisMesh.setColorAt(0, tmpColor.setHex(0xffffff));   // a multiplier, not a paint: it stays 1.0
 debrisMesh.visible = false;
 debrisMesh.frustumCulled = false;
 scene.add(debrisMesh);
 
 const parts = [];
-const FIRE_COLS = [0xff9a2a, 0xffd23e, 0xff6a1a];
+const FIRE_COLS = [0xff9a2a, 0xffd23e, 0xff7a1a];
 const SMOKE_COL = 0x565b63;
-const METAL_COL = 0x3a3f46;
+const METAL_COL = 0x2f3a48;
 for (let i = 0; i < TUNE.debrisCount; i++) {
   parts.push({ alive: false, kind: i % 3, life: 0, maxLife: 1, size: 1,
     px: 0, py: 0, pz: 0, vx: 0, vy: 0, vz: 0,

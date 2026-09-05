@@ -294,7 +294,7 @@ function updateSky(dt) {
   const pAmt = Math.max(state.rainF, state.snowF);
   precipMat.opacity = pAmt * (state.snowF > state.rainF ? 0.95 : 0.55);
   precipMat.size = state.snowF > state.rainF ? 1.3 : 0.55;
-  precipMat.color.setHex(state.snowF > state.rainF ? 0xffffff : 0xcfe0ee);
+  precipMat.color.setHex(state.snowF > state.rainF ? 0xf2f4f7 : 0xcfe0ee);
   precip.visible = pAmt > 0.02 && state.spaceF < 0.5;   // no rain in orbit
   if (precip.visible) {
     precip.position.copy(camera.position);
@@ -667,6 +667,7 @@ function update(dt) {
     station.rotation.y += dt * 0.16;
   }
   waterMesh.visible = sf < 0.9;
+  updateWater(dt);
 
   updateChunks(state.x, state.z);
   updateScenery(state.x, state.z, false);
