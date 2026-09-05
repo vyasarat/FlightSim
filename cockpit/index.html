@@ -248,6 +248,18 @@
     0%, 100% { opacity: .7; transform: scale(1); }
     50% { opacity: .9; transform: scale(1.05); }
   }
+  #heliUpBtn.hidden, #heliDownBtn.hidden, #heliHoverBtn.hidden { display: none; }
+  #heliUpBtn, #heliDownBtn, #heliHoverBtn { z-index: 10; color: #f2f4f7; }
+  #heliUpBtn, #heliDownBtn { right: calc(var(--edge) + env(safe-area-inset-right)); width: var(--thr); height: var(--thr); border-color: #5ff1ff; background: rgba(12, 43, 59, .9); }
+  #heliDownBtn { bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
+  #heliUpBtn { bottom: calc(var(--stack-bottom) + var(--thr) + 12px + env(safe-area-inset-bottom)); }
+  #heliHoverBtn { right: calc(var(--edge) + var(--thr) + 12px + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
+  #heliUpBtn.pressed, #heliDownBtn.pressed, #heliHoverBtn.holding { background: #247b83; box-shadow: 0 0 18px #5ff1ff88; }
+  #heliTarget { position: fixed; width: 38px; height: 38px; transform: translate(-50%, -50%); pointer-events: none; z-index: 7; color: #5ff1ff; filter: drop-shadow(0 2px 3px #10202b); }
+  #heliTarget .bearing { display: none; transform-origin: 24px 24px; transform: rotate(var(--bearing)); }
+  #heliTarget.offscreen .bearing { display: block; }
+  #heliTarget.offscreen .destination { display: none; }
+  #heliTarget.hidden { display: none; }
   #throttleBtn {
     position: fixed;
     right: calc(var(--edge) + 4px + env(safe-area-inset-right));
@@ -534,6 +546,10 @@
   }
   #catBtn.hidden { display: none; }
   /* the water bucket: the helicopter has no gear, so that row is free for it */
+  #magnetBtn, #washBtn { left: calc(var(--edge) + env(safe-area-inset-left)); z-index: 10; border-color: #ffd23e; }
+  #magnetBtn { bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
+  #washBtn { bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom)); border-color: #5ff1ff; }
+  #magnetBtn.hidden, #washBtn.hidden { display: none; }
   #bucketBtn {
     bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
     left: calc(var(--edge) + env(safe-area-inset-left));
@@ -789,6 +805,8 @@
     <path d="M20 52 h-12 M16 44 l-8 8 l8 8" fill="none" stroke="#ffd23e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" transform="translate(96,0) scale(-1,1)"/>
   </svg>
 </button>
+<button id="magnetBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M25 12v24q25 30 50 0V12" fill="none" stroke="#e0483e" stroke-width="15"/><path d="M25 12v10M75 12v10" stroke="#f2f4f7" stroke-width="15"/><path d="M50 53v24m-10-10 10 10 10-10" fill="none" stroke="#ffd23e" stroke-width="6"/><rect x="30" y="82" width="40" height="13" rx="3" fill="#5ff1ff"/></svg></button>
+<button id="washBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M16 80V32h68v48" fill="none" stroke="#5ff1ff" stroke-width="10"/><path d="M50 38v38M28 59h44M40 76h20" fill="none" stroke="#f2f4f7" stroke-width="8" stroke-linecap="round"/><circle cx="26" cy="17" r="7" fill="#f2f4f7"/><circle cx="48" cy="12" r="9" fill="#5ff1ff"/><circle cx="72" cy="17" r="6" fill="#f2f4f7"/></svg></button>
 <button id="bucketBtn" class="roundBtn hidden" aria-hidden="true" data-mode="scoop">
   <svg class="scoop" viewBox="0 0 100 100">
     <path d="M30 44 h40 l-5 30 h-30 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3"/>
@@ -857,6 +875,10 @@
     <path d="M50 6 L90 74 L64 62 L58 93 L42 93 L36 62 L10 74 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
   </svg>
 </div>
+<div id="heliTarget" class="hidden" aria-hidden="true"><svg viewBox="0 0 48 48"><g class="destination" fill="none" stroke="currentColor" stroke-width="3"><circle cx="24" cy="24" r="15"/><circle cx="24" cy="24" r="4"/><path d="M24 2v9M24 37v9M2 24h9M37 24h9"/></g><path class="bearing" d="M24 5 39 30 24 24 9 30Z" fill="currentColor"/></svg></div>
+<button id="heliUpBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 35V10M12 22l12-12 12 12M10 40h28"/></svg></button>
+<button id="heliDownBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 9v25M12 23l12 12 12-12M10 41h28"/></svg></button>
+<button id="heliHoverBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4"><circle cx="24" cy="24" r="18"/><path d="M19 16v16M29 16v16"/></svg></button>
 <button id="throttleBtn" aria-hidden="true">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <path d="M50 10 L80 56 L60 56 L60 90 L40 90 L40 56 L20 56 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3" stroke-linejoin="round"/>
@@ -1032,6 +1054,7 @@
 <script src="js/events.js"></script>
 <script src="js/setpieces.js"></script>
 <script src="js/marsbase.js"></script>
+<script src="js/toyworld.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

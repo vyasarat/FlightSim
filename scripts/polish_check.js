@@ -23,7 +23,7 @@
 // with shadow-map passes counted explicitly (renderer.info.render.calls
 // includes every shadow pass, which is exactly what we want to see).
 // ---------------------------------------------------------------------------
-const { chromium } = require("playwright-core");
+
 const http = require("http"), fs = require("fs"), path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -34,18 +34,34 @@ const W = 1180, H = 760;
 
 const MIME = { ".js": "application/javascript", ".html": "text/html", ".json": "application/json", ".css": "text/css", ".png": "image/png" };
 
-function serve() {
-  return http.createServer((req, res) => {
-    let p = decodeURIComponent(req.url.split("?")[0]);
+function serve(root = ROOT, port = PORT) {
+  const realRoot = fs.realpathSync(root);
+  const contained = f => {
+    const rel = path.relative(realRoot, f);
+    return rel !== ".." && !rel.startsWith(".." + path.sep) && !path.isAbsolute(rel);
+  };
+  return http.createServer(async (req, res) => {
+    const end = code => { res.writeHead(code); res.end(); };
+    let p;
+    try {
+      // Decode before resolving; URL normalization must not erase traversal.
+      if (!req.url.startsWith("/")) return end(400);
+      p = decodeURIComponent(req.url.split("?")[0]);
+      if (p.includes("\0") || p.includes("\\")) return end(400);
+    } catch (_) { return end(400); }
     if (p.endsWith("/")) p += "index.html";
-    const f = path.join(ROOT, p);
-    fs.readFile(f, (e, d) => {
-      if (e) { res.writeHead(404); res.end(); return; }
-      res.writeHead(200, { "Content-Type": MIME[path.extname(f)] || "text/plain" });
-      res.end(d);
-    });
-  }).listen(PORT);
+    const f = path.resolve(realRoot, "." + p);
+    if (!contained(f)) return end(403);
+    try {
+      const realFile = await fs.promises.realpath(f);
+      if (!contained(realFile)) return end(403);
+      const data = await fs.promises.readFile(realFile);
+      res.writeHead(200, { "Content-Type": MIME[path.extname(realFile)] || "text/plain" });
+      res.end(data);
+    } catch (_) { end(404); }
+  }).listen(port, "127.0.0.1");
 }
+module.exports = { serve };
 
 // ---- the four vantage points, as page-side setup functions -----------------
 // Each returns nothing; the rig then settles the camera and shoots.
@@ -135,7 +151,8 @@ const HEAVY = {
   },
 };
 
-(async () => {
+if (require.main === module) (async () => {
+  const { chromium } = require("playwright-core");
   fs.mkdirSync(OUT, { recursive: true });
   const srv = serve();
   let browserRef = null;

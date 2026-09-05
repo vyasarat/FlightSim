@@ -52,6 +52,7 @@ const safePos = { x: 0, y: 0, z: 0 };
 
 function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
+  if (typeof heliReset === "function") heliReset();
   state.vehicleKey = key;
   state.vp = TUNE.vehicles[key];
   if (typeof rocketNodes !== "undefined" && rocketNodes) setRocketEngine(0, 0);   // silence the roar, but don't build the graph for a plane
@@ -133,6 +134,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   if (typeof towerCatchReset === "function") towerCatchReset();
   if (typeof carrierReset === "function") carrierReset();
   if (typeof heliReset === "function") heliReset();
+  if (state.vp.heli && typeof twFacePlayground === "function") twFacePlayground();
   flags.repositioned++;
 }
 
