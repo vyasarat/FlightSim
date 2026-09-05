@@ -49,6 +49,7 @@ the ship checklist; this file describes the game.
 | Destination cards (rocket, after the direction card) | Moon / Mars / Station: where the landing button aims in space. Always all three |
 | Hatch button (rocket, same slot, cyan; docked at the station) | Floats the astronaut into the station; tap again and he flies himself back to the seat |
 | Rover button (rocket, same slot, yellow; on the Moon / Mars) | Rolls the rover out; tap again and it drives itself back in. Throttle drives, stick steers |
+| Drone button (rocket, gear row, gold; driven up to the Mars helicopter) | Flies the little Mars helicopter with the same **point-to-go** as the big one. In the air the icon flips to the rover: it is always the way back down |
 | Runway button, top-left (airborne, off-approach) | **Landing button.** Planes: skip to final, aligned on the glide slope `skipOutDistance` out, gear down, speed step 1, 20-80 s to touchdown depending on the plane. Rocket, in space: **the go button** -- jump to a slow descent `skipOut` (220 m) above the chosen destination (its icon is on the button); once he is heading home, the runway icon: **deorbit** as the capsule (plasma and parachutes down to a new spot around home), or a thruster descent to the pad for a full stack. Lower down: 200 m above the home pad; the landing assist does the rest |
 | Camera button, left column | Photo: white flash, shutter click, the shot appears in a polaroid frame for a few seconds |
 | Plane button, top-left (parked at home, stopped) | Reopens the vehicle picker. It shares the top-left slot with the go button, so it stays away while he is docked, on a spacewalk or out in the rover -- there, that corner means "take me back" |
@@ -438,6 +439,27 @@ running -- the HUD gains nothing permanent.
   home he simply **drives back onto the lit pad**: the rover parks itself, the pad counts him
   down, and his rocket lifts off (the pad keeps his throttle in for `boost` seconds, or Mars just
   pulls him straight back down). The Moon is left exactly as it was.
+
+  And out there, three things to *do* -- all Mars-only, all of them free to redo for ever:
+
+  - **Dune jumps** (`TUNE.marsBase.jumps`). Four sculpted ramps out on the dunes past the base,
+    each marked by a big amber ring standing over its lip, tipped back along the slope -- the
+    pad's own language, so they read as "come through here" from a long way off. Drive up one
+    with any speed on and it throws the rover into the air, tumbling, for about four seconds of
+    Mars hang time; where he points the nose is the whole skill. It comes down in a burst of
+    rust dust, and if it came down well off level it rolls right over -- and picks itself up in
+    about a second. Nothing is lost, nothing is scored, and the next ramp is right there.
+  - **The boulder field** (`TUNE.marsBase.boulders`). Loose rock scattered in among the domes,
+    plus three stacked cairns. Shove one and it rolls off along the ground, knocks the next one
+    on, and brings a cairn down in a heap. Hot Wheels physics: cheap, satisfying, and the whole
+    field stands itself back up the moment he drives away and comes back.
+  - **The Mars helicopter** (`TUNE.marsBase.drone`). A little Ingenuity-style drone parked beside
+    the garage. Drive up to it and one gold button comes up; tap it and he is flying it -- with
+    exactly the **point-to-go** control the big helicopter has, so there is nothing at all to
+    relearn. Touch a dome, the cargo Starship, a dune ridge, and it turns and goes there and
+    hovers over it. **Touch the rover** and it comes home, settles beside it, and he is driving
+    again. The button is the same way down from anywhere, so he can never be stuck up there.
+    No missiles, no job, no way to fail. The rover simply waits where he left it.
 - **Booster tower-catch** (Starship). The tower and its arms already existed; this is the theatre
   around them. As the booster comes down the arms swing **wide**, the catch zone lights up, its
   engines burn under it and big numerals count 5-4-3-2-1 off its closing rate. Inside `catchR`
@@ -520,7 +542,8 @@ cockpit/
     events.js         space events: the per-launch draw and all six of them
     setpieces.js      set-pieces: the demolition block, the tower-catch theatre,
                       the burning rig and its bucket, the aircraft carrier
-    marsbase.js       the Mars base, its cargo Starship and the pad that flies him home
+    marsbase.js       the Mars base, its cargo Starship, the pad that flies him home,
+                      and the things to do out there: dune jumps, the boulder field, the drone
     main.js           HUD update, test surface (window.__lp), frame loop
   three.min.js        vendored r128 UMD build -- no CDN, offline-first
   manifest.json       display:fullscreen, orientation:landscape
