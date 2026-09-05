@@ -487,7 +487,7 @@ function ffPuffsClear() { for (const p of ffPuffs) { p.life = 0; p.mesh.visible 
 
 const fire = {
   g: null, x: 0, z: 0, deck: 0,
-  flames: [], flameMat: null, glow: null,
+  flames: [], flameMat: null, glow: null, radar: null,
   smoke: [], smokeT: 0,
   level: 1,            // 1 burning, 0 out -- derived from `dropped`, never accumulated
   dropped: 0,          // how many sheets have landed on it (three puts it out)
@@ -544,6 +544,14 @@ function buildFireRig() {
   }
   scene.add(g);
   castsShadow(g);
+  // a radar that turns, so the rig is never quite still even before he arrives
+  {
+    const rmast = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 9, 6), new THREE.MeshLambertMaterial({ color: TUNE.palette.steel }));
+    rmast.position.set(10, deck + 4.5, -10); g.add(rmast);
+    const rdish = new THREE.Mesh(new THREE.BoxGeometry(7, 1, 2), new THREE.MeshLambertMaterial({ color: TUNE.palette.white }));
+    rdish.position.set(10, deck + 9.5, -10); g.add(rdish);
+    fire.radar = rdish;
+  }
   // one big additive glow over the whole blaze: it is what makes it read as fire
   // from a mile out rather than as orange cones
   const fglow = glowSprite(TUNE.sky.fireGlowColor, TUNE.sky.fireGlowSize, 0);
@@ -633,6 +641,7 @@ function updateFirefight(dt) {
   if (!fire.g) return;
   ffPuffsUpdate(dt);
   fire.clock += dt;
+  if (fire.radar) fire.radar.rotation.y += dt * TUNE.ambient.radarRpm * 0.105;
 
   // ---- the fire itself: flames flicker, and there are fewer of them as it goes out
   const lit = fire.level > 0;
@@ -778,6 +787,13 @@ function buildCarrier() {
   const dish = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 3), lam(0xf2f4f7));
   dish.position.set(x + CV.deckW / 2 - 8, deck + 26, z + 22); g.add(dish);
   carrier.dish = dish;
+  // a flag at the masthead: the one place on the ship where the wind is visible
+  {
+    const fl = registerFlag(makeFlag(11, 6.5, TUNE.palette.red));
+    fl.position.set(x + CV.deckW / 2 - 8 + 5.6, deck + 44, z + 10);
+    g.add(fl);
+    carrier.flag = fl;
+  }
   // parked jets along the starboard edge, and a helicopter aft
   for (let i = 0; i < CV.jets; i++) {
     const j = new THREE.Group();
