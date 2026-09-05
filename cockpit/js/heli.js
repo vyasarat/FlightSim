@@ -1,47 +1,29 @@
 "use strict";
-// ---------------------------------------------------------------------------
-// The helicopter: point-to-go.
-//
-// A stick cannot say "up, and forward, and round" at once to a four-year-old.
-// So there is no stick here. He puts a finger on a place -- the sea, the fire,
-// the deck, a hillside -- and the helicopter turns toward it and flies there,
-// slowing as it arrives and settling into a hover above it. A finger on the sky
-// means "that way, and up". A finger at the edge of the screen spins it round.
-// Taking the finger off always means stop.
-//
-//   finger on a place    turn to it, fly there, hover over it at hoverAgl
-//   finger on a place    ... or, if that place is right underneath, land on it
-//   finger on the sky    go that way and climb (higher on screen = faster)
-//   finger at the edge   keep turning that way
-//   finger off           stop, level, hold height, in about a second
-//
-// One finger, always: there is no throttle and nothing else to hold.
-// ---------------------------------------------------------------------------
+// Tap a destination, then adjust height with the up/down buttons. The destination
+// stays in world space while the camera moves and while the same finger changes
+// altitude. Hover cancels travel; releasing an altitude button holds that height.
 
 const H = TUNE.heli;
 const heli = {
   vy: 0, turn: 0, speed: 0,
-  braking: false, target: null, targetDist: 0, sky: false, heading: false,
-  stallT: 0, forced: false,
+  braking: false, target: null, targetDist: 0, sky: false,
+  altitude: null, vertical: 0, wasTouching: false, lastNX: null, lastNY: null,
 };
 
 function heliActive() { return !!(state.vp && state.vp.heli); }
 function heliReset() {
   heli.vy = 0; heli.turn = 0; heli.speed = 0;
   heli.braking = false; heli.target = null; heli.targetDist = 0; heli.sky = false;
-  heli.stallT = 0; heli.forced = false;
+  heli.altitude = null; heli.vertical = 0; heli.wasTouching = false;
+  heli.lastNX = heli.lastNY = null;
+  if (typeof releaseHeliAltitude === "function") releaseHeliAltitude();
 }
 
-// The places he has a job to do, and only those: the fire, whatever he carries,
-// and the water he would actually scoop from. Open sea elsewhere is just sea.
+// Use the gentler firefighting deceleration near the rig. Water and the edge
+// of this area are never destinations themselves: keep flying to his tap.
 function heliJobNear() {
   if (typeof fire === "undefined" || !fire.g) return false;
-  const d = Math.hypot(state.x - fire.x, state.z - fire.z);
-  if (d < H.jobRadius) return true;
-  if (typeof bucket !== "undefined" && bucket.state !== "empty") return false;
-  if (d > TUNE.firefight.scoopRadius) return false;
-  const g = terrainEff(state.x, state.z);
-  return g < TUNE.waterLevel - 1 && (state.y - TUNE.waterLevel) < TUNE.firefight.scoopAlt;
+  return Math.hypot(state.x - fire.x, state.z - fire.z) < H.jobRadius;
 }
 
 // ---- what is under his finger
@@ -95,6 +77,10 @@ function heliPick(nx, ny) {
   if (typeof fire !== "undefined" && fire.g) heliPickList.push(fire.g);
   if (typeof carrier !== "undefined" && carrier.g) heliPickList.push(carrier.g);
   if (typeof demo !== "undefined" && demo.g && demo.g.visible) heliPickList.push(demo.g);
+  if (typeof toyWorld !== "undefined") {
+    for (const yard of toyWorld.yards) if (yard.g.visible) heliPickList.push(yard.g);
+    for (const o of toyWorld.objects) if (o.g.visible && o !== toyWorld.held) heliPickList.push(o.g);
+  }
   if (heliPickList.length) {
     const hits = heliRay.intersectObjects(heliPickList, true);
     if (hits.length) best = { point: hits[0].point, dist: hits[0].distance };
@@ -104,9 +90,46 @@ function heliPick(nx, ny) {
   return best;
 }
 
+function heliHover() {
+  heli.target = null; heli.sky = false;
+  heli.altitude = state.y; heli.vy = 0;
+}
+function heliAim(nx, ny) {
+  const hit = heliPick(nx, ny);
+  heli.sky = !hit;
+  if (hit) heli.target = { x: hit.point.x, y: hit.point.y, z: hit.point.z };
+  else {
+    const d = heliRay.ray.direction, len = Math.hypot(d.x, d.z);
+    if (len < 1e-4) return;
+    heli.target = { x: state.x + d.x / len * H.headingRange, y: state.y, z: state.z + d.z / len * H.headingRange };
+  }
+}
+const heliMarkerPoint = new THREE.Vector3();
+function updateHeliControls() {
+  if (heliActive() && state.exploding) heliReset();
+  const visible = heliActive() && !menuOpen() && !state.exploding;
+  for (const id of ["heliUpBtn", "heliDownBtn", "heliHoverBtn"]) el[id].classList.toggle("hidden", !visible);
+  el.heliUpBtn.classList.toggle("pressed", visible && heli.vertical > 0);
+  el.heliDownBtn.classList.toggle("pressed", visible && heli.vertical < 0);
+  el.heliHoverBtn.classList.toggle("holding", visible && !heli.target);
+  el.heliTarget.classList.toggle("hidden", !visible || !heli.target);
+  if (!visible || !heli.target) return;
+  // A ring marks the destination at our held flight height. At screen edges an
+  // arrow keeps the bearing readable even while the helicopter turns around.
+  camera.updateMatrixWorld();
+  heliMarkerPoint.set(heli.target.x, state.y, heli.target.z).project(camera);
+  let x = heliMarkerPoint.x, y = heliMarkerPoint.y;
+  if (heliMarkerPoint.z > 1) { x = -x; y = -y; }
+  const off = heliMarkerPoint.z > 1 || Math.abs(x) > .78 || Math.abs(y) > .65;
+  el.heliTarget.classList.toggle("offscreen", off);
+  el.heliTarget.style.left = ((clamp(x, -.78, .78) + 1) * 50) + "%";
+  el.heliTarget.style.top = ((1 - clamp(y, -.65, .65)) * 50) + "%";
+  el.heliTarget.style.setProperty("--bearing", Math.atan2(x, y) + "rad");
+}
+
 function updateHelicopter(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
-  // one finger, always: there is nothing else to hold
+  // The altitude buttons replace the throttle and speed controls.
   el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
   el.slowBtn.classList.add("hidden");
@@ -121,68 +144,50 @@ function updateHelicopter(dt) {
   const nx = touching ? (state.touchIsPoint ? state.touchNX : clamp(state.ctrlBank, -1, 1)) : 0;
   const ny = touching ? (state.touchIsPoint ? state.touchNY : clamp(state.ctrlPitch, -1, 1)) : 0;
 
-  let wantYaw = null, wantSpeed = 0, wantVy = 0, edgeYaw = 0;
-  heli.target = null; heli.sky = false; heli.heading = false;
-
-  if (touching) {
-    if (nx < -1 + H.edgeYawBand) edgeYaw = -1;
-    else if (nx > 1 - H.edgeYawBand) edgeYaw = 1;
-    const hit = heliPick(nx, ny);
-    if (hit) {
-      heli.target = { x: hit.point.x, y: hit.point.y, z: hit.point.z };
-      const dx = hit.point.x - state.x, dz = hit.point.z - state.z;
-      const dist = Math.hypot(dx, dz);
-      heli.targetDist = dist;
-      if (dist > 1) wantYaw = Math.atan2(-dx, -dz);
-      // Hover over a place; settle onto one he has essentially arrived at. The
-      // threshold grows with height, because from the cockpit he can only touch
-      // what is ahead of him -- so holding a finger on the ground always walks
-      // him down to it, a step at a time, instead of stalling in a hover.
-      const agl = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
-      const aimY = dist < H.landRadius + agl * 0.9 ? hit.point.y : hit.point.y + H.hoverAgl;
-      wantVy = clamp((aimY - state.y) * H.vGain, -H.maxSink, H.climb);
+  if (heli.altitude === null) heli.altitude = state.y;
+  // Only a new touch or drag changes the destination, never camera motion alone.
+  if (touching && (!heli.wasTouching || nx !== heli.lastNX || ny !== heli.lastNY)) heliAim(nx, ny);
+  heli.wasTouching = touching; heli.lastNX = nx; heli.lastNY = ny;
+  if (heli.vertical) heli.altitude = clamp(state.y + heli.vertical * H.altitudeLead, rest - 1, TUNE.otherVehicleCeiling);
+  let wantYaw = null, wantSpeed = 0;
+  const wantVy = clamp((heli.altitude - state.y) * H.vGain, -H.maxSink, H.climb);
+  if (heli.target) {
+    const dx = heli.target.x - state.x, dz = heli.target.z - state.z;
+    const dist = Math.hypot(dx, dz);
+    heli.targetDist = dist;
+    if (dist < H.arriveDist) { heli.target = null; heli.sky = false; }
+    else {
+      wantYaw = Math.atan2(-dx, -dz);
       wantSpeed = Math.min(H.cruise, dist * H.approach);
-    } else {
-      // the sky: go that way, and up. Higher on the screen climbs harder.
-      heli.sky = true;
-      const d = heliRay.ray.direction;
-      if (Math.abs(d.x) + Math.abs(d.z) > 1e-4) wantYaw = Math.atan2(-d.x, -d.z);
-      wantSpeed = H.cruise;
-      wantVy = H.climb * clamp(ny, 0.15, 1);
     }
   }
 
-  // ---- yaw: ease onto the bearing, plus whatever the screen edge is asking for
+  // ---- yaw: turn onto the fixed bearing before accelerating
   const yawErr = wantYaw === null ? 0 : wrapPi(wantYaw - state.heading);
-  let cmd = clamp(-yawErr / DEG * H.yawGain, -H.turnRate, H.turnRate);
-  cmd = clamp(cmd + edgeYaw * H.edgeYawRate, -H.turnRate * 1.6, H.turnRate * 1.6);
-  if (!touching) cmd = 0;
+  const cmd = clamp(-yawErr / DEG * H.yawGain, -H.turnRate, H.turnRate);
+
   heli.turn += (cmd - heli.turn) * Math.min(1, H.turnAccel * dt);
   if (Math.abs(heli.turn) < 0.05) heli.turn = 0;
   state.heading -= heli.turn * DEG * dt;
   state.bank += ((heli.turn / H.turnRate) * H.bankDeg - state.bank) * Math.min(1, H.levelRate * dt);
 
-  // ---- forward: it turns first and then goes, and stops itself at a job
+  // ---- forward: turn first, then ease into the selected destination
   heli.braking = !grounded && heliJobNear();
-  // Never stuck: a finger held on somewhere he is plainly not reaching means go.
-  // Whatever the reason -- a rise in the way, a target that keeps resolving short --
-  // holding on for stallTime makes it simply fly at the bearing at cruise.
-  const goingSomewhere = touching && !grounded && !heli.braking && heli.targetDist > H.arriveDist * 2;
-  if (goingSomewhere && heli.speed < H.stallSpeed) heli.stallT += dt;
-  else heli.stallT = 0;
-  heli.forced = goingSomewhere && heli.stallT > H.stallTime;
-  if (heli.forced) wantSpeed = H.cruise;
-
-  if (heli.braking || grounded) wantSpeed = 0;
-  else if (wantYaw !== null) wantSpeed *= Math.max(0, Math.cos(yawErr));
+  // Keep the destination through the shoreline and the fire's assist boundary.
+  // Clearing it here stranded him short of the rig and cancelled every retry.
+  heli.braking = heli.braking && !!heli.target &&
+    Math.hypot(heli.target.x - fire.x, heli.target.z - fire.z) < H.jobRadius;
+  if (heli.vertical < 0) wantSpeed *= clamp((state.y - rest) / H.landingBrakeH, 0, 1);
+  if (grounded) wantSpeed = 0;
+  else if (wantYaw !== null) wantSpeed *= Math.pow(Math.max(0, Math.cos(yawErr)), 2);
   const k = wantSpeed > heli.speed ? H.accel : (heli.braking ? H.jobBrake : H.hoverDamp);
   heli.speed += (wantSpeed - heli.speed) * Math.min(1, k * dt);
   if (heli.speed < H.stopBelow) heli.speed = 0;
   state.speed = heli.speed;
   state.pitch += (-(heli.speed / H.cruise) * H.noseDeg - state.pitch) * Math.min(1, H.levelRate * dt);
 
-  // ---- up and down. No finger holds the height; it can never come down hard.
-  heli.vy += ((touching ? wantVy : 0) - heli.vy) * Math.min(1, H.vAccel * dt);
+  // ---- up and down. Releasing a button holds height; descent stays gentle.
+  heli.vy += (wantVy - heli.vy) * Math.min(1, H.vAccel * dt);
   heli.vy = clamp(heli.vy, -H.maxSink, H.climb);
 
   if (grounded) {
@@ -190,8 +195,9 @@ function updateHelicopter(dt) {
     heli.speed = 0; state.speed = 0;
     heli.turn *= 1 - Math.min(1, 4 * dt);
     setRolling(0);
-    if (touching && !menuOpen()) {          // any touch gets it off the ground
+    if ((heli.target || heli.vertical > 0) && !menuOpen()) {
       state.phase = "AIRBORNE";
+      heli.altitude = Math.max(heli.altitude, rest + H.hoverAgl);
       heli.vy = Math.max(heli.vy, H.liftKick);
       state.liftoffTimer = 0;
       state.maxAglSinceLiftoff = 1e9;
@@ -218,6 +224,11 @@ function updateHelicopter(dt) {
     if (heli.vy > 0) heli.vy = 0;
   }
 
+  if (heli.vertical >= 0 && !grounded) {
+    const clearance = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + TUNE.gearHeight;
+    if (state.y < clearance) { state.y = clearance; heli.altitude = Math.max(heli.altitude, clearance); heli.vy = Math.max(0, heli.vy); }
+  }
+
   // walls are still walls: fly into a tower and it goes bang, like anything else
   resolveSolidWalls();
   if (state.exploding) return;
@@ -236,7 +247,7 @@ function updateHelicopter(dt) {
     state.y = rest;
     heli.vy = 0;
     state.phase = "TAXI";
-    heli.speed = 0; state.speed = 0;
+    heli.speed = 0; state.speed = 0; heli.target = null; heli.altitude = rest;
     if (!state.heliDown) { state.heliDown = true; chirp(); touchdownFx(); flags.heliLandings = (flags.heliLandings || 0) + 1; }
   } else if (state.y > rest + 1) {
     state.heliDown = false;

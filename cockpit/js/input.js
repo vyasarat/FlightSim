@@ -9,6 +9,7 @@ function setTouchPoint(x, y) {
   state.touchNX = (x / window.innerWidth) * 2 - 1;
   state.touchNY = -((y / window.innerHeight) * 2 - 1);
   state.touchIsPoint = true;
+  if (heliActive() && !menuOpen()) heliAim(state.touchNX, state.touchNY);
 }
 function takeStick(id, x, y) {
   keyStickActive = false;
@@ -56,6 +57,8 @@ glEl.addEventListener("pointercancel", releaseDrag);
 const releaseAllInputs = () => {
   releaseDrag();
   releaseThrottle();
+  releaseHeliAltitude();
+  if (heliActive()) heliHover();
   // A keyup can be lost to another window (Cmd-Tab, Guided Access overlay):
   // forget every held key so nothing stays "pressed" forever.
   keys.clear();
@@ -94,6 +97,34 @@ const releaseThrottle = (e) => {
 el.throttleBtn.addEventListener("pointerup", releaseThrottle);
 el.throttleBtn.addEventListener("pointercancel", releaseThrottle);
 
+// Sequential one-finger controls: the world destination stays latched while
+// an altitude button owns the pointer. Palm releases cannot end the owner.
+let heliAltitudePointer = null;
+function releaseHeliAltitude(e) {
+  if (e && heliAltitudePointer !== e.pointerId) return;
+  heliAltitudePointer = null;
+  if (heli.vertical) { heli.altitude = state.y; heli.vy = 0; }
+  heli.vertical = 0;
+  el.heliUpBtn.classList.remove("pressed"); el.heliDownBtn.classList.remove("pressed");
+}
+for (const [id, direction] of [["heliUpBtn", 1], ["heliDownBtn", -1]]) {
+  const btn = el[id];
+  btn.addEventListener("pointerdown", e => {
+    e.preventDefault(); e.stopPropagation();
+    if (!heliActive() || menuOpen() || state.exploding || heliAltitudePointer !== null) return;
+    unlockAudio(); releaseDrag();
+    heliAltitudePointer = e.pointerId; heli.vertical = direction;
+    try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+    btn.classList.add("pressed");
+  });
+  for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) btn.addEventListener(event, releaseHeliAltitude);
+}
+el.heliHoverBtn.addEventListener("pointerdown", e => {
+  e.preventDefault(); e.stopPropagation();
+  if (!heliActive() || menuOpen()) return;
+  releaseDrag(); releaseHeliAltitude(); heliHover(); unlockAudio(); pressFlash(el.heliHoverBtn);
+});
+
 function skipToLanding() {
   const ap = AIRPORTS[state.destIdx];
   const sgn = state.dirIdx === 0 ? 1 : -1;
@@ -129,6 +160,7 @@ function skipToLanding() {
   state.phase = "AIRBORNE";
   state.maxAglSinceLiftoff = 1e9;
   placeRings();
+  if (heliActive()) heliReset();
   unlockAudio();
 }
 
@@ -321,11 +353,17 @@ function showPhoto(dataUrl) {
 el.camBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.camBtn);
   if (typeof roverHorn === "function") roverHorn();   // driving: the camera button honks too
+  if (typeof twHorn === "function") twHorn();
   takePhoto();
 });
 
+function pickerCanOpen() {
+  return state.phase === "TAXI" && state.speed === 0 && !state.exploding &&
+    !(typeof twWashBusy === "function" && twWashBusy()) &&
+    !(state.vp.rocket && (rk.onBody || astroActive() || roverActive() || marsDroneActive()));
+}
 function openPicker() {
-  if (state.phase !== "TAXI" || state.speed !== 0) return;
+  if (!pickerCanOpen()) return;
   releaseThrottle();
   keys.clear();
   el.screenDir.classList.add("hiddenS");
@@ -361,13 +399,14 @@ window.addEventListener("keydown", (e) => {
   else if (c === "KeyV") toggleView();
   else if (c === "KeyB" || c === "Escape") openPicker();
   else if (c === "KeyF" || c === "Enter") {
-    if (state.vp.rocket) {
+    if (!el.magnetBtn.classList.contains("hidden")) twRelease();
+    else if (!el.droneBtn.classList.contains("hidden")) marsDronePress();
+    else if (state.vp.rocket) {
       // ... and during a meteor shower, with nothing else in the slot, F shoots
       if (!dropStage() && !deploySatellite() && !deployChute() && !toggleRover() && !toggleHatch() &&
           !el.missileBtn.classList.contains("hidden")) fireMissile();
     }
     else if (!el.catBtn.classList.contains("hidden")) carrierLaunchPress();   // parked on the deck: the catapult
-    else if (!el.droneBtn.classList.contains("hidden")) marsDronePress();   // the Mars drone, when he is standing next to it
     else if (!el.bucketBtn.classList.contains("hidden")) bucketPress();   // the helicopter's bucket comes first
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
   }

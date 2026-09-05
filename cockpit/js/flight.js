@@ -363,9 +363,8 @@ function update(dt) {
   // DOM -- so it may only appear where the go button cannot: parked at home. Out at
   // the station, on a spacewalk or on the Moon it would eat the tap that means
   // "take me back", and drop him into the vehicle screen instead.
-  const parkedHome = state.phase === "TAXI" && state.speed === 0 && !state.exploding &&
-    !(state.vp.rocket && (rk.onBody || astroActive() || roverActive()));
-  el.vehBtn.classList.toggle("hidden", !parkedHome);
+  el.vehBtn.classList.toggle("hidden", !pickerCanOpen());
+  updateHeliControls();
   el.gearBtn.classList.toggle("hidden", !state.vp.hasGear);
   el.gearBtn.classList.toggle("gear-up", !state.gearDown);
   const thOffVis = Math.round(Math.cos(state.dirIdx === 0 ? 0 : Math.PI)) * (TUNE.runwayLength / 2);
@@ -442,7 +441,9 @@ function update(dt) {
     targetPitch = state.ctrlPitch * state.vp.pitchLimitDeg;
   }
 
-  if (state.vp.rocket) {
+  if (toyWorld.wash) {
+    twWashGuide(dt);
+  } else if (state.vp.rocket) {
     updateRocket(dt);
   } else if (state.vp.heli) {
     updateHelicopter(dt);   // its own model: it owns the ground and the air alike

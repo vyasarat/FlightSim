@@ -58,7 +58,7 @@ the ship checklist; this file describes the game.
 | Route strip, top centre | Plane glyph slides NY <-> CA; dots fill in for landmarks passed (each one plays the next note of a scale) |
 | Small amber arrow / green ring under the strip | Glide-slope cue on an engaged approach: down = too high, up = too low, green ring = on the slope |
 | Two-plane icon under the strip | Wingman: dim while a traffic plane is near, bright when formation has been held |
-| **Keyboard** | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter = missile (rocket: drop stage / deploy satellite / parachute / rover out-and-back / hatch in-and-out, whichever is up), `+`/`-` or `]`/`[` speed step, L landing / go button, P photo, B or Esc = the vehicle picker (on the ground). A finger on the screen always wins over the keys |
+| **Keyboard** | Arrows / WASD = stick (**up = nose up**), Space or Shift = throttle, G gear, V view, F or Enter = missile (rocket: drop stage / deploy satellite / parachute / rover out-and-back / drone out-and-back / hatch in-and-out, whichever is up), `+`/`-` or `]`/`[` speed step, L landing / go button, P photo, B or Esc = the vehicle picker (parked at home). A finger on the screen always wins over the keys |
 
 Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h`, … in
 `cockpit/index.html`). Viewports under 520 px tall (phones in landscape) get a
@@ -76,43 +76,64 @@ mechanism (the picker reads the flag at boot) is still there for anything that n
 | Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (colour only); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
-| Helicopter | 36 | 35°/s | n/a | **Point-to-go** (`js/heli.js`, `TUNE.heli`): touch a place and it flies there. The firefighter -- it carries the water bucket |
+| Helicopter | 64 | 70°/s | n/a | **Point-to-go** (`js/heli.js`, `TUNE.heli`): touch a place and it flies there. The firefighter -- it carries the water bucket |
 | Rocket | see `rocketTune` | 38°/s tilt | vertical launch | Its own flight model (The rocket below); no gear, no missiles. The `vehicles.rocket` entry only feeds the picker and dials |
 | Starship | `rocketTune.starship` | 38°/s tilt (turnRateDeg 7 vs the rocket's 8) | vertical launch | Same flight model, one drop; the booster is caught by the tower's arms; the Ship lands on its engines |
 
 Every non-rocket vehicle is ceiling-capped at `otherVehicleCeiling`.
 
-## The helicopter -- point-to-go (`js/heli.js`, `TUNE.heli`)
+## The helicopter -- tap to travel, then adjust height (`js/heli.js`, `TUNE.heli`)
 
-A stick cannot say "up, and forward, and round" at once to a four-year-old, so the helicopter
-does not have one. **He puts a finger on a place and it goes there.**
+Tap a place in the main view to fly toward it at the current altitude. The cyan
+marker shows the destination (an edge arrow points toward it when off screen).
+The destination stays fixed while the camera moves and after the finger lifts;
+a new tap or drag changes it. A sky tap sets a horizontal destination in that
+direction, without climbing.
 
-| Input | Effect |
-|---|---|
-| Finger on a place -- the sea, the fire, a deck, a hillside | It turns toward it and flies there, easing off with the distance left, and settles into a hover `hoverAgl` above it. The raycast is from whichever camera he is using, so touching the fire through the windshield works |
-| Finger on a place he has all but reached | It sets down on it instead of hovering. The threshold grows with height, so holding a finger on the ground always walks him down to it -- which is the only way to land from the cockpit, where he can only touch what is ahead |
-| Finger on the sky | Go that way, and up. Higher on the screen climbs harder |
-| Finger at the left / right edge (`edgeYawBand`) | Keep turning that way, so he can spin round to something behind him |
-| Finger off | It stops, levels and holds its height in about a second. Hovering is the safe state |
+The large **up/down arrows** on the right change altitude while held. Release to
+hold the new height. Horizontal travel continues, so the same finger can steer,
+lift, then adjust height. The **pause-in-a-circle** button stops travel in a hover.
+Up lifts off from the ground; holding down lands gently. Over water it stops at a
+safe hover floor so the bucket remains available. There is no throttle to hold.
 
-A crossing only counts as "what he touched" if the ray **stays** under the surface past it: a
-shallow ray dips under the crest in front of him and comes out the other side, and taken at face
-value that put the target forty metres away when he was pointing at the sea a kilometre off. And
-nothing is ever stuck: a finger held on somewhere he is plainly not reaching (`stallTime`) makes
-it give up being clever and simply fly at the bearing at cruise.
+Cruise is 64 units/s; acceleration, turning and braking are tuned together. It
+slows near its destination and arrives in a hover. Approaching the fire keeps
+the selected destination across the shoreline, all the way to the rig. Lower it
+over scoop water with down, then tap the bucket to scoop; lift above the platform
+with up, then tap to drop. Both bucket actions are single taps.
 
-There is **no throttle button**: any touch gets it off the ground, and a finger on the ground
-brings it back down. Nothing about the helicopter ever needs a second finger, and the harness
-checks that across every state it can be in. Descent is clamped to `maxSink`, so it can only ever
-arrive gently; the sea is a hover floor rather than a landing place, since sitting on it would end
-the flight and take the bucket button away in the one spot he needs it.
+The Mars drone keeps its existing point-to-go controls and flight tuning.
 
-Near a job it **brakes to a hover by itself**: within `jobRadius` of the burning rig whatever he
-is carrying, and over the water he would actually scoop from -- an empty bucket, low, inside
-`firefight.scoopRadius` of the rig. (`jobRadius` sits *inside* `firefight.dropR`, or the assist
-would stop him too far out to do the job it stopped him for.) Open sea further out is just sea,
-and a full bucket never brakes, so the run back to the fire is at full speed. Touching the water
-and touching the fire are the whole loop.
+## Airport toy world (`js/toyworld.js`, `TUNE.toyWorld`)
+
+Each airport has three optional, reusable toys. The helicopter faces the colorful
+construction yard when it spawns; planes and rockets keep their existing headings
+and flight tuning.
+
+- **Magnet yard:** hover near a loose block, toy car or container. A yellow ring
+  previews the pickup; hovering close attaches it automatically. The red magnet
+  hangs steadily underneath. Tap the magnet/down icon to drop. Move away before
+  picking up again. Cargo can stack and jostle other cargo. Drop on the blue crane
+  pad and the crane lifts it into a colorful toy robot, then returns a fresh piece
+  to the yard. Forgotten cargo returns after a while. A full firefighting bucket
+  stays a bucket; the two tools never operate together.
+- **Plane wash:** the bubble/aircraft icon while parked guides the vehicle through
+  the brushes, foam and clean sheen, then returns control. A helicopter can also
+  land at the entrance. Large vehicles use an open spray area; rockets are washed
+  on their pad. Physical entry exits beyond the brushes and waits for the next
+  choice. The camera button also honks to nearby service trucks; they answer and
+  briefly wiggle. Landing welcomes reuse the airport's carts and fuel trucks,
+  staying clear of the runway and leaving as soon as takeoff starts.
+- **Color clouds:** fly through a colored cloud to paint a trail, or through a
+  rainbow for a multicolored one. Ordinary flying draws loops. Old strokes fade
+  over 36 seconds; one fixed 1,200-point buffer bounds the trail cost. Clouds can
+  be revisited as often as desired.
+
+There are no activity scores, menus, deadlines or unlocks. Cargo, bubbles and
+construction pieces are fixed pools; repeated details are instanced. The focused
+runner is `scripts/toyworld_test.js` (same browser environment as the full harness);
+its checks also run in `scripts/headless_test.js`. It writes `toyworld-magnet.png`,
+`toyworld-wash.png` and `toyworld-rainbow.png` to `qa-screenshots/`.
 
 ## The world: New York <-> California
 

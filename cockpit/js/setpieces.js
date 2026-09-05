@@ -582,7 +582,7 @@ function fireNear() { return Math.hypot(state.x - fire.x, state.z - fire.z); }
 function isHeli() { return !!(state.vp && state.vp.heli); }
 function bucketCanScoop() {
   return isHeli() && state.phase === "AIRBORNE" && !state.exploding &&
-    bucket.state === "empty" && fireOverWater() && fireAgl() < FF.scoopAlt;
+    !(typeof twMagnetOn === "function" && twMagnetOn()) && bucket.state === "empty" && fireOverWater() && fireAgl() < FF.scoopAlt;
 }
 function bucketCanDrop() {
   return isHeli() && state.phase === "AIRBORNE" && !state.exploding &&
@@ -998,6 +998,7 @@ function updateSetpieces(dt) {
   updateFirefight(dt);
   updateCarrier(dt);
   updateMarsBase(dt);
+  updateToyWorld(dt);
   if (state.vp && state.vp.rocket) updateTowerCatch(dt);
 }
 // Runs at the END of the frame: the deck has to hold him after the flight model
