@@ -37,7 +37,7 @@ function buildAstronaut(suit) {
   const white = new THREE.MeshLambertMaterial({ color: 0xf2f4f7 });
   const grey = new THREE.MeshLambertMaterial({ color: 0xb8bec8 });
   const skin = new THREE.MeshLambertMaterial({ color: 0xf1c9a5 });
-  const dark = new THREE.MeshLambertMaterial({ color: 0x23282f });
+  const dark = new THREE.MeshLambertMaterial({ color: 0x1f2328 });
   const blue = new THREE.MeshLambertMaterial({ color: 0x2b4fb0 });
   const shirt = suit ? white : new THREE.MeshLambertMaterial({ color: 0x2b4fb0 });
   const pants = suit ? white : new THREE.MeshLambertMaterial({ color: 0x6b7078 });
@@ -63,8 +63,8 @@ function buildAstronaut(suit) {
 
 function buildInterior() {
   const g = new THREE.Group();
-  const wall = new THREE.MeshLambertMaterial({ color: 0xe9ecef, side: THREE.BackSide });
-  const rib = new THREE.MeshLambertMaterial({ color: 0x9aa2ad });
+  const wall = new THREE.MeshLambertMaterial({ color: 0xf2f4f7, side: THREE.BackSide });
+  const rib = new THREE.MeshLambertMaterial({ color: 0x9a9ea6 });
   const rail = new THREE.MeshLambertMaterial({ color: 0x4a90d9 });
   const dark = new THREE.MeshLambertMaterial({ color: 0x2f3a48 });
   const R = ASTRO.r, L = ASTRO.halfLen;
@@ -110,7 +110,7 @@ function buildInterior() {
   astro.moduleLights = [];
   for (let m = 0; m < 3; m++) {
     const z = -10 + m * 10;
-    const lightMat = new THREE.MeshBasicMaterial({ color: 0x3a3f47 });
+    const lightMat = new THREE.MeshBasicMaterial({ color: 0x3c4350 });
     const strip = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 6), lightMat); strip.position.set(0, R - 0.12, z); g.add(strip);
     const pl = new THREE.PointLight(0xfff2d0, 0, 14, 1.5); pl.position.set(0, R - 0.5, z); g.add(pl);
     astro.moduleLights.push({ mat: lightMat, light: pl, on: false });
@@ -121,7 +121,7 @@ function buildInterior() {
   }
   // the Cupola: a dome of window frames at the +z end, and the Earth outside it
   const dome = new THREE.Group(); dome.position.z = L;
-  const frame = new THREE.MeshLambertMaterial({ color: 0xcfd6df });
+  const frame = new THREE.MeshLambertMaterial({ color: 0xc9ced6 });
   for (let i = 0; i < 6; i++) {
     const a = i / 6 * Math.PI * 2;
     const bar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 2.2), frame);
@@ -135,7 +135,7 @@ function buildInterior() {
   earth.position.set(0, -150, L + 520);
   for (let i = 0; i < 9; i++) {   // continents and cloud caps
     const th = hashSalt(i, 21, 1) * Math.PI * 2, ph = (hashSalt(i, 21, 2) - 0.5) * 2.4;
-    const land = new THREE.Mesh(new THREE.SphereGeometry(420 + 1.5, 16, 8, 0, Math.PI * 2, 0, 0.5 + hashSalt(i, 21, 3) * 0.5), new THREE.MeshLambertMaterial({ color: i % 3 === 0 ? 0xf2f4f7 : 0x5aa64a, emissive: i % 3 === 0 ? 0x444444 : 0x123a10 }));
+    const land = new THREE.Mesh(new THREE.SphereGeometry(420 + 1.5, 16, 8, 0, Math.PI * 2, 0, 0.5 + hashSalt(i, 21, 3) * 0.5), new THREE.MeshLambertMaterial({ color: i % 3 === 0 ? 0xf2f4f7 : 0x67a34e, emissive: i % 3 === 0 ? 0x3c4350 : 0x123a10 }));
     land.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.cos(ph) * Math.cos(th), Math.sin(ph), Math.cos(ph) * Math.sin(th)));
     earth.add(land);
   }
@@ -200,7 +200,7 @@ function enterStation() {
   astro.yaw = 0; astro.pitch = 0; astro.t = 0;
   scatterObjects();
   camera.position.set(astro.origin.x + astro.x, astro.origin.y + astro.y + 0.9, astro.origin.z + astro.z - 2.8);   // no lerp in from a kilometre away
-  for (const m of astro.moduleLights) { m.on = false; m.mat.color.setHex(0x3a3f47); m.light.intensity = 0; }
+  for (const m of astro.moduleLights) { m.on = false; m.mat.color.setHex(0x3c4350); m.light.intensity = 0; }
   astro.blob.gone = 0; astro.blob.mesh.visible = true;
   el.hatchBtn.dataset.mode = "eva";
   if (typeof keys !== "undefined") keys.clear();
@@ -502,7 +502,7 @@ function updateEva(dt) {
     asTmp.setFromMatrixPosition(eva.battery.matrixWorld);
     if (asTmp.distanceTo(new THREE.Vector3(eva.x, eva.y, eva.z)) < 1.8) {
       eva.batteryDone = true;
-      eva.battery.material.color.setHex(0xf2f4f7); eva.battery.material.emissive.setHex(0x3a3a3a);
+      eva.battery.material.color.setHex(0xf2f4f7); eva.battery.material.emissive.setHex(0x2f3a48);
       if (station.userData.lightMat) station.userData.lightMat.color.setHex(0xfff2b0);
       chime(); clang(); confettiBurst();
       flags.evaBattery = (flags.evaBattery || 0) + 1;

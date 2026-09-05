@@ -55,7 +55,7 @@ function buildRecoveryFleet() {
     const crane = new THREE.Group(); crane.position.set(0, 2.7, -6);
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 8, 8), lam(0xffd23e)); post.position.y = 4; crane.add(post);
     const arm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 12), lam(0xffd23e)); arm.position.set(0, 7.8, 4); crane.add(arm);
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1, 4), lam(0x23282f)); cable.position.set(0, 7.5, 9.5); crane.add(cable);
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1, 4), lam(0x1f2328)); cable.position.set(0, 7.5, 9.5); crane.add(cable);
     ship.add(crane);
     ship.userData = { crane, cable };
     ship.visible = false;
@@ -70,7 +70,7 @@ function buildRecoveryFleet() {
     const tcrane = new THREE.Group(); tcrane.position.set(0, 1.7, -7);
     const tpost = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 7, 8), lam(0xffd23e)); tpost.position.y = 3.5; tcrane.add(tpost);
     const tarm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 12), lam(0xffd23e)); tarm.position.set(0, 7, 4); tcrane.add(tarm);
-    const tcable = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 4), lam(0x23282f)); tcable.position.set(0, 6.5, 9); tcrane.add(tcable);
+    const tcable = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 4), lam(0x1f2328)); tcable.position.set(0, 6.5, 9); tcrane.add(tcable);
     truck.add(tcrane);
     truck.userData = { crane: tcrane, cable: tcable };
     truck.visible = false;
@@ -144,7 +144,7 @@ function updateRecovery(dt) {
   if (t < RIDE.arrive) {
     const k = ease(clamp(t / RIDE.arrive, 0, 1));
     vx = ride.from.x + (ride.beside.x - ride.from.x) * k; vz = ride.from.z + (ride.beside.z - ride.from.z) * k;
-    if (ride.overWater && (t % 0.12) < dt) for (const sd of [-1, 1]) wakePuff(vx - Math.sin(ride.heading) * 13 + Math.cos(ride.heading) * sd * 3.5, TUNE.waterLevel + 0.2, vz - Math.cos(ride.heading) * 13 - Math.sin(ride.heading) * sd * 3.5, 0xe8f6ff, 0.6, 1.2, 0.7);
+    if (ride.overWater && (t % 0.12) < dt) for (const sd of [-1, 1]) wakePuff(vx - Math.sin(ride.heading) * 13 + Math.cos(ride.heading) * sd * 3.5, TUNE.waterLevel + 0.2, vz - Math.cos(ride.heading) * 13 - Math.sin(ride.heading) * sd * 3.5, 0xf2f4f7, 0.6, 1.2, 0.7);
   } else if (t < RIDE.arrive + RIDE.lift) {
     vx = ride.beside.x; vz = ride.beside.z;
     const k = ease(clamp((t - RIDE.arrive) / RIDE.lift, 0, 1));
@@ -159,7 +159,7 @@ function updateRecovery(dt) {
     const k = ease(clamp((t - RIDE.arrive - RIDE.lift) / RIDE.carry, 0, 1));
     vx = ride.beside.x + (ride.to.x - ride.beside.x) * k; vz = ride.beside.z + (ride.to.z - ride.beside.z) * k;
     state.x = vx; state.z = vz; state.y = ride.groundY + ride.deckY + rocketHalfLen();
-    if (ride.overWater && (t % 0.12) < dt) for (const sd of [-1, 1]) wakePuff(vx - Math.sin(ride.heading) * 13 + Math.cos(ride.heading) * sd * 3.5, TUNE.waterLevel + 0.2, vz - Math.cos(ride.heading) * 13 - Math.sin(ride.heading) * sd * 3.5, 0xe8f6ff, 0.6, 1.2, 0.7);
+    if (ride.overWater && (t % 0.12) < dt) for (const sd of [-1, 1]) wakePuff(vx - Math.sin(ride.heading) * 13 + Math.cos(ride.heading) * sd * 3.5, TUNE.waterLevel + 0.2, vz - Math.cos(ride.heading) * 13 - Math.sin(ride.heading) * sd * 3.5, 0xf2f4f7, 0.6, 1.2, 0.7);
   } else {
     v.visible = false;
     ride = null;
