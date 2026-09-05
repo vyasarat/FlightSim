@@ -860,6 +860,8 @@ function carrierTrap() {
   carrier.speed = Math.max(state.speed, 20);
   cheer();
   clang();
+  cameraHitStop(1.4);        // the wire catching him is the most violent thing in the game
+  cameraNod(1);
   shakeAmp = Math.max(shakeAmp, 0.55);
   flags.carrierTraps = (flags.carrierTraps || 0) + 1;
 }
@@ -883,6 +885,7 @@ function carrierShove() {
   }
   catapultSound();          // steam, then the clank of the shuttle, then the roar
   whoosh();
+  cameraPunch(1);           // the view widens for a beat as it throws him
   shakeAmp = Math.max(shakeAmp, 0.75);
 }
 

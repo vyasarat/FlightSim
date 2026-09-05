@@ -159,6 +159,57 @@ const starTwinkleMat = twinkleStars(starsGeo);
 stars.material = starTwinkleMat;
 
 // ---------------------------------------------------------------------------
+// Speed streaks. A ring of soft radial lines on a quad pinned to the camera,
+// so it costs one transparent draw call and only when he is actually going
+// fast. Cockpit only: from outside the aeroplane there is no air rushing past
+// your face.
+// ---------------------------------------------------------------------------
+const linesTex = (() => {
+  const N = 256;
+  const c = document.createElement("canvas");
+  c.width = c.height = N;
+  const cx = c.getContext("2d");
+  cx.clearRect(0, 0, N, N);
+  cx.strokeStyle = "rgba(255,255,255,0.9)";
+  cx.lineCap = "round";
+  for (let i = 0; i < 54; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r0 = 40 + Math.random() * 60, r1 = r0 + 26 + Math.random() * 60;
+    cx.globalAlpha = 0.10 + Math.random() * 0.30;
+    cx.lineWidth = 1 + Math.random() * 2.2;
+    cx.beginPath();
+    cx.moveTo(N / 2 + Math.cos(a) * r0, N / 2 + Math.sin(a) * r0);
+    cx.lineTo(N / 2 + Math.cos(a) * r1, N / 2 + Math.sin(a) * r1);
+    cx.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+})();
+const speedLines = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 2),
+  new THREE.MeshBasicMaterial({ map: linesTex, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false })
+);
+speedLines.position.z = -1.2;          // just in front of the near plane
+speedLines.scale.setScalar(1.5);
+speedLines.renderOrder = 20;
+speedLines.frustumCulled = false;
+speedLines.visible = false;
+camera.add(speedLines);
+
+function updateSpeedLines(dt) {
+  const L = TUNE.camera.lines;
+  const cru = state.vp && state.vp.cruiseSpeed ? state.vp.cruiseSpeed : 60;
+  const sp = clamp((state.speed / cru - L.from) / (1.25 - L.from), 0, 1);
+  const want = state.viewChase ? 0 : sp * L.gain;
+  speedLines.material.opacity += (want - speedLines.material.opacity) * Math.min(1, 5 * dt);
+  speedLines.visible = speedLines.material.opacity > 0.006;
+  if (speedLines.visible) {
+    speedLines.rotation.z += dt * 0.12;
+    speedLines.scale.setScalar(1.5 - sp * L.alt);
+  }
+}
+
+// ---------------------------------------------------------------------------
 const skyTmp = new THREE.Vector3();
 let skyClock = 0;
 
@@ -194,6 +245,8 @@ function updateAtmosphere(dt) {
     cirrusTex.offset.x = (skyClock * SKYT.cirrusDrift) % 1;
     cirrusTex.offset.y = (skyClock * SKYT.cirrusDrift * 0.35) % 1;
   }
+
+  updateSpeedLines(dt);
 
   // ---- stars
   starTwinkleMat.uniforms.uTime.value = skyClock;
