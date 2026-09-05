@@ -29,6 +29,7 @@ the checklist for shipping one.
   used *at load time* must be declared in an earlier file (TDZ). Using it later,
   inside a function, is fine.
 - `cockpit/js/tune.js` — every gameplay number (`TUNE`, `TUNE.rocketTune`, `rocketTune.starship`).
+  The Mars block is `TUNE.marsBase` (the base itself plus `.jumps`, `.boulders`, `.drone`).
 - `heli.js` — the helicopter's own flight model (`TUNE.heli`); it owns both the ground and the
   air for that vehicle, so the plane path in `flight.js` never runs for it. **Point-to-go, one finger**:
   he touches a place and it flies there and hovers over it; there is no stick and no throttle
@@ -51,7 +52,13 @@ the checklist for shipping one.
   only, and at most one new contextual button per feature.
 - `marsbase.js` — the Mars base (`TUNE.marsBase`). Built around wherever he lands, so the lit
   pad is the rocket's own spot and driving back onto it is the way home; no new control.
-  Mars only — the Moon stays as it was.
+  Mars only — the Moon stays as it was. It also owns the things to do out there: dune jumps
+  (`.jumps`), the boulder field (`.boulders`) and the little drone (`.drone`). The jump *launch*
+  runs in `updateMarsToys` (before `updateRover`, so it sets the hop the rover's own gravity
+  then flies); the *tumble* runs in `marsLate` off `updateSetpiecesLate`, because `updateRover`
+  rewrites the mesh orientation every frame. The drone reuses the helicopter's point-to-go
+  wholesale — but on a sphere, so distances that decide "arrived" must be measured along the
+  ground, never through the air, or its own hover height keeps it permanently "far away".
 - The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`) says what counts
   as a landing; everything else crashes, and a crash must stay free. Assist strengths are separate
   knobs (`assist*`) -- the assist may stand him up, never rescue a last-second dive.

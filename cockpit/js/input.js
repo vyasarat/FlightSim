@@ -286,6 +286,10 @@ el.catBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.catBtn);
   carrierLaunchPress();
 });
+el.droneBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.droneBtn);
+  marsDronePress();
+});
 el.bucketBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.bucketBtn);
   bucketPress();
@@ -363,6 +367,7 @@ window.addEventListener("keydown", (e) => {
           !el.missileBtn.classList.contains("hidden")) fireMissile();
     }
     else if (!el.catBtn.classList.contains("hidden")) carrierLaunchPress();   // parked on the deck: the catapult
+    else if (!el.droneBtn.classList.contains("hidden")) marsDronePress();   // the Mars drone, when he is standing next to it
     else if (!el.bucketBtn.classList.contains("hidden")) bucketPress();   // the helicopter's bucket comes first
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
   }

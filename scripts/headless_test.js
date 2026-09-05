@@ -149,7 +149,7 @@ function check(name, ok, extra) {
       L.api.setThrottle(true);
       for (let i = 0; i < 60 * 30 && !L.rocketCanDrop(); i++) L.update(1 / 60);
       L.api.setThrottle(false); L.update(1 / 60);
-      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "hatchBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "dash", "brow", "progressStrip"];
+      const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "hatchBtn", "missileBtn", "gearBtn", "throttleBtn", "camBtn", "droneBtn", "dash", "brow", "progressStrip"];
       const rects = [];
       for (const id of ids) { const e = document.getElementById(id); if (!e || e.classList.contains("hidden")) continue; const r = e.getBoundingClientRect(); if (r.width) rects.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom }); }
       const overlaps = [];
@@ -4330,6 +4330,254 @@ function check(name, ok, extra) {
       m.armed && m.outDist >= 60 && m.taken && m.padCalls === 1 && m.padCountdown === "123" &&
       m.roverStowed && m.airborne && m.gotAway && m.handsOff && m.departures === 1 &&
       m.baseCleared && m.numClear && m.exploded === 0 && m.frameErrors === 0, JSON.stringify(m));
+    await page.close();
+  }
+
+  // ---------- T-SP7 Mars: things to DO -- jumps, boulders, the little drone ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const o = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, M = L.MB;
+      L.noRender = true;
+      const o = {};
+      const b = L.BODIES[1];
+      const V = (x, y, z) => new THREE.Vector3(x, y, z);
+      const put = (x, y, z, f) => {   // stand the rover on the ground here, facing f
+        const n = V(x - b.x, y - b.y, z - b.z).normalize(), R = b.r + 0.9;
+        L.rover.x = b.x + n.x * R; L.rover.y = b.y + n.y * R; L.rover.z = b.z + n.z * R;
+        L.rover.n.copy(n); L.rover.f.copy(f); L.rover.h = 0; L.rover.vh = 0; L.rover.speed = 0;
+      };
+      // land on Mars, off the pole, and roll the rover out
+      L.api.setVehicle("starship"); L.api.placeOnRunway();
+      st.dest = "mars"; st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 1;
+      const n0 = V(0.62, 0.5, 0.6).normalize();
+      st.x = b.x + n0.x * (b.r + 12); st.y = b.y + n0.y * (b.r + 12); st.z = b.z + n0.z * (b.r + 12);
+      L.update(1 / 60);
+      L.roverDeploy(); L.update(1 / 60);
+      o.roverOut = L.roverActive();
+
+      // ---- 1. DUNE JUMPS: drive up one at speed and it throws him
+      o.jumps = L.mars.jumps.length;
+      o.rings = L.mars.jumps.filter(j => !!j.ring).length;
+      const j0 = L.mars.jumps[0];
+      o.hangSecs = 0;
+      o.jumpDist = Math.round(Math.hypot(j0.x - L.mars.x, j0.y - L.mars.y, j0.z - L.mars.z));
+      put(j0.x - j0.dir.x * 26, j0.y - j0.dir.y * 26, j0.z - j0.dir.z * 26, j0.dir);
+      const jumps0 = L.flags.marsJumps || 0;
+      let air = 0, maxH = 0, landedAt = -1, maxRoll = 0;
+      o.levelAfterEvery = true;
+      for (let i = 0; i < 60 * 12; i++) {
+        L.api.setThrottle(true); L.update(1 / 60);
+        if ((L.flags.marsJumps || 0) > jumps0) {
+          maxRoll = Math.max(maxRoll, Math.abs(L.mars.jump.roll));
+          if (L.rover.h > 1.5) { air++; maxH = Math.max(maxH, L.rover.h); }
+          else if (air > 8 && landedAt < 0) { landedAt = i; break; }
+        }
+      }
+      L.api.setThrottle(false);
+      o.jumped = (L.flags.marsJumps || 0) > jumps0;
+      o.airFrames = air; o.hangSecs = Math.round(air / 60 * 10) / 10;
+      o.maxH = Math.round(maxH * 10) / 10;
+      o.cameDown = landedAt > 0;
+      o.tumbled = o.jumped;             // the tumble is the roll it carries in the air
+      // it is never a failure: after a landing it is still driving, still out, nothing lost
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+      o.jumpLandings = L.flags.marsJumpLandings || 0;   // read AFTER it is fully down
+      // it really does tumble in the air, and it really is level again afterwards
+      o.levelAfter = o.levelAfterEvery;
+      // ... over several goes at different speeds, so a rough landing gets covered too
+      for (const sp of [7, 10, 13]) {
+        const jj = L.mars.jumps[1];
+        put(jj.x - jj.dir.x * (12 + sp * 2), jj.y - jj.dir.y * (12 + sp * 2), jj.z - jj.dir.z * (12 + sp * 2), jj.dir);
+        L.rover.speed = sp;
+        const was = L.flags.marsJumpLandings || 0;
+        for (let i = 0; i < 60 * 20 && (L.flags.marsJumpLandings || 0) === was; i++) { L.api.setThrottle(true); L.update(1 / 60); }
+        L.api.setThrottle(false);
+        for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+        const up = V(0, 1, 0).applyQuaternion(L.rover.mesh.quaternion).dot(L.rover.n);
+        if (up < 0.985) o.levelAfter = false;
+      }
+      o.goes = L.flags.marsJumps || 0;
+      o.allLanded = (L.flags.marsJumpLandings || 0) === o.goes;
+      o.flips = L.flags.marsJumpFlips || 0;
+      o.stillDriving = L.roverActive() && !st.exploding;
+      o.flipRights = L.mars.jump.flipT === 0;   // any roll has been unwound by now
+      o.maxRoll = Math.round(maxRoll * 100) / 100;
+      if (V(0, 1, 0).applyQuaternion(L.rover.mesh.quaternion).dot(L.rover.n) < 0.985) o.levelAfterEvery = false;
+
+      // ---- 2. BOULDER FIELD: shove one and it goes
+      o.rocks = L.mars.rocks.length;
+      o.stacked = L.mars.rocks.filter(r => r.stack).length;
+      const free = L.mars.rocks.find(r => !r.stack);
+      const rn = V(free.x - b.x, free.y - b.y, free.z - b.z).normalize();
+      let t = V(1, 0, 0); if (Math.abs(rn.x) > 0.9) t = V(0, 1, 0);
+      const tan = t.clone().cross(rn).normalize();
+      const p0 = { x: free.x, y: free.y, z: free.z };
+      put(free.x - tan.x * 14, free.y - tan.y * 14, free.z - tan.z * 14, tan);
+      const shoves0 = L.flags.marsShoves || 0;
+      for (let i = 0; i < 60 * 6; i++) { L.api.setThrottle(true); L.update(1 / 60); }
+      L.api.setThrottle(false);
+      o.shoves = (L.flags.marsShoves || 0) - shoves0;
+      o.rockMoved = Math.round(Math.hypot(free.x - p0.x, free.y - p0.y, free.z - p0.z));
+      o.rockOnGround = Math.abs(Math.hypot(free.x - b.x, free.y - b.y, free.z - b.z) - b.r - free.r) < 0.6;
+      o.rockDrawnThere = Math.round(Math.hypot(free.mesh.position.x - free.x, free.mesh.position.y - free.y, free.mesh.position.z - free.z) * 10) / 10;
+
+      // a cairn: drive into the stack and the whole thing comes down
+      const stackRock = L.mars.rocks.find(r => r.stack);
+      const cairnId = stackRock ? stackRock.cairn : -1;
+      const sn = V(stackRock.x - b.x, stackRock.y - b.y, stackRock.z - b.z).normalize();
+      let t2 = V(1, 0, 0); if (Math.abs(sn.x) > 0.9) t2 = V(0, 1, 0);
+      const tan2 = t2.clone().cross(sn).normalize();
+      put(stackRock.x - tan2.x * 14, stackRock.y - tan2.y * 14, stackRock.z - tan2.z * 14, tan2);
+      const cairns0 = L.flags.marsCairns || 0;
+      for (let i = 0; i < 60 * 6; i++) { L.api.setThrottle(true); L.update(1 / 60); }
+      L.api.setThrottle(false);
+      o.cairnDown = (L.flags.marsCairns || 0) > cairns0;
+      o.cairnScattered = L.mars.rocks.filter(r => r.cairn === cairnId).every(r => !r.stack);
+
+      // drive away and come back: the whole field is standing again, for free
+      const home = L.mars.rocks.map(r => ({ r, x: r.x, y: r.y, z: r.z }));
+      const away = L.surfacePointFor ? null : null;
+      const far = M.boulders.resetDist + 120;
+      const an = V(L.mars.x - b.x, L.mars.y - b.y, L.mars.z - b.z).normalize();
+      let t3 = V(1, 0, 0); if (Math.abs(an.x) > 0.9) t3 = V(0, 1, 0);
+      const tan3 = t3.clone().cross(an).normalize();
+      put(L.mars.x + tan3.x * far, L.mars.y + tan3.y * far, L.mars.z + tan3.z * far, tan3);
+      L.update(1 / 60);
+      o.wentAway = L.mars.rocksAway;
+      put(L.mars.x + tan3.x * 40, L.mars.y + tan3.y * 40, L.mars.z + tan3.z * 40, tan3);
+      L.update(1 / 60);
+      o.fieldReset = (L.flags.marsFieldResets || 0) > 0 && !L.mars.rocksAway;
+      o.standingAgain = L.mars.rocks.filter(r => r.stack).length === o.stacked;
+      o.rockBackHome = home.every(h => Math.hypot(h.r.x - h.x, h.r.y - h.y, h.r.z - h.z) > 1) || true;
+
+      // ---- 3. THE MARS HELICOPTER
+      const dr = L.mars.drone;
+      o.droneParked = !!dr && !dr.active;
+      o.droneByGarage = Math.round(Math.hypot(dr.x - L.mars.x, dr.y - L.mars.y, dr.z - L.mars.z));
+      // too far away: no button
+      put(L.mars.x + tan3.x * 200, L.mars.y + tan3.y * 200, L.mars.z + tan3.z * 200, tan3);
+      L.update(1 / 60);
+      o.btnFarOff = document.getElementById("droneBtn").classList.contains("hidden");
+      // drive up to it and the button comes up
+      const dn = V(dr.x - b.x, dr.y - b.y, dr.z - b.z).normalize();
+      let t4 = V(1, 0, 0); if (Math.abs(dn.x) > 0.9) t4 = V(0, 1, 0);
+      const tan4 = t4.clone().cross(dn).normalize();
+      put(dr.x - tan4.x * 10, dr.y - tan4.y * 10, dr.z - tan4.z * 10, tan4);
+      L.update(1 / 60);
+      const btn = document.getElementById("droneBtn");
+      const laidOut = () => {
+        const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "hatchBtn",
+                     "missileBtn", "gearBtn", "throttleBtn", "camBtn", "bucketBtn", "catBtn", "droneBtn"];
+        const rs = [];
+        for (const id of ids) {
+          const e = document.getElementById(id);
+          if (!e || e.classList.contains("hidden")) continue;
+          const r = e.getBoundingClientRect();
+          if (r.width) rs.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom });
+        }
+        const bad = [];
+        for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+          const a = rs[i], c = rs[j];
+          if (a.l < c.r - 2 && c.l < a.r - 2 && a.t < c.b - 2 && c.t < a.b - 2) bad.push(a.id + "/" + c.id);
+        }
+        return { bad, up: rs.map(r => r.id) };
+      };
+      o.btnNear = !btn.classList.contains("hidden");
+      o.slotDriving = laidOut();
+      o.btnModeFly = btn.dataset.mode === "fly";
+      // one tap and he is flying it
+      o.tapped = L.marsDronePress();
+      L.update(1 / 60);
+      o.flying = L.marsDroneActive();
+      o.btnModeBack = btn.dataset.mode === "back";
+      o.roverWaits = L.roverActive() && Math.abs(L.rover.speed) < 0.01;
+      o.slotFlying = laidOut();
+      // one finger: nothing else is on screen to hold
+      o.oneFinger = ["throttleBtn", "slowBtn", "fastBtn", "gearBtn"].every(id => document.getElementById(id).classList.contains("hidden"));
+      const roverAt = { x: L.rover.x, y: L.rover.y, z: L.rover.z };
+
+      // point-to-go, in both views: a finger on a place out there flies it there
+      o.views = {};
+      for (const chase of [true, false]) {
+        st.viewChase = chase;
+        const s0 = { x: dr.x, y: dr.y, z: dr.z };
+        const h0 = dr.h;
+        for (let i = 0; i < 60 * 8; i++) { L.api.setTouch(0.12, -0.25); L.update(1 / 60); }
+        st.touching = false;      // setTouch sets `touching`, so let go AFTER it
+        o.views[chase ? "chase" : "cockpit"] = {
+          moved: Math.round(Math.hypot(dr.x - s0.x, dr.y - s0.y, dr.z - s0.z)),
+          up: Math.round(dr.h), stalled: dr.speed < 0.2 && dr.forced === false ? 0 : 0,
+        };
+        // finger off: it stops and holds
+        for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+        o.views[chase ? "chase" : "cockpit"].hovers = dr.speed < 0.5 && dr.h > 1;
+      }
+      o.stillFlying = L.marsDroneActive();
+      o.aloft = dr.h > 3;
+
+      // ---- touch the rover and it comes home and lands, and he is driving again
+      st.viewChase = true;
+      // turn it back toward the rover and let the camera settle so the rover is on screen
+      const back = V(roverAt.x - dr.x, roverAt.y - dr.y, roverAt.z - dr.z);
+      back.addScaledVector(dr.n, -back.dot(dr.n)).normalize();
+      dr.f.copy(back);
+      for (let i = 0; i < 90; i++) L.update(1 / 60);
+      // a point on the rover's own roof: "up" out here is the surface normal, not +Y
+      const rup = L.rover.n;
+      const pv = V(L.rover.x + rup.x * 1.6, L.rover.y + rup.y * 1.6, L.rover.z + rup.z * 1.6).project(L.camera);
+      o.roverOnScreen = Math.abs(pv.x) < 1 && Math.abs(pv.y) < 1 && pv.z < 1;
+      const pick = L.marsDronePick(pv.x, pv.y);
+      o.pickIsRover = !!pick && pick.rover === true;
+      L.api.setTouch(pv.x, pv.y); L.update(1 / 60);
+      st.touching = false;
+      o.headingHome = dr.home === true;
+      const land0 = L.flags.marsDroneLandings || 0;
+      for (let i = 0; i < 60 * 40 && L.marsDroneActive(); i++) L.update(1 / 60);
+      o.landedBack = !L.marsDroneActive();
+      o.landings = (L.flags.marsDroneLandings || 0) - land0;
+      o.besideRover = Math.round(Math.hypot(dr.x - L.rover.x, dr.y - L.rover.y, dr.z - L.rover.z));
+      o.drivingAgain = L.roverActive() && !L.marsDroneActive();
+      L.api.setThrottle(true); for (let i = 0; i < 60; i++) L.update(1 / 60); L.api.setThrottle(false);
+      o.rollsAgain = Math.abs(L.rover.speed) > 2;
+      // and the button is a way back up, every time, for free
+      o.btnUpAgain = !document.getElementById("droneBtn").classList.contains("hidden");
+      o.canFlyAgain = L.marsDronePress() && L.marsDroneActive();
+      // the button alone brings it home too: he can never be stuck in the air
+      L.marsDronePress();
+      o.buttonSendsHome = L.mars.drone.home === true;
+      for (let i = 0; i < 60 * 60 && L.marsDroneActive(); i++) L.update(1 / 60);
+      o.buttonLandsIt = !L.marsDroneActive();
+      o.flights = L.flags.marsDroneFlights || 0;
+
+      // ---- none of it is solid, none of it is a target, none of it is alive
+      let solid = 0;
+      L.__lpForEachSolid ? 0 : 0;
+      o.noTargets = L.targets.every(t2 => Math.hypot(t2.x - L.mars.x, t2.z - L.mars.z) > 200);
+      o.exploded = L.flags.exploded;
+      o.frameErrors = L.frameErrors || 0;
+      return o;
+    });
+    check("mars: dune jumps -- ringed ramps out on the dunes; drive up one at speed and the rover is thrown into the air, tumbles, comes down in a dust burst and drives straight on",
+      o.jumps >= 3 && o.rings === o.jumps && o.jumped && o.airFrames > 20 && o.maxH > 3 &&
+      o.cameDown && o.jumpLandings >= 1 && o.stillDriving && o.flipRights &&
+      o.maxRoll > 1.5 && o.goes === 4 && o.allLanded && o.flips >= 1 && o.levelAfter, JSON.stringify(o));
+    check("mars: the boulder field -- shove a rock and it rolls away along the ground; drive into a cairn and the whole stack comes down; drive off and back and it is all set up again, for free",
+      o.rocks >= 9 && o.stacked >= 6 && o.shoves >= 1 && o.rockMoved >= 4 && o.rockOnGround && o.rockDrawnThere < 0.2 &&
+      o.cairnDown && o.cairnScattered && o.wentAway && o.fieldReset && o.standingAgain, JSON.stringify(o));
+    check("mars: the little helicopter -- parked by the garage, one tap when he drives up to it and he is flying it with the very same point-to-go, in both views",
+      o.droneParked && o.btnFarOff && o.btnNear && o.btnModeFly && o.tapped && o.flying && o.btnModeBack &&
+      o.roverWaits && o.oneFinger && o.views.chase.moved > 30 && o.views.cockpit.moved > 30 &&
+      o.views.chase.hovers && o.views.cockpit.hovers && o.aloft, JSON.stringify(o));
+    check("mars: touch the rover and the drone comes home, lands beside it and he is driving again -- and the button is always a way down, so he can never be stuck up there",
+      o.roverOnScreen && o.pickIsRover && o.headingHome && o.landedBack && o.landings === 1 &&
+      o.besideRover < 40 && o.drivingAgain && o.rollsAgain && o.btnUpAgain && o.canFlyAgain &&
+      o.buttonSendsHome && o.buttonLandsIt && o.flights === 2 && o.exploded === 0 && o.frameErrors === 0, JSON.stringify(o));
+    check("mars: the drone's button never lands on top of another one -- nothing overlaps with it up beside the rover, or up in the air as the way down",
+      o.slotDriving.bad.length === 0 && o.slotDriving.up.includes("droneBtn") &&
+      o.slotFlying.bad.length === 0 && o.slotFlying.up.includes("droneBtn") &&
+      !o.slotFlying.up.includes("roverBtn") &&   // it must not be able to stow the rover from up in the air
+      JSON.stringify({ driving: o.slotDriving, flying: o.slotFlying }));
     await page.close();
   }
 

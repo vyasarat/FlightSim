@@ -513,6 +513,17 @@
   /* on a rocket it drops to the gear row, which is empty there: the shared slot
      above already holds stage / satellite / parachute / rover / hatch */
   #missileBtn.lowSlot { bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
+  /* the Mars drone: the rocket has no gear, so that row is free for it */
+  #droneBtn {
+    bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    left: calc(var(--edge) + env(safe-area-inset-left));
+    z-index: 10;
+    border-color: #d4a72c;
+    animation: homePulse 1.2s ease-in-out infinite;
+  }
+  #droneBtn.hidden { display: none; }
+  #droneBtn .fly, #droneBtn .back { display: none; }
+  #droneBtn[data-mode="fly"] .fly, #droneBtn[data-mode="back"] .back { display: block; }
   /* the catapult: planes have gear, so this one lives in the shared slot above it */
   #catBtn {
     bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
@@ -749,6 +760,25 @@
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <path d="M28 46 L50 22 L72 46" fill="none" stroke="#f2f4f7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M28 76 L50 52 L72 76" fill="none" stroke="#f2f4f7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</button>
+<button id="droneBtn" class="roundBtn hidden" aria-hidden="true" data-mode="fly">
+  <svg class="fly" viewBox="0 0 100 100">
+    <line x1="16" y1="24" x2="84" y2="24" stroke="#f2f4f7" stroke-width="6" stroke-linecap="round"/>
+    <line x1="26" y1="34" x2="74" y2="34" stroke="#c3c9d2" stroke-width="5" stroke-linecap="round"/>
+    <line x1="50" y1="24" x2="50" y2="46" stroke="#e8ecf2" stroke-width="5"/>
+    <rect x="37" y="46" width="26" height="17" rx="3" fill="#d4a72c" stroke="#f2f4f7" stroke-width="3"/>
+    <line x1="41" y1="63" x2="35" y2="79" stroke="#e8ecf2" stroke-width="4" stroke-linecap="round"/>
+    <line x1="59" y1="63" x2="65" y2="79" stroke="#e8ecf2" stroke-width="4" stroke-linecap="round"/>
+    <path d="M84 84 V62 M74 72 l10 -10 l10 10" fill="none" stroke="#5ff1ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <svg class="back" viewBox="0 0 100 100">
+    <line x1="16" y1="20" x2="84" y2="20" stroke="#8a93a0" stroke-width="5" stroke-linecap="round"/>
+    <rect x="24" y="48" width="52" height="18" rx="4" fill="#ffd23e" stroke="#f2f4f7" stroke-width="3"/>
+    <rect x="33" y="38" width="30" height="10" fill="#2b4fb0"/>
+    <circle cx="34" cy="72" r="8" fill="#1f2328" stroke="#8a93a0" stroke-width="2"/>
+    <circle cx="66" cy="72" r="8" fill="#1f2328" stroke="#8a93a0" stroke-width="2"/>
+    <path d="M50 12 V34 M40 24 l10 10 l10 -10" fill="none" stroke="#5ff1ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
 </button>
 <button id="catBtn" class="roundBtn hidden" aria-hidden="true">

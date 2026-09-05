@@ -431,7 +431,12 @@ function updateRocket(dt) {
   // astronaut early returns below. Deciding them after meant whatever was up when he
   // climbed out of the seat stayed up for the whole visit, stacked over the button he
   // actually needed -- and the one later in the DOM silently eats the tap.
-  el.roverBtn.classList.toggle("hidden", !(roverCan() || roverActive()));
+  el.roverBtn.classList.toggle("hidden", !((roverCan() || roverActive()) && !marsDroneActive()));
+  // the little Mars drone: parked by the garage, so the button is only there when
+  // he has driven up to it -- and once he is flying it, it is the way back down
+  const droneUp = marsDroneCan() || marsDroneActive();
+  el.droneBtn.classList.toggle("hidden", !droneUp);
+  if (droneUp) el.droneBtn.dataset.mode = marsDroneActive() ? "back" : "fly";
   el.hatchBtn.classList.toggle("hidden", !(stationCanEnter() || astroActive()));
   el.stageBtn.classList.toggle("hidden", !rocketCanDrop());
   if (el.stageBtn.dataset.stage !== String(rk.stage)) el.stageBtn.dataset.stage = String(rk.stage);
@@ -440,7 +445,7 @@ function updateRocket(dt) {
   // the rocket has no missiles -- except during a meteor shower, when one comes up in
   // the gear row (empty on a rocket), clear of everything in the shared slot above it
   el.missileBtn.classList.toggle("hidden", !eventsWantMissile());
-  if (roverActive()) { updateRover(dt); rk.igniteT = 0; return; }   // driving: the capsule waits
+  if (roverActive()) { if (!marsDroneActive()) updateRover(dt); rk.igniteT = 0; return; }   // driving (or flying the drone, which updates with the base): the capsule waits
   if (astroActive()) { updateGoButton(); updateAstronaut(dt); rk.igniteT = 0; updateStationDocked(dt, true); return; }   // floating inside: the capsule waits at the port
 
   // buttons: throttle always (hold to burn); the rocket has no speed steps or gear
