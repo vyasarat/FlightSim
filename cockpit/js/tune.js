@@ -67,6 +67,26 @@ const TUNE = {
     blend: 2.2,                        // how fast a mood crossfades (per second)
   },
 
+  // ---- Ambient life (js/ambient.js). Nothing here is a target, solid, or
+  // reachable. The birds live under the same rule as the astronaut: they are
+  // fine because nothing can happen to them. Make them hittable and they have to
+  // become paper planes, the way the old ones did.
+  ambient: {
+    birdCount: 42, birdsPerFlock: 7, birdSize: 2.2, birdColor: 0x2f3a48,
+    spawn: [260, 700], despawn: 1500, alt: [40, 130], speed: [14, 22],
+    spread: 5.5, scareRadius: 220,     // he gets nowhere near before they peel off
+    spawnArc: 1.1,                     // radians either side of his nose: he has to be able to SEE them
+    // Cruise altitude in this world, not in the real one: at 1600-2300 m they sat
+    // 40 degrees above the horizon and were never once in frame. Just above the
+    // horizon from his own cruise height is where an airliner actually reads.
+    highJets: 3, highAlt: [620, 1000], highSpeed: 150,
+    highSpawn: [1400, 3400], highDespawn: 5000,
+    trailLength: 900, trailWidth: 7, trailOpacity: 0.30,
+    flagRate: 4.2, flagWave: 0.55,
+    radarRpm: 5.5,                     // the carrier's and the rig's dishes
+    marsDustEvery: 2.4,                // a plume drifts past this often out there
+  },
+
   // ---- The palette. Every colour in the game snaps to one of these unless it
   // is a livery (airliners keep their own) or a signal lamp. This is not a new
   // scheme -- each one was already the dominant value for its role; the job was

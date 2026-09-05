@@ -698,6 +698,7 @@ function update(dt) {
   applyCamera(dt);
   updateSunRig();            // the shadow box rides the camera, so it must follow it
   updateAtmosphere(dt);      // ... and the sun billboard is pinned off the camera too
+  updateAmbient(dt, state.x, state.y, state.z);
   shakeAmp = Math.max(0, shakeAmp - dt * 0.9);
   updateVehicleModel(dt);
 
