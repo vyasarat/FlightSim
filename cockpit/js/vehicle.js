@@ -136,6 +136,17 @@ function buildVehicleModel(key) {
   g.rotation.order = "YXZ";
   scene.add(g);
   castsShadow(g);            // the one shadow he looks for: his own, on the runway
+  // whatever burns gets a glow: one sprite, additive, on the shared glow texture
+  if (g.userData.flame) {
+    const gl = glowSprite(TUNE.sky.engineGlowColor, 1, 0);
+    gl.position.copy(g.userData.flame.position);
+    g.add(gl);
+    g.userData.engineGlow = gl;
+    const heat = glowSprite(TUNE.sky.heatColor, 1, 0);
+    heat.position.copy(g.userData.flame.position);
+    g.add(heat);
+    g.userData.padHeat = heat;
+  }
   vehicleModel = g;
 }
 
@@ -159,6 +170,28 @@ function updateVehicleModel(dt) {
   if (vehicleModel.userData.flame) {
     vehicleModel.userData.flame.scale.y = 0.8 + Math.random() * 0.5;
     vehicleModel.userData.flame.visible = state.vp.rocket ? (state.throttleHeld && rk.fuel[rocketTank()] > 0 && (state.phase === "AIRBORNE" || rk.igniteT > 0.6)) : state.speed > 2;
+  }
+  if (vehicleModel.userData.engineGlow) {
+    const f = vehicleModel.userData.flame, gl = vehicleModel.userData.engineGlow;
+    gl.visible = f.visible;
+    if (gl.visible) {
+      const r = state.vp.rocket ? TUNE.sky.engineGlowRocket : TUNE.sky.engineGlowPlane;
+      gl.scale.setScalar(r * (0.85 + Math.random() * 0.3));
+      gl.material.opacity = TUNE.sky.engineGlowOpacity;
+      gl.position.z = f.position.z + r * 0.1;
+    }
+    // heat haze, and only where there is air and ground to bounce it off: on the
+    // pad and low down, never in orbit
+    const heat = vehicleModel.userData.padHeat;
+    const low = state.vp.rocket && f.visible && state.spaceF < 0.3 &&
+      (state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel)) < 260;
+    const wantHeat = low ? TUNE.sky.heatOpacity * (0.7 + 0.3 * Math.sin(performance.now() * 0.001 * TUNE.sky.heatRate)) : 0;
+    heat.material.opacity += (wantHeat - heat.material.opacity) * Math.min(1, 5 * dt);
+    heat.visible = heat.material.opacity > 0.005;
+    if (heat.visible) {
+      heat.scale.setScalar(TUNE.sky.heatSize * (0.9 + 0.2 * Math.sin(performance.now() * 0.0013 * TUNE.sky.heatRate)));
+      heat.position.z = f.position.z + TUNE.sky.heatSize * 0.25;
+    }
   }
   if (vehicleModel.userData.plumeLight) {
     const on = vehicleModel.userData.flame.visible && state.nightF > 0.3;

@@ -67,6 +67,34 @@ const TUNE = {
     blend: 2.2,                        // how fast a mood crossfades (per second)
   },
 
+  // ---- Atmosphere (js/sky.js). Billboards and fog only: a full-screen bloom
+  // costs more on an iPad than every glow in the game put together.
+  sky: {
+    sunDistance: 2400,                 // where the sun billboard is pinned (it reads as infinity)
+    sunSize: 0.030, sunColor: 0xfff6e0,
+    haloSize: 0.15, haloColor: 0xffd9a0, haloOpacity: 0.46,
+    lensSize: 0.34, lensColor: 0xffe6b8, lensOpacity: 0.26,   // cockpit only: from outside there is no lens
+    cirrusAlt: 900, cirrusSpan: 9000, cirrusRepeat: 5,
+    cirrusOpacity: 0.55, cirrusDrift: 0.004,
+    starSize: 2.6, twinkleRate: [0.7, 2.6], twinkleDepth: 0.55,
+    // Additive glows. Every one of these is a billboard on the same texture as
+    // the sun, so the whole lot is one material family and one upload.
+    engineGlowColor: 0xffb43a, engineGlowRocket: 13, engineGlowPlane: 3.2, engineGlowOpacity: 0.8,
+    fireGlowColor: 0xff8a2a, fireGlowSize: 85, fireGlowOpacity: 0.62,
+    blastGlowColor: 0xffd070, blastGlowScale: 5.5, blastGlowOpacity: 0.85,
+    padLightColor: 0xffd23e, padLightSize: 9, padLightOpacity: 0.75,
+    // Heat haze off the pad: no post-processing, so it is a wide soft billboard
+    // that breathes rather than a real distortion. It reads as air, not as a bug.
+    heatColor: 0xffd9a8, heatSize: 34, heatOpacity: 0.18, heatRate: 5.5,
+    // Per-environment haze. The Moon has no air, so it gets none at all and its
+    // horizon stays knife-sharp; Mars gets a dusty pink one that hides the
+    // seam where the sphere falls away.
+    fog: {
+      mars: { color: 0xd98a5c, near: 260, far: 2100 },
+      moon: { color: 0x0a0c14, near: 6000, far: 20000 },
+    },
+  },
+
 
   colorLow: 0x7cbf58,
   colorMid: 0x67a34e,

@@ -24,7 +24,7 @@ const MB = TUNE.marsBase;
 const mars = {
   g: null, body: null,
   x: 0, y: 0, z: 0, n: new THREE.Vector3(0, 1, 0),
-  pad: null, padMat: null, lights: [],
+  pad: null, padMat: null, lights: [], padGlow: null,
   cargo: null, cargoGlow: null, horizonLight: null,
   phase: "none",     // none | idle | armed | returning | count | launch
   t: 0, cargoT: 0, cargoPhase: "waiting",   // waiting | count | falling | down
@@ -45,7 +45,7 @@ function marsClear() {
   if (mars.cargo) scene.remove(mars.cargo);          // it lives in the scene, not the base group
   if (mars.horizonLight) scene.remove(mars.horizonLight);
   countdownClear();
-  mars.pad = null; mars.padMat = null; mars.lights = [];
+  mars.pad = null; mars.padMat = null; mars.lights = []; mars.padGlow = null;
   mars.cargo = null; mars.cargoGlow = null; mars.horizonLight = null;
   mars.phase = "none"; mars.t = 0; mars.cargoT = 0; mars.cargoPhase = "waiting";
   mars.wentOut = false;
@@ -165,6 +165,11 @@ function marsBuild() {
       lt.position.set(Math.cos(a) * MB.padR, 0.9, Math.sin(a) * MB.padR);
       pad.add(lt); mars.lights.push(lt);
     }
+    // the glow over them: one draw call for the whole ring, and it is what makes
+    // the pad read as lit from the far side of the dunes
+    const pts = mars.lights.map(l => l.position);
+    mars.padGlow = glowField(pts, TUNE.sky.padLightColor, TUNE.sky.padLightSize, TUNE.sky.padLightOpacity);
+    pad.add(mars.padGlow);
     marsPlace(pad, 0.01, 0, 0);
     g.add(pad);
     mars.pad = pad;
@@ -270,6 +275,10 @@ function updateMarsBase(dt) {
     const counting = mars.phase === "count" || mars.phase === "launch";
     const on = counting ? (Math.floor(mars.clock * 9) % 2 === 0) : (Math.sin(mars.clock * 2.2) > -0.3);
     mars.padMat.color.setHex(on ? (counting ? 0xffffff : 0xffd23e) : 0x5a4a18);
+    if (mars.padGlow) {
+      mars.padGlow.material.opacity = on ? TUNE.sky.padLightOpacity : TUNE.sky.padLightOpacity * 0.15;
+      mars.padGlow.material.color.setHex(counting ? 0xffffff : TUNE.sky.padLightColor);
+    }
   }
 
   // ---- the cargo ship, announced and then flown down beside the base

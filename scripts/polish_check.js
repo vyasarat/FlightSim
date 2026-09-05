@@ -226,15 +226,38 @@ const HEAVY = {
         const cpuMs = med(() => draw(45), 3);
         const info = L.renderer.info;
         const calls = info.render.calls, tris = info.render.triangles;
-        // A/B the shadow pass in place: this is the only honest way to price it,
-        // because draw-call counts do not move much and swiftshader wildly
-        // over-punishes the fill-rate half of the cost.
+        // A/B the shadow pass in place, INTERLEAVED. Measuring one block of
+        // samples then the other let this box's own drift swing the answer by ten
+        // percentage points -- it once priced a layer at +19% that alternating
+        // sampling then showed to be free. Toggling shadowMap.enabled forces a
+        // material recompile, so each side gets its own warm-up before it counts.
         const wasOn = L.renderer.shadowMap.enabled;
-        L.renderer.shadowMap.enabled = false;
-        L.scene.traverse(o => { if (o.isMesh && o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; });
-        draw(20);
-        const noShadowMs = med(() => draw(45), 3);
+        const flush = () => L.scene.traverse(o => { if (o.isMesh && o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; });
+        const sOn = [], sOff = [];
+        for (let i = 0; i < 3; i++) {
+          L.renderer.shadowMap.enabled = true; flush(); draw(15); sOn.push(draw(30));
+          L.renderer.shadowMap.enabled = false; flush(); draw(15); sOff.push(draw(30));
+        }
+        sOn.sort((x, y) => x - y); sOff.sort((x, y) => x - y);
+        const withShadow = sOn[1], noShadowMs = sOff[1];
         const noShadowCalls = L.renderer.info.render.calls;
+        // ... and the same A/B for every additive layer the atmosphere pass added.
+        // INTERLEAVED, not in blocks: this box drifts enough between two blocks of
+        // samples to swing a percentage by ten points, and alternating cancels it.
+        const glows = [];
+        L.scene.traverse(o => {
+          if ((o.isSprite || o.isPoints) && o.material && o.material.blending === 2 && o.visible) glows.push(o);
+        });
+        const on = [], off = [];
+        for (let i = 0; i < 5; i++) {
+          for (const o of glows) o.visible = true;
+          on.push(draw(30));
+          for (const o of glows) o.visible = false;
+          off.push(draw(30));
+        }
+        for (const o of glows) o.visible = true;
+        on.sort((x, y) => x - y); off.sort((x, y) => x - y);
+        const withGlow = on[2], noGlowMs = off[2];
         L.renderer.shadowMap.enabled = wasOn;
         L.scene.traverse(o => { if (o.isMesh && o.material && o.material.needsUpdate !== undefined) o.material.needsUpdate = true; });
         draw(20);
@@ -242,8 +265,11 @@ const HEAVY = {
           simMs: +simMs.toFixed(3),
           cpuMs: +cpuMs.toFixed(2),
           noShadowMs: +noShadowMs.toFixed(2),
-          shadowPct: +(((cpuMs - noShadowMs) / noShadowMs) * 100).toFixed(1),
+          shadowPct: +(((withShadow - noShadowMs) / noShadowMs) * 100).toFixed(1),
           calls, tris,
+          noGlowMs: +noGlowMs.toFixed(2),
+          glowPct: +(((withGlow - noGlowMs) / noGlowMs) * 100).toFixed(1),
+          glowObjects: glows.length,
           shadowCalls: calls - noShadowCalls,
           programs: info.programs.length,
         };
@@ -265,7 +291,7 @@ const HEAVY = {
   for (const [k, v] of Object.entries(perf.heavy)) {
     for (const view of ["chase", "cockpit"]) {
       const r = v[view];
-      const sh = r.noShadowMs === undefined ? "" : `   no-shadow ${String(r.noShadowMs).padStart(6)} ms (+${r.shadowPct}%, +${r.shadowCalls} calls)`;
+      const sh = r.noShadowMs === undefined ? "" : `   shadow +${String(r.shadowPct).padStart(5)}%   glow +${String(r.glowPct).padStart(5)}% (${r.glowObjects})`;
       console.log(`  ${k.padEnd(16)} ${view.padEnd(8)} cpu ${String(r.cpuMs).padStart(7)} ms   sim ${String(r.simMs).padStart(6)} ms   calls ${String(r.calls).padStart(5)}   tris ${String(r.tris).padStart(8)}${sh}`);
     }
   }
