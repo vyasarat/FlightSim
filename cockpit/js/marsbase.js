@@ -170,6 +170,7 @@ function marsBuild() {
     mars.pad = pad;
   }
   marsToysBuild(g);
+  castsAndReceives(g);
   scene.add(g);
   mars.g = g;
   mars.phase = "idle";
@@ -629,6 +630,7 @@ function marsBuildDrone(g) {
   }
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.26, 7, 6), new THREE.MeshBasicMaterial({ color: 0x5ff1ff, fog: false }));
   lamp.position.set(0, 1.6, 0.95); dg.add(lamp);
+  castsShadow(dg);
   scene.add(dg);                       // it flies away from the base, so it lives in the scene
   const p = surfacePoint(mars.body, mars.n, D.parkDist, D.parkAngle);
   mars.drone = {

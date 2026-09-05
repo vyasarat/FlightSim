@@ -137,6 +137,7 @@ function buildDemolition() {
   demo.reticle = ret;
 
   addRouteLandmark(g, x, z, "demolition");
+  castsAndReceives(g);
   demo.g = g; demo.x = x; demo.z = z; demo.base = g.position.y;
 }
 
@@ -542,6 +543,7 @@ function buildFireRig() {
     fire.smoke.push({ mesh: m, t: i / FF.smokePuffs, k: 0.7 + hashSalt(i, 411, 2) * 0.7 });
   }
   scene.add(g);
+  castsShadow(g);
   fire.g = g; fire.x = x; fire.z = z; fire.deck = deck;
 }
 
@@ -800,6 +802,7 @@ function buildCarrier() {
     carrier.crew.push({ g: c, arm, phase: i * 0.9, sx });
   }
   scene.add(g);
+  castsAndReceives(g);   // the deck takes the shadow of the island and of him
   carrier.g = g; carrier.x = x; carrier.z = z; carrier.deck = deck;
 }
 
