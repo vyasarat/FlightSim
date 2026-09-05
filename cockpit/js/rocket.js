@@ -525,6 +525,7 @@ function updateRocket(dt) {
         rk.refitT = 0;
         chuteReset();
         liftoffRoar();
+        cameraPunch(0.8);       // the view widens as it comes off the pad
         rumble = 0.05;
       }
     } else {

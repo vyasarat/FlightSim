@@ -67,6 +67,27 @@ const TUNE = {
     blend: 2.2,                        // how fast a mood crossfades (per second)
   },
 
+  // ---- Camera and feel (js/vehicle.js). None of this touches the flight model:
+  // it is all how the picture moves, never where the aeroplane is.
+  camera: {
+    fovSpeed: 5.5,               // degrees added between a hover and cruise. Readability caps
+                                 // this: every degree wider makes the thing he is aiming at smaller,
+                                 // and the brief's own second law says he has to be able to see it.
+    fovRate: 2.2,                // how fast the field of view eases
+    fovPunchMax: 9,              // a catapult or a lift-off punch, on top
+    punchDecay: 2.6,
+    bobRate: 0.9, bobAmp: 0.45,  // a slow breath on the chase camera, faster when quick
+    leanBank: 0.35,              // how much of his bank the camera leans (unchanged)
+    // Shake: a curve, not a ramp, and capped so a bang can never hide the thing
+    // he is aiming at. `gamma` above 1 makes it fall away fast and then linger.
+    shakeDecay: 2.4, shakeGamma: 1.7, shakeCap: 0.62,
+    shakeChase: [9, 7, 9], shakeCockpit: [11, 9, 11],
+    hitStop: 0.05,               // seconds the MODEL freezes on a solid hit (the world does not)
+    nod: 5.5, nodDecay: 4.0,     // the camera dips when he puts it down
+    settle: 0.55, settleRate: 9, // ... and the aeroplane settles on its gear
+    lines: { from: 0.55, gain: 0.5, alt: 0.35 },   // speed streaks: only fast, only in the cockpit
+  },
+
   // ---- Sound (js/audio.js). One master and a gain per layer, so anything can be
   // pulled down without touching the mix around it. Nothing here is harsh: every
   // bed is filtered noise or a low tone, and the compressor still catches peaks.
