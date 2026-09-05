@@ -970,4 +970,5 @@ function updateSetpieces(dt) {
 // has had its say, or he simply flies on through it.
 function updateSetpiecesLate(dt) {
   carrierLate(dt);
+  marsLate(dt);
 }
