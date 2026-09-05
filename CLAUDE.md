@@ -9,9 +9,11 @@ the checklist for shipping one.
 - **Zero text** in the UI: icons, silhouettes and numbers only. The harness audits
   every DOM text node. `<title>` and `alt=""` are fine; nothing else may render text.
 - **Nothing living gets shot, hit or destroyed**: targets, traffic, things that explode or
-  shatter are vehicles, machines and objects only (birds became paper-plane squadrons for
+  shatter are vehicles, machines and objects only (the *target* flocks are paper planes for
   that reason). Living things are fine where nothing can happen to them -- an astronaut
-  floating in the station, on a spacewalk, in the rover.
+  floating in the station, on a spacewalk, in the rover, and the ambient birds in `ambient.js`,
+  which are not targets, not solids, carry `noSolid`/`noShatter` and are flown straight through
+  in a harness check. Make them hittable and they have to become paper planes too.
 - **Nothing is ever taken away**: no score, no timers, no unlocks, no failure state.
   Every crash explodes and reassembles for free; every reward re-arms.
 - **Pointing, not timing**: every control is "aim at it", never "press at the right
@@ -72,6 +74,11 @@ the checklist for shipping one.
   pass. Anything lit that must take a shadow across a big flat face has to be Phong, not Lambert:
   Lambert shades per vertex, so on the Mars sphere (40 m triangles) a rover's shadow landed as a
   blob the size of a dune field.
+- `ambient.js` — things that move on their own (`TUNE.ambient`): bird flocks, high airliners
+  with contrails, flags. **Everything in here is prefixed** — these files share one global scope
+  and a later `function foo` silently replaces an earlier one. `placeFlock` here was overwritten
+  by the paper-plane target placer in `landmarks.js` and every flock became a half-target that
+  could never be placed; nothing threw. The harness now checks no name is declared twice.
 - `sky.js` — atmosphere (`TUNE.sky`): the sun billboard and halo, the cockpit-only lens glow,
   the drifting cirrus sheet, twinkling stars (one draw call, per-star phase in a shader) and the
   per-body haze. **There is no post-processing stack and there is not going to be one**: every

@@ -151,6 +151,7 @@ window.__lp = {
   get cameraPos(){return camera.position;}, camera, scene, renderer, station, takePhoto,
   sunLight, hemiLight, sunDir, updateSunRig, shadowRadiusWanted, lightMood, currentLightEnv,
   sunDisc, sunHalo, sunLens, cirrus, glowSprite, glowField, updateAtmosphere,
+  birdMesh, birds, flocks, highJets, ambFlags, updateAmbient, AMB,
 
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,

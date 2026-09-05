@@ -31,7 +31,7 @@ const mars = {
   wentOut: false, clock: 0,
   boostT: 0,         // survives marsClear: the pad's hand stays on the throttle after lift-off
   // things to do out there
-  jumps: [], rocks: [], rocksAway: false, drone: null,
+  jumps: [], rocks: [], rocksAway: false, drone: null, flag: null, dustT: 0,
   jump: { air: false, peaked: false, t: 0, roll: 0, spin: 0, flipT: 0, flipFrom: 0 },
 };
 const mbTmp = new THREE.Vector3();
@@ -121,6 +121,14 @@ function marsBuild() {
     dish.position.y = MB.mastH; dish.rotation.x = -0.7; m.add(dish);
     const tip = new THREE.Mesh(new THREE.SphereGeometry(0.8, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff3b30, fog: false }));
     tip.position.y = MB.mastH + 1.5; m.add(tip);
+    if (i === 0) {
+      // a flag on the first mast: out here the wind is the only thing that moves
+      // on its own, and it is what tells him the place is alive
+      const fl = registerFlag(makeFlag(9, 5.5, TUNE.palette.red));
+      fl.position.set(4.6, MB.mastH - 5, 0);
+      m.add(fl);
+      mars.flag = fl;
+    }
     marsPlace(m, MB.spread * 0.75, 2.2 + i * 1.15, 0);
     g.add(m);
   }
@@ -269,6 +277,17 @@ function updateMarsBase(dt) {
   }
   mars.clock += dt;
   updateMarsToys(dt);
+  // dust on the wind. It reuses the wake-puff pool, so it costs no draw call of
+  // its own -- the place just stops being perfectly still.
+  mars.dustT -= dt;
+  if (mars.dustT <= 0) {
+    mars.dustT = TUNE.ambient.marsDustEvery * (0.6 + rnd() * 0.9);
+    const p = surfacePoint(mars.body, mars.n, 60 + rnd() * 160, rnd() * Math.PI * 2);
+    for (let k = 0; k < 4; k++) {
+      wakePuff(p.x + (rnd() - 0.5) * 30, p.y + rnd() * 10 + 3, p.z + (rnd() - 0.5) * 30,
+               0xc98a5a, 2.4 + rnd() * 2, 5, 3.2);
+    }
+  }
 
   // the pad lights: a steady amber, hurrying once it is taking him home
   if (mars.padMat) {
