@@ -325,6 +325,38 @@ const TUNE = {
     padR: 26, padLights: 14,        // the lit pad: it is drawn around wherever he came down
     armDist: 70, triggerR: 22,      // drive out this far, then back inside this, and it takes him home
     padCount: 3,                    // the countdown on the pad before he goes
+    // things to DO out there, all of them Mars-only
+    jumps: {
+      count: 4, dist: [175, 260],     // sculpted ramps out on the dunes, well clear of `spread`
+      w: 13, len: 20, rise: 5,
+      ringR: 7.5,                     // marked in the pad's own language, angled up
+      minSpeed: 5, hitR: 6, groundish: 2.5,   // rolling fast on Mars it is half-airborne on its own bumps
+      kick: 3.2, kickPerSpeed: 0.42,  // how hard it throws him (~4 s of Mars air)
+      spin: 2.2,                      // how fast it tumbles in the air
+      airborneAt: 1.2, maxAir: 14,    // properly off the ground / a hard stop, so it can never spin for ever
+      dust: 16, dustLife: 2.0,
+      flipTime: 1.1,                  // a bad landing rolls it, and it rights itself
+      flipAt: 1.1,                    // ... if it came down more than this far off level
+    },
+    boulders: {
+      count: 12, cairns: 3, cairnRocks: 3,
+      dist: [55, 120], r: [1.6, 3.2],   // in among the domes, but clear of the lit pad
+      shoveR: 3.4, shove: 7, shovePerSpeed: 1.0,
+      drag: 0.5, bounce: 0.75,        // Hot Wheels, not physics: cheap and satisfying
+      resetDist: 260,                 // drive away and come back and it is all set up again
+    },
+    drone: {
+      parkAngle: 3.28, parkDist: 80,  // it sits beside the garage (which is at spread*0.5, 3.4)
+      callR: 22,                      // drive this close and the button comes up
+      cruise: 22, approach: 0.6, accel: 2.0, hoverDamp: 3.0,
+      turnRate: 70, turnAccel: 4.0,
+      hoverH: 14, minH: 2.2, maxH: 220,
+      vGain: 0.7, vRate: 9, vAccel: 2.5,
+      landR: 9,                       // this near the rover and it settles beside it
+      graceTime: 1.6,                 // ... but not in the first moments, with the rover still underneath
+      rotor: 26,                      // how fast the blades spin
+      stallTime: 2.0, stallSpeed: 2,  // never stuck, same guarantee as the helicopter
+    },
     boost: 6,                       // ... and it keeps his throttle in this long after lift-off,
                                     // or Mars simply pulls him straight back down onto the pad
     cargoDelay: 12,                 // once he is out driving, the cargo ship is announced

@@ -63,7 +63,7 @@ function applyVehicle(key) {
   if (state.vp.rocket && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
   el.missileBtn.classList.toggle("lowSlot", !!state.vp.rocket);   // the shared slot is spoken for on a rocket
   if (!state.vp.rocket) {
-    for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn]) b.classList.add("hidden");
+    for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn, el.droneBtn]) b.classList.add("hidden");
     if (typeof roverReset === "function") roverReset();
     if (typeof astroReset === "function") astroReset();
     if (typeof cancelRecovery === "function") cancelRecovery();
