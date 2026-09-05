@@ -152,6 +152,7 @@ window.__lp = {
   sunLight, hemiLight, sunDir, updateSunRig, shadowRadiusWanted, lightMood, currentLightEnv,
   sunDisc, sunHalo, sunLens, cirrus, glowSprite, glowField, updateAtmosphere,
   birdMesh, birds, flocks, highJets, ambFlags, updateAmbient, AMB,
+  feel, cameraPunch, cameraHitStop, cameraNod, updateFeel, shakeNow, speedLines, triggerExplosion,
 
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,

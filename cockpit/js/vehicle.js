@@ -163,6 +163,7 @@ function updateVehicleModel(dt) {
   let sx = 1, sy = 1;
   if (state.squashTimer > 0) { const t = state.squashTimer / 0.35; sy = 1 - 0.22 * Math.sin(t * Math.PI); sx = 1 + 0.1 * Math.sin(t * Math.PI); }
   if (state.popTimer > 0) { const t = 1 - state.popTimer / 0.45; const k = 1 + 0.45 * Math.sin(t * Math.PI) * (1 - t); sx *= k; sy *= k; }
+  if (feel.hitStop > 0) return;   // hit-stop: the MODEL holds, the flight model does not
   vehicleModel.scale.set(bs * sx, bs * sy, bs * sx);
   vehicleModel.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
   if (vehicleModel.userData.rotor) vehicleModel.userData.rotor.rotation.y += dt * 26;
@@ -205,30 +206,91 @@ function updateVehicleModel(dt) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Feel. Every value here moves the picture and nothing else: the flight model
+// never sees any of it.
+// ---------------------------------------------------------------------------
+const feel = {
+  fov: TUNE.fov, punch: 0,      // field of view, and the kick off a catapult
+  bob: 0,                        // a slow breath on the chase camera
+  hitStop: 0,                    // the model freezes; the world keeps going
+  nod: 0, settle: 0, settleV: 0, // the dip and the bounce when he puts it down
+  wasDown: true,
+};
+
+// A brief widening: the catapult, and a rocket coming off the pad.
+function cameraPunch(amount) {
+  feel.punch = Math.min(TUNE.camera.fovPunchMax, feel.punch + (amount || 1) * TUNE.camera.fovPunchMax);
+}
+// The model stops dead for a couple of frames. The aeroplane does not.
+function cameraHitStop(scale) {
+  feel.hitStop = Math.max(feel.hitStop, TUNE.camera.hitStop * (scale || 1));
+}
+// A dip of the nose when the wheels touch, and a settle on the gear.
+function cameraNod(strength) {
+  const C = TUNE.camera;
+  feel.nod = Math.max(feel.nod, C.nod * (strength === undefined ? 1 : strength));
+  feel.settleV = -C.settle * (strength === undefined ? 1 : strength);
+}
+
+function updateFeel(dt) {
+  const C = TUNE.camera;
+  // ---- field of view: wider the faster he goes, plus whatever punched it
+  const sp = state.vp && state.vp.cruiseSpeed ? clamp(state.speed / state.vp.cruiseSpeed, 0, 1.25) : 0;
+  feel.punch = Math.max(0, feel.punch - C.punchDecay * dt * Math.max(0.4, feel.punch));
+  const wantFov = TUNE.fov + C.fovSpeed * sp + feel.punch;
+  feel.fov += (wantFov - feel.fov) * Math.min(1, C.fovRate * dt);
+  if (Math.abs(camera.fov - feel.fov) > 0.02) { camera.fov = feel.fov; camera.updateProjectionMatrix(); }
+
+  feel.bob += dt * C.bobRate * (0.6 + sp);
+  if (feel.hitStop > 0) feel.hitStop -= dt;
+  feel.nod = Math.max(0, feel.nod - C.nodDecay * dt * Math.max(0.5, feel.nod));
+  // the settle is a little spring, so it bounces once and stops
+  feel.settleV += (-feel.settle * C.settleRate - feel.settleV * 5.5) * dt;
+  feel.settle += feel.settleV * dt;
+
+  // ---- touchdown: the wheels arriving is the moment worth feeling
+  const down = state.phase === "TAXI" || state.phase === "ROLL";
+  if (down && !feel.wasDown && !state.exploding) cameraNod(clamp(Math.abs(state.airVy || 0) / 8, 0.35, 1));
+  feel.wasDown = down;
+}
+
+// Shake, on a curve. Linear decay made every bang feel the same size; a gamma
+// above one drops it fast and then lets it linger, which is what a real one
+// does. Capped, because a bang must never hide the thing he is aiming at.
+function shakeNow() {
+  const C = TUNE.camera;
+  return Math.min(C.shakeCap, Math.pow(clamp(shakeAmp, 0, 1), C.shakeGamma) + rumble);
+}
+
 function applyCamera(dt) {
   if (state.vp.rocket) { if (marsDroneActive()) marsDroneCamera(dt); else if (roverActive()) roverCamera(dt); else if (astroActive()) astroCamera(dt); else rocketCamera(dt); return; }
   camera.up.set(0, 1, 0);
   if (state.viewChase) {
     const vs = state.vp.size || 1;
     const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
-    camDesired.set(state.x - fx * 30 * vs, state.y + 11 * vs + 3, state.z - fz * 30 * vs);
+    const C = TUNE.camera;
+    const bob = Math.sin(feel.bob) * C.bobAmp;
+    camDesired.set(state.x - fx * 30 * vs, state.y + 11 * vs + 3 + bob + feel.settle, state.z - fz * 30 * vs);
     // A little positional lag makes banks feel heavy; the camera also leans a
     // fraction of the bank so a turn reads as a turn.
     camera.position.lerp(camDesired, Math.min(1, 4 * dt));
-    lookV.set(state.x + fx * 26, state.y + 2, state.z + fz * 26);
+    lookV.set(state.x + fx * 26, state.y + 2 - feel.nod * 0.5, state.z + fz * 26);
     camera.lookAt(lookV);
-    camera.rotateZ(-state.bank * DEG * 0.35);
-    const sh = shakeAmp + rumble;
-    camera.position.x += (Math.random() - 0.5) * 9 * sh;
-    camera.position.y += (Math.random() - 0.5) * 7 * sh;
-    camera.position.z += (Math.random() - 0.5) * 9 * sh;
+    camera.rotateZ(-state.bank * DEG * C.leanBank);
+    camera.rotateX(-feel.nod * DEG);
+    const sh = shakeNow();
+    camera.position.x += (Math.random() - 0.5) * C.shakeChase[0] * sh;
+    camera.position.y += (Math.random() - 0.5) * C.shakeChase[1] * sh;
+    camera.position.z += (Math.random() - 0.5) * C.shakeChase[2] * sh;
   } else {
-    const sh = shakeAmp + rumble;
+    const C = TUNE.camera;
+    const sh = shakeNow();
     camera.position.set(
-      state.x + (Math.random() - 0.5) * 11 * sh,
-      state.y + (Math.random() - 0.5) * 9 * sh,
-      state.z + (Math.random() - 0.5) * 11 * sh
+      state.x + (Math.random() - 0.5) * C.shakeCockpit[0] * sh,
+      state.y + (Math.random() - 0.5) * C.shakeCockpit[1] * sh + feel.settle,
+      state.z + (Math.random() - 0.5) * C.shakeCockpit[2] * sh
     );
-    camera.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
+    camera.rotation.set(state.pitch * DEG - feel.nod * DEG, state.heading, -state.bank * DEG);
   }
 }
