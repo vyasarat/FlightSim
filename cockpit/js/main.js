@@ -149,6 +149,9 @@ window.__lp = {
   get rings(){return rings;}, restoreShattered, get airports(){return airports;}, get windowInst(){return windowInst;}, get precip(){return precip;}, get gates(){return gates;}, get spots(){return spots;}, get clouds(){return clouds;}, rk, BODIES, RECOVERY, rover, roverDeploy, roverReturn, roverCan, roverActive, astro, eva, EVA, ASTRO, enterStation, leaveStation, leaveStationAll, toggleHatch, stationCanEnter, astroActive, dropStage, rocketCanDrop, rocketApplyStages, rocketPad, rocketLandingZone, rocketArrival, rocketTiltDeg, deploySatellite, rocketCanDeploySat, deployChute, rocketCanChute, get satellites(){return satellites;}, rocketSkipToLanding, rocketCanSkip, rocketSkipTarget, get fallingStages(){return fallingStages;}, wakePuffsAlive(){return wakePuffs.filter(p => p.life > 0).length;}, get targets(){return targets;}, get smokeSources(){return smokeSources;}, get craters(){return craters;}, keys,
   get solidCount(){let n=0;(function it(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);})(()=>n++);return n;},
   get cameraPos(){return camera.position;}, camera, scene, renderer, station, takePhoto,
+  sunLight, hemiLight, sunDir, updateSunRig, shadowRadiusWanted, lightMood, currentLightEnv,
+  sunDisc, sunHalo, sunLens, cirrus, glowSprite, glowField, updateAtmosphere,
+
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,
   fire, bucket, FF, bucketPress, bucketCanScoop, bucketCanDrop, fireReset,
