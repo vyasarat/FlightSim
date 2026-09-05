@@ -4581,6 +4581,78 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-BIRDS the one living thing out here, and nothing can touch it ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const o = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true;
+      const out = {};
+      L.api.skipScreens(); L.api.setVehicle("prop"); L.api.placeOnRunway();
+      st.phase = "AIRBORNE";
+      const hold = () => { st.x = -500; st.z = -6000; st.y = 120; st.heading = Math.PI;
+        st.pitch = 0; st.bank = 0; st.speed = st.vp.cruiseSpeed; st.airVy = 0; };
+      for (let i = 0; i < 300; i++) { hold(); L.update(1 / 60); }
+      out.flocksPlaced = L.flocks.filter(f => f.placed).length;
+      out.birdsDrawn = L.birdMesh.count;
+      // never a target, never a solid, never shatterable
+      out.inTargets = L.targets.some(t => t.mesh === L.birdMesh || t.g === L.birdMesh);
+      let solid = 0;
+      L.forEachSolid(b => { let p = b.mesh; while (p) { if (p === L.birdMesh) solid++; p = p.parent; } });
+      out.solidCount = solid;
+      out.noSolidFlag = !!L.birdMesh.userData.noSolid;
+      // fly straight through the nearest flock, repeatedly: nothing may happen
+      const fl = L.flocks.find(f => f.placed);
+      const ex0 = L.flags.exploded, tg0 = L.flags.targets || 0;
+      let closest = 1e9;
+      for (let i = 0; i < 60 * 6; i++) {
+        st.x = fl.x; st.y = fl.y; st.z = fl.z;      // sit exactly inside them
+        st.speed = st.vp.cruiseSpeed; st.airVy = 0; st.phase = "AIRBORNE";
+        L.update(1 / 60);
+        const d = Math.hypot(fl.x - st.x, fl.y - st.y, fl.z - st.z);
+        if (d < closest) closest = d;
+      }
+      out.flewThrough = closest < 2;
+      out.exploded = L.flags.exploded - ex0;
+      out.targetsHit = (L.flags.targets || 0) - tg0;
+      out.stillFlying = !st.exploding;
+      out.flocksAfter = L.flocks.filter(f => f.placed).length;
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("ambient: birds fly in flocks and he can never touch them -- not a target, not a solid, and flying straight through one does nothing at all",
+      o.flocksPlaced >= 3 && o.birdsDrawn > 10 && !o.inTargets && o.solidCount === 0 && o.noSolidFlag &&
+      o.flewThrough && o.exploded === 0 && o.targetsHit === 0 && o.stillFlying &&
+      o.flocksAfter >= 3 && o.frameErrors === 0, JSON.stringify(o));
+    await page.close();
+  }
+
+  // ---------- T-SCOPE one global scope, one owner per name ----------
+  {
+    // These files are classic scripts sharing a single global scope, so a later
+    // `function foo` silently replaces an earlier one. That is not a style
+    // opinion: ambient.js declared placeFlock, landmarks.js declared it too for
+    // the paper-plane targets, landmarks.js loaded second and won, and every
+    // bird flock was quietly mutated into a half-target that could never be
+    // placed. Nothing threw and nothing looked broken until you went looking.
+    const fsx = require("fs"), pathx = require("path");
+    const dir = pathx.resolve(__dirname, "..", "cockpit", "js");
+    const decl = /^(?:const|let|var|function)\s+([A-Za-z_$][\w$]*)/;
+    const owner = new Map();
+    const dups = [];
+    for (const f of fsx.readdirSync(dir).filter(n => n.endsWith(".js")).sort()) {
+      for (const line of fsx.readFileSync(pathx.join(dir, f), "utf8").split("\n")) {
+        const m = decl.exec(line);
+        if (!m) continue;
+        const prev = owner.get(m[1]);
+        if (prev && prev !== f) dups.push(`${m[1]}: ${prev} + ${f}`);
+        else owner.set(m[1], f);
+      }
+    }
+    check("scope: no top-level name is declared in two files -- they share one global scope, so the later file silently wins",
+      dups.length === 0, JSON.stringify(dups.slice(0, 6)));
+  }
+
   // ---------- T8 service worker reachable ----------
   {
     const { page } = await newPage(1180, 820);
