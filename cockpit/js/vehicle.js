@@ -135,6 +135,7 @@ function buildVehicleModel(key) {
   g.scale.setScalar(TUNE.vehicles[key].size || 1);
   g.rotation.order = "YXZ";
   scene.add(g);
+  castsShadow(g);            // the one shadow he looks for: his own, on the runway
   vehicleModel = g;
 }
 
