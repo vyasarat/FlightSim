@@ -17,15 +17,20 @@ const path=require('path');
     const touch=(type,p)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:p?[{x:p.x,y:p.y,id:1}]:[]});
     const tap=async p=>{await touch('touchStart',p);await touch('touchEnd');};
     const center=async selector=>{await page.locator(selector).waitFor({state:'visible'});return page.locator(selector).evaluate(e=>{const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};});};
-    const wait=async(fn,arg)=>{try{return await page.waitForFunction(fn,arg,{timeout:180000,polling:250});}catch(e){await page.screenshot({path:path.resolve(__dirname,'../qa-screenshots/realtime-failed.png')});console.log('Failure state',await page.evaluate(()=>({x:state.x,y:state.y,z:state.z,phase:state.phase,vehicle:state.vehicleKey,vertical:heli.vertical,menu:menuOpen(),pointer:heliAltitudePointer,frameErrors:window.__lp.frameErrors})));throw e;}};
+    const wait=async(fn,arg)=>{try{return await page.waitForFunction(fn,arg,{timeout:180000,polling:250});}catch(e){await page.screenshot({path:path.resolve(__dirname,'../qa-screenshots/realtime-failed.png')});console.log('Failure state',await page.evaluate(()=>({x:state.x,y:state.y,z:state.z,phase:state.phase,vehicle:state.vehicleKey,vertical:heli.vertical,menu:menuOpen(),pointer:heliAltitudePointer,target:heli.target,greetings:toyWorld.yards[0].greetings,frameErrors:window.__lp.frameErrors})));throw e;}};
     let selected=0;
     const point=kind=>page.evaluate(({kind,selected})=>{
       const o=toyWorld.objects[selected],y=o.yard;
       let v=kind==='robot'?y.buildGroup.localToWorld(new THREE.Vector3(0,31,0)):kind==='slide'?new THREE.Vector3(y.slide.x,y.y+TW.slide.height,y.slide.z):kind.startsWith('wind')?new THREE.Vector3(y.windmills[+kind.slice(4)].x,y.windmills[+kind.slice(4)].y+TW.garden.height,y.windmills[+kind.slice(4)].z):kind==='cargo'?new THREE.Vector3(o.x,twCargoTop(o),o.z):kind==='pad'?new THREE.Vector3(y.pad.x,y.y+1,y.pad.z):new THREE.Vector3(state.x+Math.sin(state.heading)*15,y.y,state.z+Math.cos(state.heading)*15);
+      if(kind==='robot'){
+        const head=v.clone().project(camera),px=(head.x+1)*innerWidth/2,py=(1-head.y)*innerHeight/2;
+        if(head.z>=1||px<=0||px>=innerWidth||py<=0||py>=document.getElementById('dash').getBoundingClientRect().top||document.elementFromPoint(px,py)?.id!=='gl')v=y.buildGroup.localToWorld(new THREE.Vector3(0,2,0));
+      }
       const world={x:v.x,z:v.z};v.project(camera);const p={x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2};
       return {...p,world,visible:v.z<1&&p.x>0&&p.x<innerWidth&&p.y>0&&p.y<document.getElementById('dash').getBoundingClientRect().top&&document.elementFromPoint(p.x,p.y)?.id==='gl'};
     },{kind,selected});
     const aim = async kind => {
+      await page.waitForTimeout(800);
       let p=await point(kind);
       // Turn through nearby visible ground taps when a target is off to the
       // side. Each tap is a normal destination; scene queries only plan it.
@@ -44,9 +49,10 @@ const path=require('path');
           }
           return best;
         },p.world);
-        if(!steer)break;await tap(steer);await wait(()=>!heli.target&&state.speed<1);p=await point(kind);
+        if(!steer)break;await tap(steer);await wait(()=>!heli.target&&state.speed<1);await page.waitForTimeout(800);p=await point(kind);
       }
-      if(p.visible)await tap(p);return p;
+      if(!p.visible)throw Error(`Target outside visible controls: ${kind} ${JSON.stringify(p)}`);
+      console.log('Touch target',kind,JSON.stringify(p));await tap(p);return p;
     };
     const shot=name=>page.screenshot({path:path.resolve(__dirname,`../qa-screenshots/robot-realtime-${name}.png`)});
     await page.locator('[data-v="helicopter"]').tap();await page.locator('[data-d="0"]').tap();

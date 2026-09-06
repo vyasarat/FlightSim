@@ -75,15 +75,16 @@ function twBuildWorld() {
     twPart(g, 'cylinder', C.blue, side * 48, .3, -side * 45, P.deliveryR, .6, P.deliveryR);
     const halo = twPart(g, 'ring', C.warning, side * 48, .8, -side * 45, P.deliveryR, P.deliveryR, P.deliveryR); halo.rotation.x = Math.PI / 2;
     // A giant horseshoe magnet on the crane invites the matching helicopter toy.
-    const crane = new THREE.Group(); crane.position.set(side * 78, 0, -side * 48); g.add(crane);
+    const crane = new THREE.Group(); crane.position.set(side * P.craneX, 0, side * P.craneZ); g.add(crane);
+    twPart(g, 'cylinder', C.sand, side * P.craneX, -2, side * P.craneZ, 12, 4, 12);
     twPart(crane, 'box', C.warning, 0, P.craneH / 2, 0, 6, P.craneH, 6);
     for (let k = 0; k < 5; k++) {
       const brace = twPart(crane, 'box', C.ink, 0, 6 + k * 10, 3.2, 8, 1, 1); brace.rotation.z = k % 2 ? -.6 : .6;
     }
     const arm = new THREE.Group(); arm.position.y = P.craneH; crane.add(arm);
-    twPart(arm, 'box', C.warning, -side * 22, 0, 0, 60, 5, 5);
+    twPart(arm, 'box', C.warning, side * P.craneArmX, 0, 0, P.craneArmLength, 5, 5);
     twPart(arm, 'box', C.slate, side * 12, -4, 0, 10, 9, 10);
-    const hook = new THREE.Group(); hook.position.x = -side * 30; arm.add(hook);
+    const hook = new THREE.Group(); hook.position.x = side * P.craneHookX; arm.add(hook);
     twPart(hook, 'cylinder', C.ink, 0, -12, 0, .35, 24, .35);
     twPart(hook, 'box', C.red, 0, -25, 0, 10, 3, 4);
     for (const sign of [-1, 1]) twPart(hook, 'box', C.red, sign * 4, -29, 0, 3, 7, 4);
