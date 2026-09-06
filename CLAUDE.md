@@ -83,6 +83,12 @@ the checklist for shipping one.
   pass. Anything lit that must take a shadow across a big flat face has to be Phong, not Lambert:
   Lambert shades per vertex, so on the Mars sphere (40 m triangles) a rover's shadow landed as a
   blob the size of a dune field.
+- `nozoom.js` loads FIRST and stops iOS Safari zooming: `gesturestart/change/end`, any touch with
+  more than one finger, and a touchend within 300 ms of the last one (double-tap zoom fires on the
+  second tap's touchend). All `passive: false, capture: true`. **This is safe only because the
+  game reads pointer events and nothing else** — pointer events fire before touch events and are
+  not cancelled by `preventDefault` on them. If a touch listener is ever added to input.js, check
+  this again. `user-scalable=no` is ignored by iOS and is not a defence.
 - Camera feel is `TUNE.camera` + `updateFeel`/`applyCamera` in `vehicle.js`. It moves the picture
   and nothing else — no value in there is ever read by the flight model. `fovSpeed` is capped by
   readability, not by taste: every degree wider makes the thing he is aiming at smaller. Shake is
