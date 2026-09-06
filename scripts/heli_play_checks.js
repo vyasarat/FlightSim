@@ -44,6 +44,12 @@ module.exports = async function heliPlayChecks({ newPage, check, shots }) {
     const delivery=await page.evaluate(()=>({built:toyWorld.yards[0].built,home:Math.hypot(toyWorld.objects[0].x-toyWorld.objects[0].homeX,toyWorld.objects[0].z-toyWorld.objects[0].homeZ)<1,held:!!toyWorld.held}));
     check(`helicopter play ${width}x${height}: finger wobble, sequential climb, carry, release, delivery and replenishment`,steady&&carry.held&&carry.target&&carry.y>y0+8&&carry.vertical===0&&Math.hypot(carried.x-carried.homeX,carried.z-carried.homeZ)>45&&released&&delivery.built===1&&delivery.home,JSON.stringify({steady,carry,released,delivery,pad}));
     await shot('delivery');
+    const workshop = await page.evaluate(()=>{
+      const y=toyWorld.yards[0],v=y.buildGroup.localToWorld(new THREE.Vector3(0,31,5)).project(camera);
+      const x=(v.x+1)*innerWidth/2,py=(1-v.y)*innerHeight/2;
+      return {parts:y.build.filter(m=>m.visible).length,face:y.face.visible,dancing:y.danceT>0,faceVisible:v.z<1&&x>0&&x<innerWidth&&py>0&&py<innerHeight&&document.elementFromPoint(x,py)?.id==='gl',facePoint:{x,y:py}};
+    });
+    check(`workshop ${width}x${height}: first delivery reveals a whole dancing robot`,workshop.parts===12&&workshop.face&&workshop.dancing&&workshop.faceVisible,JSON.stringify(workshop));
     // Turn around by tapping the visible ground just behind the helicopter.
     // This is another ordinary destination tap, not an internal heading change.
     const back=await project('back');
@@ -53,7 +59,16 @@ module.exports = async function heliPlayChecks({ newPage, check, shots }) {
     if(again.visible) { await tap(again); await step(16); }
     const repeat=await page.evaluate(()=>({held:!!toyWorld.held,cargo:toyWorld.objects.indexOf(toyWorld.held),phase:state.phase}));
     check(`helicopter play ${width}x${height}: return and pick up again using only sequential touches`,again.visible&&repeat.held&&repeat.phase==='AIRBORNE',JSON.stringify({back,again,repeat}));
-    if(repeat.held) { await tap(await center('#magnetBtn')); await step(1.2); }
+    if(repeat.held) {
+      const turn=await project('back');
+      if(turn.visible) { await tap(turn); await step(5); }
+      const repeatPad=await project('pad');
+      if(repeatPad.visible) { await tap(repeatPad); await step(12); }
+      await tap(await center('#magnetBtn')); await step(9);
+      const rebuilt=await page.evaluate(()=>({built:toyWorld.yards[0].built,style:toyWorld.yards[0].style,parts:toyWorld.yards[0].build.filter(m=>m.visible).length,face:toyWorld.yards[0].face.visible,held:!!toyWorld.held}));
+      check(`workshop ${width}x${height}: another delivery freely rebuilds a different robot`,repeatPad.visible&&rebuilt.built===2&&rebuilt.style===1&&rebuilt.parts===12&&rebuilt.face&&!rebuilt.held,JSON.stringify(rebuilt));
+      await shot('rebuild');
+    }
     await shot('drop');
     await tap(await center('#viewBtn')); await step(.3);
     const aim={x:width*.52,y:height*.3};

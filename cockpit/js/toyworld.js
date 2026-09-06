@@ -63,7 +63,7 @@ function twBuildWorld() {
     const side = idx === 0 ? 1 : -1, x = side * P.x, z = ap.cz + side * P.z;
     const y = Math.max(terrainEff(x, z), TUNE.waterLevel) + 1;
     const g = new THREE.Group(); g.position.set(x, y, z); toyWorld.root.add(g);
-    const yard = { g, x, y, z, side, idx, delivery: null, build: [], built: 0, lightT: 0 };
+    const yard = { g, x, y, z, side, idx, delivery: null, build: [], built: 0, lightT: 0, danceT: 0, style: 0 };
     toyWorld.yards.push(yard);
     twPart(g, 'cylinder', C.sand, 0, -2, 0, P.floorRadius, 4, P.floorRadius);
     // Low colored edge blocks, an open entrance, and oversized cargo silhouettes.
@@ -90,17 +90,22 @@ function twBuildWorld() {
     yard.arm = arm; yard.hook = hook;
     yard.lamp = twPart(crane, 'ball', C.cyan, 0, P.craneH + 5, 0, 3, 3, 3);
     // A playful cargo robot grows on a small wheeled float, in a bounded display.
-    const build = new THREE.Group(); build.position.set(side * 47, 0, -side * 82); g.add(build); yard.buildGroup = build;
+    const build = new THREE.Group(); build.position.set(side * P.displayX, 0, side * P.displayZ); build.rotation.y = side === 1 ? -Math.PI / 3 : Math.PI * 2 / 3; g.add(build); yard.buildGroup = build;
+    twPart(g, 'cylinder', C.sand, side * P.displayX, -2, side * P.displayZ, 26, 4, 26);
     twPart(build, 'box', C.slate, 0, 2, 0, 32, 3, 18);
     for (const sx of [-12, 12]) for (const sz of [-7, 7]) twPart(build, 'ball', C.ink, sx, 2, sz, 3, 3, 3);
     const robot = [[-9,8],[9,8],[-9,15],[9,15],[-9,22],[0,22],[9,22],[-18,22],[18,22],[-5,30],[5,30],[0,37]];
     for (let k = 0; k < P.buildPieces; k++) {
       const at = robot[k % robot.length];
       const m = twPart(build, 'box', TW.colors[k % 5], at[0], at[1], 0, 7.5, 6.5, 9);
-      m.visible = false; yard.build.push(m);
+      m.visible = false; m.userData.rest = m.position.clone(); yard.build.push(m);
     }
     yard.face = new THREE.Group(); build.add(yard.face); yard.face.visible = false;
-    for (const sx of [-5, 5]) twPart(yard.face, 'ball', C.ink, sx, 31, 4.7, 1.2, 1.2, .6);
+    for (const sx of [-5, 5]) {
+      twPart(yard.face, 'ball', C.white, sx, 31, 4.7, 2.1, 2.1, .8);
+      twPart(yard.face, 'ball', C.ink, sx, 31, 5.4, 1, 1.2, .4);
+    }
+    twPart(yard.face, 'box', C.ink, 0, 27.5, 4.8, 5, .8, .5);
     for (let k = 0; k < P.objects; k++) {
       const kind = k % 3, color = TW.colors[k % 5], og = new THREE.Group(); toyWorld.root.add(og);
       const w = kind === 2 ? 14 : 8, h = kind === 1 ? 5 : 8, d = kind === 2 ? 7 : (kind === 1 ? 12 : 8);
@@ -278,25 +283,46 @@ function twUpdateCargo(dt) {
     const yard = o.yard;
     if (!yard.delivery && o.lock && Math.hypot(o.x - yard.pad.x, o.z - yard.pad.z) < P.deliveryR && o.y < yard.y + 18 && Math.abs(o.vy) < 1) {
       yard.delivery = { o, t: 0, x: o.x, y: o.y, z: o.z }; o.delivering = true;
+      yard.style = yard.built % 3; yard.danceT = 0;
+      yard.build.forEach(m => { m.visible = false; }); yard.face.visible = false;
       flags.magnetDeliveries = (flags.magnetDeliveries || 0) + 1;
     }
   }
   for (const yard of toyWorld.yards) {
-    yard.arm.rotation.y = Math.sin(toyWorld.clock * .25) * .08;
+    const park = yard.built ? P.cranePark : Math.sin(toyWorld.clock * .25) * .08;
+    yard.arm.rotation.y += (park - yard.arm.rotation.y) * Math.min(1, dt * 3);
     const d = yard.delivery;
     if (d) {
       d.t += dt; const t = Math.min(1, d.t / P.deliveryTime);
       yard.arm.rotation.y = Math.sin(t * Math.PI) * -.6 * yard.side;
-      d.o.g.position.set(lerp(d.x, yard.x + yard.side * 47, t), d.y + Math.sin(t * Math.PI) * 38, lerp(d.z, yard.z - yard.side * 82, t));
+      d.o.g.position.set(lerp(d.x, yard.x + yard.side * P.displayX, t), d.y + Math.sin(t * Math.PI) * 38, lerp(d.z, yard.z + yard.side * P.displayZ, t));
       yard.lamp.scale.setScalar(3 + Math.sin(t * Math.PI) * 2);
+      // Every delivery builds a whole friend. Reveal bottom-to-top as the
+      // crane swings; repeat deliveries change its colors and arm pose.
+      yard.build.forEach((part, i) => {
+        part.visible = t >= P.buildReveal * (i + 1) / yard.build.length;
+        part.material = twMat(TW.colors[(i + yard.built + d.o.kind) % TW.colors.length]);
+      });
+      yard.face.visible = t >= P.buildReveal;
       if (t >= 1) {
-        const part = yard.build[yard.built % yard.build.length]; part.visible = true;
-        part.material = twMat(TW.colors[yard.built % TW.colors.length]); yard.built++; yard.face.visible = yard.built >= 11;
+        yard.built++; yard.danceT = P.danceTime;
         twObjectHome(d.o); yard.delivery = null; yard.lightT = 2; twSound(740);
       }
     }
     yard.lightT = Math.max(0, yard.lightT - dt);
-    yard.buildGroup.rotation.z = Math.sin(yard.lightT * 5) * .025 * yard.lightT;
+    yard.danceT = Math.max(0, yard.danceT - dt);
+    const dance = Math.min(1, yard.danceT), beat = (P.danceTime - yard.danceT) * 5;
+    yard.buildGroup.rotation.z = Math.sin(beat) * P.danceSway * dance;
+    yard.buildGroup.position.y = Math.abs(Math.sin(beat)) * P.danceHop * dance;
+    for (const [i, part] of yard.build.entries()) {
+      part.position.copy(part.userData.rest);
+      if (i === 7 || i === 8) {
+        const sign = i === 7 ? -1 : 1;
+        part.position.y += yard.style === 1 ? 7 : yard.style === 2 ? sign * 7 : 0;
+        part.position.y += Math.sin(beat + sign) * 5 * dance;
+        part.rotation.z = sign * (yard.style - 1) * .4 + Math.sin(beat) * .4 * dance;
+      }
+    }
   }
 }
 

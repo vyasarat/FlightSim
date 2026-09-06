@@ -388,7 +388,7 @@ const TUNE = {
       cable: 10, cableMax: 64, hookDepth: 3.5, winchSpeed: 36, attachFlash: 1.2, pickupR: 22, pickupHeight: 6, previewR: 55, pickupSpeed: 28,
       dwell: 0.25, releaseDelay: 2, leaveR: 28, recycleAfter: 45,
       gravity: 18, drag: 4, maxSpeed: 22, deliveryR: 23, deliveryTime: 5,
-      craneH: 56, buildPieces: 12,
+      craneH: 56, buildPieces: 12, danceTime: 7, buildReveal: 0.7, danceHop: 3, danceSway: 0.12, displayX: 90, displayZ: -72, cranePark: 1.25,
     },
     wash: { x: -135, z: 525, gateW: 48, gateH: 32, length: 56,
       entryR: 34, duration: 8, repeatDelay: 3, bubbles: 56, openOffset: 90 },
