@@ -63,7 +63,7 @@ function twBuildWorld() {
     const side = idx === 0 ? 1 : -1, x = side * P.x, z = ap.cz + side * P.z;
     const y = Math.max(terrainEff(x, z), TUNE.waterLevel) + 1;
     const g = new THREE.Group(); g.position.set(x, y, z); toyWorld.root.add(g);
-    const yard = { g, x, y, z, side, idx, delivery: null, build: [], built: 0, lightT: 0, danceT: 0, style: 0 };
+    const yard = { g, x, y, z, side, idx, delivery: null, build: [], built: 0, lightT: 0, danceT: 0, style: 0, greetT: 0, greetNear: false, greetings: 0 };
     toyWorld.yards.push(yard);
     twPart(g, 'cylinder', C.sand, 0, -2, 0, P.floorRadius, 4, P.floorRadius);
     // Low colored edge blocks, an open entrance, and oversized cargo silhouettes.
@@ -101,6 +101,8 @@ function twBuildWorld() {
       m.visible = false; m.userData.rest = m.position.clone(); yard.build.push(m);
     }
     yard.face = new THREE.Group(); build.add(yard.face); yard.face.visible = false;
+    // Fill the head's center seam so a tap between the eyes still hits the toy.
+    twPart(yard.face, 'box', C.warning, 0, 30, 0, 3, 6.5, 9);
     for (const sx of [-5, 5]) {
       twPart(yard.face, 'ball', C.white, sx, 31, 4.7, 2.1, 2.1, .8);
       twPart(yard.face, 'ball', C.ink, sx, 31, 5.4, 1, 1.2, .4);
@@ -287,7 +289,7 @@ function twUpdateCargo(dt) {
     const yard = o.yard;
     if (!yard.delivery && (o.lock || o.dropped) && Math.hypot(o.x - yard.pad.x, o.z - yard.pad.z) < P.deliveryR && o.y < yard.y + 18 && Math.abs(o.vy) < 1) {
       yard.delivery = { o, t: 0, x: o.x, y: o.y, z: o.z }; o.delivering = true;
-      yard.style = yard.built % 3; yard.danceT = 0;
+      yard.style = yard.built % 3; yard.danceT = 0; yard.greetT = 0; yard.greetNear = false;
       yard.build.forEach(m => { m.visible = false; }); yard.face.visible = false;
       flags.magnetDeliveries = (flags.magnetDeliveries || 0) + 1;
     }
@@ -315,6 +317,7 @@ function twUpdateCargo(dt) {
     }
     yard.lightT = Math.max(0, yard.lightT - dt);
     yard.danceT = Math.max(0, yard.danceT - dt);
+    twUpdateRobotGreeting(yard, dt);
     const dance = Math.min(1, yard.danceT), beat = (P.danceTime - yard.danceT) * 5;
     yard.buildGroup.rotation.z = Math.sin(beat) * P.danceSway * dance;
     yard.buildGroup.position.y = Math.abs(Math.sin(beat)) * P.danceHop * dance;
@@ -325,6 +328,11 @@ function twUpdateCargo(dt) {
         part.position.y += yard.style === 1 ? 7 : yard.style === 2 ? sign * 7 : 0;
         part.position.y += Math.sin(beat + sign) * 5 * dance;
         part.rotation.z = sign * (yard.style - 1) * .4 + Math.sin(beat) * .4 * dance;
+        if (i === 8 && yard.greetT > 0) {
+          const wave = Math.min(1, yard.greetT, (TW.greeting.duration - yard.greetT) * 3);
+          part.position.y += TW.greeting.lift * wave;
+          part.rotation.z += Math.sin((TW.greeting.duration - yard.greetT) * 7) * TW.greeting.sway * wave;
+        }
       }
     }
   }

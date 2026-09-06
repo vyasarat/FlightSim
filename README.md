@@ -124,7 +124,7 @@ and flight tuning.
   the drop button confirm attachment. Tap the magnet/down icon to drop. Move away before
   picking up again. Landing with a load sets it down safely. Cargo can stack and jostle other cargo. Drop on the blue crane
   pad and the crane lifts it into a colorful toy robot, then returns the original toy
-  to the yard. Every delivery assembles a complete robot; its colors and arm pose change on repeat, and it dances before settling. Forgotten cargo returns after a while. A full firefighting bucket
+  to the yard. Every delivery assembles a complete robot; its colors and arm pose change on repeat, and it dances before settling. Fly closer afterward and it turns toward the helicopter and waves once; leave and revisit for another quiet hello. Forgotten cargo returns after a while. A full firefighting bucket
   stays a bucket; the two tools never operate together.
 - **Loading ramp:** the low yellow cup with red edges accepts the same cargo. Drop a toy into it
   and it slides onto the blue crane pad, where the robot builds and the cargo returns. A blue
@@ -151,7 +151,7 @@ construction pieces, ramp balls and pinwheels are fixed pools; repeated details 
 runner is `scripts/toyworld_test.js` (same browser environment as the full harness);
 its checks also run in `scripts/headless_test.js`. `scripts/heli_play_checks.js`
 (run alone with `node scripts/toyworld_test.js --helicopter`) adds actual touch trips from the vehicle picker through pickup, carrying, delivery
-and repeat pickup at phone/iPad sizes, without teleporting the helicopter. `scripts/workshop_test.js` adds ramp and high-drop play, `--garden` checks the complete pinwheel visit, and `--behavior` checks queued cargo, switching, re-arming and resource bounds. All also run in the full harness. `scripts/workshop_realtime.js` records a normal-clock touch tour without test-API movement. See [the workshop play guide](docs/playground/PLAY_GUIDE.md) for the local development server, evidence and parent guide. The focused toy-world runner writes `toyworld-magnet.png`,
+and repeat pickup at phone/iPad sizes, without teleporting the helicopter. `scripts/workshop_test.js` adds ramp and high-drop play, `--garden` checks the complete pinwheel visit, and `--behavior` checks queued cargo, switching, re-arming and resource bounds. `--robot` checks delivery, greeting, departure, replay and exit; `--robot-behavior` covers greeting boundaries and resets. All also run in the full harness. `scripts/workshop_realtime.js` records a normal-clock touch tour without test-API movement. See [the workshop play guide](docs/playground/PLAY_GUIDE.md) for the local development server, evidence and parent guide. The focused toy-world runner writes `toyworld-magnet.png`,
 `toyworld-wash.png` and `toyworld-rainbow.png` to `qa-screenshots/`.
 
 ## The world: New York <-> California

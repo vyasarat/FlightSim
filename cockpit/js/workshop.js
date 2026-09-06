@@ -107,3 +107,23 @@ function twUpdateWindGarden(yard,dt) {
     w.ring.scale.setScalar(G.radius*(1+(1-w.glow/G.glowTime)*.6));
   }
 }
+
+// A visit earns one quiet wave; remaining nearby never loops the greeting.
+// The face tracks the helicopter gently, using the shortest turn across ±π.
+function twUpdateRobotGreeting(yard, dt) {
+  const G = TW.greeting, P = TW.playground;
+  const x = yard.x + yard.side * P.displayX, z = yard.z + yard.side * P.displayZ;
+  const distance = Math.hypot(state.x - x, state.z - z);
+  const eligible = yard.built > 0 && !yard.delivery && heliActive() &&
+    state.phase === 'AIRBORNE' && !state.exploding && !menuOpen() && !toyWorld.wash && state.y - yard.y < G.maxHeight;
+  if (!eligible || distance > G.leave) { yard.greetNear = false; yard.greetT = 0; }
+  if (eligible && distance < G.reach && !yard.greetNear && yard.danceT === 0) {
+    yard.greetNear = true; yard.greetT = G.duration; yard.greetings++;
+  }
+  yard.greetT = Math.max(0, yard.greetT - dt);
+  const rest = yard.side === 1 ? -Math.PI / 3 : Math.PI * 2 / 3;
+  const angle = yard.buildGroup.rotation.y;
+  const target = eligible && yard.greetNear ? (distance > G.faceDeadzone ? Math.atan2(state.x - x, state.z - z) : angle) : rest;
+  const next = angle + Math.atan2(Math.sin(target - angle), Math.cos(target - angle)) * Math.min(1, dt * G.turnRate);
+  yard.buildGroup.rotation.y = Math.atan2(Math.sin(next), Math.cos(next));
+}
