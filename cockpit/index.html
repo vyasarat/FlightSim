@@ -33,6 +33,17 @@
     height: 100vh;
     touch-action: none;
   }
+  /* Every overlay the finger can land on. `.screen` deliberately keeps pan-y so
+     the picker can still be scrolled with one finger -- pan-y already rules out
+     pinch and double-tap zoom, which is all we are after. `.card` keeps
+     manipulation for the same reason: `none` there would kill their taps. */
+  #hud, #photo, #photo img, #flash, #bigNum, #reentryGlow, #rotateArrow,
+  #aimMarker, #glideGuide, #progressStrip, #homeArrow, #heliTarget {
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
   #hud {
     position: fixed;
     inset: 0;
@@ -1029,6 +1040,7 @@
   </button>
 </div>
 <script src="three.min.js"></script>
+<script src="js/nozoom.js"></script>
 <script src="js/tune.js"></script>
 <script src="js/terrain.js"></script>
 <script src="js/scene.js"></script>

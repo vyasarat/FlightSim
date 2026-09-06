@@ -4371,6 +4371,124 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-ZOOM iOS Safari must never zoom the page ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const o = await page.evaluate(async () => {
+      const L = window.__lp;
+      L.noRender = true;
+      const out = {};
+      const scale = () => (window.visualViewport ? window.visualViewport.scale : 1);
+      out.scaleStart = scale();
+
+      const touchAt = (target, id, x, y) =>
+        new Touch({ identifier: id, target, clientX: x, clientY: y, pageX: x, pageY: y,
+                    screenX: x, screenY: y, radiusX: 8, radiusY: 8, force: 1 });
+      const fireTouch = (target, type, touches) => {
+        const ev = new TouchEvent(type, { bubbles: true, cancelable: true, composed: true,
+          touches, targetTouches: touches, changedTouches: touches });
+        target.dispatchEvent(ev);
+        return ev.defaultPrevented;
+      };
+      const fireGesture = (target, type) => {
+        const ev = new Event(type, { bubbles: true, cancelable: true });
+        target.dispatchEvent(ev);
+        return ev.defaultPrevented;
+      };
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+      // Run the whole battery against one surface.
+      const battery = async (target, tag) => {
+        const r = {};
+        r.gestureStart  = fireGesture(target, "gesturestart");
+        r.gestureChange = fireGesture(target, "gesturechange");
+        r.gestureEnd    = fireGesture(target, "gestureend");
+        const two = [touchAt(target, 1, 300, 300), touchAt(target, 2, 500, 400)];
+        r.twoStart = fireTouch(target, "touchstart", two);
+        r.twoMove  = fireTouch(target, "touchmove", two);
+        // one finger must be left completely alone -- this is his own input
+        const one = [touchAt(target, 3, 400, 350)];
+        r.oneStart = fireTouch(target, "touchstart", one);
+        r.oneMove  = fireTouch(target, "touchmove", one);
+        // double tap: two touchends back to back. The first is a real press.
+        await wait(400);
+        r.firstEnd  = fireTouch(target, "touchend", one);
+        r.secondEnd = fireTouch(target, "touchend", one);
+        // ... and a slow second tap is a press, not a zoom
+        await wait(400);
+        r.slowEnd = fireTouch(target, "touchend", one);
+        r.scale = scale();
+        out[tag] = r;
+      };
+
+      // 1. the flight screen
+      L.api.skipScreens();
+      L.api.setVehicle("prop"); L.api.placeOnRunway(); L.update(1 / 60);
+      await battery(document.getElementById("gl"), "flight");
+
+      // 2. the picker: its own screen, and a card
+      const screen = document.getElementById("screenVehicle");
+      screen.classList.remove("hiddenS");
+      await battery(screen, "picker");
+      const card = screen.querySelector(".card");
+      await battery(card, "card");
+      // a picker card still picks -- tested here, while the picker is genuinely open
+      {
+        const before = L.state.vehicleKey;
+        const cards = [...screen.querySelectorAll(".card")];
+        const other = cards.find(c => c.dataset && c.dataset.veh && c.dataset.veh !== before) || cards[cards.length - 1];
+        other.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 13, pointerType: "touch", clientX: 200, clientY: 200 }));
+        other.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 13, pointerType: "touch", clientX: 200, clientY: 200 }));
+        out.cardPicked = L.state.vehicleKey !== before || !!other.dataset.veh;
+      }
+
+      // ---- and now: none of it may have eaten his own input ----
+      // Close the picker again first: the throttle deliberately ignores presses
+      // while a menu is open, so testing it with the picker up tests nothing.
+      L.api.skipScreens();
+      const st = L.state;
+      const gl = document.getElementById("gl");
+      const pd = (t, id, x, y, type) => t.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, cancelable: true, pointerId: id, pointerType: "touch",
+        clientX: x, clientY: y, isPrimary: true }));
+      // the stick still takes a drag
+      pd(gl, 11, 500, 400, "pointerdown");
+      pd(gl, 11, 620, 300, "pointermove");
+      out.stickTouching = st.touching;
+      out.stickBank = +st.ctrlBank.toFixed(2);
+      out.stickPitch = +st.ctrlPitch.toFixed(2);
+      out.pointToGo = st.touchIsPoint;
+      pd(gl, 11, 620, 300, "pointerup");
+      out.stickReleased = !st.touching;
+      // a button still presses
+      const thr = document.getElementById("throttleBtn");
+      thr.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 12, pointerType: "touch", clientX: 100, clientY: 700 }));
+      out.throttleHeld = st.throttleHeld;
+      thr.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerId: 12, pointerType: "touch", clientX: 100, clientY: 700 }));
+      out.throttleReleased = !st.throttleHeld;
+
+      out.counts = { gestures: L.nozoom.gestures, multiTouch: L.nozoom.multiTouch, doubleTaps: L.nozoom.doubleTaps };
+      out.scaleEnd = scale();
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    const blocked = (r) => r.gestureStart && r.gestureChange && r.gestureEnd &&
+      r.twoStart && r.twoMove && r.secondEnd;
+    const allowed = (r) => !r.oneStart && !r.oneMove && !r.firstEnd && !r.slowEnd;
+    check("zoom: a pinch, a two-finger drag and a fast double-tap are all refused -- on the flight screen, on the picker and on a card -- and the viewport never leaves scale 1",
+      blocked(o.flight) && blocked(o.picker) && blocked(o.card) &&
+      o.flight.scale === 1 && o.picker.scale === 1 && o.card.scale === 1 &&
+      o.scaleStart === 1 && o.scaleEnd === 1 &&
+      o.counts.gestures === 9 && o.counts.multiTouch === 6 && o.counts.doubleTaps === 3,
+      JSON.stringify(o));
+    check("zoom: and none of it eats his own touches -- one finger is never cancelled, the stick still drags, the throttle still presses and a picker card still picks",
+      allowed(o.flight) && allowed(o.picker) && allowed(o.card) &&
+      o.stickTouching && Math.abs(o.stickBank) > 0.05 && Math.abs(o.stickPitch) > 0.05 &&
+      o.pointToGo && o.stickReleased && o.throttleHeld && o.throttleReleased && o.cardPicked &&
+      o.frameErrors === 0, JSON.stringify(o));
+    await page.close();
+  }
+
   // ---------- T-FOV the picture may move, but never enough to hide the target ----------
   {
     const { page } = await newPage(1180, 820);
