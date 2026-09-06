@@ -392,6 +392,8 @@ const TUNE = {
     },
     slide: { x: -4, z: -37, exitX: 48, exitZ: -45, height: 12, radius: 22, width: 22, bend: 0, lip: .42,
       segments: 12, settle: .6, duration: 3.5, exitCooldown: 1.2, demoPeriod: 18, demoHop: 18 },
+    garden: { count: 3, x: 60, z: 60, dx: 40, dz: -10, radius: 18, height: 20,
+      reach: 24, leave: 35, maxHeight: 115, spin: 7, response: 3, glowTime: 3, notes: [440, 550, 660] },
     wash: { x: -135, z: 525, gateW: 48, gateH: 32, length: 56,
       entryR: 34, duration: 8, repeatDelay: 3, bubbles: 56, openOffset: 90 },
     welcome: { duration: 5, clearance: 58, hornRange: 240, replyDelay: 0.45, cooldown: 2.5 },

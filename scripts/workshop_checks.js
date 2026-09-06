@@ -18,16 +18,33 @@ module.exports = async function workshopChecks({newPage,check}) {
     // Switching the player's vehicle cannot strand a cargo-owned animation.
     release(a);advance(1);L.api.setVehicle('prop');L.api.placeOnRunway();L.update(1/60);advance(16);
     const switchSafe=!y.slide.run&&!y.delivery&&!a.delivering&&Math.hypot(a.x-a.homeX,a.z-a.homeZ)<.01;
+    const wind=[];
+    L.api.setVehicle('helicopter');L.api.placeOnRunway();L.update(1/60);
+    for(const yard of toyWorld.yards)for(const w of yard.windmills){
+      state.phase='AIRBORNE';state.x=w.x;state.z=w.z;state.y=w.y+45;
+      const start=w.plays;twUpdateWindGarden(yard,.1);
+      for(let i=0;i<100;i++)twUpdateWindGarden(yard,.05);
+      const once=w.plays===start+1&&w.speed>6&&!w.ring.visible;
+      state.x=w.x+TW.garden.leave+1;twUpdateWindGarden(yard,.1);
+      state.x=w.x;twUpdateWindGarden(yard,.1);const replay=w.plays===start+2;
+      state.y=w.y+TW.garden.maxHeight+10;twUpdateWindGarden(yard,.1);
+      const high=!w.inside&&w.plays===start+2;
+      wind.push({airport:yard.idx,once,replay,high});
+    }
+    L.api.setVehicle('prop');L.api.placeOnRunway();L.update(1/60);
+    for(const yard of toyWorld.yards)twUpdateWindGarden(yard,1);
+    const noPlaneNotes=toyWorld.yards.every(y=>y.windmills.every(w=>!w.inside));
     const count=()=>{let objects=0;toyWorld.root.traverse(()=>objects++);return{objects,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,programs:renderer.info.programs.length,materials:twMats.size};};
     const samples=[];
     for(let k=0;k<6;k++){
       for(const yard of toyWorld.yards){release(toyWorld.objects.find(o=>o.yard===yard));advance(16);}
       renderer.render(scene,camera);samples.push(count());
     }
-    return{cases,queued,switchSafe,samples};
+    return{cases,queued,switchSafe,wind,noPlaneNotes,samples};
   });
   check('workshop: blocks, cars and containers ride, build and replenish at both airports',result.cases.every(c=>c.slide&&c.build&&c.returned),JSON.stringify(result.cases));
   check('workshop: queued cargo and switching vehicles cannot strand a toy',result.queued&&result.switchSafe,JSON.stringify({queued:result.queued,switchSafe:result.switchSafe}));
+  check('workshop: wind notes re-arm on leaving, stay quiet in a hover, and ignore high flight and planes',result.wind.every(w=>w.once&&w.replay&&w.high)&&result.noPlaneNotes,JSON.stringify(result.wind));
   check('workshop: repeated ramp/build cycles keep scene and GPU resources bounded',result.samples.slice(2).every(s=>JSON.stringify(s)===JSON.stringify(result.samples[1])),JSON.stringify(result.samples));
   await page.close();
 };

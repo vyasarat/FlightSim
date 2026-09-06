@@ -28,6 +28,7 @@ function twBuildWorkshop(yard) {
     }
   }
   s.demo=twPart(g,'ball',C.blue,side*S.x,S.height+4,side*S.z,4,4,4);
+  twBuildWindGarden(yard);
 }
 function twSlidePoint(yard,t,out) {
   const S=TW.slide;
@@ -42,6 +43,7 @@ function twSlideCatch(o) {
 function twUpdateWorkshop(dt) {
   const S=TW.slide;
   for(const yard of toyWorld.yards) {
+    twUpdateWindGarden(yard,dt);
     const s=yard.slide;
     if(!s)continue;
     const run=s.run;
@@ -66,5 +68,41 @@ function twUpdateWorkshop(dt) {
     else if(t<.8){const f=(t-.5)/.3;twSlidePoint(yard,1-f,s.pos);s.pos.y+=Math.sin(f*Math.PI)*S.demoHop;}
     else twSlidePoint(yard,0,s.pos);
     s.demo.position.set(s.pos.x-yard.x,s.pos.y-yard.y+4,s.pos.z-yard.z);
+  }
+}
+
+function twBuildWindGarden(yard) {
+  const G=TW.garden,C=TUNE.palette;
+  yard.windmills=[];
+  for(let i=0;i<G.count;i++) {
+    const x=yard.side*(G.x+i*G.dx),z=yard.side*(G.z+i*G.dz),color=TW.colors[(i*2)%TW.colors.length];
+    const base=Math.max(yard.y,terrainEff(yard.x+x,yard.z+z)+1),lift=base-yard.y;
+    twPart(yard.g,'cylinder',C.sand,x,lift-2,z,G.radius,4,G.radius);
+    twPart(yard.g,'cylinder',color,x,lift+.3,z,G.radius-2,.6,G.radius-2);
+    twPart(yard.g,'cylinder',C.blue,x,lift+G.height/2,z,1.2,G.height,1.2);
+    const rotor=new THREE.Group();rotor.position.set(x,lift+G.height,z);yard.g.add(rotor);
+    for(let k=0;k<5;k++) {
+      const a=k/5*Math.PI*2,p=twPart(rotor,'ball',color,Math.cos(a)*7,0,Math.sin(a)*7,6,1.8,3);
+      p.rotation.y=-a+.4;
+    }
+    twPart(rotor,'ball',C.white,0,1,0,3,2,3);
+    const ring=twPart(yard.g,'ring',color,x,lift+.9,z,G.radius,G.radius,G.radius);ring.rotation.x=Math.PI/2;ring.visible=false;
+    yard.windmills.push({rotor,ring,x:yard.x+x,y:base,z:yard.z+z,speed:0,glow:0,inside:false,plays:0,note:G.notes[i%G.notes.length]});
+  }
+}
+function twUpdateWindGarden(yard,dt) {
+  const G=TW.garden;
+  for(const w of yard.windmills) {
+    const distance=Math.hypot(state.x-w.x,state.z-w.z);
+    const eligible=heliActive()&&state.phase==='AIRBORNE'&&!state.exploding&&!menuOpen()&&state.y-w.y<G.maxHeight;
+    const near=eligible&&distance<G.reach;
+    // Hysteresis: hovering sustains the spin without repeatedly retriggering
+    // audio. Leaving the broad outer ring re-arms the note for another visit.
+    if(!eligible||distance>G.leave)w.inside=false;
+    if(near&&!w.inside){w.inside=true;w.glow=G.glowTime;w.plays++;flags.windNotes=(flags.windNotes||0)+1;twSound(w.note);}
+    w.speed+=(near?G.spin-w.speed:-w.speed)*Math.min(1,dt*G.response);
+    w.rotor.rotation.y=(w.rotor.rotation.y+w.speed*dt)%(Math.PI*2);
+    w.glow=Math.max(0,w.glow-dt);w.ring.visible=w.glow>0;
+    w.ring.scale.setScalar(G.radius*(1+(1-w.glow/G.glowTime)*.6));
   }
 }

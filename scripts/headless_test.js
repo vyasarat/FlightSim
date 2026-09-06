@@ -4783,6 +4783,9 @@ function check(name, ok, extra) {
 
   await require("./heli_play_checks")({ newPage, check, shots: SHOTS });
   await require("./toyworld_checks")({ newPage, check, shots: SHOTS });
+  await require("./workshop_checks")({ newPage, check, shots: SHOTS });
+  await require("./workshop_play_checks")({ newPage, check, shots: SHOTS });
+  await require("./garden_play_checks")({ newPage, check, shots: SHOTS });
 
   await browser.close();
   server.kill();
