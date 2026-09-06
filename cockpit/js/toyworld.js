@@ -29,7 +29,7 @@ function twBatchParts(root) {
   for (const child of [...root.children]) if (child.isGroup) twBatchParts(child);
   const batches = new Map();
   for (const m of root.children) {
-    if (!m.isMesh || m.isInstancedMesh || !m.visible) continue;
+    if (!m.isMesh || m.isInstancedMesh || !m.visible || m.userData.twDynamic) continue;
     const key = m.geometry.id + ":" + m.material.id;
     if (!batches.has(key)) batches.set(key, []);
     batches.get(key).push(m);
@@ -120,7 +120,7 @@ function twBuildWorld() {
       }
       const ox = x + (k % 3 - 1) * 26 - side * 18, oz = z + (Math.floor(k / 3) - 1) * 23 + side * 20;
       const obj = { g: og, yard, kind, w, h, d, homeX: ox, homeZ: oz, x: ox, y: y + h / 2, z: oz,
-        vx: 0, vy: 0, vz: 0, lock: false, cooldown: 0, away: 0, delivering: false, tilt: 0 };
+        vx: 0, vy: 0, vz: 0, lock: false, dropped: false, cooldown: 0, away: 0, delivering: false, tilt: 0 };
       og.position.set(obj.x, obj.y, obj.z); toyWorld.objects.push(obj);
     }
     twBuildWorkshop(yard);
@@ -174,13 +174,15 @@ function twBuildWorld() {
 
 function twObjectHome(o) {
   o.x = o.homeX; o.z = o.homeZ; o.y = o.yard.y + o.h / 2;
-  o.vx = o.vy = o.vz = o.tilt = o.away = 0; o.delivering = false; o.lock = false; o.cooldown = 1;
+  o.vx = o.vy = o.vz = o.tilt = o.away = 0; o.delivering = false; o.lock = false; o.dropped = false; o.cooldown = 1;
   o.g.visible = true; o.g.position.set(o.x, o.y, o.z); o.g.rotation.set(0, 0, 0);
 }
 function twRelease() {
   const o = toyWorld.held;
   if (!o) return false;
-  toyWorld.held = null; o.lock = true; o.cooldown = TW.playground.releaseDelay;
+  // Pickup exclusion ends when he flies away; delivery intent survives until
+  // this toy is picked up again or replenished, including while a crane is busy.
+  toyWorld.held = null; o.lock = true; o.dropped = true; o.cooldown = TW.playground.releaseDelay;
   o.vx = -Math.sin(state.heading) * Math.min(state.speed * .12, 6);
   o.vz = -Math.cos(state.heading) * Math.min(state.speed * .12, 6); o.vy = 0;
   toyWorld.dropWait = TW.playground.releaseDelay;
@@ -230,7 +232,7 @@ function twUpdateMagnet(dt) {
     if (reachable && bestD < P.pickupR && state.speed < P.pickupSpeed && Math.abs(tipY - twCargoTop(best)) < P.pickupHeight) toyWorld.dwell += dt;
     else toyWorld.dwell = 0;
     if (toyWorld.dwell >= P.dwell) {
-      toyWorld.held = best; best.vx = best.vy = best.vz = 0; best.tilt = 0;
+      toyWorld.held = best; best.dropped = false; best.vx = best.vy = best.vz = 0; best.tilt = 0;
       toyWorld.attachedT = P.attachFlash; flags.magnetPickups = (flags.magnetPickups || 0) + 1; twSound(550);
     }
   }
@@ -283,7 +285,7 @@ function twUpdateCargo(dt) {
     if (Math.hypot(o.x - o.homeX, o.z - o.homeZ) > P.radius * 2) o.away += dt; else o.away = 0;
     if (o.away > P.recycleAfter) twObjectHome(o);
     const yard = o.yard;
-    if (!yard.delivery && o.lock && Math.hypot(o.x - yard.pad.x, o.z - yard.pad.z) < P.deliveryR && o.y < yard.y + 18 && Math.abs(o.vy) < 1) {
+    if (!yard.delivery && (o.lock || o.dropped) && Math.hypot(o.x - yard.pad.x, o.z - yard.pad.z) < P.deliveryR && o.y < yard.y + 18 && Math.abs(o.vy) < 1) {
       yard.delivery = { o, t: 0, x: o.x, y: o.y, z: o.z }; o.delivering = true;
       yard.style = yard.built % 3; yard.danceT = 0;
       yard.build.forEach(m => { m.visible = false; }); yard.face.visible = false;

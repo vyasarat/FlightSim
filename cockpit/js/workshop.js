@@ -28,6 +28,7 @@ function twBuildWorkshop(yard) {
     }
   }
   s.demo=twPart(g,'ball',C.blue,side*S.x,S.height+4,side*S.z,4,4,4);
+  s.demo.userData.twDynamic=true;
   twBuildWindGarden(yard);
 }
 function twSlidePoint(yard,t,out) {
@@ -36,7 +37,7 @@ function twSlidePoint(yard,t,out) {
 }
 function twSlideCatch(o) {
   const s=o.yard.slide,S=TW.slide;
-  if(!s||s.run||!o.lock||o.vy>0||Math.hypot(o.x-s.x,o.z-s.z)>S.radius||o.y-o.h/2>o.yard.y+S.height+1)return false;
+  if(!s||s.run||!(o.lock||o.dropped)||o.vy>0||Math.hypot(o.x-s.x,o.z-s.z)>S.radius||o.y-o.h/2>o.yard.y+S.height+1)return false;
   s.run={o,t:0,x:o.x,y:o.y,z:o.z};o.delivering=true;o.vx=o.vy=o.vz=0;
   flags.slideEntries=(flags.slideEntries||0)+1;twSound(420);return true;
 }
@@ -55,7 +56,7 @@ function twUpdateWorkshop(dt) {
       o.g.position.set(o.x,o.y,o.z);o.g.rotation.set(0,yard.side===1?0:Math.PI,Math.sin(t*Math.PI*4)*.12);
       if(t>=1){
         o.x=s.exitX;o.z=s.exitZ;o.y=yard.y+o.h/2;o.g.position.set(o.x,o.y,o.z);o.g.rotation.set(0,0,0);
-        o.delivering=false;o.lock=true;o.cooldown=S.exitCooldown;o.away=0;o.tilt=0;
+        o.delivering=false;o.lock=true;o.dropped=true;o.cooldown=S.exitCooldown;o.away=0;o.tilt=0;
         s.run=null;s.completed++;flags.slideCompletions=(flags.slideCompletions||0)+1;twSound(660);
       }
     }
@@ -86,7 +87,7 @@ function twBuildWindGarden(yard) {
       p.rotation.y=-a+.4;
     }
     twPart(rotor,'ball',C.white,0,1,0,3,2,3);
-    const ring=twPart(yard.g,'ring',color,x,lift+.9,z,G.radius,G.radius,G.radius);ring.rotation.x=Math.PI/2;ring.visible=false;
+    const ring=twPart(yard.g,'ring',color,x,lift+.9,z,G.radius,G.radius,G.radius);ring.rotation.x=Math.PI/2;ring.visible=false;ring.userData.twDynamic=true;
     yard.windmills.push({rotor,ring,x:yard.x+x,y:base,z:yard.z+z,speed:0,glow:0,inside:false,plays:0,note:G.notes[i%G.notes.length]});
   }
 }

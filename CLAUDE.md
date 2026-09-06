@@ -66,6 +66,13 @@ the checklist for shipping one.
   top surfaces (including car cabins and block studs), not object centres. Keep
   the hook/cargo contact and carry height consistent. Clear a dropped magnet's pickup lock only after he
   moves away. Both airport variants must stay clear of the runway and launch pad.
+- `workshop.js` — the low cargo ramp and musical pinwheels (`TUNE.toyWorld.slide` / `.garden`).
+  Loaded before `toyworld.js`; only its functions use toy-world globals. Keep the blue pad
+  directly tappable from the original pickup route. Cargo `dropped` intent survives the pickup
+  lock clearing, so high drops and a busy crane cannot strand it; pickup and replenishment clear
+  the intent. Dynamic demo balls/pulse rings opt out of static batching with
+  `userData.twDynamic`. The pinwheels use an inner activation radius and larger leave radius:
+  hovering never repeats their audio.
 - `marsbase.js` — the Mars base (`TUNE.marsBase`). Built around wherever he lands, so the lit
   pad is the rocket's own spot and driving back onto it is the way home; no new control.
   Mars only — the Moon stays as it was. It also owns the things to do out there: dune jumps

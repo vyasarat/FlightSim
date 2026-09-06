@@ -112,7 +112,7 @@ The Mars drone keeps its existing point-to-go controls and flight tuning.
 
 ## Airport toy world (`js/toyworld.js`, `TUNE.toyWorld`)
 
-Each airport has three optional, reusable toys. The helicopter faces the colorful
+Each airport has a reusable toy workshop, a musical wind garden, a wash and color clouds. The helicopter faces the colorful
 construction yard when it spawns; planes and rockets keep their existing headings
 and flight tuning.
 
@@ -123,9 +123,17 @@ and flight tuning.
   A gold down control indicates that the helicopter needs to come lower. A cyan ring and
   the drop button confirm attachment. Tap the magnet/down icon to drop. Move away before
   picking up again. Landing with a load sets it down safely. Cargo can stack and jostle other cargo. Drop on the blue crane
-  pad and the crane lifts it into a colorful toy robot, then returns a fresh piece
-  to the yard. Forgotten cargo returns after a while. A full firefighting bucket
+  pad and the crane lifts it into a colorful toy robot, then returns the original toy
+  to the yard. Every delivery assembles a complete robot; its colors and arm pose change on repeat, and it dances before settling. Forgotten cargo returns after a while. A full firefighting bucket
   stays a bucket; the two tools never operate together.
+- **Loading ramp:** the low yellow cup with red edges accepts the same cargo. Drop a toy into it
+  and it slides onto the blue crane pad, where the robot builds and the cargo returns. A blue
+  demonstration ball rolls and hops back by itself. This is an optional alternative to direct
+  delivery, with no extra control. Flying away after a high drop or while the crane is busy does
+  not cancel the delivery.
+- **Wind garden:** three giant red, green and blue pinwheels spin and play gentle notes when the
+  helicopter flies nearby. Hovering sustains the spin quietly. Leave and return to play again.
+  They work independently of cargo and construction.
 - **Plane wash:** the bubble/aircraft icon while parked guides the vehicle through
   the brushes, foam and clean sheen, then returns control. A helicopter can also
   land at the entrance. Large vehicles use an open spray area; rockets are washed
@@ -139,11 +147,11 @@ and flight tuning.
   be revisited as often as desired.
 
 There are no activity scores, menus, deadlines or unlocks. Cargo, bubbles and
-construction pieces are fixed pools; repeated details are instanced. The focused
+construction pieces, ramp balls and pinwheels are fixed pools; repeated details are instanced. The focused
 runner is `scripts/toyworld_test.js` (same browser environment as the full harness);
 its checks also run in `scripts/headless_test.js`. `scripts/heli_play_checks.js`
 (run alone with `node scripts/toyworld_test.js --helicopter`) adds actual touch trips from the vehicle picker through pickup, carrying, delivery
-and repeat pickup at phone/iPad sizes, without teleporting the helicopter. It writes `toyworld-magnet.png`,
+and repeat pickup at phone/iPad sizes, without teleporting the helicopter. `scripts/workshop_test.js` adds ramp and high-drop play, `--garden` checks the complete pinwheel visit, and `--behavior` checks queued cargo, switching, re-arming and resource bounds. All also run in the full harness. `scripts/workshop_realtime.js` records a normal-clock touch tour without test-API movement. See [the workshop play guide](docs/playground/PLAY_GUIDE.md) for the local development server, evidence and parent guide. The focused toy-world runner writes `toyworld-magnet.png`,
 `toyworld-wash.png` and `toyworld-rainbow.png` to `qa-screenshots/`.
 
 ## The world: New York <-> California

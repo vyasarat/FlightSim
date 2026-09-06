@@ -17,7 +17,7 @@ const path = require('path');
       await page.goto(`http://127.0.0.1:${server.address().port}/cockpit/`); await page.waitForFunction(() => window.__lp);
       return { page };
     };
-    await require(process.argv.includes('--behavior')?'./workshop_checks':process.argv.includes('--garden')?'./garden_play_checks':'./workshop_play_checks')({ newPage, shots: path.resolve(__dirname, '../qa-screenshots'), check: (name, ok, details) => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${details || ''}`); } });
+    await require(process.argv.includes('--offline')?'./workshop_offline_check':process.argv.includes('--behavior')?'./workshop_checks':process.argv.includes('--garden')?'./garden_play_checks':'./workshop_play_checks')({ newPage, airport: process.argv.includes('--california')?1:0, viewports:process.argv.includes('--phone')?[[390,844]]:undefined, shots: path.resolve(__dirname, '../qa-screenshots'), check: (name, ok, details) => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${details || ''}`); } });
     console.log(`${results.filter(Boolean).length}/${results.length} checks passed`);
     if (results.some(v => !v)) process.exitCode = 1;
   } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
