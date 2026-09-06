@@ -390,6 +390,8 @@ const TUNE = {
       gravity: 18, drag: 4, maxSpeed: 22, deliveryR: 23, deliveryTime: 5,
       craneH: 56, buildPieces: 12, danceTime: 7, buildReveal: 0.7, danceHop: 3, danceSway: 0.12, displayX: 90, displayZ: -72, cranePark: 1.25,
     },
+    slide: { x: -4, z: -37, exitX: 48, exitZ: -45, height: 12, radius: 22, width: 22, bend: 0, lip: .42,
+      segments: 12, settle: .6, duration: 3.5, exitCooldown: 1.2, demoPeriod: 18, demoHop: 18 },
     wash: { x: -135, z: 525, gateW: 48, gateH: 32, length: 56,
       entryR: 34, duration: 8, repeatDelay: 3, bubbles: 56, openOffset: 90 },
     welcome: { duration: 5, clearance: 58, hornRange: 240, replyDelay: 0.45, cooldown: 2.5 },

@@ -42,7 +42,7 @@ module.exports = async function heliPlayChecks({ newPage, check, shots }) {
     const released=await page.evaluate(()=>!toyWorld.held&&toyWorld.objects[0].lock);
     await step(9);
     const delivery=await page.evaluate(()=>({built:toyWorld.yards[0].built,home:Math.hypot(toyWorld.objects[0].x-toyWorld.objects[0].homeX,toyWorld.objects[0].z-toyWorld.objects[0].homeZ)<1,held:!!toyWorld.held}));
-    check(`helicopter play ${width}x${height}: finger wobble, sequential climb, carry, release, delivery and replenishment`,steady&&carry.held&&carry.target&&carry.y>y0+8&&carry.vertical===0&&Math.hypot(carried.x-carried.homeX,carried.z-carried.homeZ)>45&&released&&delivery.built===1&&delivery.home,JSON.stringify({steady,carry,released,delivery,pad}));
+    check(`helicopter play ${width}x${height}: finger wobble, sequential climb, carry, release, delivery and replenishment`,steady&&carry.held&&carry.target&&carry.y>y0+8&&carry.vertical===0&&Math.hypot(carried.x-carried.homeX,carried.z-carried.homeZ)>45&&released&&delivery.built===1&&delivery.home,JSON.stringify({steady,carry,released,delivery,pad,target:before}));
     await shot('delivery');
     const workshop = await page.evaluate(()=>{
       const y=toyWorld.yards[0],v=y.buildGroup.localToWorld(new THREE.Vector3(0,31,5)).project(camera);

@@ -1,0 +1,33 @@
+// Behavioral coverage complements (and never replaces) the ordinary-touch tour.
+module.exports = async function workshopChecks({newPage,check}) {
+  const {page}=await newPage(1024,768);
+  const result=await page.evaluate(()=>{
+    const L=window.__lp;L.noRender=true;L.api.skipScreens();L.api.setVehicle('helicopter');L.api.placeOnRunway();L.update(1/60);
+    const advance=s=>{for(let i=0;i<s*20;i++){toyWorld.clock+=.05;twUpdateCargo(.05);twUpdateWorkshop(.05);}};
+    const release=o=>{o.x=o.yard.slide.x;o.z=o.yard.slide.z;o.y=o.yard.y+TW.slide.height+o.h/2+8;o.vy=-2;o.lock=true;o.delivering=false;};
+    const cases=[];
+    for(const yard of toyWorld.yards)for(const o of toyWorld.objects.filter(o=>o.yard===yard).slice(0,3)){
+      const slides=yard.slide.completed,builds=yard.built;release(o);advance(16);
+      cases.push({airport:yard.idx,kind:o.kind,slide:yard.slide.completed===slides+1,build:yard.built===builds+1,returned:Math.hypot(o.x-o.homeX,o.z-o.homeZ)<.01&&!o.delivering});
+    }
+    // A second dropped toy waits safely if the ramp is occupied, then gets its
+    // own turn. No cargo disappears and neither activity overwrites an owner.
+    const y=toyWorld.yards[0],a=toyWorld.objects[0],b=toyWorld.objects[1],before=y.slide.completed;
+    release(a);advance(1);release(b);advance(30);
+    const queued=y.slide.completed===before+2&&[a,b].every(o=>!o.delivering&&Math.hypot(o.x-o.homeX,o.z-o.homeZ)<.01);
+    // Switching the player's vehicle cannot strand a cargo-owned animation.
+    release(a);advance(1);L.api.setVehicle('prop');L.api.placeOnRunway();L.update(1/60);advance(16);
+    const switchSafe=!y.slide.run&&!y.delivery&&!a.delivering&&Math.hypot(a.x-a.homeX,a.z-a.homeZ)<.01;
+    const count=()=>{let objects=0;toyWorld.root.traverse(()=>objects++);return{objects,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,programs:renderer.info.programs.length,materials:twMats.size};};
+    const samples=[];
+    for(let k=0;k<6;k++){
+      for(const yard of toyWorld.yards){release(toyWorld.objects.find(o=>o.yard===yard));advance(16);}
+      renderer.render(scene,camera);samples.push(count());
+    }
+    return{cases,queued,switchSafe,samples};
+  });
+  check('workshop: blocks, cars and containers ride, build and replenish at both airports',result.cases.every(c=>c.slide&&c.build&&c.returned),JSON.stringify(result.cases));
+  check('workshop: queued cargo and switching vehicles cannot strand a toy',result.queued&&result.switchSafe,JSON.stringify({queued:result.queued,switchSafe:result.switchSafe}));
+  check('workshop: repeated ramp/build cycles keep scene and GPU resources bounded',result.samples.slice(2).every(s=>JSON.stringify(s)===JSON.stringify(result.samples[1])),JSON.stringify(result.samples));
+  await page.close();
+};

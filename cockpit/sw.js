@@ -1,4 +1,4 @@
-const CACHE_NAME = "little-pilot-cockpit-v81-workshop";
+const CACHE_NAME = "little-pilot-cockpit-v82-workshop";
 const ASSETS = [
   "./",
   "./index.html",
@@ -29,6 +29,7 @@ const ASSETS = [
   "./js/events.js",
   "./js/setpieces.js",
   "./js/marsbase.js",
+  "./js/workshop.js",
   "./js/toyworld.js",
   "./js/main.js",
   "./manifest.json",

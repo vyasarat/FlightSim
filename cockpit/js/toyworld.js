@@ -123,6 +123,7 @@ function twBuildWorld() {
         vx: 0, vy: 0, vz: 0, lock: false, cooldown: 0, away: 0, delivering: false, tilt: 0 };
       og.position.set(obj.x, obj.y, obj.z); toyWorld.objects.push(obj);
     }
+    twBuildWorkshop(yard);
     // Wash on the other side of the starting area, clear of runway and launch pad.
     const wx = side * W.x, wz = ap.cz + side * W.z;
     const wy = Math.max(terrainEff(wx, wz), TUNE.waterLevel) + .6;
@@ -257,6 +258,7 @@ function twUpdateCargo(dt) {
     if (o === toyWorld.held || o.delivering) continue;
     const oldBottom = o.y - o.h / 2;
     o.vy -= P.gravity * step; o.x += o.vx * step; o.z += o.vz * step; o.y += o.vy * step;
+    if (twSlideCatch(o)) continue;
     o.vx *= Math.exp(-P.drag * step); o.vz *= Math.exp(-P.drag * step);
     let floor = twFloor(o.x, o.z);
     for (const b of toyWorld.objects) {
@@ -545,7 +547,7 @@ function updateToyWorld(dt) {
   if (state.exploding && toyWorld.wash) { twWashRestore(toyWorld.wash); toyWorld.wash = null; toyWorld.bubbles.visible = false; }
   for (const y of toyWorld.yards) y.g.visible = Math.hypot(state.x - y.x, state.z - y.z) < TW.visibleRange;
   for (const w of toyWorld.washes) w.g.visible = Math.hypot(state.x - w.x, state.z - w.z) < TW.visibleRange;
-  twUpdateCargo(dt); twUpdateMagnet(dt); twUpdateWash(dt); twUpdateWelcome(dt); twUpdateTrails(dt);
+  twUpdateCargo(dt); twUpdateWorkshop(dt); twUpdateMagnet(dt); twUpdateWash(dt); twUpdateWelcome(dt); twUpdateTrails(dt);
 }
 function twControlsLate() {
   el.magnetBtn.classList.toggle('hidden', !toyWorld.held || !twMagnetOn() || menuOpen());
