@@ -27,6 +27,8 @@ module.exports = async function heliControlChecks({ newPage, check, shots }) {
     await hold('heliUpBtn', 2);
     const lifted = await snapshot(); await step(2); const hovering = await snapshot();
     check(`helicopter ${width}x${height}: large reachable controls; up lifts off and release holds altitude without throttle`, layout && lifted.phase === 'AIRBORNE' && lifted.y > 15 && Math.abs(hovering.y - lifted.y) < .1 && hovering.speed === 0, JSON.stringify({ lifted, hovering }));
+    // Use cockpit view for this sky bearing; the default helicopter view now looks down at toys.
+    await page.evaluate(() => window.__lp.api.setView(false)); await step(.1);
     // A sky tap remains a fixed horizontal destination even after release and camera motion.
     await tap({ x: width * .58, y: height * .38 });
     await step(2);
@@ -113,16 +115,18 @@ module.exports = async function heliControlChecks({ newPage, check, shots }) {
     L.noRender = true; L.api.skipScreens(); L.api.setVehicle('helicopter'); L.api.placeOnRunway(); st.phase = 'AIRBORNE'; st.y = 450; L.heliReset();
     const x = st.x, z = st.z, targetZ = z - 600;
     L.heli.target = { x, y: st.y, z: targetZ };
-    let maxSpeed = 0, minZ = st.z;
-    for (let i = 0; i < 60 * 20; i++) { L.update(1 / 60); maxSpeed = Math.max(maxSpeed, st.speed); minZ = Math.min(minZ, st.z); }
+    let maxSpeed = 0, minZ = st.z, maxAcceleration = 0;
+    let vx=L.heli.vx, vz=L.heli.vz;
+    const sampleAcceleration=()=>{maxAcceleration=Math.max(maxAcceleration,Math.hypot(L.heli.vx-vx,L.heli.vz-vz)*60);vx=L.heli.vx;vz=L.heli.vz;};
+    for (let i = 0; i < 60 * 20; i++) { L.update(1 / 60); sampleAcceleration(); maxSpeed = Math.max(maxSpeed, st.speed); minZ = Math.min(minZ, st.z); }
     const arrival = !L.heli.target && st.speed === 0 && Math.abs(st.z - targetZ) < 6 && minZ >= targetZ - 1;
     L.heli.target = { x: st.x, y: st.y, z: st.z + 500 };
     const h0 = st.heading;
-    for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+    for (let i = 0; i < 60 * 4; i++) { L.update(1 / 60); sampleAcceleration(); }
     const turned = Math.abs(wrapPi(st.heading - h0)) > Math.PI * .85 && st.speed > 40;
-    return { arrival, turned, maxSpeed, y: st.y, speed: st.speed, error: Math.abs(minZ - targetZ) };
+    return { arrival, turned, maxSpeed, maxAcceleration, y: st.y, speed: st.speed, error: Math.abs(minZ - targetZ) };
   });
-  check('helicopter: faster cruise, 180-degree turn, braking without overshoot, level altitude', motion.arrival && motion.turned && motion.maxSpeed > 60 && Math.abs(motion.y - 450) < .1, JSON.stringify(motion));
+  check('helicopter: faster cruise, 180-degree turn, braking without overshoot, level altitude', motion.arrival && motion.turned && motion.maxSpeed > 85 && motion.maxAcceleration <= 64.01 && Math.abs(motion.y - 450) < .1, JSON.stringify(motion));
   const safety = await page.evaluate(() => {
     const L = window.__lp, st = L.state, out = {};
     const air = (x, y, z) => {

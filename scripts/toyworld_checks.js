@@ -12,7 +12,7 @@ module.exports = async function toyworldChecks({ newPage, check, shots }) {
     step(.6); o.pickup = world.held === cargo && !el.magnetBtn.classList.contains('hidden') && el.bucketBtn.classList.contains('hidden');
     const pos = { x: st.x, y: st.y, z: st.z };
     st.x += 40; st.y += 15; L.heli.altitude = st.y; step(.2);
-    o.carry = cargo.x === st.x && Math.abs(cargo.y - (st.y - P.cable - 3 - cargo.h / 2)) < .01 && st.x === pos.x + 40;
+    o.carry = cargo.x === st.x && Math.abs(twCargoTop(cargo) - (st.y - world.cableLength - P.hookDepth)) < .01 && st.x === pos.x + 40;
     // Physical drop onto another block, with no repick until the helicopter leaves.
     const base = world.objects[3]; st.x = base.x; st.z = base.z; st.y = yard.y + 40; L.heli.altitude = st.y; step(.05);
     L.twRelease(); step(3);
@@ -42,6 +42,29 @@ module.exports = async function toyworldChecks({ newPage, check, shots }) {
   });
   check('toy world: magnet preview, pickup, stable carry, release lock, stacking, delivery and replenishment', out.preview && out.pickup && out.carry && out.release && out.stack && out.repickup && out.deliveryStarted && out.delivered && out.replenished, JSON.stringify(out));
   check('toy world: bucket/magnet exclusion, switching vehicles and recycling abandoned cargo', out.fullBucket && out.magnetAgain && out.noDualMode && out.switchRelease && out.recycle, JSON.stringify(out));
+  const contact = await page.evaluate(() => {
+    const L=window.__lp, st=L.state, P=L.TW.playground, records=[];
+    L.api.setVehicle('helicopter'); L.api.placeOnRunway(); L.update(1/60);
+    for(const o of L.toyWorld.objects.slice(0,3)) {
+      twResetTrip(); twObjectHome(o); L.heliReset(); L.bucket.state='empty';
+      st.phase='AIRBORNE'; st.x=o.x-(o.kind===0 ? o.w/2+P.pickupR-4 : 0); st.z=o.z;
+      st.y=twCargoTop(o)+P.cableMax+40; L.heli.altitude=st.y;
+      L.update(.1);
+      const tooHigh=!L.toyWorld.held&&el.heliDownBtn.classList.contains('reach');
+      L.heli.vertical=-1; let maxCable=0;
+      for(let i=0;i<12*60;i++){L.update(1/60);maxCable=Math.max(maxCable,L.toyWorld.cableLength);}
+      L.heli.vertical=0; L.heli.altitude=st.y; L.heli.vy=0;
+      scene.updateMatrixWorld(true);
+      const tip=L.toyWorld.hook.localToWorld(new THREE.Vector3(0,-P.hookDepth,0));
+      records.push({kind:o.kind,tooHigh,held:L.toyWorld.held===o,maxCable,gap:Math.abs(tip.y-twCargoTop(o))});
+    }
+    L.heli.vertical=-1;
+    for(let i=0;i<15*60;i++) L.update(1/60);
+    const landed=!L.toyWorld.held && st.phase==='TAXI' && !st.exploding;
+    L.heli.vertical=0; twResetTrip();
+    return {records,landed};
+  });
+  check('toy world: finite winch reach, lower cue, forgiving edge pickup and visible contact on blocks/cars/containers',contact.landed&&contact.records.every(r=>r.tooHigh&&r.held&&r.maxCable>10&&r.maxCable<=64&&r.gap<.01),JSON.stringify(contact));
   const wash = await page.evaluate(() => {
     const L = window.__lp, st = L.state, out = [];
     L.api.skipScreens();

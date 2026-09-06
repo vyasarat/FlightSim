@@ -5,25 +5,19 @@
 
 const H = TUNE.heli;
 const heli = {
-  vy: 0, turn: 0, speed: 0,
-  braking: false, target: null, targetDist: 0, sky: false,
-  altitude: null, vertical: 0, wasTouching: false, lastNX: null, lastNY: null,
+  vy: 0, turn: 0, speed: 0, vx: 0, vz: 0,
+  facing: null, target: null, targetDist: 0, sky: false,
+  altitude: null, cameraY: null, cameraAhead: H.cameraLookAhead, vertical: 0, wasTouching: false, lastNX: null, lastNY: null,
 };
 
 function heliActive() { return !!(state.vp && state.vp.heli); }
 function heliReset() {
-  heli.vy = 0; heli.turn = 0; heli.speed = 0;
-  heli.braking = false; heli.target = null; heli.targetDist = 0; heli.sky = false;
-  heli.altitude = null; heli.vertical = 0; heli.wasTouching = false;
+  heli.vy = 0; heli.turn = 0; heli.speed = 0; heli.vx = heli.vz = 0;
+  heliEndGesture();
+  heli.facing = null; heli.target = null; heli.targetDist = 0; heli.sky = false;
+  heli.altitude = null; heli.cameraY = null; heli.cameraAhead = H.cameraLookAhead; heli.vertical = 0; heli.wasTouching = false;
   heli.lastNX = heli.lastNY = null;
   if (typeof releaseHeliAltitude === "function") releaseHeliAltitude();
-}
-
-// Use the gentler firefighting deceleration near the rig. Water and the edge
-// of this area are never destinations themselves: keep flying to his tap.
-function heliJobNear() {
-  if (typeof fire === "undefined" || !fire.g) return false;
-  return Math.hypot(state.x - fire.x, state.z - fire.z) < H.jobRadius;
 }
 
 // ---- what is under his finger
@@ -69,7 +63,7 @@ function heliGroundHit(o, d, maxD) {
 function heliPick(nx, ny) {
   camera.updateMatrixWorld();
   heliNdc.set(nx, ny);
-  heliRay.setFromCamera(heliNdc, camera);
+  heliRay.setFromCamera(heliNdc, heliGesture.active ? heliGestureCamera : camera);
   const o = heliRay.ray.origin, d = heliRay.ray.direction;
   let best = null;
   // the things worth touching that stand above the ground
@@ -90,8 +84,26 @@ function heliPick(nx, ny) {
   return best;
 }
 
+// Freeze the view for one gesture: camera movement must not steer the aircraft.
+const heliGestureCamera = camera.clone();
+const heliGesture = { active: false, nx: 0, ny: 0, x: 0, z: 0 };
+function heliBeginGesture(nx, ny) {
+  camera.updateMatrixWorld();
+  heliGestureCamera.copy(camera); heliGestureCamera.matrixWorld.copy(camera.matrixWorld);
+  heliGestureCamera.matrixWorldInverse.copy(camera.matrixWorldInverse);
+  heliGesture.active = true; heliGesture.nx = nx; heliGesture.ny = ny;
+  heliGesture.x = state.x; heliGesture.z = state.z;
+  heliAim(nx, ny);
+}
+function heliMoveGesture(nx, ny) {
+  if (!heliGesture.active) return;
+  const pixels = Math.hypot((nx - heliGesture.nx) * innerWidth / 2, (ny - heliGesture.ny) * innerHeight / 2);
+  if (pixels < H.dragDeadzone) return;
+  heliGesture.nx = nx; heliGesture.ny = ny; heliAim(nx, ny);
+}
+function heliEndGesture() { heliGesture.active = false; }
 function heliHover() {
-  heli.target = null; heli.sky = false;
+  heli.target = null; heli.sky = false; heli.facing = null;
   heli.altitude = state.y; heli.vy = 0;
 }
 function heliAim(nx, ny) {
@@ -101,7 +113,7 @@ function heliAim(nx, ny) {
   else {
     const d = heliRay.ray.direction, len = Math.hypot(d.x, d.z);
     if (len < 1e-4) return;
-    heli.target = { x: state.x + d.x / len * H.headingRange, y: state.y, z: state.z + d.z / len * H.headingRange };
+    heli.target = { x: (heliGesture.active ? heliGesture.x : state.x) + d.x / len * H.headingRange, y: state.y, z: (heliGesture.active ? heliGesture.z : state.z) + d.z / len * H.headingRange };
   }
 }
 const heliMarkerPoint = new THREE.Vector3();
@@ -114,10 +126,10 @@ function updateHeliControls() {
   el.heliHoverBtn.classList.toggle("holding", visible && !heli.target);
   el.heliTarget.classList.toggle("hidden", !visible || !heli.target);
   if (!visible || !heli.target) return;
-  // A ring marks the destination at our held flight height. At screen edges an
+  // A ring marks the selected surface (or held height for a sky bearing). An
   // arrow keeps the bearing readable even while the helicopter turns around.
   camera.updateMatrixWorld();
-  heliMarkerPoint.set(heli.target.x, state.y, heli.target.z).project(camera);
+  heliMarkerPoint.set(heli.target.x, heli.sky ? state.y : heli.target.y + 2, heli.target.z).project(camera);
   let x = heliMarkerPoint.x, y = heliMarkerPoint.y;
   if (heliMarkerPoint.z > 1) { x = -x; y = -y; }
   const off = heliMarkerPoint.z > 1 || Math.abs(x) > .78 || Math.abs(y) > .65;
@@ -146,10 +158,17 @@ function updateHelicopter(dt) {
 
   if (heli.altitude === null) heli.altitude = state.y;
   // Only a new touch or drag changes the destination, never camera motion alone.
-  if (touching && (!heli.wasTouching || nx !== heli.lastNX || ny !== heli.lastNY)) heliAim(nx, ny);
+  if (touching && !state.touchIsPoint && (!heli.wasTouching || nx !== heli.lastNX || ny !== heli.lastNY)) heliAim(nx, ny);
   heli.wasTouching = touching; heli.lastNX = nx; heli.lastNY = ny;
   if (heli.vertical) heli.altitude = clamp(state.y + heli.vertical * H.altitudeLead, rest - 1, TUNE.otherVehicleCeiling);
   let wantYaw = null, wantSpeed = 0;
+  // Anticipate rising terrain instead of waiting for an abrupt floor correction.
+  if (heli.target && heli.vertical >= 0 && !grounded) {
+    for (const t of [.5, 1]) {
+      const floor = Math.max(terrainEff(state.x + heli.vx * H.terrainLookahead * t, state.z + heli.vz * H.terrainLookahead * t), TUNE.waterLevel);
+      heli.altitude = Math.max(heli.altitude, floor + H.terrainClearance);
+    }
+  }
   const wantVy = clamp((heli.altitude - state.y) * H.vGain, -H.maxSink, H.climb);
   if (heli.target) {
     const dx = heli.target.x - state.x, dz = heli.target.z - state.z;
@@ -162,8 +181,9 @@ function updateHelicopter(dt) {
     }
   }
 
-  // ---- yaw: turn onto the fixed bearing before accelerating
-  const yawErr = wantYaw === null ? 0 : wrapPi(wantYaw - state.heading);
+  // ---- yaw: finish facing the chosen bearing, independently of translation
+  if (wantYaw !== null) heli.facing = wantYaw;
+  const yawErr = heli.facing === null ? 0 : wrapPi(heli.facing - state.heading);
   const cmd = clamp(-yawErr / DEG * H.yawGain, -H.turnRate, H.turnRate);
 
   heli.turn += (cmd - heli.turn) * Math.min(1, H.turnAccel * dt);
@@ -171,18 +191,18 @@ function updateHelicopter(dt) {
   state.heading -= heli.turn * DEG * dt;
   state.bank += ((heli.turn / H.turnRate) * H.bankDeg - state.bank) * Math.min(1, H.levelRate * dt);
 
-  // ---- forward: turn first, then ease into the selected destination
-  heli.braking = !grounded && heliJobNear();
-  // Keep the destination through the shoreline and the fire's assist boundary.
-  // Clearing it here stranded him short of the rig and cancelled every retry.
-  heli.braking = heli.braking && !!heli.target &&
-    Math.hypot(heli.target.x - fire.x, heli.target.z - fire.z) < H.jobRadius;
+  // ---- horizontal motion: ease into the selected destination
   if (heli.vertical < 0) wantSpeed *= clamp((state.y - rest) / H.landingBrakeH, 0, 1);
   if (grounded) wantSpeed = 0;
-  else if (wantYaw !== null) wantSpeed *= Math.pow(Math.max(0, Math.cos(yawErr)), 2);
-  const k = wantSpeed > heli.speed ? H.accel : (heli.braking ? H.jobBrake : H.hoverDamp);
-  heli.speed += (wantSpeed - heli.speed) * Math.min(1, k * dt);
-  if (heli.speed < H.stopBelow) heli.speed = 0;
+  // A helicopter can move sideways: heading follows smoothly without rotating
+  // an existing forward velocity or stopping travel for every course correction.
+  const tx = wantYaw === null ? 0 : -Math.sin(wantYaw) * wantSpeed;
+  const tz = wantYaw === null ? 0 : -Math.cos(wantYaw) * wantSpeed;
+  const dxv = tx - heli.vx, dzv = tz - heli.vz, change = Math.hypot(dxv, dzv);
+  const rate = wantSpeed > heli.speed ? H.horizontalAccel : H.horizontalBrake;
+  const blend = change ? Math.min(1, rate * dt / change, heli.target ? H.accel * dt : 1) : 0;
+  heli.vx += dxv * blend; heli.vz += dzv * blend;
+  heli.speed = Math.hypot(heli.vx, heli.vz);
   state.speed = heli.speed;
   state.pitch += (-(heli.speed / H.cruise) * H.noseDeg - state.pitch) * Math.min(1, H.levelRate * dt);
 
@@ -192,7 +212,7 @@ function updateHelicopter(dt) {
 
   if (grounded) {
     state.y = rest;
-    heli.speed = 0; state.speed = 0;
+    heli.speed = 0; heli.vx = heli.vz = 0; state.speed = 0;
     heli.turn *= 1 - Math.min(1, 4 * dt);
     setRolling(0);
     if ((heli.target || heli.vertical > 0) && !menuOpen()) {
@@ -212,8 +232,8 @@ function updateHelicopter(dt) {
 
   const hr = state.heading;
   const fx = -Math.sin(hr), fz = -Math.cos(hr);
-  state.x += fx * heli.speed * dt;
-  state.z += fz * heli.speed * dt;
+  state.x += heli.vx * dt;
+  state.z += heli.vz * dt;
   forward.set(fx, 0, fz);          // the shared systems read travel off these two
   state.airVy = heli.vy;
 
@@ -247,7 +267,7 @@ function updateHelicopter(dt) {
     state.y = rest;
     heli.vy = 0;
     state.phase = "TAXI";
-    heli.speed = 0; state.speed = 0; heli.target = null; heli.altitude = rest;
+    heli.speed = 0; heli.vx = heli.vz = 0; state.speed = 0; heli.target = null; heli.altitude = rest;
     if (!state.heliDown) { state.heliDown = true; chirp(); touchdownFx(); flags.heliLandings = (flags.heliLandings || 0) + 1; }
   } else if (state.y > rest + 1) {
     state.heliDown = false;

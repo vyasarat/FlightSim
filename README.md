@@ -76,7 +76,7 @@ mechanism (the picker reads the flag at boot) is still there for anything that n
 | Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
 | Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (colour only); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
-| Helicopter | 64 | 70°/s | n/a | **Point-to-go** (`js/heli.js`, `TUNE.heli`): touch a place and it flies there. The firefighter -- it carries the water bucket |
+| Helicopter | 90 | 85°/s | n/a | **Point-to-go** (`js/heli.js`, `TUNE.heli`): touch a place and it flies there. The firefighter -- it carries the water bucket |
 | Rocket | see `rocketTune` | 38°/s tilt | vertical launch | Its own flight model (The rocket below); no gear, no missiles. The `vehicles.rocket` entry only feeds the picker and dials |
 | Starship | `rocketTune.starship` | 38°/s tilt (turnRateDeg 7 vs the rocket's 8) | vertical launch | Same flight model, one drop; the booster is caught by the tower's arms; the Ship lands on its engines |
 
@@ -87,7 +87,8 @@ Every non-rocket vehicle is ceiling-capped at `otherVehicleCeiling`.
 Tap a place in the main view to fly toward it at the current altitude. The cyan
 marker shows the destination (an edge arrow points toward it when off screen).
 The destination stays fixed while the camera moves and after the finger lifts;
-a new tap or drag changes it. A sky tap sets a horizontal destination in that
+a new tap or deliberate drag changes it. Each drag uses the view at touch-down,
+so camera motion and small finger wobbles cannot redirect it. A sky tap sets a horizontal destination in that
 direction, without climbing.
 
 The large **up/down arrows** on the right change altitude while held. Release to
@@ -96,7 +97,12 @@ lift, then adjust height. The **pause-in-a-circle** button stops travel in a hov
 Up lifts off from the ground; holding down lands gently. Over water it stops at a
 safe hover floor so the bucket remains available. There is no throttle to hold.
 
-Cruise is 64 units/s; acceleration, turning and braking are tuned together. It
+The helicopter starts in an elevated chase view so the magnet and toys are visible;
+the view button still offers cockpit view. Near the yard the camera gently looks
+down to show the ground around the helicopter.
+
+Cruise is 90 units/s, with capped horizontal acceleration and braking. Horizontal
+motion follows the destination independently of the body turning toward it. It
 slows near its destination and arrives in a hover. Approaching the fire keeps
 the selected destination across the shoreline, all the way to the rig. Lower it
 over scoop water with down, then tap the bucket to scoop; lift above the platform
@@ -112,8 +118,11 @@ and flight tuning.
 
 - **Magnet yard:** hover near a loose block, toy car or container. A yellow ring
   previews the pickup; hovering close attaches it automatically. The red magnet
-  hangs steadily underneath. Tap the magnet/down icon to drop. Move away before
-  picking up again. Cargo can stack and jostle other cargo. Drop on the blue crane
+  hangs steadily underneath. Its winch lowers up to 64 units to reach a toy surface,
+  then lifts the attached toy. Yellow marks a ready pickup; cyan marks an approach.
+  A gold down control indicates that the helicopter needs to come lower. A cyan ring and
+  the drop button confirm attachment. Tap the magnet/down icon to drop. Move away before
+  picking up again. Landing with a load sets it down safely. Cargo can stack and jostle other cargo. Drop on the blue crane
   pad and the crane lifts it into a colorful toy robot, then returns a fresh piece
   to the yard. Forgotten cargo returns after a while. A full firefighting bucket
   stays a bucket; the two tools never operate together.
@@ -132,7 +141,9 @@ and flight tuning.
 There are no activity scores, menus, deadlines or unlocks. Cargo, bubbles and
 construction pieces are fixed pools; repeated details are instanced. The focused
 runner is `scripts/toyworld_test.js` (same browser environment as the full harness);
-its checks also run in `scripts/headless_test.js`. It writes `toyworld-magnet.png`,
+its checks also run in `scripts/headless_test.js`. `scripts/heli_play_checks.js`
+(run alone with `node scripts/toyworld_test.js --helicopter`) adds actual touch trips from the vehicle picker through pickup, carrying, delivery
+and repeat pickup at phone/iPad sizes, without teleporting the helicopter. It writes `toyworld-magnet.png`,
 `toyworld-wash.png` and `toyworld-rainbow.png` to `qa-screenshots/`.
 
 ## The world: New York <-> California

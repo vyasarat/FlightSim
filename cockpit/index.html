@@ -266,6 +266,7 @@
   #heliUpBtn { bottom: calc(var(--stack-bottom) + var(--thr) + 12px + env(safe-area-inset-bottom)); }
   #heliHoverBtn { right: calc(var(--edge) + var(--thr) + 12px + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
   #heliUpBtn.pressed, #heliDownBtn.pressed, #heliHoverBtn.holding { background: #247b83; box-shadow: 0 0 18px #5ff1ff88; }
+  #heliDownBtn.reach { border-color: #ffd23e; }
   #heliTarget { position: fixed; width: 38px; height: 38px; transform: translate(-50%, -50%); pointer-events: none; z-index: 7; color: #5ff1ff; filter: drop-shadow(0 2px 3px #10202b); }
   #heliTarget .bearing { display: none; transform-origin: 24px 24px; transform: rotate(var(--bearing)); }
   #heliTarget.offscreen .bearing { display: block; }

@@ -9,7 +9,10 @@ function setTouchPoint(x, y) {
   state.touchNX = (x / window.innerWidth) * 2 - 1;
   state.touchNY = -((y / window.innerHeight) * 2 - 1);
   state.touchIsPoint = true;
-  if (heliActive() && !menuOpen()) heliAim(state.touchNX, state.touchNY);
+  if (heliActive() && !menuOpen()) {
+    if (heliGesture.active) heliMoveGesture(state.touchNX, state.touchNY);
+    else heliBeginGesture(state.touchNX, state.touchNY);
+  }
 }
 function takeStick(id, x, y) {
   keyStickActive = false;
@@ -41,6 +44,7 @@ glEl.addEventListener("pointermove", (e) => {
 const releaseDrag = (e) => {
   if (e && e.pointerId !== undefined) stickPointers.delete(e.pointerId);
   if (e && e.pointerId !== undefined && stickPointerId !== null && e.pointerId !== stickPointerId) return;
+  if (heliActive()) heliEndGesture();
   state.touching = false;
   state.touchIsPoint = false;
   stickPointerId = null;
@@ -52,6 +56,7 @@ const releaseDrag = (e) => {
 };
 glEl.addEventListener("pointerup", releaseDrag);
 glEl.addEventListener("pointercancel", releaseDrag);
+glEl.addEventListener("lostpointercapture", releaseDrag);
 // Anything that can end a touch without telling us (Guided Access overlay,
 // notification banner, app switch) releases every held control.
 const releaseAllInputs = () => {
@@ -65,6 +70,7 @@ const releaseAllInputs = () => {
   keyStickActive = false;
   state.ctrlBank = 0;
   state.ctrlPitch = 0;
+  if (heliActive()) heliEndGesture();
   state.touching = false;
   state.touchIsPoint = false;
   stickPointerId = null;

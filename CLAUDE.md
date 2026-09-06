@@ -35,7 +35,10 @@ the checklist for shipping one.
 - `heli.js` — the helicopter's own flight model (`TUNE.heli`); it owns both the ground and the
   air for that vehicle, so the plane path in `flight.js` never runs for it. **Sequential controls, one finger**:
   a tap sets a fixed horizontal destination; up/down change altitude without cancelling travel,
-  and releasing them holds height. The hover button stops travel. No throttle and no mandatory
+  and releasing them holds height. Freeze the picking camera for each gesture and
+  filter small finger jitter; do not re-aim from camera movement. Horizontal velocity
+  is independent of body yaw. The elevated helicopter camera shows cargo and the
+  ground, with a smooth downward look near the yard. The hover button stops travel. No throttle and no mandatory
   simultaneous touches. The touch point reaches it as `state.touchNX/NY` (NDC); the plane and
   rocket ignore those entirely. Separate altitude controls and helicopter-only tuning changes
   were explicitly authorized; preserve plane, rocket and Mars drone tuning.
@@ -59,7 +62,9 @@ the checklist for shipping one.
   the trail is one capped buffer with logarithmic-depth shader support. Batch only
   static siblings, leaving individually revealed construction pieces independent.
   `twWashGuide` owns motion only during the optional wash. Keep magnet/bucket
-  eligibility exclusive, and clear a dropped magnet's pickup lock only after he
+  eligibility exclusive. The limited winch measures the visible hook against cargo
+  top surfaces (including car cabins and block studs), not object centres. Keep
+  the hook/cargo contact and carry height consistent. Clear a dropped magnet's pickup lock only after he
   moves away. Both airport variants must stay clear of the runway and launch pad.
 - `marsbase.js` — the Mars base (`TUNE.marsBase`). Built around wherever he lands, so the lit
   pad is the rocket's own spot and driving back onto it is the way home; no new control.
