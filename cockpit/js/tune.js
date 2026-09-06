@@ -385,8 +385,8 @@ const TUNE = {
     colors: [0xe0483e, 0xffd23e, 0x36c46a, 0x5ff1ff, 0x2b4fb0],
     playground: {
       x: 330, z: 520, radius: 110, floorRadius: 104, objects: 9,
-      cable: 10, pickupR: 22, pickupHeight: 28, previewR: 55, pickupSpeed: 16,
-      dwell: 0.55, releaseDelay: 2, leaveR: 38, recycleAfter: 45,
+      cable: 10, cableMax: 64, hookDepth: 3.5, winchSpeed: 36, attachFlash: 1.2, pickupR: 22, pickupHeight: 6, previewR: 55, pickupSpeed: 28,
+      dwell: 0.25, releaseDelay: 2, leaveR: 28, recycleAfter: 45,
       gravity: 18, drag: 4, maxSpeed: 22, deliveryR: 23, deliveryTime: 5,
       craneH: 56, buildPieces: 12,
     },
@@ -398,21 +398,21 @@ const TUNE = {
   },
 
   heli: {
-    cruise: 64, approach: 0.9,     // speed eases off with the distance left to run
+    cruise: 90, approach: 1.1,     // speed eases off with the distance left to run
     hoverAgl: 26,                   // initial takeoff height for a destination tap
     landingBrakeH: 24,              // slow horizontal travel on the last metres of a descent
     arriveDist: 4,                  // stop and clear the destination inside this radius
-    turnRate: 70, turnAccel: 5.0, yawGain: 3.2, bankDeg: 22,
+    turnRate: 85, turnAccel: 4.0, yawGain: 2.8, bankDeg: 12,
+    dragDeadzone: 8, horizontalAccel: 42, horizontalBrake: 64,
+    terrainLookahead: 1.2, terrainClearance: 8, cameraBack: 52, cameraHeight: 34,
+    cameraLookAhead: 20, cameraGroundLook: 55, cameraRopeLook: 0.4, cameraResponse: 4, cameraAimResponse: 3,
     headingRange: 1400, altitudeLead: 24, // sky touches set a horizontal bearing; altitude buttons lead the height hold
     climb: 16, maxSink: 6, vAccel: 4.0, vGain: 1.2,
     liftKick: 2.0,                  // on the ground, any touch gets it off the deck
-    accel: 2.8, hoverDamp: 4.5,     // responsive travel, short stopping distance
-    levelRate: 2.5, noseDeg: 10,
-    jobRadius: 120, jobBrake: 3.5,  // gentler deceleration near the fire; arrival still uses
-                                    // the selected destination, never the edge of this radius
+    accel: 2.8,                    // desired-velocity smoothing; acceleration/braking capped above
+    levelRate: 2.5, noseDeg: 6,
     waterFloor: 5,                  // it hovers this far over the sea and never sets down on it
                                     // (sitting on the water would end the flight and hide the bucket)
-    stopBelow: 0.4,
     pickRange: 3000, pickStep: 30,  // how far it looks for what he touched, and how finely
     // A shallow ray grazes the crest in front of him and dips under the ground for
     // a moment before coming out the other side. Taken at face value that put the
@@ -583,7 +583,7 @@ const TUNE = {
 
   vehicles: {
     prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, capped: true, size: 1.0, hasGear: true },
-    helicopter:       { cruiseSpeed: 64, turnRateDeg: 55, pitchLimitDeg: 22, bankLimitDeg: 26, accel: 10, capped: true, size: 1.05, hasGear: false, heli: true },   // its own model: TUNE.heli
+    helicopter:       { cruiseSpeed: 90, turnRateDeg: 55, pitchLimitDeg: 22, bankLimitDeg: 26, accel: 10, capped: true, size: 1.05, hasGear: false, heli: true },   // its own model: TUNE.heli
     rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
     starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },

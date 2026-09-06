@@ -266,6 +266,19 @@ function shakeNow() {
 function applyCamera(dt) {
   if (state.vp.rocket) { if (marsDroneActive()) marsDroneCamera(dt); else if (roverActive()) roverCamera(dt); else if (astroActive()) astroCamera(dt); else rocketCamera(dt); return; }
   camera.up.set(0, 1, 0);
+  if (heliActive() && state.viewChase) {
+    const rope = toyWorld.magnet.visible ? toyWorld.cableLength || TW.playground.cable : 0;
+    const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
+    camDesired.set(state.x - fx * (H.cameraBack + rope * H.cameraRopeLook), state.y + H.cameraHeight, state.z - fz * (H.cameraBack + rope * H.cameraRopeLook));
+    camera.position.lerp(camDesired, 1 - Math.exp(-H.cameraResponse * dt));
+    const yard = twNearYard();
+    const aimY = yard ? Math.min(state.y - rope * H.cameraRopeLook, Math.max(yard.y + 10, state.y - H.cameraGroundLook)) : state.y - rope * H.cameraRopeLook;
+    if (heli.cameraY === null) heli.cameraY = aimY;
+    heli.cameraY += (aimY - heli.cameraY) * (1 - Math.exp(-H.cameraAimResponse * dt));
+    heli.cameraAhead += ((yard ? 0 : H.cameraLookAhead) - heli.cameraAhead) * (1 - Math.exp(-H.cameraAimResponse * dt));
+    lookV.set(state.x + fx * heli.cameraAhead, heli.cameraY, state.z + fz * heli.cameraAhead);
+    camera.lookAt(lookV); return;
+  }
   if (state.viewChase) {
     const vs = state.vp.size || 1;
     const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);

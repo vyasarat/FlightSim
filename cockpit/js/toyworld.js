@@ -5,7 +5,7 @@ const TW = TUNE.toyWorld;
 const toyWorld = {
   root: new THREE.Group(), yards: [], washes: [], clouds: [], objects: [],
   held: null, candidate: null, dwell: 0, dropX: 0, dropZ: 0, dropLock: false, wash: null, washCooldown: 0,
-  clock: 0, soundT: 0, lastVehicle: null, lastSpawn: -1, lastLanding: 0,
+  cableLength: TW.playground.cable, attachedT: 0, dropWait: 0, clock: 0, soundT: 0, lastVehicle: null, lastSpawn: -1, lastLanding: 0,
   trailColor: -1, rainbow: false, trailHead: 0, trailTime: 0, trailCount: 0,
 };
 const twGeo = {
@@ -148,11 +148,12 @@ function twBuildWorld() {
     twBuildColorClouds(ap, side);
   });
   const magnet = new THREE.Group(); toyWorld.root.add(magnet); toyWorld.magnet = magnet;
-  twPart(magnet, 'cylinder', C.ink, 0, -P.cable / 2, 0, .12, P.cable, .12);
-  twPart(magnet, 'box', C.red, 0, -P.cable, 0, 5, 1.5, 2);
+  toyWorld.cable = twPart(magnet, 'cylinder', C.ink, 0, -P.cable / 2, 0, .18, P.cable, .18);
+  const hook = new THREE.Group(); magnet.add(hook); toyWorld.hook = hook;
+  twPart(hook, 'box', C.red, 0, 0, 0, 5, 1.5, 2);
   for (const sx of [-1, 1]) {
-    twPart(magnet, 'box', C.red, sx * 2, -P.cable - 1.6, 0, 1.3, 3, 2);
-    twPart(magnet, 'box', C.white, sx * 2, -P.cable - 3, 0, 1.3, 1, 2);
+    twPart(hook, 'box', C.red, sx * 2, -1.6, 0, 1.3, 3, 2);
+    twPart(hook, 'box', C.white, sx * 2, -3, 0, 1.3, 1, 2);
   }
   magnet.visible = false;
   toyWorld.highlight = twPart(toyWorld.root, 'ring', C.warning, 0, 0, 0, 12, 12, 12);
@@ -176,32 +177,55 @@ function twRelease() {
   toyWorld.held = null; o.lock = true; o.cooldown = TW.playground.releaseDelay;
   o.vx = -Math.sin(state.heading) * Math.min(state.speed * .12, 6);
   o.vz = -Math.cos(state.heading) * Math.min(state.speed * .12, 6); o.vy = 0;
+  toyWorld.dropWait = TW.playground.releaseDelay;
   toyWorld.dropX = state.x; toyWorld.dropZ = state.z; toyWorld.dropLock = true;
   toyWorld.dwell = 0; flags.magnetDrops = (flags.magnetDrops || 0) + 1; twSound(280);
   return true;
 }
+// Cargo coordinates are world-space. Cars include their raised cabin, blocks
+// their top stud; match the visible top surface, not the body's centre.
+function twCargoTop(o) { return o.y + o.h / 2 + (o.kind === 1 ? 3 : o.kind === 0 ? 1 : 0); }
+function twCargoGap(o) {
+  return Math.hypot(Math.max(0, Math.abs(state.x - o.x) - o.w / 2), Math.max(0, Math.abs(state.z - o.z) - o.d / 2));
+}
 function twUpdateMagnet(dt) {
   const P = TW.playground, active = twMagnetOn() && !menuOpen();
-  if (toyWorld.held && !active) twRelease();
+  const load = toyWorld.held;
+  // Setting down a load must not push it through the ground or keep the rope
+  // inside it. A deliberate landing releases it gently before the skids settle.
+  const restingTop = load && twFloor(load.x, load.z) + load.h / 2 + twCargoTop(load) - load.y;
+  if (load && (!active || state.phase === 'TAXI' || (heli.vertical < 0 && state.y < restingTop + P.cable + P.hookDepth))) twRelease();
+  toyWorld.dropWait = Math.max(0, toyWorld.dropWait - dt);
+  toyWorld.attachedT = Math.max(0, toyWorld.attachedT - dt);
   if (toyWorld.dropLock && Math.hypot(state.x - toyWorld.dropX, state.z - toyWorld.dropZ) > P.leaveR) toyWorld.dropLock = false;
   let best = null, bestD = P.previewR;
   for (const o of toyWorld.objects) {
     o.cooldown = Math.max(0, o.cooldown - dt);
-    const d = Math.hypot(state.x - o.x, state.z - o.z);
-    if (o.lock && d > P.leaveR && o.cooldown === 0) o.lock = false;
-    if (active && !toyWorld.held && !o.lock && !o.delivering && o.cooldown === 0 && d < bestD && Math.abs(state.y - P.cable - o.y) < P.pickupHeight + 18) { best = o; bestD = d; }
+    const d = twCargoGap(o);
+    if (o.lock && Math.hypot(state.x - o.x, state.z - o.z) > P.leaveR && o.cooldown === 0) o.lock = false;
+    if (active && !toyWorld.held && !o.lock && !o.delivering && o.cooldown === 0 && !toyWorld.dropLock && toyWorld.dropWait === 0 && d < bestD) { best = o; bestD = d; }
   }
   if (best !== toyWorld.candidate) toyWorld.dwell = 0;
   toyWorld.candidate = best;
-  toyWorld.highlight.visible = !!best;
+  const reachable = best && state.y - P.hookDepth - twCargoTop(best) <= P.cableMax + P.pickupHeight;
+  el.heliDownBtn.classList.toggle("reach", !!best && !reachable);
+  // The winch visibly lowers to a nearby toy, then lifts it after attachment.
+  const wantCable = best && reachable && bestD < P.pickupR ? clamp(state.y - P.hookDepth - twCargoTop(best), P.cable, P.cableMax) : P.cable;
+  toyWorld.cableLength += clamp(wantCable - toyWorld.cableLength, -P.winchSpeed * dt, P.winchSpeed * dt);
+  toyWorld.cable.position.y = -toyWorld.cableLength / 2;
+  toyWorld.cable.scale.y = toyWorld.cableLength;
+  toyWorld.hook.position.y = -toyWorld.cableLength;
+  toyWorld.highlight.visible = !!best || (!!toyWorld.held && toyWorld.attachedT > 0);
   if (best) {
-    toyWorld.highlight.position.set(best.x, best.y + best.h / 2 + 1, best.z);
-    toyWorld.highlight.scale.setScalar(Math.max(best.w, best.d) * .85 + Math.sin(toyWorld.clock * 2) * .5);
-    if (!toyWorld.dropLock && bestD < P.pickupR && state.speed < P.pickupSpeed && Math.abs(state.y - P.cable - best.y) < P.pickupHeight) toyWorld.dwell += dt;
+    toyWorld.highlight.material = twMat(reachable && state.speed < P.pickupSpeed ? TUNE.palette.warning : TUNE.palette.cyan);
+    toyWorld.highlight.position.set(best.x, twCargoTop(best) + 1, best.z);
+    toyWorld.highlight.scale.setScalar(Math.max(best.w, best.d) * .85);
+    const tipY = state.y - toyWorld.cableLength - P.hookDepth;
+    if (reachable && bestD < P.pickupR && state.speed < P.pickupSpeed && Math.abs(tipY - twCargoTop(best)) < P.pickupHeight) toyWorld.dwell += dt;
     else toyWorld.dwell = 0;
     if (toyWorld.dwell >= P.dwell) {
       toyWorld.held = best; best.vx = best.vy = best.vz = 0; best.tilt = 0;
-      toyWorld.highlight.visible = false; flags.magnetPickups = (flags.magnetPickups || 0) + 1; twSound(550);
+      toyWorld.attachedT = P.attachFlash; flags.magnetPickups = (flags.magnetPickups || 0) + 1; twSound(550);
     }
   }
   toyWorld.magnet.visible = active;
@@ -209,11 +233,15 @@ function twUpdateMagnet(dt) {
   const o = toyWorld.held;
   if (o) {
     o.x = state.x; o.z = state.z;
-    o.y = Math.max(twFloor(o.x, o.z) + o.h / 2, state.y - P.cable - 3 - o.h / 2);
+    const topOffset = twCargoTop(o) - o.y;
+    o.y = Math.max(twFloor(o.x, o.z) + o.h / 2, state.y - toyWorld.cableLength - P.hookDepth - topOffset);
     o.g.position.set(o.x, o.y, o.z); o.g.rotation.set(0, state.heading, 0);
+    toyWorld.highlight.material = twMat(TUNE.palette.cyan);
+    toyWorld.highlight.position.set(o.x, twCargoTop(o) + 1, o.z);
   }
   el.magnetBtn.classList.toggle('hidden', !active || !o);
 }
+
 function twFloor(x, z) {
   const yard = toyWorld.yards.find(y => Math.hypot(x - y.x, z - y.z) < TW.playground.floorRadius);
   return yard ? yard.y : Math.max(terrainEff(x, z), TUNE.waterLevel);
@@ -478,7 +506,7 @@ function twUpdateTrails(dt) {
   toyWorld.trail.material.uniforms.now.value = toyWorld.clock;
 }
 function twResetTrip() {
-  twRelease(); twWashRestore(toyWorld.wash); toyWorld.wash = null; toyWorld.bubbles.visible = false; toyWorld.candidate = null; toyWorld.dwell = 0; toyWorld.dropLock = false;
+  twRelease(); twWashRestore(toyWorld.wash); toyWorld.wash = null; toyWorld.bubbles.visible = false; toyWorld.candidate = null; toyWorld.dwell = 0; toyWorld.dropLock = false; toyWorld.dropWait = 0; toyWorld.cableLength = TW.playground.cable;
   // Existing colored strokes fade naturally; the next vehicle chooses its own color.
   toyWorld.trailColor = -1; toyWorld.rainbow = false;
   for (const a of airports) { if (a.twWelcome > 0) apronVehiclesTo(a.idx, false); a.twWelcome = 0; }

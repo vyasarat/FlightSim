@@ -60,8 +60,8 @@ function applyVehicle(key) {
   document.documentElement.style.setProperty("--veh", cols[0]);
   document.documentElement.style.setProperty("--veh2", cols[1]);
   buildVehicleModel(key);
-  // the rocket is a thing to watch: it starts in the chase view (the view button still toggles)
-  if (state.vp.rocket && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
+  // Watch the rocket and see the helicopter's tool/load in chase view; the view button still toggles.
+  if ((state.vp.rocket || state.vp.heli) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
   el.missileBtn.classList.toggle("lowSlot", !!state.vp.rocket);   // the shared slot is spoken for on a rocket
   if (!state.vp.rocket) {
     for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn, el.droneBtn]) b.classList.add("hidden");

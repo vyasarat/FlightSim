@@ -4781,6 +4781,7 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  await require("./heli_play_checks")({ newPage, check, shots: SHOTS });
   await require("./toyworld_checks")({ newPage, check, shots: SHOTS });
 
   await browser.close();

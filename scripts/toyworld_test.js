@@ -17,7 +17,7 @@ const path = require('path');
       await page.goto('http://127.0.0.1:8182/cockpit/'); await page.waitForFunction(() => window.__lp);
       return { page };
     };
-    await require('./toyworld_checks')({ newPage, shots: path.resolve(__dirname, '../qa-screenshots'), check: (name, ok, details) => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${details || ''}`); } });
+    await require(process.argv.includes('--helicopter') ? './heli_play_checks' : './toyworld_checks')({ newPage, shots: path.resolve(__dirname, '../qa-screenshots'), check: (name, ok, details) => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'} ${name} ${details || ''}`); } });
     console.log(`${results.filter(Boolean).length}/${results.length} checks passed`); if (results.some(v => !v)) process.exitCode = 1;
   } finally { if (browser) await browser.close(); await new Promise(r => server.close(r)); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
