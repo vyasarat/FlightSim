@@ -74,6 +74,7 @@ of the file it concerns. Read that file before changing it.
 | `setpieces.js` `marsbase.js` | demolition, tower-catch, fire rig, carrier / the Mars base and its toys |
 | `toyworld.js` `workshop.js` `toyfinish.js` | airport magnet yards, ramp and pinwheels, toy/fleet finish |
 | `eject.js` | one-tap rescue |
+| `highway.js` `car.js` | the coast-to-coast road, its traffic and exits / the electric SUV and lane-keep |
 | `ambient.js` | birds, high airliners, flags — things that move on their own |
 | `audio.js` | the mix, the ambient beds, layered events |
 | `vehicle.js` | vehicle models, the cameras and camera feel |

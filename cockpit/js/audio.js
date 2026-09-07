@@ -262,6 +262,11 @@ function setRain(level) {
   rainNodes.last = level;
   rainNodes.g.gain.setTargetAtTime(level * 0.12, audioCtx.currentTime, 0.3);
 }
+function thunk() {
+  // the door closing: a soft, low, entirely un-alarming thud
+  synthBlip("sine", 130, 62, 0.16, 0.30, 0);
+  noiseBurst(0.09, 190, 0.16, 0);
+}
 function chime() {
   [880, 1175, 1760].forEach((f, i) => synthBlip("triangle", f, f, 0.5, 0.22, i * 0.06));
   synthBlip("sine", 3520, 3520, 0.4, 0.06, 0.1);
@@ -471,6 +476,7 @@ function ensureBed() {
 function currentBedName() {
   if (typeof rk !== "undefined" && rk && rk.onBody) return rk.onBody.name === "mars" ? "mars" : "moon";
   if (state.spaceF > 0.55) return "space";
+  if (state.vp && state.vp.car) return "car";
   if (state.vp && state.vp.heli) return "heli";
   // the keys are airlinerDelta / airlinerJetblue / airlinerEmirates, never "airliner"
   if (state.vehicleKey && state.vehicleKey.indexOf("airliner") === 0) return "airliner";

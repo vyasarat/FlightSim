@@ -323,7 +323,7 @@ function check(name, ok, extra) {
       sv.classList.remove("hiddenS");
       const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
       const hidden = [...sv.querySelectorAll(".card.hiddenS")];
-      if (visible.length !== 8) return { ok: false, why: "visible=" + visible.length };
+      if (visible.length !== 9) return { ok: false, why: "visible=" + visible.length };
       const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
@@ -333,16 +333,16 @@ function check(name, ok, extra) {
       const fromTune = hidden.every(c => window.__lp.TUNE.vehicles[c.dataset.v].hidden === true);
       // nothing is shelved any more: the helicopter came back off the shelf to fight
       // the rig fire. The TUNE.hidden mechanism itself is still exercised below.
-      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
+      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter") && keys.includes("car"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
     });
-    check("vehicles: picker shows all 8 incl the helicopter, fighter, rocket and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows all 9 incl the car, helicopter, fighter, rocket and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
       return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
     });
-    check("vehicles: eight available, fighter / rocket / starship distinct, airliners share stats",
-      combos.n === 8 && combos.uniq === 6, `n=${combos.n} uniq=${combos.uniq}`);
+    check("vehicles: nine available, car / fighter / rocket / starship distinct, airliners share stats",
+      combos.n === 9 && combos.uniq === 7, `n=${combos.n} uniq=${combos.uniq}`);
 
     await page.evaluate(() => {
       document.getElementById("screenDir").classList.add("hiddenS");
@@ -4371,6 +4371,191 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-CAR the highway and the car ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const setup = () => {
+      const L = window.__lp;
+      L.noRender = true; L.api.skipScreens();
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+    };
+
+    // 1. the headline: a finger held, nothing steered, coast to coast
+    const cross = await page.evaluate(({}) => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.skipScreens();
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+      const out = { roadLen: Math.round(L.highway.length) };
+      let off = 0, maxLat = 0;
+      for (let i = 0; i < 60 * 400; i++) {
+        L.api.setStick(0, 0);                     // finger down, no steering at all
+        L.update(1 / 60);
+        const n = L.hwyNearest(st.x, st.z);
+        maxLat = Math.max(maxLat, Math.abs(n.lateral));
+        if (Math.abs(n.lateral) > L.CAR.onRoadHalf) off++;
+        if (n.s > L.highway.length - 260) { out.secs = +(i / 60).toFixed(1); break; }
+      }
+      L.api.clearStick();
+      out.offRoadFrames = off; out.maxLateral = Math.round(maxLat);
+      out.crashes = L.flags.carCrashes || 0;
+      out.cruise = Math.round(st.speed);
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    }, {});
+    check("car: a finger held from the New York spawn, with nothing steered at all, drives the whole highway to California in four to five minutes and never once leaves the road",
+      cross.secs > 235 && cross.secs < 305 && cross.offRoadFrames === 0 &&
+      cross.maxLateral < 20 && cross.crashes === 0 && cross.frameErrors === 0, JSON.stringify(cross));
+
+    // 2. exits, off-road recovery, traffic, charging -- each from a fresh start
+    const rest = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      const out = {};
+      const start = () => { L.api.setVehicle("car"); L.api.placeOnRunway(); L.api.clearStick(); };
+      const driveTo = (frac, extra) => {
+        const target = frac * L.highway.length;
+        for (let i = 0; i < 60 * 400; i++) {
+          L.api.setStick(0, 0); L.update(1 / 60);
+          if (L.hwyNearest(st.x, st.z).s > target) break;
+        }
+        for (let i = 0; i < (extra || 0); i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      };
+
+      // ---- hold a steer at an exit: it takes the spur, and releasing hands back
+      start();
+      const ex = L.HW.exits[2];
+      driveTo(ex.s - 0.004);
+      let onSpur = false;
+      // a HOLD toward the exit, not a full-lock swerve: full lock is the
+      // "steer hard off the road" gesture, which the next check covers
+      for (let i = 0; i < 60 * 5; i++) {
+        L.api.setStick(ex.side * 0.55, 0); L.update(1 / 60);
+        const t = L.carRoadTarget();
+        if (t && t.spur) onSpur = true;
+      }
+      out.tookSpur = onSpur;
+      // let go: the assist takes it back over, on whichever road it is nearest
+      for (let i = 0; i < 60 * 4; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      const back = L.carRoadTarget();
+      out.assistResumed = !!back && Math.abs(back.lateral) < L.CAR.onRoadHalf;
+      out.assistLateral = back ? Math.round(back.lateral) : null;
+      L.api.clearStick();
+
+      // ---- hard steer off the road, then let go: it comes back, never stuck
+      start(); driveTo(0.30);
+      for (let i = 0; i < 60 * 5; i++) { L.api.setStick(1, 0); L.update(1 / 60); }
+      out.wentOffRoad = !L.car.onRoad;
+      out.offLateral = Math.round(Math.abs(L.hwyNearest(st.x, st.z).lateral));
+      let backOn = -1;
+      for (let i = 0; i < 60 * 20; i++) {
+        L.api.setStick(0, 0); L.update(1 / 60);
+        if (L.car.onRoad) { backOn = +(i / 60).toFixed(1); break; }
+      }
+      out.backOnRoadSecs = backOn;
+      L.api.clearStick();
+
+      // ---- hit traffic at cruise: he crashes, it spins off, both come back
+      start(); driveTo(0.42);
+      const n = L.hwyNearest(st.x, st.z);
+      const victim = L.highway.traffic.find(t => t.alive);
+      victim.s = n.s + 30; victim.dir = Math.sign(n.lateral) || 1;
+      victim.lane = 0; victim.speed = 0;
+      const ex0 = L.flags.exploded || 0, th0 = L.flags.hwyTrafficHit || 0;
+      for (let i = 0; i < 60 * 6; i++) {
+        victim.speed = 0;
+        L.api.setStick(0, 0); L.update(1 / 60);
+        if ((L.flags.exploded || 0) > ex0) break;
+      }
+      out.trafficCrash = (L.flags.exploded || 0) > ex0;
+      out.trafficKnocked = (L.flags.hwyTrafficHit || 0) > th0;
+      for (let i = 0; i < 60 * 12; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      const after = L.hwyNearest(st.x, st.z);
+      out.reassembledOnRoad = Math.abs(after.lateral) < L.CAR.onRoadHalf && !st.exploding;
+      const fwdDot = -Math.sin(st.heading) * after.fx + -Math.cos(st.heading) * after.fz;
+      out.facesAlongRoad = Math.abs(fwdDot) > 0.8;
+      out.trafficRespawned = L.highway.traffic.filter(t => t.alive).length > L.HW.traffic.count * 0.5;
+      L.api.clearStick();
+
+      // ---- a charging stall: the light bar pulses, something chimes, then he goes on
+      start();
+      const ch = L.highway.charges[0];
+      st.x = ch.x; st.z = ch.z; st.y = ch.y; st.speed = 0;
+      const c0 = L.flags.carCharges || 0;
+      for (let i = 0; i < 60 * 2; i++) L.update(1 / 60);
+      out.charged = (L.flags.carCharges || 0) > c0;
+      out.chargeTimer = L.car.charging > 0;
+      for (let i = 0; i < 60 * 3; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      out.leavesStall = st.speed > 2;
+      L.api.clearStick();
+
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("car: holding a steer at an exit takes the spur, and letting go hands it straight back to the assist",
+      rest.tookSpur && rest.assistResumed, JSON.stringify(rest));
+    check("car: he can steer hard off the road -- and the assist walks him back onto it within a few seconds of letting go, so he is never stranded",
+      rest.wentOffRoad && rest.offLateral > 25 && rest.backOnRoadSecs > 0 && rest.backOnRoadSecs < 14,
+      JSON.stringify(rest));
+    check("car: hitting traffic at cruise is a bang and a free reassemble -- back on the road, pointing the way he was going, and the other machine comes back too",
+      rest.trafficCrash && rest.trafficKnocked && rest.reassembledOnRoad && rest.facesAlongRoad &&
+      rest.trafficRespawned, JSON.stringify(rest));
+    check("car: a charging stall is a ritual and nothing else -- it chimes, the light bar pulses, and he drives out again",
+      rest.charged && rest.chargeTimer && rest.leavesStall && rest.frameErrors === 0, JSON.stringify(rest));
+
+    // 3. the road itself: continuous, graded, and clear of everything already built
+    const road = await page.evaluate(() => {
+      const L = window.__lp;
+      const out = {};
+      const pts = L.highway.pts;
+      out.samples = pts.length;
+      out.length = Math.round(L.highway.length);
+      out.tunnelRun = pts.filter(p => p.type === "tunnel").length * L.HW.step;
+      out.bridgeRun = pts.filter(p => p.type === "bridge").length * L.HW.step;
+      // the road never dips under the water, and never under its own ground
+      out.underWater = pts.filter(p => p.y < L.TUNE.waterLevel + 1).length;
+      out.buried = pts.filter(p => p.type !== "tunnel" && p.y < p.ground - 0.01).length;
+      // and it runs through nothing that was already there
+      // Whether the road runs through anything is a BEHAVIOURAL question, and it
+      // is answered by the crossing check above: a hands-off run coast to coast
+      // registers zero wall hits. Counting overlapping solid boxes here instead
+      // measured the wrong thing -- streamed scenery comes and goes with where
+      // the player happens to be, so the number changed depending on which test
+      // ran first, and boxes alongside the road counted as boxes across it.
+      out.wallHitsOnCrossing = L.flags.wallHits || 0;
+      out.exits = L.highway.exits.length;
+      out.charges = L.highway.charges.length;
+      out.overpasses = (L.highway.overpasses || []).length;
+      return out;
+    });
+    check("highway: one continuous graded road coast to coast, with the mountain tunnel and the water crossings falling out of the profile rather than being placed by hand -- and it runs through nothing that was already in the world",
+      road.length > 12000 && road.samples > 250 && road.tunnelRun > 300 && road.bridgeRun > 1000 &&
+      road.underWater === 0 && road.buried === 0 && road.wallHitsOnCrossing === 0 &&
+      road.exits === 6 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
+
+    // 4. zero text, with the boards, the interchange and the interior screen in frame
+    const text = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+      const ex = L.HW.exits[0];
+      const target = ex.s * L.highway.length;
+      for (let i = 0; i < 60 * 200; i++) { L.api.setStick(0, 0); L.update(1 / 60); if (L.hwyNearest(st.x, st.z).s > target) break; }
+      L.api.setView(false);
+      for (let i = 0; i < 40; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      L.api.clearStick();
+      const bad = [];
+      const walk = (n) => {
+        if (n.nodeType === 3) { const t = n.textContent.trim(); if (t && !/^[0-9]+$/.test(t)) bad.push(t.slice(0, 24)); return; }
+        if (n.nodeType !== 1 || n.tagName === "TITLE" || n.tagName === "SCRIPT" || n.tagName === "STYLE") return;
+        if (getComputedStyle(n).display === "none") return;
+        for (const c of n.childNodes) walk(c);
+      };
+      walk(document.body);
+      return { bad: bad.slice(0, 5), screenVisible: !!(L.car.screen && L.car.screen.visible) };
+    });
+    check("car: zero text with the exit boards, the interchange and the interior screen all in frame -- the boards carry an icon and the centre screen is a map graphic, never a glyph",
+      text.bad.length === 0 && text.screenVisible, JSON.stringify(text));
+    await page.close();
+  }
+
   // ---------- T-STEER drag right turns right, everywhere ----------
   {
     // Measured as ACCUMULATED signed rotation, in degrees turned to the RIGHT.
@@ -4704,7 +4889,7 @@ function check(name, ok, extra) {
     check("sound: the ambient bed follows where he actually is -- ground, wind aloft, cabin hum, rotor wash, near-silence in space, dust on Mars, and almost nothing on the airless Moon",
       o.onRunway === "ground" && o.aloft === "wind" && o.airliner === "airliner" && o.heli === "heli" &&
       o.space === "space" && o.mars === "mars" && o.moon === "moon" &&
-      o.bedCount === 7 && o.distinct === 7 && o.moonQuietest && o.frameErrors === 0, JSON.stringify(o));
+      o.bedCount === 8 && o.distinct === 8 && o.moonQuietest && o.frameErrors === 0, JSON.stringify(o));
     await page.close();
   }
 

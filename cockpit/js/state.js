@@ -118,6 +118,9 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.gearAnim = 1;
   state.maxAglSinceLiftoff = 0;
   state.phase = "TAXI";
+  if (state.vp && state.vp.car) {
+    if (typeof carSpawn === "function" && typeof highway !== "undefined" && highway.built) carSpawn(originIdx);
+  }
   if (state.vp && state.vp.rocket) {
     state.pitch = 90;
     rk.onBody = null;

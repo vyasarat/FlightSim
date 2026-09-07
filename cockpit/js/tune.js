@@ -98,6 +98,7 @@ const TUNE = {
     // Hz -- low is a rumble, high is a hiss.
     beds: {
       ground:   { gain: 0.030, cut:  380, thumpRate: 0,   thump: 0 },
+      car:      { gain: 0.055, cut:  900, thumpRate: 0,   thump: 0 },    // tyres and wind, not an engine
       wind:     { gain: 0.085, cut: 1400, thumpRate: 0,   thump: 0 },   // aloft, and it grows with speed
       heli:     { gain: 0.115, cut:  520, thumpRate: 12,  thump: 0.55 }, // rotor wash: a beat, not a drone
       airliner: { gain: 0.070, cut:  240, thumpRate: 0,   thump: 0 },    // cabin hum
@@ -130,6 +131,84 @@ const TUNE = {
     flagRate: 4.2, flagWave: 0.55,
     radarRpm: 5.5,                     // the carrier's and the rig's dishes
     marsDustEvery: 2.4,                // a plume drifts past this often out there
+  },
+
+  // ---- The highway (js/highway.js). One continuous divided road from the New
+  // York airport to the California airport, built from a spline through control
+  // points chosen so it passes the things he already knows: out over the harbour
+  // on a bridge, past the mid-route city, along the lake shore, across the
+  // plains beside the freight train, through the mountains in a tunnel, over the
+  // canyon on a long bridge, down the desert and into the coast city.
+  //
+  // Bridges and tunnels are NOT authored. The height profile is smoothed the way
+  // a real road is graded, and wherever the graded road ends up well above the
+  // ground it becomes a bridge on piers, and wherever the ground ends up well
+  // above the road it becomes a tunnel. Move a control point and the structures
+  // follow.
+  highway: {
+    // [z, x], New York (+z) to California (-z)
+    // Every one of these was checked against the solids already in the world:
+    // the first draft ran straight through the farm silo, the plains silo and
+    // the New York apron furniture. The harness now asserts the clearance.
+    route: [
+      [6200, 105], [5900, 100], [5200, 180], [4200, 380], [3300, 150], [2400, 250],
+      [1800, 330], [900, 360], [0, 300], [-1080, 250], [-1500, 240], [-2400, 200],
+      [-3330, 120], [-3800, 60], [-4520, -170], [-4920, -250], [-5400, -300], [-6200, -280],
+    ],
+    step: 40,                    // metres between centreline samples
+    laneW: 7.5, lanes: 2,        // two lanes each way
+    medianW: 6, shoulder: 2.5,
+    grade: 26,                   // samples in the height-smoothing window
+    maxSlope: 0.045,             // 4.5%%: steep enough to feel like a road, shallow
+                                 // enough to cut through the mountain instead of climbing it
+    clearance: 2.5,              // road sits this far above the ground it follows
+    deckMin: 11,                 // and this far above the water on a bridge
+    bridgeAt: 6, tunnelAt: 9,    // height differences that make a bridge or a tunnel
+    pierEvery: 3, pierW: 5,
+    railH: 1.2, railT: 0.5,
+    dashEvery: 4,                // centreline dashes, every N samples
+    tunnelR: 26, tunnelSeg: 2,
+    // Exits: s is 0..1 along the road. `icon` picks the board silhouette.
+    exits: [
+      { s: 0.10, side: 1, icon: "plane", to: "nyAirport" },
+      { s: 0.22, side: -1, icon: "tower", to: "demolition" },
+      { s: 0.38, side: 1, icon: "wave", to: "lake" },
+      { s: 0.55, side: -1, icon: "tower", to: "midPlains", charge: true },
+      { s: 0.72, side: 1, icon: "wave", to: "desert", charge: true },
+      { s: 0.90, side: -1, icon: "plane", to: "caAirport" },
+    ],
+    spurLen: 320, spurW: 16, spurCapture: 3.2,   // spur capture radius, in road widths
+    boardH: 16, boardW: 22,
+    charge: { stalls: 4, canopyW: 34, canopyD: 22, canopyH: 9, pulse: 2.2, seconds: 10 },
+    interchange: { at: [0.045, 0.955], ramps: 4, r: 150, rise: 26, deckT: 2.2, pillarR: 3.4 },
+    traffic: { count: 70, range: 1800, keepOut: 260, follow: 90, speed: [49, 64], truckEvery: 4, respawn: 2.5 },
+                                 // above TUNE.car.cruise on purpose: lane-keep with no
+                                 // steering must never rear-end its own lane
+  },
+
+  // ---- The car (js/car.js). A stealth-grey electric SUV: the silhouette, the
+  // paint, the glass roof and the light bar, and nothing else -- no badge, no
+  // wordmark, same rule as the airline liveries.
+  car: {
+    cruise: 46,                  // set from the road length for a ~4.5 minute crossing
+    accel: 11, brake: 16, offRoadMax: 0.45,
+    boost: 1.5, boostTime: 2.2,  // drag up: an EV's instant shove
+    steerRate: 34,               // degrees per second at full lock
+    steerAccel: 5,
+    // Lane keep: the whole point. He holds a finger down and the car drives
+    // itself coast to coast; steering overrides it, and letting go hands it back.
+    // Pure pursuit, not closest-point. A proportional controller on the nearest
+    // point lags on every curve, and on this road the lag grew past a lane width
+    // and walked him across the median. Aiming at a point a second and a half
+    // ahead, on the lane he is nearest, holds the line through anything.
+    laneKeep: { lookAhead: 1.5, minAhead: 30, gain: 3.4, offRoadGain: 1.4, override: 0.75 },
+                                 // `override`: how much stick fully overrides the assist
+    onRoadHalf: 24,              // this far from the centreline still counts as on the road
+    crashSpeed: 18,              // below this a contact is a bump, not a bang
+    bodyL: 9.2, bodyW: 4.2, bodyH: 2.6,
+    camChase: [17, 6.5], camLag: 5,
+    wheelR: 0.95,
+    whineHz: [55, 320], tyreGain: 0.05, windGain: 0.06,
   },
 
   // ---- The palette. Every colour in the game snaps to one of these unless it
@@ -615,12 +694,14 @@ const TUNE = {
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
-    fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true }
+    fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
+    car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true }   // its own model: TUNE.car
   },
 
   vehicleColors: {
     prop:             ["#e0483e", "#f2f4f7"],
     helicopter:       ["#20a39e", "#f2f4f7"],
+    car:              ["#4a4f55", "#c9ced6"],   // stealth grey; no badge, no wordmark
     rocket:           ["#b8bec9", "#d71920"],
     starship:         ["#c9ced6", "#1f2328"],
     airlinerDelta:    ["#0b4ea2", "#d0342c"],
