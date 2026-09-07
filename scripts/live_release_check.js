@@ -16,10 +16,12 @@ const path=require('path');
     const step=s=>page.evaluate(s=>{__lp.noRender=true;for(let i=0;i<s*60;i++)__lp.update(1/60);renderer.render(scene,camera);},s);
     await page.locator('[data-v="helicopter"]').tap();await page.locator('[data-d="0"]').tap();await step(1);
     console.log('BEFORE',JSON.stringify(await page.evaluate(async()=>({caches:await caches.keys(),workshop:typeof twUpdateRobotGreeting,phase:state.phase,controller:!!navigator.serviceWorker.controller}))));
-    console.log('READY: installed release is parked. Press Enter after deployment.');
-    await once(process.stdin,'data');
-    await page.evaluate(()=>{navigator.serviceWorker.getRegistration().then(r=>r.update());});
-    await page.waitForFunction(()=>typeof twUpdateRobotGreeting==='function',{},{timeout:120000});
+    if(!process.argv.includes('--current')){
+      console.log('READY: installed release is parked. Press Enter after deployment (use a terminal/TTY).');
+      await once(process.stdin,'data');
+      await page.evaluate(()=>{navigator.serviceWorker.getRegistration().then(r=>r.update());});
+    }
+    await page.waitForFunction(()=>typeof twUpdateRobotGreeting==='function',{},{timeout:120000,polling:100});
     await page.waitForFunction(()=>window.__lp);
     const upgraded=await page.evaluate(async()=>({caches:await caches.keys(),vehicle:state.vehicleKey,phase:state.phase,yards:toyWorld.yards.length,greeting:TW.greeting.duration}));
     if(upgraded.phase!=='TAXI'||upgraded.vehicle!=='helicopter'||!upgraded.caches.includes('little-pilot-cockpit-v85-greeting')||upgraded.caches.includes('little-pilot-cockpit-v80'))throw Error(JSON.stringify(upgraded));
@@ -36,6 +38,6 @@ const path=require('path');
     const final=await page.evaluate(async()=>({notes:toyWorld.yards[0].windmills[0].plays,spin:toyWorld.yards[0].windmills[0].speed,frameErrors:__lp.frameErrors||0,caches:await caches.keys()}));
     console.log('OFFLINE TOUCH',JSON.stringify({errors,...final}));
     if(errors.length||final.frameErrors||final.notes<1||final.spin<2)throw Error('Live offline play failed');
-    console.log('PASS installed release updates at runway, preserves vehicle and plays new activity offline');
+    console.log(process.argv.includes('--current')?'PASS live release loads, preserves the selected vehicle and plays the new activity offline':'PASS installed release updates at runway, preserves vehicle and plays new activity offline');
   }finally{await browser.close();process.stdin.pause();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
