@@ -3,6 +3,7 @@
 // No collision/damage API is used for the abandoned vehicle's impact.
 const eject = { active:false, phase:'idle', t:0, total:0, fast:false, cycles:0, pool:null, last:null };
 const ejUp = new THREE.Vector3(0,1,0), ejContactPoint = new THREE.Vector3(), ejCameraAim = new THREE.PerspectiveCamera();
+const ejFitBack=new THREE.Vector3(),ejFitRight=new THREE.Vector3(),ejFitUp=new THREE.Vector3(),ejFitPoint=new THREE.Vector3();
 function ejectFamily() {
   if (marsDroneActive()) return 'drone';
   if (roverActive()) return 'rover';
@@ -53,7 +54,8 @@ function ejectBuildPool() {
   const splash=new THREE.Group();root.add(splash);
   const waterMat=new THREE.MeshBasicMaterial({color:0x5ff1ff,transparent:true,opacity:1});
   const drops=[];for(let i=0;i<10;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.7,6,4),waterMat);splash.add(m);drops.push(m);}
-  eject.pool={root,seat,pilot,capsule,thrusters,canopy,lines,flame,raft,hatch,lid,bubble,rim,yellow,splash,drops,waterMat};
+  const canopyBounds=new THREE.Box3().setFromObject(canopy);
+  eject.pool={root,seat,pilot,capsule,thrusters,canopy,canopyBounds,lines,flame,raft,hatch,lid,bubble,rim,yellow,splash,drops,waterMat};
   return eject.pool;
 }
 function ejectSurface(x,z) { return Math.max(terrainEff(x,z),TUNE.waterLevel); }
@@ -66,7 +68,12 @@ function ejectSupportPoints(model) {
     if(!o.isMesh||!o.geometry||o.material?.transparent)return;
     if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();
     const b=o.geometry.boundingBox,mat=inv.clone().multiply(o.matrixWorld);
-    for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])points.push(new THREE.Vector3(x,y,z).applyMatrix4(mat));
+    // Retain each fitting's support bounds after static merging. A combined
+    // box invents empty corners that can contact the ground ahead of the toy.
+    const append=matrix=>{for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])points.push(new THREE.Vector3(x,y,z).applyMatrix4(matrix));};
+    if(o.userData.toySupportPoints){for(const v of o.userData.toySupportPoints)points.push(new THREE.Vector3(...v).applyMatrix4(mat));}
+    else if(o.isInstancedMesh){const instance=new THREE.Matrix4();for(let i=0;i<o.count;i++){o.getMatrixAt(i,instance);append(mat.clone().multiply(instance));}}
+    else append(mat);
   });
   return points.length?points:[new THREE.Vector3()];
 }
@@ -95,10 +102,13 @@ function ejectStart() {
     if(near.d<state.y)body=near.b;
   }
   releaseAllInputs();twRelease();
+  toyWorld.contacts.visible=false;
+  toyWorld.downwash.visible=false;toyWorld.downwash.material.opacity=0;
   if(toyWorld.wash){twWashRestore(toyWorld.wash);toyWorld.wash=null;toyWorld.washCooldown=1;}
   if(bucket.g)bucket.g.visible=false;bucket.state='empty';bucket.anim=0;
   cancelRecovery();if(state.vp.rocket)chuteReset();
   state.viewChase=true;el.hud.classList.add('chase');if(!surfaceMode)updateVehicleModel(0);model.visible=true;model.updateMatrixWorld(true);
+  if(model.userData.rotorBlur)model.userData.rotorBlur.material.opacity=0;
   const pool=ejectBuildPool();pool.root.visible=true;pool.seat.visible=false;pool.hatch.visible=true;pool.splash.visible=false;
   pool.canopy.visible=false;pool.canopy.scale.setScalar(.001);pool.lines.visible=false;pool.flame.visible=false;pool.raft.visible=false;
   pool.seat.scale.setScalar(TUNE.eject.seatScale);pool.seat.rotation.set(0,state.heading+Math.PI,0);pool.pilot.position.y=1.35;
@@ -223,7 +233,7 @@ function updateEjection(realDt) {
     }
     if(f===1){eject.apex=p.seat.position.clone();eject.land=p.seat.position.clone().addScaledVector(eject.side,E.landingDrift);eject.land.copy(ejectGround(eject.land,1.2));eject.wet=!eject.body&&terrainEff(eject.land.x,eject.land.z)<TUNE.waterLevel;p.canopy.visible=true;p.lines.visible=true;ejectPhase('unfold');}
   }else if(eject.phase==='unfold'){
-    const f=clamp(eject.t/E.unfold,0,1);p.canopy.scale.set(f,Math.max(.1,f),f);p.lines.scale.set(f,1,f);p.flame.visible=false;
+    const f=clamp(eject.t/E.unfold,0,1);const bloom=eject.family==='helicopter'?f*f*(3-2*f):f;p.canopy.scale.set(bloom,Math.max(.1,bloom),bloom);p.lines.scale.set(bloom,1,bloom);p.flame.visible=false;
     if(f===1){eject.canopyOpen=true;eject.events.unfolded=true;eject.transitOffset=p.seat.position.clone().sub(eject.model.position);ejectPhase(eject.high?'transit':'float');}
   }else if(eject.phase==='transit'){
     // A thruster-assisted descent follows the empty toy from orbit. Keep the
@@ -268,6 +278,21 @@ function updateEjection(realDt) {
   const separation=showEmpty?focus.distanceTo(emptyFocus):0;
   const distance=clamp(E.cameraMin+eject.bodyExtent*.65+separation*.3,E.cameraMin,E.cameraMax);
   const desired=centre.clone().addScaledVector(eject.forward,-distance*.8).addScaledVector(eject.side,distance*.55).addScaledVector(eject.up,distance*.55);
+  if(eject.family==='helicopter'&&p.seat.visible){
+    // Fit the reserved full canopy and the falling toy's contact point above
+    // the dashboard. Flight/picking cameras never read this rescue-only fit.
+    ejFitBack.copy(desired).sub(centre);let reach=ejFitBack.length();ejFitBack.normalize();
+    ejFitRight.crossVectors(eject.up,ejFitBack).normalize();ejFitUp.crossVectors(ejFitBack,ejFitRight).normalize();
+    const tan=Math.tan(camera.fov*DEG/2)*E.cameraFrameMargin;
+    const bottom=Math.max(.2,2*el.dash.getBoundingClientRect().top/innerHeight-1);
+    const fit=point=>{ejFitPoint.copy(point).sub(centre);const x=ejFitPoint.dot(ejFitRight),y=ejFitPoint.dot(ejFitUp);reach=Math.max(reach,ejFitPoint.dot(ejFitBack)+Math.max(Math.abs(x)/(tan*camera.aspect),Math.abs(y)/(tan*(y<0?bottom:1))));};
+    if(showEmpty)fit(emptyFocus);
+    // The seat's billboard orientation is finalized below. Its canopy is
+    // rotationally symmetric, so reserve it in the stable upright frame here.
+    const b=p.canopyBounds;
+    for(const x of [b.min.x,b.max.x])for(const y of [0,b.max.y])for(const z of [b.min.z,b.max.z])fit(ejContactPoint.copy(focus).addScaledVector(eject.forward,x*p.seat.scale.x).addScaledVector(eject.up,y*p.seat.scale.y).addScaledVector(eject.side,z*p.seat.scale.z));
+    desired.copy(centre).addScaledVector(ejFitBack,reach);
+  }
   camera.position.lerp(desired,1-Math.exp(-E.cameraRate*realDt));camera.up.copy(eject.up);ejCameraAim.position.copy(camera.position);ejCameraAim.up.copy(eject.up);ejCameraAim.lookAt(centre);camera.quaternion.slerp(ejCameraAim.quaternion,1-Math.exp(-E.cameraRate*realDt));
   p.seat.up.copy(eject.up);p.seat.lookAt(camera.position.clone().addScaledVector(eject.up,-camera.position.clone().sub(p.seat.position).dot(eject.up)));
   p.thrusters.visible=(eject.vacuum||eject.phase==='transit')&&p.canopy.visible;

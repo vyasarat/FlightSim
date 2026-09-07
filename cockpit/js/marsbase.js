@@ -660,6 +660,7 @@ function marsBuildDrone(g) {
   }
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.26, 7, 6), new THREE.MeshBasicMaterial({ color: 0x5ff1ff, fog: false }));
   lamp.position.set(0, 1.6, 0.95); dg.add(lamp);
+  toyFinishFleet(dg, "drone");
   castsShadow(dg);
   // Scale audit: it was coming out 6.7 m tall with a 5.8 m rotor span, against a
   // 4.9 m rover -- the little scout drone was bigger than the thing it scouts

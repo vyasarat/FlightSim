@@ -18,11 +18,11 @@ module.exports = async function heliControlChecks({ newPage, check, shots }) {
     });
     await step(1);
     const layout = await page.evaluate(() => {
-      const ids = ['heliUpBtn', 'heliDownBtn', 'heliHoverBtn'];
+      const ids = ['heliUpBtn', 'heliDownBtn'];
       return ids.every(id => {
         const e = document.getElementById(id), r = e.getBoundingClientRect();
         return r.width >= 48 && r.height >= 48 && r.top >= 0 && r.bottom <= innerHeight && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2).closest('button') === e;
-      }) && getComputedStyle(document.getElementById('throttleBtn')).display === 'none';
+      }) && !document.getElementById('heliHoverBtn') && getComputedStyle(document.getElementById('throttleBtn')).display === 'none';
     });
     await hold('heliUpBtn', 2);
     const lifted = await snapshot(); await step(2); const hovering = await snapshot();
@@ -42,8 +42,8 @@ module.exports = async function heliControlChecks({ newPage, check, shots }) {
       JSON.stringify({ travelling, climbing, released }));
     await hold('heliDownBtn', 1); const down = await snapshot(); await step(1); const held = await snapshot();
     check(`helicopter ${width}x${height}: down changes only altitude; release holds the new height`, down.y < released.y - 3 && held.target && held.speed > 20 && Math.abs(held.y - down.y) < .1, JSON.stringify({ down, held }));
-    await tap(await at('heliHoverBtn')); await step(2); const stopped = await snapshot();
-    check(`helicopter ${width}x${height}: hover stops horizontal travel and holds height`, !stopped.target && stopped.speed === 0 && Math.abs(stopped.y - held.y) < .1, JSON.stringify(stopped));
+    await step(35); const stopped = await snapshot();
+    check(`helicopter ${width}x${height}: arrival automatically stops horizontal travel and holds height`, !stopped.target && stopped.speed === 0 && Math.abs(stopped.y - held.y) < .1, JSON.stringify(stopped));
     // A complete tap between simulation frames still selects a destination.
     await touch('touchStart', { x: width * .55, y: height * .36 }); await touch('touchEnd');
     const quick = await snapshot();
@@ -52,7 +52,7 @@ module.exports = async function heliControlChecks({ newPage, check, shots }) {
       document.getElementById('heliUpBtn').dispatchEvent(new PointerEvent('pointerup', { pointerId: 999 }));
       return window.__lp.heli.vertical === 1;
     });
-    await touch('touchEnd'); await tap(await at('heliHoverBtn')); await step(1);
+    await touch('touchEnd'); await step(35);
     check(`helicopter ${width}x${height}: quick taps persist; another pointer cannot release altitude`, !!quick.target && palm);
     // A lost pointer/app switch cannot leave a climbing command or travel running.
     await touch('touchStart', await at('heliUpBtn')); await step(.2); await touch('touchCancel'); await step(.2);

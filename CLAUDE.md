@@ -38,7 +38,7 @@ the checklist for shipping one.
   and releasing them holds height. Freeze the picking camera for each gesture and
   filter small finger jitter; do not re-aim from camera movement. Horizontal velocity
   is independent of body yaw. The elevated helicopter camera shows cargo and the
-  ground, with a smooth downward look near the yard. The hover button stops travel. No throttle and no mandatory
+  ground, with a smooth downward look near the yard. Arrival automatically stops travel in a hover. No throttle and no mandatory
   simultaneous touches. The touch point reaches it as `state.touchNX/NY` (NDC); the plane and
   rocket ignore those entirely. Separate altitude controls and helicopter-only tuning changes
   were explicitly authorized; preserve plane, rocket and Mars drone tuning.
@@ -66,6 +66,7 @@ the checklist for shipping one.
   top surfaces (including car cabins and block studs), not object centres. Keep
   the hook/cargo contact and carry height consistent. Clear a dropped magnet's pickup lock only after he
   moves away. Both airport variants must stay clear of the runway and launch pad.
+- `toyfinish.js` — pooled toy geometry/materials, fleet paint/glazing and fittings, mat finish and contact/downwash effects. Keep cargo bounds exact; preserve independently animated pieces when batching. Dispose vehicle-owned buffers once and keep world-owned buffers for the scene lifetime.
 - `workshop.js` — the low cargo ramp and musical pinwheels (`TUNE.toyWorld.slide` / `.garden`).
   Loaded before `toyworld.js`; only its functions use toy-world globals. Keep the blue pad
   directly tappable from the original pickup route. Cargo `dropped` intent survives the pickup

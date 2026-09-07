@@ -9,10 +9,12 @@ const camFwd = new THREE.Vector3();
 function buildVehicleModel(key) {
   if (vehicleModel) {
     scene.remove(vehicleModel);
+    const geometries = new Set(), materials = new Set();
     vehicleModel.traverse(o => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+      if (o.geometry) geometries.add(o.geometry);
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => materials.add(m));
     });
+    geometries.forEach(geo => geo.dispose()); materials.forEach(mat => mat.dispose());
     vehicleModel = null;
   }
   const cols = TUNE.vehicleColors[key];
@@ -35,24 +37,12 @@ function buildVehicleModel(key) {
   };
 
   if (key === "helicopter") {
-    const body = new THREE.Mesh(new THREE.SphereGeometry(1.5, 12, 9), mA);
-    body.scale.set(1.15, 1.05, 1.7);
-    body.position.z = -0.4;
-    g.add(body);
-    add(new THREE.SphereGeometry(0.85, 10, 8), glassM, 0, 0.25, -1.6);
-    add(new THREE.CylinderGeometry(0.22, 0.28, 4.6, 8), mA, 0, 0.1, 2.6, Math.PI / 2);
-    add(new THREE.BoxGeometry(0.14, 1.5, 0.8), mA, 0, 0.75, 4.7);
-    add(new THREE.BoxGeometry(0.12, 0.08, 3.4), darkM, -0.65, -1.35, 0.2);
-    add(new THREE.BoxGeometry(0.12, 0.08, 3.4), darkM, 0.65, -1.35, 0.2);
-    const rotor = new THREE.Group();
-    rotor.position.y = 1.85;
-    rotor.add(new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.7, 6), darkM));
-    rotor.add(new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.06, 0.42), darkM));
-    rotor.add(new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 9.4), darkM));
-    g.add(rotor);
-    g.userData.rotor = rotor;
-    const tr = add(new THREE.BoxGeometry(0.06, 1.7, 0.28), darkM, 0.16, 0.75, 4.7);
-    g.userData.tailRotor = tr;
+    // The toy model owns its geometry; other vehicles retain their materials.
+    for (const mat of [mA, mB, mW, darkM, glassM]) mat.dispose();
+    toyHelicopter(g, [cA, cB]);
+    g.traverse(m=>{if(m.isMesh)m.castShadow=!!m.userData.toyCaster;});
+    toyMergeFittings(g);
+    g.userData.groundOffset = -new THREE.Box3().setFromObject(g).min.y;
   } else if (key === "rocket") {
     buildRocketStack(g, { mA, mB, glassM });
   } else if (key === "starship") {
@@ -132,10 +122,11 @@ function buildVehicleModel(key) {
     g.userData.gear = gearGroup;
   }
 
+  if (key !== "helicopter") toyFinishFleet(g, key);
   g.scale.setScalar(TUNE.vehicles[key].size || 1);
   g.rotation.order = "YXZ";
   scene.add(g);
-  castsShadow(g);            // the one shadow he looks for: his own, on the runway
+  if (key !== "helicopter") castsShadow(g); // Helicopter fittings share shell/blade shadows.
   // whatever burns gets a glow: one sprite, additive, on the shared glow texture
   if (g.userData.flame) {
     const gl = glowSprite(TUNE.sky.engineGlowColor, 1, 0);
@@ -155,7 +146,7 @@ function updateVehicleModel(dt) {
   const chaseVisible = state.viewChase && !state.exploding;
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
-  const wheelDrop = state.vp.hasGear ? 1.9 * (state.vp.size || 1) : 0.6;
+  const wheelDrop = state.vp.heli ? vehicleModel.userData.groundOffset * (state.vp.size || 1) : state.vp.hasGear ? 1.9 * (state.vp.size || 1) : 0.6;
   if (state.vp.rocket) vehicleModel.position.set(state.x, state.y, state.z);   // the stack is centred on the reference point
   else vehicleModel.position.set(state.x, state.y - TUNE.gearHeight + wheelDrop, state.z);
   if (vehicleModel.userData.baseScale === undefined) vehicleModel.userData.baseScale = vehicleModel.scale.x;
@@ -166,7 +157,13 @@ function updateVehicleModel(dt) {
   if (feel.hitStop > 0) return;   // hit-stop: the MODEL holds, the flight model does not
   vehicleModel.scale.set(bs * sx, bs * sy, bs * sx);
   vehicleModel.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
-  if (vehicleModel.userData.rotor) vehicleModel.userData.rotor.rotation.y += dt * 26;
+  if (vehicleModel.userData.rotor) {
+    const ud = vehicleModel.userData, finish = TUNE.toyWorld.finish;
+    ud.rotorSpeed += ((state.phase === 'AIRBORNE' ? finish.rotorFlight : finish.rotorIdle) - ud.rotorSpeed) * (1 - Math.exp(-dt * finish.rotorResponse));
+    ud.rotor.rotation.y = (ud.rotor.rotation.y + dt * ud.rotorSpeed) % (Math.PI * 2);
+    ud.tailRotor.rotation.x = (ud.tailRotor.rotation.x + dt * ud.rotorSpeed * 1.4) % (Math.PI * 2);
+    ud.rotorBlur.material.opacity = finish.rotorOpacity * clamp((ud.rotorSpeed - finish.rotorIdle) / (finish.rotorFlight - finish.rotorIdle), 0, 1);
+  }
   if (vehicleModel.userData.propDisc) vehicleModel.userData.propDisc.rotation.z += dt * 40;
   if (vehicleModel.userData.flame) {
     vehicleModel.userData.flame.scale.y = 0.8 + Math.random() * 0.5;
