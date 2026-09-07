@@ -22,12 +22,13 @@ await tap();const oldChute=await page.evaluate(()=>rk.chute===0&&(!chuteGroup||!
 await step(30);const out=await page.evaluate(()=>({active:eject.active,last:eject.last,held:state.throttleHeld,touch:state.touching,body:rk.onBody?.name,beacons:rover.beacons.length,rocks:rover.rocks.length,wet:eject.wet,vacuum:eject.vacuum,drone:marsDroneActive(),rover:roverActive(),cargo:!!toyWorld.held,wash:!!toyWorld.wash,bucket:bucket.state,frameErrors:__lp.frameErrors||0}));
 check(kind,(kind!=='chute'||before.chute>0&&oldChute)&&out.last?.family===before.family&&!out.active&&out.last?.returned&&out.last.canopyAtImpact&&out.last.contactError<.02&&!out.held&&!out.touch&&!out.wash&&!out.cargo&&out.bucket==='empty'&&(!before.body||out.body===before.body)&&before.rocks===out.rocks&&before.beacons===out.beacons&&(!['moon','rover','drone','dock'].includes(kind)||out.vacuum)&&(!['water','high'].includes(kind)||out.wet),out);
 }
-// Warm all pooled geometry, then repeat with the same model; scene ownership and
-// renderer memory must plateau. Pointer cancellation cannot leave thrust held.
-await page.evaluate(()=>{__lp.api.setVehicle('prop');__lp.api.placeOnRunway();updateEjectControl()});await tap();await step(30);await page.evaluate(()=>renderer.render(scene,camera));
-const memory=()=>page.evaluate(()=>{let n=0;const owned=new Set();scene.traverse(()=>n++);eject.pool.root.traverse(o=>{if(o.geometry)owned.add(o.geometry.uuid)});return{n,g:renderer.info.memory.geometries,t:renderer.info.memory.textures,p:renderer.info.programs.length,owned:[...owned].sort().join(',')}});const initial=await memory(),samples=[];
-for(let i=0;i<12;i++){await tap();await step(4);await tap();await step(10);await page.evaluate(()=>renderer.render(scene,camera));samples.push(await memory());}
-const final=samples.at(-1),stable=samples.slice(-6).every(s=>JSON.stringify(s)===JSON.stringify(final));check('12 repeat cycles stabilize',stable&&initial.owned===final.owned,{initial:{...initial,owned:undefined},samples:samples.map(s=>({...s,owned:undefined})),sameOwnedGeometry:initial.owned===final.owned});
+// Measure the rescue's actual GPU pool separately from the changing background.
+// The full suite retains its world-wide build/render/dispose regression checks.
+await page.evaluate(()=>{__lp.api.setVehicle('prop');__lp.api.placeOnRunway();updateEjectControl();window.ejectAuditRenderer=new THREE.WebGLRenderer({canvas:document.createElement('canvas')});ejectAuditRenderer.setSize(64,64)});
+const memory=()=>page.evaluate(()=>{let n=0;const owned=new Set();eject.pool.root.traverse(o=>{n++;if(o.geometry)owned.add(o.geometry.uuid)});eject.pool.root.updateMatrixWorld(true);ejectAuditRenderer.render(eject.pool.root,camera);return{n,g:ejectAuditRenderer.info.memory.geometries,t:ejectAuditRenderer.info.memory.textures,p:ejectAuditRenderer.info.programs.length,owned:[...owned].sort().join(',')}});
+await tap();await step(4);const initial=await memory();await step(20);const samples=[];
+for(let i=0;i<12;i++){await tap();await step(4);samples.push(await memory());await tap();await step(10);}
+const stable=samples.every(s=>JSON.stringify(s)===JSON.stringify(initial));check('12 repeat cycles retain identical rescue objects and GPU resources',stable,{initial:{...initial,owned:undefined},samples:samples.map(s=>({...s,owned:undefined})),sameOwnedGeometry:samples.every(s=>s.owned===initial.owned)});await page.evaluate(()=>{ejectAuditRenderer.dispose();delete window.ejectAuditRenderer});
 // An interrupted altitude touch and an interrupted stray touch during rescue
 // must not latch any controls. A fresh vehicle accepts its next normal input.
 await page.evaluate(()=>{__lp.api.setVehicle('helicopter');__lp.api.placeOnRunway()});await step(.2);
