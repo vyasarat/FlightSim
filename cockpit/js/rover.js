@@ -251,9 +251,13 @@ function updateRover(dt) {
       return;
     }
   } else {
-    // throttle = go; the stick steers; a pull down backs up slowly
+    // throttle = go; the stick steers; a pull down backs up slowly.
+    // NOT negated. `rate` below is applied as applyAxisAngle(n, -rate), so a
+    // positive `turn` is a negative rotation about the surface normal, which is
+    // clockwise seen from above -- a right turn. With the minus here the rover
+    // steered backwards for its whole life: drag right, nose goes left.
     accel = state.throttleHeld ? 1 : (state.ctrlPitch < -0.3 ? -0.5 : 0);
-    turn = -clamp(state.ctrlBank, -1, 1);
+    turn = clamp(state.ctrlBank, -1, 1);
   }
   const want = accel * (accel > 0 ? 14 : 6);
   rover.speed += (want - rover.speed) * Math.min(1, (accel !== 0 ? 2.2 : 1.4) * dt);
