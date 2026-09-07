@@ -125,7 +125,10 @@ function ejectStart() {
   pool.capsule.visible=cfg.seat==='capsule';pool.thrusters.visible=eject.vacuum;pool.hatch.scale.setScalar(surfaceMode?1:state.vp.size||1);
   state.phase='EJECT';state.speed=0;state.exploding=false;state.throttleHeld=false;
   document.body.classList.add('ejecting');el.reentryGlow.style.opacity=0;el.rotateArrow.classList.remove('on');
-  setEngine(0);if(typeof rocketNodes!=='undefined'&&rocketNodes)setRocketEngine(0,0);setRolling(0);setTone("rover","sawtooth",60,0);setReentryRoar(0);shakeAmp=0;rumble=0;
+  setEngine(0);if(typeof rocketNodes!=='undefined'&&rocketNodes)setRocketEngine(0,0);setRolling(0);
+  // Paused activities and flight warnings must not drone over the safe rescue.
+  for(const [name,tone] of Object.entries(tones))setTone(name,tone.o.type,tone.o.frequency.value,0);
+  setReentryRoar(0);shakeAmp=0;rumble=0;
   ejectPoseHatch(0);
   flags.ejections=(flags.ejections||0)+1;updateEjectControl();return true;
 }
