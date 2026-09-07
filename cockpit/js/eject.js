@@ -114,7 +114,7 @@ function ejectStart() {
   const points=ejectSupportPoints(model),bounds=new THREE.Box3().setFromPoints(points.map(v=>v.clone().applyMatrix4(model.matrixWorld))),size=bounds.getSize(new THREE.Vector3());
   const droneRotors=family==='drone'?mars.drone.blades.map(r=>({r,position:r.position.clone(),scale:r.scale.clone()})):[];
   Object.assign(eject,{active:true,phase:'frame',t:0,total:0,fast:false,family,cfg,snapshot,model,anchor,forward,side,up,body,points,surfaceMode,droneRotors,
-    vacuum:!!body||state.spaceF>.2,rocketSave:{onBody:rk.onBody,stage:rk.stage},
+    vacuum:!!body||!!rk.onBody?.dock||state.y>TUNE.spaceAltitude||state.spaceF>.2,rocketSave:{onBody:rk.onBody,stage:rk.stage},
     original:{position:pos,rotation:model.rotation.clone(),scale:model.scale.clone()},rotorSave,
     velocity:forward.clone().multiplyScalar(Math.min(TUNE.eject.emptySpeed,Math.max(5,speed))),vy:0,
     empty:false,emptyT:0,impact:false,impactWet:false,impactT:0,landed:false,canopyOpen:false,openT:TUNE.eject.open*cfg.opening,
@@ -123,7 +123,7 @@ function ejectStart() {
   pool.capsule.visible=cfg.seat==='capsule';pool.thrusters.visible=eject.vacuum;pool.hatch.scale.setScalar(surfaceMode?1:state.vp.size||1);
   state.phase='EJECT';state.speed=0;state.exploding=false;state.throttleHeld=false;
   document.body.classList.add('ejecting');el.reentryGlow.style.opacity=0;el.rotateArrow.classList.remove('on');
-  setEngine(0);if(typeof rocketNodes!=='undefined'&&rocketNodes)setRocketEngine(0,0);setRolling(0);shakeAmp=0;rumble=0;
+  setEngine(0);if(typeof rocketNodes!=='undefined'&&rocketNodes)setRocketEngine(0,0);setRolling(0);setTone("rover","sawtooth",60,0);setReentryRoar(0);shakeAmp=0;rumble=0;
   ejectPoseHatch(0);
   flags.ejections=(flags.ejections||0)+1;updateEjectControl();return true;
 }

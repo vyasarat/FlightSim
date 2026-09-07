@@ -16,7 +16,7 @@ await cycle('mars-rocket');await step(1);await tap('#roverBtn');await step(1);aw
 // Turn in place, release, then drive straight: no simultaneous touches.
 for(let leg=0;leg<12&&!await page.evaluate(()=>marsDroneCan());leg++){
  const aim=await page.evaluate(()=>{const d=new THREE.Vector3(mars.drone.x-rover.x,mars.drone.y-rover.y,mars.drone.z-rover.z),distance=d.length();d.addScaledVector(rover.n,-d.dot(rover.n)).normalize();return{angle:Math.atan2(rover.f.clone().cross(d).dot(rover.n),rover.f.dot(d)),distance};});
- await touch('touchStart',{x:512,y:320});await touch('touchMove',{x:512+Math.sign(aim.angle)*250,y:320});await step(Math.abs(aim.angle)/(.45*1.9));await touch('touchEnd');await step(.1);
+ await touch('touchStart',{x:512,y:320});await touch('touchMove',{x:512+Math.sign(aim.angle)*350,y:320});await step(Math.abs(aim.angle)/(.45*1.9));await touch('touchMove',{x:512,y:320});await touch('touchEnd');await step(.1);
  await touch('touchStart',await centre('#throttleBtn'));await step(Math.min(3,Math.max(.2,(aim.distance-8)/14)));await touch('touchEnd');await step(1);
 }
 await step(.2);if(!await page.evaluate(()=>marsDroneCan()))throw Error('Did not drive to drone');

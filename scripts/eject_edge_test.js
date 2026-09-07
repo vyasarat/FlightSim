@@ -16,10 +16,10 @@ await page.evaluate(kind=>{
  if(kind==='bucket')bucket.state='full';
  updateEjectControl();
 },kind);
-const before=await page.evaluate(()=>({beacons:rover.beacons.length,rocks:rover.rocks.length,body:rk.onBody?.name}));
+const before=await page.evaluate(()=>({family:ejectFamily(),beacons:rover.beacons.length,rocks:rover.rocks.length,body:rk.onBody?.name}));
 await tap();await tap();await step(3.5);await page.evaluate(()=>renderer.render(scene,camera));await page.screenshot({path:`qa-screenshots/eject-edge-${kind}.png`});
 await step(30);const out=await page.evaluate(()=>({active:eject.active,last:eject.last,held:state.throttleHeld,touch:state.touching,body:rk.onBody?.name,beacons:rover.beacons.length,rocks:rover.rocks.length,wet:eject.wet,vacuum:eject.vacuum,drone:marsDroneActive(),rover:roverActive(),cargo:!!toyWorld.held,wash:!!toyWorld.wash,bucket:bucket.state,frameErrors:__lp.frameErrors||0}));
-check(kind,!out.active&&out.last?.returned&&out.last.canopyAtImpact&&out.last.contactError<.02&&!out.held&&!out.touch&&!out.wash&&!out.cargo&&out.bucket==='empty'&&(!before.body||out.body===before.body)&&before.rocks===out.rocks&&before.beacons===out.beacons&&(!['moon','rover','drone','dock'].includes(kind)||out.vacuum)&&(!['water','high'].includes(kind)||out.wet),out);
+check(kind,out.last?.family===before.family&&!out.active&&out.last?.returned&&out.last.canopyAtImpact&&out.last.contactError<.02&&!out.held&&!out.touch&&!out.wash&&!out.cargo&&out.bucket==='empty'&&(!before.body||out.body===before.body)&&before.rocks===out.rocks&&before.beacons===out.beacons&&(!['moon','rover','drone','dock'].includes(kind)||out.vacuum)&&(!['water','high'].includes(kind)||out.wet),out);
 }
 // Warm all pooled geometry, then repeat with the same model; scene ownership and
 // renderer memory must plateau. Pointer cancellation cannot leave thrust held.
@@ -27,9 +27,17 @@ await page.evaluate(()=>{__lp.api.setVehicle('prop');__lp.api.placeOnRunway();up
 const memory=()=>page.evaluate(()=>{let n=0;scene.traverse(()=>n++);return{n,g:renderer.info.memory.geometries,t:renderer.info.memory.textures,p:renderer.info.programs.length}});const initial=await memory();
 for(let i=0;i<12;i++){await tap();await step(4);await tap();await step(10);}
 await page.evaluate(()=>renderer.render(scene,camera));const final=await memory();check('12 repeat cycles stabilize',JSON.stringify(initial)===JSON.stringify(final),{initial,final});
+// An interrupted altitude touch and an interrupted stray touch during rescue
+// must not latch any controls. A fresh vehicle accepts its next normal input.
+await page.evaluate(()=>{__lp.api.setVehicle('helicopter');__lp.api.placeOnRunway()});await step(.2);
+const cdp=await page.context().newCDPSession(page),rect=await page.locator('#heliUpBtn').boundingBox();
+await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:rect.x+rect.width/2,y:rect.y+rect.height/2,id:1}]});await step(.5);await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+await tap();await step(4);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:200,y:300,id:1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await page.keyboard.press('v');await tap();await step(10);
+const interrupted=await page.evaluate(()=>({active:eject.active,touch:state.touching,held:state.throttleHeld,vertical:heli.vertical,key:state.vehicleKey,returned:eject.last.returned}));check('interrupted input and fast return',!interrupted.active&&!interrupted.touch&&!interrupted.held&&interrupted.vertical===0&&interrupted.key==='helicopter'&&interrupted.returned,interrupted);
 for(const [width,height] of [[390,844],[844,390],[768,1024],[1024,768]]){
-await page.setViewportSize({width,height});await step(.2);
-const layout=await page.evaluate(()=>{const e=el.ejectBtn,r=e.getBoundingClientRect(),icon=e.querySelector('svg').getBoundingClientRect(),overlap=[];for(const b of document.querySelectorAll('button')){if(b===e||!b.getClientRects().length||getComputedStyle(b).visibility==='hidden'||getComputedStyle(b).display==='none')continue;const q=b.getBoundingClientRect();if(r.left<q.right&&r.right>q.left&&r.top<q.bottom&&r.bottom>q.top)overlap.push(b.id);}return{w:r.width,h:r.height,icon:icon.width,inside:r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight,overlap}});check(`compact clear target ${width}x${height}`,layout.w>=56&&layout.h>=56&&layout.icon<=32&&layout.inside&&!layout.overlap.length,layout);
-}
+await page.setViewportSize({width,height});
+for(const key of ['prop','helicopter','fighter','airlinerDelta','rocket','starship']){await page.evaluate(key=>{__lp.api.setVehicle(key);__lp.api.placeOnRunway()},key);await step(.2);
+const layout=await page.evaluate(()=>{const e=el.ejectBtn,r=e.getBoundingClientRect(),icon=e.querySelector('svg').getBoundingClientRect(),overlap=[];for(const b of document.querySelectorAll('button')){if(b===e||!b.getClientRects().length||getComputedStyle(b).visibility==='hidden'||getComputedStyle(b).display==='none')continue;const q=b.getBoundingClientRect();if(r.left<q.right&&r.right>q.left&&r.top<q.bottom&&r.bottom>q.top)overlap.push(b.id);}return{w:r.width,h:r.height,icon:icon.width,inside:r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight,overlap}});check(`compact clear target ${key} ${width}x${height}`,layout.w>=56&&layout.h>=56&&layout.icon<=32&&layout.inside&&!layout.overlap.length,layout);
+}}
 check('no page errors',!errors.length,errors);if(failures)process.exitCode=1;
 }finally{await browser.close();await new Promise(r=>server.close(r))}})().catch(e=>{console.error(e);process.exitCode=1});
