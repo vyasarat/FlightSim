@@ -41,7 +41,15 @@ const camera = new THREE.PerspectiveCamera(TUNE.fov, window.innerWidth / window.
 camera.rotation.order = "YXZ";
 scene.add(camera);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+// `?rig=1` turns on preserveDrawingBuffer for the model inspection rig
+// (scripts/model_rig.js). It is opt-in and off in normal play: preserving the
+// buffer costs real memory bandwidth on a tablet. Without it a render is
+// routinely gone before a screenshot composites, which is one of the three ways
+// the first inspection rig lied about what was on screen.
+const RIG_CAPTURE = typeof location !== "undefined" && /[?&]rig=1/.test(location.search);
+const renderer = new THREE.WebGLRenderer({
+  antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: RIG_CAPTURE,
+});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
 // Soft shadows, one tight box that follows him. PCFSoft costs a few taps per lit
 // fragment; the map itself is small and only what is near him is ever drawn into it.

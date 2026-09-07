@@ -297,10 +297,37 @@ function updateCar(dt) {
   state.z += fz * state.speed * dt;
   forward.set(fx, 0, fz);
 
-  // ---- height: the road deck when he is on it, the ground when he is not
+  // ---- height.
+  //
+  // He drove underground, and it took three separate fixes. The support used to
+  // snap between the road deck and the terrain the instant `onRoad` flipped, and
+  // those are up to 17 m apart on an embankment. So: the support BLENDS across
+  // the shoulder; rising ground is followed instantly while only falling ground
+  // is eased (a car crests a hill, it does not sink into it) and a drop too big
+  // to be a crest is taken at once; and where the deck is well above the ground
+  // the guardrail actually holds him, so he cannot leave a bridge at all.
   const gnd = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
-  const wantY = car.onRoad ? car.roadY : gnd;
-  state.y += (wantY - state.y) * Math.min(1, 9 * dt);
+  let support = gnd;
+  if (road) {
+    const off = clamp((Math.abs(road.lateral) - CAR.onRoadHalf) / CAR.shoulderBlend, 0, 1);
+    support = lerp(road.y, gnd, off);
+    if (!road.spur && road.y - gnd > CAR.railAt) {
+      const lim = highway.halfW - 1.6;
+      if (Math.abs(road.lateral) > lim) {
+        const rx = -road.fz, rz = road.fx, sgn = Math.sign(road.lateral);
+        const push = Math.abs(road.lateral) - lim;
+        state.x -= rx * sgn * push; state.z -= rz * sgn * push;
+        support = road.y; car.onRoad = true;
+        if (state.speed > 6) noiseBurst(0.06, 260, 0.10, 0);
+      }
+    }
+  }
+  car.dbg = { support, roadY: road ? road.y : null, lateral: road ? road.lateral : null,
+              gnd, spur: !!(road && road.spur), onRoad: car.onRoad };
+  const drop = support - state.y;
+  if (drop > 0) state.y = support;
+  else if (drop < -CAR.settleMax) state.y = support;
+  else state.y += drop * Math.min(1, CAR.suspension * dt);
   state.airVy = 0;
 
   // off-road is bumpy and dusty

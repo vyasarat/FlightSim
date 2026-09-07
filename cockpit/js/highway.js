@@ -118,33 +118,49 @@ function hwySampleAt(s) {
 
 // Nearest point on the road to a world position. Returns the arc length `s`,
 // the signed lateral offset (positive to the road's right) and the road height.
+//
+// This is a FULL scan, deliberately. It used to bisect on z and then search six
+// samples either side, which is wrong wherever the road curves enough that the
+// nearest sample by z is not the nearest by distance: it returned a point from
+// the wrong stretch, and the height came back with it. That is what drove the
+// car seven metres under the road surface while it sat in its own lane. Three
+// hundred samples times a handful of calls a frame is a thousand distance
+// checks -- nothing next to a single draw call.
 const hwyTmp = { };
 function hwyNearest(x, z) {
   const pts = highway.pts;
   if (!pts.length) return null;
-  // bisect on z (decreasing along the route)
-  let lo = 0, hi = pts.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (pts[mid].z > z) lo = mid; else hi = mid;
-  }
-  // widen a little: the route wanders in x, so the nearest sample by z may not
-  // be the nearest by distance
-  let best = -1, bestD = Infinity;
-  for (let i = Math.max(0, lo - 6); i <= Math.min(pts.length - 1, hi + 6); i++) {
-    const d = (pts[i].x - x) * (pts[i].x - x) + (pts[i].z - z) * (pts[i].z - z);
+  let best = 0, bestD = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const dx = pts[i].x - x, dz = pts[i].z - z;
+    const d = dx * dx + dz * dz;
     if (d < bestD) { bestD = d; best = i; }
   }
-  const p = pts[best];
-  const dx = x - p.x, dz = z - p.z;
-  const along = dx * p.fx + dz * p.fz;
-  const rx = -p.fz, rz = p.fx;                  // road's right-hand vector
-  hwyTmp.s = p.s + along;
-  hwyTmp.lateral = dx * rx + dz * rz;
-  hwyTmp.y = p.y;
-  hwyTmp.fx = p.fx; hwyTmp.fz = p.fz;
-  hwyTmp.type = p.type;
-  hwyTmp.i = best;
+  // refine onto the better of the two neighbouring segments, and interpolate --
+  // taking the sample's own height made a staircase of up to 1.8 m per step
+  let bi = best, bt = 0, bd = Infinity;
+  for (const i of [best - 1, best]) {
+    if (i < 0 || i >= pts.length - 1) continue;
+    const a = pts[i], b = pts[i + 1];
+    const ex = b.x - a.x, ez = b.z - a.z;
+    const len2 = ex * ex + ez * ez || 1;
+    const t = clamp(((x - a.x) * ex + (z - a.z) * ez) / len2, 0, 1);
+    const px = a.x + ex * t, pz = a.z + ez * t;
+    const d = (px - x) * (px - x) + (pz - z) * (pz - z);
+    if (d < bd) { bd = d; bi = i; bt = t; }
+  }
+  const a = pts[bi], b = pts[bi + 1] || pts[bi];
+  const fx = lerp(a.fx, b.fx, bt), fz = lerp(a.fz, b.fz, bt);
+  const flen = Math.hypot(fx, fz) || 1;
+  const nx = fx / flen, nz = fz / flen;
+  const px = lerp(a.x, b.x, bt), pz = lerp(a.z, b.z, bt);
+  const rx = -nz, rz = nx;                      // road's right-hand vector
+  hwyTmp.s = lerp(a.s, b.s, bt);
+  hwyTmp.lateral = (x - px) * rx + (z - pz) * rz;
+  hwyTmp.y = lerp(a.y, b.y, bt);
+  hwyTmp.fx = nx; hwyTmp.fz = nz;
+  hwyTmp.type = bt < 0.5 ? a.type : b.type;
+  hwyTmp.i = bi;
   return hwyTmp;
 }
 
@@ -270,6 +286,14 @@ function hwyBuild() {
   hwyBuildExits(g);
   hwyBuildTraffic(g);
 
+  // A NaN anywhere in the profile silently poisons every geometry built from it,
+  // and the only symptom is a console warning from computeBoundingSphere.
+  for (const p of highway.pts) {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) {
+      console.error("highway: non-finite centreline sample", p);
+      break;
+    }
+  }
   castsShadow(g, false);          // the road itself never casts; its structures do
   scene.add(g);
   highway.g = g;
@@ -344,9 +368,14 @@ function hwyBuildExits(g) {
         y: 0, fx: at.fx, fz: at.fz,
       });
     }
-    for (const p of spur) {
-      p.y = Math.max(terrainEff(p.x, p.z), TUNE.waterLevel) + HW.clearance;
-      p.y = Math.max(p.y, at.y - 6);
+    // A spur LEAVES the carriageway, so it has to start at the carriageway's own
+    // height and only then come down to the ground. Starting it at ground level
+    // put a five-metre step at the junction: the nearest-road pick flipped
+    // between the two surfaces and dropped the car through the road.
+    for (let k = 0; k < spur.length; k++) {
+      const t = k / (spur.length - 1);
+      const ground = Math.max(terrainEff(spur[k].x, spur[k].z), TUNE.waterLevel) + HW.clearance;
+      spur[k].y = lerp(at.y, ground, smoothstep(0, HW.spurDescend, t));
     }
     for (let k = 1; k < spur.length; k++) {
       const a = spur[k - 1], b = spur[k];
