@@ -355,6 +355,8 @@ function updateFlightTones() {
 
 function update(dt) {
   frameCount++;
+  updateEjectControl();
+  if (eject.active) { updateEjection(dt); return; }
   if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
   applyKeyboard(dt);
   updateEvents(dt);
