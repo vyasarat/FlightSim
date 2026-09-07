@@ -7,7 +7,7 @@ for(const key of ['prop','helicopter','fighter','starship']){
  await page.locator('#ejectBtn').tap();await page.waitForFunction(()=>eject.phase==='open',null,{polling:50});await page.waitForTimeout(450);await page.screenshot({path:`qa-screenshots/eject-realtime-${key}-open.png`});
  await page.waitForFunction(()=>eject.canopyOpen,null,{polling:50});await page.screenshot({path:`qa-screenshots/eject-realtime-${key}-canopy.png`});
  await page.waitForFunction(()=>eject.impact,null,{polling:50});await page.screenshot({path:`qa-screenshots/eject-realtime-${key}-impact.png`});
- await page.waitForFunction(()=>!eject.active,null,{polling:100,timeout:60000});const result=await page.evaluate(()=>({last:eject.last,key:state.vehicleKey,phase:state.phase,frameErrors:__lp.frameErrors||0}));console.log(key,JSON.stringify(result));if(!result.last.returned||!result.last.canopyAtImpact||result.frameErrors)throw Error('Incomplete rescue');
+ await page.waitForFunction(()=>!eject.active,null,{polling:100,timeout:180000});const result=await page.evaluate(()=>({last:eject.last,key:state.vehicleKey,phase:state.phase,frameErrors:__lp.frameErrors||0}));console.log(key,JSON.stringify(result));if(!result.last.returned||!result.last.canopyAtImpact||result.frameErrors)throw Error('Incomplete rescue');
 }
 console.log('VIDEO',await page.video().path(),'ERRORS',JSON.stringify(errors));await context.close();if(errors.length)throw Error(errors.join('\n'));
 }finally{await browser.close();await new Promise(r=>server.close(r))}})().catch(e=>{console.error(e);process.exitCode=1});

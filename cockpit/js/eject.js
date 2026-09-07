@@ -60,6 +60,7 @@ function ejectSurface(x,z) { return Math.max(terrainEff(x,z),TUNE.waterLevel); }
 // Capture only visible solid geometry once. Hidden spent stages and flames do
 // not move the impact point. Reuse these bounded support corners for the cycle.
 function ejectSupportPoints(model) {
+  model.updateMatrixWorld(true);
   const points=[],inv=model.matrixWorld.clone().invert();
   model.traverseVisible(o=>{
     if(!o.isMesh||!o.geometry||o.material?.transparent)return;
@@ -96,7 +97,7 @@ function ejectStart() {
   releaseAllInputs();twRelease();
   if(toyWorld.wash){twWashRestore(toyWorld.wash);toyWorld.wash=null;toyWorld.washCooldown=1;}
   if(bucket.g)bucket.g.visible=false;bucket.state='empty';bucket.anim=0;
-  cancelRecovery();
+  cancelRecovery();if(state.vp.rocket)chuteReset();
   state.viewChase=true;el.hud.classList.add('chase');if(!surfaceMode)updateVehicleModel(0);model.visible=true;model.updateMatrixWorld(true);
   const pool=ejectBuildPool();pool.root.visible=true;pool.seat.visible=false;pool.hatch.visible=true;pool.splash.visible=false;
   pool.canopy.visible=false;pool.canopy.scale.setScalar(.001);pool.lines.visible=false;pool.flame.visible=false;pool.raft.visible=false;
@@ -114,6 +115,7 @@ function ejectStart() {
   const points=ejectSupportPoints(model),bounds=new THREE.Box3().setFromPoints(points.map(v=>v.clone().applyMatrix4(model.matrixWorld))),size=bounds.getSize(new THREE.Vector3());
   const droneRotors=family==='drone'?mars.drone.blades.map(r=>({r,position:r.position.clone(),scale:r.scale.clone()})):[];
   Object.assign(eject,{active:true,phase:'frame',t:0,total:0,fast:false,family,cfg,snapshot,model,anchor,forward,side,up,body,points,surfaceMode,droneRotors,
+    high:body?pos.distanceTo(new THREE.Vector3(body.x,body.y,body.z))-body.r>TUNE.eject.transitHeight:pos.y-ejectSurface(pos.x,pos.z)>TUNE.eject.transitHeight,
     vacuum:!!body||!!rk.onBody?.dock||state.y>TUNE.spaceAltitude||state.spaceF>.2,rocketSave:{onBody:rk.onBody,stage:rk.stage},
     original:{position:pos,rotation:model.rotation.clone(),scale:model.scale.clone()},rotorSave,
     velocity:forward.clone().multiplyScalar(Math.min(TUNE.eject.emptySpeed,Math.max(5,speed))),vy:0,
@@ -144,7 +146,8 @@ function ejectEmptyStep(dt) {
   if(!eject.empty||eject.impact)return;
   const E=TUNE.eject,m=eject.model;eject.emptyT+=dt;
   const gap=ejectContact().gap;
-  m.position.addScaledVector(eject.velocity,dt);eject.vy-=eject.gravity*dt;
+  m.position.addScaledVector(eject.velocity,dt);
+  const gravity=eject.high&&!eject.canopyOpen?E.fallGravity:eject.gravity;eject.vy-=gravity*dt;
   // Do not step through an entire small planet during a fast orbital descent.
   m.position.addScaledVector(eject.up,Math.max(eject.vy*dt,-Math.max(0,gap)-1));
   m.rotation.z=eject.original.rotation.z+Math.sin(eject.emptyT*1.6)*E.emptyRoll;
@@ -218,12 +221,14 @@ function updateEjection(realDt) {
     if(f===1){eject.apex=p.seat.position.clone();eject.land=p.seat.position.clone().addScaledVector(eject.side,E.landingDrift);eject.land.copy(ejectGround(eject.land,1.2));eject.wet=!eject.body&&terrainEff(eject.land.x,eject.land.z)<TUNE.waterLevel;p.canopy.visible=true;p.lines.visible=true;ejectPhase('unfold');}
   }else if(eject.phase==='unfold'){
     const f=clamp(eject.t/E.unfold,0,1);p.canopy.scale.set(f,Math.max(.1,f),f);p.lines.scale.set(f,1,f);p.flame.visible=false;
-    if(f===1){eject.canopyOpen=true;eject.events.unfolded=true;ejectPhase(ejectGap(eject.apex)>E.transitHeight?'transit':'float');}
+    if(f===1){eject.canopyOpen=true;eject.events.unfolded=true;eject.transitOffset=p.seat.position.clone().sub(eject.model.position);ejectPhase(eject.high?'transit':'float');}
   }else if(eject.phase==='transit'){
     // A thruster-assisted descent follows the empty toy from orbit. Keep the
     // two stories together, then brake above the surface for a gentle float.
     const old=p.seat.position.clone();
-    p.seat.position.copy(eject.model.position).addScaledVector(eject.up,E.transitHeight).addScaledVector(eject.side,E.seatSide);
+    const offset=eject.up.clone().multiplyScalar(E.transitHeight).addScaledVector(eject.side,E.seatSide);
+    eject.transitOffset.lerp(offset,1-Math.exp(-E.cameraRate*dt));
+    p.seat.position.copy(eject.model.position).add(eject.transitOffset);
     camera.position.add(p.seat.position.clone().sub(old));
     p.thrusters.visible=true;
     if(eject.impact){eject.apex=p.seat.position.clone();eject.land.copy(ejectGround(p.seat.position,1.2));ejectPhase('float');}
