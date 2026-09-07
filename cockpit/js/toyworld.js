@@ -29,7 +29,7 @@ function twBatchParts(root) {
   for (const child of [...root.children]) if (child.isGroup) twBatchParts(child);
   const batches = new Map();
   for (const m of root.children) {
-    if (!m.isMesh || m.isInstancedMesh || !m.visible) continue;
+    if (!m.isMesh || m.isInstancedMesh || !m.visible || m.userData.twDynamic) continue;
     const key = m.geometry.id + ":" + m.material.id;
     if (!batches.has(key)) batches.set(key, []);
     batches.get(key).push(m);
@@ -63,7 +63,7 @@ function twBuildWorld() {
     const side = idx === 0 ? 1 : -1, x = side * P.x, z = ap.cz + side * P.z;
     const y = Math.max(terrainEff(x, z), TUNE.waterLevel) + 1;
     const g = new THREE.Group(); g.position.set(x, y, z); toyWorld.root.add(g);
-    const yard = { g, x, y, z, side, idx, delivery: null, build: [], built: 0, lightT: 0 };
+    const yard = { g, x, y, z, side, idx, delivery: null, build: [], built: 0, lightT: 0, danceT: 0, style: 0, greetT: 0, greetNear: false, greetings: 0 };
     toyWorld.yards.push(yard);
     twPart(g, 'cylinder', C.sand, 0, -2, 0, P.floorRadius, 4, P.floorRadius);
     // Low colored edge blocks, an open entrance, and oversized cargo silhouettes.
@@ -75,32 +75,40 @@ function twBuildWorld() {
     twPart(g, 'cylinder', C.blue, side * 48, .3, -side * 45, P.deliveryR, .6, P.deliveryR);
     const halo = twPart(g, 'ring', C.warning, side * 48, .8, -side * 45, P.deliveryR, P.deliveryR, P.deliveryR); halo.rotation.x = Math.PI / 2;
     // A giant horseshoe magnet on the crane invites the matching helicopter toy.
-    const crane = new THREE.Group(); crane.position.set(side * 78, 0, -side * 48); g.add(crane);
+    const crane = new THREE.Group(); crane.position.set(side * P.craneX, 0, side * P.craneZ); g.add(crane);
+    twPart(g, 'cylinder', C.sand, side * P.craneX, -2, side * P.craneZ, 12, 4, 12);
     twPart(crane, 'box', C.warning, 0, P.craneH / 2, 0, 6, P.craneH, 6);
     for (let k = 0; k < 5; k++) {
       const brace = twPart(crane, 'box', C.ink, 0, 6 + k * 10, 3.2, 8, 1, 1); brace.rotation.z = k % 2 ? -.6 : .6;
     }
     const arm = new THREE.Group(); arm.position.y = P.craneH; crane.add(arm);
-    twPart(arm, 'box', C.warning, -side * 22, 0, 0, 60, 5, 5);
+    twPart(arm, 'box', C.warning, side * P.craneArmX, 0, 0, P.craneArmLength, 5, 5);
     twPart(arm, 'box', C.slate, side * 12, -4, 0, 10, 9, 10);
-    const hook = new THREE.Group(); hook.position.x = -side * 30; arm.add(hook);
+    const hook = new THREE.Group(); hook.position.x = side * P.craneHookX; arm.add(hook);
     twPart(hook, 'cylinder', C.ink, 0, -12, 0, .35, 24, .35);
     twPart(hook, 'box', C.red, 0, -25, 0, 10, 3, 4);
     for (const sign of [-1, 1]) twPart(hook, 'box', C.red, sign * 4, -29, 0, 3, 7, 4);
     yard.arm = arm; yard.hook = hook;
     yard.lamp = twPart(crane, 'ball', C.cyan, 0, P.craneH + 5, 0, 3, 3, 3);
     // A playful cargo robot grows on a small wheeled float, in a bounded display.
-    const build = new THREE.Group(); build.position.set(side * 47, 0, -side * 82); g.add(build); yard.buildGroup = build;
+    const build = new THREE.Group(); build.position.set(side * P.displayX, 0, side * P.displayZ); build.rotation.y = side === 1 ? -Math.PI / 3 : Math.PI * 2 / 3; g.add(build); yard.buildGroup = build;
+    twPart(g, 'cylinder', C.sand, side * P.displayX, -2, side * P.displayZ, 26, 4, 26);
     twPart(build, 'box', C.slate, 0, 2, 0, 32, 3, 18);
     for (const sx of [-12, 12]) for (const sz of [-7, 7]) twPart(build, 'ball', C.ink, sx, 2, sz, 3, 3, 3);
     const robot = [[-9,8],[9,8],[-9,15],[9,15],[-9,22],[0,22],[9,22],[-18,22],[18,22],[-5,30],[5,30],[0,37]];
     for (let k = 0; k < P.buildPieces; k++) {
       const at = robot[k % robot.length];
       const m = twPart(build, 'box', TW.colors[k % 5], at[0], at[1], 0, 7.5, 6.5, 9);
-      m.visible = false; yard.build.push(m);
+      m.visible = false; m.userData.rest = m.position.clone(); yard.build.push(m);
     }
     yard.face = new THREE.Group(); build.add(yard.face); yard.face.visible = false;
-    for (const sx of [-5, 5]) twPart(yard.face, 'ball', C.ink, sx, 31, 4.7, 1.2, 1.2, .6);
+    // Fill the head's center seam so a tap between the eyes still hits the toy.
+    twPart(yard.face, 'box', C.warning, 0, 30, 0, 3, 6.5, 9);
+    for (const sx of [-5, 5]) {
+      twPart(yard.face, 'ball', C.white, sx, 31, 4.7, 2.1, 2.1, .8);
+      twPart(yard.face, 'ball', C.ink, sx, 31, 5.4, 1, 1.2, .4);
+    }
+    twPart(yard.face, 'box', C.ink, 0, 27.5, 4.8, 5, .8, .5);
     for (let k = 0; k < P.objects; k++) {
       const kind = k % 3, color = TW.colors[k % 5], og = new THREE.Group(); toyWorld.root.add(og);
       const w = kind === 2 ? 14 : 8, h = kind === 1 ? 5 : 8, d = kind === 2 ? 7 : (kind === 1 ? 12 : 8);
@@ -115,9 +123,10 @@ function twBuildWorld() {
       }
       const ox = x + (k % 3 - 1) * 26 - side * 18, oz = z + (Math.floor(k / 3) - 1) * 23 + side * 20;
       const obj = { g: og, yard, kind, w, h, d, homeX: ox, homeZ: oz, x: ox, y: y + h / 2, z: oz,
-        vx: 0, vy: 0, vz: 0, lock: false, cooldown: 0, away: 0, delivering: false, tilt: 0 };
+        vx: 0, vy: 0, vz: 0, lock: false, dropped: false, cooldown: 0, away: 0, delivering: false, tilt: 0 };
       og.position.set(obj.x, obj.y, obj.z); toyWorld.objects.push(obj);
     }
+    twBuildWorkshop(yard);
     // Wash on the other side of the starting area, clear of runway and launch pad.
     const wx = side * W.x, wz = ap.cz + side * W.z;
     const wy = Math.max(terrainEff(wx, wz), TUNE.waterLevel) + .6;
@@ -168,13 +177,15 @@ function twBuildWorld() {
 
 function twObjectHome(o) {
   o.x = o.homeX; o.z = o.homeZ; o.y = o.yard.y + o.h / 2;
-  o.vx = o.vy = o.vz = o.tilt = o.away = 0; o.delivering = false; o.lock = false; o.cooldown = 1;
+  o.vx = o.vy = o.vz = o.tilt = o.away = 0; o.delivering = false; o.lock = false; o.dropped = false; o.cooldown = 1;
   o.g.visible = true; o.g.position.set(o.x, o.y, o.z); o.g.rotation.set(0, 0, 0);
 }
 function twRelease() {
   const o = toyWorld.held;
   if (!o) return false;
-  toyWorld.held = null; o.lock = true; o.cooldown = TW.playground.releaseDelay;
+  // Pickup exclusion ends when he flies away; delivery intent survives until
+  // this toy is picked up again or replenished, including while a crane is busy.
+  toyWorld.held = null; o.lock = true; o.dropped = true; o.cooldown = TW.playground.releaseDelay;
   o.vx = -Math.sin(state.heading) * Math.min(state.speed * .12, 6);
   o.vz = -Math.cos(state.heading) * Math.min(state.speed * .12, 6); o.vy = 0;
   toyWorld.dropWait = TW.playground.releaseDelay;
@@ -224,7 +235,7 @@ function twUpdateMagnet(dt) {
     if (reachable && bestD < P.pickupR && state.speed < P.pickupSpeed && Math.abs(tipY - twCargoTop(best)) < P.pickupHeight) toyWorld.dwell += dt;
     else toyWorld.dwell = 0;
     if (toyWorld.dwell >= P.dwell) {
-      toyWorld.held = best; best.vx = best.vy = best.vz = 0; best.tilt = 0;
+      toyWorld.held = best; best.dropped = false; best.vx = best.vy = best.vz = 0; best.tilt = 0;
       toyWorld.attachedT = P.attachFlash; flags.magnetPickups = (flags.magnetPickups || 0) + 1; twSound(550);
     }
   }
@@ -252,6 +263,7 @@ function twUpdateCargo(dt) {
     if (o === toyWorld.held || o.delivering) continue;
     const oldBottom = o.y - o.h / 2;
     o.vy -= P.gravity * step; o.x += o.vx * step; o.z += o.vz * step; o.y += o.vy * step;
+    if (twSlideCatch(o)) continue;
     o.vx *= Math.exp(-P.drag * step); o.vz *= Math.exp(-P.drag * step);
     let floor = twFloor(o.x, o.z);
     for (const b of toyWorld.objects) {
@@ -276,27 +288,54 @@ function twUpdateCargo(dt) {
     if (Math.hypot(o.x - o.homeX, o.z - o.homeZ) > P.radius * 2) o.away += dt; else o.away = 0;
     if (o.away > P.recycleAfter) twObjectHome(o);
     const yard = o.yard;
-    if (!yard.delivery && o.lock && Math.hypot(o.x - yard.pad.x, o.z - yard.pad.z) < P.deliveryR && o.y < yard.y + 18 && Math.abs(o.vy) < 1) {
+    if (!yard.delivery && (o.lock || o.dropped) && Math.hypot(o.x - yard.pad.x, o.z - yard.pad.z) < P.deliveryR && o.y < yard.y + 18 && Math.abs(o.vy) < 1) {
       yard.delivery = { o, t: 0, x: o.x, y: o.y, z: o.z }; o.delivering = true;
+      yard.style = yard.built % 3; yard.danceT = 0; yard.greetT = 0; yard.greetNear = false;
+      yard.build.forEach(m => { m.visible = false; }); yard.face.visible = false;
       flags.magnetDeliveries = (flags.magnetDeliveries || 0) + 1;
     }
   }
   for (const yard of toyWorld.yards) {
-    yard.arm.rotation.y = Math.sin(toyWorld.clock * .25) * .08;
+    const park = yard.built ? P.cranePark : Math.sin(toyWorld.clock * .25) * .08;
+    yard.arm.rotation.y += (park - yard.arm.rotation.y) * Math.min(1, dt * 3);
     const d = yard.delivery;
     if (d) {
       d.t += dt; const t = Math.min(1, d.t / P.deliveryTime);
       yard.arm.rotation.y = Math.sin(t * Math.PI) * -.6 * yard.side;
-      d.o.g.position.set(lerp(d.x, yard.x + yard.side * 47, t), d.y + Math.sin(t * Math.PI) * 38, lerp(d.z, yard.z - yard.side * 82, t));
+      d.o.g.position.set(lerp(d.x, yard.x + yard.side * P.displayX, t), d.y + Math.sin(t * Math.PI) * 38, lerp(d.z, yard.z + yard.side * P.displayZ, t));
       yard.lamp.scale.setScalar(3 + Math.sin(t * Math.PI) * 2);
+      // Every delivery builds a whole friend. Reveal bottom-to-top as the
+      // crane swings; repeat deliveries change its colors and arm pose.
+      yard.build.forEach((part, i) => {
+        part.visible = t >= P.buildReveal * (i + 1) / yard.build.length;
+        part.material = twMat(TW.colors[(i + yard.built + d.o.kind) % TW.colors.length]);
+      });
+      yard.face.visible = t >= P.buildReveal;
       if (t >= 1) {
-        const part = yard.build[yard.built % yard.build.length]; part.visible = true;
-        part.material = twMat(TW.colors[yard.built % TW.colors.length]); yard.built++; yard.face.visible = yard.built >= 11;
+        yard.built++; yard.danceT = P.danceTime;
         twObjectHome(d.o); yard.delivery = null; yard.lightT = 2; twSound(740);
       }
     }
     yard.lightT = Math.max(0, yard.lightT - dt);
-    yard.buildGroup.rotation.z = Math.sin(yard.lightT * 5) * .025 * yard.lightT;
+    yard.danceT = Math.max(0, yard.danceT - dt);
+    twUpdateRobotGreeting(yard, dt);
+    const dance = Math.min(1, yard.danceT), beat = (P.danceTime - yard.danceT) * 5;
+    yard.buildGroup.rotation.z = Math.sin(beat) * P.danceSway * dance;
+    yard.buildGroup.position.y = Math.abs(Math.sin(beat)) * P.danceHop * dance;
+    for (const [i, part] of yard.build.entries()) {
+      part.position.copy(part.userData.rest);
+      if (i === 7 || i === 8) {
+        const sign = i === 7 ? -1 : 1;
+        part.position.y += yard.style === 1 ? 7 : yard.style === 2 ? sign * 7 : 0;
+        part.position.y += Math.sin(beat + sign) * 5 * dance;
+        part.rotation.z = sign * (yard.style - 1) * .4 + Math.sin(beat) * .4 * dance;
+        if (i === 8 && yard.greetT > 0) {
+          const wave = Math.min(1, yard.greetT, (TW.greeting.duration - yard.greetT) * 3);
+          part.position.y += TW.greeting.lift * wave;
+          part.rotation.z += Math.sin((TW.greeting.duration - yard.greetT) * 7) * TW.greeting.sway * wave;
+        }
+      }
+    }
   }
 }
 
@@ -519,7 +558,7 @@ function updateToyWorld(dt) {
   if (state.exploding && toyWorld.wash) { twWashRestore(toyWorld.wash); toyWorld.wash = null; toyWorld.bubbles.visible = false; }
   for (const y of toyWorld.yards) y.g.visible = Math.hypot(state.x - y.x, state.z - y.z) < TW.visibleRange;
   for (const w of toyWorld.washes) w.g.visible = Math.hypot(state.x - w.x, state.z - w.z) < TW.visibleRange;
-  twUpdateCargo(dt); twUpdateMagnet(dt); twUpdateWash(dt); twUpdateWelcome(dt); twUpdateTrails(dt);
+  twUpdateCargo(dt); twUpdateWorkshop(dt); twUpdateMagnet(dt); twUpdateWash(dt); twUpdateWelcome(dt); twUpdateTrails(dt);
 }
 function twControlsLate() {
   el.magnetBtn.classList.toggle('hidden', !toyWorld.held || !twMagnetOn() || menuOpen());

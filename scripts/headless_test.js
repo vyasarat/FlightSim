@@ -4783,6 +4783,15 @@ function check(name, ok, extra) {
 
   await require("./heli_play_checks")({ newPage, check, shots: SHOTS });
   await require("./toyworld_checks")({ newPage, check, shots: SHOTS });
+  await require("./workshop_checks")({ newPage, check, shots: SHOTS });
+  await require("./workshop_play_checks")({ newPage, check, shots: SHOTS });
+  await require("./garden_play_checks")({ newPage, check, shots: SHOTS });
+  await require("./workshop_play_checks")({ newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
+  await require("./garden_play_checks")({ newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
+  await require("./robot_checks")({ newPage, check, shots: SHOTS });
+  await require("./robot_play_checks")({ newPage, check, shots: SHOTS });
+  await require("./robot_play_checks")({ newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
+  await require("./workshop_offline_check")({ newPage, check, shots: SHOTS });
 
   await browser.close();
   server.kill();
