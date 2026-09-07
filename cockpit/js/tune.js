@@ -588,11 +588,11 @@ const TUNE = {
 
   eject: {
     frameTime: 0.4, open: 0.9, launch: 1.1, unfold: 0.6, descent: 7, celebrate: 1, returnTime: 1.2,
-    lift: 18, seatScale: 2, transitHeight: 60, maxDrift: 22, fallTime: 3.8, fallGravity: 15, emptySpeed: 32, emptyLift: 12,
+    lift: 18, clearanceMargin: 10, seatScale: 2, transitHeight: 60, fallTime: 3.8, fallGravity: 15, emptySpeed: 32, emptyLift: 12,
     hatchAngle: 1.8, canopyPop: 5, rotorSlide: 6, rotorLift: 1.5, rotorFold: 0.92,
     emptyRoll: 0.16, emptyPitch: 0.7, emptyPitchRate: 0.1, clearFraction: 0.45,
     seatSide: 4, landingDrift: 10, celebrationHop: 0.35, sway: 0.045,
-    cameraRate: 3, cameraMin: 32, cameraMax: 95, fastRate: 3.5,
+    cameraRate: 3, cameraMin: 32, cameraMax: 95, cameraEmptyWeight: 0.4, cameraImpactHold: 1.3, fastRate: 3.5,
     families: {
       prop: { opening: 1, hatch: 'canopy', seat: 'spring', front: 0.6, roof: 1.2, color: 0xffd23e },
       fighter: { opening: 0.7, hatch: 'pop', seat: 'rocket', front: 4, roof: 0.9, color: 0xe0483e },

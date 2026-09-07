@@ -2,7 +2,7 @@
 // A rescue owns the camera and one empty model until the pilot is safely back.
 // No collision/damage API is used for the abandoned vehicle's impact.
 const eject = { active:false, phase:'idle', t:0, total:0, fast:false, cycles:0, pool:null, last:null };
-const ejUp = new THREE.Vector3(0,1,0), ejBox = new THREE.Box3(), ejSize = new THREE.Vector3(), ejContactPoint = new THREE.Vector3(), ejCameraAim = new THREE.PerspectiveCamera();
+const ejUp = new THREE.Vector3(0,1,0), ejContactPoint = new THREE.Vector3(), ejCameraAim = new THREE.PerspectiveCamera();
 function ejectFamily() {
   if (marsDroneActive()) return 'drone';
   if (roverActive()) return 'rover';
@@ -119,8 +119,8 @@ function ejectStart() {
     vacuum:!!body||!!rk.onBody?.dock||state.y>TUNE.spaceAltitude||state.spaceF>.2,rocketSave:{onBody:rk.onBody,stage:rk.stage},
     original:{position:pos,rotation:model.rotation.clone(),scale:model.scale.clone()},rotorSave,
     velocity:forward.clone().multiplyScalar(Math.min(TUNE.eject.emptySpeed,Math.max(5,speed))),vy:0,
-    empty:false,emptyT:0,impact:false,impactWet:false,impactT:0,landed:false,canopyOpen:false,openT:TUNE.eject.open*cfg.opening,
-    launchLift:Math.max(TUNE.eject.lift,surfaceMode?18:size.length()+5),bodyExtent:Math.max(size.x,size.z),
+    empty:false,emptyT:0,trackBottom:null,impact:false,impactWet:false,impactT:0,landed:false,canopyOpen:false,openT:TUNE.eject.open*cfg.opening,
+    launchLift:Math.max(TUNE.eject.lift,...points.map(v=>v.clone().applyMatrix4(model.matrixWorld).sub(anchor).dot(up)+TUNE.eject.clearanceMargin)),bodyExtent:Math.max(size.x,size.z),
     events:{family,opened:false,rotorsClear:!rotor,clearance:0,unfolded:false,impact:false,landed:false,returned:false}});
   pool.capsule.visible=cfg.seat==='capsule';pool.thrusters.visible=eject.vacuum;pool.hatch.scale.setScalar(surfaceMode?1:state.vp.size||1);
   state.phase='EJECT';state.speed=0;state.exploding=false;state.throttleHeld=false;
@@ -152,12 +152,12 @@ function ejectEmptyStep(dt) {
   m.position.addScaledVector(eject.up,Math.max(eject.vy*dt,-Math.max(0,gap)-1));
   m.rotation.z=eject.original.rotation.z+Math.sin(eject.emptyT*1.6)*E.emptyRoll;
   m.rotation.x=eject.original.rotation.x+Math.min(E.emptyPitch,eject.emptyT*E.emptyPitchRate);
-  const contact=ejectContact();
+  const contact=ejectContact();eject.trackBottom=contact.point.clone();
   if(contact.gap<=0){
     // Correct the final integration step to the actual contacted surface.
-    const ground=ejectGround(contact.point);m.position.add(ground.clone().sub(contact.point));
+    const ground=ejectGround(contact.point);m.position.add(ground.clone().sub(contact.point));eject.trackBottom.copy(ground);
     eject.impact=true;eject.impactT=0;eject.events.impact=true;eject.events.impactBottom=0;eject.events.impactSurface=0;
-    eject.events.contactError=Math.abs(ejectContact().gap);
+    eject.events.contactError=Math.abs(ejectContact().gap);eject.events.contactPoint=ground.toArray();
     eject.events.emptyAtImpact=eject.empty;eject.events.canopyAtImpact=eject.canopyOpen;eject.events.pilotClearAtImpact=eject.pool.seat.position.distanceTo(m.position);
     const floor=ground.y,wet=!eject.body&&terrainEff(m.position.x,m.position.z)<TUNE.waterLevel;
     eject.impactWet=wet;
@@ -259,8 +259,10 @@ function updateEjection(realDt) {
   // The camera eases to an oblique view of the safe pilot and the falling toy.
   const focus=p.seat.visible?p.seat.position:eject.anchor;
   const centre=focus.clone().addScaledVector(eject.up,p.seat.visible?5:0);
-  if(!eject.impact&&p.seat.visible)centre.lerp(eject.model.position,.2);
-  const separation=eject.impact?0:focus.distanceTo(eject.model.position);
+  const showEmpty=!eject.impact||eject.impactT<E.cameraImpactHold;
+  const emptyFocus=eject.trackBottom||eject.model.position;
+  if(showEmpty&&p.seat.visible)centre.lerp(emptyFocus,E.cameraEmptyWeight);
+  const separation=showEmpty?focus.distanceTo(emptyFocus):0;
   const distance=clamp(E.cameraMin+eject.bodyExtent*.65+separation*.3,E.cameraMin,E.cameraMax);
   const desired=centre.clone().addScaledVector(eject.forward,-distance*.8).addScaledVector(eject.side,distance*.55).addScaledVector(eject.up,distance*.55);
   camera.position.lerp(desired,1-Math.exp(-E.cameraRate*realDt));camera.up.copy(eject.up);ejCameraAim.position.copy(camera.position);ejCameraAim.up.copy(eject.up);ejCameraAim.lookAt(centre);camera.quaternion.slerp(ejCameraAim.quaternion,1-Math.exp(-E.cameraRate*realDt));

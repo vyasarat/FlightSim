@@ -21,10 +21,10 @@ const {chromium}=require('playwright-core');const {serve}=require('./polish_chec
    for(let i=0;i<80;i++){await step(.05);if(await page.evaluate(()=>eject.phase==='float'))break;}
    await shot('canopy');const canopy=await page.evaluate(()=>eject.events.unfolded&&eject.pool.canopy.visible);
    for(let i=0;i<100;i++){await step(.05);if(await page.evaluate(()=>eject.impact))break;}
-   await shot('impact');const impact=await page.evaluate(()=>({...eject.events}));
+   await shot('impact');const impact=await page.evaluate(()=>{const v=new THREE.Vector3(...eject.events.contactPoint).project(camera),x=(v.x+1)*innerWidth/2,y=(1-v.y)*innerHeight/2;return{...eject.events,visibleImpact:v.z<1&&x>8&&x<innerWidth-8&&y>8&&y<document.getElementById('dash').getBoundingClientRect().top-8,screen:{x,y}}});
    for(let i=0;i<240;i++){await step(.05);if(await page.evaluate(()=>!eject.active))break;}
    await shot('return');const end=await page.evaluate(()=>({active:eject.active,phase:state.phase,key:state.vehicleKey,last:eject.last,held:state.throttleHeld,touch:state.touching}));
-   const ok=Math.abs(opening.angle)>.1&&opening.cycles===1&&!opening.empty&&launch.clear>5&&launch.rotors&&!launch.canopy&&canopy&&impact.impact&&impact.emptyAtImpact&&impact.canopyAtImpact&&impact.contactError<.02&&Math.abs(impact.impactBottom-impact.impactSurface)<.01&&!end.active&&end.phase==='TAXI'&&end.key===key&&end.last.landed&&end.last.returned&&!end.held&&!end.touch&&!errors.length;
+   const ok=Math.abs(opening.angle)>.1&&opening.cycles===1&&!opening.empty&&launch.clear>5&&launch.rotors&&!launch.canopy&&canopy&&impact.impact&&impact.visibleImpact&&impact.emptyAtImpact&&impact.canopyAtImpact&&impact.contactError<.02&&Math.abs(impact.impactBottom-impact.impactSurface)<.01&&!end.active&&end.phase==='TAXI'&&end.key===key&&end.last.landed&&end.last.returned&&!end.held&&!end.touch&&!errors.length;
    results.push(ok);console.log(`${ok?'PASS':'FAIL'} ${key}: opening, seat clearance, canopy, actual surface impact, safe landing, return ${JSON.stringify({opening,launch,canopy,impact,end,errors})}`);await page.close();
   }
   console.log(`${results.filter(Boolean).length}/${results.length} passed`);if(results.some(v=>!v))process.exitCode=1;
