@@ -57,6 +57,7 @@ function buildRover() {
     const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.5, 8), gold); hub.rotation.z = Math.PI / 2; hub.position.set(sx, 0.55, sz); g.add(hub);
   }
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), new THREE.MeshBasicMaterial({ color: 0x5ff1ff })); lamp.position.set(-0.6, 1.7, 1.75); g.add(lamp);
+  toyFinishFleet(g, "rover");
   g.visible = false;
   castsShadow(g);
   scene.add(g);

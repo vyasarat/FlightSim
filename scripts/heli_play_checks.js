@@ -18,7 +18,7 @@ module.exports = async function heliPlayChecks({ newPage, check, shots }) {
       return {...p, visible:v.z<1&&p.x>0&&p.x<innerWidth&&p.y>0&&p.y<innerHeight&&document.elementFromPoint(p.x,p.y)?.id==='gl'};
     },kind);
     const shot = async name => page.screenshot({path:path.join(shots,`heli-play-${width}x${height}-${name}.png`)});
-    await tap(await center('[data-v="helicopter"]')); await tap(await center('[data-d="0"]')); await step(2);
+    await tap(await center('[data-v="helicopter"]')); await tap(await center('[data-d="0"]')); await step(2); await shot('parked');
     await hold('#heliUpBtn',4); await step(1); await shot('spawn');
     const cargoPoint=await project('cargo');
     if (!cargoPoint.visible) { check(`helicopter play ${width}x${height}: cargo visible from spawn`,false,JSON.stringify(cargoPoint)); await page.close(); continue; }

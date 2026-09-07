@@ -125,11 +125,7 @@ for (const [id, direction] of [["heliUpBtn", 1], ["heliDownBtn", -1]]) {
   });
   for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) btn.addEventListener(event, releaseHeliAltitude);
 }
-el.heliHoverBtn.addEventListener("pointerdown", e => {
-  e.preventDefault(); e.stopPropagation();
-  if (!heliActive() || menuOpen()) return;
-  releaseDrag(); releaseHeliAltitude(); heliHover(); unlockAudio(); pressFlash(el.heliHoverBtn);
-});
+
 
 function skipToLanding() {
   const ap = AIRPORTS[state.destIdx];

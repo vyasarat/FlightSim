@@ -259,13 +259,12 @@
     0%, 100% { opacity: .7; transform: scale(1); }
     50% { opacity: .9; transform: scale(1.05); }
   }
-  #heliUpBtn.hidden, #heliDownBtn.hidden, #heliHoverBtn.hidden { display: none; }
-  #heliUpBtn, #heliDownBtn, #heliHoverBtn { z-index: 10; color: #f2f4f7; }
+  #heliUpBtn, #heliDownBtn { z-index: 10; color: #f2f4f7; }
+  #heliUpBtn.hidden, #heliDownBtn.hidden { display: none; }
   #heliUpBtn, #heliDownBtn { right: calc(var(--edge) + env(safe-area-inset-right)); width: var(--thr); height: var(--thr); border-color: #5ff1ff; background: rgba(12, 43, 59, .9); }
   #heliDownBtn { bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
   #heliUpBtn { bottom: calc(var(--stack-bottom) + var(--thr) + 12px + env(safe-area-inset-bottom)); }
-  #heliHoverBtn { right: calc(var(--edge) + var(--thr) + 12px + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
-  #heliUpBtn.pressed, #heliDownBtn.pressed, #heliHoverBtn.holding { background: #247b83; box-shadow: 0 0 18px #5ff1ff88; }
+  #heliUpBtn.pressed, #heliDownBtn.pressed { background: #247b83; box-shadow: 0 0 18px #5ff1ff88; }
   #heliDownBtn.reach { border-color: #ffd23e; }
   #heliTarget { position: fixed; width: 38px; height: 38px; transform: translate(-50%, -50%); pointer-events: none; z-index: 7; color: #5ff1ff; filter: drop-shadow(0 2px 3px #10202b); }
   #heliTarget .bearing { display: none; transform-origin: 24px 24px; transform: rotate(var(--bearing)); }
@@ -906,7 +905,6 @@
 <div id="heliTarget" class="hidden" aria-hidden="true"><svg viewBox="0 0 48 48"><g class="destination" fill="none" stroke="currentColor" stroke-width="3"><circle cx="24" cy="24" r="15"/><circle cx="24" cy="24" r="4"/><path d="M24 2v9M24 37v9M2 24h9M37 24h9"/></g><path class="bearing" d="M24 5 39 30 24 24 9 30Z" fill="currentColor"/></svg></div>
 <button id="heliUpBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 35V10M12 22l12-12 12 12M10 40h28"/></svg></button>
 <button id="heliDownBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 9v25M12 23l12 12 12-12M10 41h28"/></svg></button>
-<button id="heliHoverBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4"><circle cx="24" cy="24" r="18"/><path d="M19 16v16M29 16v16"/></svg></button>
 <button id="throttleBtn" aria-hidden="true">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <path d="M50 10 L80 56 L60 56 L60 90 L40 90 L40 56 L20 56 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3" stroke-linejoin="round"/>
@@ -1070,6 +1068,7 @@
 <script src="js/audio.js"></script>
 <script src="js/hud.js"></script>
 <script src="js/explosion.js"></script>
+<script src="js/toyfinish.js"></script>
 <script src="js/vehicle.js"></script>
 <script src="js/collision.js"></script>
 <script src="js/state.js"></script>
