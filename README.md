@@ -40,6 +40,7 @@ the ship checklist; this file describes the game.
 | Round arrow button, bottom-right | Hold to throttle (takeoff roll; for the rocket, hold to burn). One pointer owns it; a palm tap won't release it |
 | Yellow flashing arrow | Rotation speed reached (latched -- releasing the throttle to free his finger doesn't lose it). Drag up past the threshold to lift off |
 | Circle-arrow button, top-right | Toggle cockpit view <-> third-person chase cam. Chase keeps the dials; only the window frame hides |
+| Small seat-and-up-arrow icon, bottom-right dashboard corner | One tap opens the hatch, launches a safe rescue seat and lets the empty vehicle fall to a cartoon impact. The small 32 px icon has a clear 56 px touch target. Once the canopy opens, tap its return arrow to hurry the automatic recovery. Works on all eight vehicles, the rover and the Mars drone |
 | Gear button, bottom-left (planes) | Retract / extend the landing gear. Retracting is ignored while the wheels carry the plane. Distinct up/down icons, whirr/clunk, animated struts in chase view. **Landing with the gear up explodes** |
 | Missile button, bottom-left above gear (planes, airborne; the rocket, during a meteor shower -- on a rocket it drops to the empty gear row, clear of the shared slot) | Fire a wing missile: explodes on terrain, structures, traffic planes and targets; sub-stepped so nothing tunnels; self-destructs with a pop at the end of its range (`missileLife` × `missileSpeed`; `missileCooldown` is the refire gap) |
 | Stage button (rocket, same slot, orange, pulsing) | Drops the next stage. Only appears above each stage's altitude (see The rocket) |
@@ -64,6 +65,8 @@ Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h`, … in
 `cockpit/index.html`). Viewports under 520 px tall (phones in landscape) get a
 compact tier so nothing overlaps; the harness checks 844x390 for both a plane and
 the rocket with its stage button up.
+
+The rescue also works while parked, over water and in space. Helicopter/drone rotors move clear before launch; space rescues use a thruster canopy. Activity progress survives the return. See the [ejection play guide, evidence and release report](docs/ejection/HANDOFF.md).
 
 ## Vehicles
 

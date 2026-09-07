@@ -17,7 +17,7 @@ await page.evaluate(kind=>{
  if(kind==='bucket')bucket.state='full';
  updateEjectControl();
 },kind);
-if(kind==='audio'){await page.locator('#viewBtn').tap();await page.waitForFunction(()=>audioCtx?.state==='running');await page.evaluate(()=>{setTone('stall','triangle',170,.1);setTone('dive','sine',500,.1);el.alarm.classList.add('on')});}
+if(kind==='audio'){await page.locator('#viewBtn').tap();await page.waitForFunction(()=>audioCtx?.state==='running',null,{polling:100});await page.evaluate(()=>{setTone('stall','triangle',170,.1);setTone('dive','sine',500,.1);el.alarm.classList.add('on')});}
 const before=await page.evaluate(()=>({family:ejectFamily(),chute:rk.chute,voices:Object.values(tones).filter(t=>t.last>0).length,beacons:rover.beacons.length,rocks:rover.rocks.length,body:rk.onBody?.name}));
 await tap();const quiet=await page.evaluate(()=>Object.values(tones).every(t=>t.last===0)&&getComputedStyle(el.alarm).visibility==='hidden');const oldChute=await page.evaluate(()=>rk.chute===0&&(!chuteGroup||!chuteGroup.visible));await tap();await step(3.5);await page.evaluate(()=>renderer.render(scene,camera));await page.screenshot({path:`qa-screenshots/eject-edge-${kind}.png`});
 await step(30);const out=await page.evaluate(()=>({active:eject.active,last:eject.last,held:state.throttleHeld,touch:state.touching,body:rk.onBody?.name,beacons:rover.beacons.length,rocks:rover.rocks.length,wet:eject.wet,vacuum:eject.vacuum,drone:marsDroneActive(),rover:roverActive(),cargo:!!toyWorld.held,wash:!!toyWorld.wash,bucket:bucket.state,frameErrors:__lp.frameErrors||0}));
