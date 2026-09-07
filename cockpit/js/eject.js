@@ -66,7 +66,12 @@ function ejectSupportPoints(model) {
     if(!o.isMesh||!o.geometry||o.material?.transparent)return;
     if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();
     const b=o.geometry.boundingBox,mat=inv.clone().multiply(o.matrixWorld);
-    for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])points.push(new THREE.Vector3(x,y,z).applyMatrix4(mat));
+    // Retain each fitting's support bounds after static merging. A combined
+    // box invents empty corners that can contact the ground ahead of the toy.
+    const append=matrix=>{for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])points.push(new THREE.Vector3(x,y,z).applyMatrix4(matrix));};
+    if(o.userData.toySupportPoints){for(const v of o.userData.toySupportPoints)points.push(new THREE.Vector3(...v).applyMatrix4(mat));}
+    else if(o.isInstancedMesh){const instance=new THREE.Matrix4();for(let i=0;i<o.count;i++){o.getMatrixAt(i,instance);append(mat.clone().multiply(instance));}}
+    else append(mat);
   });
   return points.length?points:[new THREE.Vector3()];
 }
@@ -95,10 +100,13 @@ function ejectStart() {
     if(near.d<state.y)body=near.b;
   }
   releaseAllInputs();twRelease();
+  toyWorld.contacts.visible=false;
+  toyWorld.downwash.visible=false;toyWorld.downwash.material.opacity=0;
   if(toyWorld.wash){twWashRestore(toyWorld.wash);toyWorld.wash=null;toyWorld.washCooldown=1;}
   if(bucket.g)bucket.g.visible=false;bucket.state='empty';bucket.anim=0;
   cancelRecovery();if(state.vp.rocket)chuteReset();
   state.viewChase=true;el.hud.classList.add('chase');if(!surfaceMode)updateVehicleModel(0);model.visible=true;model.updateMatrixWorld(true);
+  if(model.userData.rotorBlur)model.userData.rotorBlur.material.opacity=0;
   const pool=ejectBuildPool();pool.root.visible=true;pool.seat.visible=false;pool.hatch.visible=true;pool.splash.visible=false;
   pool.canopy.visible=false;pool.canopy.scale.setScalar(.001);pool.lines.visible=false;pool.flame.visible=false;pool.raft.visible=false;
   pool.seat.scale.setScalar(TUNE.eject.seatScale);pool.seat.rotation.set(0,state.heading+Math.PI,0);pool.pilot.position.y=1.35;
@@ -223,7 +231,7 @@ function updateEjection(realDt) {
     }
     if(f===1){eject.apex=p.seat.position.clone();eject.land=p.seat.position.clone().addScaledVector(eject.side,E.landingDrift);eject.land.copy(ejectGround(eject.land,1.2));eject.wet=!eject.body&&terrainEff(eject.land.x,eject.land.z)<TUNE.waterLevel;p.canopy.visible=true;p.lines.visible=true;ejectPhase('unfold');}
   }else if(eject.phase==='unfold'){
-    const f=clamp(eject.t/E.unfold,0,1);p.canopy.scale.set(f,Math.max(.1,f),f);p.lines.scale.set(f,1,f);p.flame.visible=false;
+    const f=clamp(eject.t/E.unfold,0,1);const bloom=eject.family==='helicopter'?f*f*(3-2*f):f;p.canopy.scale.set(bloom,Math.max(.1,bloom),bloom);p.lines.scale.set(bloom,1,bloom);p.flame.visible=false;
     if(f===1){eject.canopyOpen=true;eject.events.unfolded=true;eject.transitOffset=p.seat.position.clone().sub(eject.model.position);ejectPhase(eject.high?'transit':'float');}
   }else if(eject.phase==='transit'){
     // A thruster-assisted descent follows the empty toy from orbit. Keep the

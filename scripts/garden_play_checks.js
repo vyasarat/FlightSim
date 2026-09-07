@@ -30,7 +30,7 @@ module.exports=async function gardenPlayChecks({newPage,check,shots,airport=0,vi
     await touch('touchStart',{x:width*.5,y:height*.35});await touch('touchCancel');
     await touch('touchStart',await center('#heliUpBtn'));await step(.2);await touch('touchCancel');
     const cancel=await page.evaluate(()=>!state.touching&&!heliGesture.active&&heli.vertical===0);
-    await tap(await center('#heliHoverBtn'));
+    await aim(0); await step(12); // Arrive and hover automatically before landing.
     await touch('touchStart',await center('#heliDownBtn'));await step(20);await touch('touchEnd');await step(1);
     const landed=await page.evaluate(()=>state.phase==='TAXI'&&pickerCanOpen());
     if(landed){await tap(await center('#vehBtn'));await tap(await center('[data-v="prop"]'));await tap(await center(`[data-d="${airport}"]`));await step(2);}

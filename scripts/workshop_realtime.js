@@ -4,13 +4,16 @@
 const {chromium}=require('playwright-core');
 const {serve}=require('./polish_check');
 const {once}=require('events');
-const path=require('path');
+const path=require('path'),fs=require('fs');
+const polishOut=process.env.LP_POLISH_OUT&&path.resolve(process.env.LP_POLISH_OUT);
+if(polishOut)fs.mkdirSync(polishOut,{recursive:true});
 (async()=>{
   const server=process.env.LP_PLAY_URL?null:serve(path.resolve(__dirname,'..'),0);
   if(server)await once(server,'listening');
   const browser=await chromium.launch({executablePath:process.env.CHROME_HEADLESS_SHELL,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   try{
-    const context=await browser.newContext({viewport:{width:844,height:390},hasTouch:true,recordVideo:{dir:path.resolve(__dirname,'../qa-screenshots/workshop-video'),size:{width:844,height:390}}});
+    const videoEpoch=Date.now();
+    const context=await browser.newContext({viewport:{width:844,height:390},hasTouch:true,recordVideo:{dir:polishOut?path.join(polishOut,'video'):path.resolve(__dirname,'../qa-screenshots/workshop-video'),size:{width:844,height:390}}});
     const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(process.env.LP_PLAY_URL||`http://127.0.0.1:${server.address().port}/cockpit/`);await page.waitForFunction(()=>window.__lp);
     const cdp=await context.newCDPSession(page);
@@ -26,7 +29,7 @@ const path=require('path');
       return {...p,visible:v.z<1&&p.x>0&&p.x<innerWidth&&p.y>0&&p.y<document.getElementById('dash').getBoundingClientRect().top&&document.elementFromPoint(p.x,p.y)?.id==='gl'};
     },{kind,selected});
     const aim=async kind=>{let p=await point(kind);if(!p.visible&&kind!=='back'){const back=await point('back');if(back.visible){await tap(back);await wait(()=>!heli.target&&state.speed<1);}p=await point(kind);}if(!p.visible)throw Error(`Not visibly tappable: ${kind} ${JSON.stringify(p)}`);await tap(p);};
-    const shot=name=>page.screenshot({path:path.resolve(__dirname,`../qa-screenshots/realtime-${name}.png`)});
+    const shot=async name=>{console.log('SHOT',name,((Date.now()-videoEpoch)/1000).toFixed(2));return page.screenshot({path:polishOut?path.join(polishOut,`realtime-${name}.png`):path.resolve(__dirname,`../qa-screenshots/realtime-${name}.png`)});};
     await page.locator('[data-v="helicopter"]').tap();await page.locator('[data-d="0"]').tap();
     await touch('touchStart',await center('#heliUpBtn'));await wait(()=>state.y>68);await touch('touchEnd');
     console.log('Real time: lifted from runway');await shot('discovery');
@@ -53,6 +56,12 @@ const path=require('path');
       const before=await page.evaluate(i=>toyWorld.yards[0].windmills[i].plays,i);await aim('wind'+i);
       await wait(({i,before})=>toyWorld.yards[0].windmills[i].plays>before,{i,before});await shot('wind-'+i);await wait(()=>!heli.target&&state.speed<1);
       console.log('Real time: pinwheel '+i+' played');
+    }
+    if(polishOut){
+      await page.locator('#ejectBtn').tap();await wait(()=>eject.canopyOpen);await shot('eject-canopy');
+      await wait(()=>eject.impact);await shot('eject-impact');await wait(()=>!eject.active);
+      const rescue=await page.evaluate(()=>eject.last);console.log('Real time rescue',JSON.stringify(rescue));
+      if(!rescue.returned||!rescue.canopyAtImpact)throw Error('Incomplete rescue');
     }
     // Land with the existing down control, then switch from the vehicle picker.
     await touch('touchStart',await center('#heliDownBtn'));await wait(()=>state.phase==='TAXI');await touch('touchEnd');

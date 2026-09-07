@@ -96,7 +96,7 @@ direction, without climbing.
 
 The large **up/down arrows** on the right change altitude while held. Release to
 hold the new height. Horizontal travel continues, so the same finger can steer,
-lift, then adjust height. The **pause-in-a-circle** button stops travel in a hover.
+lift, then adjust height. It automatically hovers when it reaches the destination.
 Up lifts off from the ground; holding down lands gently. Over water it stops at a
 safe hover floor so the bucket remains available. There is no throttle to hold.
 
@@ -111,7 +111,17 @@ the selected destination across the shoreline, all the way to the rig. Lower it
 over scoop water with down, then tap the bucket to scoop; lift above the platform
 with up, then tap to drop. Both bucket actions are single taps.
 
-The Mars drone keeps its existing point-to-go controls and flight tuning.
+The helicopter playground uses a two-tone toy helicopter, softened cargo and
+machinery, a textured play mat, a painted landing symbol, and pooled soft contact
+shadows. The rotor and winch ease into motion; faint downwash appears only near
+the ground. The separate altitude arrows remain the only helicopter movement
+buttons. Visual QA, performance evidence and the physical-device check live in
+[`docs/helicopter-polish/`](docs/helicopter-polish/).
+
+The planes share smooth paint, opaque cockpit glazing and softened edges; airliners
+have cabin windows and contrasting engine housings. Rockets have smooth stage
+finishes and collars. The rover and Mars drone share rounded bodies and panel
+details. Their existing controls, moving stages, landing gear and flight tuning remain.
 
 ## Airport toy world (`js/toyworld.js`, `TUNE.toyWorld`)
 

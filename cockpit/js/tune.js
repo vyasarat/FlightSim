@@ -381,6 +381,8 @@ const TUNE = {
   // The helicopter's own model (js/heli.js).
   // Helicopter only: tap-to-travel plus sequential altitude adjustment.
   toyWorld: {
+    finish: { rotorIdle: 12, rotorFlight: 34, rotorResponse: 3, rotorOpacity: .045,
+      winchResponse: 6, dustHeight: 32, dustOpacity: .24, dustResponse: 4 },
     visibleRange: 2200,
     colors: [0xe0483e, 0xffd23e, 0x36c46a, 0x5ff1ff, 0x2b4fb0],
     playground: {

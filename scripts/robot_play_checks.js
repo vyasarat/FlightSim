@@ -77,7 +77,8 @@ module.exports = async function robotPlayChecks({newPage, check, shots, airport=
     check(`robot ${airport?'CA':'NY'} ${width}x${height}: quiet hover, leave and return for another greeting`,calm&&away.visible&&left&&again.visible&&replay.count===2&&replay.waving,JSON.stringify({calm,away,left,again,replay}));
     await touch('touchStart',await center('#heliUpBtn'));await step(.2);await touch('touchCancel');
     const cancel=await page.evaluate(()=>heli.vertical===0&&!heliGesture.active);
-    await tap(await center('#heliHoverBtn'));await hold('#heliDownBtn',20);await step(1);
+    await step(12); // Let the selected destination arrive in an automatic hover.
+    await hold('#heliDownBtn',20);await step(1);
     const landed=await page.evaluate(()=>state.phase==='TAXI'&&pickerCanOpen());
     if(landed){await tap(await center('#vehBtn'));await tap(await center('[data-v="prop"]'));await tap(await center(`[data-d="${airport}"]`));await step(4);}
     const exit=await page.evaluate(()=>({vehicle:state.vehicleKey,phase:state.phase,waving:toyWorld.yards[state.originIdx].greetT>0,near:toyWorld.yards[state.originIdx].greetNear,held:!!toyWorld.held}));

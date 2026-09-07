@@ -20,8 +20,9 @@
 //   tris     triangles per frame                        (ditto)
 //
 // "Costs more than ~15% frame time" is read off calls/tris and cpuMs together,
-// with shadow-map passes counted explicitly (renderer.info.render.calls
-// includes every shadow pass, which is exactly what we want to see).
+// NOTE: r128 resets renderer.info after shadows by default, so these legacy
+// calls/tris are main-pass counters. helicopter_perf_pair.js disables that reset
+// around each measured frame to report total work including the shadow pass.
 // ---------------------------------------------------------------------------
 
 const http = require("http"), fs = require("fs"), path = require("path");

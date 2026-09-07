@@ -9,13 +9,14 @@ const toyWorld = {
   trailColor: -1, rainbow: false, trailHead: 0, trailTime: 0, trailCount: 0,
 };
 const twGeo = {
+  round: toyBevelGeometry(), disc: new THREE.CylinderGeometry(1, 1, 1, 32),
   box: new THREE.BoxGeometry(1, 1, 1), ball: new THREE.SphereGeometry(1, 8, 6),
   cylinder: new THREE.CylinderGeometry(1, 1, 1, 10),
   ring: new THREE.TorusGeometry(1, .07, 6, 32),
 };
 const twMats = new Map();
 function twMat(c) {
-  if (!twMats.has(c)) twMats.set(c, new THREE.MeshPhongMaterial({ color: c }));
+  if (!twMats.has(c)) twMats.set(c, new THREE.MeshPhongMaterial({ color: c, shininess: 65, specular: TUNE.palette.ink, flatShading: false }));
   return twMats.get(c);
 }
 function twPart(parent, shape, color, x, y, z, sx, sy, sz) {
@@ -30,15 +31,16 @@ function twBatchParts(root) {
   const batches = new Map();
   for (const m of root.children) {
     if (!m.isMesh || m.isInstancedMesh || !m.visible || m.userData.twDynamic) continue;
-    const key = m.geometry.id + ":" + m.material.id;
+    const key = m.geometry.id + ":" + m.material.id + ":" + m.castShadow + ":" + m.receiveShadow;
     if (!batches.has(key)) batches.set(key, []);
     batches.get(key).push(m);
   }
   for (const meshes of batches.values()) {
-    if (meshes.length < 3) continue;
+    if (meshes.length < 2) continue;
     const inst = new THREE.InstancedMesh(meshes[0].geometry, meshes[0].material, meshes.length);
     // r128 has no aggregate instance bounds. Airport parents already distance-cull.
     inst.frustumCulled = false;
+    inst.castShadow = meshes[0].castShadow; inst.receiveShadow = meshes[0].receiveShadow;
     meshes.forEach((m, i) => { m.updateMatrix(); inst.setMatrixAt(i, m.matrix); root.remove(m); });
     root.add(inst);
   }
@@ -86,8 +88,8 @@ function twBuildWorld() {
     twPart(arm, 'box', C.slate, side * 12, -4, 0, 10, 9, 10);
     const hook = new THREE.Group(); hook.position.x = side * P.craneHookX; arm.add(hook);
     twPart(hook, 'cylinder', C.ink, 0, -12, 0, .35, 24, .35);
-    twPart(hook, 'box', C.red, 0, -25, 0, 10, 3, 4);
-    for (const sign of [-1, 1]) twPart(hook, 'box', C.red, sign * 4, -29, 0, 3, 7, 4);
+    twPart(hook, 'round', C.red, 0, -25, 0, 10, 3, 4);
+    for (const sign of [-1, 1]) twPart(hook, 'round', C.red, sign * 4, -29, 0, 3, 7, 4);
     yard.arm = arm; yard.hook = hook;
     yard.lamp = twPart(crane, 'ball', C.cyan, 0, P.craneH + 5, 0, 3, 3, 3);
     // A playful cargo robot grows on a small wheeled float, in a bounded display.
@@ -126,7 +128,7 @@ function twBuildWorld() {
         vx: 0, vy: 0, vz: 0, lock: false, dropped: false, cooldown: 0, away: 0, delivering: false, tilt: 0 };
       og.position.set(obj.x, obj.y, obj.z); toyWorld.objects.push(obj);
     }
-    twBuildWorkshop(yard);
+    twBuildWorkshop(yard); twFinishYard(yard);
     // Wash on the other side of the starting area, clear of runway and launch pad.
     const wx = side * W.x, wz = ap.cz + side * W.z;
     const wy = Math.max(terrainEff(wx, wz), TUNE.waterLevel) + .6;
@@ -159,11 +161,13 @@ function twBuildWorld() {
   const magnet = new THREE.Group(); toyWorld.root.add(magnet); toyWorld.magnet = magnet;
   toyWorld.cable = twPart(magnet, 'cylinder', C.ink, 0, -P.cable / 2, 0, .18, P.cable, .18);
   const hook = new THREE.Group(); magnet.add(hook); toyWorld.hook = hook;
-  twPart(hook, 'box', C.red, 0, 0, 0, 5, 1.5, 2);
+  twPart(hook, 'round', C.red, 0, 0, 0, 5, 1.5, 2);
   for (const sx of [-1, 1]) {
-    twPart(hook, 'box', C.red, sx * 2, -1.6, 0, 1.3, 3, 2);
-    twPart(hook, 'box', C.white, sx * 2, -3, 0, 1.3, 1, 2);
+    twPart(hook, 'round', C.red, sx * 2, -1.6, 0, 1.3, 3, 2);
+    twPart(hook, 'round', C.white, sx * 2, -3, 0, 1.3, 1, 2);
   }
+  const eye = twPart(hook, 'ring', C.steel, 0, 1.1, 0, .65, .65, .65);
+  eye.castShadow = true;
   magnet.visible = false;
   toyWorld.highlight = twPart(toyWorld.root, 'ring', C.warning, 0, 0, 0, 12, 12, 12);
   toyWorld.highlight.rotation.x = -Math.PI / 2; toyWorld.highlight.visible = false;
@@ -172,7 +176,7 @@ function twBuildWorld() {
   toyWorld.bubbles = new THREE.InstancedMesh(twGeo.ball, bubbleMat, W.bubbles);
   toyWorld.bubbles.instanceMatrix.setUsage(THREE.DynamicDrawUsage); toyWorld.bubbles.frustumCulled = false; toyWorld.bubbles.visible = false;
   toyWorld.root.add(toyWorld.bubbles);
-  twBuildTrail(); twBatchParts(toyWorld.root); scene.add(toyWorld.root);
+  twBuildTrail(); twBuildDownwash(); twBuildContacts(); twBatchParts(toyWorld.root); scene.add(toyWorld.root);
 }
 
 function twObjectHome(o) {
@@ -222,7 +226,7 @@ function twUpdateMagnet(dt) {
   el.heliDownBtn.classList.toggle("reach", !!best && !reachable);
   // The winch visibly lowers to a nearby toy, then lifts it after attachment.
   const wantCable = best && reachable && bestD < P.pickupR ? clamp(state.y - P.hookDepth - twCargoTop(best), P.cable, P.cableMax) : P.cable;
-  toyWorld.cableLength += clamp(wantCable - toyWorld.cableLength, -P.winchSpeed * dt, P.winchSpeed * dt);
+  toyWorld.cableLength += clamp((wantCable - toyWorld.cableLength) * Math.min(1, dt * TW.finish.winchResponse), -P.winchSpeed * dt, P.winchSpeed * dt);
   toyWorld.cable.position.y = -toyWorld.cableLength / 2;
   toyWorld.cable.scale.y = toyWorld.cableLength;
   toyWorld.hook.position.y = -toyWorld.cableLength;
@@ -249,6 +253,7 @@ function twUpdateMagnet(dt) {
     o.g.position.set(o.x, o.y, o.z); o.g.rotation.set(0, state.heading, 0);
     toyWorld.highlight.material = twMat(TUNE.palette.cyan);
     toyWorld.highlight.position.set(o.x, twCargoTop(o) + 1, o.z);
+    toyWorld.highlight.scale.setScalar(Math.max(o.w, o.d) * (.85 + .3 * (1 - toyWorld.attachedT / P.attachFlash)));
   }
   el.magnetBtn.classList.toggle('hidden', !active || !o);
 }
@@ -424,7 +429,7 @@ function twUpdateWash(dt) {
   }
   el.washBtn.classList.toggle('hidden', !twWashCan());
   if (run) {
-    for (const id of ['throttleBtn', 'gearBtn', 'missileBtn', 'vehBtn', 'heliUpBtn', 'heliDownBtn', 'heliHoverBtn', 'washBtn']) el[id].classList.add('hidden');
+    for (const id of ['throttleBtn', 'gearBtn', 'missileBtn', 'vehBtn', 'heliUpBtn', 'heliDownBtn', 'washBtn']) el[id].classList.add('hidden');
   }
 }
 
@@ -558,12 +563,12 @@ function updateToyWorld(dt) {
   if (state.exploding && toyWorld.wash) { twWashRestore(toyWorld.wash); toyWorld.wash = null; toyWorld.bubbles.visible = false; }
   for (const y of toyWorld.yards) y.g.visible = Math.hypot(state.x - y.x, state.z - y.z) < TW.visibleRange;
   for (const w of toyWorld.washes) w.g.visible = Math.hypot(state.x - w.x, state.z - w.z) < TW.visibleRange;
-  twUpdateCargo(dt); twUpdateWorkshop(dt); twUpdateMagnet(dt); twUpdateWash(dt); twUpdateWelcome(dt); twUpdateTrails(dt);
+  twUpdateCargo(dt); twUpdateWorkshop(dt); twUpdateMagnet(dt); twUpdateWash(dt); twUpdateWelcome(dt); twUpdateTrails(dt); twUpdateFinish(dt);
 }
 function twControlsLate() {
   el.magnetBtn.classList.toggle('hidden', !toyWorld.held || !twMagnetOn() || menuOpen());
   if (twMagnetOn()) { el.bucketBtn.classList.add('hidden'); if (bucket.g) bucket.g.visible = false; }
-  if (toyWorld.wash) for (const id of ['throttleBtn', 'gearBtn', 'missileBtn', 'vehBtn', 'heliUpBtn', 'heliDownBtn', 'heliHoverBtn', 'washBtn']) el[id].classList.add('hidden');
+  if (toyWorld.wash) for (const id of ['throttleBtn', 'gearBtn', 'missileBtn', 'vehBtn', 'heliUpBtn', 'heliDownBtn', 'washBtn']) el[id].classList.add('hidden');
 }
 // Input listeners are installed once. Replays only reset records in the pools.
 el.magnetBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (!menuOpen()) twRelease(); });

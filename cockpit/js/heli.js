@@ -120,10 +120,9 @@ const heliMarkerPoint = new THREE.Vector3();
 function updateHeliControls() {
   if (heliActive() && state.exploding) heliReset();
   const visible = heliActive() && !menuOpen() && !state.exploding;
-  for (const id of ["heliUpBtn", "heliDownBtn", "heliHoverBtn"]) el[id].classList.toggle("hidden", !visible);
+  for (const id of ["heliUpBtn", "heliDownBtn"]) el[id].classList.toggle("hidden", !visible);
   el.heliUpBtn.classList.toggle("pressed", visible && heli.vertical > 0);
   el.heliDownBtn.classList.toggle("pressed", visible && heli.vertical < 0);
-  el.heliHoverBtn.classList.toggle("holding", visible && !heli.target);
   el.heliTarget.classList.toggle("hidden", !visible || !heli.target);
   if (!visible || !heli.target) return;
   // A ring marks the selected surface (or held height for a sky bearing). An
