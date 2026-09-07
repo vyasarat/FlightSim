@@ -1,4 +1,12 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// The low cargo ramp and the musical pinwheels (TUNE.toyWorld.slide / .garden).
+// Keep the blue pad directly tappable from the original pickup route. Cargo
+// `dropped` intent survives the pickup lock clearing, so a high drop or a busy
+// crane cannot strand it; pickup and replenishment clear the intent. Dynamic
+// demo balls and pulse rings opt out of static batching with userData.twDynamic.
+// The pinwheels use an inner activation radius and a larger leave radius, so
+// hovering never repeats their audio.
 // Optional workshop toys. Fixed meshes and cargo records, no new controls.
 // Loaded before toyworld.js; functions run only after its shared helpers exist.
 function twBuildWorkshop(yard) {

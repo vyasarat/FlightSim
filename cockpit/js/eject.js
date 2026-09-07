@@ -1,4 +1,13 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// One-tap rescue (TUNE.eject). Its early branch owns the empty vehicle model and
+// the camera until recovery; normal flight tuning stays untouched. Keep the
+// visible icon secondary (32 px) inside a separate 56 px target. Fold rotors
+// before launch, resolve existing chutes/activities, use real surface contact and
+// no damage/shatter APIs, preserve surface progress, and reuse the fixed rescue
+// pool. On-foot astronauts are not abandoned vehicles. The scripts/eject_*
+// runners cover touch tours, surface travel, interrupted input, offline caching
+// and resource ownership.
 // A rescue owns the camera and one empty model until the pilot is safely back.
 // No collision/damage API is used for the abandoned vehicle's impact.
 const eject = { active:false, phase:'idle', t:0, total:0, fast:false, cycles:0, pool:null, last:null };

@@ -1,4 +1,9 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// Pooled toy geometry/materials, fleet paint, glazing and fittings, mat finish
+// and contact/downwash effects. Keep cargo bounds exact; preserve independently
+// animated pieces when batching. Dispose vehicle-owned buffers once, and keep
+// world-owned buffers for the lifetime of the scene.
 // Toy finish helpers. Geometry is created once per owning pool; no frame allocations.
 // A bevelled unit cube keeps its exact +/- .5 bounds, including the pickup face.
 function toyBevelGeometry() {

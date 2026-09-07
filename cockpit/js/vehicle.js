@@ -1,4 +1,11 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// Camera feel is TUNE.camera + updateFeel/applyCamera below. It moves the
+// picture and nothing else: no value in there is ever read by the flight model.
+// fovSpeed is capped by readability, not taste -- every degree wider makes the
+// thing he is aiming at smaller. Shake is a curve (shakeGamma) and hard-capped
+// (shakeCap) so a bang can never hide a target; the harness asserts both bounds.
+// cameraHitStop freezes the MODEL, never the world.
 let vehicleModel = null;
 const camDesired = new THREE.Vector3();
 const lookV = new THREE.Vector3();

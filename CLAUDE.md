@@ -1,19 +1,23 @@
 # Little Pilot — working rules
 
-A no-reading, no-failing flying game for a 4-year-old. Read `README.md` for what the
-game is; this file is the short list of rules that every change must respect and
-the checklist for shipping one.
+A no-reading, no-failing flying game for a 4-year-old. `README.md` says what the
+game is; `CHANGELOG.md` says what shipped when. This file is the rules every
+change must respect, the map, and the checklist for shipping one.
+
+Per-feature implementation detail lives in a **WORKING RULES** comment at the top
+of the file it concerns. Read that file before changing it.
 
 ## Design rules (never break these)
 
 - **Zero text** in the UI: icons, silhouettes and numbers only. The harness audits
   every DOM text node. `<title>` and `alt=""` are fine; nothing else may render text.
-- **Nothing living gets shot, hit or destroyed**: targets, traffic, things that explode or
-  shatter are vehicles, machines and objects only (the *target* flocks are paper planes for
-  that reason). Living things are fine where nothing can happen to them -- an astronaut
-  floating in the station, on a spacewalk, in the rover, and the ambient birds in `ambient.js`,
-  which are not targets, not solids, carry `noSolid`/`noShatter` and are flown straight through
-  in a harness check. Make them hittable and they have to become paper planes too.
+- **Nothing living gets shot, hit or destroyed.** Targets, traffic and anything that
+  explodes or shatters are vehicles, machines and objects only — the *target* flocks
+  are paper planes for exactly this reason. Living things are fine where nothing can
+  happen to them: the astronaut in the station, on a spacewalk or in the rover, and
+  the ambient birds in `ambient.js`, which are not targets, not solids, carry
+  `noSolid`/`noShatter`, and are flown straight through in a harness check. Make
+  anything living hittable and it has to become a paper plane too.
 - **Nothing is ever taken away**: no score, no timers, no unlocks, no failure state.
   Every crash explodes and reassembles for free; every reward re-arms.
 - **Pointing, not timing**: every control is "aim at it", never "press at the right
@@ -23,122 +27,62 @@ the checklist for shipping one.
 - **Flight feel is tuned with the kid** (`TUNE` flight-feel block): don't retune it.
   Landing-assist strengths (`align*`, `touchdown*`, flare, rocket assist) may be
   weakened gradually as he improves.
+- **Readability beats realism.** Nothing gets darker or muddier; silhouettes stay
+  bold and the horizon stays clear. If an effect hides something he needs to see,
+  it goes — that has already overruled a brief twice.
 
-## Where things live
+## Architecture (these bite)
 
-- `cockpit/js/*.js` — classic scripts sharing one global scope, loaded in the order
-  listed in `cockpit/index.html`. Load order matters: a top-level `const`/`let`
-  used *at load time* must be declared in an earlier file (TDZ). Using it later,
-  inside a function, is fine.
-- `cockpit/js/tune.js` — every gameplay number (`TUNE`, `TUNE.rocketTune`, `rocketTune.starship`).
-  The Mars block is `TUNE.marsBase` (the base itself plus `.jumps`, `.boulders`, `.drone`).
-- `heli.js` — the helicopter's own flight model (`TUNE.heli`); it owns both the ground and the
-  air for that vehicle, so the plane path in `flight.js` never runs for it. **Sequential controls, one finger**:
-  a tap sets a fixed horizontal destination; up/down change altitude without cancelling travel,
-  and releasing them holds height. Freeze the picking camera for each gesture and
-  filter small finger jitter; do not re-aim from camera movement. Horizontal velocity
-  is independent of body yaw. The elevated helicopter camera shows cargo and the
-  ground, with a smooth downward look near the yard. Arrival automatically stops travel in a hover. No throttle and no mandatory
-  simultaneous touches. The touch point reaches it as `state.touchNX/NY` (NDC); the plane and
-  rocket ignore those entirely. Separate altitude controls and helicopter-only tuning changes
-  were explicitly authorized; preserve plane, rocket and Mars drone tuning.
-- `rocket.js` (Falcon / Starship spine), `recovery.js` (droneship, net boat, recovery ride),
-  `rover.js` (surface buggy) and `events.js` (the per-launch space event) load after `flight.js`
-  and before `main.js`; they call into each other only inside functions, so order among them is
-  safe as long as they all precede `main.js`.
-- Space events are drawn once per pad spawn and armed only by a real liftoff. An event may
-  never be required, block anything, or take anything away; keep every number in `TUNE.events`.
-- Buttons share a few fixed slots (`--stack-bottom` and the top-left corner). Two visible at once
-  and the one later in the DOM silently eats the tap -- the harness checks this across every
-  state. Decide a slot button's visibility *before* `updateRocket`'s rover / astronaut early
-  returns, or whatever was up when he climbed out stays up over the button he needs.
-- Set-pieces (`setpieces.js`) all run one loop: giant obvious thing -> one aim or one pulsing
-  control -> visible wind-up -> huge payoff -> free reset. **No unannounced bangs**: every
-  explosion or collapse gets a build first (beacons, rumble, the shared `#bigNum` countdown --
-  numerals only, and only while a wind-up runs). One hero effect each, structures and machines
-  only, and at most one new contextual button per feature.
-- `toyworld.js` — airport magnet yards, guided wash/welcome and color trails. All
-  settings live in `TUNE.toyWorld`. The fixed cargo and bubble pools never grow;
-  the trail is one capped buffer with logarithmic-depth shader support. Batch only
-  static siblings, leaving individually revealed construction pieces independent.
-  `twWashGuide` owns motion only during the optional wash. Keep magnet/bucket
-  eligibility exclusive. The limited winch measures the visible hook against cargo
-  top surfaces (including car cabins and block studs), not object centres. Keep
-  the hook/cargo contact and carry height consistent. Clear a dropped magnet's pickup lock only after he
-  moves away. Both airport variants must stay clear of the runway and launch pad.
-- `toyfinish.js` — pooled toy geometry/materials, fleet paint/glazing and fittings, mat finish and contact/downwash effects. Keep cargo bounds exact; preserve independently animated pieces when batching. Dispose vehicle-owned buffers once and keep world-owned buffers for the scene lifetime.
-- `workshop.js` — the low cargo ramp and musical pinwheels (`TUNE.toyWorld.slide` / `.garden`).
-  Loaded before `toyworld.js`; only its functions use toy-world globals. Keep the blue pad
-  directly tappable from the original pickup route. Cargo `dropped` intent survives the pickup
-  lock clearing, so high drops and a busy crane cannot strand it; pickup and replenishment clear
-  the intent. Dynamic demo balls/pulse rings opt out of static batching with
-  `userData.twDynamic`. The pinwheels use an inner activation radius and larger leave radius:
-  hovering never repeats their audio.
-- `eject.js` — one-tap rescue (`TUNE.eject`), loaded before `main.js`. Its early branch owns the empty vehicle model and camera until recovery; normal flight tuning stays untouched. Keep the visible icon secondary (32 px) with a separate 56 px target. Fold rotors before launch, resolve existing chutes/activities, use real surface contact and no damage/shatter APIs, preserve surface progress, and reuse the fixed rescue pool. On-foot astronauts are not abandoned vehicles. The focused `scripts/eject_*` runners cover touch tours, surface travel, interrupted input, offline caching and resource ownership.
-- `marsbase.js` — the Mars base (`TUNE.marsBase`). Built around wherever he lands, so the lit
-  pad is the rocket's own spot and driving back onto it is the way home; no new control.
-  Mars only — the Moon stays as it was. It also owns the things to do out there: dune jumps
-  (`.jumps`), the boulder field (`.boulders`) and the little drone (`.drone`). The jump *launch*
-  runs in `updateMarsToys` (before `updateRover`, so it sets the hop the rover's own gravity
-  then flies); the *tumble* runs in `marsLate` off `updateSetpiecesLate`, because `updateRover`
-  rewrites the mesh orientation every frame. The drone keeps its original point-to-go
-  on a sphere, so distances that decide "arrived" must be measured along the
-  ground, never through the air, or its own hover height keeps it permanently "far away".
-- The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`) says what counts
-  as a landing; everything else crashes, and a crash must stay free. Assist strengths are separate
-  knobs (`assist*`) -- the assist may stand him up, never rescue a last-second dive.
-- There is no weather/sky button; the sky moods stay in code (`state.sky`) for the harness.
-- Lighting lives in `scene.js` + `TUNE.light`: one sun at a real angle, one hemisphere fill, and
-  one shadow box that follows the camera. Two things about it are load-bearing. **The box resizes
-  to the scale he is working at** (`radius` flying / `radiusMid` on the ground / `radiusClose` in
-  the rover or drone): one size cannot resolve both an airliner and a 3 m rover. And **shadow
-  receiving is per-mesh, switched on only for the terrain chunks inside the box** — the ground is
-  most of the screen, so letting every distant chunk run the lookup was the biggest bill in the
-  pass. Anything lit that must take a shadow across a big flat face has to be Phong, not Lambert:
-  Lambert shades per vertex, so on the Mars sphere (40 m triangles) a rover's shadow landed as a
-  blob the size of a dune field.
-- `nozoom.js` loads FIRST and stops iOS Safari zooming: `gesturestart/change/end`, any touch with
-  more than one finger, and a touchend within 300 ms of the last one (double-tap zoom fires on the
-  second tap's touchend). All `passive: false, capture: true`. **This is safe only because the
-  game reads pointer events and nothing else** — pointer events fire before touch events and are
-  not cancelled by `preventDefault` on them. If a touch listener is ever added to input.js, check
-  this again. `user-scalable=no` is ignored by iOS and is not a defence.
-- Camera feel is `TUNE.camera` + `updateFeel`/`applyCamera` in `vehicle.js`. It moves the picture
-  and nothing else — no value in there is ever read by the flight model. `fovSpeed` is capped by
-  readability, not by taste: every degree wider makes the thing he is aiming at smaller. Shake is
-  a curve (`shakeGamma`) and hard-capped (`shakeCap`) so a bang can never hide a target; the
-  harness asserts both bounds. `cameraHitStop` freezes the MODEL, never the world.
-- `audio.js` — `TUNE.audio` has the master and a gain per layer. The ambient bed (`beds.*`) is one
-  looping brown-noise source whose gain, lowpass corner and beat are chosen by where he is;
-  `currentBedName()` decides. Big events are stacks, not samples (`bigBoom`, `catapultSound`,
-  `fireHiss`). `sfxPlace(x,y,z)` gives a pan and a falloff off the camera. Note the vehicle keys
-  are `helicopter` and `airlinerDelta`/`Jetblue`/`Emirates` — there is no "heli" or "airliner".
-- `ambient.js` — things that move on their own (`TUNE.ambient`): bird flocks, high airliners
-  with contrails, flags. **Everything in here is prefixed** — these files share one global scope
-  and a later `function foo` silently replaces an earlier one. `placeFlock` here was overwritten
-  by the paper-plane target placer in `landmarks.js` and every flock became a half-target that
-  could never be placed; nothing threw. The harness now checks no name is declared twice.
-- `sky.js` — atmosphere (`TUNE.sky`): the sun billboard and halo, the cockpit-only lens glow,
-  the drifting cirrus sheet, twinkling stars (one draw call, per-star phase in a shader) and the
-  per-body haze. **There is no post-processing stack and there is not going to be one**: every
-  glow in the game is an additive billboard on one shared texture (`glowSprite` for one,
-  `glowField` for many at one draw call). Leave `glowField` frustum-culled — disabling culling on
-  a static field draws it while he is looking the other way, for nothing.
-- `TUNE.palette` — the canonical ~21 colours. Every colour snaps to one unless it is an airliner
-  livery or a signal lamp. Add a new colour only if none of them is the right role.
-- `TUNE.water` — the sea is ONE quad with a scrolling normal map, not geometry. Its ripple
-  strength fades with altitude (`normalFade`): at full strength from a mile up the specular turns
-  the whole sea into white static. The texture is anchored in world space, or the sea slides
-  along with the aeroplane.
-- Flat shading is applied once, at the top of `scene.js`, by defaulting `flatShading: true` on the
-  two lit material constructors — don't chase it per literal.
-- `scripts/polish_check.js <tag>` — the polish rig: four vantage points in both camera views plus
-  frame time, draw calls and triangles for the three heaviest scenes, with the shadow pass priced
-  by an in-place A/B. It runs under swiftshader, which over-prices fill rate by a wide margin and
-  under-prices draw calls, so read `calls`/`tris` as the iPad proxy and `cpuMs` as a bound.
-- `scripts/headless_test.js` — the harness. `scripts/visual_baseline.json` — generated;
-  never edit by hand (`UPDATE_VISUAL=1` regenerates it after an intentional look change).
-- `deploy/` — the droplet deploy script and the nginx reference config.
+- `cockpit/js/*.js` are classic scripts sharing **one global scope**, loaded in the
+  order listed in `cockpit/index.html`. Two consequences, both of which have cost a
+  day: a top-level `const`/`let` used *at load time* must be declared in an earlier
+  file (using it later, inside a function, is fine); and a later `function foo`
+  **silently replaces** an earlier one of the same name. The harness checks that no
+  top-level name is declared in two files. Prefix anything new.
+- Buttons share a few fixed slots (`--stack-bottom`, the top-left corner). Two
+  visible at once and the one later in the DOM silently eats the tap — the harness
+  checks this across every state. Decide a slot button's visibility *before*
+  `updateRocket`'s rover / astronaut early returns, or whatever was up when he
+  climbed out stays up over the button he needs.
+- Set-pieces (`setpieces.js`) all run one loop: giant obvious thing → one aim or one
+  pulsing control → visible wind-up → huge payoff → free reset. **No unannounced
+  bangs**: every explosion or collapse gets a build first (beacons, rumble, the
+  shared `#bigNum` countdown — numerals only, and only while a wind-up runs). One
+  hero effect each, structures and machines only, at most one new contextual button.
+- Space events are drawn once per pad spawn and armed only by a real liftoff. An
+  event may never be required, block anything, or take anything away.
+- The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`)
+  says what counts as a landing; everything else crashes, and a crash stays free.
+  Assist strengths are separate knobs (`assist*`) — the assist may stand him up,
+  never rescue a last-second dive.
+- **No post-processing stack, and there is not going to be one.** Every glow is an
+  additive billboard on one shared texture (`glowSprite`, or `glowField` for many at
+  one draw call). On an iPad a full-screen bloom costs more than all of them together.
+- There is no weather/sky button; the sky moods stay in code (`state.sky`).
+
+## The map
+
+| file | what it owns |
+|---|---|
+| `nozoom.js` | loads **first**; stops iOS Safari zooming (pinch, multi-touch, double-tap) |
+| `tune.js` | every gameplay number: `TUNE`, `.rocketTune`, `.marsBase`, `.heli`, `.toyWorld`, `.eject`, `.light`, `.sky`, `.water`, `.audio`, `.camera`, `.ambient`, `.palette` |
+| `terrain.js` `scene.js` | the world, the sea, lighting and the shadow rig |
+| `sky.js` | sun, halo, haze, cirrus, stars, the shared glow helpers |
+| `flight.js` | the plane flight model and the frame loop |
+| `heli.js` | the helicopter's own model — it owns ground *and* air for that vehicle |
+| `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship/net boat, surface buggy, per-launch event |
+| `setpieces.js` `marsbase.js` | demolition, tower-catch, fire rig, carrier / the Mars base and its toys |
+| `toyworld.js` `workshop.js` `toyfinish.js` | airport magnet yards, ramp and pinwheels, toy/fleet finish |
+| `eject.js` | one-tap rescue |
+| `ambient.js` | birds, high airliners, flags — things that move on their own |
+| `audio.js` | the mix, the ambient beds, layered events |
+| `vehicle.js` | vehicle models, the cameras and camera feel |
+| `main.js` | the rAF loop and the `window.__lp` test surface |
+
+`TUNE.palette` is the canonical ~21 colours; every colour snaps to one unless it is
+an airliner livery or a signal lamp. Flat shading is applied once, at the top of
+`scene.js`, by defaulting `flatShading: true` on the two lit material constructors —
+don't chase it per literal.
 
 ## Adding a file under `cockpit/js/`
 
@@ -146,33 +90,51 @@ the checklist for shipping one.
 2. Add `"./js/….js"` to `ASSETS` in `cockpit/sw.js`.
 3. Bump `CACHE_NAME` in `cockpit/sw.js`.
 
+## Testing habits
+
+- **Behavioural checks over existence checks.** The first audit found a train that
+  had never rendered, a glide arrow with the wrong sign and "shelved" vehicles that
+  were still tappable — all under a green harness that only checked things existed.
+- Long sections reuse one page and state carries between checks. Reset what you
+  touch, or give a check its own page (`newPage`) when it lands or respawns.
+- The harness stubs `requestAnimationFrame` and fires only the *last* queued
+  callback per pump — game code must not queue its own rAF callbacks for timing
+  (use `setTimeout` or `frameCount`).
+- **Never A/B a performance change in blocks.** Sampling A three times then B three
+  times lets machine drift land on one side; it once priced a layer at +19% that
+  interleaved sampling showed to be free. Alternate the samples.
+- Evidence, screenshots and recordings are **never committed** — they go in the
+  gitignored `evidence/`. `scripts/*_check.js` write there.
+
+## Perf
+
+`scripts/polish_check.js <tag>` renders four vantage points in both camera views and
+times the heaviest scenes with interleaved A/Bs. It runs under **SwiftShader, a
+software rasteriser — not an iPad**. It over-prices fill rate by a wide margin and
+under-prices draw calls, so read `calls`/`tris` as the hardware proxy and `cpuMs`
+only as a bound.
+
 ## Ship checklist
 
-1. Work on `cockpit-3d`. Keep `main` deployable.
-2. Bump `CACHE_NAME` in `cockpit/sw.js` (and `sw.js` for the root build) whenever
-   anything under `cockpit/` (or the root build) changes — `deploy.sh` refuses to
-   deploy otherwise, measured against the rev currently published.
-3. Run the harness and get it green (all checks; it prints the count):
+1. Work on `cockpit-3d`. Keep `main` deployable. **Fetch first** — other work ships
+   to this repo too, and the published version may be ahead of you.
+2. Bump `CACHE_NAME` in `cockpit/sw.js` (and root `sw.js`) whenever anything under
+   `cockpit/` changes — `deploy.sh` refuses otherwise, measured against the rev
+   currently published. Match `/v\d+/`, don't guess the current number, and check
+   the file afterwards: a `sed` for a version that isn't there is a silent no-op.
+3. Harness green (it prints the count):
    ```
    CHROME_HEADLESS_SHELL=/path/to/chrome-headless-shell \
    NODE_PATH=/path/to/node_modules \
    node scripts/headless_test.js
    ```
    It serves the repo on :8177 and refuses to start if that port is busy. Don't edit
-   `cockpit/` while it runs — pages loaded later in the run would see mixed code.
-4. For anything visual, render it and *look* at it (the harness hashes only eight scenes).
+   `cockpit/` while it runs — pages loaded later would see mixed code.
+   `UPDATE_VISUAL=1` regenerates `scripts/visual_baseline.json` after an intentional
+   look change; never edit that file by hand.
+4. For anything visual, render it and *look* at it — the harness hashes eight scenes.
 5. `git push origin cockpit-3d && git checkout main && git merge --no-ff cockpit-3d && git push`
 6. `ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'`
-   Rollback: `bash deploy/deploy.sh --rollback` (swaps to the previously published rev).
-7. The iPad picks the new version up on its next launch from the runway menu.
-
-## Testing habits
-
-- Prefer behavioural checks over existence checks: the first audit found a train that
-  had never rendered, a glide arrow with the wrong sign and "shelved" vehicles that
-  were tappable, all under a green harness that only checked that things existed.
-- Long sections reuse one page; state carries between checks. Reset what you touch,
-  or give a check its own page (`newPage`) when it lands or respawns.
-- The harness stubs `requestAnimationFrame` and only fires the *last* queued
-  callback per pump — game code must not queue its own rAF callbacks for timing
-  (use `setTimeout` or `frameCount`).
+   Rollback: `bash deploy/deploy.sh --rollback`.
+7. Add a paragraph to `CHANGELOG.md`.
+8. The iPad picks it up on its next launch from the runway menu.
