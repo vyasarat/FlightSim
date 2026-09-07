@@ -10,6 +10,21 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v91 — the car no longer drives underground
+
+Driving over changing ground dropped the car through the road. Three separate
+causes, all fixed: the support surface snapped between the road deck and the
+terrain the instant he crossed the shoulder, and those are up to 17 m apart on
+an embankment, so it now blends across the shoulder and a high deck has a
+guardrail that actually holds him. The nearest-point search on the road bisected
+by z and then looked six samples either side, which returns a point from the
+wrong stretch wherever the road curves — it is an exact search now, and the
+height is interpolated along the segment instead of snapping to the nearest
+sample. And the exit spurs started at ground level rather than at the height of
+the carriageway they leave, putting a five-metre step at every junction. Worst
+case measured across a full coast-to-coast run: 7.12 m below the road, now
+0.14 m. There is a harness check for it.
+
 ## v90 — the car and the coast-to-coast highway
 
 A stealth-grey electric SUV and a real divided highway from the New York airport

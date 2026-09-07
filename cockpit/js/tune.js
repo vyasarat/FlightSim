@@ -178,6 +178,9 @@ const TUNE = {
       { s: 0.90, side: -1, icon: "plane", to: "caAirport" },
     ],
     spurLen: 320, spurW: 16, spurCapture: 3.2,   // spur capture radius, in road widths
+    spurDescend: 0.55,           // fraction of the spur spent coming down from the deck to
+                                 // the ground. Without it the blend is smoothstep(0, undefined)
+                                 // and every road vertex becomes NaN.
     boardH: 16, boardW: 22,
     charge: { stalls: 4, canopyW: 34, canopyD: 22, canopyH: 9, pulse: 2.2, seconds: 10 },
     interchange: { at: [0.045, 0.955], ramps: 4, r: 150, rise: 26, deckT: 2.2, pillarR: 3.4 },
@@ -204,6 +207,12 @@ const TUNE = {
     laneKeep: { lookAhead: 1.5, minAhead: 30, gain: 3.4, offRoadGain: 1.4, override: 0.75 },
                                  // `override`: how much stick fully overrides the assist
     onRoadHalf: 24,              // this far from the centreline still counts as on the road
+    // Leaving the road must be a slope, not a cliff, and a step in the deck must
+    // be taken at once. He drove underground without all three of these.
+    shoulderBlend: 26,           // metres of ramp between the deck and the ground
+    suspension: 7,               // how fast he settles when the ground falls away
+    settleMax: 1.2,              // a drop bigger than this is a step, not a crest
+    railAt: 4,                   // a deck this high above the ground has a rail that holds him
     crashSpeed: 18,              // below this a contact is a bump, not a bang
     bodyL: 9.2, bodyW: 4.2, bodyH: 2.6,
     camChase: [17, 6.5], camLag: 5,

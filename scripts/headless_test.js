@@ -4386,15 +4386,24 @@ function check(name, ok, extra) {
       L.noRender = true; L.api.skipScreens();
       L.api.setVehicle("car"); L.api.placeOnRunway();
       const out = { roadLen: Math.round(L.highway.length) };
-      let off = 0, maxLat = 0;
+      let off = 0, maxLat = 0, worstSink = -1e9, sinkAt = null;
+      const laneOuter = L.HW.medianW / 2 + L.HW.laneW * L.HW.lanes;
       for (let i = 0; i < 60 * 400; i++) {
         L.api.setStick(0, 0);                     // finger down, no steering at all
         L.update(1 / 60);
         const n = L.hwyNearest(st.x, st.z);
         maxLat = Math.max(maxLat, Math.abs(n.lateral));
         if (Math.abs(n.lateral) > L.CAR.onRoadHalf) off++;
+        // how far under the surface he is driving on: the thing he could SEE
+        const t = L.carRoadTarget();
+        if (t && Math.abs(t.lateral) < laneOuter) {
+          const below = t.y - st.y;
+          if (below > worstSink) { worstSink = below; sinkAt = { sec: +(i / 60).toFixed(1), sFrac: +(n.s / L.highway.length).toFixed(3), spur: !!t.spur }; }
+        }
         if (n.s > L.highway.length - 260) { out.secs = +(i / 60).toFixed(1); break; }
       }
+      out.worstBelowDeck = +worstSink.toFixed(2);
+      out.sinkAt = sinkAt;
       L.api.clearStick();
       out.offRoadFrames = off; out.maxLateral = Math.round(maxLat);
       out.crashes = L.flags.carCrashes || 0;
@@ -4402,6 +4411,8 @@ function check(name, ok, extra) {
       out.frameErrors = L.frameErrors || 0;
       return out;
     }, {});
+    check("car: he never drives under the road he is on -- the deck, the shoulder and the exit spurs are one continuous surface",
+      cross.worstBelowDeck < 0.6, JSON.stringify({ worstBelowDeck: cross.worstBelowDeck, at: cross.sinkAt }));
     check("car: a finger held from the New York spawn, with nothing steered at all, drives the whole highway to California in four to five minutes and never once leaves the road",
       cross.secs > 235 && cross.secs < 305 && cross.offRoadFrames === 0 &&
       cross.maxLateral < 20 && cross.crashes === 0 && cross.frameErrors === 0, JSON.stringify(cross));
