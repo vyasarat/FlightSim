@@ -656,9 +656,25 @@
     margin-left: -11px;
     will-change: transform;
   }
+  /* A small secondary icon; the transparent 56px target lives in the unused
+     dashboard corner, below and away from the flight controls. */
+  #ejectBtn { position:fixed; right:calc(8px + env(safe-area-inset-right)); bottom:calc(2px + env(safe-area-inset-bottom)); width:56px; height:56px; padding:12px; border:0; background:transparent; color:#bfeaff; z-index:35; touch-action:none; }
+  #ejectBtn svg { width:32px; height:32px; pointer-events:none; }
+  #ejectBtn .returnIcon, #ejectBtn[data-mode="return"] .seatIcon { display:none; }
+  #ejectBtn[data-mode="return"] .returnIcon { display:block; }
+  #ejectBtn.hidden { display:none; }
+  #ejectBtn:active svg { transform:scale(.92); }
+  body.ejecting .roundBtn, body.ejecting #throttleBtn { visibility:hidden!important; pointer-events:none!important; transition:none!important; }
+  body.ejecting .pillar, body.ejecting #brow, body.ejecting #progressStrip, body.ejecting #aimMarker, body.ejecting #homeArrow, body.ejecting #bigNum, body.ejecting #alarm, body.ejecting #glideGuide, body.ejecting #wingman, body.ejecting #heliTarget, body.ejecting #photo, body.ejecting #flash { visibility:hidden!important; }
+  #ejectVeil { position:fixed; inset:0; background:#e8f4fc; opacity:0; z-index:34; pointer-events:none; }
 </style>
 </head>
 <body>
+<button id="ejectBtn" class="hidden" aria-label="Eject" data-mode="eject">
+  <svg class="seatIcon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 29h17M10 25h12l-3-8h-7V9H7v12z"/><circle cx="15" cy="11" r="2.2" fill="#ffd23e" stroke="none"/><path d="M23 16V3m-4 4 4-4 4 4"/></svg>
+  <svg class="returnIcon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11a10 10 0 1 1-1 11M3 6v7h7M14 23l2-13 2 13m-6-5h8"/></svg>
+</button>
+<div id="ejectVeil"></div>
 <div id="hud">
   <div id="pillarL" class="pillar"></div>
   <div id="pillarR" class="pillar"></div>
@@ -1069,6 +1085,7 @@
 <script src="js/marsbase.js"></script>
 <script src="js/workshop.js"></script>
 <script src="js/toyworld.js"></script>
+<script src="js/eject.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

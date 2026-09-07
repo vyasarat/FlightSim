@@ -73,6 +73,7 @@ the checklist for shipping one.
   the intent. Dynamic demo balls/pulse rings opt out of static batching with
   `userData.twDynamic`. The pinwheels use an inner activation radius and larger leave radius:
   hovering never repeats their audio.
+- `eject.js` — one-tap rescue (`TUNE.eject`), loaded before `main.js`. Its early branch owns the empty vehicle model and camera until recovery; normal flight tuning stays untouched. Keep the visible icon secondary (32 px) with a separate 56 px target. Fold rotors before launch, resolve existing chutes/activities, use real surface contact and no damage/shatter APIs, preserve surface progress, and reuse the fixed rescue pool. On-foot astronauts are not abandoned vehicles. The focused `scripts/eject_*` runners cover touch tours, surface travel, interrupted input, offline caching and resource ownership.
 - `marsbase.js` — the Mars base (`TUNE.marsBase`). Built around wherever he lands, so the lit
   pad is the rocket's own spot and driving back onto it is the way home; no new control.
   Mars only — the Moon stays as it was. It also owns the things to do out there: dune jumps

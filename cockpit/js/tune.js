@@ -586,6 +586,25 @@ const TUNE = {
   debrisCount: 26,
   reassembleDelay: 2.0,
 
+  eject: {
+    frameTime: 0.4, open: 0.9, launch: 1.1, unfold: 0.6, descent: 7, celebrate: 1, returnTime: 1.2,
+    lift: 18, clearanceMargin: 10, seatScale: 2, transitHeight: 60, fallTime: 3.8, fallGravity: 15, emptySpeed: 32, emptyLift: 12,
+    hatchAngle: 1.8, canopyPop: 5, rotorSlide: 6, rotorLift: 1.5, rotorFold: 0.92,
+    emptyRoll: 0.16, emptyPitch: 0.7, emptyPitchRate: 0.1, clearFraction: 0.45,
+    seatSide: 4, landingDrift: 10, celebrationHop: 0.35, sway: 0.045,
+    cameraRate: 3, cameraMin: 32, cameraMax: 95, cameraEmptyWeight: 0.4, cameraImpactHold: 1.3, fastRate: 3.5,
+    families: {
+      prop: { opening: 1, hatch: 'canopy', seat: 'spring', front: 0.6, roof: 1.2, color: 0xffd23e },
+      fighter: { opening: 0.7, hatch: 'pop', seat: 'rocket', front: 4, roof: 0.9, color: 0xe0483e },
+      airliner: { opening: 1.2, hatch: 'door', seat: 'rescue', front: 4, roof: 1.05, color: 0xffd23e },
+      helicopter: { opening: 1.4, hatch: 'door', seat: 'spring', front: 0.4, roof: 1.7, color: 0x20a39e },
+      rocket: { opening: 1.1, hatch: 'capsule', seat: 'capsule', front: 0, roof: 0, color: 0xf2f4f7 },
+      starship: { opening: 1.3, hatch: 'capsule', seat: 'capsule', front: 0, roof: 0, color: 0xb8bec8 },
+      rover: { opening: 1, hatch: 'panel', seat: 'spring', front: 0, roof: 1.6, color: 0xffd23e },
+      drone: { opening: 1.4, hatch: 'panel', seat: 'capsule', front: 0, roof: 1.6, color: 0xd4a72c }
+    }
+  },
+
   vehicles: {
     prop:             { cruiseSpeed: 60, turnRateDeg: 18, pitchLimitDeg: 30, bankLimitDeg: 45, accel: 16, capped: true, size: 1.0, hasGear: true },
     helicopter:       { cruiseSpeed: 90, turnRateDeg: 55, pitchLimitDeg: 22, bankLimitDeg: 26, accel: 10, capped: true, size: 1.05, hasGear: false, heli: true },   // its own model: TUNE.heli
