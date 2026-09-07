@@ -3,6 +3,7 @@
 // No collision/damage API is used for the abandoned vehicle's impact.
 const eject = { active:false, phase:'idle', t:0, total:0, fast:false, cycles:0, pool:null, last:null };
 const ejUp = new THREE.Vector3(0,1,0), ejContactPoint = new THREE.Vector3(), ejCameraAim = new THREE.PerspectiveCamera();
+const ejFitBack=new THREE.Vector3(),ejFitRight=new THREE.Vector3(),ejFitUp=new THREE.Vector3(),ejFitPoint=new THREE.Vector3();
 function ejectFamily() {
   if (marsDroneActive()) return 'drone';
   if (roverActive()) return 'rover';
@@ -53,7 +54,8 @@ function ejectBuildPool() {
   const splash=new THREE.Group();root.add(splash);
   const waterMat=new THREE.MeshBasicMaterial({color:0x5ff1ff,transparent:true,opacity:1});
   const drops=[];for(let i=0;i<10;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.7,6,4),waterMat);splash.add(m);drops.push(m);}
-  eject.pool={root,seat,pilot,capsule,thrusters,canopy,lines,flame,raft,hatch,lid,bubble,rim,yellow,splash,drops,waterMat};
+  const canopyBounds=new THREE.Box3().setFromObject(canopy);
+  eject.pool={root,seat,pilot,capsule,thrusters,canopy,canopyBounds,lines,flame,raft,hatch,lid,bubble,rim,yellow,splash,drops,waterMat};
   return eject.pool;
 }
 function ejectSurface(x,z) { return Math.max(terrainEff(x,z),TUNE.waterLevel); }
@@ -276,6 +278,21 @@ function updateEjection(realDt) {
   const separation=showEmpty?focus.distanceTo(emptyFocus):0;
   const distance=clamp(E.cameraMin+eject.bodyExtent*.65+separation*.3,E.cameraMin,E.cameraMax);
   const desired=centre.clone().addScaledVector(eject.forward,-distance*.8).addScaledVector(eject.side,distance*.55).addScaledVector(eject.up,distance*.55);
+  if(eject.family==='helicopter'&&p.seat.visible){
+    // Fit the reserved full canopy and the falling toy's contact point above
+    // the dashboard. Flight/picking cameras never read this rescue-only fit.
+    ejFitBack.copy(desired).sub(centre);let reach=ejFitBack.length();ejFitBack.normalize();
+    ejFitRight.crossVectors(eject.up,ejFitBack).normalize();ejFitUp.crossVectors(ejFitBack,ejFitRight).normalize();
+    const tan=Math.tan(camera.fov*DEG/2)*E.cameraFrameMargin;
+    const bottom=Math.max(.2,2*el.dash.getBoundingClientRect().top/innerHeight-1);
+    const fit=point=>{ejFitPoint.copy(point).sub(centre);const x=ejFitPoint.dot(ejFitRight),y=ejFitPoint.dot(ejFitUp);reach=Math.max(reach,ejFitPoint.dot(ejFitBack)+Math.max(Math.abs(x)/(tan*camera.aspect),Math.abs(y)/(tan*(y<0?bottom:1))));};
+    if(showEmpty)fit(emptyFocus);
+    // The seat's billboard orientation is finalized below. Its canopy is
+    // rotationally symmetric, so reserve it in the stable upright frame here.
+    const b=p.canopyBounds;
+    for(const x of [b.min.x,b.max.x])for(const y of [0,b.max.y])for(const z of [b.min.z,b.max.z])fit(ejContactPoint.copy(focus).addScaledVector(eject.forward,x*p.seat.scale.x).addScaledVector(eject.up,y*p.seat.scale.y).addScaledVector(eject.side,z*p.seat.scale.z));
+    desired.copy(centre).addScaledVector(ejFitBack,reach);
+  }
   camera.position.lerp(desired,1-Math.exp(-E.cameraRate*realDt));camera.up.copy(eject.up);ejCameraAim.position.copy(camera.position);ejCameraAim.up.copy(eject.up);ejCameraAim.lookAt(centre);camera.quaternion.slerp(ejCameraAim.quaternion,1-Math.exp(-E.cameraRate*realDt));
   p.seat.up.copy(eject.up);p.seat.lookAt(camera.position.clone().addScaledVector(eject.up,-camera.position.clone().sub(p.seat.position).dot(eject.up)));
   p.thrusters.visible=(eject.vacuum||eject.phase==='transit')&&p.canopy.visible;

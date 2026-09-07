@@ -594,7 +594,7 @@ const TUNE = {
     hatchAngle: 1.8, canopyPop: 5, rotorSlide: 6, rotorLift: 1.5, rotorFold: 0.92,
     emptyRoll: 0.16, emptyPitch: 0.7, emptyPitchRate: 0.1, clearFraction: 0.45,
     seatSide: 4, landingDrift: 10, celebrationHop: 0.35, sway: 0.045,
-    cameraRate: 3, cameraMin: 32, cameraMax: 95, cameraEmptyWeight: 0.4, cameraImpactHold: 1.3, fastRate: 3.5,
+    cameraRate: 3, cameraMin: 32, cameraMax: 95, cameraEmptyWeight: 0.4, cameraFrameMargin: 0.82, cameraImpactHold: 1.3, fastRate: 3.5,
     families: {
       prop: { opening: 1, hatch: 'canopy', seat: 'spring', front: 0.6, roof: 1.2, color: 0xffd23e },
       fighter: { opening: 0.7, hatch: 'pop', seat: 'rocket', front: 4, roof: 0.9, color: 0xe0483e },
