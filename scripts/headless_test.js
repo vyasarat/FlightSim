@@ -4371,6 +4371,138 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-STEER drag right turns right, everywhere ----------
+  {
+    // Measured as ACCUMULATED signed rotation, in degrees turned to the RIGHT.
+    //
+    // Do not use the endpoint cross product for this. It is sin(theta), so a
+    // sweep past 180 degrees wraps and reports the exact opposite direction --
+    // which is how the first version of this check passed a rover that steered
+    // backwards. The rover turns 218 degrees in two seconds; the trap is wide open.
+    const { page } = await newPage(1180, 820);
+    const o = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true;
+      const out = {};
+      const V = (x, y, z) => new THREE.Vector3(x, y, z);
+      const DEGS = 180 / Math.PI;
+
+      // degrees turned right, accumulated a frame at a time in the vehicle's own frame
+      const sweepFrame = (frames, step, getF, getUp) => {
+        let total = 0;
+        for (let i = 0; i < frames; i++) {
+          const before = getF().clone(), up = getUp().clone();
+          step();
+          total -= Math.asin(clamp(before.cross(getF()).dot(up), -1, 1)) * DEGS;
+        }
+        return +total.toFixed(1);
+      };
+      // ... and for the heading-based vehicles: heading UP is counter-clockwise (left)
+      const sweepHeading = (frames, step) => {
+        let total = 0;
+        for (let i = 0; i < frames; i++) { const h0 = st.heading; step(); total -= wrapPi(st.heading - h0) * DEGS; }
+        return +total.toFixed(1);
+      };
+
+      const roverOn = (bodyIdx, chase, bank) => {
+        const b = L.BODIES[bodyIdx];
+        L.api.setVehicle("starship"); L.api.placeOnRunway();
+        st.dest = b.name; st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 1;
+        const n = V(0.62, 0.5, 0.6).normalize();
+        st.x = b.x + n.x * (b.r + 12); st.y = b.y + n.y * (b.r + 12); st.z = b.z + n.z * (b.r + 12);
+        L.update(1 / 60); L.roverDeploy(); L.update(1 / 60);
+        L.api.setView(chase);
+        for (let i = 0; i < 60; i++) { L.api.setThrottle(true); L.update(1 / 60); }
+        const d = sweepFrame(120, () => { L.api.setThrottle(true); L.api.setStick(bank, 0); L.update(1 / 60); },
+                             () => L.rover.f, () => L.rover.n);
+        L.api.setThrottle(false); L.api.clearStick();
+        return d;
+      };
+
+      // the aeroplane in the air has always been right: it is the reference
+      L.api.setVehicle("prop"); L.api.placeOnRunway();
+      st.phase = "AIRBORNE"; st.y = 400; st.speed = st.vp.cruiseSpeed;
+      for (let i = 0; i < 30; i++) L.update(1 / 60);
+      out.planeRight = sweepHeading(120, () => { L.api.setStick(1, 0); L.update(1 / 60); });
+      L.api.clearStick();
+
+      out.moonChaseRight   = roverOn(0, true, 1);
+      out.moonCockpitRight = roverOn(0, false, 1);
+      out.marsChaseRight   = roverOn(1, true, 1);
+      out.marsCockpitRight = roverOn(1, false, 1);
+      out.marsChaseLeft    = roverOn(1, true, -1);
+
+      // The helicopter has no yaw stick any more -- the edge-yaw of the old
+      // point-to-go model is gone, replaced by tap-a-destination. The equivalent
+      // question is whether it yaws the right way TOWARD a destination, so put
+      // one 300 m off its right-hand side and watch which way it turns.
+      L.api.setVehicle("helicopter"); L.api.placeOnRunway();
+      st.phase = "AIRBORNE"; st.y = 200; st.heading = 0;
+      for (let i = 0; i < 30; i++) L.update(1 / 60);
+      {
+        const fwd = V(-Math.sin(st.heading), 0, -Math.cos(st.heading));
+        const right = fwd.clone().cross(V(0, 1, 0)).normalize();   // facing fwd, up +y => right
+        L.heli.target = { x: st.x + right.x * 300, y: st.y, z: st.z + right.z * 300 };
+        out.heliToRight = sweepHeading(120, () => {
+          L.heli.target = { x: st.x + right.x * 300, y: st.y, z: st.z + right.z * 300 };
+          L.update(1 / 60);
+        });
+      }
+      st.touching = false;
+
+      // the Mars drone has no stick -- it steers itself. Put a target to its
+      // right and it must turn right to reach it.
+      {
+        const b = L.BODIES[1];
+        L.api.setVehicle("starship"); L.api.placeOnRunway();
+        st.dest = "mars"; st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 1;
+        const n = V(0.62, 0.5, 0.6).normalize();
+        st.x = b.x + n.x * (b.r + 12); st.y = b.y + n.y * (b.r + 12); st.z = b.z + n.z * (b.r + 12);
+        L.update(1 / 60); L.roverDeploy();
+        for (let i = 0; i < 60 * 3; i++) { L.api.setThrottle(true); L.update(1 / 60); }
+        L.api.setThrottle(false);
+        const dr = L.mars.drone;
+        // park the rover beside it so the button comes up, then fly
+        const dn = V(dr.x - b.x, dr.y - b.y, dr.z - b.z).normalize();
+        let t = V(1, 0, 0); if (Math.abs(dn.x) > 0.9) t = V(0, 1, 0);
+        const tan = t.clone().cross(dn).normalize();
+        const R = b.r + 0.9;
+        const px = dr.x - tan.x * 10, py = dr.y - tan.y * 10, pz = dr.z - tan.z * 10;
+        const pn = V(px - b.x, py - b.y, pz - b.z).normalize();
+        L.rover.x = b.x + pn.x * R; L.rover.y = b.y + pn.y * R; L.rover.z = b.z + pn.z * R;
+        L.rover.n.copy(pn); L.rover.f.copy(tan); L.rover.h = 0; L.rover.vh = 0; L.rover.speed = 0;
+        L.update(1 / 60);
+        L.marsDronePress(); L.update(1 / 60);
+        for (let i = 0; i < 90; i++) L.update(1 / 60);          // get it airborne and steady
+        // a destination 200 m off its right-hand side
+        const right = dr.f.clone().cross(dr.n).normalize();
+        const tgt = { x: dr.x + right.x * 200, y: dr.y + right.y * 200, z: dr.z + right.z * 200 };
+        out.droneRight = sweepFrame(90, () => { dr.home = false; dr.target = tgt;
+          L.state.touching = false; L.mars.drone.forcedTarget = tgt;
+          // steer it by hand the way updateMarsDrone would, using its own maths
+          const to = new THREE.Vector3(tgt.x - dr.x, tgt.y - dr.y, tgt.z - dr.z);
+          to.addScaledVector(dr.n, -to.dot(dr.n)).normalize();
+          const cr = dr.f.clone().cross(to);
+          let cmd = -clamp(cr.dot(dr.n) * 3, -1, 1);
+          dr.turn += (cmd * L.MB.drone.turnRate - dr.turn) * Math.min(1, L.MB.drone.turnAccel / 60);
+          if (dr.turn) dr.f.applyAxisAngle(dr.n, -dr.turn * DEG / 60).normalize();
+        }, () => dr.f, () => dr.n);
+      }
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("steering: drag right turns the nose right -- aeroplane, rover on the Moon and on Mars in both camera views -- and the helicopter and the Mars drone steer themselves the same way toward a destination on their right",
+      o.planeRight > 5 &&
+      o.moonChaseRight > 5 && o.moonCockpitRight > 5 &&
+      o.marsChaseRight > 5 && o.marsCockpitRight > 5 &&
+      o.marsChaseLeft < -5 &&
+      Math.abs(o.moonChaseRight - o.moonCockpitRight) < 1 &&
+      Math.abs(o.marsChaseRight - o.marsCockpitRight) < 1 &&
+      o.heliToRight > 5 && o.droneRight > 5 &&
+      o.frameErrors === 0, JSON.stringify(o));
+    await page.close();
+  }
+
   // ---------- T-ZOOM iOS Safari must never zoom the page ----------
   {
     const { page } = await newPage(1180, 820);

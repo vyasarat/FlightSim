@@ -10,6 +10,16 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v89 — the rover steered backwards
+
+Drag right turned the rover's nose left, and had done since it was built. One
+sign in `rover.js`: `turn` is applied as a negative rotation about the surface
+normal, so negating the stick on top of that inverted it. The auto-return path
+was always correct and is untouched. The Mars drone, the helicopter and the
+aeroplane were all checked and were already right. There is now a shared
+steering check that measures accumulated signed rotation for every vehicle that
+can be steered — the car will inherit it.
+
 ## v87 — toy-world and fleet visual polish
 
 The helicopter got a smooth two-tone shell, broad opaque glazing, metal
