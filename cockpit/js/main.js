@@ -157,6 +157,8 @@ window.__lp = {
   birdMesh, birds, flocks, highJets, ambFlags, updateAmbient, AMB,
   feel, cameraPunch, cameraHitStop, cameraNod, updateFeel, shakeNow, speedLines, triggerExplosion,
   nozoom, NOZOOM,
+  highway, HW, hwyNearest, hwySampleAt, hwyBuild, updateHighway, hwyTrafficNear, hwyKnockTraffic,
+  car, CAR, carActive, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
 
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,

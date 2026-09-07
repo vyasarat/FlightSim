@@ -430,6 +430,7 @@ function update(dt) {
       state.canRotate = false;
       state.approachLatch = false;
       if (state.vp.rocket) rocketAfterReassemble();
+      if (state.vp.car) carReassemble();      // back on the road, pointing the right way
       whoosh();
       boing();
       state.popTimer = 0.45;
@@ -447,6 +448,8 @@ function update(dt) {
     twWashGuide(dt);
   } else if (state.vp.rocket) {
     updateRocket(dt);
+  } else if (state.vp.car) {
+    updateCar(dt);          // its own model: it owns the road, the verge and the crash
   } else if (state.vp.heli) {
     updateHelicopter(dt);   // its own model: it owns the ground and the air alike
   } else if (state.phase === "TAXI" || state.phase === "ROLL") {
@@ -697,6 +700,7 @@ function update(dt) {
   const blinkOn = Math.sin(performance.now() * 0.004) > -0.3;
   for (const b of blinkers) if (!b.userData.override) b.visible = blinkOn;
 
+  updateHighway(dt);
   updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
   updateFeel(dt);            // field of view, bob, the nod and the hit-stop -- picture only
   applyCamera(dt);

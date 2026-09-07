@@ -10,6 +10,35 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v90 — the car and the coast-to-coast highway
+
+A stealth-grey electric SUV and a real divided highway from the New York airport
+to the California airport, so he can drive between his two cities instead of
+flying. Inspired-by only: the silhouette, the paint, the glass roof and the light
+bar — no badge and no wordmark anywhere, the same rule the airline liveries
+follow.
+
+The road is a spline through control points chosen to pass what he already
+knows: out over the harbour, past the mid-route city, along the lake shore,
+across the plains, through the mountains, over the canyon, down the desert and
+into the coast city. **The bridges and the tunnel are not authored.** The height
+profile is graded and slope-limited the way a real road is surveyed, and
+wherever the graded road ends up well above the ground it becomes a bridge on
+piers, and wherever the ground ends up above the road it becomes a tunnel: 800 m
+of bore through the mountain and 3.7 km of bridge, all emergent. Exits lead to
+short spurs, announced by big blue boards carrying one icon and no letters, and
+two of them have charging canopies. A stacked interchange at each city end is
+solid, so an aeroplane can fly into one and go bang like anything else.
+
+One finger drives it: finger down to go, drag to steer, drag up for an EV shove.
+Lane-keep is pure pursuit — it aims at a point on his lane a second and a half
+ahead — so holding a finger down with nothing steered drives the whole 12.5 km
+in about four and a half minutes without once leaving the road. Steering
+dominates the assist rather than switching it off, which is what makes holding a
+steer at an exit take the exit and then follow the spur. Off-road is bumpy,
+dusty and slower, and the assist walks him back to the road within six seconds
+of letting go.
+
 ## v89 — the rover steered backwards
 
 Drag right turned the rover's nose left, and had done since it was built. One

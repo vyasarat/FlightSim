@@ -24,6 +24,14 @@ function buildVehicleModel(key) {
     geometries.forEach(geo => geo.dispose()); materials.forEach(mat => mat.dispose());
     vehicleModel = null;
   }
+  if (key === "car") {
+    const g = buildCarModel();
+    g.visible = state.viewChase;
+    castsShadow(g);
+    scene.add(g);
+    vehicleModel = g;
+    return;
+  }
   const cols = TUNE.vehicleColors[key];
   const cA = parseInt(cols[0].slice(1), 16);
   const cB = parseInt(cols[1].slice(1), 16);
@@ -268,6 +276,7 @@ function shakeNow() {
 }
 
 function applyCamera(dt) {
+  if (state.vp.car) { carCamera(dt); return; }
   if (state.vp.rocket) { if (marsDroneActive()) marsDroneCamera(dt); else if (roverActive()) roverCamera(dt); else if (astroActive()) astroCamera(dt); else rocketCamera(dt); return; }
   camera.up.set(0, 1, 0);
   if (heliActive() && state.viewChase) {

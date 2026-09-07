@@ -143,6 +143,24 @@ const HEAVY = {
     return () => { st.speed = 0; };
   },
 
+  // The car sitting in the New York interchange with the traffic pool full: the
+  // heaviest thing the highway ever draws.
+  "interchange+traffic": () => {
+    const L = window.__lp, st = L.state;
+    L.api.skipScreens(); L.api.setVehicle("car"); L.api.placeOnRunway();
+    const target = L.HW.interchange.at[0] * L.highway.length;
+    for (let i = 0; i < 60 * 400; i++) {
+      L.api.setStick(0, 0); L.update(1 / 60);
+      if (L.hwyNearest(st.x, st.z).s > target) break;
+    }
+    for (let i = 0; i < 120; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+    window.__hwyInfo = {
+      traffic: L.highway.traffic.filter(t => t.alive).length,
+      roadKm: +(L.highway.length / 1000).toFixed(1),
+    };
+    return () => { L.api.setStick(0, 0); };
+  },
+
   "mars-base": () => {
     const L = window.__lp, st = L.state;
     L.api.skipScreens(); L.api.setVehicle("starship"); L.api.placeOnRunway();
@@ -314,6 +332,8 @@ if (require.main === module) (async () => {
     }
     const extra = await pg.evaluate(() => window.__yardInfo || null);
     if (extra) out.yards = extra;
+    const hwy = await pg.evaluate(() => window.__hwyInfo || null);
+    if (hwy) out.highway = hwy;
     perf.heavy[name] = out;
     console.log(`timed ${name}`);
     await pg.close();
