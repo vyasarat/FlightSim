@@ -1,4 +1,15 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// This file owns both the ground and the air for the helicopter: the plane path
+// in flight.js never runs for it. Sequential controls, one finger -- a tap sets a
+// fixed horizontal destination; up/down change altitude without cancelling
+// travel, and releasing them holds height. Freeze the picking camera for each
+// gesture and filter small finger jitter; never re-aim from camera movement.
+// Horizontal velocity is independent of body yaw. Arrival stops travel in a
+// hover. No throttle, and no state may ever need two simultaneous touches.
+// The touch point arrives as state.touchNX/NY (NDC); the plane and rocket ignore
+// those entirely. Separate altitude controls and helicopter-only tuning were
+// explicitly authorised -- preserve plane, rocket and Mars drone tuning.
 // Tap a destination, then adjust height with the up/down buttons. The destination
 // stays in world space while the camera moves and while the same finger changes
 // altitude. Hover cancels travel; releasing an altitude button holds that height.

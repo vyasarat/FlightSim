@@ -1,4 +1,19 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// Lighting is here + TUNE.light: one sun at a real angle, one hemisphere fill,
+// one shadow box that follows the camera. Two things are load-bearing. The box
+// RESIZES to the scale he is working at (radius flying / radiusMid on the ground
+// / radiusClose in the rover or drone): one size cannot resolve both an airliner
+// and a 3 m rover. And shadow receiving is per-mesh, switched on only for the
+// terrain chunks inside the box -- the ground is most of the screen, so letting
+// every distant chunk run the lookup was the biggest bill in the pass. Anything
+// lit that must take a shadow across a big flat face has to be Phong, not
+// Lambert: Lambert shades per vertex, so on the Mars sphere (40 m triangles) a
+// rover's shadow landed as a blob the size of a dune field.
+// TUNE.water: the sea is ONE quad with a scrolling normal map, not geometry. Its
+// ripple fades with altitude (normalFade) or the specular turns it to white
+// static from height, and the texture is anchored in WORLD space or the sea
+// slides along with the aeroplane.
 
 // ---------------------------------------------------------------------------
 // Flat-with-facets, everywhere, in one place. The alternative was chasing a

@@ -1,4 +1,12 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// Mars only -- the Moon stays as it was. The jump LAUNCH runs in updateMarsToys
+// (before updateRover, so it sets the hop the rover's own gravity then flies);
+// the TUMBLE runs in marsLate off updateSetpiecesLate, because updateRover
+// rewrites the mesh orientation every frame. The drone keeps its point-to-go on
+// a sphere, so any distance that decides "arrived" must be measured along the
+// ground, never through the air, or its own hover height keeps it permanently
+// far away.
 // ---------------------------------------------------------------------------
 // The Mars base. Landing on Mars used to be a patch of red ground with eight
 // glowing rocks on it; now it is somewhere -- glass domes, antenna masts, a

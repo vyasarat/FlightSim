@@ -66,7 +66,7 @@ Layout is token-driven (`--btn`, `--thr`, `--stack-bottom`, `--dash-h`, … in
 compact tier so nothing overlaps; the harness checks 844x390 for both a plane and
 the rocket with its stage button up.
 
-The rescue also works while parked, over water and in space. Helicopter/drone rotors move clear before launch; space rescues use a thruster canopy. Activity progress survives the return. See the [ejection play guide, evidence and release report](docs/ejection/HANDOFF.md).
+The rescue also works while parked, over water and in space. Helicopter/drone rotors move clear before launch; space rescues use a thruster canopy. Activity progress survives the return. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Vehicles
 
@@ -116,7 +116,7 @@ machinery, a textured play mat, a painted landing symbol, and pooled soft contac
 shadows. The rotor and winch ease into motion; faint downwash appears only near
 the ground. The separate altitude arrows remain the only helicopter movement
 buttons. Visual QA, performance evidence and the physical-device check live in
-[`docs/helicopter-polish/`](docs/helicopter-polish/).
+[CHANGELOG.md](CHANGELOG.md).
 
 The planes share smooth paint, opaque cockpit glazing and softened edges; airliners
 have cabin windows and contrasting engine housings. Rockets have smooth stage
@@ -164,7 +164,7 @@ construction pieces, ramp balls and pinwheels are fixed pools; repeated details 
 runner is `scripts/toyworld_test.js` (same browser environment as the full harness);
 its checks also run in `scripts/headless_test.js`. `scripts/heli_play_checks.js`
 (run alone with `node scripts/toyworld_test.js --helicopter`) adds actual touch trips from the vehicle picker through pickup, carrying, delivery
-and repeat pickup at phone/iPad sizes, without teleporting the helicopter. `scripts/workshop_test.js` adds ramp and high-drop play, `--garden` checks the complete pinwheel visit, and `--behavior` checks queued cargo, switching, re-arming and resource bounds. `--robot` checks delivery, greeting, departure, replay and exit; `--robot-behavior` covers greeting boundaries and resets. All also run in the full harness. `scripts/workshop_realtime.js` records a normal-clock touch tour without test-API movement. See [the workshop play guide](docs/playground/PLAY_GUIDE.md) for the local development server, evidence and parent guide. The focused toy-world runner writes `toyworld-magnet.png`,
+and repeat pickup at phone/iPad sizes, without teleporting the helicopter. `scripts/workshop_test.js` adds ramp and high-drop play, `--garden` checks the complete pinwheel visit, and `--behavior` checks queued cargo, switching, re-arming and resource bounds. `--robot` checks delivery, greeting, departure, replay and exit; `--robot-behavior` covers greeting boundaries and resets. All also run in the full harness. `scripts/workshop_realtime.js` records a normal-clock touch tour without test-API movement. Evidence these scripts write is local only (the gitignored `evidence/` folder), never committed. The focused toy-world runner writes `toyworld-magnet.png`,
 `toyworld-wash.png` and `toyworld-rainbow.png` to `qa-screenshots/`.
 
 ## The world: New York <-> California

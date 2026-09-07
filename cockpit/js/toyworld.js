@@ -1,4 +1,14 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// All settings live in TUNE.toyWorld. The fixed cargo and bubble pools never
+// grow; the trail is one capped buffer with logarithmic-depth shader support.
+// Batch only static siblings, leaving individually revealed construction pieces
+// independent. twWashGuide owns motion only during the optional wash. Keep
+// magnet/bucket eligibility exclusive. The limited winch measures the visible
+// hook against cargo TOP surfaces (car cabins, block studs), not object centres;
+// keep hook/cargo contact and carry height consistent. Clear a dropped magnet's
+// pickup lock only after he moves away. Both airport variants must stay clear of
+// the runway and the launch pad.
 // Three optional toys, with fixed pools. Only machines and loose toy cargo;
 // nothing here is registered as a living target or a collision wall.
 const TW = TUNE.toyWorld;

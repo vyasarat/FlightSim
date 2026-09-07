@@ -1,4 +1,11 @@
 "use strict";
+// WORKING RULES (moved here from CLAUDE.md)
+// TUNE.audio has the master and a gain per layer. The ambient bed (beds.*) is
+// one looping brown-noise source whose gain, lowpass corner and beat are chosen
+// by where he is; currentBedName() decides. Big events are stacks, not samples
+// (bigBoom, catapultSound, fireHiss). sfxPlace(x,y,z) gives a pan and a falloff
+// off the camera. The vehicle keys are `helicopter` and
+// `airlinerDelta`/`Jetblue`/`Emirates` -- there is no "heli" or "airliner".
 let audioCtx = null;
 let masterGain = null;
 let engineNodes = null;

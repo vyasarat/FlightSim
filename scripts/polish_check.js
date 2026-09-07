@@ -125,6 +125,24 @@ const HEAVY = {
     for (let i = 0; i < 60 * 8; i++) { L.update(1 / 60); park(); }
     return park;
   },
+  // The runway spawn with the toy world built. Both yards are constructed here --
+  // one per airport -- but they sit at opposite ends of the route, far beyond
+  // TW.visibleRange, so only the near one is ever DRAWN. The report says both
+  // numbers rather than pretending they are on screen together.
+  "runway-toyyards": () => {
+    const L = window.__lp, st = L.state;
+    L.api.skipScreens(); L.api.setVehicle("prop"); L.api.placeOnRunway();
+    for (let i = 0; i < 240; i++) L.update(1 / 60);
+    const ys = L.toyWorld.yards;
+    window.__yardInfo = {
+      built: ys.length,
+      visible: ys.filter(y => y.g.visible).length,
+      spread: ys.length > 1 ? Math.round(Math.hypot(ys[0].x - ys[1].x, ys[0].z - ys[1].z)) : 0,
+      visibleRange: L.TW.visibleRange,
+    };
+    return () => { st.speed = 0; };
+  },
+
   "mars-base": () => {
     const L = window.__lp, st = L.state;
     L.api.skipScreens(); L.api.setVehicle("starship"); L.api.placeOnRunway();
@@ -294,6 +312,8 @@ if (require.main === module) (async () => {
       }, setup.toString());
       out[chase ? "chase" : "cockpit"] = r;
     }
+    const extra = await pg.evaluate(() => window.__yardInfo || null);
+    if (extra) out.yards = extra;
     perf.heavy[name] = out;
     console.log(`timed ${name}`);
     await pg.close();
@@ -310,7 +330,7 @@ if (require.main === module) (async () => {
     for (const view of ["chase", "cockpit"]) {
       const r = v[view];
       const sh = r.noShadowMs === undefined ? "" : `   shadow +${String(r.shadowPct).padStart(5)}%   glow +${String(r.glowPct).padStart(5)}% (${r.glowObjects})`;
-      console.log(`  ${k.padEnd(16)} ${view.padEnd(8)} cpu ${String(r.cpuMs).padStart(7)} ms   sim ${String(r.simMs).padStart(6)} ms   calls ${String(r.calls).padStart(5)}   tris ${String(r.tris).padStart(8)}${sh}`);
+      console.log(`  ${k.padEnd(17)} ${view.padEnd(8)} cpu ${String(r.cpuMs).padStart(7)} ms   sim ${String(r.simMs).padStart(6)} ms   calls ${String(r.calls).padStart(5)}   tris ${String(r.tris).padStart(8)}${sh}`);
     }
   }
   for (const [k, v] of Object.entries(perf.vantages)) {

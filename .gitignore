@@ -7,3 +7,12 @@ __pycache__/
 *.log
 .env
 Thumbs.db
+
+# Evidence, recordings and screenshots are never committed: they are what took
+# .git to 115 MB. They live here locally (and in Dropbox), not in history.
+evidence/
+docs/
+*.mp4
+*.webm
+*.gif
+qa-screenshots/
