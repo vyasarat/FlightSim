@@ -130,6 +130,13 @@ async function build(name, targetTris, opts = {}) {
   const ratio = Math.min(1, targetTris / Math.max(1, welded));
   await doc.transform(
     simplify({ simplifier: MeshoptSimplifier, ratio, error: opts.error ?? 0.008, lockBorder: false }),
+    // Normals are NOT recomputed here. They must be rebuilt after simplifying --
+    // the simplifier keeps the normal of every vertex it spares while moving the
+    // surface between them, which showed as creases down the car's doors and a
+    // body a shade darker than the source everywhere. But this library's
+    // normals() writes FLAT ones and unwelds to do it, which tripled the file and
+    // is the wrong answer for a car anyway. The game recomputes smooth normals
+    // when it loads the model instead (TUNE.models.car.smooth) -- see models.js.
     prune(),
     dedup(),
   );
@@ -148,6 +155,22 @@ async function build(name, targetTris, opts = {}) {
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   await MeshoptSimplifier.ready;
-  await build("car", 24000);
-  await build("fighter", 22000, { stripAttrs: true, weld: 0.001 });
+  const only = process.env.ONLY;
+  // The car's numbers are NOT the fighter's, and the reason is the shape.
+  //
+  // At 24k triangles with the default 0.008 error bound the car came back
+  // dented -- it looked like it had been in a crash. That bound is RELATIVE to
+  // the model, so on a 9.2 m car it let the simplifier move a panel by seven
+  // centimetres, while the surviving vertices kept the normals of a surface
+  // that was no longer there. A car body is one big smooth reflection and shows
+  // every millimetre of that; the fighter is faceted by design and hides it,
+  // which is why the same settings flattered one and wrecked the other.
+  //
+  // Rendering the unsimplified 346k car proved the source was clean, so this is
+  // decimation damage and nothing else. 60k with a 0.001 bound is smooth again
+  // at 1.4 MB, and it is one draw call either way.
+  const carTris  = +(process.env.CAR_TRIS  || 60000);
+  const carError = +(process.env.CAR_ERROR || 0.001);
+  if (!only || only === "car") await build("car", carTris, { error: carError });
+  if (!only || only === "fighter") await build("fighter", 22000, { stripAttrs: true, weld: 0.001 });
 })().catch(e => { console.error("FAILED:", e.message); process.exit(1); });

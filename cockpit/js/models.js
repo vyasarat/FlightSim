@@ -75,8 +75,19 @@ function modelPrepare(key, scene) {
   g.userData.height = bb.max.y - bb.min.y;
 
   // 4. house rules: everything casts, nothing is a wall, glass stays glass
+  //
+  // `smooth` rebuilds the normals. The offline simplifier keeps the normal of
+  // every vertex it spares while moving the surface between them, so a decimated
+  // body is lit as a surface that is no longer there: the car came back with
+  // creases down its doors and a shade darker than its own source everywhere. It
+  // is not a triangle budget -- at 82k with a bound of 0.0003 the creases were
+  // still there, and they went the moment the normals were rebuilt. The geometry
+  // is welded and shares 0.77 vertices per triangle, so this gives a genuinely
+  // smooth body rather than facets. The fighter does not ask for it: its normals
+  // were stripped in the build and faceting is the whole look of the thing.
   g.traverse((o) => {
     if (!o.isMesh) return;
+    if (cfg.smooth && o.geometry) o.geometry.computeVertexNormals();
     o.castShadow = true;
     o.receiveShadow = false;
     const m = o.material;
@@ -124,6 +135,16 @@ function modelSplitWheels(g) {
       fn(t, ia, ib, ic, va, vb, vc);
     }
   }
+
+  // The count before any surgery, so the check that no hole opens up in the
+  // bodywork is an invariant of THIS model rather than a number written down
+  // once and stale the next time the model is rebuilt.
+  const triCount = () => {
+    let t = 0;
+    g.traverse((o) => { if (o.isMesh && o.geometry) { const q = o.geometry; t += (q.index ? q.index.count : q.attributes.position.count) / 3; } });
+    return t;
+  };
+  g.userData.trisBefore = triCount();
 
   const box = new THREE.Box3().setFromObject(g), mid = box.getCenter(new THREE.Vector3());
 
@@ -206,6 +227,7 @@ function modelSplitWheels(g) {
     g.add(grp);
   }
   g.userData.wheelR = order.reduce((a, w) => a + w.r, 0) / order.length;
+  g.userData.trisAfter = triCount();
   console.log("models: wheels", order.map((w) => w.parts.size + "p").join("/"), "r=" + g.userData.wheelR.toFixed(2));
 }
 
@@ -252,6 +274,8 @@ function modelInstance(key) {
   g.userData.imported = key;
   g.userData.wheelR = proto.userData.wheelR;
   g.userData.height = proto.userData.height;
+  g.userData.trisBefore = proto.userData.trisBefore;
+  g.userData.trisAfter = proto.userData.trisAfter;
   modelFindWheels(g);
   return g;
 }
