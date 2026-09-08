@@ -24,6 +24,16 @@ function buildVehicleModel(key) {
     geometries.forEach(geo => geo.dispose()); materials.forEach(mat => mat.dispose());
     vehicleModel = null;
   }
+  {
+    const imported = typeof modelInstance === "function" ? modelInstance(key) : null;
+    if (imported) {
+      castsShadow(imported);
+      imported.visible = state.viewChase;
+      scene.add(imported);
+      vehicleModel = imported;
+      return;
+    }
+  }
   if (key === "car") {
     const g = buildCarModel();
     g.visible = state.viewChase;

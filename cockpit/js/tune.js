@@ -133,6 +133,15 @@ const TUNE = {
     marsDustEvery: 2.4,                // a plume drifts past this often out there
   },
 
+  // ---- Imported bodies (js/models.js). Built by scripts/build_models.js from
+  // the raw downloads; `length` is the box the hand-built body occupied, so
+  // swapping the model moves nothing else. `yaw` flips a model whose nose came
+  // out pointing the wrong way.
+  models: {
+    car:     { file: "models/car.glb",     length: 9.2,  yaw: Math.PI, lift: 0 },   // it imported tail-first
+    fighter: { file: "models/fighter.glb", length: 16.0, yaw: Math.PI, lift: 0 },   // it imported tail-first
+  },
+
   // ---- The highway (js/highway.js). One continuous divided road from the New
   // York airport to the California airport, built from a spline through control
   // points chosen so it passes the things he already knows: out over the harbour
@@ -216,7 +225,14 @@ const TUNE = {
     crashSpeed: 18,              // below this a contact is a bump, not a bang
     bodyL: 9.2, bodyW: 4.2, bodyH: 2.6,
     camChase: [17, 6.5], camLag: 5,
-    wheelR: 0.95,
+    // The driver's seat, as fractions of the body's OWN measured height -- the
+    // imported body is 3.18 m tall where the built box was 2.6, so anchoring
+    // these to a constant put his eye in the headlining and the screen level
+    // with it. A real driver's eye is about 0.72 of the roof, the centre screen
+    // a little below that.
+    eyeFrac: 0.72, dashFrac: 0.55,
+    wheelR: 0.95,             // fallback only: the imported body measures its own
+    wheelLock: 26,            // degrees the front wheels visibly turn at full stick
     whineHz: [55, 320], tyreGain: 0.05, windGain: 0.06,
   },
 

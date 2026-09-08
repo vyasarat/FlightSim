@@ -10,6 +10,62 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v92 — a real Model Y and a real F-35
+
+The car and the fighter are no longer built out of boxes and lofted panels: both
+are imported models, decimated hard and rebuilt to fit the exact box the
+hand-built bodies occupied, so the collision box, the spawn origin, the camera
+anchors and the interior offsets all keep working untouched.
+
+| | triangles | file |
+|---|---|---|
+| car | 346,278 → 23,997 | 11.0 MB → 0.71 MB |
+| fighter | 1,240,064 → 22,000 | 89.9 MB → 0.25 MB |
+
+`scripts/build_models.js` does the processing offline: it throws away every
+original material and texture and bakes the whole model into a six-colour
+palette — body, glass, tyre, trim, lamp, tail — so the imports look like they
+were made for this game rather than dropped into it. The body is stealth grey at
+`metalness: 0.10`; the first attempt used a realistic 0.55 and rendered the car
+almost black, because a metallic material with no environment map has nothing to
+reflect and loses its diffuse term. The fighter would not decimate at all until
+its normals were stripped first: per-face normals gave two vertices per triangle,
+so welding connected nothing and the simplifier quietly ignored the ratio.
+
+Both models imported tail-first. That was settled by measuring the taper at each
+end in the model's own frame, not by looking at renders — two rounds of looking
+had already got it wrong.
+
+The four wheels turn. The build joins primitives by material, so all four arrive
+as a single mesh with the rims mixed into the body, and nothing in the file names
+them. They are found by geometry instead: the tyre material's triangles fall into
+four corner clusters, each cluster defines a cylinder about the axle, and every
+triangle in the whole model that lies inside one — rims and brake discs included
+— is moved into that wheel's group. Capture tests the whole triangle and the
+cylinder is never fatter than the tyre that defined it, so the arch above the
+wheel stays on the body and no hole opens up. The harness measures the tread that
+passes under each wheel against the ground the car actually covers.
+
+Loading is asynchronous and the game never waits for it: until a model arrives
+the vehicle keeps its built geometry, and a missing or broken file is a cosmetic
+downgrade rather than a broken game.
+
+### Credits
+
+The two imported models are third-party work, used under their licence and
+processed as described above:
+
+- "2026 Tesla Model Y Performance" by BloxBloger, CC BY-NC 4.0, via Sketchfab —
+  https://sketchfab.com/3d-models/2026-tesla-model-y-performance-8a0bc252f9da4015a02a7bd99efd4847
+- "F35 fighter Jet" by Spentza_93, CC BY-NC 4.0, via Sketchfab —
+  https://sketchfab.com/3d-models/f35-fighter-jet-084369d3fddc480080cfb05364d75a46
+
+Both are **CC BY-NC 4.0** — attribution *and* non-commercial — which is what the
+`asset.extras` block inside each GLB records, not the plain CC BY they were taken
+for. Little Pilot is free and carries nothing commercial, so the NC term is met;
+the attribution above is the BY term. The raw downloads are not in this
+repository (`models-src/` is gitignored); only the processed 1 MB of geometry is.
+
 ## v91 — the car no longer drives underground
 
 Driving over changing ground dropped the car through the road. Three separate

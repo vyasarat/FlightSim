@@ -4564,6 +4564,58 @@ function check(name, ok, extra) {
     });
     check("car: zero text with the exit boards, the interchange and the interior screen all in frame -- the boards carry an icon and the centre screen is a map graphic, never a glyph",
       text.bad.length === 0 && text.screenVisible, JSON.stringify(text));
+
+    // 5. the wheels. The imported body arrives as one mesh per material, so the
+    // four wheels are cut out of it by geometry at load time. Measured as ROLLED
+    // DISTANCE -- the tread that passed under each wheel over an eight second
+    // drive, against the ground the car actually covered. That catches a wheel
+    // that does not turn, one that turns backwards, and a radius taken from the
+    // tune constant instead of the wheel that is really on the car; reading the
+    // rotation alone catches none of the three.
+    await page.waitForFunction(() => {
+      const s = window.__lp && window.__lp.modelState;
+      return s && (s.car === "ready" || s.car === "failed");
+    }, null, { timeout: 90000 }).catch(() => {});
+    const wh = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+      for (let i = 0; i < 30; i++) L.update(1 / 60);
+      const vm = L.vehicleModel, ud = vm.userData, ws = ud.wheels || [];
+      const out = { imported: ud.imported || null, n: ws.length, fronts: (ud.wheelsFront || []).length,
+                    r: +(ud.wheelR || 0).toFixed(3), tris: 0 };
+      vm.traverse(o => { if (o.isMesh && o.geometry) out.tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+      if (!ws.length) return out;
+      out.corners = ws.map(w => (w.position.x < 0 ? "L" : "R") + (w.position.z < 0 ? "F" : "B")).sort().join(",");
+      // roll
+      const spin = ws.map(() => 0), prev = ws.map(w => w.rotation.x);
+      let dist = 0, px = st.x, pz = st.z;
+      for (let i = 0; i < 60 * 8; i++) {
+        L.api.setStick(0, 0); L.update(1 / 60);
+        dist += Math.hypot(st.x - px, st.z - pz); px = st.x; pz = st.z;
+        ws.forEach((w, k) => { spin[k] += L.wrapPi(w.rotation.x - prev[k]); prev[k] = w.rotation.x; });
+      }
+      out.drove = +dist.toFixed(1);
+      out.rolled = spin.map(v => +(-v * ud.wheelR).toFixed(1));
+      // steer: the fronts turn the way the car turns, the rears do not turn at all
+      const h0 = st.heading;
+      for (let i = 0; i < 60 * 1.5; i++) { L.api.setStick(1, 0); L.update(1 / 60); }
+      out.turned = +(L.wrapPi(st.heading - h0)).toFixed(3);
+      out.yaw = ws.map(w => +w.rotation.y.toFixed(3));
+      out.frontYaw = (ud.wheelsFront || []).map(w => +w.rotation.y.toFixed(3));
+      out.rearYaw = ws.filter(w => (ud.wheelsFront || []).indexOf(w) < 0).map(w => +w.rotation.y.toFixed(3));
+      L.api.clearStick();
+      return out;
+    });
+    const rolledOK = (wh.rolled || []).every(m => Math.abs(m - wh.drove) < wh.drove * 0.05);
+    const steerOK = (wh.frontYaw || []).length === 2 &&
+      wh.frontYaw.every(y => Math.abs(y) > 0.2 && Math.sign(y) === Math.sign(wh.turned)) &&
+      (wh.rearYaw || []).every(y => y === 0);
+    check("car: the imported body keeps all four wheels as their own parts -- each rolls exactly the distance the car covers, and only the front two steer, the way the car is turning",
+      wh.imported === "car" && wh.n === 4 && wh.fronts === 2 &&
+      wh.corners === "LB,LF,RB,RF" && wh.r > 0.4 && wh.r < 1.2 &&
+      rolledOK && steerOK, JSON.stringify(wh));
+    check("car: cutting the wheels out of the body loses no geometry -- no hole opens up in the arch or the wheel well",
+      wh.tris === 23997, JSON.stringify({ tris: wh.tris }));
     await page.close();
   }
 

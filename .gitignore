@@ -16,3 +16,10 @@ docs/
 *.webm
 *.gif
 qa-screenshots/
+
+# Source models are huge (car 11 MB, fighter 90 MB) and must never be committed:
+# they are the raw downloads. Only the processed, decimated models under
+# cockpit/models/ are tracked, and those are built by scripts/build_models.js.
+models-src/
+*.blend
+cockpit/models/*.src.glb
