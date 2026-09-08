@@ -10,6 +10,42 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v93 — the car was dented, and it was the normals
+
+He said the F-35 looked incredible and the Tesla looked like it had been in a
+crash, and he was right: the car's doors and rear quarter came back creased and
+dented, and the whole body rendered a shade darker than its own source.
+
+The cause was not the triangle budget. Normals were being kept from the original
+mesh while the simplifier moved the surface between the vertices it spared, so
+the body was lit as a shape that was no longer there. Rendering the untouched
+346k source proved the source was clean, and pushing the budget to 82k with a
+0.0003 error bound left the creases exactly where they were — which is what
+ruled the budget out. Rebuilding the normals after decimation removed them
+completely. The two models needed opposite handling for the same reason: a car
+body is one big smooth reflection and shows every millimetre of that, while the
+fighter is faceted by design and hides it, so the same settings flattered one
+and wrecked the other.
+
+The normals are rebuilt in the game at load (`TUNE.models.car.smooth`) rather
+than in the build, because this toolchain's normals pass writes flat ones and
+unwelds the mesh to do it, which tripled the file. The geometry ships welded at
+0.77 vertices per triangle, so three.js computes genuinely smooth normals from
+it. The car went to 60,080 triangles and 1.42 MB along the way; that was raised
+while chasing the wrong cause, and it stayed because it is crisper on the light
+bar and the door shut lines and costs nothing measurable.
+
+The A/B rig had a bias worth recording. Interleaving is not enough on its own:
+it drifts downward for a whole run as it warms up, and A was always the first of
+each pair, so it ate the slower half of every drift step. That measured 24k
+triangles as *more* expensive than 60k — impossible, and the only reason it was
+caught. Sampling now alternates which side leads (ABBA, not ABAB).
+
+Frame time, SwiftShader, ABBA-alternated: the imported car measured 1.61 ms at
+24k triangles and 1.58 ms at 60k. A 2.5x increase in triangles produced no
+measurable change; run-to-run drift is larger than the effect. Draw calls are
+unchanged either way — the whole car is one call.
+
 ## v92 — a real Model Y and a real F-35
 
 The car and the fighter are no longer built out of boxes and lofted panels: both

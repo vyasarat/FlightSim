@@ -4582,7 +4582,8 @@ function check(name, ok, extra) {
       for (let i = 0; i < 30; i++) L.update(1 / 60);
       const vm = L.vehicleModel, ud = vm.userData, ws = ud.wheels || [];
       const out = { imported: ud.imported || null, n: ws.length, fronts: (ud.wheelsFront || []).length,
-                    r: +(ud.wheelR || 0).toFixed(3), tris: 0 };
+                    r: +(ud.wheelR || 0).toFixed(3), tris: 0,
+                    trisBefore: ud.trisBefore || 0, trisAfter: ud.trisAfter || 0 };
       vm.traverse(o => { if (o.isMesh && o.geometry) out.tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
       if (!ws.length) return out;
       out.corners = ws.map(w => (w.position.x < 0 ? "L" : "R") + (w.position.z < 0 ? "F" : "B")).sort().join(",");
@@ -4615,7 +4616,8 @@ function check(name, ok, extra) {
       wh.corners === "LB,LF,RB,RF" && wh.r > 0.4 && wh.r < 1.2 &&
       rolledOK && steerOK, JSON.stringify(wh));
     check("car: cutting the wheels out of the body loses no geometry -- no hole opens up in the arch or the wheel well",
-      wh.tris === 23997, JSON.stringify({ tris: wh.tris }));
+      wh.trisBefore > 1000 && wh.trisAfter === wh.trisBefore && wh.tris === wh.trisBefore,
+      JSON.stringify({ before: wh.trisBefore, after: wh.trisAfter, live: wh.tris }));
     await page.close();
   }
 

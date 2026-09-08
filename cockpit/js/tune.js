@@ -138,7 +138,7 @@ const TUNE = {
   // swapping the model moves nothing else. `yaw` flips a model whose nose came
   // out pointing the wrong way.
   models: {
-    car:     { file: "models/car.glb",     length: 9.2,  yaw: Math.PI, lift: 0 },   // it imported tail-first
+    car:     { file: "models/car.glb",     length: 9.2,  yaw: Math.PI, lift: 0, smooth: true },   // tail-first; `smooth`: rebuild normals after decimation
     fighter: { file: "models/fighter.glb", length: 16.0, yaw: Math.PI, lift: 0 },   // it imported tail-first
   },
 
