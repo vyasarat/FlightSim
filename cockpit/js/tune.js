@@ -230,7 +230,17 @@ const TUNE = {
     // these to a constant put his eye in the headlining and the screen level
     // with it. A real driver's eye is about 0.72 of the roof, the centre screen
     // a little below that.
-    eyeFrac: 0.72, dashFrac: 0.55,
+    eyeFrac: 0.72,
+    // The cabin the imported body does not have (js/car.js). Metres above the
+    // road and forward of the car's origin, with -Z forward, measured against
+    // the real body: it is 3.18 m tall here, so a driver's eye lands at 2.28
+    // and the dash shelf just under two.
+    cabin: {
+      halfWidth: 1.92, dashTop: 1.72, roof: 3.00, floor: 1.02,
+      seatX: -0.85,                // he sits this far off centre
+      screen: [-0.18, 1.98, -1.90],// centre screen, standing on the dash
+      wheelTurn: 2.4,              // the wheel turns further than the road wheels, as a real one does
+    },
     wheelR: 0.95,             // fallback only: the imported body measures its own
     wheelLock: 26,            // degrees the front wheels visibly turn at full stick
     whineHz: [55, 320], tyreGain: 0.05, windGain: 0.06,

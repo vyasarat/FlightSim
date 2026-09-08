@@ -4560,7 +4560,8 @@ function check(name, ok, extra) {
         for (const c of n.childNodes) walk(c);
       };
       walk(document.body);
-      return { bad: bad.slice(0, 5), screenVisible: !!(L.car.screen && L.car.screen.visible) };
+      return { bad: bad.slice(0, 5),
+               screenVisible: !!(L.car.cabin && L.car.cabin.visible && L.car.screen && L.car.screen.visible) };
     });
     check("car: zero text with the exit boards, the interchange and the interior screen all in frame -- the boards carry an icon and the centre screen is a map graphic, never a glyph",
       text.bad.length === 0 && text.screenVisible, JSON.stringify(text));
@@ -4618,6 +4619,52 @@ function check(name, ok, extra) {
     check("car: cutting the wheels out of the body loses no geometry -- no hole opens up in the arch or the wheel well",
       wh.trisBefore > 1000 && wh.trisAfter === wh.trisBefore && wh.tris === wh.trisBefore,
       JSON.stringify({ before: wh.trisBefore, after: wh.trisAfter, live: wh.tris }));
+
+    // 6. the cabin. The imported body is an exterior model with no interior at
+    // all, so the driver's seat is furnished by hand. Two things have to hold:
+    // it is only ever seen from that seat, and the wheel turns the way the car
+    // does. A steering wheel that turned the wrong way would be teaching him
+    // something false, which is worse than not having one.
+    const cab = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, out = {};
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+      for (let i = 0; i < 60 * 30; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      L.api.setView(false);
+      for (let i = 0; i < 10; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      out.inInterior = !!(L.car.cabin && L.car.cabin.visible);
+      out.meshes = 0; if (L.car.cabin) L.car.cabin.traverse(o => { if (o.isMesh) out.meshes++; });
+      // the wheel follows the car, both ways
+      const h0 = st.heading;
+      for (let i = 0; i < 60 * 1.2; i++) { L.api.setStick(1, 0); L.update(1 / 60); }
+      out.turnedR = +L.wrapPi(st.heading - h0).toFixed(3);
+      out.wheelR = +L.car.cabinWheel.rotation.z.toFixed(3);
+      const h1 = st.heading;
+      for (let i = 0; i < 60 * 2.4; i++) { L.api.setStick(-1, 0); L.update(1 / 60); }
+      out.turnedL = +L.wrapPi(st.heading - h1).toFixed(3);
+      out.wheelL = +L.car.cabinWheel.rotation.z.toFixed(3);
+      L.api.clearStick();
+      // chase view puts it away, and so does climbing out
+      L.api.setView(true);
+      for (let i = 0; i < 10; i++) L.update(1 / 60);
+      out.inChase = !!(L.car.cabin && L.car.cabin.visible);
+      L.api.setView(false);
+      for (let i = 0; i < 5; i++) L.update(1 / 60);
+      L.api.setVehicle("prop");
+      out.afterSwitch = !!(L.car.cabin && L.car.cabin.visible);
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    // A right turn is a NEGATIVE heading change here, and the driver views the
+    // wheel from +Z, so clockwise on his side of it is a negative z rotation.
+    // The two must therefore carry the same sign, both ways round.
+    const wheelFollows = Math.sign(cab.wheelR) === Math.sign(cab.turnedR) && Math.abs(cab.wheelR) > 0.3 &&
+                         Math.sign(cab.wheelL) === Math.sign(cab.turnedL) && Math.abs(cab.wheelL) > 0.3;
+    check("car: from the driver's seat there is a dashboard, a screen standing on it and a wheel that turns the way the car turns -- never the other way",
+      cab.inInterior && wheelFollows && cab.frameErrors === 0, JSON.stringify(cab));
+    check("car: the cabin is only ever seen from the driver's seat -- it is put away in chase view and when he climbs out into another vehicle",
+      cab.inChase === false && cab.afterSwitch === false, JSON.stringify(cab));
+    check("car: the whole cabin is a handful of draw calls, not a box per part",
+      cab.meshes > 0 && cab.meshes <= 10, JSON.stringify({ meshes: cab.meshes }));
     await page.close();
   }
 
