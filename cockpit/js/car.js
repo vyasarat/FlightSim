@@ -19,7 +19,7 @@
 const CAR = TUNE.car;
 
 const car = {
-  steer: 0, boost: 0, offRoad: 0, lastCrash: 0,
+  steer: 0, boost: 0, offRoad: 0, lastCrash: 0, wheelSpin: 0,
   onRoad: false, lateral: 0, s: 0, roadY: 0,
   charging: 0, chargedAt: null, dust: 0, screen: null, screenArt: null,
 };
@@ -97,7 +97,10 @@ function carBuildScreen() {
   draw(0);
   const tex = new THREE.CanvasTexture(c);
   car.screenArt = { c, cx, draw, tex };
-  car.screen = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.05),
+  // Sized and placed like the real one. The first version was a 1.5 m panel a
+  // metre from his eye, which blanked the right third of the windscreen: at that
+  // distance it subtended more than thirty degrees and he was driving past it.
+  car.screen = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.55),
     new THREE.MeshBasicMaterial({ map: tex, fog: false }));
   car.screen.visible = false;
   scene.add(car.screen);
@@ -368,7 +371,20 @@ function updateCar(dt) {
       lb.material.color.setScalar(0.55 + 0.45 * pulse);
       if (tb) tb.material.color.setRGB(0.6 + 0.4 * (touching ? 0.2 : 1), 0.12, 0.1);
     }
-    for (const w of vehicleModel.userData.wheels || []) w.rotation.x += state.speed * dt / CAR.wheelR;
+    // Wheels. Rolling, not sliding: the top of the wheel travels the way the car
+    // does, and the nose is -Z, so forward motion is a NEGATIVE turn about X.
+    // The fronts also steer, on a "YXZ" group so the yaw stays outside the spin.
+    const wheels = vehicleModel.userData.wheels || [];
+    if (wheels.length) {
+      const wr = vehicleModel.userData.wheelR || CAR.wheelR;
+      car.wheelSpin = (car.wheelSpin - state.speed * dt / wr) % (Math.PI * 2);
+      const lock = -(car.steer / CAR.steerRate) * CAR.wheelLock * DEG;
+      const fronts = vehicleModel.userData.wheelsFront;
+      for (const w of wheels) {
+        w.rotation.x = car.wheelSpin;
+        if (fronts) w.rotation.y = fronts.indexOf(w) >= 0 ? lock : 0;
+      }
+    }
   }
 
   // ---- sound: an EV whine that rises with speed, tyres, and wind
@@ -392,14 +408,15 @@ function carCamera(dt) {
   } else {
     // the driver's seat: under the glass roof, behind the light bar
     const rx = -fz, rz = fx;
-    camera.position.set(state.x + fx * 0.2 + rx * -0.85, state.y + CAR.bodyH * 1.05, state.z + fz * 0.2 + rz * -0.85);
+    const bodyH = (vehicleModel && vehicleModel.userData.height) || CAR.bodyH * 1.22;
+    camera.position.set(state.x + fx * 0.2 + rx * -0.85, state.y + bodyH * CAR.eyeFrac, state.z + fz * 0.2 + rz * -0.85);
     camera.rotation.set(-0.05, state.heading, -state.bank * DEG * 0.25);
     // the centre screen sits low and to his right, showing a map and an arrow
     if (car.screen) {
       car.screen.visible = true;
       // in his eyeline, just right of the wheel
       car.screen.position.set(
-        state.x + fx * 1.15 + rx * 0.55, state.y + CAR.bodyH * 0.88, state.z + fz * 1.15 + rz * 0.55);
+        state.x + fx * 1.5 + rx * -0.18, state.y + bodyH * CAR.dashFrac, state.z + fz * 1.5 + rz * -0.18);
       car.screen.rotation.set(-0.22, state.heading, 0);
       if (car.screenArt && (frameCount % 6) === 0) {
         const road = typeof highway !== "undefined" && highway.built ? hwyNearest(state.x, state.z) : null;

@@ -63,6 +63,12 @@ const VIEWS = [
   await pg.goto(`http://127.0.0.1:${PORT}/cockpit/index.html?rig=1`, { timeout: 120000 });
   await pg.waitForFunction(() => window.__lp && window.__lp.state, null, { timeout: 120000 });
 
+  // the model arrives asynchronously; wait for it rather than shooting the
+  // fallback geometry and calling it the imported body
+  await pg.waitForFunction((k) => {
+    const s = window.__lp && window.__lp.modelState;
+    return s && (s[k] === "ready" || s[k] === "failed");
+  }, KEY, { timeout: 120000 }).catch(() => {});
   const setup = await pg.evaluate((key) => {
     const L = window.__lp, st = L.state;
     L.noRender = true;
@@ -83,9 +89,48 @@ const VIEWS = [
     window.applyCamera = function () {};
     window.updateFeel = function () {};
     return { preserved: !!L.renderer.getContext().getContextAttributes().preserveDrawingBuffer,
-             hasModel: !!L.vehicleModel };
+             hasModel: !!L.vehicleModel,
+             modelState: L.modelState ? L.modelState[key] : "n/a",
+             imported: !!(L.vehicleModel && L.vehicleModel.userData.imported) };
   }, KEY);
-  console.log(`rig: preserveDrawingBuffer=${setup.preserved}  model=${setup.hasModel}`);
+  console.log(`rig: preserveDrawingBuffer=${setup.preserved}  model=${setup.hasModel}  glb=${setup.modelState}  imported=${setup.imported}`);
+
+  // Which end is the nose, measured on the model AS IT SHIPS -- in its own local
+  // frame, after preparation. Squinting at a render to decide this wasted two
+  // rounds; a vehicle tapers toward its nose and is blunt at its tail.
+  const orient = await pg.evaluate(() => {
+    const L = window.__lp, m = L.vehicleModel;
+    if (!m) return null;
+    m.updateWorldMatrix(true, true);
+    const inv = new THREE.Matrix4().copy(m.matrixWorld).invert();
+    const v = new THREE.Vector3();
+    const pts = [];
+    m.traverse((o) => {
+      if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 11) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
+        pts.push([v.x, v.y, v.z]);
+      }
+    });
+    if (!pts.length) return null;
+    let minz = Infinity, maxz = -Infinity;
+    for (const p of pts) { if (p[2] < minz) minz = p[2]; if (p[2] > maxz) maxz = p[2]; }
+    const len = maxz - minz;
+    const band = (lo, hi) => {
+      const sel = pts.filter(p => p[2] >= minz + len * lo && p[2] <= minz + len * hi);
+      if (!sel.length) return { w: 0, h: 0 };
+      let xa = Infinity, xb = -Infinity, ya = Infinity, yb = -Infinity;
+      for (const p of sel) { xa = Math.min(xa, p[0]); xb = Math.max(xb, p[0]); ya = Math.min(ya, p[1]); yb = Math.max(yb, p[1]); }
+      return { w: +(xb - xa).toFixed(2), h: +(yb - ya).toFixed(2) };
+    };
+    const neg = band(0.0, 0.16), pos = band(0.84, 1.0);
+    return { neg, pos, noseAtNegZ: (neg.w + neg.h) < (pos.w + pos.h), samples: pts.length };
+  });
+  if (orient) {
+    console.log(`  orientation: -Z end ${JSON.stringify(orient.neg)}  +Z end ${JSON.stringify(orient.pos)}`);
+    console.log(`  nose at -Z (what this game wants): ${orient.noseAtNegZ ? "YES" : "NO -- flip TUNE.models." + KEY + ".yaw"}`);
+  }
   if (!setup.preserved) console.log("  WARNING: buffer not preserved -- captures may be blank");
 
   for (const [name, az, el] of VIEWS) {
@@ -134,6 +179,19 @@ const VIEWS = [
     }, [az, el, W, H]);
     if (info.missing) { console.log(`  ${name}: NO MODEL`); continue; }
     await pg.screenshot({ path: path.join(OUT, `${PREFIX}-${name}.png`) });
+    // ...and a version cropped to the box we just measured. Cropping afterwards
+    // from remembered numbers went wrong three times; clipping at capture time
+    // cannot drift from the render it came from.
+    {
+      const m = 26;
+      const x = Math.max(0, Math.round(info.px[0] - m));
+      const y = Math.max(0, Math.round(info.px[1] - m));
+      const w = Math.min(W - x, Math.round(info.px[2] + m * 2));
+      const h = Math.min(H - y, Math.round(info.px[3] + m * 2));
+      if (w > 8 && h > 8) {
+        await pg.screenshot({ path: path.join(OUT, `${PREFIX}-${name}-crop.png`), clip: { x, y, width: w, height: h } });
+      }
+    }
     console.log(`  ${name.padEnd(13)} px ${JSON.stringify(info.px)}  fills ${info.fillPct}%  fov ${info.fov}  size ${JSON.stringify(info.size)}`);
   }
   if (errs.length) console.log("PAGE ERRORS:", errs.slice(0, 3));
