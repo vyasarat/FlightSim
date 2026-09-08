@@ -21,7 +21,7 @@ const CAR = TUNE.car;
 const car = {
   steer: 0, boost: 0, offRoad: 0, lastCrash: 0, wheelSpin: 0,
   onRoad: false, lateral: 0, s: 0, roadY: 0,
-  charging: 0, chargedAt: null, dust: 0, screen: null, screenArt: null,
+  charging: 0, chargedAt: null, dust: 0, screen: null, screenArt: null, cabin: null, cabinWheel: null,
 };
 
 function carActive() { return !!(state.vp && state.vp.car); }
@@ -102,9 +102,136 @@ function carBuildScreen() {
   // distance it subtended more than thirty degrees and he was driving past it.
   car.screen = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.55),
     new THREE.MeshBasicMaterial({ map: tex, fog: false }));
-  car.screen.visible = false;
-  scene.add(car.screen);
   return car.screen;
+}
+
+// ---------------------------------------------------------------------------
+// The cabin.
+//
+// The imported body is an exterior model: it has no interior at all, so from the
+// driver's seat he was sitting inside an empty shell with the map floating in
+// mid-air where a dashboard should have been. This builds the dashboard, the
+// wheel, the pillars, the doors and the console that the shell is missing.
+//
+// It is drawn ONLY from the driver's seat, and the exterior body is hidden then,
+// so the two never overlap and nothing here is ever seen from outside.
+//
+// Everything static is merged into three meshes -- one per material -- rather
+// than left as eighteen boxes. three.js batches nothing on its own, and this
+// rig under-prices draw calls compared with the iPad, which is the machine that
+// has to hold sixty frames.
+function carMergeBoxes(specs) {
+  const pos = [], nor = [];
+  const m = new THREE.Matrix4(), e = new THREE.Euler(), q = new THREE.Quaternion();
+  const t = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), n3 = new THREE.Matrix3();
+  const v = new THREE.Vector3(), n = new THREE.Vector3();
+  for (const b of specs) {
+    const g = new THREE.BoxGeometry(b.w, b.h, b.d).toNonIndexed();
+    e.set(b.rx || 0, b.ry || 0, b.rz || 0);
+    m.compose(t.set(b.x, b.y, b.z), q.setFromEuler(e), one);
+    n3.getNormalMatrix(m);
+    const P = g.attributes.position, N = g.attributes.normal;
+    for (let i = 0; i < P.count; i++) {
+      v.fromBufferAttribute(P, i).applyMatrix4(m); pos.push(v.x, v.y, v.z);
+      n.fromBufferAttribute(N, i).applyMatrix3(n3).normalize(); nor.push(n.x, n.y, n.z);
+    }
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  return out;
+}
+
+function carBuildCabin() {
+  if (car.cabin) return car.cabin;
+  const C = TUNE.palette, K = CAR.cabin;
+  const g = new THREE.Group();
+  const HALF = K.halfWidth, TOP = K.dashTop, ROOF = K.roof, FLOOR = K.floor;
+
+  // the soft furniture: doors, seat, console, pillars, header
+  // Everything here is kept LOW and THIN on purpose. The first version was
+  // built to realistic proportions and the windscreen came out as a letterbox:
+  // a fat A-pillar a metre from his eye ate a quarter of the frame, and the
+  // wheel sat above his sightline instead of under it. He has to see the road.
+  const shell = [
+    { w: 0.13, h: 0.80, d: 3.2, x: -HALF, y: 1.80, z: -0.10 },        // door cards, tops below his eye
+    { w: 0.13, h: 0.80, d: 3.2, x:  HALF, y: 1.80, z: -0.10 },
+    { w: 0.24, h: 0.11, d: 1.2, x: -HALF + 0.15, y: 2.00, z: -0.35 }, // armrests
+    { w: 0.24, h: 0.11, d: 1.2, x:  HALF - 0.15, y: 2.00, z: -0.35 },
+    { w: 0.84, h: 0.55, d: 2.0, x: 0, y: 1.35, z: 0.00 },             // centre console
+    { w: 1.10, h: 0.20, d: 1.05, x: 0.88, y: 1.28, z: -0.15 },        // the empty seat beside him
+    { w: 1.10, h: 1.10, d: 0.18, x: 0.88, y: 1.88, z: 0.40, rx: -0.16 },
+    // No A-pillars. They were built and then taken out again: a free-standing
+    // post cannot line up with the imported body's own glass, so it read as a
+    // slab hanging in the middle of the windscreen rather than as a frame. The
+    // header and the door tops frame the view perfectly well, and losing them
+    // gave the road back a quarter of the width.
+    { w: 3.95, h: 0.18, d: 0.45, x: 0, y: ROOF, z: -1.15 },           // header
+  ];
+  // One flat shelf all the way to the glass. There was a raised cowl at the
+  // windscreen base to begin with, and from a driver's eye you looked straight
+  // under its lip: a black notch across the middle of the car where the road
+  // should have been. A single surface has no underside to see.
+  const shelf = [
+    { w: 3.95, h: 0.11, d: 1.55, x: 0, y: TOP, z: -2.48 },
+  ];
+  const hardParts = [
+    { w: 3.95, h: 0.58, d: 0.13, x: 0, y: 1.44, z: -1.70 },           // the dash face
+    { w: 0.16, h: 0.16, d: 0.50, x: K.seatX, y: 1.48, z: -1.62, rx: -0.30 }, // column
+    { w: 0.62, h: 0.15, d: 0.08, x: 0, y: ROOF - 0.13, z: -1.08 },    // mirror
+  ];
+
+  // The shelf is the LIGHTEST thing in here, and that is deliberate. In ink it
+  // read as a hole in the middle of the car rather than a surface, and the
+  // screen standing on it looked like it was floating in front of the road. It
+  // is the one surface he needs to read as solid, so it gets the light grey and
+  // everything else stays back. The floor is dark because nothing down there
+  // needs reading. There is no chrome vent strip: at this size it came out as a
+  // hard white line straight across the frame and looked like a fault.
+  const soft = mattMat(C.night), hard = mattMat(C.slate), top = mattMat(C.grey);
+  const floor = [{ w: 3.85, h: 0.10, d: 3.00, x: 0, y: FLOOR, z: -1.00 }];
+  for (const [specs, mat] of [[shell, soft], [hardParts, hard], [shelf, top], [floor, mattMat(C.ink)]]) {
+    const m = new THREE.Mesh(carMergeBoxes(specs), mat);
+    m.castShadow = false; m.receiveShadow = false;
+    g.add(m);
+  }
+
+  // The steering wheel, which turns. It is the one moving thing in here, and it
+  // is feedback rather than a control: he steers by dragging, and the wheel
+  // shows him what his finger just did.
+  const wheel = new THREE.Group();
+  // Its top arc sits just under the dash line, which is where a driver sees it.
+  // At 0.36 m and eye height it was a hoop across the middle of the road.
+  wheel.position.set(K.seatX, 1.58, -1.40);
+  wheel.rotation.x = -0.34;
+  const rimMat = mattMat(C.ink);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.05, 7, 18), rimMat);
+  wheel.add(rim);
+  const spokes = new THREE.Mesh(carMergeBoxes([
+    { w: 0.52, h: 0.06, d: 0.06, x: 0, y: 0, z: 0 },
+    { w: 0.06, h: 0.26, d: 0.06, x: 0, y: -0.15, z: 0 },
+    { w: 0.22, h: 0.22, d: 0.08, x: 0, y: 0, z: 0.01 },
+  ]), hard);
+  wheel.add(spokes);
+  g.add(wheel);
+  car.cabinWheel = wheel;
+
+  // and the centre screen, standing on the dash where it belongs
+  const sc = carBuildScreen();
+  sc.position.set(K.screen[0], K.screen[1], K.screen[2]);
+  sc.rotation.x = -0.22;
+  sc.visible = true;
+  g.add(sc);
+
+  g.visible = false;
+  scene.add(g);
+  car.cabin = g;
+  return g;
+}
+
+function carHideCabin() {
+  if (car.cabin) car.cabin.visible = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,7 +321,7 @@ function carSpawn(originIdx) {
   state.heading = Math.atan2(-end.fx * dir, -end.fz * dir);
   state.speed = 0; state.pitch = 0; state.bank = 0; state.phase = "TAXI";
   car.steer = 0; car.boost = 0; car.offRoad = 0; car.charging = 0; car.chargedAt = null;
-  carBuildScreen();
+  carBuildCabin();
   thunk();
 }
 
@@ -404,26 +531,27 @@ function carCamera(dt) {
     lookV.set(state.x + fx * 18, state.y + 1.6, state.z + fz * 18);
     camera.lookAt(lookV);
     camera.rotateZ(-state.bank * DEG * 0.3);
-    if (car.screen) car.screen.visible = false;
+    carHideCabin();
   } else {
-    // the driver's seat: under the glass roof, behind the light bar
-    const rx = -fz, rz = fx;
+    // The driver's seat. The cabin is one group standing at the car's own
+    // origin, so the eye, the dash, the wheel and the screen are all fixed
+    // relative to each other and only the group moves.
+    const K = CAR.cabin, rx = -fz, rz = fx;
     const bodyH = (vehicleModel && vehicleModel.userData.height) || CAR.bodyH * 1.22;
-    camera.position.set(state.x + fx * 0.2 + rx * -0.85, state.y + bodyH * CAR.eyeFrac, state.z + fz * 0.2 + rz * -0.85);
+    camera.position.set(state.x + fx * 0.2 + rx * K.seatX, state.y + bodyH * CAR.eyeFrac, state.z + fz * 0.2 + rz * K.seatX);
     camera.rotation.set(-0.05, state.heading, -state.bank * DEG * 0.25);
-    // the centre screen sits low and to his right, showing a map and an arrow
-    if (car.screen) {
-      car.screen.visible = true;
-      // in his eyeline, just right of the wheel
-      car.screen.position.set(
-        state.x + fx * 1.5 + rx * -0.18, state.y + bodyH * CAR.dashFrac, state.z + fz * 1.5 + rz * -0.18);
-      car.screen.rotation.set(-0.22, state.heading, 0);
-      if (car.screenArt && (frameCount % 6) === 0) {
-        const road = typeof highway !== "undefined" && highway.built ? hwyNearest(state.x, state.z) : null;
-        const rh = road ? Math.atan2(-road.fx, -road.fz) : state.heading;
-        car.screenArt.draw(wrapPi(rh - state.heading));
-        car.screenArt.tex.needsUpdate = true;
-      }
+    const cab = carBuildCabin();
+    cab.visible = true;
+    cab.position.set(state.x, state.y, state.z);
+    cab.rotation.y = state.heading;
+    // the wheel shows him what his finger just did
+    if (car.cabinWheel) car.cabinWheel.rotation.z = -(car.steer / CAR.steerRate) * CAR.wheelLock * DEG * K.wheelTurn;
+    // and the centre screen keeps its moving map: a graphic, never a glyph
+    if (car.screenArt && (frameCount % 6) === 0) {
+      const road = typeof highway !== "undefined" && highway.built ? hwyNearest(state.x, state.z) : null;
+      const rh = road ? Math.atan2(-road.fx, -road.fz) : state.heading;
+      car.screenArt.draw(wrapPi(rh - state.heading));
+      car.screenArt.tex.needsUpdate = true;
     }
   }
 }

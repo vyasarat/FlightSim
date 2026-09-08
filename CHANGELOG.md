@@ -10,6 +10,50 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v94 — the car has an inside
+
+The imported body is an exterior model, so from the driver's seat he was sitting
+in an empty shell with the map floating in mid-air where a dashboard should have
+been. Now there is a dashboard, a screen standing on it, a steering wheel that
+turns, door cards, an armrest, a console, a mirror and the empty seat beside
+him.
+
+The wheel is the one moving thing in there, and it is feedback rather than a
+control: he steers by dragging, and the wheel shows him what his finger just
+did. It turns 2.4 times as far as the road wheels, the way a real one does. The
+harness checks it turns the way the car is turning, both ways round — a wheel
+that turned the wrong way would be teaching him something false, which is worse
+than not having one at all.
+
+Three things were built and then cut, all for the same reason — he has to see
+the road:
+
+- **The A-pillars.** A free-standing post cannot line up with the imported
+  body's own glass, so instead of framing the windscreen it read as a slab
+  hanging in the middle of it. Taking them out gave the road back a quarter of
+  the width.
+- **The raised cowl** at the windscreen base. From a driver's eye you looked
+  straight under its lip: a black notch across the middle of the car exactly
+  where the road should be. One flat shelf to the glass has no underside to see.
+- **The chrome vent strip.** At this size it came out as a hard white line
+  straight across the frame and looked like a fault.
+
+The first version was also built to realistic proportions and came out as a
+letterbox: the wheel sat above his sightline instead of under it, and the dash
+was dark enough to read as a hole in the middle of the car rather than a
+surface. The shelf is now the lightest thing in the cabin, because it is the one
+surface that has to read as solid — the screen stands on it.
+
+Everything static is merged into four meshes rather than left as eighteen boxes;
+three.js batches nothing on its own, and this rig under-prices draw calls
+compared with the iPad. The whole cabin is seven meshes and five extra draw
+calls, and it costs 0.088 ms — +5.7%, SwiftShader, ABBA-alternated, in the view
+where it is actually drawn. It is never drawn anywhere else.
+
+Also fixes a bug that predates the cabin: nothing put the centre screen away
+when he climbed out of the car, so switching from the driver's seat to a plane
+left it standing in the world. Leaving the car now clears the whole interior.
+
 ## v93 — the car was dented, and it was the normals
 
 He said the F-35 looked incredible and the Tesla looked like it had been in a

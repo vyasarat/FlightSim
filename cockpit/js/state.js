@@ -60,6 +60,9 @@ function applyVehicle(key) {
   document.documentElement.style.setProperty("--veh", cols[0]);
   document.documentElement.style.setProperty("--veh2", cols[1]);
   buildVehicleModel(key);
+  // the car's cabin is scene-level, so it has to be put away by hand when he
+  // climbs out -- otherwise it stays standing in the world behind him
+  if (!state.vp.car && typeof carHideCabin === "function") carHideCabin();
   // Watch the rocket and see the helicopter's tool/load in chase view; the view button still toggles.
   if ((state.vp.rocket || state.vp.heli) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
   el.missileBtn.classList.toggle("lowSlot", !!state.vp.rocket);   // the shared slot is spoken for on a rocket
