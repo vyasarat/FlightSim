@@ -28,6 +28,10 @@ function takeStick(id, x, y) {
 glEl.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   unlockAudio();
+  // A tap on the car's centre screen is a tap on the screen, not the stick. It
+  // is raycast against that one plane and nothing else, so every other touch in
+  // the cabin still drives -- this cannot quietly eat a finger anywhere else.
+  if (typeof carScreenTap === "function" && carScreenTap(e.clientX, e.clientY)) return;
   stickPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   // A finger always wins: it takes the stick even if an arrow key is held.
   if (stickPointerId === null) takeStick(e.pointerId, e.clientX, e.clientY);

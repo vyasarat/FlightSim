@@ -182,6 +182,7 @@ function updateVehicleModel(dt) {
   if (feel.hitStop > 0) return;   // hit-stop: the MODEL holds, the flight model does not
   vehicleModel.scale.set(bs * sx, bs * sy, bs * sx);
   vehicleModel.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
+  if (typeof updateModelBurner === "function") updateModelBurner(dt);
   if (vehicleModel.userData.rotor) {
     const ud = vehicleModel.userData, finish = TUNE.toyWorld.finish;
     ud.rotorSpeed += ((state.phase === 'AIRBORNE' ? finish.rotorFlight : finish.rotorIdle) - ud.rotorSpeed) * (1 - Math.exp(-dt * finish.rotorResponse));

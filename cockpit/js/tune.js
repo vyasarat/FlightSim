@@ -139,7 +139,43 @@ const TUNE = {
   // out pointing the wrong way.
   models: {
     car:     { file: "models/car.glb",     length: 9.2,  yaw: Math.PI, lift: 0, smooth: true },   // tail-first; `smooth`: rebuild normals after decimation
-    fighter: { file: "models/fighter.glb", length: 16.0, yaw: Math.PI, lift: 0 },   // it imported tail-first
+    fighter: { file: "models/fighter.glb", length: 16.0, yaw: Math.PI, lift: 0, burner: true },   // tail-first; `burner`: find the nozzle and light it
+  },
+
+  // ---- The afterburner (js/models.js). The fighter's nozzle is found by
+  // geometry -- the rearmost point on the model's own centreline -- and this is
+  // what gets built on it. Everything is additive and there is no bloom: the
+  // brightness has to come from the layers themselves.
+  //
+  // `idle` is why it is never fully out. A jet sitting on the deck with a cold
+  // black hole where its engine should be reads as broken rather than parked.
+  burner: {
+    // How close to the centreline a vertex must be to count as the engine. This
+    // has to be TIGHT. At 0.22 it admitted the horizontal stabilators, which
+    // reach 1.6 m further aft than the nozzle does, and the burner came out
+    // glowing on the tailplane root instead of the exhaust. Nothing on this
+    // model's true centreline goes past the nozzle, so the narrow window is
+    // what makes the test mean anything.
+    axisFrac: 0.075,
+    // The mouth is measured from a THIN ring right at the back. Taking a deeper
+    // slice measured the rear fuselage instead of the exhaust and came back with
+    // a nozzle three times its real size.
+    lipFrac: 0.008,             // how far ahead of the rearmost point the ring reaches
+    mouthFrac: 0.06,            // and how far off-axis it may spread
+    color: 0xffb43a, coreColor: 0xbfe8ff, diamondColor: 0xf2f4f7,
+    // Nested cones, widest and faintest on the outside. Radii and lengths are
+    // multiples of the measured nozzle, so this works on any nozzle it finds.
+    layers: [
+      { r: 1.25, len: 7.6, opacity: 0.20, color: 0xff7a1a },
+      { r: 0.92, len: 5.2, opacity: 0.30, color: 0xffb43a },
+      { r: 0.62, len: 3.2, opacity: 0.42, color: 0xffd23e },
+    ],
+    coreR: 0.44, coreLen: 1.9, coreOpacity: 0.85,
+    diamonds: 3, diamondR: 0.26, diamondOpacity: 0.40,
+    glow: 4.2, glowOpacity: 0.75,
+    idle: 0.30,                 // the floor it never drops below in the air
+    response: 4.5,              // how fast it spools up and down
+    flicker: 0.16,
   },
 
   // ---- The highway (js/highway.js). One continuous divided road from the New
@@ -225,6 +261,9 @@ const TUNE = {
     crashSpeed: 18,              // below this a contact is a bump, not a bang
     bodyL: 9.2, bodyW: 4.2, bodyH: 2.6,
     camChase: [17, 6.5], camLag: 5,
+    // The cartoon on the centre screen: a paper plane flying a figure of eight.
+    // A figure of eight closes on itself, so the loop has no seam to jump at.
+    screenPlay: { loop: 5.5, trail: 14, trailStep: 0.010, every: 3 },
     // The driver's seat, as fractions of the body's OWN measured height -- the
     // imported body is 3.18 m tall where the built box was 2.6, so anchoring
     // these to a constant put his eye in the headlining and the screen level
@@ -717,7 +756,14 @@ const TUNE = {
       rocket: { opening: 1.1, hatch: 'capsule', seat: 'capsule', front: 0, roof: 0, color: 0xf2f4f7 },
       starship: { opening: 1.3, hatch: 'capsule', seat: 'capsule', front: 0, roof: 0, color: 0xb8bec8 },
       rover: { opening: 1, hatch: 'panel', seat: 'spring', front: 0, roof: 1.6, color: 0xffd23e },
-      drone: { opening: 1.4, hatch: 'panel', seat: 'capsule', front: 0, roof: 1.6, color: 0xd4a72c }
+      drone: { opening: 1.4, hatch: 'panel', seat: 'capsule', front: 0, roof: 1.6, color: 0xd4a72c },
+      // The car ejects like a fighter, which is the whole joke. `roof` is big
+      // because it is measured from the MODEL's origin and the car's model sits
+      // a whole gearHeight below its reference point: the roof is 3.18 m above
+      // the road and the model origin is 2.6 m below it, so the seat clears the
+      // glass at 5.9. Without an entry here ejectStart simply returned false and
+      // the button did nothing at all.
+      car: { opening: 1, hatch: 'panel', seat: 'rocket', front: 0.4, roof: 5.9, color: 0xe0483e }
     }
   },
 

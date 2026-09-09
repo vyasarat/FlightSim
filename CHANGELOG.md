@@ -10,6 +10,64 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v95 — an ejection seat in the car, a lit engine on the jet, and a cartoon on the screen
+
+**The car ejects.** It always had the button; pressing it did nothing, because
+`ejectStart` looks the vehicle up in `TUNE.eject.families` and there was no `car`
+entry, so it returned false and said nothing. There is one now, and the seat
+fires up through the roof panel on a rocket like a fighter's, floats down under
+the canopy and puts him back in the driver's seat. The `roof` clearance is large
+(5.9) because it is measured from the model's origin, and the car's model sits a
+whole `gearHeight` below its reference point — the same offset that once buried
+the whole car in the road.
+
+Ejecting also had to put the cabin away by hand: the frame loop hands straight to
+`updateEjection`, so `carCamera` never runs again and the dashboard would have
+stayed standing in the road underneath the rescue.
+
+**The fighter's engine burns.** The nozzle is found by geometry, like the car's
+wheels: the rearmost point on the model's own centreline. That window has to be
+tight — at first it was wide enough to admit the horizontal stabilators, which
+reach 1.6 m further aft than the exhaust does, and the burner came out glowing on
+the tailplane root. Nothing on the true centreline goes past the nozzle, which is
+what makes the test mean anything. The harness now checks *where* the plume is,
+not just that there is one.
+
+The flame is layered and the outer cones are **not** additive. Additive blending
+can only ever add light, and against this game's bright sky an orange plume came
+out as a white smear — the sky is already near the top of the range and there is
+nowhere left to go. Normally-blended translucent cones can be warmer than what is
+behind them; the hot core, the shock diamonds and the nozzle glow stay additive,
+because those really are light. One cone was not enough either: however well
+coloured, it read as a hard-edged orange spike stuck to the back of the jet.
+Three nested cones of falling opacity hide each other's silhouettes. It opens up
+on the throttle and eases off it, and never goes fully out in the air — a jet
+with a cold black hole where its engine is looks broken rather than parked.
+
+**The centre screen is a television.** A play triangle sits in the corner of the
+map; tapping the screen plays a little cartoon — a paper plane flying a figure of
+eight through clouds — and tapping it again puts the map back. A figure of eight
+because it closes on itself, so the loop has no seam.
+
+The button is a plain play triangle, not a YouTube badge. A wordmark or logo
+would break the rule the whole game is built on, and a triangle in a rounded box
+is a thing a four-year-old already knows how to press without reading anything.
+
+Two things worth recording. The tap is raycast against that one plane and nothing
+else, so every other touch in the windscreen is still the stick and driving is
+untouched — the harness checks both halves of that separation. And every frame of
+the cartoon is a pure function of time: the trail is worked out backwards along
+the path rather than accumulated frame by frame, and the clouds wrap a whole
+number of times per loop. An accumulated trail made the picture depend on how
+often it happened to be drawn, which is both a frame-rate bug and a visible seam.
+
+Frame time, SwiftShader, ABBA-alternated: the cartoon costs +0.092 ms (+6.5%)
+against the map in the view where it plays. The first version redrew half again
+as often with a longer trail and cost +12.1%, which was more than a 128-pixel
+canvas has any business costing.
+
+Harness: 413/413.
+
 ## v94 — the car has an inside
 
 The imported body is an exterior model, so from the driver's seat he was sitting
