@@ -22,6 +22,7 @@ const car = {
   steer: 0, boost: 0, offRoad: 0, lastCrash: 0, wheelSpin: 0,
   onRoad: false, lateral: 0, s: 0, roadY: 0,
   charging: 0, chargedAt: null, dust: 0, screen: null, screenArt: null, cabin: null, cabinWheel: null,
+  screenPlaying: false, screenT: 0,
 };
 
 function carActive() { return !!(state.vp && state.vp.car); }
@@ -73,14 +74,23 @@ function buildCarModel() {
   return g;
 }
 
-// The centre screen: a moving map and an arrow. A graphic, never a glyph --
-// there is not a letter or a numeral anywhere on it.
+// The centre screen. Two things live on it, and neither is ever a glyph: a
+// moving map with an arrow, and -- behind a play triangle -- a little cartoon
+// that loops.
+//
+// The play triangle is the button. There is no wordmark and no logo on it: the
+// same rule the airline liveries follow, and the same reason the whole game has
+// no text. A triangle in a rounded box is a thing a four-year-old already knows
+// how to press, and it needs no reading at all.
+const CAR_SCREEN_PX = 128;
 function carBuildScreen() {
   if (car.screen) return car.screen;
   const c = document.createElement("canvas");
-  c.width = c.height = 128;
+  c.width = c.height = CAR_SCREEN_PX;
   const cx = c.getContext("2d");
-  const draw = (ang) => {
+
+  // ---- the map: the road ahead, and which way it bends
+  const drawMap = (ang) => {
     cx.fillStyle = "#11161d"; cx.fillRect(0, 0, 128, 128);
     cx.save(); cx.translate(64, 74); cx.rotate(ang);
     cx.strokeStyle = "#2f6fd0"; cx.lineWidth = 9; cx.lineCap = "round";
@@ -93,16 +103,103 @@ function carBuildScreen() {
     cx.restore();
     cx.fillStyle = "#eaf2ff";
     cx.beginPath(); cx.moveTo(64, 62); cx.lineTo(56, 84); cx.lineTo(64, 78); cx.lineTo(72, 84); cx.closePath(); cx.fill();
+    drawPlayBadge();
   };
-  draw(0);
+
+  // the press-me corner: a rounded box with a triangle in it
+  const drawPlayBadge = () => {
+    const x = 88, y = 88, w = 32, h = 25, r = 7;
+    cx.fillStyle = "rgba(12,16,22,0.78)";
+    cx.beginPath();
+    cx.moveTo(x + r, y); cx.lineTo(x + w - r, y); cx.quadraticCurveTo(x + w, y, x + w, y + r);
+    cx.lineTo(x + w, y + h - r); cx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    cx.lineTo(x + r, y + h); cx.quadraticCurveTo(x, y + h, x, y + h - r);
+    cx.lineTo(x, y + r); cx.quadraticCurveTo(x, y, x + r, y); cx.closePath(); cx.fill();
+    cx.strokeStyle = "rgba(234,242,255,0.35)"; cx.lineWidth = 1.5; cx.stroke();
+    cx.fillStyle = "#eaf2ff";
+    cx.beginPath(); cx.moveTo(x + 11, y + 6); cx.lineTo(x + 23, y + 12.5); cx.lineTo(x + 11, y + 19); cx.closePath(); cx.fill();
+  };
+
+  // ---- the cartoon: a paper plane flying a figure of eight, for ever.
+  //
+  // A figure of eight because it closes on itself: there is no seam where the
+  // loop restarts. And every single thing here is a pure function of t -- the
+  // clouds wrap a whole number of times per loop, and the trail is worked out
+  // backwards from t rather than accumulated frame by frame. An accumulated
+  // trail would have made the picture depend on how often it happened to be
+  // drawn, which is both a frame-rate bug and a seam in the loop.
+  const path = (u) => {
+    const a = u * Math.PI * 2;
+    return [64 + 42 * Math.sin(a), 66 - 24 * Math.sin(2 * a),
+            42 * Math.cos(a), -48 * Math.cos(2 * a)];
+  };
+  const drawPlay = (t) => {
+    const P = CAR.screenPlay, u = (t % P.loop) / P.loop;
+    const g = cx.createLinearGradient(0, 0, 0, 128);
+    g.addColorStop(0, "#8fd0f2"); g.addColorStop(1, "#d8eefb");
+    cx.fillStyle = g; cx.fillRect(0, 0, 128, 128);
+    cx.fillStyle = "#ffd23e";
+    cx.beginPath(); cx.arc(20, 20, 11, 0, Math.PI * 2); cx.fill();
+    // clouds: `laps` is a whole number, so they are back where they started
+    cx.fillStyle = "rgba(255,255,255,0.92)";
+    for (const [cy, laps, sc] of [[36, 2, 1], [92, 1, 0.75]]) {
+      const cxp = ((u * laps) % 1) * 168 - 20;
+      for (const [dx, dy, r] of [[0, 0, 9], [10, -4, 11], [21, 1, 8]]) {
+        cx.beginPath(); cx.arc(cxp + dx * sc, cy + dy * sc, r * sc, 0, Math.PI * 2); cx.fill();
+      }
+    }
+    // the trail, worked out backwards along the path
+    cx.strokeStyle = "rgba(255,255,255,0.85)"; cx.lineWidth = 3; cx.lineCap = "round";
+    let prev = null;
+    for (let i = P.trail; i >= 0; i--) {
+      const q = path(((u - i * P.trailStep) % 1 + 1) % 1);
+      if (prev) {
+        cx.globalAlpha = (1 - i / P.trail) * 0.9;
+        cx.beginPath(); cx.moveTo(prev[0], prev[1]); cx.lineTo(q[0], q[1]); cx.stroke();
+      }
+      prev = q;
+    }
+    cx.globalAlpha = 1;
+    // the paper plane itself, pointing where it is going
+    const [px, py, vx, vy] = path(u);
+    cx.save(); cx.translate(px, py); cx.rotate(Math.atan2(vy, vx));
+    cx.fillStyle = "#f2f4f7";
+    cx.beginPath(); cx.moveTo(13, 0); cx.lineTo(-9, -8); cx.lineTo(-4, 0); cx.lineTo(-9, 8); cx.closePath(); cx.fill();
+    cx.fillStyle = "#c9ced6";
+    cx.beginPath(); cx.moveTo(13, 0); cx.lineTo(-9, 8); cx.lineTo(-4, 0); cx.closePath(); cx.fill();
+    cx.restore();
+  };
+
+  drawMap(0);
   const tex = new THREE.CanvasTexture(c);
-  car.screenArt = { c, cx, draw, tex };
+  car.screenArt = { c, cx, draw: drawMap, drawPlay, tex };
   // Sized and placed like the real one. The first version was a 1.5 m panel a
   // metre from his eye, which blanked the right third of the windscreen: at that
   // distance it subtended more than thirty degrees and he was driving past it.
   car.screen = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.55),
     new THREE.MeshBasicMaterial({ map: tex, fog: false }));
   return car.screen;
+}
+
+// A tap on the screen itself starts and stops the cartoon. It is raycast
+// against that one plane, so it can only ever be a tap on the screen -- every
+// other touch in the cabin is still the stick, and driving is untouched.
+const carTapRay = new THREE.Raycaster(), carTapNdc = new THREE.Vector2();
+function carScreenTap(clientX, clientY) {
+  if (!carActive() || state.viewChase || eject.active || state.exploding) return false;
+  if (!car.screen || !car.cabin || !car.cabin.visible) return false;
+  const r = renderer.domElement.getBoundingClientRect();
+  carTapNdc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+  carTapRay.setFromCamera(carTapNdc, camera);
+  // Raycaster does not refresh world matrices, and the cabin is placed during
+  // the update rather than the render -- so without this the ray is tested
+  // against wherever the screen was last DRAWN, not where it is.
+  car.screen.updateWorldMatrix(true, false);
+  if (!carTapRay.intersectObject(car.screen, false).length) return false;
+  car.screenPlaying = !car.screenPlaying;
+  car.screenT = 0;
+  synthBlip("sine", car.screenPlaying ? 620 : 480, car.screenPlaying ? 980 : 360, 0.12, 0.05, 0);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -546,12 +643,23 @@ function carCamera(dt) {
     cab.rotation.y = state.heading;
     // the wheel shows him what his finger just did
     if (car.cabinWheel) car.cabinWheel.rotation.z = -(car.steer / CAR.steerRate) * CAR.wheelLock * DEG * K.wheelTurn;
-    // and the centre screen keeps its moving map: a graphic, never a glyph
-    if (car.screenArt && (frameCount % 6) === 0) {
-      const road = typeof highway !== "undefined" && highway.built ? hwyNearest(state.x, state.z) : null;
-      const rh = road ? Math.atan2(-road.fx, -road.fz) : state.heading;
-      car.screenArt.draw(wrapPi(rh - state.heading));
-      car.screenArt.tex.needsUpdate = true;
+    // The centre screen: the moving map, or the cartoon he has pressed play on.
+    // Both are graphics and neither is ever a glyph. The cartoon redraws three
+    // times as often as the map, because a map that steps is fine and a plane
+    // that steps is not.
+    if (car.screenArt) {
+      if (car.screenPlaying) {
+        car.screenT += dt;
+        if ((frameCount % CAR.screenPlay.every) === 0) {
+          car.screenArt.drawPlay(car.screenT);
+          car.screenArt.tex.needsUpdate = true;
+        }
+      } else if ((frameCount % 6) === 0) {
+        const road = typeof highway !== "undefined" && highway.built ? hwyNearest(state.x, state.z) : null;
+        const rh = road ? Math.atan2(-road.fx, -road.fz) : state.heading;
+        car.screenArt.draw(wrapPi(rh - state.heading));
+        car.screenArt.tex.needsUpdate = true;
+      }
     }
   }
 }

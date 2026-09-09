@@ -116,6 +116,10 @@ function ejectStart() {
   if(toyWorld.wash){twWashRestore(toyWorld.wash);toyWorld.wash=null;toyWorld.washCooldown=1;}
   if(bucket.g)bucket.g.visible=false;bucket.state='empty';bucket.anim=0;
   cancelRecovery();if(state.vp.rocket)chuteReset();
+  // The car's cabin is scene-level and only carCamera puts it away -- and the
+  // frame loop hands straight to updateEjection from here, so carCamera never
+  // runs again. Left alone it stays standing in the road under the rescue.
+  if(typeof carHideCabin==='function')carHideCabin();
   state.viewChase=true;el.hud.classList.add('chase');if(!surfaceMode)updateVehicleModel(0);model.visible=true;model.updateMatrixWorld(true);
   if(model.userData.rotorBlur)model.userData.rotorBlur.material.opacity=0;
   const pool=ejectBuildPool();pool.root.visible=true;pool.seat.visible=false;pool.hatch.visible=true;pool.splash.visible=false;

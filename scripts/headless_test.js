@@ -4665,6 +4665,118 @@ function check(name, ok, extra) {
       cab.inChase === false && cab.afterSwitch === false, JSON.stringify(cab));
     check("car: the whole cabin is a handful of draw calls, not a box per part",
       cab.meshes > 0 && cab.meshes <= 10, JSON.stringify({ meshes: cab.meshes }));
+
+    // 7. the centre screen is also a television. A tap ON the screen plays a
+    // looping cartoon and a tap anywhere else still drives -- that separation is
+    // the whole risk here, because the entire windscreen is the stick.
+    const tv = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, out = {};
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+      for (let i = 0; i < 60 * 30; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      L.api.clearStick();
+      L.api.setView(false);
+      for (let i = 0; i < 20; i++) L.update(1 / 60);
+      L.scene.updateMatrixWorld(true);
+      const sc = L.car.screen;
+      const p = new THREE.Vector3().setFromMatrixPosition(sc.matrixWorld).project(L.camera);
+      const sx = (p.x * 0.5 + 0.5) * window.innerWidth, sy = (-p.y * 0.5 + 0.5) * window.innerHeight;
+      out.onScreen = p.x > -1 && p.x < 1 && p.y > -1 && p.y < 1;
+      out.start = L.car.screenPlaying;
+      out.tapPlayed = carScreenTap(sx, sy) && L.car.screenPlaying;
+      // it animates: two draws a few frames apart are not the same picture
+      const px = () => { const d = L.car.screenArt.cx.getImageData(0, 0, 128, 128).data; let h = 0;
+                         for (let i = 0; i < d.length; i += 97) h = (h * 31 + d[i]) >>> 0; return h; };
+      for (let i = 0; i < 10; i++) L.update(1 / 60);
+      const a = px();
+      for (let i = 0; i < 40; i++) L.update(1 / 60);
+      out.moving = px() !== a;
+      // the loop closes on itself: a whole period later it is back where it was
+      const P = L.CAR.screenPlay.loop;
+      L.car.screenT = 0; L.car.screenArt.drawPlay(0); const zero = px();
+      L.car.screenArt.drawPlay(P); out.loops = px() === zero;
+      // a tap that is NOT on the screen is not eaten
+      out.missTap = carScreenTap(2, 2) === false;
+      out.tapStopped = carScreenTap(sx, sy) && !L.car.screenPlaying;
+      // and none of it works from outside the car
+      L.api.setView(true);
+      for (let i = 0; i < 5; i++) L.update(1 / 60);
+      out.chaseTap = carScreenTap(sx, sy) === false;
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("car: the centre screen plays a looping cartoon when he taps it -- it animates, it closes on itself so there is no jump, and tapping again puts the map back",
+      tv.onScreen && tv.start === false && tv.tapPlayed && tv.moving && tv.loops && tv.tapStopped &&
+      tv.frameErrors === 0, JSON.stringify(tv));
+    check("car: only a tap on the screen itself counts -- everywhere else in the windscreen is still the stick, and from the chase view the screen cannot be tapped at all",
+      tv.missTap && tv.chaseTap, JSON.stringify(tv));
+
+    // 8. the ejection seat. Without a `car` entry in TUNE.eject.families this
+    // silently did nothing at all: the button was there and pressing it returned
+    // false. Measured all the way to being back in the car.
+    const ej = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, out = {};
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+      for (let i = 0; i < 60 * 20; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      L.api.clearStick(); L.api.setView(false);
+      for (let i = 0; i < 10; i++) L.update(1 / 60);
+      out.started = ejectStart();
+      out.family = eject.family;
+      out.cabinPutAway = !(L.car.cabin && L.car.cabin.visible);
+      const seen = new Set();
+      let top = -1e9;
+      for (let i = 0; i < 60 * 45; i++) {
+        L.update(1 / 60);
+        seen.add(eject.phase);
+        if (eject.pool && eject.pool.seat.visible) top = Math.max(top, eject.pool.seat.position.y - st.y);
+        if (!eject.active) break;
+      }
+      out.rose = +top.toFixed(1);
+      out.phases = [...seen];
+      out.landedSafely = !eject.active && st.vehicleKey === "car" && !st.exploding;
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("car: the eject button actually ejects him -- the seat fires out through the roof, floats down and puts him back in the car, with the cabin put away behind him",
+      ej.started === true && ej.family === "car" && ej.cabinPutAway && ej.rose > 8 &&
+      ej.phases.indexOf("launch") >= 0 && ej.phases.indexOf("float") >= 0 &&
+      ej.landedSafely && ej.frameErrors === 0, JSON.stringify(ej));
+
+    // 9. the fighter's engine. The nozzle is found by geometry, and the check
+    // that matters is WHERE: the first attempt admitted the horizontal
+    // stabilators, which reach further aft than the exhaust does, and lit the
+    // tailplane root instead. So this asserts the burner sits on the centreline
+    // at the back, not merely that one exists.
+    const burn = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, out = {};
+      L.api.setVehicle("fighter"); L.api.placeOnRunway(); L.api.setView(true);
+      for (let i = 0; i < 40; i++) L.update(1 / 60);
+      const vm = L.vehicleModel, b = vm.userData.burner;
+      out.has = !!b;
+      if (!b) return out;
+      // Measured in the MODEL's own frame, where the nose points -Z. Comparing
+      // this against a world-space bounding box is what made the first version
+      // of this check report -371.
+      const p = b.root.position, len = L.TUNE.models.fighter.length;
+      out.r = +(vm.userData.nozzleR || 0).toFixed(2);
+      out.offAxis = +Math.abs(p.x).toFixed(2);
+      out.aftFrac = +(p.z / (len / 2)).toFixed(2);   // 1.0 would be the very tail
+      out.parked = b.root.visible;
+      st.phase = "AIRBORNE"; st.y += 300; st.speed = 110;
+      L.api.setThrottle(true);
+      for (let i = 0; i < 60 * 3; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      out.wide = +b.level.toFixed(2);
+      L.api.setThrottle(false);
+      for (let i = 0; i < 60 * 3; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+      out.eased = +b.level.toFixed(2);
+      out.lit = b.root.visible;
+      L.api.clearStick();
+      out.frameErrors = L.frameErrors || 0;
+      return out;
+    });
+    check("fighter: the engine burns -- the plume is found on the nozzle at the back of the centreline, not on a tailplane, and it opens up on the throttle and eases off it",
+      burn.has && burn.offAxis < 0.4 && burn.aftFrac > 0.6 && burn.aftFrac <= 1.05 && burn.r > 0.15 && burn.r < 2 &&
+      burn.parked === false && burn.lit && burn.wide > burn.eased + 0.15 && burn.eased > 0.15 &&
+      burn.frameErrors === 0, JSON.stringify(burn));
     await page.close();
   }
 

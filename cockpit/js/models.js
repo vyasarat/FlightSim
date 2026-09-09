@@ -95,6 +95,7 @@ function modelPrepare(key, scene) {
   });
   // 5. wheels: only the car has them, and only if they can be found
   if (vp.car) { try { modelSplitWheels(g); } catch (e) { console.warn("models: wheel split failed", e && e.message); } }
+  if (cfg.burner) { try { modelBuildBurner(g); } catch (e) { console.warn("models: burner failed", e && e.message); } }
   g.userData.imported = key;
   return g;
 }
@@ -231,8 +232,170 @@ function modelSplitWheels(g) {
   console.log("models: wheels", order.map((w) => w.parts.size + "p").join("/"), "r=" + g.userData.wheelR.toFixed(2));
 }
 
+// ---------------------------------------------------------------------------
+// The engine.
+//
+// The fighter arrives as a single silent mesh, so the nozzle has to be found the
+// same way the wheels were: by geometry. The exhaust is the rearmost thing on
+// the centreline, so the candidates are the vertices in the last few per cent of
+// the model's length that are close to its axis -- that excludes the tails and
+// the stabilators, which reach just as far back but are nowhere near the middle.
+//
+// The plume is additive billboards and cones on one shared texture, like every
+// other glow in this game. There is no post-processing stack and there is not
+// going to be one: a full-screen bloom costs more on an iPad than all of them
+// together.
+function modelBuildBurner(g) {
+  const B = TUNE.burner;
+  g.updateWorldMatrix(true, true);
+  const gInv = new THREE.Matrix4().copy(g.matrixWorld).invert();
+  const box = new THREE.Box3().setFromObject(g);
+  const len = box.max.z - box.min.z, halfW = (box.max.x - box.min.x) / 2;
+  const axis = Math.min(halfW * B.axisFrac, len * 0.06);
+  const v = new THREE.Vector3();
+  let best = null;
+  g.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    const M = new THREE.Matrix4().multiplyMatrices(gInv, o.matrixWorld);
+    const pos = o.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(M);
+      if (Math.abs(v.x - (box.min.x + box.max.x) / 2) > axis) continue;
+      if (!best || v.z > best.z) best = v.clone();
+    }
+  });
+  if (!best) { console.warn("models: no nozzle found"); return; }
+  // the ring around that rearmost point, which gives the nozzle's centre and size
+  const near = [];
+  g.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    const M = new THREE.Matrix4().multiplyMatrices(gInv, o.matrixWorld);
+    const pos = o.geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(M);
+      if (best.z - v.z > len * B.lipFrac || v.z > best.z + 1e-4) continue;
+      if (Math.hypot(v.x - best.x, v.y - best.y) > len * B.mouthFrac) continue;
+      near.push(v.clone());
+    }
+  });
+  const c = new THREE.Vector3();
+  for (const p of near) c.add(p);
+  if (near.length) c.multiplyScalar(1 / near.length); else c.copy(best);
+  let r = 0;
+  for (const p of near) r = Math.max(r, Math.hypot(p.x - c.x, p.y - c.y));
+  r = Math.max(r, len * 0.02);
+
+  const burner = new THREE.Group();
+  burner.name = "burner_root";
+  burner.position.set(c.x, c.y, best.z);
+  const add = (color, opacity) => new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity, blending: THREE.AdditiveBlending,
+    depthWrite: false, fog: false,
+  });
+  const cone = (radius, length, mat) => {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(radius, length, 14, 1, true), mat);
+    m.rotation.x = Math.PI / 2;      // apex points aft, base sits on the nozzle
+    m.position.z = length / 2;
+    return m;
+  };
+  // The outer flame is NOT additive, and that is the whole reason it reads as
+  // fire. Additive can only ever add light, so against this game's bright sky an
+  // orange plume came out as a white smear -- the sky is already near the top of
+  // the range and there is nowhere left to go. A normally-blended translucent
+  // cone can be warmer than what is behind it.
+  //
+  // And it is LAYERED. One cone, however well coloured, is a hard-edged orange
+  // spike: it reads as a traffic cone stuck to the back of the jet. Three nested
+  // cones of falling opacity and rising length hide each other's silhouettes and
+  // give the soft taper that makes it fire. The hot core, the shock diamonds and
+  // the nozzle glow stay additive, because those really are light.
+  const parts = {};
+  B.layers.forEach((L, i) => {
+    const mat = new THREE.MeshBasicMaterial({
+      color: L.color, transparent: true, opacity: L.opacity,
+      depthWrite: false, fog: false, side: THREE.DoubleSide,
+    });
+    const m = cone(r * L.r, r * L.len, mat);
+    m.name = "burner_flame" + i;
+    burner.add(m);
+    parts["flame" + i] = m;
+  });
+  const core = cone(r * B.coreR, r * B.coreLen, add(B.coreColor, B.coreOpacity));
+  core.name = "burner_core";
+  burner.add(core);
+
+  // shock diamonds: the bright knots down the middle of a real afterburner.
+  // One mesh for all of them -- they are three quads, not three draw calls.
+  const dia = [];
+  for (let i = 0; i < B.diamonds; i++) {
+    const t = (i + 1) / (B.diamonds + 1);
+    const s = r * B.diamondR * (1 - t * 0.55);
+    dia.push({ w: s * 2, h: s * 2, d: s * 0.5, x: 0, y: 0, z: r * B.layers[0].len * t * 0.8 });
+  }
+  // carMergeBoxes lives in car.js, which loads after this file -- fine, because
+  // nothing here runs until a model has finished downloading, but guarded so a
+  // missing helper costs the diamonds rather than the whole engine.
+  if (typeof carMergeBoxes === "function") {
+    const knots = new THREE.Mesh(carMergeBoxes(dia), add(B.diamondColor, B.diamondOpacity));
+    knots.name = "burner_knots";
+    burner.add(knots);
+  }
+
+  const glow = glowSprite(B.color, r * B.glow, B.glowOpacity);
+  glow.name = "burner_glow";
+  glow.position.z = r * 0.35;
+  burner.add(glow);
+
+  burner.visible = false;
+  g.add(burner);
+  g.userData.nozzleR = r;
+  console.log("models: nozzle r=" + r.toFixed(2) + " at z=" + best.z.toFixed(2) + " from " + near.length + " pts");
+}
+
+// The burner is driven every frame from throttle and speed. It is deliberately
+// never fully off while he is flying: an F-35 sitting on the deck with a cold
+// black hole where its engine is looks broken, so it idles.
+function updateModelBurner(dt) {
+  const m = vehicleModel;
+  if (!m || !m.userData.burner) return;
+  const B = TUNE.burner, b = m.userData.burner;
+  const flying = state.phase === "AIRBORNE" || state.speed > 2;
+  b.root.visible = flying && !state.exploding;
+  if (!b.root.visible) return;
+  const throttle = state.throttleHeld ? 1 : 0;
+  const fast = clamp(state.speed / ((state.vp.cruiseSpeed || 90) * 0.9), 0, 1.15);
+  const want = B.idle + (1 - B.idle) * clamp(0.45 * fast + 0.55 * throttle, 0, 1);
+  b.level += (want - b.level) * Math.min(1, B.response * dt);
+  const flicker = 1 + (Math.random() - 0.5) * B.flicker;
+  b.root.scale.set(1, 1, b.level * flicker);
+  for (let i = 0; i < B.layers.length; i++) {
+    const f = b["flame" + i];
+    if (f) f.material.opacity = B.layers[i].opacity * b.level;
+  }
+  if (b.core) b.core.material.opacity = B.coreOpacity * (0.4 + 0.6 * b.level);
+  if (b.knots) b.knots.material.opacity = B.diamondOpacity * Math.max(0, b.level - 0.45) / 0.55;
+  if (b.glow) {
+    b.glow.material.opacity = B.glowOpacity * b.level;
+    const s = (m.userData.nozzleR || 1) * B.glow * (0.85 + 0.3 * Math.random()) * (0.6 + 0.4 * b.level);
+    b.glow.scale.set(s, s, 1);
+  }
+}
+
 // Wheel groups survive cloning by NAME: Object3D.copy runs userData through
 // JSON, so an object reference stored there would not come back.
+function modelFindBurner(g) {
+  const root = g.getObjectByName("burner_root");
+  if (!root) return;
+  const b = {
+    root, level: 0,
+    core: g.getObjectByName("burner_core"),
+    knots: g.getObjectByName("burner_knots"),
+    glow: g.getObjectByName("burner_glow"),
+  };
+  for (let i = 0; i < TUNE.burner.layers.length; i++) b["flame" + i] = g.getObjectByName("burner_flame" + i);
+  g.userData.burner = b;
+}
+
 function modelFindWheels(g) {
   const all = [];
   g.traverse((o) => { if (o.name && o.name.indexOf("wheel_") === 0) all.push(o); });
@@ -276,7 +439,9 @@ function modelInstance(key) {
   g.userData.height = proto.userData.height;
   g.userData.trisBefore = proto.userData.trisBefore;
   g.userData.trisAfter = proto.userData.trisAfter;
+  g.userData.nozzleR = proto.userData.nozzleR;
   modelFindWheels(g);
+  modelFindBurner(g);
   return g;
 }
 
