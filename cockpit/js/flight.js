@@ -356,7 +356,10 @@ function updateFlightTones() {
 function update(dt) {
   frameCount++;
   updateEjectControl();
-  if (eject.active) { updateEjection(dt); return; }
+  // The horn is silenced here too: carHornCan() is false while he is under the
+  // canopy, and without this call the tones would keep sounding for the whole
+  // ejection -- update() returns before the frame's usual horn pass.
+  if (eject.active) { updateEjection(dt); carUpdateHorn(dt); return; }
   if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
   applyKeyboard(dt);
   updateEvents(dt);
@@ -376,12 +379,11 @@ function update(dt) {
     el.skipBtn.classList.toggle("hidden",
       state.phase !== "AIRBORNE" || state.engaged || (dzVis * dzVis) < TUNE.approachEngageDist * TUNE.approachEngageDist);
   }
-  // Parked on the carrier deck he is stopped on a ship: no speed steps, and no
-  // missiles -- the catapult button owns that slot while he is up there.
+  // Parked on the carrier deck he is stopped on a ship: no missiles -- the
+  // catapult button owns that slot while he is up there. (The speed pair is
+  // decided once a frame in spdUpdateButtons, which applies the same test.)
   const onDeck = typeof carrierOnDeck === "function" && carrierOnDeck();
   const inFlight = (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !onDeck;
-  el.slowBtn.classList.toggle("hidden", !inFlight);
-  el.fastBtn.classList.toggle("hidden", !inFlight);
   el.missileBtn.classList.toggle("hidden", !inFlight);
   el.missileBtn.classList.toggle("cooldown", state.missileCooldown > 0);
   const gT = state.gearDown ? 1 : 0;
@@ -389,7 +391,7 @@ function update(dt) {
     state.gearAnim = clamp(state.gearAnim + (gT > state.gearAnim ? 1 : -1) * 1.7 * dt, 0, 1);
   }
   if (state.exploding) {
-    if (state.vp.rocket) { el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden"); el.missileBtn.classList.add("hidden"); el.skipBtn.classList.add("hidden"); el.stageBtn.classList.add("hidden"); el.satBtn.classList.add("hidden"); el.chuteBtn.classList.add("hidden"); el.roverBtn.classList.add("hidden"); el.hatchBtn.classList.add("hidden"); el.droneBtn.classList.add("hidden"); }
+    if (state.vp.rocket) { el.missileBtn.classList.add("hidden"); el.skipBtn.classList.add("hidden"); el.stageBtn.classList.add("hidden"); el.satBtn.classList.add("hidden"); el.chuteBtn.classList.add("hidden"); el.roverBtn.classList.add("hidden"); el.hatchBtn.classList.add("hidden"); el.droneBtn.classList.add("hidden"); }
     state.explodeTimer -= dt;
     const seeking = state.explodeTimer <= 0.5;
     updateExplosion(dt, safePos, seeking);
@@ -545,7 +547,7 @@ function update(dt) {
           state.flaring = true;
         }
       }
-      let targetSpeed = state.vp.cruiseSpeed * TUNE.speedSteps[state.speedStep];
+      let targetSpeed = state.vp.cruiseSpeed * spdMul();
       if (state.engaged) targetSpeed = Math.max(targetSpeed, TUNE.minFlyingSpeed);
       state.speed += (targetSpeed - state.speed) * Math.min(1, TUNE.autoThrottleResponse * 1.6 * dt);
     }
@@ -717,6 +719,10 @@ function update(dt) {
   shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));   // proportional, so a big bang lingers and a small one is gone
   updateVehicleModel(dt);
 
+  // Last word on the speed pair, after every vehicle has had its go at the DOM:
+  // see js/speed.js for why this is the only place that decides it.
+  spdUpdateButtons();
+  carUpdateHorn(dt);        // ... and the horn, for the same reason: one place, after every early return
   updateHud();
   updateFx(dt);
   updateExplosion(dt, safePos, false);

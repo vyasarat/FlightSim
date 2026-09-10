@@ -23,6 +23,7 @@ const car = {
   onRoad: false, lateral: 0, s: 0, roadY: 0,
   charging: 0, chargedAt: null, dust: 0, screen: null, screenArt: null, cabin: null, cabinWheel: null,
   screenPlaying: false, screenT: 0,
+  hornHeld: false, hornT: 0, hornSustain: 0, hornReplyCool: 0,
 };
 
 function carActive() { return !!(state.vp && state.vp.car); }
@@ -453,11 +454,10 @@ function carReassemble() {
 
 // ---------------------------------------------------------------------------
 function updateCar(dt) {
-  // one finger: no throttle button, no gear, no speed steps
+  // one finger: no throttle button and no gear. The speed steps ARE up -- they
+  // are taps, not a second finger -- and js/speed.js decides them once a frame.
   el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.slowBtn.classList.add("hidden");
-  el.fastBtn.classList.add("hidden");
   el.gearBtn.classList.add("hidden");
   state.phase = "TAXI";
 
@@ -485,11 +485,15 @@ function updateCar(dt) {
   }
   if (car.boost > 0) car.boost -= dt;
   const boosting = car.boost > 0 ? CAR.boost : 1;
-  const roadMax = CAR.cruise * lerp(1, CAR.offRoadMax, car.offRoad) * boosting;
+  // The speed step scales the target and the cap. Lane keep is untouched and
+  // still holds at the top step: `laneKeep.lookAhead` is a TIME, so the aim
+  // point slides further ahead as he goes faster and the pursuit stays stable.
+  const step = spdMul();
+  const roadMax = CAR.cruise * step * lerp(1, CAR.offRoadMax, car.offRoad) * boosting;
   const want = touching ? roadMax : 0;
   const rate = (want > state.speed ? CAR.accel : CAR.brake) * dt;
   state.speed += clamp(want - state.speed, -rate, rate);
-  state.speed = clamp(state.speed, 0, CAR.cruise * CAR.boost * 1.05);
+  state.speed = clamp(state.speed, 0, CAR.cruise * step * CAR.boost * 1.05);
   if (state.speed < 0.05) state.speed = 0;
 
   // ---- steering. His stick first; the assist only when he is not using it.
@@ -666,4 +670,98 @@ function carCamera(dt) {
       }
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// THE HORN
+//
+// WORKING RULES. The car's drag-up is already the launch burst, so the horn
+// takes the contextual control the car has never had. It is a SMALL icon beside
+// eject rather than a big pulsing round button, because it is not a set-piece
+// invitation -- it is a thing he can do whenever he likes, the way a horn is,
+// and the round slots are for things that only exist somewhere.
+//
+// TAP PLAYS THE PAIR ONCE, HOLD SUSTAINS IT. Both notes sound together (a real
+// two-tone horn is a dyad, not a sequence); `tap` is how long the pair rings on
+// its own, and holding simply keeps the same two tones up until he lets go or
+// `sustainMax` runs out. There is no timing in it and nothing to get wrong.
+//
+// IT IS ANSWERED, AND NOTHING IS EVER REQUIRED OF HIM. Traffic honks back some
+// of the time; the yacht and the cruise ship answer from the harbour spur where
+// he can hear them across the water; and near the drawbridge the bells and
+// beacons come on early. None of those blocks anything, none can be lost, and
+// none of them has to happen for him to get anywhere -- the same three rules
+// the sea events obey.
+// ---------------------------------------------------------------------------
+function carHornCan() { return carActive() && !state.exploding && !eject.active; }
+
+function carHornPress() {
+  if (!carHornCan()) return;
+  const H = CAR.horn;
+  car.hornHeld = true;
+  car.hornT = Math.max(car.hornT, H.tap);
+  car.hornSustain = 0;
+  flags.carHorns = (flags.carHorns || 0) + 1;
+  carHornReplies();
+}
+
+function carHornRelease() { car.hornHeld = false; }
+
+// Who hears it. One answer per honk, on a cooldown, so leaning on the button
+// never turns into a chorus.
+function carHornReplies() {
+  const H = CAR.horn;
+  if (car.hornReplyCool > 0) return;
+  car.hornReplyCool = H.replyCooldown;
+
+  // ---- the drawbridge: the wind-up comes forward, the bridge does not lift.
+  // Honking can never open it -- that would make the horn a thing he has to
+  // press to get across -- it only brings the bells and beacons on, and if a
+  // lift was already counting down it starts sooner.
+  if (typeof hbBridgeHonked === "function") hbBridgeHonked(state.x, state.z, H.bridgeRange);
+
+  // ---- traffic, occasionally: a shorter, higher, quieter honk back.
+  if (typeof hwyTrafficNear === "function" && hwyTrafficNear(state.x, state.z, H.trafficRange)
+      && Math.random() < H.trafficChance) {
+    const d = lerp(H.trafficDelay[0], H.trafficDelay[1], Math.random());
+    setTimeout(() => {
+      synthBlip("sawtooth", H.hz[0] * 1.18, H.hz[0] * 1.16, 0.30, 0.055, 0);
+      synthBlip("sawtooth", H.hz[1] * 1.18, H.hz[1] * 1.16, 0.30, 0.040, 0);
+    }, d * 1000);
+  }
+
+  // ---- the big ships answer from the water. A car horn and a ship's horn an
+  // octave and a half below it is the whole joke, and the harbour spur is the
+  // one bit of road where he is close enough to both to hear it.
+  let ship = null;
+  if (typeof yacht !== "undefined" && yacht.x !== undefined) ship = { x: yacht.x, z: yacht.z, hz: YT.horn.hz, dur: YT.horn.dur };
+  if (typeof sea !== "undefined" && sea.cruise && sea.cruise.state !== "away" && sea.cruise.state !== "calling") {
+    const dc = Math.hypot(state.x - sea.cruise.x, state.z - sea.cruise.z);
+    const dy = ship ? Math.hypot(state.x - ship.x, state.z - ship.z) : Infinity;
+    if (dc < dy) ship = { x: sea.cruise.x, z: sea.cruise.z, hz: SE.cruise.hornHz, dur: 3.0 };
+  }
+  if (ship && Math.hypot(state.x - ship.x, state.z - ship.z) < H.seaRange) {
+    setTimeout(() => hbHorn(ship.x, TUNE.waterLevel + 16, ship.z, ship.hz, ship.dur), H.seaDelay * 1000);
+  }
+}
+
+// The two tones, and the button. Driven from the tail of update() rather than
+// from updateCar, so that leaving the car -- or exploding in it, which returns
+// out of updateCar early -- can never leave a horn sounding.
+function carUpdateHorn(dt) {
+  const H = CAR.horn;
+  if (car.hornReplyCool > 0) car.hornReplyCool -= dt;
+  if (car.hornT > 0) car.hornT -= dt;
+  if (car.hornHeld) {
+    car.hornSustain += dt;
+    if (car.hornSustain > H.sustainMax) car.hornHeld = false;   // it cannot be leaned on forever
+  } else {
+    car.hornSustain = 0;
+  }
+  const on = carHornCan() && (car.hornHeld || car.hornT > 0);
+  setTone("carHornA", "sawtooth", H.hz[0], on ? H.gain : 0);
+  setTone("carHornB", "sawtooth", H.hz[1], on ? H.gain * 0.8 : 0);
+  if (!carHornCan()) { car.hornHeld = false; car.hornT = 0; }
+  el.hornBtn.classList.toggle("hidden", !carHornCan());
+  el.hornBtn.classList.toggle("pressed", on);
 }

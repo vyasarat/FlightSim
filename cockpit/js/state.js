@@ -27,6 +27,9 @@ const state = {
   gearAnim: 1,
   vehicleKey: "prop",
   vp: null,
+  // speedStep is redefined in js/speed.js as an accessor over the per-vehicle
+  // step memory. It is declared here so the shape of `state` is still readable
+  // in one place; the value below is never the one anybody sees.
   speedStep: 2,
   missileCooldown: 0,
   missileSide: 1,

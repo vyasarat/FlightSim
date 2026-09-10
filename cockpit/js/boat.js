@@ -147,11 +147,10 @@ function boatCrash() {
 // The frame
 // ---------------------------------------------------------------------------
 function updateBoat(dt) {
-  // one finger: no throttle button, no gear, no speed steps, no missiles
+  // one finger: no throttle button, no gear, no missiles. The speed steps are
+  // up (taps, not a second finger); js/speed.js decides them once a frame.
   el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.slowBtn.classList.add("hidden");
-  el.fastBtn.classList.add("hidden");
   el.gearBtn.classList.add("hidden");
   el.missileBtn.classList.add("hidden");
   el.skipBtn.classList.add("hidden");
@@ -183,11 +182,15 @@ function updateBoat(dt) {
   }
   if (boat.burst > 0) boat.burst -= dt;
   const bursting = boat.burst > 0 ? BT.burst : 1;
-  const top = BT.cruise * bursting * (onWater ? 1 : BT.beachedMax);
+  // The speed step multiplies the TARGET and the cap and nothing else: every
+  // `speed / BT.cruise` below still reads against the base, so the engine note
+  // pegs and the wake maxes out at the top step (js/speed.js).
+  const step = spdMul();
+  const top = BT.cruise * step * bursting * (onWater ? 1 : BT.beachedMax);
   const want = touching ? top : 0;
   const rate = (want > state.speed ? BT.accel : BT.drag) * dt;
   state.speed += clamp(want - state.speed, -rate, rate);
-  state.speed = clamp(state.speed, 0, BT.cruise * BT.burst * 1.05);
+  state.speed = clamp(state.speed, 0, BT.cruise * step * BT.burst * 1.05);
   if (state.speed < 0.05) state.speed = 0;
 
   // ---- planing. Above planeAt the bow lifts, then levels off as it comes on
@@ -246,6 +249,7 @@ function updateBoat(dt) {
   if (state.speed < BT.planeAt * 0.3) state.bank += Math.sin(performance.now() * 0.0012) * 0.02;
 
   boatWake(dt, fx, fz);
+  boatPlume(dt, fx, fz);   // outside boatWake: that returns early below 3 m/s, which is the idle this wisp is for
   boatHitTest(dt, fx, fz);
   boatRampTest(dt);
   boatCannon(dt);
@@ -349,16 +353,46 @@ function boatWake(dt, fx, fz) {
   boat.wakeT = lerp(0.09, 0.035, clamp(state.speed / BT.cruise, 0, 1));
   const back = 7 + boat.plane * 4;
   const rx = -fz, rz = fx;
-  const spread = 2.4 + boat.plane * 3.4;
+  const spread = BT.wakeSpread[0] + boat.plane * BT.wakeSpread[1];
+  // SPRAY FALLS BACK, IT DOES NOT CLIMB. This used to rise at up to 7.2 m/s for
+  // a second and a half -- ten metres of white ball, straight up through the
+  // chase camera's sightline, which sits 22 m astern and 8 m up. Between that
+  // and the rooster tail it read as an engine on fire rather than as water.
+  // Kept low and short it is still plainly a wake and it is under the shot.
   for (const s of [-1, 1]) {
     wakePuff(state.x - fx * back + rx * s * spread, TUNE.waterLevel + 0.4, state.z - fz * back + rz * s * spread,
-      0xf2f4f7, 1.5 + boat.plane * 1.4, 2.2 + boat.plane * 5, 1.0 + boat.plane * 0.5);
+      0xf2f4f7, BT.wakeSize[0] + boat.plane * BT.wakeSize[1],
+      BT.wakeRise[0] + boat.plane * BT.wakeRise[1], BT.wakeLife[0] + boat.plane * BT.wakeLife[1]);
   }
-  // the rooster tail: only once it is properly up and going
-  if (boat.plane > 0.7 || boat.burst > 0) {
-    wakePuff(state.x - fx * (back + 5), TUNE.waterLevel + 1.4 + boat.plane * 2, state.z - fz * (back + 5),
-      0xf2f4f7, 2.6, 9 + boat.burst * 6, 0.9);
-  }
+  // The rooster tail that used to live here is GONE -- see TUNE.boat's plume
+  // block. What is left is one thin wisp at the transom while he is idling
+  // along (boatPlume, called from updateBoat so this function's own 3 m/s floor
+  // does not swallow it), and nothing at all once he is moving, which is when
+  // he is looking where he is going.
+}
+
+// ---------------------------------------------------------------------------
+// THE STERN PLUME. It is deliberately almost invisible.
+//
+// It has to stay out of BOTH sightlines, and the two look in opposite
+// directions. The helm camera sits 0.3 m FORWARD of centre looking ahead, so
+// anything at the transom is behind it and can never be in frame. The chase
+// camera sits BT.camChase astern (22 m) and 8 m up, looking forward at a point
+// 22 m ahead and 1.4 m up -- so the sightline passes over the transom at
+// roughly 6 m above the water. Keeping the wisp low (plumeY, and a rise of half
+// a metre a second over a life under a second) keeps it a couple of metres
+// under that line, and it is gone entirely above plumeMaxSpeed.
+let boatPlumeT = 0;
+function boatPlume(dt, fx, fz) {
+  const P = BT;
+  boatPlumeT -= dt;
+  // only at a crawl, only on the water, and never while the hull is up on the
+  // plane -- a boat on the plane has its exhaust under the water anyway
+  if (state.speed > P.plumeMaxSpeed || state.speed < 0.4 || boat.plane > 0.15) return;
+  if (boatPlumeT > 0) return;
+  boatPlumeT = P.plumeEvery;
+  wakePuff(state.x - fx * P.plumeBack, TUNE.waterLevel + P.plumeY, state.z - fz * P.plumeBack,
+    0xf2f4f7, P.plumeSize, P.plumeRise, P.plumeLife);
 }
 
 // ---------------------------------------------------------------------------

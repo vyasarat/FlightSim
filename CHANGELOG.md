@@ -10,6 +10,78 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v100 — one speed control on everything, a horn for the car, and the smoke is gone
+
+**The smoke off the speedboat.** There was never an exhaust: what looked like
+one was the boat's *rooster tail*, a white ball a few metres astern that climbed
+nine metres a second and grew to five metres across. The chase camera sits
+twenty-two metres astern and eight metres up, looking forward — so it went up
+through the middle of the shot and stayed there, reading as an engine on fire
+rather than as water, and hiding the thing he was steering. It is gone. So is
+the climb on the side wake, which was rising seven metres a second at full plane
+for the same reason and with the same result; spray now hugs the water, which is
+what spray does. What replaces the plume is deliberately almost nothing — one
+faint wisp at the transom while he is idling, below both sightlines, and nothing
+at all above `TUNE.boat.plumeMaxSpeed`, which is the speed at which he is
+actually looking where he is going. The yacht gets the same wisp on the same
+terms. She also stopped flooding the shared puff pool: four puffs every tenth of
+a second living two seconds wanted seventy-odd of the sixty-four that exist, so
+she was recycling her own mid-fade and starving every other splash in the
+harbour — the whale, the jet-ski, the droneship.
+
+Looking at it is what finished the job. A puff grows to 2.2x its size, so the
+boat's wake was six-metre balls thrown nine metres in front of a lens that sits
+twenty-two metres back: their *centres* projected below the frame, which is why
+a check on how high they climbed went green while the screenshot showed the boat
+hidden behind a white wall. The yacht was worse — her bow wave comes off
+twenty-six metres *ahead* of centre and the wheelhouse camera sits six metres
+abaft it, so twenty ten-metre balls stood dead ahead and turned the whole bridge
+view into fog. Both wakes are now half the size and thrown much wider, off the
+shoulders and quarters where they still say "this is fast" and "this is fifty
+metres of ship" without standing in front of either. The harness check was
+rewritten to match: it takes the camera's sightline and asks whether any puff's
+sphere actually intersects it in front of the hull, which is what a screenshot
+shows and what the old height test could not see.
+
+**Speed steps on everything but the rocket.** The pair of buttons the plane has
+always had now means the same thing on the car, the speedboat, the yacht, the
+helicopter, the rover, the Mars drone, the airliners, the prop and the fighter.
+Each vehicle has its own range in `TUNE.<vehicle>.speedSteps` — multipliers on
+its own cruise, so a step reads as "much faster than usual" rather than a number
+he cannot read — and the top step is a genuine one, because at their defaults
+these things plodded. The step multiplies the speed the model is *aiming* for
+and the cap, and never the `speed / cruise` ratios underneath, so at the top step
+the boat sounds pegged and throws its biggest wake instead of looking identical
+to cruise. Point-to-go vehicles keep their easing exactly: only the cruise half
+of `Math.min(cruise, distance × approach)` is scaled, so the helicopter and the
+drone still slow into the spot he touched. Lane keep still holds the road at the
+top step — `lookAhead` is a time, so the aim point slides further ahead as he
+speeds up. A fresh vehicle starts at cruise; each one then remembers its own step
+for the session and forgets it on reload.
+
+The control had to move to do this. It used to live in the bottom-right ladder,
+which the helicopter's altitude pair and the rover's inherited throttle already
+own — leaving it there would have given it a different position on three
+vehicles, which is the one thing a control he learns once must not do. It is now
+top-right, under the view button, on every vehicle. The helicopter is the
+exception the screen forces: a side of the screen holds four button slots and it
+already spends three on view, up and down, and its altitude buttons are the
+biggest controls in the game on purpose. There, and only there, it is a single
+button that steps up and wraps, with chevrons saying which step he is on.
+
+**A horn for the car.** The car's drag-up is already the launch burst, so the
+horn takes the contextual control it has never had — a small icon beside eject
+rather than a round slot button, because the round slots are for things that
+only exist somewhere and a horn is a thing he can always do. Tap plays the
+two-tone once; holding sustains it. It is answered: traffic honks back some of
+the time, the yacht and the cruise ship answer from the harbour spur where he is
+close enough to hear them across the water, and honking near the drawbridge
+brings its bells and beacons on early. None of those blocks anything or is ever
+required — honking can never *open* the bridge, because a bridge that opens when
+he honks is one he can strand himself behind on his own road.
+
+---
+
 ## v99 — five things to do at sea, and none of them can be lost
 
 **BOATS, stage 3.** The water out past the harbour mouth has things in it now,

@@ -758,8 +758,6 @@ function updateMarsDrone(dt) {
   // one finger, always: the same as the big helicopter, nothing else to hold
   el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.slowBtn.classList.add("hidden");
-  el.fastBtn.classList.add("hidden");
   el.gearBtn.classList.add("hidden");
 
   dr.n.set(dr.x - b.x, dr.y - b.y, dr.z - b.z).normalize();
@@ -817,7 +815,9 @@ function updateMarsDrone(dt) {
       if (Math.abs(cmd) < 0.05 && dr.f.dot(mbT2) < 0) cmd = 1;      // exactly tail-on: pick a side
       dr.turn += (cmd * D.turnRate - dr.turn) * Math.min(1, D.turnAccel * dt);
       facing = Math.max(0, dr.f.dot(mbT2));
-      wantSpeed = Math.min(D.cruise, flat * D.approach) * facing;
+      // point-to-go, same rule as the big helicopter: scale the cap, leave the
+      // `flat * D.approach` taper alone (js/speed.js)
+      wantSpeed = Math.min(D.cruise * spdMul(), flat * D.approach) * facing;
     }
   }
   if (!have) dr.turn += (0 - dr.turn) * Math.min(1, D.turnAccel * dt);
@@ -833,7 +833,7 @@ function updateMarsDrone(dt) {
   const going = have && flat > D.landR * 2;
   if (going && dr.speed < D.stallSpeed) dr.stallT += dt; else dr.stallT = 0;
   dr.forced = going && dr.stallT > D.stallTime;
-  if (dr.forced) wantSpeed = D.cruise;
+  if (dr.forced) wantSpeed = D.cruise * spdMul();
 
   const k = wantSpeed > dr.speed ? D.accel : D.hoverDamp;
   dr.speed += (wantSpeed - dr.speed) * Math.min(1, k * dt);
