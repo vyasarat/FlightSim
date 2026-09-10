@@ -58,15 +58,50 @@ of the file it concerns. Read that file before changing it.
   event may never be required, block anything, or take anything away. **Sea
   events (`seaevents.js`) obey the same three rules**, and the rival jet-ski is
   rubber-banded like the rival rocket so there is no winner to be.
-- **Water is `terrainEff < waterLevel`, and nothing else.** The harbour is shaped
-  in `terrain.js` -- dredge the basin, lay the spit, then cut the mouth back
-  through it, in that order -- so the mouth is the only way in by water and the
-  drawbridge the only way across by land. Move a number in `TUNE.harbor` and the
-  ground and the structures move together.
+- **Water is `terrainEff(x,z) < seaLevelAt(x,z)`, and nothing else.** There is
+  still exactly one definition; it takes a position now. `seaLevelAt`
+  (`terrain.js`) answers `TUNE.waterLevel` everywhere except the lock's chamber
+  and the dock above it, where `lockLevelAt` (`lock.js`) is the only thing that
+  ever says otherwise. Anything that floats, rests on or splashes into water asks
+  `seaLevelAt`; the open sea, the rockets and the ambient beds keep the constant,
+  because for them it is the same number everywhere. **Do not add a third
+  answer** — generalise this one.
+- The harbour is shaped in `terrain.js` -- dredge the basin, lay the spit, then
+  cut the mouth back through it, in that order -- so the mouth is the only way in
+  by water and the drawbridge the only way across by land. The lock is cut after
+  it, the same way: raise the rim, then cut the two floors back through it to
+  **different depths**. The dock's floor is left ABOVE the global sea so the
+  world's own plane never appears in it; the chamber's goes BELOW, because it
+  holds water at both heights. Move a number in `TUNE.harbor` or `TUNE.lock` and
+  the ground and the structures move together.
+- **A contextual button must be gated on a radius**, not only on "parked and
+  still". The car wash was gated on the latter alone and offered itself to a boat
+  sitting in the harbour lock two kilometres away. Every other one has a radius
+  (`cannonRadius`, the garage's, the drone's `callR`, the wash's `buttonR`).
 - **A boat can never be stuck.** A beached hull widens its search for water until
   it finds some, and any beaching that has not ended in `boat.strandedAfter`
   seconds ends itself by going home. Both are needed: the search alone deadlocks
-  against a quay standing in the water it can see.
+  against a quay standing in the water it can see. The lock obeys the same law
+  from the other direction: sitting in the chamber doing nothing re-opens the
+  gate he came in by, so there is no way to be shut in, and its gates open
+  themselves as he comes up to them so he never has to aim at a shut one.
+- **The harbour is the third place he can lose a whole session in**, after the
+  airport toy world and the space programme. It gets the same treatment: a pool
+  of sea events (`seaevents.js`) that grows the way the space pool did, all of
+  them under the three rules above. The rejected direction is the fishing boat --
+  do not bring it back.
+- **The speed steps are one control he learns once** (`speed.js`): same two
+  buttons, same top-right slot, same icons, on every vehicle but the rocket. The
+  helicopter is the one exception the screen forces -- four button slots a side,
+  three already spent -- and there it is a single stepper that wraps. Each
+  vehicle's range is `TUNE.<vehicle>.speedSteps`, and a step scales the speed the
+  model AIMS for and its cap, never the `speed / cruise` ratios that drive the
+  engine note, the wake and the field of view.
+- **Wake and spray must stay out of the shot, and size is what does it.** A puff
+  grows to 2.2x its size, so a 2.9 becomes a six-metre ball -- and the boat's
+  chase camera sits twenty-two metres astern, the yacht's ninety-five. Measuring
+  how HIGH a puff climbs will pass while the view is ruined; measure whether its
+  sphere intersects the camera's sightline.
 - The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`)
   says what counts as a landing; everything else crashes, and a crash stays free.
   Assist strengths are separate knobs (`assist*`) — the assist may stand him up,
@@ -93,6 +128,8 @@ of the file it concerns. Read that file before changing it.
 | `highway.js` `car.js` | the coast-to-coast road, its traffic and exits / the electric SUV and lane-keep |
 | `harbor.js` | the Californian port: terrain-shaped basin, terminal, marina, breakwater, drawbridge, coast road |
 | `boat.js` `yacht.js` `seaevents.js` | the speedboat and its water cannon / the yacht, her helipad and tender garage / the jet-ski, the whale, the cruise ship |
+| `lock.js` | the lock, its gates and the impounded dock six metres above the harbour |
+| `speed.js` | the speed steps: one control, every vehicle but the rocket |
 | `ambient.js` | birds, high airliners, flags — things that move on their own |
 | `audio.js` | the mix, the ambient beds, layered events |
 | `vehicle.js` | vehicle models, the cameras and camera feel |
