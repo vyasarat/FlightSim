@@ -181,6 +181,7 @@ window.__lp = {
   yachtPadWorld, yachtPadUnder, yachtHorn, yachtGarageCan, yachtGaragePress, yachtLate,
   buildYachtModel, yachtDropAnchor, yachtRaiseAnchor,
   sea, SE, seaBuild, updateSeaEvents, seaCraneHonked, seaChannelNear,
+  seaPlane, seaSub, seaFireboat, seaHideAll,
 
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,

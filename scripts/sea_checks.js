@@ -302,6 +302,82 @@ module.exports = async function seaChecks({ newPage, check, shots }) {
     check("sea: the busiest the harbour ever gets -- cruise ship alongside, drawbridge up, traffic queued, terminal in frame -- stays inside the draw-call budget (SwiftShader: calls are the hardware proxy, cpuMs only a bound)",
       added < 110 && perf.withMs < 240, JSON.stringify({ ...perf, added }));
     console.log(`INFO  busiest harbour: ${perf.withMs} ms with it vs ${perf.withoutMs} ms without, +${added} draw calls, +${(perf.tris - perf.trisWithout).toLocaleString()} triangles (swiftshader, interleaved)`);
-    await page.close();
+
+  // ---- the three new ones: the seaplane, the submarine and the fireboat ----
+  // On the SHARED page, not a fresh one. The server behind the harness is a
+  // single-threaded python http.server and a third live context tipped it into
+  // a thirty-second navigation timeout that killed the whole run. These checks
+  // do not need their own page anyway: they force each event's `next` timer to
+  // fire immediately, so nothing about them depends on where the clock had got
+  // to. (The whale above genuinely does need one -- it picks its spot from the
+  // seeded stream and rejects the shallows.)
+  const pool = await page.evaluate(() => {
+    const L = window.__lp, st = L.state;
+    L.noRender = true; L.api.skipScreens();
+    L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1);
+    const P = L.HB.buoys.path;
+    st.x = P[2][0]; st.z = P[2][1]; st.y = L.seaLevelAt(st.x, st.z); st.speed = 0;
+    L.sea.plane.next = 0.2; L.sea.sub.next = 0.2; L.sea.fboat.next = 0.2;
+    const pS = new Set(), sS = new Set(), fS = new Set();
+    let planeLow = 1e9, planeHigh = -1e9, subLow = 1e9, subHigh = -1e9;
+    let jetsWhileWinding = false, jetsInShow = false;
+    for (let i = 0; i < 60 * 260; i++) {
+      L.update(1 / 60);
+      st.x = P[2][0]; st.z = P[2][1];
+      pS.add(L.sea.plane.state); sS.add(L.sea.sub.state); fS.add(L.sea.fboat.state);
+      if (L.sea.plane.g.visible) { planeLow = Math.min(planeLow, L.sea.plane.y); planeHigh = Math.max(planeHigh, L.sea.plane.y); }
+      if (L.sea.sub.g.visible) { subLow = Math.min(subLow, L.sea.sub.g.position.y); subHigh = Math.max(subHigh, L.sea.sub.g.position.y); }
+      // no unannounced bangs: nothing may come out of the monitors until the
+      // horn has sounded and the monitors have finished coming up
+      if (L.sea.fboat.state === "windup" && L.sea.fboat.jets.visible) jetsWhileWinding = true;
+      if (L.sea.fboat.state === "show" && L.sea.fboat.jets.visible) jetsInShow = true;
+    }
+    // none of the three may ever be solid: he must sail straight through
+    let solid = 0;
+    L.forEachSolid(b => { if (b.mesh && (b.mesh === L.sea.plane.g || b.mesh === L.sea.sub.g || b.mesh === L.sea.fboat.g)) solid++; });
+    const noSolid = [L.sea.plane.g, L.sea.sub.g, L.sea.fboat.g].every(g => g.userData.noSolid);
+    // and the fireboat's water is its OWN instanced mesh, not the shared pool
+    const ownJets = !!L.sea.fboat.jets && L.sea.fboat.jets.isInstancedMesh === true;
+    return {
+      planeStates: [...pS], subStates: [...sS], fbStates: [...fS],
+      planeLanded: planeLow < L.TUNE.waterLevel + 2, planeFlew: planeHigh > L.TUNE.waterLevel + 60,
+      subDown: subLow < L.TUNE.waterLevel - 10, subUp: subHigh > L.TUNE.waterLevel - 2,
+      dives: L.flags.subDives || 0, shows: L.flags.fireboatShows || 0,
+      jetsWhileWinding, jetsInShow, solid, noSolid, ownJets,
+      crashes: L.flags.boatCrashes || 0, exploded: st.exploding,
+      poolAlive: L.wakePuffsAlive(), poolSize: L.wakePuffList.length,
+    };
+  });
+  const has = (a, ...k) => k.every(x => a.includes(x));
+  check("sea: the seaplane comes in, puts down on the water and takes off again",
+    has(pool.planeStates, "inbound", "taxi", "turn", "takeoff") && pool.planeLanded && pool.planeFlew,
+    JSON.stringify({ states: pool.planeStates, landed: pool.planeLanded, flew: pool.planeFlew }));
+  check("sea: the submarine boils, comes up, runs on the surface and dives again",
+    has(pool.subStates, "boil", "rising", "running", "diving") && pool.subDown && pool.subUp && pool.dives > 0,
+    JSON.stringify({ states: pool.subStates, down: pool.subDown, up: pool.subUp, dives: pool.dives }));
+  check("sea: the fireboat horns and raises its monitors BEFORE any water moves, then throws its arcs",
+    has(pool.fbStates, "windup", "show") && !pool.jetsWhileWinding && pool.jetsInShow && pool.shows > 0,
+    JSON.stringify({ states: pool.fbStates, duringWindup: pool.jetsWhileWinding, inShow: pool.jetsInShow, shows: pool.shows }));
+  check("sea: all three are scenery that moves -- never solid, never a wall between him and anywhere, and he never crashes into one",
+    pool.solid === 0 && pool.noSolid && pool.crashes === 0 && !pool.exploded,
+    JSON.stringify({ solid: pool.solid, noSolid: pool.noSolid, crashes: pool.crashes }));
+  check("sea: the fireboat draws its water from its own instanced mesh and does not drain the shared puff pool",
+    pool.ownJets && pool.poolAlive < pool.poolSize,
+    JSON.stringify({ own: pool.ownJets, alive: pool.poolAlive, size: pool.poolSize }));
+
+  // the seaplane's engine must not follow him out of the harbour
+  const quiet = await page.evaluate(() => {
+    const L = window.__lp, st = L.state;
+    L.sea.plane.next = 0.1;
+    for (let i = 0; i < 60 * 40 && !L.sea.plane.g.visible; i++) L.update(1 / 60);
+    const wasFlying = L.sea.plane.g.visible;
+    st.x = 0; st.z = 0;                       // right away from the harbour
+    for (let i = 0; i < 30; i++) L.update(1 / 60);
+    return { wasFlying, hidden: !L.sea.plane.g.visible };
+  });
+  check("sea: leaving the harbour puts the seaplane away -- its engine does not follow him out",
+    quiet.wasFlying && quiet.hidden, JSON.stringify(quiet));
+
+  await page.close();
   }
 };

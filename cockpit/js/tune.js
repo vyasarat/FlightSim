@@ -269,6 +269,7 @@ const TUNE = {
     settleMax: 1.2,              // a drop bigger than this is a step, not a crest
     railAt: 4,                   // a deck this high above the ground has a rail that holds him
     crashSpeed: 18,              // below this a contact is a bump, not a bang
+    crashDebounce: 0.9,          // seconds of GAME time between bangs, driven by the frame
     bodyL: 9.2, bodyW: 4.2, bodyH: 2.6,
     camChase: [17, 6.5], camLag: 5,
     // The cartoon on the centre screen: a paper plane flying a figure of eight.
@@ -734,6 +735,7 @@ const TUNE = {
     bankDeg: 16,                 // it banks INTO the turn, the opposite of the car
     hullR: 4.5,                  // the hull's own radius, for bumps and bangs
     crashSpeed: 20,              // below this a contact is a bump, not a bang
+    crashDebounce: 0.9,          // seconds of GAME time between bangs, driven by the frame
     draft: 0.6,                  // this much water under it counts as floating
     planeAt: 20,                 // it comes up on the plane above this
     planeRate: 2.2, bowRise: 7, trim: 1.5, planeLift: 0.55,
@@ -880,6 +882,7 @@ const TUNE = {
     whale: {
       len: 9, beam: 3.2, height: 16, riseTime: 2.6, roll: 1.1,
       dist: [220, 420], minDepth: 8, every: [22, 48],
+      retry: 1.5,                    // a spot in the shallows costs a moment, not a whole turn
     },
     cruise: {
       len: 240, beam: 34, decks: 4, lightSize: 9, hornHz: 58, speed: 12,
@@ -893,6 +896,65 @@ const TUNE = {
     },
     carrierWake: { radius: 900, every: 16, width: 240, stand: 70, puffs: 22, roll: 9 },
     crane: { radius: 130, time: 3.6, deckZ: -14, deckY: 7.2 },
+
+    // ---- three more, because the harbour is the third place he can lose a
+    // whole session in and five things to find is not enough. All three are
+    // MACHINES, all three are scenery that moves -- `noSolid`, like the ferry
+    // and the road traffic, so none of them can ever become a wall in front of
+    // him -- and all three obey the same rules the first five do: never
+    // required, never blocking, never takes anything away.
+
+    // THE SEAPLANE. It comes in over the breakwater, puts down on the water in
+    // a sheet of spray, taxis, turns, and takes off again. The spray on
+    // touchdown is its one hero effect. Announced by its own engine a long way
+    // out, so it is never a thing that simply appears.
+    plane: {
+      first: 30, gap: [70, 130],
+      // Big enough to READ. At fourteen metres it was a speck against the
+      // breakwater; everything else out here is a set-piece you can see from
+      // the far side of the harbour, and it has to be one too.
+      len: 20, span: 26, floatDrop: 2.8,
+      cruiseY: 120, approachY: 34,    // where it circles, and where the descent starts
+      speed: 62, taxiSpeed: 9, climb: 16,
+      runIn: 1400, runOut: 1600,      // how far out it starts and how far it goes before vanishing
+      x: 1300,                        // it uses the buoyed channel, like everything else here
+      touchZ: -7200, taxiTime: 7, turnTime: 4,
+      sprayEvery: 0.05, sprayPuffs: 5,
+      engineHz: [90, 210],
+    },
+
+    // THE SUBMARINE. A boil of water, then the hull comes up out of it with the
+    // sea sheeting off, a klaxon, a run on the surface, and it goes down again.
+    // The rise is the hero effect and the boil is the wind-up: nothing this big
+    // arrives in this game without announcing itself first.
+    sub: {
+      first: 95, gap: [120, 210],
+      len: 78, beam: 11, sailH: 9, sailL: 16,
+      x: 900, z: [-8100, -7500],      // out past the breakwater, in deep water
+      boilTime: 3.2, riseTime: 4.5, runTime: 26, diveTime: 4.0,
+      deep: 26,                       // how far under it sits when it is down
+      speed: 9, boilPuffs: 5, sheetPuffs: 7,
+      klaxonHz: 300, klaxonDur: 0.9,
+    },
+
+    // THE FIREBOAT. Moored off the terminal, and every so often it puts on a
+    // display: three monitors that elevate and throw tall arcs of water. It is
+    // the water cannon's language, which he already knows from the speedboat,
+    // done by something else and much bigger.
+    fire: {
+      first: 55, gap: [80, 150],
+      x: 1690, z: -6640,              // clear of the marina fingers and the fairway
+      len: 22, beam: 7,
+      monitors: 3, reach: 90, arcH: 40,
+      // The jets are the fireboat's OWN instanced droplets, not the shared
+      // wakePuff pool. Three arcs at nine puffs every 0.07 s is three hundred
+      // and eighty a second into a pool of sixty-four -- it would have starved
+      // every splash in the harbour and strobed its own arcs. One instanced
+      // mesh is one draw call and owes nothing to anybody.
+      drops: 26, dropSize: 1.7, scroll: 0.55,
+      windUp: 2.4, showTime: 16,      // the horn and the monitors coming up, then the display
+      hornHz: 150, hornDur: 1.2,
+    },
   },
 
   // ---- The harbour (js/harbor.js, and the ground it stands on in js/terrain.js).
