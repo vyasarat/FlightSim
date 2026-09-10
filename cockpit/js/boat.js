@@ -41,7 +41,11 @@ function boatActive() { return !!(state.vp && state.vp.boat); }
 // open sea, the lake and the river all behave the same without a single
 // hand-drawn boundary.
 // ---------------------------------------------------------------------------
-function boatWaterAt(x, z) { return terrainEff(x, z) < TUNE.waterLevel - BT.draft; }
+// The local level, not the global constant: inside the lock's chamber and up
+// in the dock the water stands somewhere else, and a hull has to float on the
+// water that is actually there (js/lock.js, seaLevelAt in terrain.js).
+function boatWaterAt(x, z) { return terrainEff(x, z) < seaLevelAt(x, z) - BT.draft; }
+function boatSeaY() { return seaLevelAt(state.x, state.z); }
 function boatOnWater() { return boatWaterAt(state.x, state.z); }
 
 // The direction back toward water, found by sampling rings of GROWING radius.
@@ -69,7 +73,7 @@ function boatSpawn() {
   const M = TUNE.harbor.marina;
   state.x = M.spawn[0];
   state.z = M.spawn[1];
-  state.y = TUNE.waterLevel;
+  state.y = boatSeaY();
   // nose out: pointed at the harbour mouth, worked out rather than written down,
   // so moving the mouth in TUNE moves the way he is facing with it
   const mx = TUNE.harbor.cx, mz = (TUNE.harbor.mouth.z[0] + TUNE.harbor.mouth.z[1]) / 2;
@@ -107,7 +111,7 @@ function boatReassemble() {
     }
   }
   state.x = px; state.z = pz;
-  state.y = TUNE.waterLevel;
+  state.y = boatSeaY();
   const mx = TUNE.harbor.cx, mz = (TUNE.harbor.mouth.z[0] + TUNE.harbor.mouth.z[1]) / 2;
   state.heading = Math.atan2(-(mx - state.x), -(mz - state.z));
   state.speed = 0; state.pitch = 0; state.bank = 0;
@@ -122,12 +126,12 @@ function boatReassemble() {
 // lose: he simply finds himself back at the marina.
 function boatStranded() {
   const M = TUNE.harbor.marina;
-  splashAt(state.x, Math.max(terrainEff(state.x, state.z), TUNE.waterLevel), state.z, 1.4);
-  state.x = M.spawn[0]; state.z = M.spawn[1]; state.y = TUNE.waterLevel;
+  splashAt(state.x, Math.max(terrainEff(state.x, state.z), boatSeaY()), state.z, 1.4);
+  state.x = M.spawn[0]; state.z = M.spawn[1]; state.y = seaLevelAt(state.x, state.z);
   const mx = TUNE.harbor.cx, mz = (TUNE.harbor.mouth.z[0] + TUNE.harbor.mouth.z[1]) / 2;
   state.heading = Math.atan2(-(mx - state.x), -(mz - state.z));
   state.speed = 0; boat.beach = 0; boat.steer = 0; boat.burst = 0;
-  splashAt(state.x, TUNE.waterLevel, state.z, 1.6);
+  splashAt(state.x, boatSeaY(), state.z, 1.6);
   whoosh();
   flags.boatRefloats = (flags.boatRefloats || 0) + 1;
 }
@@ -239,12 +243,12 @@ function updateBoat(dt) {
     if (boat.beach > 0.25 && state.speed > 3) { state.speed *= Math.max(0, 1 - 3 * dt); rumble = Math.max(rumble, 0.14); }
   } else if (boat.beach > 0) {
     boat.beach = 0;
-    splashAt(state.x, TUNE.waterLevel, state.z, 1.1);
+    splashAt(state.x, boatSeaY(), state.z, 1.1);
   }
 
   // ---- the hull sits on the water, and bobs when it is not driving
   const bob = state.speed < BT.planeAt * 0.3 ? Math.sin(performance.now() * 0.0016) * BT.bob : 0;
-  state.y = TUNE.waterLevel + bob + boat.plane * BT.planeLift;
+  state.y = boatSeaY() + bob + boat.plane * BT.planeLift;
   state.airVy = 0;
   if (state.speed < BT.planeAt * 0.3) state.bank += Math.sin(performance.now() * 0.0012) * 0.02;
 
@@ -273,17 +277,17 @@ function boatAirborne(dt) {
   state.speed = Math.hypot(boat.vx, boat.vz);
   forward.set(-Math.sin(state.heading), 0, -Math.cos(state.heading));
 
-  const down = state.y <= TUNE.waterLevel + 0.2;
+  const down = state.y <= boatSeaY() + 0.2;
   if (down || boat.airT > R.maxAir) {
     boat.air = 0;
-    state.y = TUNE.waterLevel;
+    state.y = boatSeaY();
     const hard = Math.abs(state.pitch) > 26 || Math.abs(state.bank) > R.flipAt * 40;
     // the slap
     for (let i = 0; i < 12; i++) {
-      wakePuff(state.x + (rnd() - 0.5) * 12, TUNE.waterLevel + 1, state.z + (rnd() - 0.5) * 12,
+      wakePuff(state.x + (rnd() - 0.5) * 12, boatSeaY() + 1, state.z + (rnd() - 0.5) * 12,
         0xf2f4f7, 2.4, 11, 1.1);
     }
-    splashAt(state.x, TUNE.waterLevel, state.z, 2.2);
+    splashAt(state.x, boatSeaY(), state.z, 2.2);
     noiseBurst(0.35, 900, 0.22, 0);
     cameraNod(1);
     if (hard) { boat.flip = R.flipTime; boing(); } else { chime(); }
@@ -360,7 +364,7 @@ function boatWake(dt, fx, fz) {
   // and the rooster tail it read as an engine on fire rather than as water.
   // Kept low and short it is still plainly a wake and it is under the shot.
   for (const s of [-1, 1]) {
-    wakePuff(state.x - fx * back + rx * s * spread, TUNE.waterLevel + 0.4, state.z - fz * back + rz * s * spread,
+    wakePuff(state.x - fx * back + rx * s * spread, boatSeaY() + 0.4, state.z - fz * back + rz * s * spread,
       0xf2f4f7, BT.wakeSize[0] + boat.plane * BT.wakeSize[1],
       BT.wakeRise[0] + boat.plane * BT.wakeRise[1], BT.wakeLife[0] + boat.plane * BT.wakeLife[1]);
   }
@@ -391,7 +395,7 @@ function boatPlume(dt, fx, fz) {
   if (state.speed > P.plumeMaxSpeed || state.speed < 0.4 || boat.plane > 0.15) return;
   if (boatPlumeT > 0) return;
   boatPlumeT = P.plumeEvery;
-  wakePuff(state.x - fx * P.plumeBack, TUNE.waterLevel + P.plumeY, state.z - fz * P.plumeBack,
+  wakePuff(state.x - fx * P.plumeBack, boatSeaY() + P.plumeY, state.z - fz * P.plumeBack,
     0xf2f4f7, P.plumeSize, P.plumeRise, P.plumeLife);
 }
 

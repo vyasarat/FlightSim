@@ -727,6 +727,8 @@ function update(dt) {
   // screen is already open (it would sit on top of one) and while he is under
   // the ejection canopy, which is already taking him somewhere safe.
   el.menuBtn.classList.toggle("hidden", menuOpen() || eject.active);
+  lockUpdate(dt);           // the gates, the water and the beacons
+  lockUpdateButton();       // ... and its one contextual button, decided here like the rest
   updateHud();
   updateFx(dt);
   updateExplosion(dt, safePos, false);

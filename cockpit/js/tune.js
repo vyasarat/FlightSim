@@ -588,7 +588,17 @@ const TUNE = {
     garden: { count: 3, x: 60, z: 60, dx: 40, dz: -10, radius: 18, height: 20,
       reach: 24, leave: 35, maxHeight: 115, spin: 7, response: 3, glowTime: 3, notes: [440, 550, 660] },
     wash: { x: -135, z: 525, gateW: 48, gateH: 32, length: 56,
-      entryR: 34, duration: 8, repeatDelay: 3, bubbles: 56, openOffset: 90 },
+      entryR: 34, duration: 8, repeatDelay: 3, bubbles: 56, openOffset: 90,
+      // HOW CLOSE HE HAS TO BE FOR THE BUTTON TO EXIST. It had no distance
+      // gate at all: the only conditions were "parked and still", which a boat
+      // sitting in the harbour lock two kilometres away satisfies exactly. So
+      // the car wash offered itself in the middle of a lock, and pressing it
+      // would have dragged the boat back to the airport. Every other contextual
+      // button in the game is gated on a radius -- the cannon on cannonRadius,
+      // the tender garage on its own, the Mars drone on callR -- and this is
+      // that radius. Far enough to see the arch and drive to it, nowhere near
+      // the coast.
+      buttonR: 620 },
     welcome: { duration: 5, clearance: 58, hornRange: 240, replyDelay: 0.45, cooldown: 2.5 },
     trails: { capacity: 1200, life: 36, every: 0.055, size: 8,
       cloudR: 54, cloudY: 105, cloudZ: 380, cloudSide: 120, gap: 210, rainbowR: 76 },
@@ -652,6 +662,66 @@ const TUNE = {
     alarmMuteRadius: 240,           // no crash alarm inside the fence: the numerals are the
                                     // only lead-in there, and he is meant to fly straight at it
   },
+  // ---- The lock, and the dock it leads to (js/lock.js).
+  //
+  // A lock only means anything if the two waters are at DIFFERENT HEIGHTS, and
+  // this game has one sea plane at TUNE.waterLevel. So rather than assert a
+  // difference that is not there, the far side is a new place: an impounded dock
+  // cut into the headland north of the harbour, held six metres up, whose only
+  // way in or out by water is the chamber. The lift is then honestly earned --
+  // and being six metres up is the payoff, because from in there he can see over
+  // the spit.
+  //
+  // HOW THE SECOND WATER LEVEL IS ALLOWED TO EXIST. CLAUDE.md says water is
+  // `terrainEff < waterLevel` and nothing else, and the reason for that rule is
+  // that water defined in two places drifts apart from the ground. So this does
+  // not add a second definition -- it GENERALISES the one there is. `seaLevelAt`
+  // in terrain.js is now the single answer to "how high is the water here", and
+  // it returns TUNE.waterLevel everywhere except over this dock and this
+  // chamber. Flotation, the hull's resting height and the wake all ask it. The
+  // rule still holds; it just takes a position now.
+  //
+  // WHAT THAT MEANS FOR THE GROUND, and it is the whole trick:
+  //   * the DOCK floor sits ABOVE the global sea (waterLevel + lift - dockDepth),
+  //     so the world's own water plane does not appear there at all -- the only
+  //     thing that fills it is the dock's own raised surface.
+  //   * the CHAMBER floor sits BELOW the global sea, because it has to hold
+  //     water at both heights.
+  //   * the RIM has to stand clear above waterLevel + lift or the dock's water
+  //     would read as a puddle sitting on top of a field.
+  // Cut in that order, after the harbour, exactly as the harbour is cut.
+  //
+  // It is never the way anywhere. The harbour mouth under the drawbridge is
+  // still wide open and still the way to sea; the lock leads only to the dock,
+  // and the dock is somewhere to go rather than somewhere he has to pass.
+  lock: {
+    lift: 6,                          // how much higher the dock is than the harbour
+    dockDepth: 4,                     // water in the dock, once it is full
+    chamberDepth: 5,                  // ... and under the chamber at the LOW level
+    // The chamber is FIFTY METRES WIDE and a hundred and forty long. That is
+    // five beams and nearly three lengths of the yacht, which is absurd for a
+    // real lock and exactly right for a four-year-old lining a ship up on a gap.
+    chamber:   { x: [1425, 1475], z: [-6030, -5890], feather: 26 },
+    approachS: { x: [1425, 1475], z: [-6110, -6030], feather: 26 },
+    approachN: { x: [1425, 1475], z: [-5890, -5836], feather: 26 },
+    dock:      { x: [1250, 1750], z: [-5820, -5600], feather: 60 },
+    rim:       { x: [1170, 1830], z: [-6040, -5480], feather: 110, y: 9.0 },
+    gateS: -6030, gateN: -5890,       // where the two gates stand
+    wallY: 7.4, wallT: 9,             // the chamber's masonry: top height and thickness
+    gateH: 15, gateT: 1.8,            // a gate leaf, and how thick it is
+    gateOpenDeg: 82,                  // how far back the leaves swing against the walls
+    gateTime: 3.4,                    // seconds for a gate to swing
+    fillTime: 7.0,                    // ... and for the water to change level
+    warn: 2.6,                        // bells and beacons before anything moves
+    nearGate: 130,                    // this close and the gate on his side opens itself
+    insideMargin: 16,                 // he must be this clear of both gate lines to be "in"
+    idleReset: 26,                    // sitting in the chamber doing nothing: it lets him back out
+    beacons: 4, sillLamps: 8,
+    // the dock, once he is up there
+    quayY: 5.6, boats: 4, sheds: 2,
+    stacks: 4,                        // a few container stacks on the wharf
+  },
+
   // ---- The speedboat (js/boat.js). The same one-finger stick as the car, and
   // one thing only a boat can do: the water cannon. Nothing here is a timing
   // window -- the cannon is gated on where the bow is POINTING, not on how long

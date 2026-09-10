@@ -10,6 +10,57 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v102 — a lock, and a dock six metres above the harbour
+
+**A lock with one water level is not a lock, it is a gate.** This game has one
+sea plane, so rather than assert a difference that is not there, the far side of
+this one is a new place: an impounded dock cut into the headland north of the
+harbour and held six metres up, whose only way in or out by water is the
+chamber. The lift is then honestly earned — and being six metres up is its own
+payoff, because from in there he can see out over the spit to the sea.
+
+**The second water level does not break the rule; it generalises it.** CLAUDE.md
+says water is `terrainEff < waterLevel` and nothing else, and the reason is that
+water defined in two places drifts apart from the ground under it. So there is
+still exactly one answer to "how high is the water here" — `seaLevelAt` in
+terrain.js — it just takes a position now, and `lockLevelAt` is the only thing
+that ever gives it a different one. Everything that floats asks it. The open sea,
+the rockets and the ambient beds keep using the constant, because for them it is
+the same number everywhere.
+
+**The ground does the rest, and the order matters** the way it does for the
+harbour. The rim is raised first, then the two floors are cut back through it to
+*different* depths: the dock's floor is left standing **above** the global sea,
+so the world's own water plane never appears in it and the only thing filling it
+is the dock's own surface — if the lock never ran, it would simply be a dry
+basin. The chamber's floor goes **below** the global sea, because it has to hold
+water at both heights. Ring the dock at three hundred metres and there is not
+one point below sea level that is not the chamber.
+
+**The loop is every other set-piece's loop.** A giant obvious thing (a fifty-metre
+gap in a wall, with red beacons), one contextual button that exists only when he
+is actually in the chamber, a visible wind-up (bells, beacons and the shared
+countdown numerals), a huge payoff — the water and his whole boat rise together,
+and a new place opens — and a free reset. The gates open themselves as he comes
+up to them, so he never has to aim at a shut one.
+
+**Never stuck, and never the way anywhere.** Sitting in the chamber doing nothing
+re-opens the gate he came in by, so there is no way to be shut in; the harbour
+mouth under the drawbridge is still wide open and still the way to sea; and
+nothing about the lock can be scored, required or lost. The chamber is fifty
+metres wide and a hundred and forty long — five of the yacht's beams and nearly
+three of her lengths — which is absurd for a real lock and exactly right for a
+four-year-old lining a ship up on a gap. Both boats lock through.
+
+**And a contextual button that had no business being there.** Building this
+found the car wash offering itself to a boat sitting in the harbour lock two
+kilometres away: its only conditions were "parked and still", which a boat in a
+chamber satisfies exactly, and pressing it would have dragged the boat back to
+the airport. Every other contextual button in the game is gated on a radius, and
+now so is that one.
+
+---
+
 ## v101 — a way back to the menu from anywhere, and four bugs that needed a long session to find
 
 **The menu button.** A small icon in the dash corner, the mirror of eject, and

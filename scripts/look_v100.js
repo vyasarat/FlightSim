@@ -10,7 +10,7 @@ const fs = require("fs");
 
 const PORT = 8199;
 const URL = `http://127.0.0.1:${PORT}/cockpit/index.html`;
-const OUT = path.resolve(__dirname, "..", "evidence", "v101");
+const OUT = path.resolve(__dirname, "..", "evidence", "lock");
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -117,6 +117,33 @@ const OUT = path.resolve(__dirname, "..", "evidence", "v101");
     for (let i = 0; i < 40; i++) L.update(1/60);
   })()`;
   await shot("rover-steps-ipad", 1180, 820, rover);
+
+  // ---- the lock ------------------------------------------------------------
+  const lockShot = (phase, chase) => `(() => {
+    const L = window.__lp, st = L.state, K = L.LK;
+    L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1);
+    L.api.setView(${chase});
+    const cx = (K.chamber.x[0]+K.chamber.x[1])/2, cz = (K.gateS+K.gateN)/2;
+    st.x = cx; st.z = cz; st.y = L.seaLevelAt(cx, cz); st.speed = 0; st.heading = Math.PI;
+    for (let i = 0; i < 40; i++) L.update(1/60);
+    if ("${phase}" !== "low") {
+      L.lockPress();
+      for (let i = 0; i < 60 * 26; i++) { L.update(1/60); st.x = cx; st.z = cz; }
+    }
+    if ("${phase}" === "dock") { st.z = K.gateN + 130; for (let i = 0; i < 90; i++) L.update(1/60); }
+  })()`;
+  await shot("lock-chamber-low", 1180, 820, lockShot("low", true));
+  await shot("lock-chamber-high", 1180, 820, lockShot("high", true));
+  await shot("lock-in-the-dock", 1180, 820, lockShot("dock", true));
+  await shot("lock-from-above", 1180, 820, `(() => {
+    const L = window.__lp, st = L.state, K = L.LK;
+    L.api.setVehicle("helicopter"); L.api.placeOnRunway();
+    st.phase = "AIRBORNE";
+    st.x = (K.chamber.x[0]+K.chamber.x[1])/2; st.z = K.gateS - 260;
+    st.y = L.TUNE.waterLevel + 300; st.heading = Math.PI; st.speed = 0;
+    L.api.setView(true);
+    for (let i = 0; i < 40; i++) L.update(1/60);
+  })()`);
 
   await browser.close();
   server.kill();

@@ -365,6 +365,12 @@ function twWashRestore(run) {
 }
 function twWashBusy() { return !!toyWorld.wash; }
 function twWashCan() { return !toyWorld.wash && toyWorld.washCooldown <= 0 && pickerCanOpen() && !menuOpen(); }
+// ... and the button also needs the wash to be somewhere near him. twWashCan
+// on its own is only "parked and still", which is true in a harbour lock.
+function twWashNear() {
+  const w = toyWorld.washes[state.originIdx];
+  return !!w && Math.hypot(state.x - w.x, state.z - w.z) < TW.wash.buttonR;
+}
 function twWashStart(wash) {
   if (!twWashCan()) return false;
   wash = wash || toyWorld.washes[state.originIdx];
@@ -437,7 +443,7 @@ function twUpdateWash(dt) {
     const w = toyWorld.washes.find(w => !w.waitExit && Math.hypot(state.x - w.x, state.z - w.z) < TW.wash.entryR);
     if (w) twWashStart(w);
   }
-  el.washBtn.classList.toggle('hidden', !twWashCan());
+  el.washBtn.classList.toggle('hidden', !(twWashCan() && twWashNear()));
   if (run) {
     for (const id of ['throttleBtn', 'gearBtn', 'missileBtn', 'vehBtn', 'heliUpBtn', 'heliDownBtn', 'washBtn']) el[id].classList.add('hidden');
   }
