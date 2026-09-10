@@ -5420,6 +5420,7 @@ function check(name, ok, extra) {
   await require("./workshop_offline_check")({ newPage, check, shots: SHOTS });
   await require("./boat_checks")({ newPage, check, shots: SHOTS });
   await require("./yacht_checks")({ newPage, check, shots: SHOTS });
+  await require("./sea_checks")({ newPage, check, shots: SHOTS });
 
   await browser.close();
   server.kill();

@@ -10,6 +10,51 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v99 — five things to do at sea, and none of them can be lost
+
+**BOATS, stage 3.** The water out past the harbour mouth has things in it now,
+and every one of them obeys the rules the space events obey: never required,
+never blocking, never takes anything away.
+
+A **rival jet-ski** comes past him from astern in the buoy channel and races. It
+is rubber-banded exactly like the rival rocket — its speed comes from the gap
+between them and never from a throttle of its own — so it noses ahead, drops
+back, and is still alongside whether he is flat out or barely moving. There is
+no finish line, no winner, and no counter anywhere that could go up or down.
+
+A **whale** breaches a few hundred metres off, on its own timetable, announced by
+its blow. It is the only living thing out there and it follows the astronaut's
+rule rather than the paper planes': not a target, not solid, not shatterable, in
+no solid list at all. He drives straight through one and it is simply there.
+
+The **carrier's wake** rolls past as a wall of white water when he gets close
+under her, and rocks whatever he is in — with the carrier's own jets going off
+her second catapult overhead while it happens.
+
+A **cruise ship** announces herself with a horn from over the horizon before
+anything is visible at all, comes in through the breakwater gap with the harbour
+tug on her quarter, berths in the inner harbour, blasts her horn again, and goes
+away — so there is always another one coming. The yacht's horn answers hers.
+
+And the **gantry cranes will load the yacht**: honk under one and a container
+comes down onto her foredeck with a thump, she carries it wherever she goes, and
+honking again lifts it off. A vehicle inside a vehicle again, for the price of a
+box. Out in the harbour a honk is only a honk.
+
+**Night.** There is no weather button and there is not going to be one — the sky
+moods live in code — so this is everything out here reading `state.nightF`: the
+lighthouse beam brightens, the drawbridge beacons show, and the cruise ship's
+five hundred windows come up.
+
+**Two things it got wrong first.** The crane was asked about from the quay its
+legs stand on rather than from where its boom reaches, so a ship parked correctly
+under the hook was out of range and a ship in range was parked on the quay. And
+the cruise ship berthed on the container quay, which put her bow through the ship
+already tied up there.
+
+Harness 449/449, 10 of them new — including one that drives the boat straight
+through a breaching whale and asserts that nothing happens.
+
 ## v98 — a fifty-metre yacht, and a drawbridge that lifts for her
 
 **BOATS, stage 2.** The yacht is in the harbour, on her own wall on the west
