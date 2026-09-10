@@ -23,9 +23,9 @@
 const BT = TUNE.boat;
 
 const boat = {
-  steer: 0, burst: 0, plane: 0, lastCrash: 0,
+  steer: 0, burst: 0, plane: 0,
   air: 0, airT: 0, spin: 0, flip: 0,
-  beach: 0, wakeT: 0, sprayT: 0,
+  beach: 0, wakeT: 0, sprayT: 0, crashCool: 0,
   vx: 0, vy: 0, vz: 0,      // only ever used while it is off the ramp
   crashX: null, crashZ: 0,  // where it blew up, so the reassemble does not read a stale safePos
   cannon: 0, cannonT: 0, cannonHeld: false,
@@ -136,9 +136,18 @@ function boatStranded() {
   flags.boatRefloats = (flags.boatRefloats || 0) + 1;
 }
 
+// The debounce is a COUNTDOWN THE FRAME DRIVES, not a wall-clock stamp, and the
+// difference is not academic. It used to read `performance.now() - lastCrash <
+// 900` against a `lastCrash` that starts at 0 -- so for the first nine hundred
+// milliseconds of the page's life the number it compared was the AGE OF THE
+// PAGE, and the boat could not crash into anything at all. It also meant the
+// harness, which runs twelve simulated seconds in about a sixth of a real one,
+// could never see a crash: the check that was meant to catch this passed on a
+// flag left behind by an earlier check on the same page. CLAUDE.md's rule about
+// not timing game code off real time is exactly this.
 function boatCrash() {
-  if (state.exploding || performance.now() - boat.lastCrash < 900) return;
-  boat.lastCrash = performance.now();
+  if (state.exploding || boat.crashCool > 0) return;
+  boat.crashCool = BT.crashDebounce;
   boat.crashX = state.x; boat.crashZ = state.z;
   triggerExplosion(state.x, state.y + 1.2, state.z, 1);
   cameraHitStop(1.2);
@@ -151,6 +160,7 @@ function boatCrash() {
 // The frame
 // ---------------------------------------------------------------------------
 function updateBoat(dt) {
+  if (boat.crashCool > 0) boat.crashCool -= dt;
   // one finger: no throttle button, no gear, no missiles. The speed steps are
   // up (taps, not a second finger); js/speed.js decides them once a frame.
   el.throttleBtn.classList.add("hidden");

@@ -10,6 +10,69 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v103 — three more things at sea
+
+The harbour is the third place he can lose a whole session in, after the toy
+world and the space programme, and five things to find out there was not enough.
+The pool goes to eight. All three of the new ones obey the same rules the first
+five do — never required, never blocking, never takes anything away — and none
+of them is announced on the HUD.
+
+**A seaplane** comes in over the breakwater, puts down on the water in a sheet of
+spray, taxis, turns, and opens up and goes again. The touchdown is its one hero
+effect, and its engine is audible from a long way out, so it is never something
+that simply appears.
+
+**A submarine** boils the water first — the wind-up, because nothing this big
+arrives in this game without announcing itself — then comes up out of it with the
+sea sheeting off her casing and a klaxon, runs on the surface for a while, and
+goes down again.
+
+**A fireboat** lies moored off the terminal and every so often puts on a display:
+a horn, the monitors elevate, and three arcs of water go over the harbour. It is
+the water cannon's language, which he already knows from the speedboat, done by
+something else and much bigger. There is nothing to aim, nothing to press and
+nothing to miss.
+
+**And the harness caught a bug that had been shipped twice.** Chasing an
+order-dependent failure turned up something worse underneath it: the speedboat
+was sailing clean through the container ship at forty knots without a bang. The
+crash debounce read `performance.now() - lastCrash < 900` against a `lastCrash`
+that starts at zero — so for the first nine hundred milliseconds of the page's
+life the number it compared was *the age of the page*, and neither the boat nor
+the car could crash into anything at all. Under the harness, which runs twelve
+simulated seconds in about a sixth of a real one, they could never crash. The
+check that existed to catch precisely this stayed green because it read the
+crash counter outright and saw a bang left behind by an earlier check on the
+same page. Both debounces are countdowns the frame drives now, which is what
+CLAUDE.md's rule about not timing game code off real time is for, and the check
+reads deltas.
+
+One consequence worth knowing: with the car able to crash in the harness at last,
+holding a finger down at the car's TOP speed step turns out to hit traffic about
+once a minute. That is by design — hitting traffic is a bang and a free
+reassemble, and has its own check — but it is the honest price of the fastest
+step, and worth a look on the iPad before deciding whether traffic should move
+along for him.
+
+All three are **machines and all three are `noSolid`**, like the ferry and the
+road traffic. They move, so a solid one could wander into his path and become a
+wall between him and somewhere — which is "blocking", and forbidden by accident
+rather than by design.
+
+Two things the renders caught. The fireboat's first version drew its arcs from
+the **shared puff pool** at three hundred and eighty a second — into a pool of
+sixty-four. It would have starved every splash in the harbour and strobed its own
+arcs; it has its own instanced mesh now, one draw call, owing nothing to anybody.
+And those arcs came out **grey**: Lambert-shaded droplets at two hundred metres
+read as smoke, which is the exact complaint the speedboat's wake earned. Water
+thrown into California sunshine is the brightest thing in the shot, so they are
+unlit white now. The seaplane grew from fourteen metres to twenty for the same
+reason — at fourteen it was a speck against the breakwater, and everything else
+out there can be seen from the far side of the harbour.
+
+---
+
 ## v102 — a lock, and a dock six metres above the harbour
 
 **A lock with one water level is not a lock, it is a gate.** This game has one

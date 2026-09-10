@@ -19,11 +19,11 @@
 const CAR = TUNE.car;
 
 const car = {
-  steer: 0, boost: 0, offRoad: 0, lastCrash: 0, wheelSpin: 0,
+  steer: 0, boost: 0, offRoad: 0, wheelSpin: 0,
   onRoad: false, lateral: 0, s: 0, roadY: 0,
   charging: 0, chargedAt: null, dust: 0, screen: null, screenArt: null, cabin: null, cabinWheel: null,
   screenPlaying: false, screenT: 0,
-  hornHeld: false, hornT: 0, hornSustain: 0, hornReplyCool: 0,
+  hornHeld: false, hornT: 0, hornSustain: 0, hornReplyCool: 0, crashCool: 0,
 };
 
 function carActive() { return !!(state.vp && state.vp.car); }
@@ -424,8 +424,12 @@ function carSpawn(originIdx) {
 }
 
 function carCrash() {
-  if (state.exploding || performance.now() - car.lastCrash < 900) return;
-  car.lastCrash = performance.now();
+  // A countdown the frame drives, not a wall-clock stamp -- see boatCrash for
+  // what the old form did: with `lastCrash` starting at 0 it compared the age of
+  // the page for the first nine hundred milliseconds, so the car could not crash
+  // at all in that window, and never at all under the harness's compressed time.
+  if (state.exploding || car.crashCool > 0) return;
+  car.crashCool = CAR.crashDebounce;
   triggerExplosion(state.x, state.y + 1.2, state.z, 1);
   cameraHitStop(1.2);
   state.exploding = true;
@@ -454,6 +458,7 @@ function carReassemble() {
 
 // ---------------------------------------------------------------------------
 function updateCar(dt) {
+  if (car.crashCool > 0) car.crashCool -= dt;
   // one finger: no throttle button and no gear. The speed steps ARE up -- they
   // are taps, not a second finger -- and js/speed.js decides them once a frame.
   el.throttleBtn.classList.add("hidden");

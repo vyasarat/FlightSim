@@ -167,10 +167,15 @@ module.exports = async function boatChecks({ newPage, check, shots }) {
     L.fireReset();
     L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1);
     st.x = S.x; st.z = S.z - 150; st.y = L.TUNE.waterLevel; st.heading = Math.PI; st.speed = 40;
+    // DELTAS, not totals. Reading flags.boatCrashes outright let this check pass
+    // on a bang from an earlier check on this shared page -- which is exactly how
+    // it stayed green while the boat sailed clean through the container ship at
+    // forty knots for two releases.
+    const c0 = L.flags.boatCrashes || 0, r0 = L.flags.boatReassembles || 0;
     let exploded = false;
     for (let i = 0; i < 60 * 12; i++) { L.api.setStick(0, 0); L.update(1 / 60); if (st.exploding) exploded = true; }
     L.api.clearStick();
-    return { exploded, crashes: L.flags.boatCrashes || 0, reassembles: L.flags.boatReassembles || 0,
+    return { exploded, crashes: (L.flags.boatCrashes || 0) - c0, reassembles: (L.flags.boatReassembles || 0) - r0,
              water: L.boatOnWater(), x: Math.round(st.x), z: Math.round(st.z),
              // it must come back near where it hit, not at the last aeroplane's safePos
              nearShip: Math.hypot(st.x - S.x, st.z - S.z) < 400 };
