@@ -92,6 +92,41 @@ function plainsMask(z) {
   return smoothstep(0.30, 0.38, p) * (1 - smoothstep(0.50, 0.56, p));
 }
 
+// ---------------------------------------------------------------------------
+// The Californian harbour: a bay behind a barrier spit.
+//
+// One smooth mask per region, applied IN ORDER, because the order is the whole
+// design: dredge the water, lay the spit across the coast on top of it, then cut
+// the mouth back through the spit. Doing the mouth in the same pass as the basin
+// (which is where this started) let the two feathers overlap along the whole
+// length of the spit and washed it away -- the bay drained straight out to sea
+// and the drawbridge stood over open water with nothing to hold back.
+//
+// `feather` is metres of beach outside the rectangle, so nothing here has an
+// edge: the terrain mesh samples every 13 m and a hard step reads as a cliff.
+function hbRect(x, z, r) {
+  const f = r.feather;
+  const dx = Math.max(r.x[0] - x, x - r.x[1]);
+  const dz = Math.max(r.z[0] - z, z - r.z[1]);
+  const d = Math.max(dx, dz);
+  if (d <= 0) return 1;
+  if (d >= f) return 0;
+  return 1 - smoothstep(0, f, d);
+}
+function harborHeight(x, z, h) {
+  const HB = TUNE.harbor;
+  // cheap reject: everything below is inside this box
+  if (x < 300 || x > 2400 || z < -7600 || z > -5950) return h;
+  const deep = TUNE.waterLevel - HB.depth;
+  const wBasin = Math.max(hbRect(x, z, HB.basin), hbRect(x, z, HB.outer));
+  if (wBasin > 0) h = lerp(h, deep, wBasin);
+  const wSpit = hbRect(x, z, HB.spit);
+  if (wSpit > 0) h = lerp(h, HB.spit.y, wSpit);
+  const wMouth = Math.max(hbRect(x, z, HB.mouth), hbRect(x, z, HB.channel));
+  if (wMouth > 0) h = lerp(h, deep, wMouth);
+  return h;
+}
+
 function shapedTerrain(x, z) {
   let h = rawHeight(x, z);
   h *= 1 - desertMask(z) * 0.62;
@@ -111,7 +146,7 @@ function shapedTerrain(x, z) {
     const hd = Math.max(0, 1 - Math.abs(Math.abs(z - harborZ) - 60) / 130);
     h -= hd * 9;
   }
-  return h;
+  return harborHeight(x, z, h);
 }
 
 const AIRPORTS = [

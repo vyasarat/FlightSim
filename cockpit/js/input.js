@@ -66,6 +66,7 @@ glEl.addEventListener("lostpointercapture", releaseDrag);
 const releaseAllInputs = () => {
   releaseDrag();
   releaseThrottle();
+  if (typeof boatCannonPress === "function") { boatCannonPress(false); el.cannonBtn.classList.remove("pressed"); }
   releaseHeliAltitude();
   if (heliActive()) heliHover();
   // A keyup can be lost to another window (Cmd-Tab, Guided Access overlay):
@@ -332,6 +333,24 @@ el.bucketBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.bucketBtn);
   bucketPress();
 });
+// The water cannon is HELD, not tapped -- the only held button in the game
+// besides the throttle, and for the same reason: the thing it does is
+// continuous. Releasing anywhere stops it, including a pointer lost to a
+// Guided Access overlay.
+el.cannonBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio();
+  try { el.cannonBtn.setPointerCapture(e.pointerId); } catch (err) {}
+  el.cannonBtn.classList.add("pressed");
+  boatCannonPress(true);
+});
+const releaseCannon = (e) => {
+  if (e) e.preventDefault();
+  el.cannonBtn.classList.remove("pressed");
+  if (typeof boatCannonPress === "function") boatCannonPress(false);
+};
+el.cannonBtn.addEventListener("pointerup", releaseCannon);
+el.cannonBtn.addEventListener("pointercancel", releaseCannon);
+el.cannonBtn.addEventListener("lostpointercapture", releaseCannon);
 el.hatchBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.hatchBtn);
   toggleHatch();
@@ -413,6 +432,7 @@ window.addEventListener("keydown", (e) => {
           !el.missileBtn.classList.contains("hidden")) fireMissile();
     }
     else if (!el.catBtn.classList.contains("hidden")) carrierLaunchPress();   // parked on the deck: the catapult
+    else if (!el.cannonBtn.classList.contains("hidden")) { boatCannonPress(true); setTimeout(() => boatCannonPress(false), 2200); }
     else if (!el.bucketBtn.classList.contains("hidden")) bucketPress();   // the helicopter's bucket comes first
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
   }

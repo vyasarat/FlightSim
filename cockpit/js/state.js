@@ -63,8 +63,18 @@ function applyVehicle(key) {
   // the car's cabin is scene-level, so it has to be put away by hand when he
   // climbs out -- otherwise it stays standing in the world behind him
   if (!state.vp.car && typeof carHideCabin === "function") carHideCabin();
-  // Watch the rocket and see the helicopter's tool/load in chase view; the view button still toggles.
-  if ((state.vp.rocket || state.vp.heli) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
+  // ... and so is the boat's helm, for exactly the same reason
+  if (!state.vp.boat && typeof boatHideHelm === "function") boatHideHelm();
+  // Watch the rocket, see the helicopter's tool/load, and see the boat's hull and
+  // its wake, in chase view; the view button still toggles.
+  if ((state.vp.rocket || state.vp.heli || state.vp.boat) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
+  // The cannon lives on the boat alone. Left up, it sits in the helicopter
+  // bucket's slot and eats the tap that means "scoop".
+  if (!state.vp.boat) {
+    el.cannonBtn.classList.add("hidden");
+    if (typeof boatCannonPress === "function") boatCannonPress(false);
+    if (typeof setTone === "function") { setTone("boatEngine", "sawtooth", 60, 0); setTone("boatHull", "triangle", 90, 0); setTone("boatCannon", "sawtooth", 120, 0); }
+  }
   el.missileBtn.classList.toggle("lowSlot", !!state.vp.rocket);   // the shared slot is spoken for on a rocket
   if (!state.vp.rocket) {
     for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn, el.droneBtn]) b.classList.add("hidden");
@@ -124,6 +134,11 @@ function spawnForTakeoff(originIdx, dirIdx) {
   if (state.vp && state.vp.car) {
     if (typeof carSpawn === "function" && typeof highway !== "undefined" && highway.built) carSpawn(originIdx);
   }
+  // A boat does not spawn on a runway. It spawns in its berth, whichever end of
+  // the country the direction card picked -- there is only one harbour, and
+  // putting a speedboat on the tarmac in New York would be a joke he cannot
+  // recover from without the picker.
+  if (state.vp && state.vp.boat && typeof boatSpawn === "function") boatSpawn();
   if (state.vp && state.vp.rocket) {
     state.pitch = 90;
     rk.onBody = null;

@@ -1,4 +1,4 @@
-const CACHE_NAME = "little-pilot-cockpit-v96";
+const CACHE_NAME = "little-pilot-cockpit-v97";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,8 @@ const ASSETS = [
   "./js/nozoom.js",
   "./GLTFLoader.js",
   "./models/car.glb",
+  "./models/speedboat.glb",
+  "./models/yacht.glb",
   "./models/fighter.glb",
   "./js/tune.js",
   "./js/terrain.js",
@@ -38,6 +40,8 @@ const ASSETS = [
   "./js/models.js",
   "./js/highway.js",
   "./js/car.js",
+  "./js/harbor.js",
+  "./js/boat.js",
   "./js/main.js",
   "./js/eject.js",
   "./manifest.json",

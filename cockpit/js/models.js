@@ -59,9 +59,15 @@ function modelPrepare(key, scene) {
   // so its bottom belongs at gearHeight - wheelDrop instead. Using the aircraft
   // rule for the car buried it by a whole gearHeight and left only its roof
   // showing above the tarmac.
+  //
+  // A BOAT follows the car's rule, not the aircraft's, and then sinks itself.
+  // state.y is the waterline for a boat exactly as it is the road surface for
+  // the car, so the hull's bottom belongs at gearHeight - wheelDrop; `lift` then
+  // pushes it under by the draft. Using the aircraft rule floated the whole hull
+  // on top of the sea like a bath toy.
   const vp = TUNE.vehicles[key] || {};
   const wheelDrop = vp.hasGear ? 1.9 * (vp.size || 1) : 0.6;
-  const localBottom = vp.car ? (TUNE.gearHeight - wheelDrop) : -wheelDrop;
+  const localBottom = (vp.car || vp.boat) ? (TUNE.gearHeight - wheelDrop) : -wheelDrop;
   scene.position.y -= bb.min.y;
   scene.position.y += localBottom;
   scene.position.y += cfg.lift || 0;

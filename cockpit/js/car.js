@@ -538,8 +538,12 @@ function updateCar(dt) {
   if (road) {
     const off = clamp((Math.abs(road.lateral) - CAR.onRoadHalf) / CAR.shoulderBlend, 0, 1);
     support = lerp(road.y, gnd, off);
-    if (!road.spur && road.y - gnd > CAR.railAt) {
-      const lim = highway.halfW - 1.6;
+    // `railed`: the harbour spur is the only spur that crosses water, on the
+    // drawbridge, and without the main road's guardrail he can steer off the
+    // side of the span and into the sea. Every other spur runs on the ground and
+    // never asks for one.
+    if ((!road.spur || road.spur.railed) && road.y - gnd > CAR.railAt) {
+      const lim = (road.spur ? HW.spurW : highway.halfW) - 1.6;
       if (Math.abs(road.lateral) > lim) {
         const rx = -road.fz, rz = road.fx, sgn = Math.sign(road.lateral);
         const push = Math.abs(road.lateral) - lim;
