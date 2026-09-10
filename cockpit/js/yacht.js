@@ -229,8 +229,6 @@ function yachtReassemble() {
 function updateYacht(dt) {
   el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.slowBtn.classList.add("hidden");
-  el.fastBtn.classList.add("hidden");
   el.gearBtn.classList.add("hidden");
   el.missileBtn.classList.add("hidden");
   el.skipBtn.classList.add("hidden");
@@ -263,10 +261,11 @@ function updateYacht(dt) {
   yacht.anchor += clamp((yacht.anchorDown ? 1 : 0) - yacht.anchor, -dt / YT.anchor.dropTime, dt / YT.anchor.dropTime);
 
   // ---- speed. Slow to start, slow to stop, and the anchor holds it.
-  const want = (touching && !yacht.anchorDown) ? YT.cruise : 0;
+  const step = spdMul();   // scales the target and the cap only (js/speed.js)
+  const want = (touching && !yacht.anchorDown) ? YT.cruise * step : 0;
   const rate = (want > state.speed ? YT.accel : YT.drag) * dt;
   state.speed += clamp(want - state.speed, -rate, rate);
-  state.speed = clamp(state.speed, 0, YT.cruise);
+  state.speed = clamp(state.speed, 0, YT.cruise * step);
   if (state.speed < 0.03) state.speed = 0;
 
   // ---- steering: heavy, and it only bites once she is making way
@@ -322,6 +321,7 @@ function updateYacht(dt) {
 
   yachtBump();
   yachtWake(dt, fx, fz);
+  yachtPlume(dt, fx, fz);   // outside yachtWake, which returns early below 1.2 m/s
   yachtDrawbridge(dt);
   yachtDoor(dt);
   yachtSound();
@@ -349,16 +349,41 @@ function yachtWake(dt, fx, fz) {
   if (state.speed < 1.2) return;
   yachtWakeT -= dt;
   if (yachtWakeT > 0) return;
-  yachtWakeT = 0.10;
+  // SHE WAS EATING THE WHOLE PUFF POOL. Four puffs every 0.10 s living up to
+  // 2.2 s is seventy-odd live puffs, and `wakePuffs` is sixty-four -- so she
+  // recycled her own oldest ones mid-life (they vanished rather than faded) and
+  // starved every other splash in the scene: the whale, the jet-ski, the
+  // droneship. Slower emission and a shorter stern life keeps her under forty
+  // and leaves the rest of the harbour its spray back.
+  yachtWakeT = 0.16;
   const rx = -fz, rz = fx;
   const k = clamp(state.speed / YT.cruise, 0, 1);
-  // the bow wave, which is the thing that says "this is heavy"
+  // the bow wave, which is the thing that says "this is heavy" -- thrown off her
+  // shoulders rather than straight ahead, so the wheelhouse can see past it
+  const bowOut = YT.beam * YT.bowSpread[1] + YT.bowSpread[0];
   for (const s of [-1, 1]) {
-    wakePuff(state.x + fx * YT.len * 0.42 + rx * s * (YT.beam * 0.6 + 3), TUNE.waterLevel + 0.6,
-      state.z + fz * YT.len * 0.42 + rz * s * (YT.beam * 0.6 + 3), 0xf2f4f7, 2.6 + k * 2, 1.6, 1.6);
+    wakePuff(state.x + fx * YT.len * 0.42 + rx * s * bowOut, TUNE.waterLevel + 0.6,
+      state.z + fz * YT.len * 0.42 + rz * s * bowOut, 0xf2f4f7,
+      YT.bowSize[0] + k * YT.bowSize[1], 1.6, YT.bowLife);
     wakePuff(state.x - fx * YT.len * 0.5 + rx * s * (YT.beam * 0.7 + k * 8), TUNE.waterLevel + 0.4,
-      state.z - fz * YT.len * 0.5 + rz * s * (YT.beam * 0.7 + k * 8), 0xf2f4f7, 2.2 + k * 2.4, 1.2, 2.2);
+      state.z - fz * YT.len * 0.5 + rz * s * (YT.beam * 0.7 + k * 8), 0xf2f4f7,
+      YT.sternSize[0] + k * YT.sternSize[1], 1.2, YT.sternLife);
   }
+}
+
+// Her stern wisp, on the speedboat's terms. She never had a rising plume to cut
+// -- her wake hugs the water and the bridge camera looks forward from 6 m abaft
+// centre, so her transom 26 m further aft was never in either shot. This is the
+// same faint thing the speedboat gets, for the same reason and at the same
+// manoeuvring crawl, so the two boats say the same thing when idling.
+let yachtPlumeT = 0;
+function yachtPlume(dt, fx, fz) {
+  yachtPlumeT -= dt;
+  if (state.speed > YT.plumeMaxSpeed || state.speed < 0.4) return;
+  if (yachtPlumeT > 0) return;
+  yachtPlumeT = YT.plumeEvery;
+  wakePuff(state.x - fx * YT.plumeBack, TUNE.waterLevel + YT.plumeY, state.z - fz * YT.plumeBack,
+    0xf2f4f7, YT.plumeSize, YT.plumeRise, YT.plumeLife);
 }
 
 // ---------------------------------------------------------------------------

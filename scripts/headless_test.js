@@ -4298,7 +4298,12 @@ function check(name, ok, extra) {
       o.roverWaits = L.roverActive() && Math.abs(L.rover.speed) < 0.01;
       o.slotFlying = laidOut();
       // one finger: nothing else is on screen to hold
-      o.oneFinger = ["throttleBtn", "slowBtn", "fastBtn", "gearBtn"].every(id => document.getElementById(id).classList.contains("hidden"));
+      // Still one finger: nothing to HOLD. The speed steps are up here now (the
+      // brief puts them on every vehicle but the rocket) and they are taps, not
+      // a second finger -- so they are deliberately not in this list.
+      o.oneFinger = ["throttleBtn", "gearBtn"].every(id => document.getElementById(id).classList.contains("hidden"));
+      o.droneHasSteps = !document.getElementById("slowBtn").classList.contains("hidden") &&
+                        !document.getElementById("fastBtn").classList.contains("hidden");
       const roverAt = { x: L.rover.x, y: L.rover.y, z: L.rover.z };
 
       // point-to-go, in both views: a finger on a place out there flies it there
@@ -4371,7 +4376,7 @@ function check(name, ok, extra) {
       o.cairnDown && o.cairnScattered && o.wentAway && o.fieldReset && o.standingAgain, JSON.stringify(o));
     check("mars: the little helicopter -- parked by the garage, one tap when he drives up to it and he is flying it with the very same point-to-go, in both views",
       o.droneParked && o.btnFarOff && o.btnNear && o.btnModeFly && o.tapped && o.flying && o.btnModeBack &&
-      o.roverWaits && o.oneFinger && o.views.chase.moved > 30 && o.views.cockpit.moved > 30 &&
+      o.roverWaits && o.oneFinger && o.droneHasSteps && o.views.chase.moved > 30 && o.views.cockpit.moved > 30 &&
       o.views.chase.hovers && o.views.cockpit.hovers && o.aloft, JSON.stringify(o));
     check("mars: touch the rover and the drone comes home, lands beside it and he is driving again -- and the button is always a way down, so he can never be stuck up there",
       o.roverOnScreen && o.pickIsRover && o.headingHome && o.landedBack && o.landings === 1 &&
@@ -5421,6 +5426,8 @@ function check(name, ok, extra) {
   await require("./boat_checks")({ newPage, check, shots: SHOTS });
   await require("./yacht_checks")({ newPage, check, shots: SHOTS });
   await require("./sea_checks")({ newPage, check, shots: SHOTS });
+  await require("./speed_horn_checks")({ newPage, check, shots: SHOTS });
+  await require("./slot_checks")({ newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390]] });
 
   await browser.close();
   server.kill();

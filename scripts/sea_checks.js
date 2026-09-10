@@ -64,7 +64,15 @@ module.exports = async function seaChecks({ newPage, check, shots }) {
     JSON.stringify(race));
 
   // ---- the whale is scenery -------------------------------------------------
-  const whale = await page.evaluate(() => {
+  // ITS OWN PAGE. The whale picks its spot from Math.random and rejects any
+  // that lands in the shallows, so whether it surfaces inside the window
+  // depends on where the seeded stream has got to -- and the race check above
+  // moves that stream by however many frames it happened to run. On a shared
+  // page this check passed or failed according to edits made somewhere else
+  // entirely. CLAUDE.md's rule: give a check its own page when state carries.
+  const { page: whalePage } = await newPage(1180, 820);
+  await whalePage.evaluate(() => { window.__lp.noRender = true; });
+  const whale = await whalePage.evaluate(() => {
     const L = window.__lp, st = L.state;
     L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1);
     const P = L.HB.buoys.path;
@@ -89,6 +97,7 @@ module.exports = async function seaChecks({ newPage, check, shots }) {
   check("sea: a whale breaches a long way off and NOTHING CAN HAPPEN TO IT -- it is in no solid list, carries noSolid and noShatter, and never becomes a crash",
     whale.breached && whale.minDist > 150 && !whale.everSolid && !whale.inSolids &&
     whale.noSolid && whale.noShatter, JSON.stringify(whale));
+  await whalePage.close();
 
   // ---- sailing straight through it ------------------------------------------
   const through = await page.evaluate(() => {

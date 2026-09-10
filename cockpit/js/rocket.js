@@ -456,7 +456,6 @@ function updateRocket(dt) {
   // buttons: throttle always (hold to burn); the rocket has no speed steps or gear
   el.throttleBtn.classList.remove("hidden");
   el.rotateArrow.classList.remove("on");
-  el.slowBtn.classList.add("hidden"); el.fastBtn.classList.add("hidden");
   el.gearBtn.classList.add("hidden");
   updateGoButton();
 

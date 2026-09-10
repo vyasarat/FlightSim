@@ -259,7 +259,10 @@ function updateRover(dt) {
     accel = state.throttleHeld ? 1 : (state.ctrlPitch < -0.3 ? -0.5 : 0);
     turn = clamp(state.ctrlBank, -1, 1);
   }
-  const want = accel * (accel > 0 ? 14 : 6);
+  // The step scales the drive speed both ways (js/speed.js); the numbers
+  // themselves now live in TUNE.rover rather than as literals here.
+  const RV = TUNE.rover, rvStep = spdMul();
+  const want = accel * (accel > 0 ? RV.cruise * rvStep : RV.reverse * rvStep);
   rover.speed += (want - rover.speed) * Math.min(1, (accel !== 0 ? 2.2 : 1.4) * dt);
   if (Math.abs(rover.speed) < 0.05) rover.speed = 0;
   // turn about the surface normal (slower when crawling)

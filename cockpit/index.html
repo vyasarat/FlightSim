@@ -313,9 +313,12 @@
     --dash-h: clamp(96px, 19vh, 170px);
     --brow-h: clamp(30px, 6.5vh, 74px);
     --dial: clamp(76px, 15vmin, 128px);
+    --spd: clamp(58px, 11vmin, 96px);   /* the speed control: a shade under --btn so the
+                                           top-right ladder clears the helicopter's
+                                           bottom-anchored altitude pair */
   }
   @media (max-height: 360px) {
-    html { --btn: 48px; --thr: 54px; --stack-bottom: 58px; --top-row: 14px; --edge: 10px; }
+    html { --btn: 48px; --thr: 54px; --stack-bottom: 58px; --top-row: 14px; --edge: 10px; --spd: 48px; }
   }
   @media (max-height: 520px) {
     html {
@@ -327,6 +330,8 @@
       --dash-h: 66px;
       --brow-h: 20px;
       --dial: 54px;
+      --spd: 58px;   /* not below 58: the harness holds every control to a 56 px
+                        minimum on a phone, and 52 failed it */
     }
     #homeArrow svg { width: 28px; height: 28px; }
     #rotateArrow svg { width: 56px; }
@@ -514,20 +519,36 @@
     0%, 100% { opacity: .75; transform: scale(1); }
     50% { opacity: 1; transform: scale(1.12); }
   }
-  #slowBtn {
-    bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
-    right: calc(var(--edge) + env(safe-area-inset-right));
-    z-index: 10;
-  }
-  #slowBtn.hidden { display: none; }
-  #slowBtn.pressed { transform: scale(.93); }
-  #fastBtn {
-    bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
-    right: calc(var(--edge) + env(safe-area-inset-right));
-    z-index: 10;
-  }
-  #fastBtn.hidden { display: none; }
-  #fastBtn.pressed { transform: scale(.93); }
+  /* THE SPEED CONTROL -- top-right, under the view button, on every vehicle.
+     It used to sit in the bottom-right ladder, which the helicopter's altitude
+     pair and the rover's inherited throttle already own; leaving it there gave
+     it a different position on three vehicles and (per CLAUDE.md) a silently
+     eaten tap wherever two landed in one slot. This column is free everywhere.
+     Fast sits above slow: up is faster, the same direction as the stick. */
+  #fastBtn, #slowBtn, #speedBtn { width: var(--spd); height: var(--spd); right: calc(var(--edge) + env(safe-area-inset-right)); z-index: 11; }
+  #fastBtn, #speedBtn { top: calc(var(--top-row) + var(--btn) + 12px + env(safe-area-inset-top)); }
+  #slowBtn { top: calc(var(--top-row) + var(--btn) + var(--spd) + 24px + env(safe-area-inset-top)); }
+  #fastBtn.hidden, #slowBtn.hidden, #speedBtn.hidden { display: none; }
+  #fastBtn.pressed, #slowBtn.pressed, #speedBtn.pressed { transform: scale(.93); }
+  /* the stepper's icon is a tall stack, not a square glyph, so it opts out of
+     the shared .roundBtn 54% sizing and fills the height instead */
+  #speedBtn svg { width: auto; height: 72%; }
+  /* The helicopter has no room for a pair: view, up and down already take three
+     of the four slots its right column holds, and its altitude buttons are the
+     biggest things on screen on purpose. So there it is ONE button that steps up
+     and wraps, and the chevrons say which step he is on -- icons, never a
+     numeral. Every other vehicle gets the pair. */
+  #speedBtn[data-step="1"] .c2 { opacity: .22; }
+  #speedBtn[data-step="1"] .c3 { opacity: .22; }
+  #speedBtn[data-step="1"] .c4 { opacity: .22; }
+  #speedBtn[data-step="1"] .c5 { opacity: .22; }
+  #speedBtn[data-step="2"] .c3 { opacity: .22; }
+  #speedBtn[data-step="2"] .c4 { opacity: .22; }
+  #speedBtn[data-step="2"] .c5 { opacity: .22; }
+  #speedBtn[data-step="3"] .c4 { opacity: .22; }
+  #speedBtn[data-step="3"] .c5 { opacity: .22; }
+  #speedBtn[data-step="4"] .c5 { opacity: .22; }
+
   #missileBtn {
     bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
     left: calc(var(--edge) + env(safe-area-inset-left));
@@ -689,7 +710,17 @@
   #ejectBtn .returnIcon, #ejectBtn[data-mode="return"] .seatIcon { display:none; }
   #ejectBtn[data-mode="return"] .returnIcon { display:block; }
   #ejectBtn.hidden { display:none; }
+  /* The car's horn. The same small secondary icon as eject, in the same unused
+     dashboard corner and one slot inboard of it -- not a round slot button,
+     because those are for things that only exist somewhere, and the horn is a
+     thing he can always do. Clear of the speed steps (top-right) and of both
+     bottom ladders. */
+  #hornBtn { position:fixed; right:calc(70px + env(safe-area-inset-right)); bottom:calc(2px + env(safe-area-inset-bottom)); width:56px; height:56px; padding:12px; border:0; background:transparent; color:#ffd23e; z-index:35; touch-action:none; }
+  #hornBtn svg { width:32px; height:32px; pointer-events:none; }
+  #hornBtn.hidden { display:none; }
+  #hornBtn.pressed svg, #hornBtn:active svg { transform:scale(.92); filter:drop-shadow(0 0 6px #ffd23e); }
   #ejectBtn:active svg { transform:scale(.92); }
+  body.ejecting #hornBtn { visibility:hidden!important; pointer-events:none!important; }
   body.ejecting .roundBtn, body.ejecting #throttleBtn { visibility:hidden!important; pointer-events:none!important; transition:none!important; }
   body.ejecting .pillar, body.ejecting #brow, body.ejecting #progressStrip, body.ejecting #aimMarker, body.ejecting #homeArrow, body.ejecting #bigNum, body.ejecting #alarm, body.ejecting #glideGuide, body.ejecting #wingman, body.ejecting #heliTarget, body.ejecting #photo, body.ejecting #flash { visibility:hidden!important; }
   #ejectVeil { position:fixed; inset:0; background:#e8f4fc; opacity:0; z-index:34; pointer-events:none; }
@@ -700,6 +731,7 @@
   <svg class="seatIcon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 29h17M10 25h12l-3-8h-7V9H7v12z"/><circle cx="15" cy="11" r="2.2" fill="#ffd23e" stroke="none"/><path d="M23 16V3m-4 4 4-4 4 4"/></svg>
   <svg class="returnIcon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11a10 10 0 1 1-1 11M3 6v7h7M14 23l2-13 2 13m-6-5h8"/></svg>
 </button>
+<button id="hornBtn" class="hidden" aria-label="Horn"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M29 7 29 25 15 19 15 13Z" fill="currentColor" stroke="none"/><path d="M15 14h-4a3 3 0 0 0 0 4h4" fill="currentColor" stroke="none"/><circle cx="7" cy="16" r="5" fill="currentColor" stroke="none"/></svg></button>
 <div id="ejectVeil"></div>
 <div id="hud">
   <div id="pillarL" class="pillar"></div>
@@ -826,6 +858,7 @@
 <div id="photo" aria-hidden="true"><div class="frame"><img id="photoImg" alt=""></div></div>
 <div id="flash" aria-hidden="true"></div>
 <div id="bigNum" aria-hidden="true"></div>
+<button id="speedBtn" class="roundBtn hidden" aria-hidden="true" data-step="3"><svg viewBox="0 0 32 46" fill="none" stroke="#f2f4f7" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path class="c1" d="M8 40 l8 -6 8 6" /><path class="c2" d="M8 33 l8 -6 8 6" /><path class="c3" d="M8 26 l8 -6 8 6" /><path class="c4" d="M8 19 l8 -6 8 6" /><path class="c5" d="M8 12 l8 -6 8 6" /></svg></button>
 <button id="fastBtn" class="roundBtn" aria-hidden="true">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <path d="M28 46 L50 22 L72 46" fill="none" stroke="#f2f4f7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1161,6 +1194,7 @@
 <script src="js/vehicle.js"></script>
 <script src="js/collision.js"></script>
 <script src="js/state.js"></script>
+<script src="js/speed.js"></script>
 <script src="js/input.js"></script>
 <script src="js/flight.js"></script>
 <script src="js/heli.js"></script>

@@ -839,7 +839,8 @@ function hbUpdateBridge(dt) {
   if (was < 0.98 && b.open >= 0.98) { b.state = "open"; }
   const ang = b.open * 1.16;            // ~66 degrees fully up
   for (const lf of b.leaves) lf.pivot.rotation.z = -lf.sign * ang;
-  const warn = b.want > 0 || b.open > 0.01;
+  if (b.hornT > 0) b.hornT -= dt;
+  const warn = b.want > 0 || b.open > 0.01 || b.hornT > 0;
   const on = warn && (Math.sin(harbor.clock * 9) > 0);
   for (const [i, lamp] of b.beacons.entries()) {
     lamp.material.color.setHex(warn && (on === (i % 2 === 0)) ? 0xff3b30 : 0x5a1b16);
@@ -878,6 +879,26 @@ function hbAudio(dt) {
     synthBlip("sawtooth", 1250, 780, 0.16, 0.030 * near, 0);
     synthBlip("sawtooth", 1150, 700, 0.14, 0.024 * near, 0.22);
   }
+}
+
+// He honked at the bridge from the car.
+//
+// This brings the WIND-UP forward and nothing else. It never lifts the bridge:
+// a drawbridge that opens when he honks is a drawbridge he can strand himself
+// behind, and the coast road has to stay crossable. So the bells ring and the
+// beacons light for a few seconds -- an answer he can see and hear -- and if a
+// lift was already counting down for the yacht, that countdown is cut short so
+// the spans start moving sooner. Nothing is skipped and nothing is required.
+function hbBridgeHonked(x, z, range) {
+  const b = harbor.bridge;
+  if (!b) return false;
+  if (Math.hypot(x - HB.cx, z - HB_ROAD_Z) > range) return false;
+  if (b.hornT > 0.5) return false;            // already answering
+  b.hornT = 3.0;
+  hbBridgeBells();
+  if (b.state === "warn" && b.t > 0.6) b.t = 0.6;   // a pending lift starts sooner
+  flags.bridgeHonks = (flags.bridgeHonks || 0) + 1;
+  return true;
 }
 
 // A ship's horn: low, long, and it carries. Used by the ferry now and by the

@@ -293,6 +293,33 @@ const TUNE = {
     wheelR: 0.95,             // fallback only: the imported body measures its own
     wheelLock: 26,            // degrees the front wheels visibly turn at full stick
     whineHz: [55, 320], tyreGain: 0.05, windGain: 0.06,
+    // Speed steps. The top one is a genuine 85 km/h-feeling run and the lane
+    // keep still holds it: `laneKeep.lookAhead` is a TIME, so the aim point
+    // slides further ahead as he speeds up and the pursuit stays stable. The
+    // burst multiplies on top of whichever step he is on, so drag-up is still
+    // a shove at every speed.
+    speedSteps: [0.55, 0.78, 1.0, 1.4, 1.85],
+    // ---- the horn (js/car.js).
+    //
+    // The car's drag-up is already the burst, so the horn takes the contextual
+    // slot the car has never used. Two notes, because a two-tone is what a car
+    // says and one note is what a lorry says. Tap plays the pair once; holding
+    // sustains the second note for as long as he holds it, which is the whole
+    // joy of a horn and the reason it is press-and-hold rather than a toggle.
+    horn: {
+      hz: [370, 294],             // F#4 over D4: the interval every road car uses
+      tap: 0.55, attack: 0.02, release: 0.18,
+      gain: 0.16, sustainMax: 4.0, // it cannot be held down forever
+      // Who answers, and how far away they can hear it.
+      trafficRange: 220, trafficChance: 0.45, trafficDelay: [0.35, 0.9],
+      seaRange: 2600,             // the yacht and the cruise ship, from the harbour spur
+      seaDelay: 1.1,
+      replyCooldown: 2.4,         // one answer per honk, not a chorus
+      // Honking on the approach starts the drawbridge's bells and beacons early.
+      // It never opens the bridge by itself and never skips the wind-up: it only
+      // brings the wind-up forward, so a honk is answered and nothing is skipped.
+      bridgeRange: 620,
+    },
   },
 
   // ---- The palette. Every colour in the game snaps to one of these unless it
@@ -592,6 +619,19 @@ const TUNE = {
     grazeSteps: 6, grazeMargin: 4,   // ... and only if it comes back out by a real margin:
                                     // meeting a flat sea almost edge-on re-emerges by centimetres,
                                     // and that is a genuine arrival, not a graze
+    // Speed steps. It is a POINT-TO-GO vehicle, so the step scales only the
+    // cruise cap in `Math.min(cruise, dist * approach)`. The arrival taper is
+    // the other half of that expression and is untouched: he still eases into
+    // the spot he touched, he simply crosses the map to it faster.
+    speedSteps: [0.5, 0.75, 1.0, 1.4, 1.8],
+  },
+  // ---- The surface buggy (js/rover.js). Its drive numbers used to be two bare
+  // literals in the middle of the model; they are here now because the speed
+  // steps have to multiply them and a step list beside a number nobody can find
+  // is worse than no step list at all.
+  rover: {
+    cruise: 14, reverse: 6,
+    speedSteps: [0.6, 0.8, 1.0, 1.5, 2.1],   // it is a buggy on an empty world: let it go
   },
 
   // ---- set-pieces. Each one is the same loop: a giant obvious thing, one aim or
@@ -647,6 +687,41 @@ const TUNE = {
     cannonRadius: 260, cannonReach: 90, cannonSlack: 25, cannonPuffs: 4,
     cannonAim: 0.76, cannonSheet: 1.6,
     camChase: [22, 8], camLag: 5,
+    speedSteps: [0.55, 0.78, 1.0, 1.4, 1.85],   // top step ~78 m/s: the harbour really moves
+    // ---- THE STERN PLUME, which used to look like smoke.
+    //
+    // There was a "rooster tail" here: one white sphere a few metres astern,
+    // climbing nine metres a second and growing to a five-metre ball. The chase
+    // camera sits twenty-two metres astern and eight up, looking forward -- so
+    // that ball went up through the middle of the shot and sat there. It read as
+    // an engine on fire rather than as water, and it hid the thing he was
+    // steering. Readability beats realism, so it is gone.
+    //
+    // What replaces it is deliberately almost nothing, because it was carrying
+    // no spectacle: the bow wave and the side wake already say "fast". A single
+    // low, translucent puff at the transom, at idle only, below the chase
+    // camera's sightline and behind the helm's -- and above `plumeMaxSpeed`
+    // nothing at all, which is the speed at which he is actually looking where
+    // he is going.
+    plumeMaxSpeed: 12,          // above this: no plume, at all
+    plumeEvery: 0.42,           // seconds between wisps -- sparse on purpose
+    plumeSize: 0.55, plumeRise: 0.5, plumeLife: 0.7,
+    plumeBack: 6.5, plumeY: 0.5,// astern of centre, and above the waterline
+    // The side wake, which stays -- but it is no longer a wall.
+    //
+    // Three numbers were wrong together, and only the third one is obvious once
+    // you look at a screenshot instead of a number. It CLIMBED (7.2 m/s for a
+    // second and a half, straight up through the sightline). It was HUGE (a
+    // puff grows to 2.2x its size, so 2.9 became a six-metre ball). And it was
+    // emitted only ELEVEN METRES behind a boat the chase camera sits twenty-two
+    // behind -- so a six-metre ball sat nine metres in front of the lens and
+    // filled the bottom of the frame, with the boat somewhere behind it.
+    //
+    // `[base, plane]` pairs: the value at rest, and how much full plane adds.
+    // Lower, smaller, and thrown wider, so the wake is plainly there, off both
+    // quarters, and the middle of the shot is empty.
+    wakeRise: [1.2, 1.6], wakeLife: [0.7, 0.3],
+    wakeSize: [1.1, 0.7], wakeSpread: [3.2, 5.5],
     // The helm. Metres above the WATERLINE, with -Z forward, measured against the
     // real hull: it is a low offshore boat and its screen tops out barely a metre
     // above the sea, so an eye at car height floated above its own windscreen.
@@ -698,6 +773,25 @@ const TUNE = {
                   dashTop: 10.4, wheelTurn: 2.0, radarRpm: 14, radarRange: 900 },
     camChase: [95, 34], camLag: 3,
     engineHz: [30, 52], hullGain: 0.045,
+    speedSteps: [0.6, 0.8, 1.0, 1.45, 1.9],   // fifty-two metres at 32 m/s, which is a sight
+    // Her stern plume, on the same terms as the speedboat's and for the same
+    // reason. Her transom is 26 m aft and the chase camera 95 m aft and 34 up:
+    // anything that climbs from back there crosses the shot. She gets one wisp
+    // at a manoeuvring crawl and nothing once she is under way.
+    plumeMaxSpeed: 5,
+    plumeEvery: 0.55, plumeSize: 1.1, plumeRise: 0.4, plumeLife: 0.9,
+    plumeBack: 26, plumeY: 1.2,
+    // HER WAKE HAD TO COME DOWN TOO, and the bridge view is what proved it.
+    // A puff grows to 2.2x its size, so a 4.6 became a TEN-METRE ball -- and the
+    // bow wave is thrown from 26 m ahead of centre while the bridge camera sits
+    // 6 m abaft it. Twenty of those, ten metres across, standing thirty metres
+    // dead ahead, turned the whole wheelhouse view into white fog: the horizon
+    // was a smudge and the harbour behind it was gone. Halved and thrown wider,
+    // the bow wave still says "this is fifty metres of ship" and it does it off
+    // her shoulders, where he can see past it.
+    // `[base, k]` where k is her speed as a fraction of cruise.
+    bowSize: [1.4, 0.9], bowSpread: [6, 0.9], bowLife: 1.1,
+    sternSize: [1.6, 1.4], sternLife: 1.2,
   },
 
   // ---- Things to do at sea (js/seaevents.js). Five of them, and every one obeys
@@ -901,6 +995,9 @@ const TUNE = {
       rotor: 26,                      // how fast the blades spin
       modelScale: 0.55,               // scale audit: it read bigger than the rover it scouts for
       stallTime: 2.0, stallSpeed: 2,  // never stuck, same guarantee as the helicopter
+      // Point-to-go, exactly like the big helicopter: the step scales the cruise
+      // cap and leaves the approach taper alone.
+      speedSteps: [0.6, 0.8, 1.0, 1.5, 2.0],
     },
     boost: 6,                       // ... and it keeps his throttle in this long after lift-off,
                                     // or Mars simply pulls him straight back down onto the pad
@@ -934,6 +1031,9 @@ const TUNE = {
   spaceBlendBand: 260,
   otherVehicleCeiling: 520,
 
+  // The fixed-wing steps. Tuned with him, so they stay as they are; every other
+  // vehicle now has a list of its own beside its own numbers (js/speed.js says
+  // why, and what the multipliers are multiplying).
   speedSteps: [0.45, 0.7, 1.0, 1.3],
   missileCount: 4,
   missileCooldown: 0.45,

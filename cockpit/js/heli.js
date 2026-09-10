@@ -176,11 +176,11 @@ function updateHeliControls() {
 
 function updateHelicopter(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
-  // The altitude buttons replace the throttle and speed controls.
+  // The altitude buttons replace the throttle. The speed control is still here,
+  // as the single cycling stepper -- this column has no room for a pair, which
+  // js/speed.js explains and spdUpdateButtons decides.
   el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.slowBtn.classList.add("hidden");
-  el.fastBtn.classList.add("hidden");
   el.gearBtn.classList.add("hidden");
 
   // The yacht's helipad is GROUND while he is over it -- that one substitution is
@@ -221,7 +221,10 @@ function updateHelicopter(dt) {
     if (dist < H.arriveDist) { heli.target = null; heli.sky = false; }
     else {
       wantYaw = Math.atan2(-dx, -dz);
-      wantSpeed = Math.min(H.cruise, dist * H.approach);
+      // Point-to-go: the step scales the CRUISE CAP only. `dist * H.approach`
+      // is the arrival taper and stays exactly as it was, so he still eases
+      // into the spot he touched (js/speed.js).
+      wantSpeed = Math.min(H.cruise * spdMul(), dist * H.approach);
     }
   }
 

@@ -163,7 +163,11 @@ function skipToLanding() {
     gearSound(true);
     flags.gear++;
   }
-  state.speedStep = 1;
+  // The one place a step is overridden. This is the approach setup -- it has
+  // already put him on the glide slope at approachSpeed -- and arriving on the
+  // top step made a landing a fast flat arrival instead of a coast-in. Every
+  // other path leaves his step exactly where he left it (js/speed.js).
+  spdSetApproach();
   state.phase = "AIRBORNE";
   state.maxAglSinceLiftoff = 1e9;
   placeRings();
@@ -228,7 +232,16 @@ el.fastBtn.addEventListener("pointerdown", (e) => {
   e.stopPropagation();
   unlockAudio();
   pressFlash(el.fastBtn);
-  state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
+  spdNudge(1);
+});
+
+// The helicopter's single stepper: one tap goes up a step and wraps at the top.
+el.speedBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  unlockAudio();
+  pressFlash(el.speedBtn);
+  spdCycle();
 });
 
 el.slowBtn.addEventListener("pointerdown", (e) => {
@@ -236,8 +249,22 @@ el.slowBtn.addEventListener("pointerdown", (e) => {
   e.stopPropagation();
   unlockAudio();
   pressFlash(el.slowBtn);
-  state.speedStep = Math.max(state.speedStep - 1, 0);
+  spdNudge(-1);
 });
+
+// The horn: press and hold. Capture the pointer so a finger that slides off the
+// icon still holds the note, and release on up / cancel / lost-capture so it can
+// never stick on -- a horn that will not stop is the one way this could go wrong.
+el.hornBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  try { el.hornBtn.setPointerCapture(e.pointerId); } catch (err) {}
+  unlockAudio();
+  carHornPress();
+});
+for (const ev of ["pointerup", "pointercancel", "pointerleave", "lostpointercapture"]) {
+  el.hornBtn.addEventListener(ev, (e) => { e.preventDefault(); carHornRelease(); });
+}
 
 el.missileBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
@@ -441,8 +468,8 @@ window.addEventListener("keydown", (e) => {
     else if (!el.bucketBtn.classList.contains("hidden")) bucketPress();   // the helicopter's bucket comes first
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();
   }
-  else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") state.speedStep = Math.min(state.speedStep + 1, TUNE.speedSteps.length - 1);
-  else if (c === "Minus" || c === "NumpadSubtract" || c === "BracketLeft") state.speedStep = Math.max(state.speedStep - 1, 0);
+  else if (c === "Equal" || c === "NumpadAdd" || c === "BracketRight") spdNudge(1);
+  else if (c === "Minus" || c === "NumpadSubtract" || c === "BracketLeft") spdNudge(-1);
   else if (c === "KeyP") takePhoto();
   else if (c === "KeyL") { if (!el.skipBtn.classList.contains("hidden") && !state.exploding) { if (state.vp.rocket) { if (astroActive()) leaveStationAll(); else rocketSkipToLanding(); } else { restoreShattered(); skipToLanding(); } } }
 });
