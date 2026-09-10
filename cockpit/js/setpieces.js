@@ -1011,5 +1011,6 @@ function updateSetpieces(dt) {
 // has had its say, or he simply flies on through it.
 function updateSetpiecesLate(dt) {
   carrierLate(dt);
+  if (typeof yachtLate === "function") yachtLate(dt);
   marsLate(dt);
 }

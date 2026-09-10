@@ -10,6 +10,51 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v98 — a fifty-metre yacht, and a drawbridge that lifts for her
+
+**BOATS, stage 2.** The yacht is in the harbour, on her own wall on the west
+side, and everything about her is weight: slow away, slow to turn, a long time
+to stop, and a bow wave you can see from the shore. Drag up is not a burst — a
+ship this size has none to give — it is the **horn**, deep and long, and the
+ferry, the tug and anything else afloat within earshot answer it. Finger off for
+three seconds at rest and the anchor goes down with a chain roar and a splash;
+a finger back on hauls it up. Nothing is unlocked by any of it.
+
+**Her one boat-only thing is that she is a place.** There is a helipad on her
+stern in the same amber-ring language every landing place in this game uses, and
+the helicopter can put down on it *while she is under way* — touching her
+anywhere in point-to-go aims at the pad rather than at the piece of hull he
+touched, the aim then follows her, and once he is down she carries him. And
+there is a garage in her transom: alongside her in the speedboat one button
+appears, the door swings down into a ramp, the boat goes in and he finds himself
+driving the ship with his boat aboard. The same button lets it out again.
+
+**The drawbridge is hers.** Bells and red beacons wind up while she is still four
+hundred metres off, the two leaves lift, the traffic on the coast road stops and
+queues, she sails under the raised road, and the spans come down behind her on
+their own with a thump. The speedboat fits under without it opening at all — the
+lift belongs to the ship.
+
+**Three things the build got wrong first.** Her berth was in the marina, and
+fifty-two metres does not fit in a marina: laid alongside the big pier she
+overlapped both it and the main walkway and spent her maiden voyage being shoved
+gently back and forth between them. She now has her own wall, which is what real
+ports do and for exactly this reason. Her shallow-water avoidance — the thing
+that means she cannot beach — worked perfectly and turned her away from the only
+way out, so she sailed up and down the basin for ever politely refusing the gap
+she was aimed at; it now stands down when she is lined up on the mouth, because
+a channel is shallow water on both sides on purpose. And the helicopter's aim
+raycast was tested against stale world matrices, so it hit wherever she had last
+been *drawn* — the same trap the car's centre-screen tap documents.
+
+Her wheelhouse has a wheel that turns and a radar that sweeps: rings, a sweep and
+contacts, which is a picture of where things are and never a readout. Zero text
+anywhere, as always.
+
+Harness 13 new checks, all behavioural: the pad is not proved by the helicopter
+reaching it but by driving her three hundred metres afterwards and finding him
+still on it.
+
 ## v97 — a harbour on the Pacific, and a speedboat to take out of it
 
 **BOATS, stage 1.** There is a port at the California end now, and a speedboat

@@ -653,6 +653,53 @@ const TUNE = {
     helm: { width: 2.2, dashTop: 1.02, seatX: -0.40, eyeY: 1.42, eyeZ: 0.30, wheelTurn: 2.2 },
   },
 
+  // ---- The yacht (js/yacht.js). Everything about it is weight: slow away, slow
+  // to turn, a long time to stop, and a bow wave you can see from the shore.
+  //
+  // DRAG UP IS THE HORN, not a burst. Fifty metres of ship has no burst to give,
+  // and the horn is the thing a four-year-old will press over and over -- the
+  // whole harbour answers it.
+  //
+  // Its one boat-only thing is that IT IS A PLACE: a helipad on the stern the
+  // helicopter can land on while she is under way, and a garage in the transom
+  // that swallows the speedboat. Both are a vehicle inside a vehicle, and
+  // neither is ever required.
+  yacht: {
+    len: 52, beam: 9.4, draft: 2.4,
+    cruise: 17, accel: 2.0, drag: 1.4,
+    steerRate: 9, steerAccel: 1.1, bankDeg: 4,
+    hullR: 17,                        // she leans on a pier; she does not explode against it
+    bob: 0.10,
+    // Her berth is on the WEST wall, not among the small craft. Fifty-two metres
+    // does not fit in a marina: laid alongside the big pier she overlapped both
+    // it and the main walkway, the hull collision pushed her off both at once,
+    // and she spent the whole of her first run being shoved gently back and
+    // forth between them. Real ports put ships like her on their own wall for
+    // exactly this reason. She points at the harbour mouth, worked out at spawn
+    // rather than written down, so moving the mouth moves her with it.
+    berth: [860, -6360],
+    // She CANNOT BEACH. A probe ahead and off each bow finds the shoal and adds a
+    // nudge toward the deeper side, so he feels a big ship not wanting to go
+    // somewhere -- which is what a big ship is like -- and is never told off.
+    shallow: 60, shallowTurn: 20,
+    // ... and it stands down for the harbour mouth, which is shallow water on
+    // both sides on purpose. `dot` is about 32 degrees of slop either way.
+    gap: { range: 900, dot: 0.85, half: 230 },
+    horn: { hz: 82, dur: 2.6, cooldown: 3.2, replyDelay: 0.9, range: 1100, echo: 0.55 },
+    anchor: { idleTime: 3, dropTime: 1.6 },
+    // Measured against the real hull: her main deck is 6.6 m above the waterline
+    // and her transom 26 m aft of the middle.
+    pad:    { x: 0, z: 16, y: 6.9, r: 7.4, lamps: 10 },
+    // `y` is the HINGE, at the foot of the transom, and `openTilt` is how far
+    // past horizontal the ramp dips so it actually reaches the water.
+    garage: { z: 25.5, y: 1.6, w: 7, h: 4.6, openTilt: 0.22, doorTime: 2.4, radius: 90, reach: 12 },
+    bridge: { trigger: 430, warn: 3.5 },
+    bridgeView: { eyeY: 11.2, eyeZ: 6, seatX: 0, seatZ: -4, width: 7,
+                  dashTop: 10.4, wheelTurn: 2.0, radarRpm: 14, radarRange: 900 },
+    camChase: [95, 34], camLag: 3,
+    engineHz: [30, 52], hullGain: 0.045,
+  },
+
   // ---- The harbour (js/harbor.js, and the ground it stands on in js/terrain.js).
   //
   // WHERE IT IS. The brief said "California, at the existing harbour
@@ -722,7 +769,7 @@ const TUNE = {
       route: [[860, -6480], [1660, -6420], [1660, -6180], [860, -6220]],
       len: 42, beam: 13, speed: 9, deckY: 5.5, hornEvery: 46,
     },
-    tug: { x: 1120, z: -6600, len: 26, beam: 10, bob: 0.5 },
+    tug: { x: 760, z: -6200, len: 26, beam: 10, bob: 0.5 },   // tucked out of the fairway the yacht uses
     ramp: {                          // the floating ski jump, out in the outer harbour
       x: 1620, z: -6960, w: 26, len: 46, rise: 9, deg: 22,
       ringR: 11,                     // the amber ring, in the language every other jump uses
@@ -738,6 +785,10 @@ const TUNE = {
       spacing: 200, half: 90, r: 2.2, h: 6.5,
     },
     gulls: { count: 14, r: 260, y: [16, 54], speed: [7, 13] },   // scenery: not solid, not shatterable, never a target
+    // Cars on the coast road, so the drawbridge has something to keep waiting.
+    // They QUEUE rather than vanish: the queue is half of what makes the lift
+    // worth watching.
+    roadTraffic: { count: 8, x: [300, 2200], speed: [16, 24], queue: 150 },
     visibleRange: 3400,              // the whole thing hides beyond this
     audio: { slapGain: 0.05, craneGain: 0.035, gullEvery: [7, 15] },
   },
@@ -927,7 +978,7 @@ const TUNE = {
     speedboat:        { cruiseSpeed: 42, turnRateDeg: 46, pitchLimitDeg: 12, bankLimitDeg: 18, accel: 16, capped: true, size: 1.0, hasGear: false, boat: true },  // its own model: TUNE.boat
     // Stage 2. Shelved from TUNE alone, so the card exists and does not render,
     // and the model rig can still inspect the hull before it ships.
-    yacht:            { cruiseSpeed: 17, turnRateDeg: 9,  pitchLimitDeg: 6,  bankLimitDeg: 6,  accel: 3,  capped: true, size: 1.0, hasGear: false, boat: true, bigBoat: true, hidden: true }
+    yacht:            { cruiseSpeed: 17, turnRateDeg: 9,  pitchLimitDeg: 6,  bankLimitDeg: 6,  accel: 3,  capped: true, size: 1.0, hasGear: false, boat: true, bigBoat: true }
   },
 
   vehicleColors: {

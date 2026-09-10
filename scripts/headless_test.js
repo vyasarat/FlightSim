@@ -323,7 +323,7 @@ function check(name, ok, extra) {
       sv.classList.remove("hiddenS");
       const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
       const hidden = [...sv.querySelectorAll(".card.hiddenS")];
-      if (visible.length !== 10) return { ok: false, why: "visible=" + visible.length };
+      if (visible.length !== 11) return { ok: false, why: "visible=" + visible.length };
       const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
@@ -333,16 +333,16 @@ function check(name, ok, extra) {
       const fromTune = hidden.every(c => window.__lp.TUNE.vehicles[c.dataset.v].hidden === true);
       // nothing is shelved any more: the helicopter came back off the shelf to fight
       // the rig fire. The TUNE.hidden mechanism itself is still exercised below.
-      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter") && keys.includes("car") && keys.includes("speedboat"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
+      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter") && keys.includes("car") && keys.includes("speedboat") && keys.includes("yacht"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
     });
-    check("vehicles: picker shows all 10 incl the car, speedboat, helicopter, fighter, rocket and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows all 11 incl the car, speedboat, yacht, helicopter, fighter, rocket and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
       return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
     });
-    check("vehicles: ten available, car / speedboat / fighter / rocket / starship distinct, airliners share stats",
-      combos.n === 10 && combos.uniq === 8, `n=${combos.n} uniq=${combos.uniq}`);
+    check("vehicles: eleven available, car / speedboat / yacht / fighter / rocket / starship distinct, airliners share stats",
+      combos.n === 11 && combos.uniq === 9, `n=${combos.n} uniq=${combos.uniq}`);
 
     await page.evaluate(() => {
       document.getElementById("screenDir").classList.add("hiddenS");
@@ -5419,6 +5419,7 @@ function check(name, ok, extra) {
   await require("./robot_play_checks")({ newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
   await require("./workshop_offline_check")({ newPage, check, shots: SHOTS });
   await require("./boat_checks")({ newPage, check, shots: SHOTS });
+  await require("./yacht_checks")({ newPage, check, shots: SHOTS });
 
   await browser.close();
   server.kill();

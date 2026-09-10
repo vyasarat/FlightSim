@@ -423,6 +423,11 @@ function modelsPreload() {
         flags.modelsLoaded = (flags.modelsLoaded || 0) + 1;
         // if he is already in this vehicle, swap the body in underneath him
         if (state.vehicleKey === key && typeof buildVehicleModel === "function") buildVehicleModel(key);
+        // The yacht is a place in the world as well as a thing he drives, and
+        // the world copy is built long before the download lands. Without this
+        // she keeps her block-built stand-in for ever while the boat he steps
+        // into is the real hull -- two different ships with one name.
+        if (key === "yacht" && typeof yachtAttachBody === "function" && yacht.built) yachtAttachBody();
       } catch (e) {
         modelState[key] = "failed";
         console.warn("models: could not prepare", key, e && e.message);
