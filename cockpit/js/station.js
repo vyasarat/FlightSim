@@ -24,6 +24,10 @@ const astro = {
   f: new THREE.Vector3(0, 0, 1), up: new THREE.Vector3(0, 1, 0),
 };
 const asTmp = new THREE.Vector3(), asTmp2 = new THREE.Vector3(), asQ = new THREE.Quaternion();
+// Two more scratches. The astronaut's orientation was building a fresh Euler
+// every frame in both modes, and the two EVA jobs were building a Vector3 each
+// per frame just to measure a distance -- all of it garbage a moment later.
+const asEuler = new THREE.Euler(0, 0, 0, "YXZ"), asHere = new THREE.Vector3();
 
 function stationInteriorOrigin() {
   const b = BODIES.find(q => q.name === "station");
@@ -342,7 +346,7 @@ function updateAstronaut(dt) {
   const m = astro.mesh;
   m.visible = state.viewChase;
   m.position.set(astro.x, astro.y, astro.z);
-  asQ.setFromEuler(new THREE.Euler(-astro.pitch * 0.6, astro.yaw, 0, "YXZ"));
+  asQ.setFromEuler(asEuler.set(-astro.pitch * 0.6, astro.yaw, 0, "YXZ"));
   m.quaternion.copy(asQ);
   m.rotation.z += Math.sin(astro.t * 0.9) * 0.05;
   // sounds: the fans while he pushes
@@ -500,7 +504,7 @@ function updateEva(dt) {
   station.updateMatrixWorld();
   if (!eva.batteryDone) {
     asTmp.setFromMatrixPosition(eva.battery.matrixWorld);
-    if (asTmp.distanceTo(new THREE.Vector3(eva.x, eva.y, eva.z)) < 1.8) {
+    if (asTmp.distanceTo(asHere.set(eva.x, eva.y, eva.z)) < 1.8) {
       eva.batteryDone = true;
       eva.battery.material.color.setHex(0xf2f4f7); eva.battery.material.emissive.setHex(0x2f3a48);
       if (station.userData.lightMat) station.userData.lightMat.color.setHex(0xfff2b0);
@@ -510,7 +514,7 @@ function updateEva(dt) {
   }
   if (eva.stuck && !eva.stuckDone) {
     asTmp.setFromMatrixPosition(eva.stuck.matrixWorld);
-    if (asTmp.distanceTo(new THREE.Vector3(eva.x, eva.y, eva.z)) < 4) { eva.stuckDone = true; chime(); flags.evaArray = (flags.evaArray || 0) + 1; }
+    if (asTmp.distanceTo(asHere.set(eva.x, eva.y, eva.z)) < 4) { eva.stuckDone = true; chime(); flags.evaArray = (flags.evaArray || 0) + 1; }
   }
   if (eva.stuck && eva.stuckDone) eva.stuck.scale.x += (1 - eva.stuck.scale.x) * Math.min(1, 1.5 * dt);
   if (!eva.toolHeld) {
@@ -525,7 +529,7 @@ function updateEva(dt) {
   const m = eva.mesh;
   m.visible = state.viewChase;
   m.position.set(eva.x, eva.y, eva.z);
-  asQ.setFromEuler(new THREE.Euler(-astro.pitch * 0.6, astro.yaw, 0, "YXZ")); m.quaternion.copy(asQ);
+  asQ.setFromEuler(asEuler.set(-astro.pitch * 0.6, astro.yaw, 0, "YXZ")); m.quaternion.copy(asQ);
   for (const j of eva.jets) j.visible = push > 0 && state.viewChase;
   if (eva.toolHeld) { eva.tool.visible = state.viewChase; eva.tool.position.set(eva.x, eva.y, eva.z).addScaledVector(astro.f, -0.1); eva.tool.position.y -= 0.3; eva.tool.quaternion.copy(asQ); }
   const pts = eva.tether.geometry.attributes.position.array;

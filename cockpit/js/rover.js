@@ -16,6 +16,11 @@ const rover = {
   mesh: null, wheels: [], rocks: [], beacons: [], toys: [], craters: [], stuck: false,
 };
 const rvTmp = new THREE.Vector3(), rvTmp2 = new THREE.Vector3();
+// Scratches for the boulder roll below. It runs for every boulder on every
+// frame he is out driving, and it was allocating three fresh Vector3s each
+// time round -- the one thing on an iPad that turns into a visible hitch
+// later, when the collector finally comes for them.
+const rvBn = new THREE.Vector3(), rvBv = new THREE.Vector3(), rvBax = new THREE.Vector3();
 
 // These temporary surface groups own their geometry and non-cached materials.
 // Textures and Three's Sprite geometry are shared; lam() belongs to matCache.
@@ -158,13 +163,13 @@ function updateToys(dt, b) {
       // shove it: it rolls along the ground and slows
       const dx = t.x - rover.x, dy = t.y - rover.y, dz = t.z - rover.z, d = Math.hypot(dx, dy, dz);
       if (d < 3.2 && sp > 1) { const s = Math.max(6, sp * 1.1); t.vx = rover.f.x * s; t.vy = rover.f.y * s; t.vz = rover.f.z * s; noiseBurst(0.12, 200, 0.25, 0); rover.speed *= 0.5; }
-      const n = new THREE.Vector3(t.x - b.x, t.y - b.y, t.z - b.z).normalize();
-      const v = new THREE.Vector3(t.vx, t.vy, t.vz); v.addScaledVector(n, -v.dot(n)); v.multiplyScalar(1 - Math.min(1, 0.12 * dt));
+      const n = rvBn.set(t.x - b.x, t.y - b.y, t.z - b.z).normalize();
+      const v = rvBv.set(t.vx, t.vy, t.vz); v.addScaledVector(n, -v.dot(n)); v.multiplyScalar(1 - Math.min(1, 0.12 * dt));
       t.vx = v.x; t.vy = v.y; t.vz = v.z;
       t.x += t.vx * dt; t.y += t.vy * dt; t.z += t.vz * dt;
       const rr = Math.hypot(t.x - b.x, t.y - b.y, t.z - b.z); t.x = b.x + (t.x - b.x) / rr * (b.r + 1.5); t.y = b.y + (t.y - b.y) / rr * (b.r + 1.5); t.z = b.z + (t.z - b.z) / rr * (b.r + 1.5);
       t.mesh.position.set(t.x, t.y, t.z);
-      const vs = v.length(); if (vs > 0.2) { t.mesh.rotateOnWorldAxis(new THREE.Vector3().crossVectors(n, v).normalize(), vs * dt / 1.5); if (rnd() < dt * 2) noiseBurst(0.08, 150, 0.08 * Math.min(1, vs / 6), 0); }
+      const vs = v.length(); if (vs > 0.2) { t.mesh.rotateOnWorldAxis(rvBax.crossVectors(n, v).normalize(), vs * dt / 1.5); if (rnd() < dt * 2) noiseBurst(0.08, 150, 0.08 * Math.min(1, vs / 6), 0); }
       for (const c of rover.craters) if (Math.hypot(c.x - t.x, c.y - t.y, c.z - t.z) < 5) {
         t.sunk = true; t.mesh.position.addScaledVector(n, -1.2); t.vx = t.vy = t.vz = 0;
         deepPop(); confettiBurst(); chime(); flags.roverBoulders = (flags.roverBoulders || 0) + 1;

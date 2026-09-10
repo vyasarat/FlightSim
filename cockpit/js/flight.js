@@ -723,6 +723,10 @@ function update(dt) {
   // see js/speed.js for why this is the only place that decides it.
   spdUpdateButtons();
   carUpdateHorn(dt);        // ... and the horn, for the same reason: one place, after every early return
+  // The menu button is up in every state there is. It hides only while a picker
+  // screen is already open (it would sit on top of one) and while he is under
+  // the ejection canopy, which is already taking him somewhere safe.
+  el.menuBtn.classList.toggle("hidden", menuOpen() || eject.active);
   updateHud();
   updateFx(dt);
   updateExplosion(dt, safePos, false);

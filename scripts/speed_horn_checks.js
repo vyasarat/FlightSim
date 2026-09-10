@@ -294,6 +294,89 @@ module.exports = async function speedHornChecks({ newPage, check, shots }) {
     await page.close();
   }
 
+  // ---- 5b. THE MENU BUTTON -- up everywhere, and it works from anywhere ----
+  {
+    const { page } = await newPage(1180, 820);
+    const menu = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.skipScreens();
+      const vis = () => {
+        const e = document.getElementById("menuBtn");
+        const cs = getComputedStyle(e);
+        return cs.display !== "none" && cs.visibility !== "hidden";
+      };
+      const onVehicles = () => !document.getElementById("screenVehicle").classList.contains("hiddenS");
+      const anyScreen = () => L.menuOpen();
+      const out = { up: {}, opens: {} };
+
+      // It has to be up in every state the game has, including the ones the old
+      // picker button is forbidden in: that is the whole point of it.
+      const states = {
+        "plane on the runway": () => { L.api.setVehicle("prop"); L.api.placeOnRunway(); },
+        "plane airborne": () => { L.api.setVehicle("prop"); L.api.teleportAirborne(1200, 0, 300, 0); },
+        "car driving": () => { L.api.setVehicle("car"); L.api.placeOnRunway(); },
+        "speedboat": () => { L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1); },
+        "yacht": () => { L.api.setVehicle("yacht"); L.api.spawnAt(1, 1); },
+        "helicopter": () => { L.api.setVehicle("helicopter"); L.api.placeOnRunway(); st.phase = "AIRBORNE"; st.y += 80; },
+        "rocket on the pad": () => { L.api.setVehicle("rocket"); L.api.placeOnRunway(); },
+        "driving the rover": () => {
+          L.api.setVehicle("rocket"); L.api.placeOnRunway();
+          const b = L.BODIES[0];
+          st.dest = "moon"; st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 3;
+          st.x = b.x; st.y = b.y + b.r + 10; st.z = b.z;
+          L.update(1 / 60); L.roverDeploy();
+        },
+        "exploding": () => {
+          L.api.setVehicle("prop"); L.api.teleportAirborne(1200, 0, 300, 0);
+          for (let i = 0; i < 20; i++) L.update(1 / 60);
+          st.exploding = true; st.explodeTimer = 2;
+        },
+      };
+      for (const [name, setup] of Object.entries(states)) {
+        setup();
+        for (let i = 0; i < 12; i++) L.update(1 / 60);
+        out.up[name] = vis();
+      }
+
+      // ... and pressing it from a place the OLD picker button refuses lands him
+      // on the vehicles, with the mode unwound.
+      const tryFrom = (name, setup) => {
+        setup();
+        for (let i = 0; i < 12; i++) L.update(1 / 60);
+        const oldRefuses = !L.pickerCanOpen();
+        L.openPickerAnywhere();
+        for (let i = 0; i < 4; i++) L.update(1 / 60);
+        const ok = onVehicles();
+        // put it away again for the next one
+        document.getElementById("screenVehicle").classList.add("hiddenS");
+        return { oldRefuses, landedOnVehicles: ok };
+      };
+      out.opens.airborne = tryFrom("airborne", states["plane airborne"]);
+      out.opens.rover = tryFrom("rover", states["driving the rover"]);
+      out.opens.exploding = tryFrom("exploding", states["exploding"]);
+      out.opens.roverUnwound = !L.roverActive();
+
+      // it hides while a screen is already up, and never sits on top of one
+      L.api.setVehicle("prop"); L.api.placeOnRunway();
+      L.openPickerAnywhere();
+      for (let i = 0; i < 4; i++) L.update(1 / 60);
+      out.hiddenBehindScreen = !vis() && anyScreen();
+      return out;
+    });
+
+    const allUp = Object.values(menu.up).every(Boolean);
+    check("menu: the picker button is up in every state -- flying, driving, on the Moon, mid-bang",
+      allUp, JSON.stringify(menu.up));
+    check("menu: it opens the picker ON THE VEHICLES from places the old button refuses, and unwinds the mode first",
+      menu.opens.airborne.oldRefuses && menu.opens.airborne.landedOnVehicles &&
+      menu.opens.rover.oldRefuses && menu.opens.rover.landedOnVehicles && menu.opens.roverUnwound &&
+      menu.opens.exploding.landedOnVehicles,
+      JSON.stringify(menu.opens));
+    check("menu: it gets out of the way once a picker screen is up",
+      menu.hiddenBehindScreen, JSON.stringify({ hidden: menu.hiddenBehindScreen }));
+    await page.close();
+  }
+
   // ---- 6. THE STERN PLUME -- gone at speed, and never climbing into shot ----
   {
     const { page } = await newPage(1180, 820);

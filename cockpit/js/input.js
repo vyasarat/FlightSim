@@ -432,6 +432,58 @@ el.vehBtn.addEventListener("pointerdown", (e) => {
   openPicker();
 });
 
+// ---------------------------------------------------------------------------
+// THE MENU BUTTON -- the way back to the picker from ANYWHERE.
+//
+// WORKING RULES. `openPicker` above is the old, careful one: it refuses unless
+// he is parked and still, because the picker button shares the top-left slot
+// with the go button and would otherwise eat the tap that means "take me home".
+// This one has its OWN slot -- a small icon in the dash corner, the mirror of
+// eject -- so that reason does not apply to it, and it works everywhere:
+// mid-flight, out at the station, on the Moon, halfway to Mars.
+//
+// It is allowed to be that blunt because NOTHING IS EVER TAKEN AWAY. Every
+// route out of the picker ends in spawnForTakeoff, so whatever he was doing is
+// replaced by a clean start rather than lost -- and a relaunch restores the
+// vehicle, the direction and the destination he had. Being able to get out of
+// somewhere is the one thing a four-year-old needs that no amount of flying
+// teaches him.
+//
+// It unwinds the mode FIRST rather than trusting applyVehicle to do it: that
+// function only resets the rover and the astronaut when the vehicle he picks
+// next is NOT a rocket, so picking the rocket again while on a spacewalk would
+// have carried the spacewalk into the launch.
+function openPickerAnywhere() {
+  if (eject.active) return;        // the rescue is already taking him somewhere safe
+  if (menuOpen()) return;
+  releaseThrottle();
+  keys.clear();
+  state.touching = false; state.touchIsPoint = false;
+  state.ctrlBank = 0; state.ctrlPitch = 0;
+  stickPointerId = null;
+  // If he was mid-bang, put the pieces back before the picker covers the world:
+  // clearing `exploding` alone leaves the shattered model hidden behind it.
+  if (typeof restoreShattered === "function") restoreShattered();
+  state.exploding = false; state.explodeTimer = 0;
+  if (typeof roverReset === "function") roverReset();
+  if (typeof astroReset === "function") astroReset();
+  if (typeof cancelRecovery === "function") cancelRecovery();
+  if (typeof heliReset === "function") heliReset();
+  if (typeof boatCannonPress === "function") boatCannonPress(false);
+  if (typeof carHornRelease === "function") carHornRelease();
+  // ALWAYS on the vehicles -- never on the rocket's destination screen, which
+  // has the way back to the vehicles underneath it.
+  el.screenDir.classList.add("hiddenS");
+  el.screenDest.classList.add("hiddenS");
+  el.screenVehicle.classList.remove("hiddenS");
+  unlockAudio();
+}
+el.menuBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  openPickerAnywhere();
+});
+
 window.addEventListener("gesturestart", (e) => e.preventDefault());
 
 // ---- keyboard (desktop): arrows = stick (up = nose up, same as drag-up),

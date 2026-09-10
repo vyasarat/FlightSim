@@ -10,6 +10,55 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v101 — a way back to the menu from anywhere, and four bugs that needed a long session to find
+
+**The menu button.** A small icon in the dash corner, the mirror of eject, and
+the one control that is up in every state the game has: flying, driving, on the
+Moon, out on a spacewalk, mid-bang. The picker already had a button, but it
+shares the top-left slot with the go button and so was only allowed to appear
+where the go button could not — parked, still, at home. This one has its own
+slot, so that restriction does not apply to it, and it works from everywhere.
+
+It is allowed to be that blunt because nothing is ever taken away: every route
+out of the picker ends in a fresh spawn, and a relaunch restores the vehicle,
+the direction and the destination he had. It unwinds the mode first rather than
+trusting `applyVehicle` to do it — that only resets the rover and the astronaut
+when the vehicle he picks *next* is not a rocket, so picking the rocket again
+while on a spacewalk would have carried the spacewalk into the launch. And it
+always opens on the vehicles.
+
+**Four bugs from the audit**, none of which show up in a short sitting.
+
+*Tones followed him between vehicles.* Every sustained tone is driven once a
+frame by the one vehicle that owns it, so switching vehicle simply stops the
+updates and leaves the oscillator running at whatever gain it had. The boat's
+three were being silenced by hand; the car's whine and tyre roar and the yacht's
+diesel and hull were not, so they followed him into the next vehicle and sat
+under everything for the rest of the session. All of them are silenced on every
+switch now, which cannot rot the way a hand-written list of three did.
+
+*The rover's throttle button was an accident.* `updateRocket` set it below the
+rover and astronaut early returns, so the only reason either had a throttle at
+all was that the capsule happened to leave one up on the previous frame — one
+changed path away from a rover he cannot drive.
+
+*`wakePuff` always sacrificed the same puff.* With the pool full it fell back to
+index 0 every time, so that one puff was overwritten several times a frame and
+strobed out of existence mid-fade while the other sixty-three lived normally.
+
+*Satellites and carrier jets leaked GPU memory.* Both build fresh geometry per
+instance and were culled with `scene.remove` alone, which frees the JavaScript
+object and leaves the vertex buffers on the card. Both dispose now — and only
+what they actually own: the jets' materials come from `lam()`, which caches by
+colour and hands the same material to half the world.
+
+*And some per-frame rubbish.* The rover's boulder roll, the astronaut's
+orientation and the ejection seat's rotor fold were each building fresh vectors
+every frame — the kind of thing that turns into a visible hitch on an iPad much
+later, when the collector finally comes for it.
+
+---
+
 ## v100 — one speed control on everything, a horn for the car, and the smoke is gone
 
 **The smoke off the speedboat.** There was never an exhaust: what looked like

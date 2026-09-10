@@ -720,7 +720,16 @@
   #hornBtn.hidden { display:none; }
   #hornBtn.pressed svg, #hornBtn:active svg { transform:scale(.92); filter:drop-shadow(0 0 6px #ffd23e); }
   #ejectBtn:active svg { transform:scale(.92); }
-  body.ejecting #hornBtn { visibility:hidden!important; pointer-events:none!important; }
+  /* The menu. The MIRROR of eject, in the other unused dashboard corner, and the
+     one control that is up in every state the game has -- flying, driving, on
+     the Moon, on a spacewalk. It is small and far from the stick for the same
+     reason eject is, and it is on the opposite side so the two are never
+     confused for one another. */
+  #menuBtn { position:fixed; left:calc(8px + env(safe-area-inset-left)); bottom:calc(2px + env(safe-area-inset-bottom)); width:56px; height:56px; padding:13px; border:0; background:transparent; color:#bfeaff; z-index:35; touch-action:none; }
+  #menuBtn svg { width:30px; height:30px; pointer-events:none; }
+  #menuBtn.hidden { display:none; }
+  #menuBtn:active svg { transform:scale(.92); }
+  body.ejecting #menuBtn, body.ejecting #hornBtn { visibility:hidden!important; pointer-events:none!important; }
   body.ejecting .roundBtn, body.ejecting #throttleBtn { visibility:hidden!important; pointer-events:none!important; transition:none!important; }
   body.ejecting .pillar, body.ejecting #brow, body.ejecting #progressStrip, body.ejecting #aimMarker, body.ejecting #homeArrow, body.ejecting #bigNum, body.ejecting #alarm, body.ejecting #glideGuide, body.ejecting #wingman, body.ejecting #heliTarget, body.ejecting #photo, body.ejecting #flash { visibility:hidden!important; }
   #ejectVeil { position:fixed; inset:0; background:#e8f4fc; opacity:0; z-index:34; pointer-events:none; }
@@ -731,6 +740,7 @@
   <svg class="seatIcon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 29h17M10 25h12l-3-8h-7V9H7v12z"/><circle cx="15" cy="11" r="2.2" fill="#ffd23e" stroke="none"/><path d="M23 16V3m-4 4 4-4 4 4"/></svg>
   <svg class="returnIcon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11a10 10 0 1 1-1 11M3 6v7h7M14 23l2-13 2 13m-6-5h8"/></svg>
 </button>
+<button id="menuBtn" class="hidden" aria-label="Menu"><svg viewBox="0 0 32 32" fill="currentColor" stroke="none"><rect x="3" y="4" width="11" height="9" rx="2"/><rect x="18" y="4" width="11" height="9" rx="2"/><rect x="3" y="17" width="11" height="9" rx="2"/><rect x="18" y="17" width="11" height="9" rx="2"/></svg></button>
 <button id="hornBtn" class="hidden" aria-label="Horn"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M29 7 29 25 15 19 15 13Z" fill="currentColor" stroke="none"/><path d="M15 14h-4a3 3 0 0 0 0 4h4" fill="currentColor" stroke="none"/><circle cx="7" cy="16" r="5" fill="currentColor" stroke="none"/></svg></button>
 <div id="ejectVeil"></div>
 <div id="hud">
