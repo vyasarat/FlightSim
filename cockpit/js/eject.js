@@ -13,6 +13,8 @@
 const eject = { active:false, phase:'idle', t:0, total:0, fast:false, cycles:0, pool:null, last:null };
 const ejUp = new THREE.Vector3(0,1,0), ejContactPoint = new THREE.Vector3(), ejCameraAim = new THREE.PerspectiveCamera();
 const ejFitBack=new THREE.Vector3(),ejFitRight=new THREE.Vector3(),ejFitUp=new THREE.Vector3(),ejFitPoint=new THREE.Vector3();
+// The rotor fold ran once per rotor per frame and built a Vector3 each time.
+const ejRotorOff=new THREE.Vector3();
 function ejectFamily() {
   if (marsDroneActive()) return 'drone';
   if (roverActive()) return 'rover';
@@ -229,7 +231,7 @@ function updateEjection(realDt) {
     // folded and slid behind the cabin; the seat never crosses spinning blades.
     ejectPoseHatch(f);
     if(eject.rotorSave){const r=eject.model.userData.rotor;r.position.copy(eject.rotorSave.position);r.position.z+=f*E.rotorSlide;r.position.y+=f*E.rotorLift;r.scale.set(1-f*E.rotorFold,1,1-f*E.rotorFold);}
-    for(const s of eject.droneRotors){s.r.position.copy(s.position).add(new THREE.Vector3(0,f*E.rotorLift,f*E.rotorSlide));s.r.scale.setScalar(1-f*E.rotorFold);}
+    for(const s of eject.droneRotors){s.r.position.copy(s.position).add(ejRotorOff.set(0,f*E.rotorLift,f*E.rotorSlide));s.r.scale.setScalar(1-f*E.rotorFold);}
     if(f===1){eject.events.opened=true;eject.events.rotorsClear=true;p.seat.position.copy(eject.anchor);p.seat.visible=true;ejectPhase('launch');whoosh();}
   }else if(eject.phase==='launch'){
     const f=clamp(eject.t/E.launch,0,1),rise=1-Math.pow(1-f,2);

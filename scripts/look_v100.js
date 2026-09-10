@@ -10,7 +10,7 @@ const fs = require("fs");
 
 const PORT = 8199;
 const URL = `http://127.0.0.1:${PORT}/cockpit/index.html`;
-const OUT = path.resolve(__dirname, "..", "evidence", "v100");
+const OUT = path.resolve(__dirname, "..", "evidence", "v101");
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });

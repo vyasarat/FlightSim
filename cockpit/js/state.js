@@ -53,6 +53,24 @@ const state = {
 const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, exploded: 0, gear: 0, missiles: 0, missileHits: 0, shootdowns: 0, midairs: 0, ringsEaten: 0, gates: 0, wingman: 0, alarms: 0, targets: 0 };
 const safePos = { x: 0, y: 0, z: 0 };
 
+// EVERY per-vehicle tone, and the frequency to park it at.
+//
+// Each of these is driven once a frame by the one vehicle that owns it and by
+// nobody else -- so switching vehicle simply STOPS those updates and the
+// oscillator carries on at whatever gain it last had. The boat's three were
+// being silenced by hand below; the car's whine and tyre roar and the yacht's
+// diesel and hull were not, so they followed him into the next vehicle and hung
+// there under everything for the rest of the session. Silencing the whole list
+// on every switch costs nothing and cannot rot: whichever vehicle owns a tone
+// re-establishes it on its very next frame.
+const VEHICLE_TONES = [
+  ["boatEngine", "sawtooth", 60], ["boatHull", "triangle", 90], ["boatCannon", "sawtooth", 120],
+  ["carWhine", "sawtooth", 60], ["carTyre", "triangle", 90],
+  ["carHornA", "sawtooth", 370], ["carHornB", "sawtooth", 294],
+  ["yachtDiesel", "sawtooth", 30], ["yachtHull", "triangle", 55],
+  ["rover", "sawtooth", 55],
+];
+
 function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
   if (typeof heliReset === "function") heliReset();
@@ -83,8 +101,8 @@ function applyVehicle(key) {
   if (!state.vp.boat) {
     el.cannonBtn.classList.add("hidden");
     if (typeof boatCannonPress === "function") boatCannonPress(false);
-    if (typeof setTone === "function") { setTone("boatEngine", "sawtooth", 60, 0); setTone("boatHull", "triangle", 90, 0); setTone("boatCannon", "sawtooth", 120, 0); }
   }
+  if (typeof setTone === "function") for (const [n, t, f] of VEHICLE_TONES) setTone(n, t, f, 0);
   el.missileBtn.classList.toggle("lowSlot", !!state.vp.rocket);   // the shared slot is spoken for on a rocket
   if (!state.vp.rocket) {
     for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn, el.droneBtn]) b.classList.add("hidden");

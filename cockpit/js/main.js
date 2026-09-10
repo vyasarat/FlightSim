@@ -171,6 +171,7 @@ window.__lp = {
   car, CAR, carActive, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
   carHornCan, carHornPress, carHornRelease, carUpdateHorn,
   spdKey, spdStepsFor, spdIndex, spdMul, spdNudge, spdCycle, spdUsesCycle, spdReset, spdUpdateButtons,
+  openPicker, openPickerAnywhere, pickerCanOpen, menuOpen,
   harbor, HB, hbBuild, updateHarbor, hbRoadY, hbHorn, hbBridgeHonked,
   boat, BT, boatActive, updateBoat, boatCamera, boatSpawn, boatReassemble, boatWaterAt, boatOnWater,
   boatCannonCan, boatCannonPress, buildBoatModel, boatPlume, yachtPlume,

@@ -22,7 +22,7 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       const L = window.__lp, st = L.state;
       L.noRender = true; L.api.skipScreens();
 
-      const SEL = ".roundBtn, #ejectBtn, #hornBtn, #throttleBtn";
+      const SEL = ".roundBtn, #ejectBtn, #hornBtn, #menuBtn, #throttleBtn";
       const overlaps = () => {
         const btns = [...document.querySelectorAll(SEL)].filter(b => {
           const cs = getComputedStyle(b);
@@ -86,6 +86,12 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
         st.x = L.FF.rig.x + 30; st.z = L.FF.rig.z + 30; st.y = L.fire.deck + 70;
       });
       at("rocket on the pad", () => { L.api.setVehicle("rocket"); L.api.placeOnRunway(); });
+      at("rocket climbing", () => {
+        L.api.setVehicle("rocket"); L.api.placeOnRunway();
+        L.api.setThrottle(true);
+        for (let i = 0; i < 60 * 25 && !L.rocketCanDrop(); i++) L.update(1 / 60);
+        L.api.setThrottle(false);
+      });
       at("driving the rover", () => {
         L.api.setVehicle("rocket"); L.api.placeOnRunway();
         const b = L.BODIES[0];
