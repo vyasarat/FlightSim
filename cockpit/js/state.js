@@ -65,6 +65,13 @@ function applyVehicle(key) {
   if (!state.vp.car && typeof carHideCabin === "function") carHideCabin();
   // ... and so is the boat's helm, for exactly the same reason
   if (!state.vp.boat && typeof boatHideHelm === "function") boatHideHelm();
+  if (!state.vp.bigBoat) {
+    if (typeof yachtHideBridge === "function") yachtHideBridge();
+    // she is a place in the world whether or not he is standing on her, so she
+    // has to be put back into the world the moment he steps off
+    if (typeof yacht !== "undefined" && yacht.built) { yacht.aboard = false; yachtPlace(); }
+  }
+  if (typeof el.garageBtn !== "undefined" && el.garageBtn && !state.vp.boat) el.garageBtn.classList.add("hidden");
   // Watch the rocket, see the helicopter's tool/load, and see the boat's hull and
   // its wake, in chase view; the view button still toggles.
   if ((state.vp.rocket || state.vp.heli || state.vp.boat) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
@@ -138,7 +145,8 @@ function spawnForTakeoff(originIdx, dirIdx) {
   // the country the direction card picked -- there is only one harbour, and
   // putting a speedboat on the tarmac in New York would be a joke he cannot
   // recover from without the picker.
-  if (state.vp && state.vp.boat && typeof boatSpawn === "function") boatSpawn();
+  if (state.vp && state.vp.bigBoat) { if (typeof yachtSpawn === "function") yachtSpawn(); }
+  else if (state.vp && state.vp.boat && typeof boatSpawn === "function") boatSpawn();
   if (state.vp && state.vp.rocket) {
     state.pitch = 90;
     rk.onBody = null;

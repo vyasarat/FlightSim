@@ -337,6 +337,10 @@ el.bucketBtn.addEventListener("pointerdown", (e) => {
 // besides the throttle, and for the same reason: the thing it does is
 // continuous. Releasing anywhere stops it, including a pointer lost to a
 // Guided Access overlay.
+el.garageBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.garageBtn);
+  yachtGaragePress();
+});
 el.cannonBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault(); e.stopPropagation(); unlockAudio();
   try { el.cannonBtn.setPointerCapture(e.pointerId); } catch (err) {}
@@ -432,6 +436,7 @@ window.addEventListener("keydown", (e) => {
           !el.missileBtn.classList.contains("hidden")) fireMissile();
     }
     else if (!el.catBtn.classList.contains("hidden")) carrierLaunchPress();   // parked on the deck: the catapult
+    else if (!el.garageBtn.classList.contains("hidden")) yachtGaragePress();
     else if (!el.cannonBtn.classList.contains("hidden")) { boatCannonPress(true); setTimeout(() => boatCannonPress(false), 2200); }
     else if (!el.bucketBtn.classList.contains("hidden")) bucketPress();   // the helicopter's bucket comes first
     else if (!el.missileBtn.classList.contains("hidden")) fireMissile();

@@ -113,6 +113,7 @@ function hbBuild() {
   hbBuildRamp(white);
   hbBuildBuoys();
   hbBuildGulls();
+  hbBuildRoadTraffic();
 
   harbor.built = true;
 }
@@ -638,6 +639,67 @@ function hbBuildBuoys() {
   }
 }
 
+// ---- the traffic on the coast road ----------------------------------------
+// A handful of cars running the length of the spit, so the drawbridge has
+// something to keep waiting. One instanced mesh: eight cars is one draw call.
+function hbBuildRoadTraffic() {
+  const R = HB.roadTraffic;
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(4.2, 2.4, 7.6),
+    metalMat(TUNE.palette.steel, 40), R.count);
+  mesh.castShadow = true;
+  mesh.userData.noSolid = true;      // road traffic is scenery, never a wall
+  harbor.g.add(mesh);
+  const cars = [];
+  const col = new THREE.Color();
+  for (let i = 0; i < R.count; i++) {
+    cars.push({ x: lerp(R.x[0], R.x[1], hashSalt(i, 51, 15)),
+                dir: i % 2 === 0 ? 1 : -1,
+                lane: i % 2 === 0 ? -1 : 1,
+                v: lerp(R.speed[0], R.speed[1], hashSalt(i, 53, 16)),
+                hold: 0 });
+    mesh.setColorAt(i, col.setHex(TUNE.toyWorld.colors[i % TUNE.toyWorld.colors.length]));
+  }
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  harbor.traffic = { mesh, cars, dummy: new THREE.Object3D() };
+}
+function hbUpdateRoadTraffic(dt) {
+  const T = harbor.traffic, R = HB.roadTraffic, b = harbor.bridge;
+  if (!T) return;
+  // The stop line is at the tower on the side each car is approaching from, and
+  // the cars WAIT rather than vanish: the whole point of a drawbridge is the
+  // queue of traffic sitting there while he sails under the raised road.
+  const lifting = !!b && (b.want > 0 || b.open > 0.02);
+  for (let i = 0; i < T.cars.length; i++) {
+    const c = T.cars[i];
+    const stopAt = c.dir > 0 ? HB_TOWER_X[0] - 22 : HB_TOWER_X[1] + 22;
+    const beforeLine = c.dir > 0 ? c.x < stopAt : c.x > stopAt;
+    const past = c.dir > 0 ? c.x > HB_TOWER_X[1] : c.x < HB_TOWER_X[0];
+    const held = lifting && beforeLine && Math.abs(c.x - stopAt) < R.queue && !past;
+    if (!held) c.x += c.dir * c.v * dt;
+    if (c.x > R.x[1]) c.x = R.x[0];
+    if (c.x < R.x[0]) c.x = R.x[1];
+    const y = hbRoadY(c.x) + 1.4;
+    T.dummy.position.set(c.x, y, HB_ROAD_Z + c.lane * 5.5);
+    T.dummy.rotation.set(0, c.dir > 0 ? -Math.PI / 2 : Math.PI / 2, 0);
+    T.dummy.updateMatrix();
+    T.mesh.setMatrixAt(i, T.dummy.matrix);
+  }
+  T.mesh.instanceMatrix.needsUpdate = true;
+}
+
+// ---- the bridge's own voice -----------------------------------------------
+// Bells first, then hydraulics. Nothing this big moves in this game without
+// announcing itself: the wind-up IS the set-piece.
+function hbBridgeBells() {
+  for (let i = 0; i < 7; i++) synthBlip("triangle", 880, 660, 0.16, 0.055, i * 0.34);
+  for (let i = 0; i < 7; i++) synthBlip("triangle", 1180, 900, 0.13, 0.035, 0.09 + i * 0.34);
+}
+function hbBridgeHydraulics() {
+  noiseBurst(1.8, 300, 0.10, 0);
+  synthBlip("sawtooth", 44, 62, 2.2, 0.07, 0.05);
+  synthBlip("sine", 110, 96, 1.6, 0.04, 0.1);
+}
+
 // ---- gulls -----------------------------------------------------------------
 // Scenery, under exactly the rule the birds in ambient.js follow: never a
 // target, never solid, never shatterable, and nothing can ever happen to them.
@@ -689,6 +751,7 @@ function updateHarbor(dt) {
   hbUpdateCranes(dt);
   hbUpdateFerry(dt);
   hbUpdateBridge(dt);
+  hbUpdateRoadTraffic(dt);
   hbUpdateGulls(dt);
 
   if (harbor.tug) {
@@ -770,7 +833,10 @@ function hbUpdateFerry(dt) {
 function hbUpdateBridge(dt) {
   const b = harbor.bridge;
   if (!b) return;
+  const was = b.open;
   b.open += clamp(b.want - b.open, -0.5 * dt, 0.28 * dt);
+  if (was > 0.02 && b.open <= 0.02) { thunk(); noiseBurst(0.4, 130, 0.14, 0); b.state = "shut"; }
+  if (was < 0.98 && b.open >= 0.98) { b.state = "open"; }
   const ang = b.open * 1.16;            // ~66 degrees fully up
   for (const lf of b.leaves) lf.pivot.rotation.z = -lf.sign * ang;
   const warn = b.want > 0 || b.open > 0.01;

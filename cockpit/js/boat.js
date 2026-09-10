@@ -161,6 +161,7 @@ function updateBoat(dt) {
   // so it can never be left up over a button he needs -- the rule the rover and
   // the astronaut taught this codebase the hard way.
   boatUpdateCannonButton();
+  if (typeof yachtUpdateGarageButton === "function") yachtUpdateGarageButton();
 
   if (state.exploding) { setTone("boatEngine", "sawtooth", 60, 0); setTone("boatHull", "triangle", 90, 0); return; }
 

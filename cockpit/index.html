@@ -582,6 +582,20 @@
   }
   #cannonBtn.hidden { display: none; }
   #cannonBtn.pressed { transform: scale(.93); background: #12506b; }
+  /* The tender garage. It shares the cannon's slot and can never be up with it:
+     the cannon only exists beside the burning rig and the garage only exists
+     beside the yacht, and the two are two kilometres apart. */
+  #garageBtn {
+    bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    left: calc(var(--edge) + env(safe-area-inset-left));
+    z-index: 10;
+    border-color: #d9c27e;
+    animation: homePulse 1.2s ease-in-out infinite;
+  }
+  #garageBtn.hidden { display: none; }
+  #garageBtn .out { display: none; }
+  #garageBtn[data-mode="out"] .out { display: block; }
+  #garageBtn[data-mode="out"] .in { display: none; }
   #bucketBtn .scoop, #bucketBtn .drop { display: none; }
   #bucketBtn[data-mode="scoop"] .scoop, #bucketBtn[data-mode="drop"] .drop { display: block; }
   #missileBtn.hidden { display: none; }
@@ -847,6 +861,20 @@
 </button>
 <button id="magnetBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M25 12v24q25 30 50 0V12" fill="none" stroke="#e0483e" stroke-width="15"/><path d="M25 12v10M75 12v10" stroke="#f2f4f7" stroke-width="15"/><path d="M50 53v24m-10-10 10 10 10-10" fill="none" stroke="#ffd23e" stroke-width="6"/><rect x="30" y="82" width="40" height="13" rx="3" fill="#5ff1ff"/></svg></button>
 <button id="washBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M16 80V32h68v48" fill="none" stroke="#5ff1ff" stroke-width="10"/><path d="M50 38v38M28 59h44M40 76h20" fill="none" stroke="#f2f4f7" stroke-width="8" stroke-linecap="round"/><circle cx="26" cy="17" r="7" fill="#f2f4f7"/><circle cx="48" cy="12" r="9" fill="#5ff1ff"/><circle cx="72" cy="17" r="6" fill="#f2f4f7"/></svg></button>
+<button id="garageBtn" class="roundBtn hidden" aria-hidden="true" data-mode="in">
+  <svg class="in" viewBox="0 0 100 100">
+    <path d="M12 30 h58 v40 h-58 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="4"/>
+    <path d="M70 46 L94 46 L94 70 L70 70 Z" fill="#d9c27e" stroke="#23282f" stroke-width="4"/>
+    <path d="M20 62 h30 l6 -10 h-30 Z" fill="#e0483e" stroke="#23282f" stroke-width="3"/>
+    <path d="M62 36 v-20 M54 24 l8 -10 l8 10" fill="none" stroke="#5ff1ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" transform="rotate(90 62 26)"/>
+  </svg>
+  <svg class="out" viewBox="0 0 100 100">
+    <path d="M12 30 h58 v40 h-58 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="4"/>
+    <path d="M70 46 L94 46 L94 70 L70 70 Z" fill="#d9c27e" stroke="#23282f" stroke-width="4"/>
+    <path d="M46 62 h30 l6 -10 h-30 Z" fill="#e0483e" stroke="#23282f" stroke-width="3"/>
+    <path d="M38 36 v-20 M30 24 l8 -10 l8 10" fill="none" stroke="#5ff1ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-90 38 26)"/>
+  </svg>
+</button>
 <button id="cannonBtn" class="roundBtn hidden" aria-hidden="true">
   <svg viewBox="0 0 100 100">
     <path d="M16 66 h30 v14 h-30 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3"/>
@@ -977,6 +1005,20 @@
       <path d="M96 40 L132 42 L136 55 L92 55 Z" fill="#1b2430"/>
       <path d="M62 58 L66 34" stroke="#23282f" stroke-width="4" stroke-linecap="round"/>
       <path d="M8 92 q22 8 44 0 q22 -8 44 0 q22 8 44 0 q22 -8 44 0" fill="none" stroke="#5ff1ff" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="yacht">
+    <svg viewBox="0 0 200 120">
+      <!-- white topsides, teak decks, dark glass: no name on the transom -->
+      <path d="M14 78 L30 66 L176 62 Q192 64 194 74 L188 88 Q140 96 60 94 Q26 92 14 78 Z"
+            fill="#f2f4f7" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M32 82 L182 76 L188 86 Q140 92 62 90 Z" fill="#d9c27e"/>
+      <path d="M56 62 L60 44 L150 42 L162 61 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M66 48 L146 47 L152 58 L62 59 Z" fill="#2f3a48"/>
+      <path d="M74 42 L78 26 L136 25 L144 41 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M100 25 v-13 M116 25 v-16" stroke="#23282f" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="168" cy="78" r="9" fill="none" stroke="#ffd23e" stroke-width="4"/>
+      <path d="M162 78 h12 M168 72 v12" stroke="#f2f4f7" stroke-width="3"/>
     </svg>
   </button>
   <button class="card vehCard" data-v="prop">
@@ -1137,6 +1179,7 @@
 <script src="js/car.js"></script>
 <script src="js/harbor.js"></script>
 <script src="js/boat.js"></script>
+<script src="js/yacht.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

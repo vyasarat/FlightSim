@@ -86,14 +86,36 @@ function heliPick(nx, ny) {
     for (const yard of toyWorld.yards) if (yard.g.visible) heliPickList.push(yard.g);
     for (const o of toyWorld.objects) if (o.g.visible && o !== toyWorld.held) heliPickList.push(o.g);
   }
+  if (typeof yacht !== "undefined" && yacht.g && yacht.g.visible) {
+    // Raycaster does not refresh world matrices, and the ship is placed during
+    // the UPDATE rather than the render -- so without this the ray is tested
+    // against wherever she was last DRAWN, which in a headless run is the world
+    // origin. car.js's centre-screen tap learned the same lesson.
+    yacht.g.updateWorldMatrix(true, true);
+    heliPickList.push(yacht.g);
+  }
+  heliHitYacht = false;
   if (heliPickList.length) {
     const hits = heliRay.intersectObjects(heliPickList, true);
-    if (hits.length) best = { point: hits[0].point, dist: hits[0].distance };
+    if (hits.length) {
+      best = { point: hits[0].point.clone(), dist: hits[0].distance };
+      // Touching the SHIP means the PAD. She is fifty metres long and the only
+      // place on her a helicopter can go down is a seven-metre circle on her
+      // stern; aiming at the point of hull he happened to touch would hover him
+      // beside a wall instead.
+      if (typeof yacht !== "undefined" && yacht.g && heliUnder(hits[0].object, yacht.g)) {
+        const p = yachtPadWorld();
+        if (p) { best.point.set(p.x, p.y, p.z); heliHitYacht = true; }
+      }
+    }
   }
   const g = heliGroundHit(o, d, best ? best.dist : H.pickRange);
   if (g && (!best || g.dist < best.dist)) best = g;
   return best;
 }
+
+let heliHitYacht = false;
+function heliUnder(o, root) { for (let n = o; n; n = n.parent) if (n === root) return true; return false; }
 
 // Freeze the view for one gesture: camera movement must not steer the aircraft.
 const heliGestureCamera = camera.clone();
@@ -114,12 +136,15 @@ function heliMoveGesture(nx, ny) {
 }
 function heliEndGesture() { heliGesture.active = false; }
 function heliHover() {
-  heli.target = null; heli.sky = false; heli.facing = null;
+  heli.target = null; heli.sky = false; heli.facing = null; heli.followPad = false;
   heli.altitude = state.y; heli.vy = 0;
 }
 function heliAim(nx, ny) {
   const hit = heliPick(nx, ny);
   heli.sky = !hit;
+  // A MOVING landing target. The pad is a fixed point only while she is stopped;
+  // aimed at a ship under way, a fixed point is where she used to be.
+  heli.followPad = !!(hit && heliHitYacht);
   if (hit) heli.target = { x: hit.point.x, y: hit.point.y, z: hit.point.z };
   else {
     const d = heliRay.ray.direction, len = Math.hypot(d.x, d.z);
@@ -158,7 +183,16 @@ function updateHelicopter(dt) {
   el.fastBtn.classList.add("hidden");
   el.gearBtn.classList.add("hidden");
 
-  const ground = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+  // The yacht's helipad is GROUND while he is over it -- that one substitution is
+  // the whole of "a moving landing target", because everything below already
+  // knows how to land on ground.
+  const yPad = typeof yachtPadUnder === "function" ? yachtPadUnder(state.x, state.z) : null;
+  if (heli.followPad && typeof yachtPadWorld === "function") {
+    const p = yachtPadWorld();
+    if (p && heli.target) { heli.target.x = p.x; heli.target.y = p.y; heli.target.z = p.z; }
+    else heli.followPad = false;
+  }
+  const ground = yPad ? yPad.y : Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
   const rest = ground + TUNE.gearHeight;
   const touching = state.touching;
   // a real finger has a place on the screen; the keyboard and the test hooks
@@ -255,7 +289,7 @@ function updateHelicopter(dt) {
   }
 
   if (heli.vertical >= 0 && !grounded) {
-    const clearance = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + TUNE.gearHeight;
+    const clearance = (yPad ? yPad.y : Math.max(terrainEff(state.x, state.z), TUNE.waterLevel)) + TUNE.gearHeight;
     if (state.y < clearance) { state.y = clearance; heli.altitude = Math.max(heli.altitude, clearance); heli.vy = Math.max(0, heli.vy); }
   }
 
@@ -265,7 +299,7 @@ function updateHelicopter(dt) {
 
   // ---- the sea is a floor, not a landing place. Sitting on it would end the
   // flight and take the bucket button away in the one spot he needs it.
-  const overWater = terrainEff(state.x, state.z) < TUNE.waterLevel - 0.5;
+  const overWater = !yPad && terrainEff(state.x, state.z) < TUNE.waterLevel - 0.5;
   if (overWater) {
     const floor = TUNE.waterLevel + H.waterFloor;
     if (state.y < floor) { state.y = floor; if (heli.vy < 0) heli.vy = 0; }

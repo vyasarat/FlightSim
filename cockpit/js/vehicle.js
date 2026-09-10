@@ -41,6 +41,14 @@ function buildVehicleModel(key) {
       return;
     }
   }
+  if (key === "yacht") {
+    const g = buildYachtModel();
+    g.visible = state.viewChase;
+    castsShadow(g);
+    scene.add(g);
+    vehicleModel = g;
+    return;
+  }
   if (key === "speedboat") {
     const g = buildBoatModel();
     g.visible = state.viewChase;
@@ -308,6 +316,7 @@ function shakeNow() {
 
 function applyCamera(dt) {
   if (state.vp.car) { carCamera(dt); return; }
+  if (state.vp.bigBoat) { yachtCamera(dt); return; }
   if (state.vp.boat) { boatCamera(dt); return; }
   if (state.vp.rocket) { if (marsDroneActive()) marsDroneCamera(dt); else if (roverActive()) roverCamera(dt); else if (astroActive()) astroCamera(dt); else rocketCamera(dt); return; }
   camera.up.set(0, 1, 0);

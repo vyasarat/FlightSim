@@ -431,7 +431,8 @@ function update(dt) {
       state.approachLatch = false;
       if (state.vp.rocket) rocketAfterReassemble();
       if (state.vp.car) carReassemble();      // back on the road, pointing the right way
-      if (state.vp.boat) boatReassemble();    // back on the water, facing out
+      if (state.vp.bigBoat) yachtReassemble();
+      else if (state.vp.boat) boatReassemble();    // back on the water, facing out
       whoosh();
       boing();
       state.popTimer = 0.45;
@@ -449,6 +450,8 @@ function update(dt) {
     twWashGuide(dt);
   } else if (state.vp.rocket) {
     updateRocket(dt);
+  } else if (state.vp.bigBoat) {
+    updateYacht(dt);        // a yacht is a boat too, so it has to be asked about first
   } else if (state.vp.boat) {
     updateBoat(dt);         // its own model: it owns the water, the beach and the crash
   } else if (state.vp.car) {
