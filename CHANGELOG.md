@@ -10,6 +10,64 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v97 — a harbour on the Pacific, and a speedboat to take out of it
+
+**BOATS, stage 1.** There is a port at the California end now, and a speedboat
+in it. The harbour is a real one rather than a backdrop: a dredged basin behind a
+barrier spit, with a container terminal whose two gantry cranes move boxes on and
+off a ship for ever, a marina of a dozen moored boats, a fuel dock, a ferry on a
+loop, a tug idling, an armoured breakwater with a lighthouse whose beam sweeps
+day and night, a floating ski jump in the outer harbour, and a buoyed channel out
+past the burning rig toward the carrier. The coast road crosses the harbour mouth
+on a drawbridge, and the car can drive out there and over it.
+
+The speedboat is the car's controls on water and nothing new to learn: finger
+down goes, left and right steer, drag up is a burst that lifts the bow and throws
+a rooster tail. It planes, it banks *into* its turns rather than out of them like
+the car, it slams over the ramp and slaps down in a burst of spray, and it
+explodes for free against the breakwater, the ferry or the container ship and
+reassembles on the water facing out. **Its one boat-only thing is the water
+cannon**: within a couple of hundred metres of the burning rig one button appears
+in the helicopter bucket's slot, and holding it throws an arc of water over the
+platform. It is pointing, not timing — aim the bow at the fire and hold; aim it
+away and nothing happens however long he holds. Three sheets put the fire out,
+which is exactly what three bucket drops do, because both call the same code.
+
+**Where it is, and why it is not where the brief said.** The brief asked for the
+harbour "at the existing harbour depression". That depression is at the *New
+York* end, under the suspension bridges, and everything this harbour is for is
+Californian — the rig the cannon fights, the carrier the channel runs past. So it
+is built at the California end, east of the airport (its flatten mask reaches
+x = ±550 and would have pulled the dredging back up to runway height), and the
+New York depression is untouched.
+
+**Three bugs found by building it.** A beached hull searched one ring at 22 m for
+water and, driven a hundred metres up the shingle, found nothing but sand and sat
+there for ever — the rings now widen until they find water, and a hull that is
+somehow nowhere near any goes home to its berth by itself. A boat crash
+reassembled at `safePos`, which only the aeroplane wall solver ever writes, so it
+came back in the middle of the continent; it now remembers where it blew up. And
+an imported hull's lowest point is its *propellers*, not its keel, so sitting
+"the bottom" on the waterline left the whole boat standing clear of the sea on
+its drives.
+
+**The picker opened on the wrong screen.** Reported: "when the game loads it goes
+to the rocket selection stuff". A saved rocket made the relaunch skip the vehicle
+screen and open straight on the destination cards — two planets and a space
+station — with the way back to the vehicles sitting underneath them. Whatever he
+had been flying last, the first thing he saw was a question about space. A
+relaunch still restores the vehicle, the direction and the destination, and the
+card he used last is lit, but it always opens on the vehicles now.
+
+Both hulls are third-party models put through the same pipeline as the car and
+the jet, with one difference: neither file *names* anything, so they are baked to
+the palette by **colour** instead. The speedboat carries its colours in
+forty-three base colour factors; the yacht is one material with a 4096-square
+texture doing all the work, so that texture is sampled once per triangle at the
+UV centroid and the mesh is split into one primitive per palette bucket. The
+speedboat's only two textures were a wordmark decal down each flank, and this
+game renders no words: they are gone.
+
 ## v96 — the jet climbed with its nose pointing at the ground
 
 Reported as "when you drag the finger down the plane descends with the nose up,
@@ -217,12 +275,19 @@ processed as described above:
   https://sketchfab.com/3d-models/2026-tesla-model-y-performance-8a0bc252f9da4015a02a7bd99efd4847
 - "F35 fighter Jet" by Spentza_93, CC BY-NC 4.0, via Sketchfab —
   https://sketchfab.com/3d-models/f35-fighter-jet-084369d3fddc480080cfb05364d75a46
+- "Speedboat n°2" by Jonathan Geoffroy, CC BY-NC 4.0, via Sketchfab —
+  https://sketchfab.com/3d-models/speedboat-n2-66da3d79c45c41719c19fb80d0009bef
+- "Yacht" by Sergei, CC BY 4.0, via Sketchfab —
+  https://sketchfab.com/3d-models/yacht-0dd451f295d049cea20c17d3ffa87ee3
 
-Both are **CC BY-NC 4.0** — attribution *and* non-commercial — which is what the
+Three of the four are **CC BY-NC 4.0** — attribution *and* non-commercial — which is what the
 `asset.extras` block inside each GLB records, not the plain CC BY they were taken
 for. Little Pilot is free and carries nothing commercial, so the NC term is met;
-the attribution above is the BY term. The raw downloads are not in this
-repository (`models-src/` is gitignored); only the processed 1 MB of geometry is.
+the attribution above is the BY term; the yacht is plain CC BY. Each licence is
+recorded in the `asset.extras` block inside the GLB the game actually loads, and
+`scripts/build_boats.js` carries it across from the source deliberately. The raw
+downloads are not in this repository (`models-src/` is gitignored); only the
+processed 1.5 MB of geometry is.
 
 ## v91 — the car no longer drives underground
 

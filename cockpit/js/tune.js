@@ -140,6 +140,16 @@ const TUNE = {
   models: {
     car:     { file: "models/car.glb",     length: 9.2,  yaw: Math.PI, lift: 0, smooth: true },   // tail-first; `smooth`: rebuild normals after decimation
     fighter: { file: "models/fighter.glb", length: 16.0, yaw: Math.PI, lift: 0, burner: true },   // tail-first; `burner`: find the nozzle and light it
+    // The two hulls (scripts/build_boats.js). `lift` sits the waterline where
+    // the game's waterline is: an imported hull stands on its keel, and the game
+    // places every body with its lowest point on the surface, so without a lift
+    // the whole boat floats on top of the sea like a bath toy.
+    // `yaw`: this hull arrives bow-at-+Z, and the rig's own taper test says so.
+    // `lift`: measured, not guessed. A model's lowest point is its PROPELLERS,
+    // more than a metre below the keel, so sitting "the bottom" on the waterline
+    // left the whole boat standing clear of the sea on its drives.
+    speedboat: { file: "models/speedboat.glb", length: 9.6,  yaw: Math.PI, lift: -0.67, smooth: true },
+    yacht:     { file: "models/yacht.glb",     length: 52.0, yaw: Math.PI, lift: -3.5, smooth: true },
   },
 
   // ---- The afterburner (js/models.js). The fighter's nozzle is found by
@@ -602,6 +612,136 @@ const TUNE = {
     alarmMuteRadius: 240,           // no crash alarm inside the fence: the numerals are the
                                     // only lead-in there, and he is meant to fly straight at it
   },
+  // ---- The speedboat (js/boat.js). The same one-finger stick as the car, and
+  // one thing only a boat can do: the water cannon. Nothing here is a timing
+  // window -- the cannon is gated on where the bow is POINTING, not on how long
+  // a button was held at the right instant.
+  boat: {
+    cruise: 42,                  // fast enough for the harbour to go past
+    accel: 16, drag: 13,         // it accelerates hard and coasts a long way
+    burst: 1.45, burstTime: 1.8, // drag up: the bow lifts and it goes
+    steerRate: 46, steerAccel: 4.5,
+    bankDeg: 16,                 // it banks INTO the turn, the opposite of the car
+    hullR: 4.5,                  // the hull's own radius, for bumps and bangs
+    crashSpeed: 20,              // below this a contact is a bump, not a bang
+    draft: 0.6,                  // this much water under it counts as floating
+    planeAt: 20,                 // it comes up on the plane above this
+    planeRate: 2.2, bowRise: 7, trim: 1.5, planeLift: 0.55,
+    bob: 0.12,                   // how much it heaves when he lets go. Small: a hull this
+                                 // shallow visibly swamps itself at anything bigger, and the
+                                 // rocking he actually reads is the roll, not the heave.
+    // NEVER STUCK. A beached hull slides itself back to the water; the delay is
+    // long enough to see what happened and short enough that it is never a wait.
+    // The rings are searched in order until one finds water. One ring is not
+    // enough: 115 m up a beach every sample was sand and the hull sat there.
+    beachedMax: 0.25, beachProbe: 22, beachRings: [22, 55, 130, 300, 650],
+    refloat: 24, refloatDelay: 1.0, strandedAfter: 5,
+    gravity: 19,                 // ... while it is off the ramp
+    engineHz: [70, 400], slapGain: 0.05,
+    // The water cannon. `cannonAim` is the dot product the bow has to reach for
+    // the water to be going anywhere near the fire -- about 40 degrees of slop,
+    // which is a lot, because he is four.
+    // `cannonRadius` is where the BUTTON appears -- far enough out that he can
+    // see it and drive in. `cannonReach` (+ slack) is how close the water
+    // actually gets there, so the button is an invitation and the arc is honest.
+    cannonRadius: 260, cannonReach: 90, cannonSlack: 25, cannonPuffs: 4,
+    cannonAim: 0.76, cannonSheet: 1.6,
+    camChase: [22, 8], camLag: 5,
+    // The helm. Metres above the WATERLINE, with -Z forward, measured against the
+    // real hull: it is a low offshore boat and its screen tops out barely a metre
+    // above the sea, so an eye at car height floated above its own windscreen.
+    helm: { width: 2.2, dashTop: 1.02, seatX: -0.40, eyeY: 1.42, eyeZ: 0.30, wheelTurn: 2.2 },
+  },
+
+  // ---- The harbour (js/harbor.js, and the ground it stands on in js/terrain.js).
+  //
+  // WHERE IT IS. The brief said "California, at the existing harbour
+  // depression", and those are two different places: the depression that was
+  // already in the terrain is at the NEW YORK end, under the suspension
+  // bridges. Everything the harbour is supposed to connect to is Californian --
+  // the burning rig at (-550, -6900), the carrier at (-900, -8100), the buoy
+  // channel that runs past both -- so it is built at the California end and the
+  // New York depression is left exactly as it was.
+  //
+  // It sits EAST of the airport because the airport's flatten mask reaches
+  // x = +-550 and would quietly pull any dredging back up to runway height.
+  //
+  // The shape is a real one: a bay behind a barrier spit, with the coast road
+  // running along the spit and lifting on a drawbridge over the entrance. The
+  // terrain does four things in order -- dredge the basin and the outer
+  // harbour, raise the spit across the whole coast, then cut the mouth back
+  // through the spit -- so the mouth is the only way in and out by water, and
+  // the road is the only way across by land.
+  harbor: {
+    cx: 1300,                        // the mouth's centreline: channel, drawbridge and buoys all share it
+    depth: 15,                       // dredged this far below the waterline
+    basin:   { x: [700, 1900], z: [-6660, -6070], feather: 70 },
+    outer:   { x: [760, 1840], z: [-7120, -6830], feather: 70 },
+    spit:    { x: [420, 2260], z: [-6820, -6670], feather: 46, y: 5.5 },
+    mouth:   { x: [1180, 1420], z: [-6880, -6600], feather: 26 },
+    channel: { x: [1110, 1490], z: [-7460, -6840], feather: 80 },
+
+    // ---- the built harbour
+    quayY: 4.2,                      // deck height of every quay, dock and mole
+    breakwater: {
+      z: -7120, armY: 6.5, armH: 13, armW: 46,
+      gap: [1130, 1470],             // the way through, wider than the mouth so the run in is forgiving
+      x: [700, 1900],
+      blocks: 9,                     // armour blocks along the seaward face, per arm
+    },
+    // The beam is NORMALLY blended, not additive, and that is the whole reason it
+    // reads at noon. Additive can only add light, and against this game's bright
+    // sky there is nowhere left to go -- the same lesson the jet's afterburner
+    // taught. The lamp itself stays additive, because a lamp really is light.
+    lighthouse: { x: 1090, z: -7120, h: 44, r: 6.0, beamLen: 340, beamW: 30, rpm: 4.5, lampR: 3.6,
+                  beamColor: 0xfff0b0, beamOpacity: 0.20 },
+    marina: {
+      x: 1560, z: -6300,             // the east side of the basin
+      fingers: 4, fingerLen: 92, fingerW: 6, spacing: 44,
+      // Bigger and coloured than the first pass, because from the air the white
+      // ones were invisible against a white pier. Machines, generic, no names.
+      boats: 12, boatLen: [11, 17], boatBeam: 4.4,
+      bigBerth: [1720, -6520],       // where the yacht lies (stage 2)
+      spawn: [1500, -6200],          // the speedboat, nose out
+    },
+    terminal: {
+      // The quay has to REACH THE SHORE. At 130 m deep it stopped 70 m short of
+      // the beach and read from the air as a grey raft moored in the middle of
+      // the harbour with cranes on it, which is the sort of thing that makes a
+      // world look unfinished rather than stylised.
+      x: 980, z: -6120,              // the head of the basin
+      quayW: 460, quayD: 210,
+      cranes: 2, craneSpan: 150, craneH: 62, craneLegW: 4, craneRail: 190,
+      stacks: 7, containerL: 12, containerW: 5, containerH: 5,
+      ship: { x: 980, z: -6262, len: 260, beam: 38, y: 15 },
+      craneCycle: 11,                // seconds for one container up-across-down-back
+    },
+    fuel: { x: 800, z: -6560, w: 34, d: 14 },
+    ferry: {
+      // a loop between the terminal side and the marina side, for ever
+      route: [[860, -6480], [1660, -6420], [1660, -6180], [860, -6220]],
+      len: 42, beam: 13, speed: 9, deckY: 5.5, hornEvery: 46,
+    },
+    tug: { x: 1120, z: -6600, len: 26, beam: 10, bob: 0.5 },
+    ramp: {                          // the floating ski jump, out in the outer harbour
+      x: 1620, z: -6960, w: 26, len: 46, rise: 9, deg: 22,
+      ringR: 11,                     // the amber ring, in the language every other jump uses
+      hitR: 20, minSpeed: 16,
+      kick: 9.5, kickPerSpeed: 0.30, spin: 1.9,
+      airborneAt: 0.9, maxAir: 6,
+      flipAt: 0.9, flipTime: 1.0,
+    },
+    // The buoy channel: out through the mouth, past the rig, on toward the
+    // carrier. Every leg is a pair of buoys, one each side.
+    buoys: {
+      path: [[1300, -7060], [1300, -7420], [900, -7700], [200, -7800], [-500, -7960], [-880, -8080]],
+      spacing: 200, half: 90, r: 2.2, h: 6.5,
+    },
+    gulls: { count: 14, r: 260, y: [16, 54], speed: [7, 13] },   // scenery: not solid, not shatterable, never a target
+    visibleRange: 3400,              // the whole thing hides beyond this
+    audio: { slapGain: 0.05, craneGain: 0.035, gullEvery: [7, 15] },
+  },
+
   firefight: {                      // the burning rig off the coast, and the water bucket
     rig: { x: -550, z: -6900 },     // just off the coast: about 35 s in the helicopter, on open
                                     // water clear of the approach corridor, the pad, the recovery
@@ -763,7 +903,14 @@ const TUNE = {
       // the road and the model origin is 2.6 m below it, so the seat clears the
       // glass at 5.9. Without an entry here ejectStart simply returned false and
       // the button did nothing at all.
-      car: { opening: 1, hatch: 'panel', seat: 'rocket', front: 0.4, roof: 5.9, color: 0xe0483e }
+      car: { opening: 1, hatch: 'panel', seat: 'rocket', front: 0.4, roof: 5.9, color: 0xe0483e },
+      // And the boat, for the same reason the car needed an entry: without one
+      // `ejectStart` returns false and the button sits there doing nothing.
+      // `roof` is measured from the MODEL's origin, which for a boat sits a
+      // gearHeight below the waterline, so the open cockpit at 1.0 m above the
+      // sea is 3.6 m above the origin. It comes down under a canopy on its own
+      // life raft, which the seat has always carried.
+      speedboat: { opening: 1, hatch: 'panel', seat: 'spring', front: 0.5, roof: 3.6, color: 0xe0483e }
     }
   },
 
@@ -776,7 +923,11 @@ const TUNE = {
     airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
-    car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true }   // its own model: TUNE.car
+    car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true },  // its own model: TUNE.car
+    speedboat:        { cruiseSpeed: 42, turnRateDeg: 46, pitchLimitDeg: 12, bankLimitDeg: 18, accel: 16, capped: true, size: 1.0, hasGear: false, boat: true },  // its own model: TUNE.boat
+    // Stage 2. Shelved from TUNE alone, so the card exists and does not render,
+    // and the model rig can still inspect the hull before it ships.
+    yacht:            { cruiseSpeed: 17, turnRateDeg: 9,  pitchLimitDeg: 6,  bankLimitDeg: 6,  accel: 3,  capped: true, size: 1.0, hasGear: false, boat: true, bigBoat: true, hidden: true }
   },
 
   vehicleColors: {
@@ -788,7 +939,9 @@ const TUNE = {
     airlinerDelta:    ["#0b4ea2", "#d0342c"],
     airlinerJetblue:  ["#1c75bc", "#e8edf4"],
     airlinerEmirates: ["#c9a227", "#d71920"],
-    fighter:          ["#6b7280", "#e0483e"]
+    fighter:          ["#6b7280", "#e0483e"],
+    speedboat:        ["#f2f4f7", "#e0483e"],
+    yacht:            ["#f2f4f7", "#d9c27e"]
   }
 };
 

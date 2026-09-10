@@ -113,8 +113,16 @@ function updateHud() {
   updateAimMarker();
 }
 
-// A relaunch (Guided Access, app switch) goes straight to the runway with the
-// last vehicle and direction; the plane button on the runway reopens the picker.
+// A relaunch (Guided Access, app switch) restores the last vehicle, direction
+// and destination so the world behind the picker is already the one he left --
+// but it ALWAYS opens on the vehicle screen.
+//
+// It used to skip the picker entirely, and with a rocket saved that meant the
+// game opened on the DESTINATION screen: two planets and a space station, with
+// no way back to the vehicles except a button hidden behind them. Whatever he
+// had been flying, the first thing he saw was a question about space. The
+// vehicles come first now and the destination screen is only ever reached by
+// choosing a rocket, which is the only place it means anything.
 (function restoreChoice() {
   let v = null, d = null;
   try {
@@ -134,10 +142,11 @@ function updateHud() {
   applyVehicle(v);
   document.querySelectorAll(".vehCard").forEach(c2 => c2.classList.toggle("sel", c2.dataset.v === v));
   spawnForTakeoff(di, di);
-  el.screenVehicle.classList.add("hiddenS");
+  // the card he used last is already lit, so carrying on is a tap on the thing
+  // that is already highlighted rather than a choice he has to make again
+  el.screenVehicle.classList.remove("hiddenS");
   el.screenDir.classList.add("hiddenS");
-  // a rocket on the pad always asks where it is going (one tap; all three are always there)
-  el.screenDest.classList.toggle("hiddenS", !state.vp.rocket);
+  el.screenDest.classList.add("hiddenS");
 })();
 updateChunks(state.x, state.z, true);
 updateScenery(state.x, state.z, true);
@@ -160,6 +169,9 @@ window.__lp = {
   MODELS, modelStore, modelState, modelInstance, modelPrototype, modelsPreload,
   highway, HW, hwyNearest, hwySampleAt, hwyBuild, updateHighway, hwyTrafficNear, hwyKnockTraffic,
   car, CAR, carActive, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
+  harbor, HB, hbBuild, updateHarbor, hbRoadY, hbHorn,
+  boat, BT, boatActive, updateBoat, boatCamera, boatSpawn, boatReassemble, boatWaterAt, boatOnWater,
+  boatCannonCan, boatCannonPress, buildBoatModel,
 
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,

@@ -323,7 +323,7 @@ function check(name, ok, extra) {
       sv.classList.remove("hiddenS");
       const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
       const hidden = [...sv.querySelectorAll(".card.hiddenS")];
-      if (visible.length !== 9) return { ok: false, why: "visible=" + visible.length };
+      if (visible.length !== 10) return { ok: false, why: "visible=" + visible.length };
       const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
@@ -333,16 +333,16 @@ function check(name, ok, extra) {
       const fromTune = hidden.every(c => window.__lp.TUNE.vehicles[c.dataset.v].hidden === true);
       // nothing is shelved any more: the helicopter came back off the shelf to fight
       // the rig fire. The TUNE.hidden mechanism itself is still exercised below.
-      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter") && keys.includes("car"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
+      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter") && keys.includes("car") && keys.includes("speedboat"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
     });
-    check("vehicles: picker shows all 9 incl the car, helicopter, fighter, rocket and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows all 10 incl the car, speedboat, helicopter, fighter, rocket and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
       return { n: vs.length, uniq: new Set(vs.map(v => v.cruiseSpeed + "|" + v.turnRateDeg + "|" + v.pitchLimitDeg)).size };
     });
-    check("vehicles: nine available, car / fighter / rocket / starship distinct, airliners share stats",
-      combos.n === 9 && combos.uniq === 7, `n=${combos.n} uniq=${combos.uniq}`);
+    check("vehicles: ten available, car / speedboat / fighter / rocket / starship distinct, airliners share stats",
+      combos.n === 10 && combos.uniq === 8, `n=${combos.n} uniq=${combos.uniq}`);
 
     await page.evaluate(() => {
       document.getElementById("screenDir").classList.add("hiddenS");
@@ -1970,7 +1970,15 @@ function check(name, ok, extra) {
       await p2.waitForFunction(() => window.__lp);
       const restored = await p2.evaluate(() => ({
         key: window.__lp.state.vehicleKey, dir: window.__lp.state.dirIdx, phase: window.__lp.state.phase, sky: window.__lp.state.sky, dest: window.__lp.state.dest,
-        pickerHidden: document.getElementById("screenVehicle").classList.contains("hiddenS"),
+        // A relaunch restores the world but ALWAYS opens on the vehicle screen,
+        // with the last card lit. It used to skip the picker, and with a rocket
+        // saved that meant the game opened on the DESTINATION screen -- two
+        // planets and a space station -- with the way back to the vehicles
+        // sitting underneath it.
+        pickerShown: !document.getElementById("screenVehicle").classList.contains("hiddenS"),
+        destShown: !document.getElementById("screenDest").classList.contains("hiddenS"),
+        dirShown: !document.getElementById("screenDir").classList.contains("hiddenS"),
+        lit: [...document.querySelectorAll(".vehCard.sel")].map(c => c.dataset.v),
       }));
       const spotsReset = await p2.evaluate(() => { try { localStorage.setItem("lp.spots", JSON.stringify(window.__lp.spots.map(() => 1))); } catch (e) {} return true; });
       const p3 = await ctx.newPage();
@@ -1980,12 +1988,18 @@ function check(name, ok, extra) {
       const spotsAfter = await p3.evaluate(() => ({ lit: window.__lp.spots.filter(s => s.lit).length, saved: localStorage.getItem("lp.spots") }));
       check("spots: once all twenty are found, the next launch starts them fresh", spotsReset && spotsAfter.lit === 0 && spotsAfter.saved === null, JSON.stringify(spotsAfter));
       await p3.close();
-      await p2.evaluate(() => { window.__lp.update(1 / 60); });
-      const vehBtnShown = await p2.evaluate(() => !document.getElementById("vehBtn").classList.contains("hidden"));
-      await p2.click("#vehBtn");
-      const pickerBack = await p2.evaluate(() => !document.getElementById("screenVehicle").classList.contains("hiddenS"));
-      check("persistence: relaunch restores vehicle + direction + destination straight to the runway (a stale lp.sky is ignored); plane button reopens the picker",
-        restored.key === "fighter" && restored.dir === 1 && restored.sky === 0 && restored.dest === "station" && restored.phase === "TAXI" && restored.pickerHidden && vehBtnShown && pickerBack, JSON.stringify({ restored, vehBtnShown, pickerBack }));
+      // one tap on the card that is already lit carries straight on, and the
+      // plane button is there underneath once the picker is closed
+      await p2.click('[data-v="fighter"]');
+      const afterTap = await p2.evaluate(() => {
+        window.__lp.update(1 / 60);
+        return { dirShown: !document.getElementById("screenDir").classList.contains("hiddenS"),
+                 vehBtnShown: !document.getElementById("vehBtn").classList.contains("hidden") };
+      });
+      check("persistence: relaunch restores vehicle + direction + destination (a stale lp.sky is ignored) but always OPENS ON THE VEHICLES, never on the rocket's destination screen, with the last card lit",
+        restored.key === "fighter" && restored.dir === 1 && restored.sky === 0 && restored.dest === "station" && restored.phase === "TAXI" &&
+        restored.pickerShown && !restored.destShown && !restored.dirShown && restored.lit.join() === "fighter" &&
+        afterTap.dirShown, JSON.stringify({ restored, afterTap }));
       await ctx.close();
     }
   }
@@ -4540,7 +4554,10 @@ function check(name, ok, extra) {
     check("highway: one continuous graded road coast to coast, with the mountain tunnel and the water crossings falling out of the profile rather than being placed by hand -- and it runs through nothing that was already in the world",
       road.length > 12000 && road.samples > 250 && road.tunnelRun > 300 && road.bridgeRun > 1000 &&
       road.underWater === 0 && road.buried === 0 && road.wallHitsOnCrossing === 0 &&
-      road.exits === 6 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
+      // seven exits now: the six on the main line plus the harbour coast spur,
+      // which is a hand-built polyline pushed into the same array -- that one
+      // line is all it takes to make the car able to drive over the drawbridge
+      road.exits === 7 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
 
     // 4. zero text, with the boards, the interchange and the interior screen in frame
     const text = await page.evaluate(() => {
@@ -5401,6 +5418,7 @@ function check(name, ok, extra) {
   await require("./robot_play_checks")({ newPage, check, shots: SHOTS });
   await require("./robot_play_checks")({ newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
   await require("./workshop_offline_check")({ newPage, check, shots: SHOTS });
+  await require("./boat_checks")({ newPage, check, shots: SHOTS });
 
   await browser.close();
   server.kill();

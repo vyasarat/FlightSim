@@ -604,10 +604,15 @@ function bucketPress() {
   return false;
 }
 
-function fireDropWater() {
-  // the sheet: a wall of water falling from him onto the fire
+// `from` (optional): where the sheet falls out of. The helicopter drops it from
+// itself, which is the default; the speedboat's cannon throws it, so it passes a
+// point over the rig instead -- a boat sitting at the waterline would otherwise
+// spill its sheet out of the bottom of its own hull, four metres under the sea.
+function fireDropWater(from) {
+  const sx = from ? from.x : state.x, sy = from ? from.y : state.y, sz = from ? from.z : state.z;
+  // the sheet: a wall of water falling onto the fire
   for (let i = 0; i < FF.sheet; i++) {
-    ffPuff(state.x + (rnd() - 0.5) * 26, state.y - 4 - rnd() * 10, state.z + (rnd() - 0.5) * 26,
+    ffPuff(sx + (rnd() - 0.5) * 26, sy - 4 - rnd() * 10, sz + (rnd() - 0.5) * 26,
       0, 2.6 + rnd() * 2, -FF.sheetFall, FF.sheetLife, 5);
   }
   whoosh();
@@ -999,6 +1004,7 @@ function updateSetpieces(dt) {
   updateCarrier(dt);
   updateMarsBase(dt);
   updateToyWorld(dt);
+  updateHarbor(dt);
   if (state.vp && state.vp.rocket) updateTowerCatch(dt);
 }
 // Runs at the END of the frame: the deck has to hold him after the flight model

@@ -41,6 +41,14 @@ function buildVehicleModel(key) {
       return;
     }
   }
+  if (key === "speedboat") {
+    const g = buildBoatModel();
+    g.visible = state.viewChase;
+    castsShadow(g);
+    scene.add(g);
+    vehicleModel = g;
+    return;
+  }
   if (key === "car") {
     const g = buildCarModel();
     g.visible = state.viewChase;
@@ -179,6 +187,11 @@ function updateVehicleModel(dt) {
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
   const wheelDrop = state.vp.heli ? vehicleModel.userData.groundOffset * (state.vp.size || 1) : state.vp.hasGear ? 1.9 * (state.vp.size || 1) : 0.6;
+  if (state.vp.boat) {   // a hull rolls with its bank; it does not pitch about the world axis
+    vehicleModel.position.set(state.x, state.y - TUNE.gearHeight + wheelDrop, state.z);
+    vehicleModel.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
+    return;
+  }
   if (state.vp.rocket) vehicleModel.position.set(state.x, state.y, state.z);   // the stack is centred on the reference point
   else vehicleModel.position.set(state.x, state.y - TUNE.gearHeight + wheelDrop, state.z);
   if (vehicleModel.userData.baseScale === undefined) vehicleModel.userData.baseScale = vehicleModel.scale.x;
@@ -295,6 +308,7 @@ function shakeNow() {
 
 function applyCamera(dt) {
   if (state.vp.car) { carCamera(dt); return; }
+  if (state.vp.boat) { boatCamera(dt); return; }
   if (state.vp.rocket) { if (marsDroneActive()) marsDroneCamera(dt); else if (roverActive()) roverCamera(dt); else if (astroActive()) astroCamera(dt); else rocketCamera(dt); return; }
   camera.up.set(0, 1, 0);
   if (heliActive() && state.viewChase) {

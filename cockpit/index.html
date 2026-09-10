@@ -569,6 +569,19 @@
     animation: homePulse 1.2s ease-in-out infinite;
   }
   #bucketBtn.hidden { display: none; }
+  /* The speedboat's water cannon shares the bucket's slot and its language: it
+     is the same job done by a different vehicle, and it exists only near the
+     fire. The two can never be up together -- one is a helicopter, the other is
+     a boat. */
+  #cannonBtn {
+    bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    left: calc(var(--edge) + env(safe-area-inset-left));
+    z-index: 10;
+    border-color: #5ff1ff;
+    animation: homePulse 1.2s ease-in-out infinite;
+  }
+  #cannonBtn.hidden { display: none; }
+  #cannonBtn.pressed { transform: scale(.93); background: #12506b; }
   #bucketBtn .scoop, #bucketBtn .drop { display: none; }
   #bucketBtn[data-mode="scoop"] .scoop, #bucketBtn[data-mode="drop"] .drop { display: block; }
   #missileBtn.hidden { display: none; }
@@ -834,6 +847,16 @@
 </button>
 <button id="magnetBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M25 12v24q25 30 50 0V12" fill="none" stroke="#e0483e" stroke-width="15"/><path d="M25 12v10M75 12v10" stroke="#f2f4f7" stroke-width="15"/><path d="M50 53v24m-10-10 10 10 10-10" fill="none" stroke="#ffd23e" stroke-width="6"/><rect x="30" y="82" width="40" height="13" rx="3" fill="#5ff1ff"/></svg></button>
 <button id="washBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M16 80V32h68v48" fill="none" stroke="#5ff1ff" stroke-width="10"/><path d="M50 38v38M28 59h44M40 76h20" fill="none" stroke="#f2f4f7" stroke-width="8" stroke-linecap="round"/><circle cx="26" cy="17" r="7" fill="#f2f4f7"/><circle cx="48" cy="12" r="9" fill="#5ff1ff"/><circle cx="72" cy="17" r="6" fill="#f2f4f7"/></svg></button>
+<button id="cannonBtn" class="roundBtn hidden" aria-hidden="true">
+  <svg viewBox="0 0 100 100">
+    <path d="M16 66 h30 v14 h-30 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3"/>
+    <path d="M40 60 l16 -6 v22 l-16 -6 Z" fill="#8a93a0" stroke="#23282f" stroke-width="3"/>
+    <path d="M56 58 Q76 34 94 24" fill="none" stroke="#5ff1ff" stroke-width="9" stroke-linecap="round"/>
+    <path d="M56 66 Q78 44 96 36" fill="none" stroke="#3aa0ff" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="94" cy="22" r="6" fill="#5ff1ff"/>
+    <circle cx="84" cy="32" r="4" fill="#3aa0ff"/>
+  </svg>
+</button>
 <button id="bucketBtn" class="roundBtn hidden" aria-hidden="true" data-mode="scoop">
   <svg class="scoop" viewBox="0 0 100 100">
     <path d="M30 44 h40 l-5 30 h-30 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3"/>
@@ -942,6 +965,18 @@
       <rect x="30" y="60" width="152" height="5" rx="2.5" fill="#dfe9ff"/>
       <circle cx="62" cy="84" r="15" fill="#1f2328"/><circle cx="62" cy="84" r="6" fill="#8a93a0"/>
       <circle cx="146" cy="84" r="15" fill="#1f2328"/><circle cx="146" cy="84" r="6" fill="#8a93a0"/>
+    </svg>
+  </button>
+  <button class="card vehCard" data-v="speedboat">
+    <svg viewBox="0 0 200 120">
+      <!-- a white planing hull with a red flash: no wordmark, same rule as the liveries -->
+      <path d="M16 74 L34 62 L150 58 Q180 60 190 72 L184 84 Q150 92 70 90 Q30 88 16 74 Z"
+            fill="#f2f4f7" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M40 76 L150 70 Q172 71 180 78 L176 83 Q140 88 74 86 Z" fill="#e0483e"/>
+      <path d="M84 58 L100 36 L136 38 L142 57 Z" fill="#c9ced6" stroke="#23282f" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M96 40 L132 42 L136 55 L92 55 Z" fill="#1b2430"/>
+      <path d="M62 58 L66 34" stroke="#23282f" stroke-width="4" stroke-linecap="round"/>
+      <path d="M8 92 q22 8 44 0 q22 -8 44 0 q22 8 44 0 q22 -8 44 0" fill="none" stroke="#5ff1ff" stroke-width="5" stroke-linecap="round"/>
     </svg>
   </button>
   <button class="card vehCard" data-v="prop">
@@ -1100,6 +1135,8 @@
 <script src="js/models.js"></script>
 <script src="js/highway.js"></script>
 <script src="js/car.js"></script>
+<script src="js/harbor.js"></script>
+<script src="js/boat.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
