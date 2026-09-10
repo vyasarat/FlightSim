@@ -450,11 +450,20 @@ function updateRocket(dt) {
   // the rocket has no missiles -- except during a meteor shower, when one comes up in
   // the gear row (empty on a rocket), clear of everything in the shared slot above it
   el.missileBtn.classList.toggle("hidden", !eventsWantMissile());
+  // THE THROTTLE IS DECIDED HERE, above the early returns, not below them.
+  // It is a hold, and three of the rocket's four modes use it: the capsule
+  // burns with it, the rover drives with it, the astronaut pushes off with it.
+  // Only the Mars drone does not. Below the returns it was set for the capsule
+  // alone -- so the rover and the astronaut had a throttle only because the
+  // capsule happened to leave one up on the previous frame, which is precisely
+  // the shape CLAUDE.md warns about and one changed path away from a rover he
+  // cannot drive.
+  el.throttleBtn.classList.toggle("hidden", marsDroneActive());
   if (roverActive()) { if (!marsDroneActive()) updateRover(dt); rk.igniteT = 0; return; }   // driving (or flying the drone, which updates with the base): the capsule waits
   if (astroActive()) { updateGoButton(); updateAstronaut(dt); rk.igniteT = 0; updateStationDocked(dt, true); return; }   // floating inside: the capsule waits at the port
 
-  // buttons: throttle always (hold to burn); the rocket has no speed steps or gear
-  el.throttleBtn.classList.remove("hidden");
+  // buttons: the throttle is settled above the early returns; the rocket has no
+  // speed steps and no gear
   el.rotateArrow.classList.remove("on");
   el.gearBtn.classList.add("hidden");
   updateGoButton();
@@ -986,7 +995,26 @@ function buildSatellite() {
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3b30 }));
   lamp.position.set(0, 0.7, 0.85); g.add(lamp);
   g.userData = { panels, lamp };
+  // Every geometry and material above is built fresh for THIS satellite and
+  // shared with nothing, so it is safe to dispose when the satellite is culled.
+  // Marked in the convention evDrop already uses, rather than a second one.
+  g.traverse(o => { if (o.isMesh) { o.userData.ownGeo = true; o.userData.ownMat = true; } });
   return g;
+}
+
+// Cull the oldest satellites, GIVING THE GPU ITS MEMORY BACK. `scene.remove`
+// alone drops the JavaScript object and leaves the vertex buffers and the
+// materials on the card: he can deploy one on every flight, all afternoon, and
+// each one past the tenth was leaking a mesh that nothing would ever free.
+function rocketCullSatellites() {
+  while (satellites.length > 10) {
+    const old = satellites.shift();
+    scene.remove(old.mesh);
+    old.mesh.traverse(o => {
+      if (o.userData.ownMat && o.material) o.material.dispose();
+      if (o.userData.ownGeo && o.geometry) o.geometry.dispose();
+    });
+  }
 }
 function rocketCanDeploySat() {
   return state.phase === "AIRBORNE" && !state.exploding && rocketIsFinal() && !rk.satOut && !rk.onBody && rk.chute === 0 &&
@@ -1007,7 +1035,7 @@ function deploySatellite() {
     vx: rk.vx + rkAxis.x * 3 + side * 0.8, vy: rk.vy + rkAxis.y * 3, vz: rk.vz + rkAxis.z * 3 + sidez * 0.8,
     rx: 0.15, ry: 0.25,
   });
-  while (satellites.length > 10) { const old = satellites.shift(); scene.remove(old.mesh); }
+  rocketCullSatellites();
   rk.satOut = true;
   rk.stackLeft = 5; rk.stackT = 0.9;   // ... then five flat ones follow, one by one
   stageSep(); satBeep();
@@ -1020,6 +1048,8 @@ function buildFlatSat() {
   const panel = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 4.2), new THREE.MeshLambertMaterial({ color: 0x2b4fb0, emissive: 0x0d1a44 })); panel.position.set(0, 0.2, 0); g.add(panel);
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 5), new THREE.MeshBasicMaterial({ color: 0x5ff1ff })); lamp.position.set(1.2, 0.3, 0); g.add(lamp);
   g.userData = { panels: [], lamp, flat: true };
+  // same as the big one: all of this is built fresh and shared with nothing
+  g.traverse(o => { if (o.isMesh) { o.userData.ownGeo = true; o.userData.ownMat = true; } });
   return g;
 }
 function deployStackPiece(k) {
@@ -1031,7 +1061,7 @@ function deployStackPiece(k) {
   const side = Math.cos(state.heading), sidez = -Math.sin(state.heading), fan = (k - 2) * 0.9;
   satellites.push({ mesh: g, t: 0, x: g.position.x, y: g.position.y, z: g.position.z,
     vx: rk.vx + rkAxis.x * 2.5 + side * fan, vy: rk.vy + rkAxis.y * 2.5 + 0.3 * k, vz: rk.vz + rkAxis.z * 2.5 + sidez * fan, rx: 0.08, ry: 0.4 });
-  while (satellites.length > 10) { const old = satellites.shift(); scene.remove(old.mesh); }
+  rocketCullSatellites();
   synthBlip("sine", 1500 + k * 120, 1500 + k * 120, 0.1, 0.18, 0);
   flags.satDeploys = (flags.satDeploys || 0) + 1;
 }

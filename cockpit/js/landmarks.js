@@ -175,8 +175,19 @@ for (let i = 0; i < 64; i++) {
   wakePuffs.push({ mesh: m, life: 0, max: 1, rise: 0, grow: 0 });
 }
 let wakeEmitT = 0;
+// When the pool is full something has to give, and it must not always be the
+// SAME puff. `find(...) || wakePuffs[0]` fell back to index 0 every single
+// time, so under load that one puff was overwritten several times a frame --
+// it popped out of existence mid-fade while the other sixty-three lived out
+// their lives, and every emitter in the world fought over one slot. A cursor
+// spreads the loss evenly instead: the oldest thing on screen degrades a
+// little, rather than one puff strobing. (The yacht used to hold the pool
+// permanently full on her own; that is fixed at her end too, but the allocator
+// should not depend on nobody ever doing it again.)
+let wakeCursor = 0;
 function wakePuff(x, y, z, color, size, rise, life) {
-  const p = wakePuffs.find(q => q.life <= 0) || wakePuffs[0];
+  let p = wakePuffs.find(q => q.life <= 0);
+  if (!p) { p = wakePuffs[wakeCursor]; wakeCursor = (wakeCursor + 1) % wakePuffs.length; }
   p.life = p.max = life; p.rise = rise; p.grow = size * 2.2;
   p.mesh.visible = true;
   p.mesh.material.color.setHex(color);

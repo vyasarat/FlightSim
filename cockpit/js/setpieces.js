@@ -971,6 +971,12 @@ function updateCarrier(dt) {
     const tail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 2.4), lam(0x2b4fb0)); tail.position.set(0, 1.8, -4.4); j.add(tail);
     j.position.set(carrier.x + CV.cat2X, carrier.deck + 1.8, carrier.z - CV.catZ + 30);
     j.rotation.y = 0;
+    // The GEOMETRY of each of these is built fresh and belongs to this jet
+    // alone; the MATERIALS come from lam(), which caches by colour and hands the
+    // same one to half the world. So only the geometry may be freed -- marked in
+    // evDrop's convention, and released in the cull below. Without it every jet
+    // the carrier ever launched left its vertex buffers on the card.
+    j.traverse(o => { if (o.isMesh) o.userData.ownGeo = true; });
     scene.add(j);
     carrier.ai.push({ g: j, t: 0, phase: "count", v: 0 });
   }
@@ -985,7 +991,11 @@ function updateCarrier(dt) {
       a.g.position.z -= a.v * dt;
       a.g.position.y += Math.max(0, a.t - 1.2) * 12 * dt;
       if (a.t > 1.4) carrier.cat2Mat.color.setHex(0x2a2f38);
-      if (a.t > 9) { scene.remove(a.g); carrier.ai.splice(i, 1); }
+      if (a.t > 9) {
+        scene.remove(a.g);
+        a.g.traverse(o => { if (o.userData.ownGeo && o.geometry) o.geometry.dispose(); });
+        carrier.ai.splice(i, 1);
+      }
     }
   }
 
