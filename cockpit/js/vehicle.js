@@ -29,6 +29,13 @@ function buildVehicleModel(key) {
     if (imported) {
       castsShadow(imported);
       imported.visible = state.viewChase;
+      // "YXZ", exactly as the built bodies get at the end of this function.
+      // This early return used to skip that line, and the default XYZ order
+      // applies pitch about the WORLD x axis instead of the aeroplane's own:
+      // the jet's nose was right flying north, flat at 90 degrees, and fully
+      // INVERTED flying south -- climbing with its nose down. The flight model
+      // was never wrong; only the body that was drawn.
+      imported.rotation.order = "YXZ";
       scene.add(imported);
       vehicleModel = imported;
       return;

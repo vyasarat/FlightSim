@@ -10,6 +10,26 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v96 — the jet climbed with its nose pointing at the ground
+
+Reported as "when you drag the finger down the plane descends with the nose up,
+and vice versa", on the fighter. It was real, it was mine, and it shipped in v92.
+
+`buildVehicleModel` sets `rotation.order = "YXZ"` on the body it builds, on its
+last line. The early return added for imported models jumped straight over that,
+so the car and the fighter kept three.js's default XYZ — which applies pitch
+about the **world** x axis rather than the aeroplane's own. Flying north the jet
+looked right; at ninety degrees it stayed flat however hard he pulled; flying
+south it was exactly inverted, climbing with its nose pointed at the ground. The
+flight model was never wrong for a moment. Only the body being drawn was.
+
+Every check the game had flew at heading zero, which is the single heading where
+this looks correct — the same shape of hole as the rover that steered backwards
+under a green harness. The new check measures the **drawn** body at eight
+headings: where the nose really is in the world against where the tail really is,
+climbing and diving, for the prop, the jet and an airliner. The car is checked
+the same way on its roll, since it shares the three angles and had the same bug.
+
 ## v95 — an ejection seat in the car, a lit engine on the jet, and a cartoon on the screen
 
 **The car ejects.** It always had the button; pressing it did nothing, because

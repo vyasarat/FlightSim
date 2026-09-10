@@ -4912,6 +4912,72 @@ function check(name, ok, extra) {
     await page.close();
   }
 
+  // ---------- T-PITCH drag up is nose up, at every heading ----------
+  {
+    // AT EVERY HEADING is the whole point of this check.
+    //
+    // The flight model can be perfectly right while the body that is DRAWN is
+    // upside down, and that is exactly what happened: imported models missed
+    // the "YXZ" rotation order the built ones get, so their pitch was applied
+    // about the world x axis instead of their own. The jet's nose was correct
+    // flying north, flat at ninety degrees, and fully inverted flying south --
+    // climbing with its nose pointing at the ground. Every earlier check flew
+    // at heading zero, which is the one heading where it looks right.
+    //
+    // So this measures the DRAWN body, not state.pitch: where the nose really
+    // is in the world against where the tail really is.
+    const { page } = await newPage(1180, 820);
+    const o = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.skipScreens();
+      const bad = [], HDG = [0, 45, 90, 135, 180, 225, 270, 315];
+      const drawn = (key, hdg, stick) => {
+        L.api.setVehicle(key); L.api.placeOnRunway(); L.api.setView(true);
+        st.phase = "AIRBORNE"; st.y += 400; st.speed = st.vp.cruiseSpeed;
+        st.pitch = 0; st.bank = 0; st.heading = hdg * Math.PI / 180;
+        for (let i = 0; i < 20; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
+        const y0 = st.y;
+        for (let i = 0; i < 60 * 1.5; i++) { L.api.setStick(0, stick); L.update(1 / 60); }
+        const vm = L.vehicleModel; vm.updateWorldMatrix(true, true);
+        const nose = new THREE.Vector3(0, 0, -10).applyMatrix4(vm.matrixWorld);
+        const tail = new THREE.Vector3(0, 0, 10).applyMatrix4(vm.matrixWorld);
+        L.api.clearStick();
+        return { climbed: st.y - y0, lift: nose.y - tail.y };
+      };
+      for (const key of ["prop", "fighter", "airlinerDelta"]) {
+        for (const hdg of HDG) {
+          const up = drawn(key, hdg, 1), dn = drawn(key, hdg, -1);
+          if (!(up.climbed > 0 && up.lift > 2)) bad.push(key + "@" + hdg + " up lift=" + up.lift.toFixed(1));
+          if (!(dn.climbed < 0 && dn.lift < -2)) bad.push(key + "@" + hdg + " down lift=" + dn.lift.toFixed(1));
+        }
+      }
+      // the car rolls on the same three angles, so it is checked the same way:
+      // steering right must drop the right-hand side of the body he can see
+      const carRoll = (hdg) => {
+        L.api.setVehicle("car"); L.api.placeOnRunway(); L.api.setView(true);
+        st.heading = hdg * Math.PI / 180; st.bank = 0;
+        for (let i = 0; i < 60 * 3; i++) { L.api.setStick(1, 0); L.update(1 / 60); }
+        const vm = L.vehicleModel; vm.updateWorldMatrix(true, true);
+        const rt = new THREE.Vector3(5, 0, 0).applyMatrix4(vm.matrixWorld);
+        const lf = new THREE.Vector3(-5, 0, 0).applyMatrix4(vm.matrixWorld);
+        L.api.clearStick();
+        return rt.y - lf.y;
+      };
+      const rolls = HDG.map(carRoll);
+      const sign = Math.sign(rolls[0]);
+      for (let i = 0; i < HDG.length; i++) {
+        if (Math.abs(rolls[i]) < 0.05 || Math.sign(rolls[i]) !== sign) {
+          bad.push("car@" + HDG[i] + " roll=" + rolls[i].toFixed(2));
+        }
+      }
+      return { bad: bad.slice(0, 8), n: bad.length, rolls: rolls.map(v => +v.toFixed(2)),
+               frameErrors: L.frameErrors || 0 };
+    });
+    check("every aeroplane is DRAWN nose-up when it climbs and nose-down when it dives, from any heading -- not just the one it happens to take off on -- and the car leans the same way whichever way it is pointing",
+      o.n === 0 && o.frameErrors === 0, JSON.stringify(o));
+    await page.close();
+  }
+
   // ---------- T-ZOOM iOS Safari must never zoom the page ----------
   {
     const { page } = await newPage(1180, 820);
