@@ -24,6 +24,11 @@ of the file it concerns. Read that file before changing it.
   instant". Assists (approach alignment, flare, rocket landing assist) exist so that
   *coasting in* works.
 - **Drag up = nose up**, never inverted. Keyboard mirrors this (arrow-up = nose up).
+  On surface vehicles drag up is the vehicle's own burst -- except the yacht,
+  where it is the horn, because fifty metres of ship has no burst to give.
+- **The picker always opens on the vehicles.** A relaunch restores the vehicle,
+  direction and destination and lights the last card, but it never opens on the
+  rocket's destination screen: the way back to the vehicles sits underneath it.
 - **Flight feel is tuned with the kid** (`TUNE` flight-feel block): don't retune it.
   Landing-assist strengths (`align*`, `touchdown*`, flare, rocket assist) may be
   weakened gradually as he improves.
@@ -50,7 +55,18 @@ of the file it concerns. Read that file before changing it.
   shared `#bigNum` countdown — numerals only, and only while a wind-up runs). One
   hero effect each, structures and machines only, at most one new contextual button.
 - Space events are drawn once per pad spawn and armed only by a real liftoff. An
-  event may never be required, block anything, or take anything away.
+  event may never be required, block anything, or take anything away. **Sea
+  events (`seaevents.js`) obey the same three rules**, and the rival jet-ski is
+  rubber-banded like the rival rocket so there is no winner to be.
+- **Water is `terrainEff < waterLevel`, and nothing else.** The harbour is shaped
+  in `terrain.js` -- dredge the basin, lay the spit, then cut the mouth back
+  through it, in that order -- so the mouth is the only way in by water and the
+  drawbridge the only way across by land. Move a number in `TUNE.harbor` and the
+  ground and the structures move together.
+- **A boat can never be stuck.** A beached hull widens its search for water until
+  it finds some, and any beaching that has not ended in `boat.strandedAfter`
+  seconds ends itself by going home. Both are needed: the search alone deadlocks
+  against a quay standing in the water it can see.
 - The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`)
   says what counts as a landing; everything else crashes, and a crash stays free.
   Assist strengths are separate knobs (`assist*`) — the assist may stand him up,
@@ -75,6 +91,8 @@ of the file it concerns. Read that file before changing it.
 | `toyworld.js` `workshop.js` `toyfinish.js` | airport magnet yards, ramp and pinwheels, toy/fleet finish |
 | `eject.js` | one-tap rescue |
 | `highway.js` `car.js` | the coast-to-coast road, its traffic and exits / the electric SUV and lane-keep |
+| `harbor.js` | the Californian port: terrain-shaped basin, terminal, marina, breakwater, drawbridge, coast road |
+| `boat.js` `yacht.js` `seaevents.js` | the speedboat and its water cannon / the yacht, her helipad and tender garage / the jet-ski, the whale, the cruise ship |
 | `ambient.js` | birds, high airliners, flags — things that move on their own |
 | `audio.js` | the mix, the ambient beds, layered events |
 | `vehicle.js` | vehicle models, the cameras and camera feel |
