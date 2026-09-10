@@ -700,6 +700,37 @@ const TUNE = {
     engineHz: [30, 52], hullGain: 0.045,
   },
 
+  // ---- Things to do at sea (js/seaevents.js). Five of them, and every one obeys
+  // the rules the space events obey: never required, never blocking, and it
+  // never takes anything away. The jet-ski is rubber-banded like the rival
+  // rocket, so there is no winner and nothing to lose by being slow.
+  seaEvents: {
+    range: 4200,                     // the lot switches off beyond this
+    ski: {
+      minSpeed: 18, channelR: 320,   // he has to be moving, and in the channel
+      startBehind: 90, side: 26,     // it comes past him from astern, off his beam
+      leadSwing: 22, weave: 0.55,    // ... and then noses ahead and drops back
+      band: 0.9, accel: 26, turn: 3.2,
+      maxTime: 75, cooldown: 25,
+    },
+    whale: {
+      len: 9, beam: 3.2, height: 16, riseTime: 2.6, roll: 1.1,
+      dist: [220, 420], minDepth: 8, every: [22, 48],
+    },
+    cruise: {
+      len: 240, beam: 34, decks: 4, lightSize: 9, hornHz: 58, speed: 12,
+      callTime: 7,                   // the wind-up: two horns before anything appears
+      stayTime: 70, gap: [110, 190], first: 45,
+      // In from the open sea, through the breakwater gap, and alongside in the
+      // inner harbour west of the container ship -- which is where 240 m of ship
+      // actually fits. Berthing her ON the container quay put her bow through
+      // the ship already tied up there.
+      path: [[1300, -8300], [1300, -7300], [1300, -6900], [1180, -6560], [940, -6470]],
+    },
+    carrierWake: { radius: 900, every: 16, width: 240, stand: 70, puffs: 22, roll: 9 },
+    crane: { radius: 130, time: 3.6, deckZ: -14, deckY: 7.2 },
+  },
+
   // ---- The harbour (js/harbor.js, and the ground it stands on in js/terrain.js).
   //
   // WHERE IT IS. The brief said "California, at the existing harbour

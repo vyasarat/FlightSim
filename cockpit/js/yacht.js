@@ -366,6 +366,10 @@ function yachtWake(dt, fx, fz) {
 // ---------------------------------------------------------------------------
 function yachtHorn() {
   yacht.hornT = YT.horn.cooldown;
+  // Under a gantry crane, a honk is a request: it puts a container on her
+  // foredeck, and the next honk takes it off again. Nowhere else does a honk do
+  // anything but make a noise, and it always makes the noise.
+  if (typeof seaCraneHonked === "function") seaCraneHonked();
   yacht.replyT = YT.horn.replyDelay;
   hbHorn(state.x, state.y + 14, state.z, YT.horn.hz, YT.horn.dur);
   // the breakwater throws it back: the same note again, quieter and late
