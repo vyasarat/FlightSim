@@ -41,6 +41,9 @@ const yacht = {
 };
 
 function yachtActive() { return !!(state.vp && state.vp.bigBoat); }
+// Her water level where she actually is: inside the lock's chamber and up in
+// the dock it is not TUNE.waterLevel (js/lock.js, seaLevelAt in terrain.js).
+function yachtSeaY() { return seaLevelAt(state.x, state.z); }
 
 // Lying at her berth she points at the way out, and the way out is read from
 // TUNE rather than written down beside it -- move the mouth and she turns.
@@ -165,7 +168,7 @@ function buildYachtModel() {
 
 function yachtPlace() {
   if (!yacht.g) return;
-  yacht.g.position.set(yacht.x, TUNE.waterLevel + yacht.bob, yacht.z);
+  yacht.g.position.set(yacht.x, seaLevelAt(yacht.x, yacht.z) + yacht.bob, yacht.z);
   yacht.g.rotation.set(0, yacht.heading, 0);
   // Never while he is driving her -- vehicleModel is already drawing her then --
   // and never from the other side of the country.
@@ -187,7 +190,7 @@ function yachtLocal(lx, lz) {
 function yachtPadWorld() {
   if (!yacht.built) return null;
   const p = yachtLocal(YT.pad.x, YT.pad.z);
-  return { x: p.x, z: p.z, y: TUNE.waterLevel + yacht.bob + YT.pad.y, r: YT.pad.r };
+  return { x: p.x, z: p.z, y: seaLevelAt(p.x, p.z) + yacht.bob + YT.pad.y, r: YT.pad.r };
 }
 // The deck height under a point, or null if that point is not over the pad.
 function yachtPadUnder(x, z) {
@@ -205,7 +208,7 @@ function yachtSpawn() {
   state.x = yacht.x = YT.berth[0];
   state.z = yacht.z = YT.berth[1];
   state.heading = yacht.heading = yachtHeadingToMouth(yacht.x, yacht.z);
-  state.y = TUNE.waterLevel;
+  state.y = yachtSeaY();
   state.speed = 0; state.pitch = 0; state.bank = 0; state.phase = "TAXI";
   state.airVy = 0;
   yacht.steer = 0; yacht.idle = 0; yacht.anchor = 0; yacht.anchorDown = false;
@@ -221,7 +224,7 @@ function yachtReassemble() {
   state.x = yacht.x = YT.berth[0];
   state.z = yacht.z = YT.berth[1];
   state.heading = yacht.heading = yachtHeadingToMouth(yacht.x, yacht.z);
-  state.y = TUNE.waterLevel; state.speed = 0; state.pitch = 0; state.bank = 0;
+  state.y = yachtSeaY(); state.speed = 0; state.pitch = 0; state.bank = 0;
   yacht.steer = 0;
   yachtPlace();
 }
@@ -289,7 +292,7 @@ function updateYacht(dt) {
   if (state.speed > 0.5 && !gapC.aimed && !gapC.inside) {
     const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
     const look = YT.shallow + state.speed * 3;
-    const deep = (ax, az) => (terrainEff(state.x + ax, state.z + az) < TUNE.waterLevel - YT.draft ? 1 : 0);
+    const deep = (ax, az) => (terrainEff(state.x + ax, state.z + az) < seaLevelAt(state.x + ax, state.z + az) - YT.draft ? 1 : 0);
     const rx = -fz, rz = fx;
     const ahead = deep(fx * look, fz * look);
     const port = deep(fx * look * 0.7 - rx * YT.shallow, fz * look * 0.7 - rz * YT.shallow);
@@ -312,7 +315,7 @@ function updateYacht(dt) {
   state.z += fz * state.speed * dt;
   forward.set(fx, 0, fz);
   yacht.bob = Math.sin(performance.now() * 0.0009) * YT.bob;
-  state.y = TUNE.waterLevel + yacht.bob;
+  state.y = yachtSeaY() + yacht.bob;
   state.airVy = 0;
   state.pitch += (state.speed / YT.cruise * 0.8 - state.pitch) * Math.min(1, 2 * dt);
 
@@ -362,10 +365,10 @@ function yachtWake(dt, fx, fz) {
   // shoulders rather than straight ahead, so the wheelhouse can see past it
   const bowOut = YT.beam * YT.bowSpread[1] + YT.bowSpread[0];
   for (const s of [-1, 1]) {
-    wakePuff(state.x + fx * YT.len * 0.42 + rx * s * bowOut, TUNE.waterLevel + 0.6,
+    wakePuff(state.x + fx * YT.len * 0.42 + rx * s * bowOut, yachtSeaY() + 0.6,
       state.z + fz * YT.len * 0.42 + rz * s * bowOut, 0xf2f4f7,
       YT.bowSize[0] + k * YT.bowSize[1], 1.6, YT.bowLife);
-    wakePuff(state.x - fx * YT.len * 0.5 + rx * s * (YT.beam * 0.7 + k * 8), TUNE.waterLevel + 0.4,
+    wakePuff(state.x - fx * YT.len * 0.5 + rx * s * (YT.beam * 0.7 + k * 8), yachtSeaY() + 0.4,
       state.z - fz * YT.len * 0.5 + rz * s * (YT.beam * 0.7 + k * 8), 0xf2f4f7,
       YT.sternSize[0] + k * YT.sternSize[1], 1.2, YT.sternLife);
   }
@@ -382,7 +385,7 @@ function yachtPlume(dt, fx, fz) {
   if (state.speed > YT.plumeMaxSpeed || state.speed < 0.4) return;
   if (yachtPlumeT > 0) return;
   yachtPlumeT = YT.plumeEvery;
-  wakePuff(state.x - fx * YT.plumeBack, TUNE.waterLevel + YT.plumeY, state.z - fz * YT.plumeBack,
+  wakePuff(state.x - fx * YT.plumeBack, yachtSeaY() + YT.plumeY, state.z - fz * YT.plumeBack,
     0xf2f4f7, YT.plumeSize, YT.plumeRise, YT.plumeLife);
 }
 
@@ -424,7 +427,7 @@ function yachtDropAnchor() {
   noiseBurst(1.4, 520, 0.16, 0);                 // the chain running out
   for (let i = 0; i < 5; i++) synthBlip("square", 190 + i * 20, 120, 0.08, 0.05, i * 0.12);
   splashAt(state.x - Math.sin(state.heading) * -YT.len * 0.45,
-           TUNE.waterLevel, state.z - Math.cos(state.heading) * -YT.len * 0.45, 1.4);
+           yachtSeaY(), state.z - Math.cos(state.heading) * -YT.len * 0.45, 1.4);
   flags.yachtAnchors = (flags.yachtAnchors || 0) + 1;
 }
 function yachtRaiseAnchor() {
@@ -498,7 +501,7 @@ function yachtTakeTender() {
   // he is aboard the ship now, and the ship is under way with his boat inside it
   applyVehicle("yacht");
   state.x = yacht.x; state.z = yacht.z; state.heading = yacht.heading;
-  state.y = TUNE.waterLevel; state.speed = 0;
+  state.y = yachtSeaY(); state.speed = 0;
   yacht.aboard = true;
   yachtPlace();
   setTimeout(() => { yacht.doorWant = 0; }, YT.garage.doorTime * 1000);
@@ -512,12 +515,12 @@ function yachtLaunchTender() {
   applyVehicle("speedboat");
   state.x = m.x + (yacht.x - m.x) * -0.4;
   state.z = m.z + (yacht.z - m.z) * -0.4;
-  state.y = TUNE.waterLevel;
+  state.y = yachtSeaY();
   state.heading = yacht.heading + Math.PI;
   state.speed = 6;
   yacht.aboard = false;
   yachtPlace();
-  splashAt(state.x, TUNE.waterLevel, state.z, 1.5);
+  splashAt(state.x, yachtSeaY(), state.z, 1.5);
   setTimeout(() => { yacht.doorWant = 0; }, YT.garage.doorTime * 1000);
 }
 function yachtDoor(dt) {

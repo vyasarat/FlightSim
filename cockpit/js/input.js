@@ -478,6 +478,14 @@ function openPickerAnywhere() {
   el.screenVehicle.classList.remove("hiddenS");
   unlockAudio();
 }
+el.lockBtn.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  unlockAudio();
+  pressFlash(el.lockBtn);
+  lockPress();
+});
+
 el.menuBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();

@@ -116,7 +116,7 @@ function hbRect(x, z, r) {
 function harborHeight(x, z, h) {
   const HB = TUNE.harbor;
   // cheap reject: everything below is inside this box
-  if (x < 300 || x > 2400 || z < -7600 || z > -5950) return h;
+  if (x < 300 || x > 2400 || z < -7600 || z > -5400) return h;   // the rim reaches -5480
   const deep = TUNE.waterLevel - HB.depth;
   const wBasin = Math.max(hbRect(x, z, HB.basin), hbRect(x, z, HB.outer));
   if (wBasin > 0) h = lerp(h, deep, wBasin);
@@ -124,6 +124,29 @@ function harborHeight(x, z, h) {
   if (wSpit > 0) h = lerp(h, HB.spit.y, wSpit);
   const wMouth = Math.max(hbRect(x, z, HB.mouth), hbRect(x, z, HB.channel));
   if (wMouth > 0) h = lerp(h, deep, wMouth);
+
+  // ---- and then the lock, in the same order and for the same reason: raise the
+  // headland the dock is cut into, THEN cut the dock and the chamber back
+  // through it. The dock's water stands six metres above the harbour's, so the
+  // ground beside it has to stand higher than that or the dock reads as a puddle
+  // sitting on top of a field.
+  //
+  // The two floors are cut to DIFFERENT depths, and that is the whole trick.
+  // The dock's floor is left ABOVE the global sea, so the world's own water
+  // plane never appears in it -- the only thing that fills the dock is the
+  // dock's own raised surface, and if the lock never ran it would simply be a
+  // dry basin. The chamber's floor goes BELOW the global sea, because the
+  // chamber has to hold water at both heights. The south approach is ordinary
+  // harbour water; the north approach belongs to the dock.
+  const LK = TUNE.lock;
+  const wRim = hbRect(x, z, LK.rim);
+  if (wRim > 0) h = lerp(h, LK.rim.y, wRim);
+  const dockFloor = TUNE.waterLevel + LK.lift - LK.dockDepth;
+  const chamberFloor = TUNE.waterLevel - LK.chamberDepth;
+  const wDock = Math.max(hbRect(x, z, LK.dock), hbRect(x, z, LK.approachN));
+  if (wDock > 0) h = lerp(h, dockFloor, wDock);
+  const wChamber = Math.max(hbRect(x, z, LK.chamber), hbRect(x, z, LK.approachS));
+  if (wChamber > 0) h = lerp(h, chamberFloor, wChamber);
   return h;
 }
 
@@ -183,4 +206,27 @@ function terrainEff(x, z) {
     if (d < bd) { bd = d; best = AIRPORTS[i]; }
   }
   return shapedTerrain(x, z) * (1 - m) + best.elev * m;
+}
+
+// ---------------------------------------------------------------------------
+// HOW HIGH IS THE WATER HERE.
+//
+// CLAUDE.md's rule is that water is `terrainEff < waterLevel` and nothing else,
+// and the reason is that water defined in two places drifts apart from the
+// ground under it. The lock needs a second height -- a lock with one water level
+// is not a lock -- so rather than add a second definition this GENERALISES the
+// one that exists: there is still exactly one answer to "how high is the water",
+// it just takes a position now. Everything that floats, rests on, or splashes
+// into water asks this; the open sea, the rockets and the ambient beds keep
+// using the constant, because for them it is the same number everywhere.
+//
+// `lockLevelAt` lives in js/lock.js, which loads long after this file -- hence
+// the guard. Before it exists (and everywhere it declines) the answer is the
+// world's own sea, so the harbour behaves exactly as it always did.
+function seaLevelAt(x, z) {
+  if (typeof lockLevelAt === "function") {
+    const y = lockLevelAt(x, z);
+    if (y !== null) return y;
+  }
+  return TUNE.waterLevel;
 }

@@ -173,6 +173,8 @@ window.__lp = {
   spdKey, spdStepsFor, spdIndex, spdMul, spdNudge, spdCycle, spdUsesCycle, spdReset, spdUpdateButtons,
   openPicker, openPickerAnywhere, pickerCanOpen, menuOpen,
   harbor, HB, hbBuild, updateHarbor, hbRoadY, hbHorn, hbBridgeHonked,
+  lock, LK, lockBuild, lockUpdate, lockPress, lockCanCycle, lockInside, lockBoatInside,
+  lockLevelAt, lockUpdateButton, seaLevelAt,
   boat, BT, boatActive, updateBoat, boatCamera, boatSpawn, boatReassemble, boatWaterAt, boatOnWater,
   boatCannonCan, boatCannonPress, buildBoatModel, boatPlume, yachtPlume,
   yacht, YT, yachtActive, updateYacht, yachtCamera, yachtSpawn, yachtBuild, yachtPlace,
