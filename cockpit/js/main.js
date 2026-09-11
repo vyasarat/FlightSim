@@ -230,13 +230,13 @@ window.__lp = {
   ev, EVENT_KINDS, eventsDraw, eventsForce, eventsReset, eventsArm, eventsSpawn, eventsOnDest, eventsWantMissile,
   EVENT_POOLS, evpRegister, evpPool, evpMember, evpAll, evpDraw, evpDue, evpRearm, evpForce, SPACE_POOL, SEA_POOL,
   get evGroup(){return evGroup;}, get evProps(){return ev.props;}, get evCraters(){return ev.craters;}, evSparksAlive,
-  audio: { ctxState(){return audioCtx ? audioCtx.state : null;}, rocketNodes(){return !!rocketNodes;}, roarGain(){return rocketNodes ? +rocketNodes.roar.gain.value.toFixed(3) : null;}, engineGain(){return engineNodes ? +engineNodes.g.gain.value.toFixed(3) : null;}, bed(){return bedNodes ? {level:+bedNodes.level.toFixed(4), cut:Math.round(bedNodes.cut), thump:+bedNodes.thump.toFixed(2)} : null;}, bedName(){return currentBedName();}, place(x,y,z){return sfxPlace(x,y,z);} },
+  audio: { unlock(){unlockAudio(); return audioCtx ? audioCtx.state : null;}, ctxState(){return audioCtx ? audioCtx.state : null;}, rocketNodes(){return !!rocketNodes;}, roarGain(){return rocketNodes ? +rocketNodes.roar.gain.value.toFixed(3) : null;}, engineGain(){const e=engState();return e.up ? +(e.idle+e.high).toFixed(4) : null;}, engine(){return engState();}, engLoaded, engSurge, engVoiceKeys, engineLevelNow, bed(){return bedNodes ? {level:+bedNodes.level.toFixed(4), cut:Math.round(bedNodes.cut), thump:+bedNodes.thump.toFixed(2)} : null;}, bedName(){return currentBedName();}, place(x,y,z){return sfxPlace(x,y,z);} },
   bigBoom, catapultSound, fireHiss, updateAmbientAudio,
   forEachSolid(cb){for(const b of buildingBoxes)cb(b);for(const b of staticSolids)cb(b);for(const arr of streamedSolids.values())for(const b of arr)cb(b);for(const b of trainSolids)cb(b);}, get vehicleModel(){return vehicleModel;},
   get traffic(){return traffic;},
   get missilesList(){return missiles;},
   fireMissile,
-  get engineNorm() { return lastEngineNorm; },
+  get engineNorm() { return engineLevelNow(); },
   api: {
     setThrottle(v) { state.throttleHeld = !!v; },
     setStick(bank, pitch) {

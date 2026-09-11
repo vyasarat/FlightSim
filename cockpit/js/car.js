@@ -477,7 +477,7 @@ function updateCar(dt) {
   el.rotateArrow.classList.remove("on");
   state.phase = "TAXI";
 
-  if (state.exploding) { setTone("carWhine", "sawtooth", 60, 0); return; }
+  if (state.exploding) { setEngine(0); setTone("carTyre", "triangle", 90, 0); return; }
 
   const touching = state.touching && !menuOpen();
   const bank = touching ? clamp(state.ctrlBank, -1, 1) : 0;
@@ -495,6 +495,7 @@ function updateCar(dt) {
   const LK = CAR.laneKeep;
   if (pitch > 0.45 && touching && car.boost <= 0 && state.speed > CAR.cruise * 0.3) {
     car.boost = CAR.boostTime;
+    engSurge(0.8);              // the bend that says something just let go
     cameraPunch(0.55);
     synthBlip("sine", 260, 1200, 0.45, 0.16, 0);
     flags.carBoosts = (flags.carBoosts || 0) + 1;
@@ -637,9 +638,10 @@ function updateCar(dt) {
 
   // ---- sound: an EV whine that rises with speed, tyres, and wind
   const n = clamp(state.speed / CAR.cruise, 0, 1.4);
-  setTone("carWhine", "sawtooth", lerp(CAR.whineHz[0], CAR.whineHz[1], n), state.speed > 0.2 ? 0.035 : 0);
+  // The motor is the shared two-loop voice now (js/engines.js); the TYRES are
+  // still its own thing, because they are road noise and not an engine.
+  setEngine(n);
   setTone("carTyre", "triangle", 90 + n * 40, state.speed > 2 ? CAR.tyreGain * n : 0);
-  setEngine(0);
 }
 
 // ---------------------------------------------------------------------------

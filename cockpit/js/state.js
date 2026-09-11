@@ -108,10 +108,10 @@ const safePos = { x: 0, y: 0, z: 0 };
 // on every switch costs nothing and cannot rot: whichever vehicle owns a tone
 // re-establishes it on its very next frame.
 const VEHICLE_TONES = [
-  ["boatEngine", "sawtooth", 60], ["boatHull", "triangle", 90], ["boatCannon", "sawtooth", 120],
-  ["carWhine", "sawtooth", 60], ["carTyre", "triangle", 90],
+  ["boatHull", "triangle", 90], ["boatCannon", "sawtooth", 120],
+  ["carTyre", "triangle", 90],
   ["carHornA", "sawtooth", 370], ["carHornB", "sawtooth", 294],
-  ["yachtDiesel", "sawtooth", 30], ["yachtHull", "triangle", 55],
+  ["yachtHull", "triangle", 55],
   ["rover", "sawtooth", 55],
 ];
 

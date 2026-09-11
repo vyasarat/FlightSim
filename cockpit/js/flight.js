@@ -707,6 +707,10 @@ function update(dt) {
 
   carUpdateHorn(dt);        // the horn's TONES; whether its button exists is the table's
   lockUpdate(dt);           // the gates, the water and the beacons
+  // The engine voice, once a frame, from whatever `setEngine` was last told.
+  // Here rather than inside setEngine because the crossfade, the wobble and the
+  // doppler decay all need dt, and sixteen call sites do not have one.
+  engUpdate(engineLevelNow(), dt);
   // EVERY button, from js/buttons.js, computed from scratch. Last thing before
   // the HUD, so nothing any vehicle did to the DOM this frame can survive it --
   // which is what makes the sixteen `add("hidden")` suppressions unnecessary.

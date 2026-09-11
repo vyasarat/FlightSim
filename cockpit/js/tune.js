@@ -108,10 +108,51 @@ const TUNE = {
       moon:     { gain: 0.006, cut:  100, thumpRate: 0,   thump: 0 },    // no air: almost nothing
     },
     bedBlend: 1.4,               // how fast one bed crossfades into another
+    bedInside: 1.45,             // the bed comes up in the cockpit, where the engine goes down
     windFromSpeed: 0.55,         // how much of the wind bed comes from airspeed
     windFromAlt: [60, 900],      // ... and how much from being high up
     // Positional sound: how far away before it is inaudible, and how wide the pan
     falloff: 900, panWidth: 260,
+
+    // ---- THE ENGINE VOICE (js/engines.js). Two loops per vehicle -- idle and
+    // high -- crossfaded by how hard he is working it. The loops are synthesised
+    // placeholders today and CC0 recordings when they land; everything here
+    // describes the graph around them and does not change when they do.
+    //
+    // `master` is deliberately well under what the old single oscillator ran at.
+    // An engine is the floor the events happen over, not a thing competing with
+    // them: the horn, the horns of ships, the fireworks and the bells all have to
+    // come through it without being turned up to.
+    engines: {
+      master: 0.055,
+      ext: "m4a",                  // what the recordings will be
+      loopSeconds: 1.0,            // placeholder loop length; a real clip sets its own
+      xfade: [0.18, 0.82],         // where idle hands over to high, equal-power between
+      pitch: [0.88, 1.16],         // playbackRate travel -- modest, or it is a siren
+      wobble: { rate: 0.8, depth: 0.07 },   // so a held idle is never a flat drone
+      doppler: 0.05,               // the bend an afterburner or a boat surge puts in
+      cockpit: { lp: 1100, gain: 0.62 },    // inside: muffled and quieter
+      chase:   { lp: 5400, gain: 1.0 },     // outside: open
+      // Per vehicle: the level of its recording, and the timbre the placeholder
+      // is built from until that arrives. `hz` is the loop's fundamental, `harm`
+      // its partials, `noise` its breath, `wander` its slow amplitude drift.
+      voices: {
+        prop:     { gain: 1.00, idle: { hz:  58, harm: [1, .55, .30, .14], noise: .05, wander: .10 },
+                                high: { hz: 104, harm: [1, .62, .38, .22, .12], noise: .07, wander: .06 } },
+        jet:      { gain: 0.90, idle: { hz:  72, harm: [1, .30, .50, .22], noise: .22, wander: .08 },
+                                high: { hz: 138, harm: [1, .40, .60, .36, .20], noise: .34, wander: .05 } },
+        airliner: { gain: 0.85, idle: { hz:  46, harm: [1, .42, .18, .09], noise: .18, wander: .09 },
+                                high: { hz:  88, harm: [1, .50, .26, .14], noise: .28, wander: .05 } },
+        heli:     { gain: 0.95, idle: { hz:  40, harm: [1, .70, .34, .16], noise: .10, wander: .14 },
+                                high: { hz:  76, harm: [1, .78, .44, .26, .12], noise: .14, wander: .08 } },
+        car:      { gain: 0.70, idle: { hz:  64, harm: [1, .22, .10], noise: .04, wander: .08 },
+                                high: { hz: 150, harm: [1, .30, .16, .08], noise: .06, wander: .04 } },
+        boat:     { gain: 0.90, idle: { hz:  52, harm: [1, .46, .24, .11], noise: .08, wander: .12 },
+                                high: { hz: 118, harm: [1, .54, .30, .18], noise: .12, wander: .06 } },
+        yacht:    { gain: 0.80, idle: { hz:  28, harm: [1, .60, .30, .15], noise: .06, wander: .16 },
+                                high: { hz:  52, harm: [1, .66, .36, .20], noise: .09, wander: .09 } },
+      },
+    },
   },
 
   // ---- Ambient life (js/ambient.js). Nothing here is a target, solid, or
@@ -339,7 +380,7 @@ const TUNE = {
     },
     wheelR: 0.95,             // fallback only: the imported body measures its own
     wheelLock: 26,            // degrees the front wheels visibly turn at full stick
-    whineHz: [55, 320], tyreGain: 0.05, windGain: 0.06,
+    tyreGain: 0.05, windGain: 0.06,
     // Speed steps. The top one is a genuine 85 km/h-feeling run and the lane
     // keep still holds it: `laneKeep.lookAhead` is a TIME, so the aim point
     // slides further ahead as he speeds up and the pursuit stays stable. The
@@ -444,12 +485,6 @@ const TUNE = {
   cloudRespawnAhead: [900, 1500],
   cloudLateralSpread: 800,
 
-  engineFreqIdle: 46,
-  engineFreqMax: 84,
-  engineGainIdle: 0.03,
-  engineGainMax: 0.095,
-  engineFilterFreq: 300,
-  engineLfoRate: 9,
   boingVolume: 0.5,
 
   brakeDecel: 12,
@@ -795,7 +830,7 @@ const TUNE = {
     beachedMax: 0.25, beachProbe: 22, beachRings: [22, 55, 130, 300, 650],
     refloat: 24, refloatDelay: 1.0, strandedAfter: 5,
     gravity: 19,                 // ... while it is off the ramp
-    engineHz: [70, 400], slapGain: 0.05,
+    slapGain: 0.05,
     // The water cannon. `cannonAim` is the dot product the bow has to reach for
     // the water to be going anywhere near the fire -- about 40 degrees of slop,
     // which is a lot, because he is four.
@@ -890,7 +925,7 @@ const TUNE = {
     bridgeView: { eyeY: 11.2, eyeZ: 6, seatX: 0, seatZ: -4, width: 7,
                   dashTop: 10.4, wheelTurn: 2.0, radarRpm: 14, radarRange: 900 },
     camChase: [95, 34], camLag: 3,
-    engineHz: [30, 52], hullGain: 0.045,
+    hullGain: 0.045,
     speedSteps: [0.6, 0.8, 1.0, 1.45, 1.9],   // fifty-two metres at 32 m/s, which is a sight
     // Her stern plume, on the same terms as the speedboat's and for the same
     // reason. Her transom is 26 m aft and the chase camera 95 m aft and 34 up:

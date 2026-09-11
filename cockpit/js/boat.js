@@ -172,7 +172,7 @@ function updateBoat(dt) {
   boatUpdateCannonButton();
   if (typeof yachtUpdateGarageButton === "function") yachtUpdateGarageButton();
 
-  if (state.exploding) { setTone("boatEngine", "sawtooth", 60, 0); setTone("boatHull", "triangle", 90, 0); return; }
+  if (state.exploding) { setEngine(0); setTone("boatHull", "triangle", 90, 0); return; }
 
   const touching = state.touching && !menuOpen();
   const bank = touching ? clamp(state.ctrlBank, -1, 1) : 0;
@@ -477,9 +477,11 @@ function boatCannon(dt) {
 function boatSound() {
   const n = clamp(state.speed / BT.cruise, 0, 1.4);
   const air = boat.air > 0;
-  setTone("boatEngine", "sawtooth", lerp(BT.engineHz[0], BT.engineHz[1], n), air ? 0.05 : (state.speed > 0.2 ? 0.055 : 0.02));
+  // The outboard is the shared two-loop voice; the HULL SLAP is its own, because
+  // it is the water and not the engine -- and it stops the moment he is airborne.
+  setEngine(n);
+  if (air) engSurge(0.5);          // off a wave: a bend, not a simulation
   setTone("boatHull", "triangle", 70 + n * 60, !air && state.speed > 4 ? BT.slapGain * n : 0);
-  setEngine(0);
 }
 
 // ---------------------------------------------------------------------------

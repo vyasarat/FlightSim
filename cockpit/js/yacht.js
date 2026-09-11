@@ -239,7 +239,7 @@ function updateYacht(dt) {
   // he needs: the same rule the rover and the astronaut taught this codebase
   yachtUpdateGarageButton();
 
-  if (state.exploding) { setTone("yachtDiesel", "sawtooth", 30, 0); return; }
+  if (state.exploding) { setEngine(0); setTone("yachtHull", "triangle", 55, 0); return; }
 
   const touching = state.touching && !menuOpen();
   const bank = touching ? clamp(state.ctrlBank, -1, 1) : 0;
@@ -557,9 +557,10 @@ function yachtLate(dt) {
 // ---------------------------------------------------------------------------
 function yachtSound() {
   const n = clamp(state.speed / YT.cruise, 0, 1);
-  setTone("yachtDiesel", "sawtooth", lerp(YT.engineHz[0], YT.engineHz[1], n), 0.05 + 0.025 * n);
+  // Fifty metres of ship: the diesels are the shared two-loop voice at the yacht's
+  // own pitch, and the hull is its own thing.
+  setEngine(n);
   setTone("yachtHull", "triangle", 55 + n * 30, state.speed > 1 ? YT.hullGain * n : 0);
-  setEngine(0);
 }
 
 // ---------------------------------------------------------------------------
