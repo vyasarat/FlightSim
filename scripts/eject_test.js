@@ -5,7 +5,7 @@ const {chromium}=require('playwright-core');const {serve}=require('./polish_chec
  const browser=await chromium.launch({executablePath:process.env.CHROME_HEADLESS_SHELL,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  try{
   const results=[];
-  for(const key of (process.argv.includes('--all')?['prop','helicopter','fighter','airlinerDelta','airlinerJetblue','airlinerEmirates','rocket','starship']:['prop','helicopter'])){
+  for(const key of (process.argv.includes('--all')?['prop','helicopter','fighter','airlinerDelta','airlinerEmirates','rocket','starship']:['prop','helicopter'])){
    const page=await browser.newPage({viewport:(process.argv.includes('--ipad')?{width:1024,height:768}:{width:390,height:844}),hasTouch:true}),errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.addInitScript('window.requestAnimationFrame=()=>0;');await page.goto(`http://127.0.0.1:${server.address().port}/cockpit/`);await page.waitForFunction(()=>window.__lp);
    const step=s=>page.evaluate(s=>{__lp.noRender=true;for(let i=0;i<s*60;i++)__lp.update(1/60);},s);

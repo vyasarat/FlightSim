@@ -149,6 +149,19 @@ const TUNE = {
     // `lift`: measured, not guessed. A model's lowest point is its PROPELLERS,
     // more than a metre below the keel, so sitting "the bottom" on the waterline
     // left the whole boat standing clear of the sea on its drives.
+    // The two airliners. DROP-IN BODIES: the collision box, the spawn origin,
+    // gearHeight and the interior camera anchor all come from TUNE.vehicles and
+    // are untouched -- only the body drawn in chase view changes. `length` is the
+    // real aeroplane's, so the rig fits each into the box the built body had.
+    // Both arrive tail-first and both take the half turn. The rig's taper test
+    // agreed for the A350 and LIED for the 777: it reports that model's -Z end as
+    // 0.76 m wide, which is a nose-cone tip rather than a twenty-metre tailplane,
+    // because the 777 file is 38 separate nodes and the sample found the wrong
+    // one. The renders settle it -- with yaw 0 the 777 flew backwards, nose
+    // opposite the A350 parked beside it. Look at the picture, not the number.
+    // `smooth`: normals are stripped in the build and rebuilt on load.
+    airlinerDelta:    { file: "models/airliner-delta.glb",    length: 66.8, yaw: Math.PI, lift: 0, smooth: true, gearFromWheels: true },
+    airlinerEmirates: { file: "models/airliner-emirates.glb", length: 63.7, yaw: Math.PI, lift: 0, smooth: true, gearFromWheels: true },
     speedboat: { file: "models/speedboat.glb", length: 9.6,  yaw: Math.PI, lift: -0.67, smooth: true },
     yacht:     { file: "models/yacht.glb",     length: 52.0, yaw: Math.PI, lift: -3.5, smooth: true },
   },
@@ -1233,7 +1246,6 @@ const TUNE = {
     rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
     starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
-    airlinerJetblue:  { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
     car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true },  // its own model: TUNE.car
@@ -1250,7 +1262,6 @@ const TUNE = {
     rocket:           ["#b8bec9", "#d71920"],
     starship:         ["#c9ced6", "#1f2328"],
     airlinerDelta:    ["#0b4ea2", "#d0342c"],
-    airlinerJetblue:  ["#1c75bc", "#e8edf4"],
     airlinerEmirates: ["#c9a227", "#d71920"],
     fighter:          ["#6b7280", "#e0483e"],
     speedboat:        ["#f2f4f7", "#e0483e"],

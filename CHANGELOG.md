@@ -10,6 +10,47 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v106 — a real A350 and a real 777, with their liveries, and one fewer plane
+
+**Two imported airliner bodies**, replacing the hand-built ones for
+`airlinerDelta` and `airlinerEmirates`. The prop and the fighter are untouched.
+These are drop-in bodies and nothing else moved: the collision box, the spawn
+origin, `gearHeight` and the interior camera anchor all come from
+`TUNE.vehicles`, and the vehicle baseline confirms all sixty recorded numbers
+across ten vehicles are unchanged.
+
+**The liveries are the whole point and they are kept.** Everything the model
+pipeline had done until now bakes materials to a six-colour palette and throws
+every texture away, because a Model Y and an F-35 are shapes he recognises. An
+airliner is not: a grey A350 and a grey 777 are the same aeroplane to a
+four-year-old, and he recognises them by the *tail*. So these take a different
+path — materials and textures kept, the node hierarchy kept (no `flatten`, no
+`join`, so the landing gear stays its own node), normals and tangents stripped
+but UVs kept, and the textures resized and re-encoded instead. The A350 went from
+10 MB to 0.72 MB and the 777 from 0.6 MB to 0.25 MB, with "DELTA" still legible
+down the fuselage and the Emirates wordmark still gold.
+
+**The gear retracts now**, on these two only. An imported body never got handed a
+gear group, so the fighter's wheels have always stayed down — that is its
+existing behaviour and it stays. A model whose tuning entry asks
+(`gearFromWheels`) gets its wheel groups gathered and handed to the same
+retract the built bodies use.
+
+**And the rig's taper test lied once.** It decides which end of a raw file is the
+nose by measuring which end is blunt, and it reported the 777's nose end as 0.76 m
+wide — a nose-cone tip, not a twenty-metre tailplane, because that file is 38
+separate nodes and the sample found the wrong one. With the yaw it recommended,
+the 777 flew backwards, nose pointing the opposite way to the A350 parked beside
+it. The renders settled it: both need the half turn. Look at the picture, not the
+number.
+
+**`airlinerJetblue` is gone** — its card, its tuning entries and livery colours,
+its audio keys, its harness references. The picker is a clean five-by-two grid
+with nothing off-screen at either viewport. A saved choice of the retired
+aeroplane falls back to the Delta rather than dropping him on the picker.
+
+---
+
 ## v105 — the refactor: one vehicle contract, one button system
 
 No behaviour change anywhere in this one. It is the cleanup the last few releases
@@ -669,6 +710,12 @@ processed as described above:
   https://sketchfab.com/3d-models/speedboat-n2-66da3d79c45c41719c19fb80d0009bef
 - "Yacht" by Sergei, CC BY 4.0, via Sketchfab —
   https://sketchfab.com/3d-models/yacht-0dd451f295d049cea20c17d3ffa87ee3
+- "Delta Airlines Airbus A350-900" by Dave Love (sketchfab.com/Tyler_Dave),
+  CC BY 4.0, via Sketchfab —
+  https://sketchfab.com/3d-models/delta-airlines-airbus-a350-900-b108d460122f4113960e000fc6f2ad44
+- "Emirates Boeing 777-200" by OUTPISTON (sketchfab.com/outpiston),
+  CC BY-NC-SA 4.0, via Sketchfab —
+  https://sketchfab.com/3d-models/emirates-boeing-777-200-2ec71115e5d94f48ba5ac1933d54ec8d
 
 Three of the four are **CC BY-NC 4.0** — attribution *and* non-commercial — which is what the
 `asset.extras` block inside each GLB records, not the plain CC BY they were taken

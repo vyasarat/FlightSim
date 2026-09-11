@@ -137,6 +137,10 @@ function updateHud() {
   document.querySelectorAll(".destCard").forEach(c2 => c2.classList.toggle("sel", c2.dataset.dest === state.dest));
   restoreSpots();
   if (window.__lp && window.__lp.noRestore) return;
+  // A vehicle that has since been removed falls back to an airliner rather than
+  // dropping him on the picker: airlinerJetblue was retired and the boy who last
+  // flew it should still get an aeroplane when he opens the game.
+  if (v && (!TUNE.vehicles[v] || TUNE.vehicles[v].hidden)) v = "airlinerDelta";
   if (!v || d === null || !TUNE.vehicles[v] || TUNE.vehicles[v].hidden) return;
   const di = d === "1" ? 1 : 0;
   applyVehicle(v);

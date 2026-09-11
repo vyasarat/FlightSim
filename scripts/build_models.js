@@ -16,7 +16,8 @@ const fs = require("fs");
 const path = require("path");
 const { NodeIO } = require("@gltf-transform/core");
 const { ALL_EXTENSIONS } = require("@gltf-transform/extensions");
-const { dedup, weld, simplify, prune, flatten, join } = require("@gltf-transform/functions");
+const { dedup, weld, simplify, prune, flatten, join, textureCompress } = require("@gltf-transform/functions");
+const sharp = require("sharp");
 const { MeshoptSimplifier } = require("meshoptimizer");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -152,6 +153,79 @@ async function build(name, targetTris, opts = {}) {
   return after;
 }
 
+// ---------------------------------------------------------------------------
+// THE AIRLINERS ARE A DIFFERENT JOB, AND THE LIVERY IS WHY.
+//
+// Everything above bakes materials down to a six-colour palette and throws every
+// texture away, because a Model Y and an F-35 are shapes he recognises and the
+// house style is flat. The airliners are the opposite: he recognises them by the
+// TAIL. A grey A350 and a grey 777 are the same aeroplane to a four-year-old, so
+// the livery is the whole point and nothing here may flatten it.
+//
+// So this path keeps materials and textures and pays for them instead:
+//
+//   * NO `flatten()` AND NO `join()`. Both collapse the node hierarchy, and the
+//     hierarchy is load-bearing here -- the landing gear and the engines have to
+//     stay their own nodes so the gear can retract and roll and the heat haze
+//     can anchor to a nacelle. Merging them into one mesh would save a draw call
+//     and cost the gear.
+//   * NORMALS AND TANGENTS GO, UVs STAY. Dropping normals is what lets `weld`
+//     join on position and gives the simplifier a connected surface (the lesson
+//     the fighter taught); dropping TEXCOORD_0 would take the livery with it.
+//     The game rebuilds smooth normals on load, as it does for the car.
+//   * THE TEXTURES ARE THE FILE. The A350 is ten megabytes and twenty thousand
+//     triangles -- practically all of it is one 4096x4096 PNG. Resized to 1024
+//     and re-encoded as JPEG it is a fraction of that and still legibly Delta
+//     from the cockpit, which is the only distance that matters.
+// ---------------------------------------------------------------------------
+async function buildLivery(srcFile, outName, targetTris, opts = {}) {
+  const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+  const inPath = path.join(SRC, srcFile);
+  const outPath = path.join(OUT, `${outName}.glb`);
+  const doc = await io.read(inPath);
+  const root = doc.getRoot();
+
+  const countTris = () => {
+    let t = 0;
+    for (const m of root.listMeshes()) for (const p of m.listPrimitives()) {
+      const idx = p.getIndices();
+      t += idx ? idx.getCount() / 3 : (p.getAttribute("POSITION")?.getCount() || 0) / 3;
+    }
+    return Math.round(t);
+  };
+  const before = { tris: countTris(), bytes: fs.statSync(inPath).size,
+                   mats: root.listMaterials().length, tex: root.listTextures().length,
+                   nodes: root.listNodes().length };
+
+  for (const m of root.listMeshes()) for (const pr of m.listPrimitives()) {
+    pr.setAttribute("NORMAL", null);
+    pr.setAttribute("TANGENT", null);
+    pr.setAttribute("COLOR_0", null);
+  }
+  await doc.transform(dedup(), weld({ tolerance: opts.weld ?? 0.0001 }));
+  const welded = countTris();
+  const ratio = Math.min(1, targetTris / Math.max(1, welded));
+  if (ratio < 1) {
+    await doc.transform(simplify({ simplifier: MeshoptSimplifier, ratio, error: opts.error ?? 0.004, lockBorder: true }));
+  }
+  await doc.transform(
+    textureCompress({ encoder: sharp, targetFormat: "jpeg", resize: [opts.tex ?? 1024, opts.tex ?? 1024], quality: opts.quality ?? 82 }),
+    prune(), dedup(),
+  );
+
+  await io.write(outPath, doc);
+  const after = { tris: countTris(), bytes: fs.statSync(outPath).size,
+                  mats: root.listMaterials().length, tex: root.listTextures().length,
+                  nodes: root.listNodes().length };
+  console.log(`\n${outName}  (livery kept)`);
+  console.log(`  triangles ${before.tris.toLocaleString()} -> welded ${welded.toLocaleString()} -> ${after.tris.toLocaleString()} (target ${targetTris.toLocaleString()})`);
+  console.log(`  size ${(before.bytes/1048576).toFixed(1)} MB -> ${(after.bytes/1048576).toFixed(2)} MB`);
+  console.log(`  materials ${before.mats} -> ${after.mats}   textures ${before.tex} -> ${after.tex}   nodes ${before.nodes} -> ${after.nodes}`);
+  const named = root.listNodes().map(n => n.getName()).filter(n => /gear|wheel|engine|nacelle|fan|spoiler/i.test(n));
+  console.log(`  nodes kept for the rig: ${named.length ? named.join(", ") : "(none matched)"}`);
+  return after;
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   await MeshoptSimplifier.ready;
@@ -173,4 +247,9 @@ async function build(name, targetTris, opts = {}) {
   const carError = +(process.env.CAR_ERROR || 0.001);
   if (!only || only === "car") await build("car", carTris, { error: carError });
   if (!only || only === "fighter") await build("fighter", 22000, { stripAttrs: true, weld: 0.001 });
+  // The two airliners: livery kept, hierarchy kept, textures paid for.
+  if (!only || only === "airlinerDelta")
+    await buildLivery("delta_airlines_airbus_a350-900.glb", "airliner-delta", 20000, { tex: 1024 });
+  if (!only || only === "airlinerEmirates")
+    await buildLivery("emirates_boeing_777-200.glb", "airliner-emirates", 20000, { tex: 1024 });
 })().catch(e => { console.error("FAILED:", e.message); process.exit(1); });
