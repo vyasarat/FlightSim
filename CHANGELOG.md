@@ -10,6 +10,51 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v110 — one event mechanism, two policies, and the three rules checked by machine
+
+"It may never be required, it may never block, and it may never take anything
+away" was a comment at the top of `events.js`, and the same comment again at the
+top of `seaevents.js`. Fourteen events across two pools, and the rules were
+enforced by whoever remembered them.
+
+They are a **registry** now. Every event is a member of a pool, every pool
+declares its **policy**, and there are exactly two policies because there are
+exactly two questions:
+
+- **"once"** — one member is drawn per occasion and never the same one twice
+  running, the draw remembered across reloads so a relaunch cannot repeat it. It
+  stages when its own moment arrives, and if that moment never comes, nothing
+  happened this flight. *The space programme, one event per rocket launch.*
+- **"standing"** — every member is always eligible and runs its own clock,
+  re-arming after it finishes, so several can be going at once. *The harbour,
+  where eight things are always about to happen.*
+
+The events keep their own bodies exactly where they were. What moved is the
+selection policy, the re-arm clock — which had been written five slightly
+different ways across the eight harbour events, some counting up and some down
+— and the thing that makes it worth having at all: **one way to force any event
+in any pool.** Before this the harness had to know that the whale hides behind
+`sea.whale.next`, the submarine behind `sea.sub.next` and a space event behind
+`eventsForce`, so the three rules could only ever be spot-checked on whichever
+events someone had remembered.
+
+So now `scripts/event_pool_checks.js` walks the whole registry, forces each of
+the fourteen to happen on its own, and asserts all three: the solid count never
+rises (nothing an event puts in the world is a wall he can be shut behind), no
+`flags.*` counter ever goes backwards, no control he had goes away, and the
+picker still offers the same cards. An event *may* bring its own contextual
+button and take it back — the meteor shower's cannon does — so the registry
+records which button belongs to which event, and the audit can tell that apart
+from taking one of his.
+
+Also asserted: 240 consecutive draws with no repeat, every kind reached, the
+last draw written down; and a rocket flight that draws nothing at all is still a
+complete flight.
+
+587 checks.
+
+---
+
 ## v109 — the road bugs: nothing stands in it, everything in it is solid, and the tunnel exists
 
 Three bugs, and the second one is the reason for the other two.
