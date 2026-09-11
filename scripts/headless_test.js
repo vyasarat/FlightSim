@@ -5436,6 +5436,7 @@ function check(name, ok, extra) {
   await require("./slot_checks")({ newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] });
   await require("./road_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
   await require("./event_pool_checks")({ newPage, check, shots: SHOTS });
+  await require("./engine_sound_checks")({ newPage, check, shots: SHOTS });
 
   await browser.close();
   server.kill();

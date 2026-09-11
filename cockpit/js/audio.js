@@ -8,7 +8,6 @@
 // `airlinerDelta`/`airlinerEmirates` -- there is no "heli" or "airliner".
 let audioCtx = null;
 let masterGain = null;
-let engineNodes = null;
 
 function unlockAudio() {
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -34,47 +33,26 @@ function unlockAudio() {
   }
 }
 
+// The engine used to be ONE sawtooth oscillator shared by every vehicle that
+// was not the rocket, with the car, the boat and the yacht each running a
+// second oscillator of their own beside it. It is two crossfaded loops per
+// vehicle now (js/engines.js), which is the same model whether the loops are
+// synthesised or recorded -- see that file. `startEngine` still exists because
+// it is where the rocket's graph gets built inside the unlock gesture.
 function startEngine() {
-  if (engineNodes || !audioCtx || audioCtx.state !== "running") return;
-  lastEngineNorm = -1;   // force the first setEngine after (re)start to apply
-  const t = audioCtx.currentTime;
-  const o = audioCtx.createOscillator();
-  o.type = "sawtooth";
-  o.frequency.value = TUNE.engineFreqIdle;
-  const lp = audioCtx.createBiquadFilter();
-  lp.type = "lowpass";
-  lp.frequency.value = TUNE.engineFilterFreq;
-  const g = audioCtx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  if (!(state.vp && state.vp.rocket)) g.gain.linearRampToValueAtTime(TUNE.engineGainIdle, t + 0.8);   // the rocket has its own voice
-  const lfo = audioCtx.createOscillator();
-  lfo.frequency.value = TUNE.engineLfoRate;
-  const lfoG = audioCtx.createGain();
-  lfoG.gain.value = TUNE.engineGainIdle * 0.25;
-  lfo.connect(lfoG);
-  lfoG.connect(g.gain);
-  o.connect(lp);
-  lp.connect(g);
-  g.connect(masterGain);
-  o.start(t);
-  lfo.start(t);
-  engineNodes = { o, lfo, g };
-  ensureRocketNodes();   // build the rocket's voice here too, inside the unlock, like the propeller
+  if (!audioCtx || audioCtx.state !== "running") return;
+  ensureRocketNodes();
 }
 
-let lastEngineNorm = 1;
+// How hard he is working it, 0..1-and-a-bit. Every vehicle says this and nothing
+// else; js/engines.js turns it into a voice once a frame. Keeping the name and
+// the signature is deliberate -- sixteen call sites across twelve files say
+// exactly the right thing already.
+let engineLevel = 0;
 function setEngine(speedNorm) {
-  speedNorm = clamp(speedNorm, 0, 1.15);
-  const unchanged = Math.abs(speedNorm - lastEngineNorm) < 0.003;
-  lastEngineNorm = speedNorm;
-  if (!engineNodes || !audioCtx || audioCtx.state !== "running" || unchanged) return;
-  const t = audioCtx.currentTime;
-  const off = speedNorm <= 0.02;
-  const gainTarget = off ? 0.0004 : lerp(TUNE.engineGainIdle, TUNE.engineGainMax, speedNorm);
-  const freqTarget = off ? TUNE.engineFreqIdle * 0.55 : lerp(TUNE.engineFreqIdle, TUNE.engineFreqMax, speedNorm);
-  engineNodes.o.frequency.setTargetAtTime(freqTarget, t, 0.18);
-  engineNodes.g.gain.setTargetAtTime(gainTarget, t, 0.22);
+  engineLevel = clamp(speedNorm, 0, 1.2);
 }
+function engineLevelNow() { return engineLevel; }
 
 function synthBlip(type, f0, f1, dur, peak, when) {
   if (!audioCtx || audioCtx.state !== "running") return;
@@ -498,6 +476,10 @@ function updateAmbientAudio(dt) {
     const sp = clamp(state.speed / (state.vp ? state.vp.cruiseSpeed : 60), 0, 1.3);
     gain *= 0.45 + AU.windFromSpeed * sp + 0.5 * alt;
   }
+  // Inside, the engine is muffled and turned down (js/engines.js), so the wind
+  // and the tyres come UP to fill the room -- which is what being in a cabin
+  // actually sounds like, and it keeps the total where it was.
+  gain *= state.viewChase ? 1 : AU.bedInside;
   const k = Math.min(1, AU.bedBlend * dt);
   bedNodes.level += (gain * AU.bed - bedNodes.level) * k;
   bedNodes.cut += (B.cut - bedNodes.cut) * k;

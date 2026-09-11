@@ -1,0 +1,4 @@
+{
+  "comment": "Which engine recordings exist. js/engines.js reads this once and fetches only what it names, so a voice with no clip yet costs nothing and logs nothing. Add a key here when its -idle and -high files land.",
+  "clips": []
+}

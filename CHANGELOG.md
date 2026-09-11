@@ -10,6 +10,60 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v111 — the engine is two loops now, and the recordings are a drop-in
+
+Every engine in the game was **one sawtooth oscillator**, shared by every
+vehicle that was not the rocket, with the car, the speedboat and the yacht each
+running a second oscillator of their own beside it. It is **two loops per
+vehicle now — an idle loop and a high loop, crossfaded by how hard he is working
+it** — and that is the model whether the loops are recordings or not.
+
+The CC0 clips are not here yet. That is the point of building it this way: the
+crossfade curve, the pitch travel, the per-view filtering, the idle wobble, the
+doppler bend and the gain staging are the parts that take tuning against the
+kid, and none of them depends on where the loops came from. So the graph is
+real today, driven by loops `js/engines.js` synthesises to exactly the shape a
+recording has to be — a harmonic stack with breath and a slow wander, rendered
+so that every partial gets a whole number of cycles in the buffer and the loop
+point is seamless by construction. A clip arriving replaces one buffer and
+changes nothing else.
+
+Seven voices: `prop`, `jet`, `airliner` (both airliners share it), `heli`,
+`car`, `boat`, `yacht`. The rocket is not among them and never joins the
+crossfade — a Merlin is not a throttle curve, and it keeps its own synthesised
+bass.
+
+**The engines are quieter.** `TUNE.audio.engines.master` is well under what the
+old oscillator ran at, because an engine is the floor the events happen over,
+not a thing competing with them — the horn, the ships' horns, the bells and the
+fireworks all have to come through it without him having to turn it up. In the
+cockpit the voice is muffled and quieter still, and the wind and tyre bed comes
+*up* to fill the room, which is what being inside a cabin actually sounds like.
+In chase it is open and full. A held idle wanders rather than droning, because
+a drone is the thing he stops hearing and then only hears when it goes.
+
+**How a recording arrives**: two seamless files in `cockpit/audio/engines/` —
+`<key>-idle.m4a` and `<key>-high.m4a` — and the key added to
+`audio/engines/index.json`. A manifest rather than a probe on purpose: asking
+for a clip that is not there to find out whether it is there costs a console
+404 for every voice on every launch. `cockpit/audio/engines/README.md` says what
+the clips have to be.
+
+The six new checks assert the *model*, not the sound, so they are the same
+assertions when the loops are real: the crossfade actually crosses, the pitch
+travels and stays modest, the cockpit is the same voice filtered rather than a
+second one, the idle never sits still, and the rocket is not in the system.
+They read the model's decisions rather than the live AudioParams — every
+parameter is a `setTargetAtTime` ramp on the audio clock, and the harness runs
+twelve seconds of game in a sixth of a real one, so the live values there are
+always mid-ramp and say nothing.
+
+Gone with it: `engineFreqIdle`, `engineFreqMax`, `engineGainIdle`,
+`engineGainMax`, `engineFilterFreq`, `engineLfoRate`, `car.whineHz`,
+`speedboat.engineHz`, `yacht.engineHz`, and the three per-vehicle engine tones.
+
+---
+
 ## v110 — one event mechanism, two policies, and the three rules checked by machine
 
 "It may never be required, it may never block, and it may never take anything
