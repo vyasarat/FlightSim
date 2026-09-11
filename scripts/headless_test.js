@@ -5432,6 +5432,7 @@ function check(name, ok, extra) {
   await require("./lock_checks")({ newPage, check, shots: SHOTS });
   await require("./vehicle_contract_checks")({ newPage, check });
   await require("./state_semantics_checks")({ newPage, check });
+  await require("./aircraft_orientation_checks")({ newPage, check });
   await require("./slot_checks")({ newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390]] });
 
   await browser.close();

@@ -153,15 +153,20 @@ const TUNE = {
     // gearHeight and the interior camera anchor all come from TUNE.vehicles and
     // are untouched -- only the body drawn in chase view changes. `length` is the
     // real aeroplane's, so the rig fits each into the box the built body had.
-    // Both arrive tail-first and both take the half turn. The rig's taper test
-    // agreed for the A350 and LIED for the 777: it reports that model's -Z end as
-    // 0.76 m wide, which is a nose-cone tip rather than a twenty-metre tailplane,
-    // because the 777 file is 38 separate nodes and the sample found the wrong
-    // one. The renders settle it -- with yaw 0 the 777 flew backwards, nose
-    // opposite the A350 parked beside it. Look at the picture, not the number.
+    // NO `yaw` ON THESE TWO: `autoOrient` measures it instead. An airliner's
+    // bounding box is nearly square -- a 777 is 63.7 m long with a 60.9 m span --
+    // so "the long axis is the fuselage" is decided by centimetres and put the
+    // 777 sideways across the runway. modelAircraftAxis reads the fin, the wing
+    // sweep and the engine pods, and only acts when all three agree.
     // `smooth`: normals are stripped in the build and rebuilt on load.
-    airlinerDelta:    { file: "models/airliner-delta.glb",    length: 66.8, yaw: Math.PI, lift: 0, smooth: true, gearFromWheels: true },
-    airlinerEmirates: { file: "models/airliner-emirates.glb", length: 63.7, yaw: Math.PI, lift: 0, smooth: true, gearFromWheels: true },
+    // `length` IS THE BOX IT REPLACES, NOT THE REAL AEROPLANE. These are drop-in
+    // bodies: the hand-built airliner is 31.5 m long in this world and everything
+    // around it -- the chase camera distance, the collision box, the interior
+    // anchor -- is tuned to that. Fitted to the real A350's 66.8 m the model was
+    // more than twice the size of the body it replaced, and the chase camera,
+    // which sits 30 x vp.size behind, ended up inside its own tail.
+    airlinerDelta:    { file: "models/airliner-delta.glb",    length: 31.5, autoOrient: true, lift: 0, smooth: true, gearFromWheels: true },
+    airlinerEmirates: { file: "models/airliner-emirates.glb", length: 31.5, autoOrient: true, lift: 0, smooth: true, gearFromWheels: true },
     speedboat: { file: "models/speedboat.glb", length: 9.6,  yaw: Math.PI, lift: -0.67, smooth: true },
     yacht:     { file: "models/yacht.glb",     length: 52.0, yaw: Math.PI, lift: -3.5, smooth: true },
   },

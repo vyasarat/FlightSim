@@ -169,6 +169,60 @@ function btnUpdateAll() {
 // the later one in the DOM eats the tap, and that has cost this game real bugs.
 // Returns a list of clashes, empty when all is well.
 // ---------------------------------------------------------------------------
+// The HUD indicators that are DRAWN OVER the controls rather than beside them.
+// They are not buttons and have no slot, so the slot table cannot see them --
+// and a "pull up" arrow or a home arrow sitting on top of the throttle is every
+// bit as bad as two buttons in one slot, because he still cannot press what he
+// is looking at. `btnObstructions` is the geometric half that the declared half
+// cannot do.
+const BTN_HUD_OVERLAY = ["homeArrow", "rotateArrow", "glideGuide", "aimMarker",
+                         "heliTarget", "alarm", "wingman", "bigNum"];
+
+function btnVisibleRect(e) {
+  if (!e) return null;
+  const cs = getComputedStyle(e);
+  if (cs.display === "none" || cs.visibility === "hidden" || +cs.opacity < 0.05) return null;
+  let r = e.getBoundingClientRect();
+  if (r.width < 2) {
+    // several of these are zero-size anchors with a drawn child
+    for (const child of e.children) {
+      const cr = child.getBoundingClientRect();
+      if (cr.width > 2 && cr.height > 2) { r = cr; break; }
+    }
+  }
+  return (r.width > 2 && r.height > 2) ? r : null;
+}
+
+// Would something drawn at this rectangle sit on a control? Used by the aim
+// marker to take itself away rather than lie on top of a button.
+function btnRectBlocked(left, top, right, bottom) {
+  for (const id in BUTTONS) {
+    const r = btnVisibleRect(el[id]);
+    if (!r) continue;
+    if (left < r.right - 3 && r.left < right - 3 && top < r.bottom - 3 && r.top < bottom - 3) return true;
+  }
+  return false;
+}
+
+// Anything drawn on top of a control he has to be able to press.
+function btnObstructions() {
+  const bad = [];
+  const controls = [];
+  for (const id in BUTTONS) {
+    const r = btnVisibleRect(el[id]);
+    if (r) controls.push({ id, r });
+  }
+  for (const id of BTN_HUD_OVERLAY) {
+    const r = btnVisibleRect(document.getElementById(id));
+    if (!r) continue;
+    for (const c of controls) {
+      if (r.left < c.r.right - 3 && c.r.left < r.right - 3 &&
+          r.top < c.r.bottom - 3 && c.r.top < r.bottom - 3) bad.push(id + " over " + c.id);
+    }
+  }
+  return bad;
+}
+
 function btnSlotClashes() {
   const bySlot = {};
   for (const id in BUTTONS) {
