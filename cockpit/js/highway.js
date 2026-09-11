@@ -970,6 +970,10 @@ function updateHighway(dt) {
   highway.g.visible = visible;
   if (!visible) return;
   hwyUpdateTraffic(dt, state.x, state.z);
+  // The junctions on the spurs, and whoever is chasing him through them. Both
+  // load after this file, so both answer for themselves only once they exist.
+  if (typeof ltBuild === "function") { ltBuild(); ltUpdate(dt); }
+  if (typeof updatePolice === "function") updatePolice(dt);
   for (const c of highway.charges) {
     if (c.t > 0) c.t -= dt;
     const on = c.t > 0 ? (Math.floor(c.t * HW.charge.pulse) % 2 === 0) : true;

@@ -513,6 +513,12 @@ function updateCar(dt) {
   state.speed = clamp(state.speed, 0, CAR.cruise * step * CAR.boost * 1.05);
   if (state.speed < 0.05) state.speed = 0;
 
+  // LANE-KEEP NEVER BRAKES FOR A RED, and that is deliberate. Stopping at a
+  // signal is the one decision out here that is HIS: finger off and he coasts
+  // to a stop at the line, finger held and he goes through it. Making the
+  // assist stop for him would turn the only choice on the road into scenery --
+  // and running one is not a mistake, it is how the chase starts.
+
   // ---- steering. His stick first; the assist only when he is not using it.
   // The stick DOMINATES the assist rather than switching it off. With the assist
   // off entirely, holding a steer at an exit just drove him into the field: he

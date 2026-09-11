@@ -30,7 +30,11 @@
 // ---------------------------------------------------------------------------
 
 const ENG = TUNE.audio.engines;
-const engBus = { ready: false, voices: {}, cur: null, loaded: {}, ctxRate: 0 };
+const engBus = { ready: false, voices: {}, cur: null, loaded: {}, ctxRate: 0, duck: 1 };
+
+// Something louder than the engine is happening: stand down under it. The siren
+// uses this. An engine is the floor, and the floor gets out of the way.
+function engDuck(x) { engBus.duck = clamp(x, 0, 1); }
 
 // ---- the placeholder loops ------------------------------------------------
 // A loop, not a tone: one second of a harmonic stack with a little noise and a
@@ -195,7 +199,7 @@ function engUpdate(level, dt) {
   const x = clamp((n - ENG.xfade[0]) / (ENG.xfade[1] - ENG.xfade[0]), 0, 1);
   const gIdle = Math.cos(x * Math.PI / 2), gHigh = Math.sin(x * Math.PI / 2);
   const view = state.viewChase ? ENG.chase : ENG.cockpit;
-  const master = ENG.master * spec.gain * view.gain;
+  const master = ENG.master * spec.gain * view.gain * engBus.duck;
   const wantIdle = gIdle * master * wob, wantHigh = gHigh * master;
   const wantOut = n <= 0.015 ? 0.0002 : 1;
   v.idle.g.gain.setTargetAtTime(wantIdle, t, 0.10);

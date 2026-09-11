@@ -10,6 +10,62 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v113 — traffic lights, and the chase you get for ignoring one
+
+**Six junctions, on the surface roads and none on the open motorway.** The spurs
+are the roads the car can actually leave the highway onto — the two airports, the
+demolition site, the plains city, the desert and the harbour coast road — and
+each one gets a crossroads: four three-lamp heads on masts, painted stop lines on
+every approach, and a cross street with its own traffic. The seventh spur, the
+one to the lake, gets nothing: it runs over water for its whole length, and the
+placement is measured rather than assumed, so it declines rather than putting a
+junction in a lake.
+
+**A junction is a crossroads, not a light on a stick.** He stops at a red and a
+stream of cars crosses in front of him — that is what a traffic light *is* to a
+four-year-old, and it is the reason to wait made visible. The cross traffic
+obeys its own signal and queues behind the line.
+
+**Amber blinks before red.** Every set-piece in this game gets a wind-up and no
+bang is ever unannounced; a junction is the same rule at junction scale, so a red
+is never the first he knows of it.
+
+**Lane-keep does not brake for a red, and that is deliberate.** Stopping is the
+one decision out here that is his: finger off and he coasts to the line, finger
+held and he goes through. Making the assist stop for him would turn the only
+choice on the road into scenery.
+
+**Running one is not a mistake.** It is a camera flash, a chirp, and then two
+police cars out of a side road behind him with lights and sirens. They are
+rubber-banded like the rival rocket and the rival jet-ski — their speed comes
+from the gap, not from a throttle — so they are always about to catch him and
+never quite do. **Three ways out, and he needs to be told none of them**: go
+fast (their speed is capped below his top speed step, so holding it opens the
+gap and they peel off with a last whoop), wait (after `maxChase` they give up
+anyway), or crash (free, like every crash here).
+
+**Being caught is a scene, not a penalty.** They angle in front and behind, the
+lights strobe, a short blip, an officer waves from his window, the shared
+countdown numerals run 3-2-1, and then they peel away and he drives off with the
+engine still running. Ten seconds. No score, no message, and no delay he cannot
+simply drive out of — he can pull away mid-scene and it ends.
+
+**Nobody is ever hurt.** The officer is drawn in his seat and never leaves it, is
+never a target, and nothing can happen to him — the astronaut's rule, not the
+paper planes'. The *cars* crash, explode and reassemble like every other machine.
+
+**The siren is ducked**, warm rather than harsh, and the engine and the ambient
+bed stand down under it rather than it being the loudest thing on the mix — the
+rule the engines already follow, applied to the one sound with an excuse to break
+it. And the cop cars are never the same colour twice running, which is the space
+programme's own never-twice draw (`eventpool.js`) borrowed for a livery. That
+made a distinction worth having: a pool now declares whether it holds *events* —
+which the three rules are about — or paint, which they are not.
+
+610 checks.
+
+---
+
 ## v112 — the harbour had the wrong ambience, and a CSS tier that had never applied
 
 **A boat in the harbour was listening to an airport.** `currentBedName` asked

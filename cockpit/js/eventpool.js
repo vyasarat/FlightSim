@@ -38,16 +38,32 @@
 
 const EVENT_POOLS = {};
 
-// `spec`: { name, policy, members: [{ key, state, gap?, valid?, force? }] }
+// NOT EVERY POOL IS A POOL OF EVENTS. The policies are useful on their own --
+// "never the same one twice running, remembered across reloads" is exactly what
+// the police want for their colour scheme, and a livery is not an event: it is
+// never required because it is not a thing that happens, it blocks nothing
+// because it is paint. So a pool declares its `kind`, and `evpEventPools()`
+// returns the ones the three-rules audit is about.
+//
+// `spec`: { name, policy, kind?, members: [{ key, state, gap?, valid?, force? }] }
 //   state   the object the event keeps its own fields on (its re-arm clock
 //           lives there, so nothing has to be moved)
 //   gap     [min, max] seconds between runs -- "standing" only
 //   valid   () => is this member allowed to be drawn right now -- "once" only
 //   force   () => make this one happen now (the harness's single door in)
 function evpRegister(spec) {
+  spec.kind = spec.kind || "event";
   EVENT_POOLS[spec.name] = spec;
   for (const m of spec.members) m.pool = spec.name;
   return spec;
+}
+
+// The pools the three rules are about: things that HAPPEN. A livery pool
+// borrows the policy and none of the rules.
+function evpEventPools() {
+  const out = {};
+  for (const n in EVENT_POOLS) if (EVENT_POOLS[n].kind === "event") out[n] = EVENT_POOLS[n];
+  return out;
 }
 
 function evpPool(name) { return EVENT_POOLS[name]; }
@@ -56,9 +72,12 @@ function evpMember(name, key) {
   return p ? p.members.find(m => m.key === key) : null;
 }
 // Every member of every pool, flattened: what the audit walks.
-function evpAll() {
+function evpAll(kind) {
   const out = [];
-  for (const n in EVENT_POOLS) for (const m of EVENT_POOLS[n].members) out.push(m);
+  for (const n in EVENT_POOLS) {
+    if (kind && EVENT_POOLS[n].kind !== kind) continue;
+    for (const m of EVENT_POOLS[n].members) out.push(m);
+  }
   return out;
 }
 

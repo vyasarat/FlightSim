@@ -8,10 +8,10 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
 
 - **Zero text** in the UI — icons, silhouettes and numerals only, harness-audited; the
   numerals are for the wind-up counter, not for state.
-- **Nothing living gets shot, hit or destroyed.** Anything that explodes or shatters is
-  a machine — that is why the target flocks are paper planes. Living things are fine
-  where nothing can happen to them (the astronaut; the birds, gulls and whale, which
-  carry `noSolid`/`noShatter`). Make one hittable and it becomes a machine.
+- **Nothing living gets shot, hit or destroyed.** Anything that explodes or shatters is a
+  machine — that is why the target flocks are paper planes, and why the police officer
+  never leaves his car. Living things are fine where nothing can happen to them (the
+  astronaut; the birds, gulls and whale, which carry `noSolid`/`noShatter`).
 - **Nothing is ever taken away**: no score, timers, unlocks or failure. A crash explodes
   and reassembles free, *where it happened*; every reward re-arms.
 - **Pointing, not timing**: every control is "aim at it"; assists exist so *coasting in*
@@ -20,8 +20,7 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
 - **The picker always opens on the vehicles**, never the rocket's destination screen (the
   way back sits underneath it). A relaunch restores vehicle, direction and destination.
 - **Flight feel is tuned with the kid**: don't retune it; assists may weaken slowly.
-- **Readability beats realism** — nothing darker or muddier, and an effect that hides
-  something he needs to see goes. That has overruled a brief three times.
+- **Readability beats realism** — an effect that hides something he needs to see goes.
 
 ## The vehicle contract
 
@@ -46,45 +45,47 @@ stated behaviour change.
 - Classic scripts in **one global scope**, `index.html` order. A top-level `const`/`let`
   used *at load time* must come from an earlier file (inside a function is fine), and a
   later `function foo` **silently replaces** an earlier one. Prefix anything new.
-- **Every button is declared once in `buttons.js`** — slot and `when()` — and one pass a
-  frame computes them all from scratch, so nothing another vehicle did survives. Two in a
-  slot means the later in the DOM eats the tap: `btnSlotClashes()` says so from the table,
+- **Every button is declared once in `buttons.js`** — slot and `when()` — computed from
+  scratch each frame, so nothing another vehicle did survives. Two in a slot means the
+  later in the DOM eats the tap: `btnSlotClashes()` says so from the table,
   `btnObstructions()` catches a HUD arrow across one.
 - Set-pieces run one loop: giant obvious thing → one aim or pulsing control → visible
-  wind-up → huge payoff → free reset. **No unannounced bangs.** One hero effect and at most
-  one new button each, machines only.
+  wind-up → huge payoff → free reset. **No unannounced bangs.** One hero effect and at
+  most one new button each, machines only.
 - **Events are pools with a policy** (`eventpool.js`): space draws one per launch and
   never twice running, the harbour keeps all eight standing on their own clocks. Three
-  rules, machine-checked: never required, never blocking, never takes anything away —
-  and rivals are rubber-banded, so there is no winner to be.
-- **Water is `terrainEff(x,z) < seaLevelAt(x,z)`, and nothing else.** One definition
-  that takes a position: `seaLevelAt` (`terrain.js`) returns `TUNE.waterLevel` except
-  over the lock, where `lockLevelAt` is the only override. Anything that floats asks
-  it; **do not add a third answer.**
+  rules, machine-checked: never required, never blocking, never takes anything away. A
+  pool says whether it holds events or paint — the police liveries borrow the draw only.
+- **Signals are on the SURFACE roads, never the motorway** (`lights.js`): a crossroads
+  per spur, cross traffic that queues, amber blinking before red, sited by measuring the
+  ground. **Lane-keep never brakes for one** — stopping is the one choice out there that
+  is his, and running one starts the chase (`police.js`): rubber-banded, ducked under
+  everything, ending three ways he is never told about, and taking nothing. The officer
+  never leaves his seat; only the CARS ever crash.
+- **Water is `terrainEff(x,z) < seaLevelAt(x,z)`, and nothing else.** One definition that
+  takes a position: `seaLevelAt` (`terrain.js`) returns `TUNE.waterLevel` except over the
+  lock, where `lockLevelAt` is the only override. **Do not add a third answer.**
 - The harbour is shaped in `terrain.js`, **in order**: dredge the basin, lay the spit,
   cut the mouth back through it. Then the lock: raise the rim, cut its two floors to
-  *different* depths (dock above the global sea, chamber below). Move a
-  `TUNE.harbor`/`TUNE.lock` number and ground and structures move together.
+  *different* depths. Move a `TUNE.harbor`/`TUNE.lock` number and ground and structures
+  move together.
 - **The road owns a corridor, and in it everything is solid.** `TUNE.highway.clearHalf`
-  keeps streamed scenery off the carriageway, spurs and ramps — each piece of road claims
-  its own ground (`hwyClaimCorridor`) — and the railway is held to it too.
-  `resolveSolidWalls` asks `vehSolid()`, **never a flight phase**: gating on
-  `phase === "AIRBORNE"` returned on the first line of every car frame ever run.
-- **A bore is a hole in the GROUND, not a pipe laid on it.** `hwyBoreCut` (called from
-  `terrainEff`) cuts the mountain to the road and `hwyBuildBore` lids the cut with what
-  was removed, coloured by `terrainColorAt`. It stays silent until the surveyor has
-  classified the route — cut first and nothing is ever low enough to be a tunnel. Twin
-  bores: one tube wide enough for a divided road stands taller than the hill.
-- **A contextual button needs a RADIUS**, not just "parked and still".
-- **A boat can never be stuck.** A beached hull widens its water search *and* times out —
-  the search alone deadlocks against a quay; in the lock, idling re-opens it. The harbour
-  is the third place he can lose a session in, so its event pool grows the way the space
-  pool did. The fishing boat is rejected.
+  keeps streamed scenery off the carriageway, spurs and ramps — each claims its own ground
+  (`hwyClaimCorridor`) — and the railway is held to it too. `resolveSolidWalls` asks
+  `vehSolid()`, **never a flight phase**.
+- **A bore is a hole in the GROUND, not a pipe laid on it.** `hwyBoreCut` (from
+  `terrainEff`) cuts the mountain to the road; `hwyBuildBore` lids the cut with what was
+  removed. It stays silent until the surveyor has classified the route — cut first and
+  nothing is ever low enough to be a tunnel. Twin bores: one tube wide enough for a
+  divided road stands taller than the hill.
+- **A contextual button needs a RADIUS**, not just "parked and still". **A boat can never
+  be stuck**: a beached hull widens its water search *and* times out — the search alone
+  deadlocks against a quay; in the lock, idling re-opens it. The harbour is the third
+  place he can lose a session in, so its event pool grows as the space pool did.
 - **The speed steps are one control he learns once** (`speed.js`): same pair, same
-  top-right slot, every vehicle but the rocket — the helicopter has four slots a side
-  and three spent, so it gets one cycling stepper. `TUNE.<vehicle>.speedSteps` scales
-  what the model AIMS for and its cap, never the `speed / cruise` ratios behind sound,
-  wake and FOV.
+  top-right slot, every vehicle but the rocket — the helicopter has four slots a side and
+  three spent, so it gets one cycling stepper. `TUNE.<vehicle>.speedSteps` scales what the
+  model AIMS for and its cap, never the `speed / cruise` ratios behind sound and wake.
 - **Wake stays out of the shot, and SIZE is what does it**: test whether its sphere
   crosses the sightline, not how high it climbs.
 - The rocket's envelope (`landMax*`, `land*R`) says what counts as a landing; everything
@@ -105,7 +106,7 @@ stated behaviour change.
 | `vehicles.js` `buttons.js` `speed.js` `eventpool.js` `engines.js` | the vehicle contract / every button's slot and `when()` / speed steps / event pools and policies / the two-loop engine voice |
 | `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship, buggy, per-launch event |
 | `setpieces.js` `marsbase.js` `toyworld.js` `workshop.js` `toyfinish.js` | demolition, tower-catch, fire rig, carrier, Mars and its toys / the airport magnet yards, ramp and toy-fleet finish |
-| `highway.js` `car.js` | the coast-to-coast road and its traffic / the SUV and lane-keep |
+| `highway.js` `car.js` `lights.js` `police.js` | the coast-to-coast road and its traffic / the SUV and lane-keep / the junctions / the chase |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
 | `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
 
@@ -120,8 +121,7 @@ airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, 
 - **Behaviour over existence, and deltas not totals** — a check reading
   `flags.boatCrashes` outright stayed green for two releases while the boat sailed through
   the container ship, on a 1 an earlier check left behind. And check the states he is
-  really in: the slot check ran three viewports, all landscape, so it never saw the one
-  clash it existed to catch.
+  really in: the slot check ran three viewports, all landscape.
 - One page is reused and state carries: reset what you touch, or take a `newPage` —
   sparingly; the server is single-threaded and a third live page timed a run out.
 - It stubs rAF (only the *last* queued callback fires) and runs 12 sim-seconds in a sixth

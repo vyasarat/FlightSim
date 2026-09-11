@@ -156,6 +156,67 @@ const TUNE = {
     },
   },
 
+  // ---- Traffic signals (js/lights.js) -------------------------------------
+  // Junctions on the SURFACE ROADS, never on the open motorway: the seven exit
+  // spurs are the roads the car can actually leave the highway onto, and each
+  // of them gets one crossroads with lights, a stop line and a cross street
+  // with its own traffic queueing at its own red.
+  lights: {
+    scan: [0.20, 0.80], scanStep: 0.02,   // the stretch of spur searched for a site
+    maxDrop: 12,                 // the most the cross street may fall over its length
+    crossLen: 260, crossW: 13,   // the cross street, at full length
+    crossScales: [1, 0.7, 0.5],  // ... and what it shrinks to rather than not fitting
+    stopLine: 11,                // how far before the middle the stop line is
+    mastH: 8.2, mastR: 0.32, headW: 2.3, headH: 6.0, lampR: 0.84,
+    armLen: 5.2,                 // the head hangs out over the carriageway
+    // One cycle. Amber BLINKS before red -- the wind-up every set-piece has, at
+    // the scale of a junction, so a red is never the first he knows of it.
+    green: 9.5, amber: 3.0, allRed: 1.2, blinkHz: 3.2,
+    cars: 10, carSpeed: [11, 16], carGap: 9, queueGap: 7.5,
+    range: 900,                  // beyond this a junction sleeps
+    glow: 13,                    // the lamp billboard: what makes a lit lamp read at range
+    colors: { red: 0xff3b30, amber: 0xffb020, green: 0x36c46a, dark: 0x1a1d22 },
+    runSpeed: 8,                 // below this, crossing a red is not running it
+  },
+
+  // ---- The police (js/police.js) ------------------------------------------
+  // Two cars, and they are MACHINES: the officer never leaves his seat, nothing
+  // is ever aimed at anybody, and being caught costs him nothing at all. The
+  // whole of it is a chase that ends by itself.
+  police: {
+    cars: 2,
+    spawnBehind: 70, spawnSide: 26,
+    speedOver: 1.18,             // how much faster than him they can manage when close
+    // AND A CEILING, which is what makes "outrun them" a real thing he can do.
+    // The car cruises at 46 and its speed steps scale that to 64 and 85, so at
+    // the step he starts on they are always faster and always there, one step up
+    // he pulls away, and two he is simply gone. Without a cap the rubber band is
+    // unbeatable and the only way out is to wait, which is half a mechanic.
+    topSpeed: 58,
+    // Close enough to be BESIDE him rather than a pair of dots astern: the lead
+    // car draws almost level and the second sits in his mirror.
+    hold: [12, 28],
+    weave: { amp: 2.6, rate: 0.9 },
+    // Reachable, and that matters: at his top speed step he opens about thirty
+    // metres a second on them, so this is a dozen seconds of going fast -- the
+    // quick way out, against the slow one of simply waiting `maxChase` out.
+    giveUpDist: 400,
+    maxChase: 75,                // and they give up anyway after this
+    caughtSpeed: 4.5, caughtTime: 1.6,   // stopped this long with them on him
+    lightHz: 7.5, sirenHz: [520, 700], sirenRate: 1.35, sirenGain: 0.05,
+    duck: 0.55,                  // how far the engine and bed duck under a siren
+    crashChance: 0.5,            // per second, when one is near something solid
+    pullOver: { angle: 38, gap: 9, count: 3, hold: 1.1, leave: 2.6 },
+    // Never the same scheme twice running -- an event pool, policy "once",
+    // exactly like the space programme's draw.
+    schemes: {
+      blackWhite: { body: 0x20242b, panel: 0xf2f4f7, bar: [0xff3b30, 0x3aa0ff] },
+      blueWhite:  { body: 0x1c4f9c, panel: 0xf2f4f7, bar: [0xff3b30, 0xf2f4f7] },
+      silverBlue: { body: 0xb9c0c9, panel: 0x1c4f9c, bar: [0x3aa0ff, 0xffd23e] },
+      cream:      { body: 0xe8e0cc, panel: 0x2f7a3f, bar: [0x36c46a, 0xff3b30] },
+    },
+  },
+
   // ---- Ambient life (js/ambient.js). Nothing here is a target, solid, or
   // reachable. The birds live under the same rule as the astronaut: they are
   // fine because nothing can happen to them. Make them hittable and they have to
