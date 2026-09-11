@@ -181,10 +181,10 @@ function spdUpdateButtons() {
       show = (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !onDeck;
     }
   }
+  // WHETHER these three are up is the button table's (js/buttons.js), which asks
+  // spdShows() and spdUsesCycle(). What is left here is the dimming: which END of
+  // the range he is already sitting on, and which step the stepper shows.
   const cycle = show && spdUsesCycle();
-  el.speedBtn.classList.toggle("hidden", !cycle);
-  el.slowBtn.classList.toggle("hidden", !show || cycle);
-  el.fastBtn.classList.toggle("hidden", !show || cycle);
   if (!show) return;
   const i = spdIndex(), n = steps.length;
   if (cycle) {

@@ -163,11 +163,7 @@ function updateBoat(dt) {
   if (boat.crashCool > 0) boat.crashCool -= dt;
   // one finger: no throttle button, no gear, no missiles. The speed steps are
   // up (taps, not a second finger); js/speed.js decides them once a frame.
-  el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
-  el.missileBtn.classList.add("hidden");
-  el.skipBtn.classList.add("hidden");
   state.phase = "TAXI";
 
   // The cannon button's visibility is decided BEFORE anything can return early,
@@ -424,7 +420,6 @@ function boatCannonCan() {
 }
 function boatUpdateCannonButton() {
   const can = boatCannonCan();
-  el.cannonBtn.classList.toggle("hidden", !can);
   if (!can) { boat.cannonHeld = false; boat.cannon = 0; }
 }
 function boatCannonPress(on) {

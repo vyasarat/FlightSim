@@ -27,6 +27,7 @@ const ASSETS = [
   "./js/state.js",
   "./js/vehicles.js",
   "./js/speed.js",
+  "./js/buttons.js",
   "./js/input.js",
   "./js/flight.js",
   "./js/heli.js",

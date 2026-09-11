@@ -473,9 +473,7 @@ function updateCar(dt) {
   if (car.crashCool > 0) car.crashCool -= dt;
   // one finger: no throttle button and no gear. The speed steps ARE up -- they
   // are taps, not a second finger -- and js/speed.js decides them once a frame.
-  el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
   state.phase = "TAXI";
 
   if (state.exploding) { setTone("carWhine", "sawtooth", 60, 0); return; }
@@ -779,6 +777,5 @@ function carUpdateHorn(dt) {
   setTone("carHornA", "sawtooth", H.hz[0], on ? H.gain : 0);
   setTone("carHornB", "sawtooth", H.hz[1], on ? H.gain * 0.8 : 0);
   if (!carHornCan()) { car.hornHeld = false; car.hornT = 0; }
-  el.hornBtn.classList.toggle("hidden", !carHornCan());
   el.hornBtn.classList.toggle("pressed", on);
 }

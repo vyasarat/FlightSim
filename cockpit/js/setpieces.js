@@ -697,7 +697,7 @@ function updateFirefight(dt) {
   }
 
   // ---- the bucket and its one button
-  if (!isHeli()) { if (bucket.g) bucket.g.visible = false; el.bucketBtn.classList.add("hidden"); return; }
+  if (!isHeli()) { if (bucket.g) bucket.g.visible = false; return; }
   if (!bucket.g) buildBucket();
   if (bucket.state === "filling") {
     bucket.anim += dt / FF.scoopTime;
@@ -713,7 +713,6 @@ function updateFirefight(dt) {
     bucket.g.rotation.z = sway;
   }
   const scoop = bucketCanScoop(), drop = bucketCanDrop();
-  el.bucketBtn.classList.toggle("hidden", !(scoop || drop));
   const mode = drop ? "drop" : "scoop";
   if (el.bucketBtn.dataset.mode !== mode) el.bucketBtn.dataset.mode = mode;
 }
@@ -897,7 +896,6 @@ function carrierShove() {
 function carrierReset() {
   carrier.state = "none"; carrier.t = 0;
   countdownClear();
-  if (el.catBtn) el.catBtn.classList.add("hidden");
 }
 
 // Runs late, after the flight model, so the deck actually holds him.
@@ -1001,7 +999,6 @@ function updateCarrier(dt) {
 
   // ---- the trap, and the one button
   if (carrier.state === "none" && carrierTryTrap()) carrierTrap();
-  el.catBtn.classList.toggle("hidden", !carrierCanLaunch());
 }
 
 buildDemolition();

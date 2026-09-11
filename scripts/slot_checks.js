@@ -52,7 +52,13 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       const at = (name, setup) => {
         setup();
         for (let i = 0; i < 14; i++) L.update(1 / 60);
-        const bad = overlaps();
+        // The geometric test, PLUS the system's own answer from the same table
+        // the game resolves buttons with (btnSlotClashes in js/buttons.js). The
+        // declared test catches a clash the geometry cannot see -- two buttons
+        // that share a slot but whose CSS has drifted apart -- and the geometry
+        // catches one the table cannot, a button sitting somewhere its entry
+        // does not claim. Neither subsumes the other.
+        const bad = overlaps().concat(L.btnSlotClashes().map(c => "declared " + c));
         if (bad.length) out.push({ name, bad });
       };
 

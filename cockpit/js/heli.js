@@ -179,9 +179,7 @@ function updateHelicopter(dt) {
   // The altitude buttons replace the throttle. The speed control is still here,
   // as the single cycling stepper -- this column has no room for a pair, which
   // js/speed.js explains and spdUpdateButtons decides.
-  el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
 
   // The yacht's helipad is GROUND while he is over it -- that one substitution is
   // the whole of "a moving landing target", because everything below already

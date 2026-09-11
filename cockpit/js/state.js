@@ -92,14 +92,12 @@ function applyVehicle(key) {
     // has to be put back into the world the moment he steps off
     if (typeof yacht !== "undefined" && yacht.built) { yacht.aboard = false; yachtPlace(); }
   }
-  if (typeof el.garageBtn !== "undefined" && el.garageBtn && !state.vp.boat) el.garageBtn.classList.add("hidden");
   // Watch the rocket, see the helicopter's tool/load, and see the boat's hull and
   // its wake, in chase view; the view button still toggles.
   if ((state.vp.rocket || state.vp.heli || state.vp.boat) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
   // The cannon lives on the boat alone. Left up, it sits in the helicopter
   // bucket's slot and eats the tap that means "scoop".
   if (!state.vp.boat) {
-    el.cannonBtn.classList.add("hidden");
     if (typeof boatCannonPress === "function") boatCannonPress(false);
   }
   if (typeof setTone === "function") for (const [n, t, f] of VEHICLE_TONES) setTone(n, t, f, 0);

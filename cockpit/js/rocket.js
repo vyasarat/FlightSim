@@ -423,7 +423,6 @@ function rocketNearestBody() {
 // capsule seat while he is floating about the station).
 function updateGoButton() {
   const out = astroActive() && astro.mode !== "leaving";
-  el.skipBtn.classList.toggle("hidden", !(rocketCanSkip() || out));
   const tb = rocketSkipTarget(); const tname = out ? "capsule" : tb ? tb.name : "home";
   if (el.skipBtn.dataset.target !== tname) el.skipBtn.dataset.target = tname;
 }
@@ -436,20 +435,13 @@ function updateRocket(dt) {
   // astronaut early returns below. Deciding them after meant whatever was up when he
   // climbed out of the seat stayed up for the whole visit, stacked over the button he
   // actually needed -- and the one later in the DOM silently eats the tap.
-  el.roverBtn.classList.toggle("hidden", !((roverCan() || roverActive()) && !marsDroneActive()));
   // the little Mars drone: parked by the garage, so the button is only there when
   // he has driven up to it -- and once he is flying it, it is the way back down
   const droneUp = marsDroneCan() || marsDroneActive();
-  el.droneBtn.classList.toggle("hidden", !droneUp);
   if (droneUp) el.droneBtn.dataset.mode = marsDroneActive() ? "back" : "fly";
-  el.hatchBtn.classList.toggle("hidden", !(stationCanEnter() || astroActive()));
-  el.stageBtn.classList.toggle("hidden", !rocketCanDrop());
   if (el.stageBtn.dataset.stage !== String(rk.stage)) el.stageBtn.dataset.stage = String(rk.stage);
-  el.satBtn.classList.toggle("hidden", !rocketCanDeploySat());
-  el.chuteBtn.classList.toggle("hidden", !rocketCanChute());
   // the rocket has no missiles -- except during a meteor shower, when one comes up in
   // the gear row (empty on a rocket), clear of everything in the shared slot above it
-  el.missileBtn.classList.toggle("hidden", !eventsWantMissile());
   // THE THROTTLE IS DECIDED HERE, above the early returns, not below them.
   // It is a hold, and three of the rocket's four modes use it: the capsule
   // burns with it, the rover drives with it, the astronaut pushes off with it.
@@ -458,14 +450,12 @@ function updateRocket(dt) {
   // capsule happened to leave one up on the previous frame, which is precisely
   // the shape CLAUDE.md warns about and one changed path away from a rover he
   // cannot drive.
-  el.throttleBtn.classList.toggle("hidden", marsDroneActive());
   if (roverActive()) { if (!marsDroneActive()) updateRover(dt); rk.igniteT = 0; return; }   // driving (or flying the drone, which updates with the base): the capsule waits
   if (astroActive()) { updateGoButton(); updateAstronaut(dt); rk.igniteT = 0; updateStationDocked(dt, true); return; }   // floating inside: the capsule waits at the port
 
   // buttons: the throttle is settled above the early returns; the rocket has no
   // speed steps and no gear
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
   updateGoButton();
 
   if (grounded) {

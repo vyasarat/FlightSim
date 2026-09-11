@@ -230,12 +230,7 @@ function yachtReassemble() {
 }
 
 function updateYacht(dt) {
-  el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
-  el.missileBtn.classList.add("hidden");
-  el.skipBtn.classList.add("hidden");
-  el.cannonBtn.classList.add("hidden");
   state.phase = "TAXI";
   yachtBuild();
   yacht.aboard = true;
@@ -484,7 +479,6 @@ function yachtGarageCan() {
   return false;
 }
 function yachtUpdateGarageButton() {
-  el.garageBtn.classList.toggle("hidden", !yachtGarageCan());
   el.garageBtn.dataset.mode = yachtActive() ? "out" : "in";
 }
 function yachtGaragePress() {

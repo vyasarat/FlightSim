@@ -756,9 +756,7 @@ function marsDronePick(nx, ny) {
 function updateMarsDrone(dt) {
   const D = MB.drone, dr = mars.drone, b = mars.body;
   // one finger, always: the same as the big helicopter, nothing else to hold
-  el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
 
   dr.n.set(dr.x - b.x, dr.y - b.y, dr.z - b.z).normalize();
   dr.f.addScaledVector(dr.n, -dr.f.dot(dr.n));

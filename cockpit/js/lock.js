@@ -388,7 +388,6 @@ function lkRumble() {
 // gates at rest, which is the one moment pressing it means anything.
 function lockUpdateButton() {
   const show = lockCanCycle();
-  el.lockBtn.classList.toggle("hidden", !show);
 }
 
 lockBuild();
