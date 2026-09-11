@@ -10,6 +10,46 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v105 — the refactor: one vehicle contract, one button system
+
+No behaviour change anywhere in this one. It is the cleanup the last few releases
+earned, gated by a new characterization harness that records what every vehicle
+actually does and refuses to let any of it move.
+
+**A vehicle contract** (`vehicles.js`). One table says, for whatever he is in: how
+it updates, where its cameras sit, whether it is parked, and where it comes back
+from a bang. Those four questions used to be four `if (state.vp.boat) … else if
+(state.vp.car) …` chains spread over three files *in three different orders*.
+A mode is a vehicle here — the rocket is also the rover, the astronaut and the
+Mars drone — and the resolution order is the one safe one, with the yacht asked
+about before the boat because a yacht *is* a boat.
+
+**One contextual-button system** (`buttons.js`). Every button declares its slot
+and its `when()`; one pass a frame computes all of them from scratch. Visibility
+used to be decided at forty-six sites in twelve files, and sixteen of those were
+pure suppression — calls whose only job was to put away a button some *other*
+vehicle had left up. That is a chase, not a rule, and its misses are this game's
+bug history. The slot-collision check is now part of the system rather than
+bolted onto the harness.
+
+**The picker finally asks an honest question.** It and the car wash both tested
+`phase === "TAXI" && speed === 0` — an aeroplane's idea of parked, which a
+stationary *boat* satisfies exactly. That is how the wash came to offer itself to
+a boat sitting in the harbour lock. Both ask the vehicle now.
+
+**Written state semantics.** `state.js`'s header says what each shared field means
+per vehicle — `state.y` is a waterline for a boat and meaningless for the rover —
+and a harness check enforces what it can. `mergeBoxes` moved out of `car.js`, so
+nothing has to load after a car to build a harbour. Dead code and four orphan
+tuning keys gone. CLAUDE.md is back under 150 lines with the contract in it.
+
+Deliberately **not** done: removing the `phase = "TAXI"` assignments themselves.
+That field is read at sixty-six sites across twenty-four files and several key
+real behaviour off it, so migrating them is a change of its own rather than a
+detail of this one.
+
+---
+
 ## v104 — the car comes back where it crashed
 
 Crash the car and it did not come back where it crashed. It came back wherever

@@ -90,7 +90,7 @@ function yachtBuild() {
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = 0.06;
   pad.add(ring);
-  const cross = new THREE.Mesh(carMergeBoxes([
+  const cross = new THREE.Mesh(mergeBoxes([
     { w: YT.pad.r * 0.9, h: 0.08, d: 1.2, x: 0, y: 0.07, z: 0 },
     { w: 1.2, h: 0.08, d: YT.pad.r * 0.9, x: 0, y: 0.07, z: 0 },
   ]), new THREE.MeshBasicMaterial({ color: TUNE.palette.white, fog: false }));
@@ -230,12 +230,7 @@ function yachtReassemble() {
 }
 
 function updateYacht(dt) {
-  el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
-  el.missileBtn.classList.add("hidden");
-  el.skipBtn.classList.add("hidden");
-  el.cannonBtn.classList.add("hidden");
   state.phase = "TAXI";
   yachtBuild();
   yacht.aboard = true;
@@ -484,7 +479,6 @@ function yachtGarageCan() {
   return false;
 }
 function yachtUpdateGarageButton() {
-  el.garageBtn.classList.toggle("hidden", !yachtGarageCan());
   el.garageBtn.dataset.mode = yachtActive() ? "out" : "in";
 }
 function yachtGaragePress() {
@@ -582,11 +576,11 @@ function yachtBuildBridge() {
   const glass = new THREE.MeshPhongMaterial({ color: 0x1b2430, flatShading: true, shininess: 90,
     specular: 0x8fa4bb, transparent: true, opacity: 0.22 });
 
-  g.add(new THREE.Mesh(carMergeBoxes([
+  g.add(new THREE.Mesh(mergeBoxes([
     { w: K.width, h: 0.2, d: 2.2, x: 0, y: K.dashTop, z: K.seatZ - 1.9 },       // the console top
     { w: K.width, h: 1.0, d: 0.18, x: 0, y: K.dashTop - 0.6, z: K.seatZ - 2.9 },
   ]), top));
-  g.add(new THREE.Mesh(carMergeBoxes([
+  g.add(new THREE.Mesh(mergeBoxes([
     { w: K.width + 1.2, h: 1.1, d: 0.2, x: 0, y: K.dashTop - 0.9, z: K.seatZ + 1.6 },
     { w: 0.2, h: 1.1, d: 4.0, x: -K.width / 2, y: K.dashTop - 0.9, z: K.seatZ - 0.4 },
     { w: 0.2, h: 1.1, d: 4.0, x: K.width / 2, y: K.dashTop - 0.9, z: K.seatZ - 0.4 },
@@ -601,7 +595,7 @@ function yachtBuildBridge() {
   wheel.position.set(K.seatX, K.dashTop + 0.2, K.seatZ - 1.5);
   wheel.rotation.x = -0.55;
   wheel.add(new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.045, 6, 18), mattMat(C.ink)));
-  wheel.add(new THREE.Mesh(carMergeBoxes([
+  wheel.add(new THREE.Mesh(mergeBoxes([
     { w: 0.62, h: 0.06, d: 0.06, x: 0, y: 0, z: 0 },
     { w: 0.06, h: 0.62, d: 0.06, x: 0, y: 0, z: 0 },
     { w: 0.2, h: 0.2, d: 0.08, x: 0, y: 0, z: 0.01 },

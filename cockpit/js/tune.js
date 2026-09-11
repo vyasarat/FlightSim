@@ -40,7 +40,8 @@ const TUNE = {
   // shadow box that follows him, plus a hemisphere fill so shaded sides are never
   // black. Readability first: nothing here may make a thing he needs darker.
   light: {
-    sunElevDeg: 44, sunAzimDeg: 133,   // a real angle: shadows fall across the runway, not down it
+    sunAzimDeg: 133,                   // a real angle: shadows fall across the runway, not down it
+                                       // (the elevation is passed in to sunDirection, not read from here)
     shadow: {
       on: true,
       mapSize: 1024,                   // sized for an iPad, not a desktop
@@ -93,7 +94,7 @@ const TUNE = {
   // bed is filtered noise or a low tone, and the compressor still catches peaks.
   audio: {
     master: 0.6,
-    engine: 1.0, rocket: 1.0, event: 1.0, bed: 1.0,
+    rocket: 1.0, event: 1.0, bed: 1.0,
     // The ambient bed, one per place he can be. `cut` is the lowpass corner in
     // Hz -- low is a rumble, high is a hiss.
     beds: {
@@ -331,7 +332,7 @@ const TUNE = {
   palette: {
     white:    0xf2f4f7, steel:  0xc9ced6, grey:      0x8a93a0, slate: 0x3c4350,
     ink:      0x1f2328, night:  0x2f3a48, concrete:  0x9a9ea6,
-    grassLow: 0x7cbf58, grassMid: 0x67a34e, grassHigh: 0xa8a06b, sand: 0xd9c27e,
+    grassMid: 0x67a34e, grassHigh: 0xa8a06b, sand: 0xd9c27e,
     rust:     0xb5522e, warning: 0xffd23e, gold:     0xd4a72c,
     fire:     0xff7a1a, flame:  0xffb43a, red:       0xe0483e,
     green:    0x36c46a, cyan:   0x5ff1ff, blue:      0x2b4fb0, sea: 0x2f74b8,
@@ -1089,8 +1090,6 @@ const TUNE = {
     parked: 3,                      // a row of Starships already standing there
     astros: 5,                      // tiny, and nothing can ever happen to them
     dunes: 10, duneR: [22, 46],
-    groundR: 420,                   // a rust floor laid over the planet under the base: the sphere
-                                    // itself shades out almost white this close up
     spread: 130,                    // how far the base sprawls from the pad
     padR: 26, padLights: 14,        // the lit pad: it is drawn around wherever he came down
     armDist: 70, triggerR: 22,      // drive out this far, then back inside this, and it takes him home

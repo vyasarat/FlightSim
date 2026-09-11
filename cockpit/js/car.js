@@ -219,29 +219,11 @@ function carScreenTap(clientX, clientY) {
 // than left as eighteen boxes. three.js batches nothing on its own, and this
 // rig under-prices draw calls compared with the iPad, which is the machine that
 // has to hold sixty frames.
-function carMergeBoxes(specs) {
-  const pos = [], nor = [];
-  const m = new THREE.Matrix4(), e = new THREE.Euler(), q = new THREE.Quaternion();
-  const t = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), n3 = new THREE.Matrix3();
-  const v = new THREE.Vector3(), n = new THREE.Vector3();
-  for (const b of specs) {
-    const g = new THREE.BoxGeometry(b.w, b.h, b.d).toNonIndexed();
-    e.set(b.rx || 0, b.ry || 0, b.rz || 0);
-    m.compose(t.set(b.x, b.y, b.z), q.setFromEuler(e), one);
-    n3.getNormalMatrix(m);
-    const P = g.attributes.position, N = g.attributes.normal;
-    for (let i = 0; i < P.count; i++) {
-      v.fromBufferAttribute(P, i).applyMatrix4(m); pos.push(v.x, v.y, v.z);
-      n.fromBufferAttribute(N, i).applyMatrix3(n3).normalize(); nor.push(n.x, n.y, n.z);
-    }
-    g.dispose();
-  }
-  const out = new THREE.BufferGeometry();
-  out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
-  return out;
-}
-
+// mergeBoxes moved to js/scene.js and is now `mergeBoxes`. It was never the
+// car's: the harbour, the lock, the boat, the yacht and the models rig all use
+// it, and harbor.js had a comment saying it loaded after car.js "precisely so
+// it can" -- a load order that existed because a general helper was living in a
+// vehicle.
 function carBuildCabin() {
   if (car.cabin) return car.cabin;
   const C = TUNE.palette, K = CAR.cabin;
@@ -291,7 +273,7 @@ function carBuildCabin() {
   const soft = mattMat(C.night), hard = mattMat(C.slate), top = mattMat(C.grey);
   const floor = [{ w: 3.85, h: 0.10, d: 3.00, x: 0, y: FLOOR, z: -1.00 }];
   for (const [specs, mat] of [[shell, soft], [hardParts, hard], [shelf, top], [floor, mattMat(C.ink)]]) {
-    const m = new THREE.Mesh(carMergeBoxes(specs), mat);
+    const m = new THREE.Mesh(mergeBoxes(specs), mat);
     m.castShadow = false; m.receiveShadow = false;
     g.add(m);
   }
@@ -307,7 +289,7 @@ function carBuildCabin() {
   const rimMat = mattMat(C.ink);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.30, 0.05, 7, 18), rimMat);
   wheel.add(rim);
-  const spokes = new THREE.Mesh(carMergeBoxes([
+  const spokes = new THREE.Mesh(mergeBoxes([
     { w: 0.52, h: 0.06, d: 0.06, x: 0, y: 0, z: 0 },
     { w: 0.06, h: 0.26, d: 0.06, x: 0, y: -0.15, z: 0 },
     { w: 0.22, h: 0.22, d: 0.08, x: 0, y: 0, z: 0.01 },
@@ -473,9 +455,7 @@ function updateCar(dt) {
   if (car.crashCool > 0) car.crashCool -= dt;
   // one finger: no throttle button and no gear. The speed steps ARE up -- they
   // are taps, not a second finger -- and js/speed.js decides them once a frame.
-  el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
   state.phase = "TAXI";
 
   if (state.exploding) { setTone("carWhine", "sawtooth", 60, 0); return; }
@@ -779,6 +759,5 @@ function carUpdateHorn(dt) {
   setTone("carHornA", "sawtooth", H.hz[0], on ? H.gain : 0);
   setTone("carHornB", "sawtooth", H.hz[1], on ? H.gain * 0.8 : 0);
   if (!carHornCan()) { car.hornHeld = false; car.hornT = 0; }
-  el.hornBtn.classList.toggle("hidden", !carHornCan());
   el.hornBtn.classList.toggle("pressed", on);
 }

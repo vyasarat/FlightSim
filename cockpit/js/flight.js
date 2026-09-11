@@ -368,30 +368,23 @@ function update(dt) {
   // DOM -- so it may only appear where the go button cannot: parked at home. Out at
   // the station, on a spacewalk or on the Moon it would eat the tap that means
   // "take me back", and drop him into the vehicle screen instead.
-  el.vehBtn.classList.toggle("hidden", !pickerCanOpen());
   updateHeliControls();
-  el.gearBtn.classList.toggle("hidden", !state.vp.hasGear);
   el.gearBtn.classList.toggle("gear-up", !state.gearDown);
   const thOffVis = Math.round(Math.cos(state.dirIdx === 0 ? 0 : Math.PI)) * (TUNE.runwayLength / 2);
   const dzVis = state.z - (AIRPORTS[state.destIdx].cz + thOffVis);
-  if (!state.vp.rocket) {   // the rocket's go button is updateRocket's (destination icons, the capsule)
-    if (el.skipBtn.dataset.target !== "home") el.skipBtn.dataset.target = "home";
-    el.skipBtn.classList.toggle("hidden",
-      state.phase !== "AIRBORNE" || state.engaged || (dzVis * dzVis) < TUNE.approachEngageDist * TUNE.approachEngageDist);
-  }
+  // the icon only: whether the go button EXISTS is btnSkipShows() in js/buttons.js
+  if (!state.vp.rocket && el.skipBtn.dataset.target !== "home") el.skipBtn.dataset.target = "home";
   // Parked on the carrier deck he is stopped on a ship: no missiles -- the
   // catapult button owns that slot while he is up there. (The speed pair is
   // decided once a frame in spdUpdateButtons, which applies the same test.)
   const onDeck = typeof carrierOnDeck === "function" && carrierOnDeck();
   const inFlight = (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !onDeck;
-  el.missileBtn.classList.toggle("hidden", !inFlight);
   el.missileBtn.classList.toggle("cooldown", state.missileCooldown > 0);
   const gT = state.gearDown ? 1 : 0;
   if (state.gearAnim !== gT) {
     state.gearAnim = clamp(state.gearAnim + (gT > state.gearAnim ? 1 : -1) * 1.7 * dt, 0, 1);
   }
   if (state.exploding) {
-    if (state.vp.rocket) { el.missileBtn.classList.add("hidden"); el.skipBtn.classList.add("hidden"); el.stageBtn.classList.add("hidden"); el.satBtn.classList.add("hidden"); el.chuteBtn.classList.add("hidden"); el.roverBtn.classList.add("hidden"); el.hatchBtn.classList.add("hidden"); el.droneBtn.classList.add("hidden"); }
     state.explodeTimer -= dt;
     const seeking = state.explodeTimer <= 0.5;
     updateExplosion(dt, safePos, seeking);
@@ -431,10 +424,7 @@ function update(dt) {
       state.airVy = null;
       state.canRotate = false;
       state.approachLatch = false;
-      if (state.vp.rocket) rocketAfterReassemble();
-      if (state.vp.car) carReassemble();      // back on the road, pointing the right way
-      if (state.vp.bigBoat) yachtReassemble();
-      else if (state.vp.boat) boatReassemble();    // back on the water, facing out
+      vehReassemble();        // the contract's slot: back on the road, on the water, on the pad
       whoosh();
       boing();
       state.popTimer = 0.45;
@@ -448,26 +438,22 @@ function update(dt) {
     targetPitch = state.ctrlPitch * state.vp.pitchLimitDeg;
   }
 
+  // Whatever he is in drives itself, out of the one table in js/vehicles.js.
+  // This used to be a chain of `else if (state.vp.boat)` clauses whose ORDER was
+  // load-bearing -- a yacht is a boat, so it had to be asked about first -- and
+  // there were three more chains like it in two other files, in two other
+  // orders. `vehUpdate` returns false only for the fixed-wing aircraft, whose
+  // ground and air branches are the flight model itself and run below.
   if (toyWorld.wash) {
     twWashGuide(dt);
-  } else if (state.vp.rocket) {
-    updateRocket(dt);
-  } else if (state.vp.bigBoat) {
-    updateYacht(dt);        // a yacht is a boat too, so it has to be asked about first
-  } else if (state.vp.boat) {
-    updateBoat(dt);         // its own model: it owns the water, the beach and the crash
-  } else if (state.vp.car) {
-    updateCar(dt);          // its own model: it owns the road, the verge and the crash
-  } else if (state.vp.heli) {
-    updateHelicopter(dt);   // its own model: it owns the ground and the air alike
+  } else if (vehUpdate(dt)) {
+    // the vehicle owned the frame
   } else if (state.phase === "TAXI" || state.phase === "ROLL") {
     groundPhase(dt);
     setEngine(state.speed / state.vp.cruiseSpeed);
-    el.throttleBtn.classList.remove("hidden");
     el.rotateArrow.classList.toggle("on",
       state.phase === "ROLL" && state.canRotate);
   } else {
-    el.throttleBtn.classList.add("hidden");
     el.rotateArrow.classList.remove("on");
 
     let resp = state.touching ? TUNE.controlResponse : TUNE.autoLevelResponse;
@@ -719,16 +705,13 @@ function update(dt) {
   shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));   // proportional, so a big bang lingers and a small one is gone
   updateVehicleModel(dt);
 
-  // Last word on the speed pair, after every vehicle has had its go at the DOM:
-  // see js/speed.js for why this is the only place that decides it.
-  spdUpdateButtons();
-  carUpdateHorn(dt);        // ... and the horn, for the same reason: one place, after every early return
-  // The menu button is up in every state there is. It hides only while a picker
-  // screen is already open (it would sit on top of one) and while he is under
-  // the ejection canopy, which is already taking him somewhere safe.
-  el.menuBtn.classList.toggle("hidden", menuOpen() || eject.active);
+  carUpdateHorn(dt);        // the horn's TONES; whether its button exists is the table's
   lockUpdate(dt);           // the gates, the water and the beacons
-  lockUpdateButton();       // ... and its one contextual button, decided here like the rest
+  // EVERY button, from js/buttons.js, computed from scratch. Last thing before
+  // the HUD, so nothing any vehicle did to the DOM this frame can survive it --
+  // which is what makes the sixteen `add("hidden")` suppressions unnecessary.
+  btnUpdateAll();
+  spdUpdateButtons();       // ... then the speed pair's dimming, which is appearance
   updateHud();
   updateFx(dt);
   updateExplosion(dt, safePos, false);

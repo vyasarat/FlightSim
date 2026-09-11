@@ -163,11 +163,7 @@ function updateBoat(dt) {
   if (boat.crashCool > 0) boat.crashCool -= dt;
   // one finger: no throttle button, no gear, no missiles. The speed steps are
   // up (taps, not a second finger); js/speed.js decides them once a frame.
-  el.throttleBtn.classList.add("hidden");
   el.rotateArrow.classList.remove("on");
-  el.gearBtn.classList.add("hidden");
-  el.missileBtn.classList.add("hidden");
-  el.skipBtn.classList.add("hidden");
   state.phase = "TAXI";
 
   // The cannon button's visibility is decided BEFORE anything can return early,
@@ -424,7 +420,6 @@ function boatCannonCan() {
 }
 function boatUpdateCannonButton() {
   const can = boatCannonCan();
-  el.cannonBtn.classList.toggle("hidden", !can);
   if (!can) { boat.cannonHeld = false; boat.cannon = 0; }
 }
 function boatCannonPress(on) {
@@ -537,11 +532,11 @@ function boatBuildHelm() {
   // Kept LOW and THIN, for the reason the car's cabin is: a realistic screen
   // frame a metre from his eye eats a quarter of the picture, and he has to be
   // able to see the water.
-  g.add(new THREE.Mesh(carMergeBoxes([
+  g.add(new THREE.Mesh(mergeBoxes([
     { w: K.width, h: 0.14, d: 1.5, x: 0, y: K.dashTop, z: -1.5 },        // the dash shelf
     { w: K.width, h: 0.5, d: 0.12, x: 0, y: K.dashTop - 0.34, z: -2.2 }, // its face
   ]), top));
-  g.add(new THREE.Mesh(carMergeBoxes([
+  g.add(new THREE.Mesh(mergeBoxes([
     { w: K.width + 0.5, h: 0.7, d: 0.16, x: 0, y: K.dashTop - 0.75, z: 0.9 },   // coaming behind him
     { w: 0.16, h: 0.7, d: 2.6, x: -K.width / 2, y: K.dashTop - 0.75, z: -0.3 },
     { w: 0.16, h: 0.7, d: 2.6, x: K.width / 2, y: K.dashTop - 0.75, z: -0.3 },
@@ -559,7 +554,7 @@ function boatBuildHelm() {
   wheel.position.set(K.seatX, K.dashTop + 0.05, -1.45);
   wheel.rotation.x = -0.5;
   wheel.add(new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 6, 16), mattMat(C.ink)));
-  wheel.add(new THREE.Mesh(carMergeBoxes([
+  wheel.add(new THREE.Mesh(mergeBoxes([
     { w: 0.44, h: 0.05, d: 0.05, x: 0, y: 0, z: 0 },
     { w: 0.05, h: 0.44, d: 0.05, x: 0, y: 0, z: 0 },
     { w: 0.14, h: 0.14, d: 0.07, x: 0, y: 0, z: 0.01 },

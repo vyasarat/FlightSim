@@ -49,9 +49,10 @@ const harbor = {
 // Helpers
 // ---------------------------------------------------------------------------
 // A merged mesh from box specs, in the harbour's own world coordinates. Uses
-// car.js's carMergeBoxes -- harbor.js loads after car.js precisely so it can.
+// the shared mergeBoxes in scene.js. It used to live in car.js, and this file
+// used to have to load after the car because of it.
 function hbMerge(specs, mat, solidY) {
-  const m = new THREE.Mesh(carMergeBoxes(specs), mat);
+  const m = new THREE.Mesh(mergeBoxes(specs), mat);
   m.castShadow = true;
   m.receiveShadow = false;
   harbor.g.add(m);
@@ -291,7 +292,7 @@ function hbBuildTerminal(conc, steel, white, rust, bed) {
     // the A-frame that holds the boom up
     frame.push({ w: 3, h: 26, d: 3, x: -9, y: T.craneH + HB.quayY + 13, z: T.z });
     frame.push({ w: 3, h: 26, d: 3, x: 9, y: T.craneH + HB.quayY + 13, z: T.z });
-    const fm = new THREE.Mesh(carMergeBoxes(frame), metalMat(TUNE.palette.warning, 26));
+    const fm = new THREE.Mesh(mergeBoxes(frame), metalMat(TUNE.palette.warning, 26));
     fm.castShadow = true;
     cg.add(fm);
     for (const lz of legZ) hbSolid(cx, HB.quayY, lz, 11, T.craneLegW, T.craneH + HB.quayY, fm);
@@ -435,7 +436,7 @@ function hbBuildBridge(conc, steel, dark) {
     const pivot = new THREE.Group();
     pivot.position.set(tx + sign * 13, HB_DECK_Y, HB_ROAD_Z);
     const span = half - 13;
-    const leaf = new THREE.Mesh(carMergeBoxes([
+    const leaf = new THREE.Mesh(mergeBoxes([
       { w: span, h: 2.4, d: 18, x: sign * span / 2, y: 0, z: 0 },              // the deck
       { w: span, h: 3.4, d: 1.6, x: sign * span / 2, y: 2.6, z: -8.6 },        // its two trusses
       { w: span, h: 3.4, d: 1.6, x: sign * span / 2, y: 2.6, z: 8.6 },

@@ -364,7 +364,9 @@ function twWashRestore(run) {
   for (const [mat, color] of run.finishMats) mat.emissive.copy(color);
 }
 function twWashBusy() { return !!toyWorld.wash; }
-function twWashCan() { return !toyWorld.wash && toyWorld.washCooldown <= 0 && pickerCanOpen() && !menuOpen(); }
+// Parked, still, and nothing else running -- asked of the VEHICLE now, through
+// the same contract the picker uses, rather than inferred from a flight phase.
+function twWashCan() { return !toyWorld.wash && toyWorld.washCooldown <= 0 && vehParked() && !state.exploding && !menuOpen(); }
 // ... and the button also needs the wash to be somewhere near him. twWashCan
 // on its own is only "parked and still", which is true in a harbour lock.
 function twWashNear() {
@@ -443,9 +445,7 @@ function twUpdateWash(dt) {
     const w = toyWorld.washes.find(w => !w.waitExit && Math.hypot(state.x - w.x, state.z - w.z) < TW.wash.entryR);
     if (w) twWashStart(w);
   }
-  el.washBtn.classList.toggle('hidden', !(twWashCan() && twWashNear()));
   if (run) {
-    for (const id of ['throttleBtn', 'gearBtn', 'missileBtn', 'vehBtn', 'heliUpBtn', 'heliDownBtn', 'washBtn']) el[id].classList.add('hidden');
   }
 }
 
@@ -583,8 +583,7 @@ function updateToyWorld(dt) {
 }
 function twControlsLate() {
   el.magnetBtn.classList.toggle('hidden', !toyWorld.held || !twMagnetOn() || menuOpen());
-  if (twMagnetOn()) { el.bucketBtn.classList.add('hidden'); if (bucket.g) bucket.g.visible = false; }
-  if (toyWorld.wash) for (const id of ['throttleBtn', 'gearBtn', 'missileBtn', 'vehBtn', 'heliUpBtn', 'heliDownBtn', 'washBtn']) el[id].classList.add('hidden');
+  if (twMagnetOn() && bucket.g) bucket.g.visible = false;   // the BUTTON is excluded in btnBucketShows
 }
 // Input listeners are installed once. Replays only reset records in the pools.
 el.magnetBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (!menuOpen()) twRelease(); });
