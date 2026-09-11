@@ -488,6 +488,7 @@ function updateAmbientAudio(dt) {
   // and the tyres come UP to fill the room -- which is what being in a cabin
   // actually sounds like, and it keeps the total where it was.
   gain *= state.viewChase ? 1 : AU.bedInside;
+  if (typeof police !== "undefined" && police.active) gain *= TUNE.police.duck;
   const k = Math.min(1, AU.bedBlend * dt);
   bedNodes.level += (gain * AU.bed - bedNodes.level) * k;
   bedNodes.cut += (B.cut - bedNodes.cut) * k;

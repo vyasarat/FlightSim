@@ -38,21 +38,27 @@ module.exports = async function eventPoolChecks({ newPage, check }) {
       const pools = {};
       for (const n in L.EVENT_POOLS) {
         const p = L.EVENT_POOLS[n];
-        pools[n] = { policy: p.policy, keys: p.members.map(m => m.key) };
+        pools[n] = { policy: p.policy, kind: p.kind, keys: p.members.map(m => m.key) };
       }
+      const ev = L.evpAll("event");
       return {
-        pools,
-        all: L.evpAll().length,
+        pools, events: ev.length, all: L.evpAll().length,
+        eventPools: Object.keys(L.evpEventPools()),
         // the space pool's members are exactly the kinds it dispatches on
         spaceMatches: JSON.stringify(pools.space.keys) === JSON.stringify(L.EVENT_KINDS),
-        forcible: L.evpAll().filter(m => m.force || L.EVENT_POOLS[m.pool].policy === "standing").length,
+        forcible: ev.filter(m => m.force || L.EVENT_POOLS[m.pool].policy === "standing").length,
+        // and the third pool is a LIVERY pool: it borrows the "never twice"
+        // policy for the police colour scheme and none of the three rules,
+        // because paint is not a thing that happens to him
+        livery: Object.values(pools).filter(p => p.kind === "livery").map(p => p.policy),
       };
     });
-    check("events: one registry, two policies -- the space programme draws ONE per launch and never the same one twice, the harbour has every one of its eight standing and on its own clock, and every member of both can be forced through the same door",
+    check("events: one registry, two policies -- the space programme draws ONE per launch and never the same one twice, the harbour has every one of its eight standing and on its own clock, every event in both can be forced through the same door, and the police borrow the draw for their colour scheme without borrowing the rules",
       r.pools.space && r.pools.space.policy === "once" &&
       r.pools.sea && r.pools.sea.policy === "standing" &&
       r.spaceMatches && r.pools.sea.keys.length === 8 &&
-      r.all === 14 && r.forcible === 14, JSON.stringify(r));
+      r.eventPools.length === 2 && r.events === 14 && r.forcible === 14 &&
+      r.livery.length === 1 && r.livery[0] === "once", JSON.stringify(r));
     await page.close();
   }
 
@@ -118,7 +124,7 @@ module.exports = async function eventPoolChecks({ newPage, check }) {
       };
 
       // ---- the harbour: in the speedboat, in the channel, for each member
-      for (const m of L.EVENT_POOLS.sea.members) {
+      for (const m of L.evpEventPools().sea.members) {
         L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1);
         // Under way BEFORE the snapshot, and under way after: the picker button
         // hides itself whenever he is moving, so a before taken at rest would
@@ -131,7 +137,7 @@ module.exports = async function eventPoolChecks({ newPage, check }) {
       }
 
       // ---- the space programme: force each event and fly the flight
-      for (const m of L.EVENT_POOLS.space.members) {
+      for (const m of L.evpEventPools().space.members) {
         L.api.setVehicle("rocket"); L.api.placeOnRunway();
         st.dest = "moon";
         L.evpForce("space", m.key);

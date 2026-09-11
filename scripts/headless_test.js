@@ -5449,6 +5449,7 @@ function check(name, ok, extra) {
   await require("./road_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
   await require("./event_pool_checks")({ newPage, check, shots: SHOTS });
   await require("./engine_sound_checks")({ newPage, check, shots: SHOTS });
+  await require("./lights_police_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
 
   await browser.close();
   server.kill();
