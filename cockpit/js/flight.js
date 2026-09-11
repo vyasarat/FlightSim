@@ -431,10 +431,7 @@ function update(dt) {
       state.airVy = null;
       state.canRotate = false;
       state.approachLatch = false;
-      if (state.vp.rocket) rocketAfterReassemble();
-      if (state.vp.car) carReassemble();      // back on the road, pointing the right way
-      if (state.vp.bigBoat) yachtReassemble();
-      else if (state.vp.boat) boatReassemble();    // back on the water, facing out
+      vehReassemble();        // the contract's slot: back on the road, on the water, on the pad
       whoosh();
       boing();
       state.popTimer = 0.45;
@@ -448,18 +445,16 @@ function update(dt) {
     targetPitch = state.ctrlPitch * state.vp.pitchLimitDeg;
   }
 
+  // Whatever he is in drives itself, out of the one table in js/vehicles.js.
+  // This used to be a chain of `else if (state.vp.boat)` clauses whose ORDER was
+  // load-bearing -- a yacht is a boat, so it had to be asked about first -- and
+  // there were three more chains like it in two other files, in two other
+  // orders. `vehUpdate` returns false only for the fixed-wing aircraft, whose
+  // ground and air branches are the flight model itself and run below.
   if (toyWorld.wash) {
     twWashGuide(dt);
-  } else if (state.vp.rocket) {
-    updateRocket(dt);
-  } else if (state.vp.bigBoat) {
-    updateYacht(dt);        // a yacht is a boat too, so it has to be asked about first
-  } else if (state.vp.boat) {
-    updateBoat(dt);         // its own model: it owns the water, the beach and the crash
-  } else if (state.vp.car) {
-    updateCar(dt);          // its own model: it owns the road, the verge and the crash
-  } else if (state.vp.heli) {
-    updateHelicopter(dt);   // its own model: it owns the ground and the air alike
+  } else if (vehUpdate(dt)) {
+    // the vehicle owned the frame
   } else if (state.phase === "TAXI" || state.phase === "ROLL") {
     groundPhase(dt);
     setEngine(state.speed / state.vp.cruiseSpeed);

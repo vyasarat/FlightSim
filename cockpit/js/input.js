@@ -413,10 +413,14 @@ el.camBtn.addEventListener("pointerdown", (e) => {
   takePhoto();
 });
 
+// "Parked somewhere it is safe to leave" is now the VEHICLE's question, answered
+// by its own entry in the contract, rather than this function guessing from a
+// phase five vehicles only ever set as a way of saying "not flying". That guess
+// is how the car wash came to offer itself to a boat sitting in the harbour
+// lock: a stationary boat satisfies `phase === "TAXI" && speed === 0` exactly.
 function pickerCanOpen() {
-  return state.phase === "TAXI" && state.speed === 0 && !state.exploding &&
-    !(typeof twWashBusy === "function" && twWashBusy()) &&
-    !(state.vp.rocket && (rk.onBody || astroActive() || roverActive() || marsDroneActive()));
+  return vehParked() && !state.exploding &&
+    !(typeof twWashBusy === "function" && twWashBusy());
 }
 function openPicker() {
   if (!pickerCanOpen()) return;

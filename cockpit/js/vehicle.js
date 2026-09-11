@@ -315,10 +315,10 @@ function shakeNow() {
 }
 
 function applyCamera(dt) {
-  if (state.vp.car) { carCamera(dt); return; }
-  if (state.vp.bigBoat) { yachtCamera(dt); return; }
-  if (state.vp.boat) { boatCamera(dt); return; }
-  if (state.vp.rocket) { if (marsDroneActive()) marsDroneCamera(dt); else if (roverActive()) roverCamera(dt); else if (astroActive()) astroCamera(dt); else rocketCamera(dt); return; }
+  // The vehicle's own camera, from the contract (js/vehicles.js). It answers no
+  // for the aircraft -- the plane's two views are the shared ones below, and the
+  // helicopter's chase branch lives inside them.
+  if (vehCamera(dt)) return;
   camera.up.set(0, 1, 0);
   if (heliActive() && state.viewChase) {
     const rope = toyWorld.magnet.visible ? toyWorld.cableLength || TW.playground.cable : 0;

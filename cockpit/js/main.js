@@ -170,6 +170,7 @@ window.__lp = {
   highway, HW, hwyNearest, hwySampleAt, hwyBuild, updateHighway, hwyTrafficNear, hwyKnockTraffic,
   car, CAR, carActive, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
   carHornCan, carHornPress, carHornRelease, carUpdateHorn,
+  vehKind, vehSlot, vehUpdate, vehCamera, vehParked, vehReassemble, VEHICLE_CONTRACT,
   spdKey, spdStepsFor, spdIndex, spdMul, spdNudge, spdCycle, spdUsesCycle, spdReset, spdUpdateButtons,
   openPicker, openPickerAnywhere, pickerCanOpen, menuOpen,
   harbor, HB, hbBuild, updateHarbor, hbRoadY, hbHorn, hbBridgeHonked,

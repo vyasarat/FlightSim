@@ -364,7 +364,9 @@ function twWashRestore(run) {
   for (const [mat, color] of run.finishMats) mat.emissive.copy(color);
 }
 function twWashBusy() { return !!toyWorld.wash; }
-function twWashCan() { return !toyWorld.wash && toyWorld.washCooldown <= 0 && pickerCanOpen() && !menuOpen(); }
+// Parked, still, and nothing else running -- asked of the VEHICLE now, through
+// the same contract the picker uses, rather than inferred from a flight phase.
+function twWashCan() { return !toyWorld.wash && toyWorld.washCooldown <= 0 && vehParked() && !state.exploding && !menuOpen(); }
 // ... and the button also needs the wash to be somewhere near him. twWashCan
 // on its own is only "parked and still", which is true in a harbour lock.
 function twWashNear() {
