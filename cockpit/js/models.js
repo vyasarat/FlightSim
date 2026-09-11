@@ -402,12 +402,30 @@ function modelFindBurner(g) {
   g.userData.burner = b;
 }
 
-function modelFindWheels(g) {
+function modelFindWheels(g, key) {
   const all = [];
   g.traverse((o) => { if (o.name && o.name.indexOf("wheel_") === 0) all.push(o); });
   if (!all.length) return;
   g.userData.wheels = all;
   g.userData.wheelsFront = all.filter((o) => o.name.charAt(6) === "F");   // "wheel_FL"
+
+  // AN IMPORTED BODY'S GEAR DOES NOT RETRACT UNLESS IT IS ASKED TO. The built
+  // bodies hand updateVehicleModel a `gear` group and it folds that away with
+  // state.gearAnim; an imported one never had one, so the fighter's wheels have
+  // always stayed down. That is its existing behaviour and it stays -- only a
+  // model whose TUNE entry asks (`gearFromWheels`) gets the wheels gathered into
+  // a group and handed over, which is the airliners and nothing else.
+  const cfg = MODELS[key];
+  if (!cfg || !cfg.gearFromWheels) return;
+  const gearGroup = new THREE.Group();
+  gearGroup.name = "gear_imported";
+  g.add(gearGroup);
+  for (const w of all) {
+    // keep its world placement while re-parenting: the wheel groups sit at the
+    // model's own origin, so this is a straight hand-over, not a transform.
+    gearGroup.attach(w);
+  }
+  g.userData.gear = gearGroup;
 }
 
 function modelsPreload() {
@@ -451,7 +469,7 @@ function modelInstance(key) {
   g.userData.trisBefore = proto.userData.trisBefore;
   g.userData.trisAfter = proto.userData.trisAfter;
   g.userData.nozzleR = proto.userData.nozzleR;
-  modelFindWheels(g);
+  modelFindWheels(g, key);
   modelFindBurner(g);
   return g;
 }

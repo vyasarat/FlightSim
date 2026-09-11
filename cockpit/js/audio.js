@@ -5,7 +5,7 @@
 // by where he is; currentBedName() decides. Big events are stacks, not samples
 // (bigBoom, catapultSound, fireHiss). sfxPlace(x,y,z) gives a pan and a falloff
 // off the camera. The vehicle keys are `helicopter` and
-// `airlinerDelta`/`Jetblue`/`Emirates` -- there is no "heli" or "airliner".
+// `airlinerDelta`/`airlinerEmirates` -- there is no "heli" or "airliner".
 let audioCtx = null;
 let masterGain = null;
 let engineNodes = null;
@@ -478,7 +478,7 @@ function currentBedName() {
   if (state.spaceF > 0.55) return "space";
   if (state.vp && state.vp.car) return "car";
   if (state.vp && state.vp.heli) return "heli";
-  // the keys are airlinerDelta / airlinerJetblue / airlinerEmirates, never "airliner"
+  // the keys are airlinerDelta / airlinerEmirates, never "airliner"
   if (state.vehicleKey && state.vehicleKey.indexOf("airliner") === 0) return "airliner";
   if (state.phase === "TAXI" || state.phase === "ROLL") return "ground";
   return "wind";

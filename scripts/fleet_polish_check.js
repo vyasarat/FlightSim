@@ -5,7 +5,7 @@ const {once}=require('events'),fs=require('fs'),path=require('path');
  const tag=process.argv[2]||'after',out=path.resolve(__dirname,'../docs/helicopter-polish',tag,'fleet');fs.mkdirSync(out,{recursive:true});
  const server=serve(process.env.LP_POLISH_ROOT||path.resolve(__dirname,'..'),0);await once(server,'listening');
  const browser=await chromium.launch({executablePath:process.env.CHROME_HEADLESS_SHELL,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});const samples=[];
- try{for(const [width,height] of [[1024,768],[390,844]])for(const key of ['prop','fighter','airlinerDelta','airlinerJetblue','airlinerEmirates','rocket','starship','rover','drone']){
+ try{for(const [width,height] of [[1024,768],[390,844]])for(const key of ['prop','fighter','airlinerDelta','airlinerEmirates','rocket','starship','rover','drone']){
  const page=await browser.newPage({viewport:{width,height},deviceScaleFactor:1});
  await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;localStorage.clear();});
  await page.goto(`http://127.0.0.1:${server.address().port}/cockpit/`);await page.waitForFunction(()=>window.__lp);

@@ -77,7 +77,7 @@ mechanism (the picker reads the flag at boot) is still there for anything that n
 | Vehicle | Cruise | Turn rate | Pitch limit | Notes |
 |---|---|---|---|---|
 | Prop plane | 60 | 18°/s | ±30° | Baseline feel; has gear |
-| Airliner ×3 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / JetBlue / Emirates (colour only); have gear |
+| Airliner ×2 | 54 | 9°/s | ±25° | Big, heavy, slow-turning; liveries inspired-by Delta / Emirates (colour only); have gear |
 | Fighter jet | 95 | 22°/s | ±38° | Fastest, tightest; has gear |
 | Helicopter | 90 | 85°/s | n/a | **Point-to-go** (`js/heli.js`, `TUNE.heli`): touch a place and it flies there. The firefighter -- it carries the water bucket |
 | Rocket | see `rocketTune` | 38°/s tilt | vertical launch | Its own flight model (The rocket below); no gear, no missiles. The `vehicles.rocket` entry only feeds the picker and dials |
