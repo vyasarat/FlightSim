@@ -241,7 +241,28 @@ const TUNE = {
     pierEvery: 3, pierW: 5,
     railH: 1.2, railT: 0.5,
     dashEvery: 4,                // centreline dashes, every N samples
-    tunnelR: 26, tunnelSeg: 2,
+    // TWIN BORES, one per carriageway. A single tube wide enough for a divided
+    // highway is 52 m across and its crown stands 37 m over the road -- taller
+    // than the mountain it is supposed to be inside, so it came out of the
+    // hillside like a pipe. Two 12 m bores need 17 m of cover and fit under
+    // nearly the whole run.
+    // 10.5 clears a 17.5 m carriageway with the pair standing 1.25 m apart, so
+    // the headwall has a real centre pier between the two arches.
+    tunnelR: 10.5, tunnelSeg: 2,
+    // The bore is cut out of the heightfield and a lid laid back over the cut.
+    // `boreCut` clears the tube, `boreBlend` is how far the cut feathers back
+    // into the hillside, and the lid overhangs the feather by `boreLidOver` so
+    // there is no seam where its triangles meet the terrain chunk's.
+    // The cut is FULL DEPTH to `boreCut` and only then feathers. The lining is
+    // opaque, so anything outside it is invisible from in there -- but a terrain
+    // triangle can only be outside it if BOTH its ends are, and the terrain mesh
+    // has a 13 m vertex spacing. So the full-depth part has to reach a good cell
+    // past the outside of the bores (23.75 m) or a single triangle spans the
+    // lining and slices through it, which is what put wedges of hillside inside
+    // the tunnel.
+    boreCut: 38, boreBlend: 58, boreLidOver: 16, boreLidLift: 0.3, boreLidStep: 9,
+    portalW: 9, portalT: 5, portalRise: 11, portalLamps: 4,
+    boreLampEvery: 3,            // crown lamps, every N centreline samples
     // Exits: s is 0..1 along the road. `icon` picks the board silhouette.
     exits: [
       { s: 0.10, side: 1, icon: "plane", to: "nyAirport" },
@@ -251,6 +272,12 @@ const TUNE = {
       { s: 0.72, side: 1, icon: "wave", to: "desert", charge: true },
       { s: 0.90, side: -1, icon: "plane", to: "caAirport" },
     ],
+    // Nothing streamed -- tree, town building or landmark -- stands within
+    // `clearHalf` of any carriageway, spur or ramp. The road half-width is about
+    // 24 m, so this leaves a verge you can see across rather than a hedge.
+    clearHalf: 72,
+    clearCell: 128,              // the corridor index's bucket size
+    clearMaxExtra: 200,          // the widest extra clearance any caller may ask for
     spurLen: 320, spurW: 16, spurCapture: 3.2,   // spur capture radius, in road widths
     spurDescend: 0.55,           // fraction of the spur spent coming down from the deck to
                                  // the ground. Without it the blend is smoothstep(0, undefined)

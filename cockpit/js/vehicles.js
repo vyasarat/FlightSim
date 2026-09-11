@@ -61,6 +61,21 @@ function vehKind() {
 //   crashedAt()     where the bang happened, for vehicles that remember -- the
 //                   thing the car was missing when it came back at the far end
 //                   of the last aeroplane's flight
+//   solid()         is this vehicle solid against walls right now? The shared
+//                   resolver used to answer this with `phase === "AIRBORNE"`,
+//                   which is the phase lie again: the car sets TAXI every frame
+//                   as a way of saying "not flying", so its call to
+//                   resolveSolidWalls returned on the first line and had never
+//                   once run. A building the car drove through was not a
+//                   placement bug, it was that.
+//   wallHit(push)   what this vehicle does when it does hit one. Return true to
+//                   say it has been handled; the shared explode-and-respawn
+//                   writes `safePos`, which only the AEROPLANE reads, so a car
+//                   doing its own is the difference between coming back on the
+//                   road and coming back wherever the last aeroplane crashed.
+//
+// The boat and the yacht are not in either slot: they run their own sweep over
+// `harbor.solids` in boat.js, with their own speed threshold, and always have.
 // ---------------------------------------------------------------------------
 const VEHICLE_CONTRACT = {
   plane: {
@@ -80,6 +95,8 @@ const VEHICLE_CONTRACT = {
     reassemble: null,
   },
   car: {
+    solid: () => true,
+    wallHit: (push) => carWallHit(push),
     update: (dt) => updateCar(dt),
     camera: (dt) => carCamera(dt),
     parked: () => state.speed === 0,
@@ -158,4 +175,22 @@ function vehParked() {
 function vehReassemble() {
   const fn = vehSlot("reassemble");
   if (fn) fn();
+}
+
+// Is he solid against walls right now? A surface vehicle always is -- it has no
+// airborne phase to gate on, and gating on one is exactly how the car ended up
+// with a solid test that never ran. Everything that flies is solid once it has
+// left the ground, and not while it is taxiing through its own airport.
+function vehSolid() {
+  if (state.exploding) return false;
+  const fn = vehSlot("solid");
+  if (fn) return !!fn();
+  return state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY";
+}
+
+// How this vehicle hits a wall. True means it handled it and the shared
+// explode-to-safePos must not run.
+function vehWallHit(push) {
+  const fn = vehSlot("wallHit");
+  return fn ? !!fn(push) : false;
 }

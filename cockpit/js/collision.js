@@ -70,7 +70,12 @@ function updateShatter(dt) {
 // that is ground to stand on, not a wall -- the capsule's reference point sits
 // below its base, so without this it "hit" the launch mount 3 m above it.
 function resolveSolidWalls(baseY) {
-  if (state.exploding || (state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY")) return;
+  // Ask the VEHICLE, not the flight phase. This line used to read
+  // `state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY"`, and the car
+  // sets `phase = "TAXI"` at the top of every one of its frames as a way of
+  // saying "not flying" -- so the car's call below returned here, every frame,
+  // for the life of the coast road. Nothing it drove at was ever solid.
+  if (!vehSolid()) return;
   flags.wallChecks = (flags.wallChecks || 0) + 1;
   const PRAD = 3;
   let hit = null;
@@ -98,6 +103,9 @@ function resolveSolidWalls(baseY) {
   if (!hit) return;
   flags.wallHits = (flags.wallHits || 0) + 1;
   const { best } = hit;
+  // A vehicle that knows how it bangs handles its own: the shared path below
+  // ends at `safePos`, which only the aeroplane ever reads back.
+  if (vehWallHit(best)) return;
   shatterAround(state.x, state.y, state.z);
   triggerExplosion(state.x, state.y, state.z, clamp(state.speed / 80, 0, 1));
   state.exploding = true;

@@ -445,7 +445,7 @@ function addSpot(x, y, z) {
   addSpot(0, W + 12, half - 1420 * RS);                             // low over the harbour water
   addSpot(200, g(200, half - 0.8 * TUNE.routeLength) + 45, half - 0.8 * TUNE.routeLength);   // desert
   addSpot(-500, g(-500, half * 0.35) + 40, half * 0.35);            // farmland
-  addSpot(340, g(340, 500) + 30, 500);                              // over the railway (TRAIN_X, declared later)
+  addSpot(460, g(460, 400) + 30, 400);                              // over the railway (TRAIN_X, declared later)
   addSpot(600, g(600, -half * 0.3) + 60, -half * 0.3);              // out over the plains
 })();
 function lightSpot(s, quiet) {
@@ -1169,8 +1169,18 @@ for (let i = 0; i < TRAIN_CARS; i++) {
 }
 trainInst.instanceColor.needsUpdate = true;
 scene.add(trainInst);
-const TRAIN_X = 340;
-const TRAIN_ZMIN = -600 * ROUTE_SCALE(), TRAIN_ZMAX = 1600 * ROUTE_SCALE();
+// The freight line USED to run along x = 340, which is where the highway runs
+// too: the track was inside the carriageway for fourteen hundred metres of its
+// two-kilometre span. Nothing noticed while the car could drive through solid
+// objects. The moment it could not (v109) a hands-off crossing hit the 3:15
+// freight five times.
+//
+// This alignment was chosen by measurement, not by eye: a hundred metres clear
+// of the main line at its nearest, a hundred and ninety clear of every exit
+// spur, and -- unlike the old one, which forded a lake -- dry the whole way.
+// `road_checks.js` asserts all three, so it cannot quietly drift back.
+const TRAIN_X = 460;
+const TRAIN_ZMIN = -1000 * ROUTE_SCALE(), TRAIN_ZMAX = 1200 * ROUTE_SCALE();
 let trainHead = TRAIN_ZMAX;
 addGate(TRAIN_X, 0, trainHead, 30, 30, g => {
   g.z = trainHead - 26;   // just ahead of the locomotive, clear of its collider

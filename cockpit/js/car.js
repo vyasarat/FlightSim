@@ -427,6 +427,25 @@ function carCrash() {
   flags.carCrashes = (flags.carCrashes || 0) + 1;
 }
 
+// A wall, at speed, is a bang. At a crawl it is a shove -- the same two outcomes
+// as touching traffic, at the same threshold, so nudging a quay at kerb speed
+// never costs him the drive. Called by resolveSolidWalls through the contract;
+// returning true keeps it off the shared explode-to-safePos path, which only an
+// aeroplane can come back from.
+function carWallHit(push) {
+  if (state.speed > CAR.crashSpeed) {
+    shatterAround(state.x, state.y, state.z);
+    carCrash();
+    return true;
+  }
+  state.x += (push.nx || 0) * 2.5;
+  state.z += (push.nz || 0) * 2.5;
+  state.speed *= 0.35;
+  car.boost = 0;
+  noiseBurst(0.12, 220, 0.2, 0);
+  return true;
+}
+
 // Put him back on the road, pointing the way he was going. Nothing is lost.
 function carReassemble() {
   // From where it HIT, not from wherever the shared safePos left him.
@@ -628,7 +647,14 @@ function carCamera(dt) {
   camera.up.set(0, 1, 0);
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   if (state.viewChase) {
-    camDesired.set(state.x - fx * CAR.camChase[0], state.y + CAR.camChase[1], state.z - fz * CAR.camChase[0]);
+    // In the tunnel the chase camera DUCKS. It normally rides higher than the
+    // crown of a bore, and from up there it is outside the lining looking down
+    // through the roof at the car -- the tunnel disappears at exactly the moment
+    // he is inside it.
+    const duck = typeof hwyBoreCeiling === "function" ? hwyBoreCeiling(state.x, state.z) : null;
+    const camY = duck === null ? state.y + CAR.camChase[1]
+                               : Math.min(state.y + CAR.camChase[1], duck);
+    camDesired.set(state.x - fx * CAR.camChase[0], camY, state.z - fz * CAR.camChase[0]);
     camera.position.lerp(camDesired, Math.min(1, CAR.camLag * dt));
     lookV.set(state.x + fx * 18, state.y + 1.6, state.z + fz * 18);
     camera.lookAt(lookV);

@@ -555,6 +555,38 @@ const terrainMat = new THREE.MeshPhongMaterial({
   specular: 0x000000,
 });
 
+// The ground's colour at a point, given the height of the face it belongs to.
+// Lifted out of buildChunk so the tunnel LID can be coloured by exactly the same
+// rule -- a lid painted by a second, similar-looking set of numbers would read
+// as a patch sewn onto the mountain the moment the snow line moved.
+const TER_HSPAN = TUNE.colorHighHeight - TUNE.colorLowHeight;
+function terrainColorAt(hy, wx, wz, out) {
+  const shoreLo = TUNE.waterLevel - 1.2, shoreHi = TUNE.waterLevel + 1.4;
+  if (hy < shoreHi) {
+    out.copy(cSand).multiplyScalar(hy < shoreLo ? 0.78 : lerp(0.85, 1.02, smoothstep(shoreLo, shoreHi, hy)));
+  } else {
+    const t = clamp((hy - TUNE.colorLowHeight) / TER_HSPAN, 0, 1);
+    if (t < 0.5) out.copy(cLow).lerp(cMid, t * 2);
+    else out.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
+  }
+  if (mountainGauss(wz) > 0.3 && hy > 46) out.lerp(cSnow, smoothstep(46, 66, hy));
+  const ct = canyonT(wz);
+  if (ct > 0.1) out.lerp(cRock, Math.min(0.9, ct * 1.6));
+  const fm = farmMask(wz);
+  if (fm > 0 && hy > TUNE.waterLevel + 2) {
+    out.lerp(valueNoise(wx / 260 + 55, wz / 200) > 0.5 ? cFarmA : cFarmB, fm * 0.75);
+  }
+  const pm = plainsMask(wz);
+  if (pm > 0 && hy > TUNE.waterLevel + 2) out.lerp(cPlains, pm * 0.55);
+  const dm = desertMask(wz);
+  if (dm > 0) out.lerp(cDesert, dm * 0.8);
+  // foam: a bright line exactly where the sea meets the land, which is what
+  // makes a coast read as a coast rather than as two colours meeting
+  const foam = 1 - Math.min(1, Math.abs(hy - TUNE.waterLevel) / TUNE.water.foamBand);
+  if (foam > 0) out.lerp(cFoam, foam * foam * 0.75);
+  return out;
+}
+
 function buildChunk(cx, cz) {
   const cs = TUNE.chunkSize;
   const geo = new THREE.PlaneGeometry(cs, cs, TUNE.chunkSegments, TUNE.chunkSegments);
@@ -569,37 +601,11 @@ function buildChunk(cx, cz) {
   geo.dispose();
   const fp = flat.attributes.position;
   const colors = new Float32Array(fp.count * 3);
-  const hSpan = TUNE.colorHighHeight - TUNE.colorLowHeight;
-  const shoreLo = TUNE.waterLevel - 1.2;
-  const shoreHi = TUNE.waterLevel + 1.4;
   for (let f = 0; f < fp.count; f += 3) {
     const hy = (fp.getY(f) + fp.getY(f + 1) + fp.getY(f + 2)) / 3;
-    if (hy < shoreHi) {
-      tmpColor.copy(cSand).multiplyScalar(hy < shoreLo ? 0.78 : lerp(0.85, 1.02, smoothstep(shoreLo, shoreHi, hy)));
-    } else {
-      const t = clamp((hy - TUNE.colorLowHeight) / hSpan, 0, 1);
-      if (t < 0.5) tmpColor.copy(cLow).lerp(cMid, t * 2);
-      else tmpColor.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
-    }
     const wx = ox + fp.getX(f), wz = oz + fp.getZ(f);
+    terrainColorAt(hy, wx, wz, tmpColor);
     const j = 1 + (hash2(Math.round(fp.getX(f)), Math.round(fp.getZ(f))) - 0.5) * 2 * TUNE.colorJitter;
-    if (mountainGauss(wz) > 0.3 && hy > 46) {
-      tmpColor.lerp(cSnow, smoothstep(46, 66, hy));
-    }
-    const ct = canyonT(wz);
-    if (ct > 0.1) tmpColor.lerp(cRock, Math.min(0.9, ct * 1.6));
-    const fm = farmMask(wz);
-    if (fm > 0 && hy > TUNE.waterLevel + 2) {
-      tmpColor.lerp(valueNoise(wx / 260 + 55, wz / 200) > 0.5 ? cFarmA : cFarmB, fm * 0.75);
-    }
-    const pm = plainsMask(wz);
-    if (pm > 0 && hy > TUNE.waterLevel + 2) tmpColor.lerp(cPlains, pm * 0.55);
-    const dm = desertMask(wz);
-    if (dm > 0) tmpColor.lerp(cDesert, dm * 0.8);
-    // foam: a bright line exactly where the sea meets the land, which is what
-    // makes a coast read as a coast rather than as two colours meeting
-    const foam = 1 - Math.min(1, Math.abs(hy - TUNE.waterLevel) / TUNE.water.foamBand);
-    if (foam > 0) tmpColor.lerp(cFoam, foam * foam * 0.75);
     for (let v = 0; v < 3; v++) {
       colors[(f + v) * 3] = tmpColor.r * j;
       colors[(f + v) * 3 + 1] = tmpColor.g * j;

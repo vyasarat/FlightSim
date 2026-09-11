@@ -196,16 +196,36 @@ function onAnyRunwayRect(x, z) {
   return false;
 }
 
+// The ground, as everything that stands on it sees it: the shaped world, the two
+// airports flattened into it, and the mountain taken out of the way of the road
+// tunnel.
+//
+// THE BORE IS PART OF THE GROUND, not a structure laid on top of it. A
+// heightfield cannot have a hole punched through it, so the mountain is cut down
+// to the road along the bore and a lid is laid back over the cut (see
+// `hwyBuildBore`) -- which is the same mountain from outside and a tunnel from
+// in. Doing it here rather than in the terrain mesh means the road's own
+// clearance test, the scenery placement and every spawn all agree about where
+// the ground is, instead of only the triangles agreeing.
+//
+// `hwyBoreCut` lives in highway.js, which loads long after this file, and stays
+// silent until the surveyor has classified the route -- so the grading pass that
+// DECIDES where the tunnel goes still sees the uncut mountain, which is what
+// makes a tunnel possible at all.
 function terrainEff(x, z) {
+  let h;
   const m = flattenMask(x, z);
-  if (m <= 0.001) return shapedTerrain(x, z);
-  let best = AIRPORTS[0];
-  let bd = Math.abs(z - AIRPORTS[0].cz);
-  for (let i = 1; i < AIRPORTS.length; i++) {
-    const d = Math.abs(z - AIRPORTS[i].cz);
-    if (d < bd) { bd = d; best = AIRPORTS[i]; }
+  if (m <= 0.001) h = shapedTerrain(x, z);
+  else {
+    let best = AIRPORTS[0];
+    let bd = Math.abs(z - AIRPORTS[0].cz);
+    for (let i = 1; i < AIRPORTS.length; i++) {
+      const d = Math.abs(z - AIRPORTS[i].cz);
+      if (d < bd) { bd = d; best = AIRPORTS[i]; }
+    }
+    h = shapedTerrain(x, z) * (1 - m) + best.elev * m;
   }
-  return shapedTerrain(x, z) * (1 - m) + best.elev * m;
+  return typeof hwyBoreCut === "function" ? hwyBoreCut(x, z, h) : h;
 }
 
 // ---------------------------------------------------------------------------

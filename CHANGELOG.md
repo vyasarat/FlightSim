@@ -10,6 +10,65 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v109 — the road bugs: nothing stands in it, everything in it is solid, and the tunnel exists
+
+Three bugs, and the second one is the reason for the other two.
+
+**Nothing the car drove at was solid, and never had been.** `resolveSolidWalls`
+opened with `if (state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY")
+return;` — and `updateCar` writes `state.phase = "TAXI"` at the top of every one
+of its frames as a way of saying "not flying". So the car's call to it returned
+on the first line, every frame, for the whole life of the coast road. That is
+why buildings could be driven through, and it is why the harness check that
+asserted "a hands-off crossing registers zero wall hits" had been passing: zero
+was the only number that function could produce. It asks `vehSolid()` now — the
+vehicle's own question, on the contract, like `vehParked()` before it — and a
+wall at speed is a bang and a free reassemble, a wall at a crawl a shove.
+
+**Buildings stood in the carriageway** because nothing ever kept them out.
+`inCorridor` in `scenery.js`, the one test that holds streamed scenery away from
+places vehicles go, knew about the two airports and nothing else. The road now
+claims its own ground as it is built — the carriageway, every exit spur, every
+interchange ramp and the harbour coast road — and `TUNE.highway.clearHalf` keeps
+everything streamed off it. A crossing from New York to California passes about
+thirteen hundred streamed solids and not one of them is in the road.
+
+**The mountain tunnel did not exist.** The surveyor classified 800 m of route as
+a bore and the builder laid a concrete lining along it, and nothing ever took the
+mountain out of the way — so the road dived into solid rock with a buried pipe in
+it. A heightfield cannot have a hole punched through it, so the mountain is now
+cut down to the road along the bore (`hwyBoreCut`, which `terrainEff` calls, so
+the ground, the scenery placement and the spawns all agree) and the cut is lidded
+with the material that was removed, sampled from the uncut hillside and coloured
+by the terrain's own rule. From outside it is the same mountain. It is twin
+bores, one per carriageway: a single tube wide enough for a divided highway is
+52 m across with its crown 37 m over the road — taller than the hill it is
+supposed to be inside, which is why the first cut of it came out of the hillside
+like a dropped pipe. Two 12 m bores fit. Each end has a headwall with two arches,
+a centre pier and four lamps, and the lining is lit, with a receding line of
+crown lamps that tells him there is a way through long before the far end is
+visible. The chase camera ducks under the roof on the way in.
+
+**And the freight train ran down the motorway.** Not a crossing — the line was
+laid along x = 340 and so is the highway, and the track was inside the
+carriageway for fourteen hundred metres of its two-kilometre span. Nothing had
+ever noticed, because nothing could hit it. The day the car became solid a
+hands-off crossing hit the 3:15 freight five times. The line has moved, by
+measurement rather than by eye: a hundred metres clear of the carriageway at its
+nearest, a hundred and ninety clear of every exit spur, and — unlike the old
+alignment, which forded a lake — dry the whole way.
+
+**Also**: the drawbridge towers were one solid box from the sea bed to the top of
+the counterweight house, sealing the opening the road drives through, so the only
+way across by land became a wall the moment the car was solid. They are a pier
+below the deck and a pair of legs either side of the carriageway above it now,
+which is what they look like. The boat still cannot pass.
+
+Frame time in the bore is *lower* than on the open road beside it (356 draw calls
+against 426). 583 checks, twelve of them new.
+
+---
+
 ## v108 — the layout check that had never seen a tall screen
 
 **The slot check ran three viewports, all of them landscape.** That is the
