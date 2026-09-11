@@ -31,10 +31,12 @@ it is **parked** or **solid**, and where it comes back from a bang. `vehKind()` 
 the MODE, not the picker card (the rocket is also rover, astronaut and drone), in the one
 safe order — modes first, `bigBoat` before `boat`. **Add a vehicle by adding a row.**
 
-Ask the vehicle, not the flight model: `vehParked()` and `vehSolid()` are the honest
-forms of the `phase === "TAXI"` guess. `state.js`'s header says what each shared field
-means per vehicle (`state.y` is a waterline for a boat, meaningless for the rover);
-`state_semantics_checks.js` enforces what it can.
+**Ask the vehicle, and ask the phase LAST.** Every surface vehicle writes
+`phase = "TAXI"` each frame to mean "not flying", and reading that instead has now
+cost three bugs: a car wash offering itself to a boat in the lock, a car whose solid
+test never once ran, and a harbour that played apron rumble. `vehParked()` and
+`vehSolid()` are the honest forms. `state.js`'s header says what each shared field
+means per vehicle; `state_semantics_checks.js` enforces what it can.
 
 `scripts/vehicle_baseline.json` pins 60 numbers across 10 vehicles (spawn, ground height,
 controls, both cameras, buttons, crash-return); regenerate **only** for a deliberate,
@@ -45,15 +47,16 @@ stated behaviour change.
 - Classic scripts in **one global scope**, `index.html` order. A top-level `const`/`let`
   used *at load time* must come from an earlier file (inside a function is fine), and a
   later `function foo` **silently replaces** an earlier one. Prefix anything new.
-- **Every button is declared once in `buttons.js`** — its slot and its `when()` — and one
-  pass a frame computes all of them from scratch, so nothing another vehicle did survives.
-  Two in one slot means the later in the DOM eats the tap: `btnSlotClashes()` says so from
-  the table, `btnObstructions()` catches a HUD arrow lying across one.
+- **Every button is declared once in `buttons.js`** — slot and `when()` — and one pass a
+  frame computes them all from scratch, so nothing another vehicle did survives. Two in a
+  slot means the later in the DOM eats the tap: `btnSlotClashes()` says so from the table,
+  `btnObstructions()` catches a HUD arrow across one.
 - Set-pieces run one loop: giant obvious thing → one aim or pulsing control → visible
-  wind-up → huge payoff → free reset. **No unannounced bangs.** One hero effect and at
-  most one new button each, machines only.
-- Space events are drawn once per pad spawn, armed by a real liftoff. **Sea events obey
-  the same three rules** — never required, never blocking, never takes anything away —
+  wind-up → huge payoff → free reset. **No unannounced bangs.** One hero effect and at most
+  one new button each, machines only.
+- **Events are pools with a policy** (`eventpool.js`): space draws one per launch and
+  never twice running, the harbour keeps all eight standing on their own clocks. Three
+  rules, machine-checked: never required, never blocking, never takes anything away —
   and rivals are rubber-banded, so there is no winner to be.
 - **Water is `terrainEff(x,z) < seaLevelAt(x,z)`, and nothing else.** One definition
   that takes a position: `seaLevelAt` (`terrain.js`) returns `TUNE.waterLevel` except
@@ -73,21 +76,21 @@ stated behaviour change.
   was removed, coloured by `terrainColorAt`. It stays silent until the surveyor has
   classified the route — cut first and nothing is ever low enough to be a tunnel. Twin
   bores: one tube wide enough for a divided road stands taller than the hill.
-- **A contextual button needs a RADIUS**, not just "parked and still" — that is how the
-  car wash offered itself to a boat two kilometres away, in the lock.
-- **A boat can never be stuck.** A beached hull widens its water search *and* times out
-  — the search alone deadlocks against a quay; in the lock, idling re-opens it. The
-  harbour is the third place he can lose a session in, so its event pool grows the way
-  the space pool did. The fishing boat is rejected — don't bring it back.
+- **A contextual button needs a RADIUS**, not just "parked and still".
+- **A boat can never be stuck.** A beached hull widens its water search *and* times out —
+  the search alone deadlocks against a quay; in the lock, idling re-opens it. The harbour
+  is the third place he can lose a session in, so its event pool grows the way the space
+  pool did. The fishing boat is rejected.
 - **The speed steps are one control he learns once** (`speed.js`): same pair, same
   top-right slot, every vehicle but the rocket — the helicopter has four slots a side
   and three spent, so it gets one cycling stepper. `TUNE.<vehicle>.speedSteps` scales
   what the model AIMS for and its cap, never the `speed / cruise` ratios behind sound,
   wake and FOV.
-- **Wake stays out of the shot, and SIZE is what does it** — a puff grows to 2.2x. Test
-  whether its sphere crosses the sightline, not how high it climbs.
+- **Wake stays out of the shot, and SIZE is what does it**: test whether its sphere
+  crosses the sightline, not how high it climbs.
 - The rocket's envelope (`landMax*`, `land*R`) says what counts as a landing; everything
-  else crashes, free. Assists may stand him up, never rescue a dive.
+  else crashes, free. Assists may stand him up, never rescue a dive. **Engines are two
+  loops crossfaded** (`engines.js`) and sit UNDER the events — the rocket keeps its bass.
 - **No post-processing stack, ever.** Glows are additive billboards on one shared
   texture; on an iPad a full-screen bloom costs more than all of them. No weather button
   either — the sky moods stay in code (`state.sky`).
@@ -100,7 +103,7 @@ stated behaviour change.
 | `tune.js` | every gameplay number |
 | `terrain.js` `scene.js` `sky.js` | world and sea, lighting and shadows, sun/haze/stars, `mergeBoxes` |
 | `flight.js` `heli.js` | the plane model **and the frame loop** / the helicopter, ground *and* air |
-| `vehicles.js` `buttons.js` `speed.js` | the vehicle contract / every button's slot and `when()` / speed steps |
+| `vehicles.js` `buttons.js` `speed.js` `eventpool.js` `engines.js` | the vehicle contract / every button's slot and `when()` / speed steps / event pools and policies / the two-loop engine voice |
 | `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship, buggy, per-launch event |
 | `setpieces.js` `marsbase.js` `toyworld.js` `workshop.js` `toyfinish.js` | demolition, tower-catch, fire rig, carrier, Mars and its toys / the airport magnet yards, ramp and toy-fleet finish |
 | `highway.js` `car.js` | the coast-to-coast road and its traffic / the SUV and lane-keep |
@@ -118,14 +121,13 @@ airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, 
 - **Behaviour over existence, and deltas not totals** — a check reading
   `flags.boatCrashes` outright stayed green for two releases while the boat sailed through
   the container ship, on a 1 an earlier check left behind. And check the states he is
-  really in: the slot check ran three viewports, all landscape, so it never saw the
-  portrait clash it existed to catch.
-- One page is reused and state carries: reset what you touch, or take a `newPage` — but
-  sparingly: the server is single-threaded and a third live page timed a run out.
+  really in: the slot check ran three viewports, all landscape, so it never saw the one
+  clash it existed to catch.
+- One page is reused and state carries: reset what you touch, or take a `newPage` —
+  sparingly; the server is single-threaded and a third live page timed a run out.
 - It stubs rAF (only the *last* queued callback fires) and runs 12 sim-seconds in a sixth
   of a real one, so **game code must never time off `performance.now()`**.
-- **Never A/B perf in blocks** — alternate samples, and report more than one run: a
-  median can read +5% and reverse on the next.
+- **Never A/B perf in blocks** — alternate samples, and report more than one run.
 - Evidence is **never committed** — gitignored `evidence/`.
 
 - `scripts/polish_check.js <tag>` times the heaviest scenes under **SwiftShader, not an
@@ -133,8 +135,7 @@ airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, 
 
 ## Ship checklist
 
-1. Work on `cockpit-3d`, keep `main` deployable, **fetch first** — the published
-   version may be ahead of you.
+1. Work on `cockpit-3d`, keep `main` deployable, **fetch first**.
 2. Bump `CACHE_NAME` in `cockpit/sw.js` **and** root `sw.js` for any `cockpit/` change —
    `deploy.sh` refuses otherwise. Check afterwards: a `sed` for a version that is not
    there is a silent no-op.
