@@ -49,6 +49,35 @@ const sea = {
   clock: 0,
 };
 
+// The harbour pool, on the shared mechanism (js/eventpool.js). Policy
+// "standing": every one of these is always eligible and keeps its own clock, so
+// several can be happening at once -- which is the whole point of a harbour and
+// the exact opposite of the space programme's one-per-launch draw. The two
+// policies are the only difference between the two pools.
+//
+// `gap` is where each one's re-arm interval now lives, instead of five slightly
+// different hand-rolled countdowns. `force` is the harness's single door in.
+const SEA_POOL = evpRegister({
+  name: "sea",
+  policy: "standing",
+  members: [
+    // Three of the eight are ANSWERS rather than arrivals -- they wait on him,
+    // not on a clock -- so they say how to be made to happen instead.
+    { key: "ski",      state: sea.ski,    gap: [0, 0], force: () => { sea.ski.cool = 0; } },
+    { key: "whale",    state: sea.whale,  gap: SE.whale.every },
+    { key: "cruise",   state: sea.cruise, gap: SE.cruise.gap },
+    { key: "wake",     state: sea.wake,   gap: [0, 0], force: () => { sea.wake.cool = 0; } },
+    { key: "crane",    state: sea.crane,  gap: [0, 0], force: () => seaCraneHonked() },
+    { key: "seaplane", state: sea.plane,  gap: SE.plane.gap },
+    { key: "sub",      state: sea.sub,    gap: SE.sub.gap },
+    { key: "fireboat", state: sea.fboat,  gap: SE.fire.gap },
+  ],
+});
+
+const SEA_WHALE = evpMember("sea", "whale"), SEA_CRUISE = evpMember("sea", "cruise");
+const SEA_PLANE = evpMember("sea", "seaplane"), SEA_SUB = evpMember("sea", "sub");
+const SEA_FIRE = evpMember("sea", "fireboat");
+
 // ---------------------------------------------------------------------------
 function seaBuild() {
   if (sea.built) return;
@@ -357,9 +386,8 @@ function seaWhale(dt) {
     }
     return;
   }
-  W.next -= dt;
-  if (W.next > 0) return;
-  W.next = lerp(C.every[0], C.every[1], Math.random());
+  if (!evpDue(SEA_WHALE, dt)) return;
+  evpRearm(SEA_WHALE);
   // a safe distance off his beam, and only where the water is deep
   const a = state.heading + (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 3 + Math.random() * Math.PI / 3);
   const d = lerp(C.dist[0], C.dist[1], Math.random());
@@ -391,8 +419,7 @@ function seaCruise(dt) {
   const S = sea.cruise, C = SE.cruise;
   const path = C.path;
   if (S.state === "away") {
-    S.next -= dt;
-    if (S.next > 0) return;
+    if (!evpDue(SEA_CRUISE, dt)) return;
     S.state = "calling";
     S.t = C.callTime;
     S.s = 0;
@@ -422,7 +449,7 @@ function seaCruise(dt) {
       flags.cruiseArrivals = (flags.cruiseArrivals || 0) + 1;
     }
     if (S.state === "leaving" && S.s <= 0) {
-      S.state = "away"; S.next = lerp(C.gap[0], C.gap[1], Math.random());
+      S.state = "away"; evpRearm(SEA_CRUISE);
       S.g.visible = false;
       return;
     }
@@ -569,8 +596,7 @@ function seaCraneDrop(dt) {
 function seaPlane(dt) {
   const P = sea.plane, C = SE.plane;
   if (P.state === "away") {
-    P.next -= dt;
-    if (P.next > 0) return;
+    if (!evpDue(SEA_PLANE, dt)) return;
     P.state = "inbound"; P.t = 0;
     P.x = C.x; P.z = C.touchZ - C.runIn; P.y = TUNE.waterLevel + C.cruiseY;
     P.heading = 0;                       // heading 0 is -z... it flies +z, toward the harbour
@@ -611,7 +637,7 @@ function seaPlane(dt) {
     if (P.speed < C.speed * 0.72) { P.y = gy + 0.6; seaPlaneSpray(dt, 1); }
     else P.y += C.climb * dt;
     if (P.y > gy + C.cruiseY || Math.abs(P.z - C.touchZ) > C.runOut) {
-      P.state = "away"; P.next = lerp(C.gap[0], C.gap[1], Math.random());
+      P.state = "away"; evpRearm(SEA_PLANE);
       P.g.visible = false;
     }
   }
@@ -655,8 +681,7 @@ function seaPlaneSpray(dt, k) {
 function seaSub(dt) {
   const S = sea.sub, C = SE.sub;
   if (S.state === "away") {
-    S.next -= dt;
-    if (S.next > 0) return;
+    if (!evpDue(SEA_SUB, dt)) return;
     S.x = C.x; S.z = lerp(C.z[0], C.z[1], Math.random());
     if (terrainEff(S.x, S.z) > TUNE.waterLevel - 12) { S.next = 20; return; }   // not in the shallows
     S.heading = Math.PI / 2;
@@ -709,7 +734,7 @@ function seaSub(dt) {
     S.x += -Math.sin(S.heading) * C.speed * 0.6 * dt;
     S.z += -Math.cos(S.heading) * C.speed * 0.6 * dt;
     if (S.t <= 0) {
-      S.state = "away"; S.next = lerp(C.gap[0], C.gap[1], Math.random());
+      S.state = "away"; evpRearm(SEA_SUB);
       S.g.visible = false;
       flags.subDives = (flags.subDives || 0) + 1;
     }
@@ -740,8 +765,7 @@ function seaFireboat(dt) {
   if (F.state === "away") {
     F.g.visible = true;                      // she is moored there whether she is playing or not
     if (F.jets) F.jets.visible = false;
-    F.next -= dt;
-    if (F.next <= 0) { F.state = "windup"; F.t = C.windUp; hbHorn(C.x, TUNE.waterLevel + 8, C.z, C.hornHz, C.hornDur); }
+    if (evpDue(SEA_FIRE, dt)) { F.state = "windup"; F.t = C.windUp; hbHorn(C.x, TUNE.waterLevel + 8, C.z, C.hornHz, C.hornDur); }
     for (const m of F.monitors) m.g.rotation.x += (0 - m.g.rotation.x) * Math.min(1, 2 * dt);
     return;
   }
@@ -782,7 +806,7 @@ function seaFireboat(dt) {
   }
   F.jets.instanceMatrix.needsUpdate = true;
   if (F.t <= 0) {
-    F.state = "away"; F.next = lerp(C.gap[0], C.gap[1], Math.random());
+    F.state = "away"; evpRearm(SEA_FIRE);
     F.jets.visible = false;
     flags.fireboatShows = (flags.fireboatShows || 0) + 1;
   }

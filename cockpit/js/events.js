@@ -22,6 +22,7 @@
 const EV = TUNE.events;
 const EVENT_KINDS = ["race", "meteors", "comet", "impacts", "escort", "fireworks"];
 
+
 const evGroup = new THREE.Group();
 scene.add(evGroup);
 
@@ -45,10 +46,26 @@ const ev = {
   wet: false, base: 0,   // where the recovery barrage bursts, and whether it reflects
 };
 
-try {
-  const s = localStorage.getItem("lp.lastEvent");
-  if (EVENT_KINDS.indexOf(s) >= 0) ev.prev = s;   // anything else (corrupt, renamed) is ignored silently
-} catch (err) {}
+// The space pool, on the shared mechanism (js/eventpool.js). Policy "once": one
+// per launch, never the same one twice running. `valid` is the only per-member
+// rule there has ever been -- a Mars or station flight must not draw the Moon's
+// impacts, because the Moon is where they land.
+const SPACE_POOL = evpRegister({
+  name: "space",
+  policy: "once",
+  memory: "lp.lastEvent",
+  members: EVENT_KINDS.map(key => ({
+    key, state: ev,
+    valid: key === "impacts" ? () => state.dest === "moon" : null,
+    force: () => eventsForce(key),
+    // The one contextual button any of these brings with it. An event may ADD
+    // its own and take it back when it ends; it may never take one of HIS, and
+    // the audit needs to be able to tell the two apart.
+    button: key === "meteors" ? "missileBtn" : null,
+  })),
+});
+
+ev.prev = evpLoadLast(SPACE_POOL);   // survives a relaunch, so "never twice" does too
 
 // ---- shared geometry / materials: an event spawns Meshes, never new buffers
 const evRockGeo = new THREE.IcosahedronGeometry(1, 0);
@@ -111,20 +128,19 @@ function evDrop(mesh) {
 // the draw
 // ---------------------------------------------------------------------------
 function eventValid(kind) {
-  if (kind === "impacts") return state.dest === "moon";   // a Mars or station flight never draws the Moon's impacts
-  return true;
+  const m = evpMember("space", kind);
+  return !m || !m.valid || m.valid();
 }
 function eventsDraw() {
   ev.kind = null;
   ev.dest = state.dest;
   if (!(state.vp && state.vp.rocket)) return null;
-  if (rnd() >= EV.eventChance) return null;
-  let pool = EVENT_KINDS.filter(k => k !== ev.prev && eventValid(k));
-  if (!pool.length) pool = EVENT_KINDS.filter(eventValid);
-  if (!pool.length) return null;
-  ev.kind = pool[Math.min(pool.length - 1, Math.floor(rnd() * pool.length))];
-  ev.prev = ev.kind;
-  try { localStorage.setItem("lp.lastEvent", ev.kind); } catch (err) {}
+  // The draw, the never-twice and the remembering are the POLICY, and the
+  // policy lives in js/eventpool.js so the harbour can have a different one
+  // without a second copy of any of this.
+  SPACE_POOL.prev = ev.prev;
+  ev.kind = evpDraw("space", EV.eventChance);
+  ev.prev = SPACE_POOL.prev;
   return ev.kind;
 }
 // Called from spawnForTakeoff: last flight's event goes away, a new one is drawn.

@@ -228,6 +228,7 @@ window.__lp = {
   marsDroneActive, marsDroneCan, marsDronePress, marsDroneLand, marsDronePick, marsRocksReset, updateMarsToys, marsLate,
   carrier, CV, carrierLaunchPress, carrierReset, carrierCanLaunch, carrierOnDeck, carrierTryTrap, updateSetpiecesLate,
   ev, EVENT_KINDS, eventsDraw, eventsForce, eventsReset, eventsArm, eventsSpawn, eventsOnDest, eventsWantMissile,
+  EVENT_POOLS, evpRegister, evpPool, evpMember, evpAll, evpDraw, evpDue, evpRearm, evpForce, SPACE_POOL, SEA_POOL,
   get evGroup(){return evGroup;}, get evProps(){return ev.props;}, get evCraters(){return ev.craters;}, evSparksAlive,
   audio: { ctxState(){return audioCtx ? audioCtx.state : null;}, rocketNodes(){return !!rocketNodes;}, roarGain(){return rocketNodes ? +rocketNodes.roar.gain.value.toFixed(3) : null;}, engineGain(){return engineNodes ? +engineNodes.g.gain.value.toFixed(3) : null;}, bed(){return bedNodes ? {level:+bedNodes.level.toFixed(4), cut:Math.round(bedNodes.cut), thump:+bedNodes.thump.toFixed(2)} : null;}, bedName(){return currentBedName();}, place(x,y,z){return sfxPlace(x,y,z);} },
   bigBoom, catapultSound, fireHiss, updateAmbientAudio,
