@@ -38,8 +38,12 @@ const lights = {
 // `phase` runs 0..5: main green, main amber, all red, cross green, cross amber,
 // all red. The spur is "main"; the street crossing it is "cross".
 const LT_PHASES = ["mainGreen", "mainAmber", "allRedA", "crossGreen", "crossAmber", "allRedB"];
-function ltPhaseTime(p) {
-  if (p === 0 || p === 3) return LT.green;
+function ltPhaseTime(p, j) {
+  // The motorway keeps a long green and gives the cross street a short one: he
+  // should sail through most of them and meet a red now and then, not stop at
+  // every one. A spur junction splits it evenly.
+  if (p === 0) return (j && j.onHighway) ? LT.highwayGreen : LT.green;
+  if (p === 3) return (j && j.onHighway) ? LT.highwayCross : LT.green;
   if (p === 1 || p === 4) return LT.amber;
   return LT.allRed;
 }
@@ -50,72 +54,17 @@ function ltAspect(j, main) {
   return p === 3 ? "green" : p === 4 ? "amber" : "red";
 }
 
-function ltBuild() {
-  if (lights.built || typeof highway === "undefined" || !highway.built) return;
-  const C = TUNE.palette;
-  const g = new THREE.Group();
-  const conc = mattMat(C.concrete), steel = metalMat(C.grey, 24);
-  const tarmac = mattMat(TUNE.runwaySurfaceColor);
-  const paint = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
-
-  const masts = [], arms = [], boxes = [];
-  const lampPts = [];
-
-  for (const ex of highway.exits) {
-    const sp = ex.spur;
-    if (!sp || sp.length < 4) continue;
-    // WHERE ALONG THE SPUR IS MEASURED, not assumed. A fixed fraction put the
-    // lake junction in the lake and ran the harbour one off the quay into the
-    // water -- the spurs go to places, and some of those places are wet. So the
-    // spur is scanned for a spot where the whole cross street is dry and the
-    // ground under it is flat enough to lay a road on, and a spur with no such
-    // spot gets no junction rather than a bad one.
-    const total = sp[sp.length - 1].s;
-    const at = (f) => {
-      const want = total * f;
-      let i = 1; while (i < sp.length - 1 && sp[i].s < want) i++;
-      const a = sp[i - 1], b = sp[i];
-      const t = clamp((want - a.s) / Math.max(1e-3, b.s - a.s), 0, 1);
-      const l = Math.hypot(b.x - a.x, b.z - a.z) || 1;
-      return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), z: lerp(a.z, b.z, t),
-               fx: (b.x - a.x) / l, fz: (b.z - a.z) / l };
-    };
-    const score = (q, len) => {
-      let wet = 0, drop = 0;
-      const rx0 = -q.fz, rz0 = q.fx;
-      for (let k = -1; k <= 1; k += 0.08) {
-        const cx = q.x + rx0 * k * len / 2, cz = q.z + rz0 * k * len / 2;
-        const h = terrainEff(cx, cz);
-        if (h < TUNE.waterLevel + 1.5) wet++;
-        drop = Math.max(drop, Math.abs(h - q.y));
-      }
-      return { wet, drop };
-    };
-    // A short cross street rather than none. The lake spur drives INTO a lake,
-    // so a full-length one reaches water wherever it is put; two thirds of one
-    // still reads as a crossroads and still has somewhere to queue.
-    let pick = null, pickScore = null, crossLen = 0;
-    for (const scale of LT.crossScales) {
-      const len = LT.crossLen * scale;
-      for (let f = LT.scan[0]; f <= LT.scan[1] + 1e-6; f += LT.scanStep) {
-        const q = at(f), sc = score(q, len);
-        if (sc.wet > 0 || sc.drop > LT.maxDrop) continue;
-        if (!pickScore || sc.drop < pickScore.drop) { pick = q; pickScore = sc; crossLen = len; }
-      }
-      if (pick) break;
-    }
-    if (!pick) continue;                 // no junction here rather than a wet one
-    const x = pick.x, z = pick.z, y = pick.y;
-    const fx = pick.fx, fz = pick.fz;    // along the spur
-    const rx = -fz, rz = fx;             // across it
-
-    const j = {
-      to: ex.to, x, y, z, fx, fz, rx, rz, crossLen,
-      phase: Math.floor(Math.random() * LT_PHASES.length),
-      t: Math.random() * LT.green,
-      blink: 0, cars: [], lamps: [], awake: false,
-    };
-
+// ---------------------------------------------------------------------------
+// The geometry of one junction: a cross street, four painted stop lines, four
+// heads on masts with an arm out over the carriageway, and its own traffic.
+//
+// The spurs and the MAIN LINE both come through here. All that differs is how
+// the site was chosen and `j.roadHalf`, because a motorway is wider than a spur.
+// ---------------------------------------------------------------------------
+function ltBuildJunction(j, g, tarmac, paint, masts, arms, boxes, lampPts) {
+  const x = j.x, y = j.y, z = j.z;
+  const fx = j.fx, fz = j.fz, rx = j.rx, rz = j.rz;
+  const crossLen = j.crossLen, roadHalf = j.roadHalf;
     // the cross street, laid flat across the spur
     const cross = [];
     for (let k = -1; k <= 1; k += 0.25) {
@@ -157,7 +106,7 @@ function ltBuild() {
     j.cross = cross;
 
     // stop lines: a painted bar on each of the four approaches
-    for (const [dx, dz, w] of [[fx, fz, HW.spurW], [-fx, -fz, HW.spurW],
+    for (const [dx, dz, w] of [[fx, fz, roadHalf], [-fx, -fz, roadHalf],
                                [rx, rz, LT.crossW], [-rx, -rz, LT.crossW]]) {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(w * 2, 0.06, 1.1), paint);
       bar.position.set(x - dx * LT.stopLine, y + 0.09, z - dz * LT.stopLine);
@@ -167,7 +116,7 @@ function ltBuild() {
 
     // four heads: one facing each approach, on a mast with an arm over the road
     for (const [ax, az, main] of [[-fx, -fz, true], [fx, fz, true], [-rx, -rz, false], [rx, rz, false]]) {
-      const half = main ? HW.spurW : LT.crossW;
+      const half = main ? roadHalf : LT.crossW;
       const side = main ? rx : fx, sideZ = main ? rz : fz;
       const mx = x - ax * (LT.stopLine + 2) + side * (half + 2.5);
       const mz = z - az * (LT.stopLine + 2) + sideZ * (half + 2.5);
@@ -187,12 +136,119 @@ function ltBuild() {
       }
     }
 
-    // the cross street's own traffic
-    for (let k = 0; k < LT.cars; k++) {
-      j.cars.push({ side: k % 2 ? 1 : -1, u: (Math.random() - 0.5) * crossLen,
-                    speed: lerp(LT.carSpeed[0], LT.carSpeed[1], Math.random()), truck: k % 4 === 0 });
+  // the cross street's own traffic
+  for (let k = 0; k < LT.cars; k++) {
+    j.cars.push({ side: k % 2 ? 1 : -1, u: (Math.random() - 0.5) * crossLen,
+                  speed: lerp(LT.carSpeed[0], LT.carSpeed[1], Math.random()), truck: k % 4 === 0 });
+  }
+}
+
+// How dry and how flat the cross street would be, laid here. The one rule that
+// sites every junction in the world, spur or motorway.
+function ltSiteScore(q, len) {
+  let wet = 0, drop = 0;
+  const rx = -q.fz, rz = q.fx;
+  for (let k = -1; k <= 1; k += 0.08) {
+    const cx = q.x + rx * k * len / 2, cz = q.z + rz * k * len / 2;
+    const h = terrainEff(cx, cz);
+    if (h < TUNE.waterLevel + 1.5) wet++;
+    drop = Math.max(drop, Math.abs(h - q.y));
+  }
+  return { wet, drop };
+}
+
+function ltAdd(to, pick, crossLen, roadHalf, onHighway, s, g, tarmac, paint, masts, arms, boxes, lampPts) {
+  const j = {
+    to, x: pick.x, y: pick.y, z: pick.z, fx: pick.fx, fz: pick.fz,
+    rx: -pick.fz, rz: pick.fx, crossLen, roadHalf, onHighway, s,
+    phase: Math.floor(Math.random() * LT_PHASES.length),
+    t: Math.random() * LT.green,
+    blink: 0, cars: [], lamps: [], awake: false,
+  };
+  ltBuildJunction(j, g, tarmac, paint, masts, arms, boxes, lampPts);
+  lights.junctions.push(j);
+  return j;
+}
+
+function ltBuild() {
+  if (lights.built || typeof highway === "undefined" || !highway.built) return;
+  const C = TUNE.palette;
+  const g = new THREE.Group();
+  const conc = mattMat(C.concrete), steel = metalMat(C.grey, 24);
+  const tarmac = mattMat(TUNE.runwaySurfaceColor);
+  const paint = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
+
+  const masts = [], arms = [], boxes = [];
+  const lampPts = [];
+
+  for (const ex of highway.exits) {
+    const sp = ex.spur;
+    if (!sp || sp.length < 4) continue;
+    // WHERE ALONG THE SPUR IS MEASURED, not assumed. A fixed fraction put the
+    // lake junction in the lake and ran the harbour one off the quay into the
+    // water -- the spurs go to places, and some of those places are wet. So the
+    // spur is scanned for a spot where the whole cross street is dry and the
+    // ground under it is flat enough to lay a road on, and a spur with no such
+    // spot gets no junction rather than a bad one.
+    const total = sp[sp.length - 1].s;
+    const at = (f) => {
+      const want = total * f;
+      let i = 1; while (i < sp.length - 1 && sp[i].s < want) i++;
+      const a = sp[i - 1], b = sp[i];
+      const t = clamp((want - a.s) / Math.max(1e-3, b.s - a.s), 0, 1);
+      const l = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), z: lerp(a.z, b.z, t),
+               fx: (b.x - a.x) / l, fz: (b.z - a.z) / l };
+    };
+    // A short cross street rather than none. The lake spur drives INTO a lake,
+    // so a full-length one reaches water wherever it is put; two thirds of one
+    // still reads as a crossroads and still has somewhere to queue.
+    let pick = null, pickScore = null, crossLen = 0;
+    for (const scale of LT.crossScales) {
+      const len = LT.crossLen * scale;
+      for (let f = LT.scan[0]; f <= LT.scan[1] + 1e-6; f += LT.scanStep) {
+        const q = at(f), sc = ltSiteScore(q, len);
+        if (sc.wet > 0 || sc.drop > LT.maxDrop) continue;
+        if (!pickScore || sc.drop < pickScore.drop) { pick = q; pickScore = sc; crossLen = len; }
+      }
+      if (pick) break;
     }
-    lights.junctions.push(j);
+    if (!pick) continue;                 // no junction here rather than a wet one
+    const j = ltAdd(ex.to, pick, crossLen, HW.spurW, false, null, g, tarmac, paint, masts, arms, boxes, lampPts);
+    void j;
+  }
+
+  // ---- AND ON THE MAIN LINE ------------------------------------------------
+  // Every `highwaySpacing` metres, so one coast-to-coast crossing meets several
+  // of them. The site is searched the same way a spur's is, plus the three
+  // things a motorway has that a spur has not: it must be a GROUND stretch (a
+  // signalled crossroads on a viaduct is not a thing, and one inside a bore is
+  // less of one), it must be well clear of an interchange, and it must not land
+  // on top of a spur junction that is already there.
+  {
+    const inter = (HW.interchange.at || []).map(f => hwySampleAt(f * highway.length));
+    for (let want = LT.highwaySpacing; want < highway.length - LT.highwaySpacing * 0.5; want += LT.highwaySpacing) {
+      let pick = null, best = null, crossLen = 0, pickS = 0;
+      for (const scale of LT.crossScales) {
+        const len = LT.crossLen * scale;
+        for (let d = -LT.highwayScan; d <= LT.highwayScan; d += LT.highwayStep) {
+          const at = clamp(want + d, 0, highway.length);
+          const q = hwySampleAt(at);
+          if (q.type !== "ground") continue;
+          if (inter.some(c => Math.hypot(c.x - q.x, c.z - q.z) < LT.highwayKeepOut)) continue;
+          // Only against other MAIN-LINE junctions: a spur junction is a few
+          // hundred metres off to the side and is not on this road, so counting
+          // it here threw away half the candidate sites.
+          if (lights.junctions.some(o => o.onHighway && Math.abs((o.s || 0) - at) < LT.highwaySpacing * 0.6)) continue;
+          const sc = ltSiteScore(q, len);
+          if (sc.wet > 0 || sc.drop > LT.maxDrop) continue;
+          if (!best || sc.drop < best.drop) { pick = q; best = sc; crossLen = len; pickS = at; }
+        }
+        if (pick) break;
+      }
+      if (!pick) continue;               // nowhere on this stretch to put one
+      ltAdd("highway", pick, crossLen, highway.halfW, true, pickS, g, tarmac, paint, masts, arms, boxes, lampPts);
+    }
   }
 
   if (masts.length) g.add(new THREE.Mesh(mergeBoxes(masts), steel));
@@ -258,7 +314,7 @@ function ltUpdate(dt) {
     // The cycle runs whether or not he is watching -- a junction he arrives at
     // must already be part-way through, not waiting to start for him.
     j.t -= dt;
-    if (j.t <= 0) { j.phase = (j.phase + 1) % LT_PHASES.length; j.t = ltPhaseTime(j.phase); }
+    if (j.t <= 0) { j.phase = (j.phase + 1) % LT_PHASES.length; j.t = ltPhaseTime(j.phase, j); }
     j.blink += dt * LT.blinkHz;
 
     // lamps
@@ -404,12 +460,47 @@ function ltFlash() {
   if (typeof synthBlip === "function") synthBlip("square", 1180, 1180, 0.07, 0.10, 0);
 }
 
+// ---------------------------------------------------------------------------
+// WHERE THE HIGHWAY TRAFFIC HAS TO STOP.
+//
+// Returns the arc length of the stop line a car travelling in `dir` should hold
+// at, or null if nothing ahead of it is red. Only the main-line junctions have
+// an answer; the spur ones are not on this road.
+//
+// `mySpeed`/`myS`: where HE is. A car that would become a stationary wall in
+// front of him does not stop -- it clears the junction instead. That is the same
+// bend this codebase already puts in traffic to keep him safe (the follow rule
+// exists because traffic in his lane is faster than he is and drove through
+// him), and it is load-bearing here: a finger held from New York to California
+// has always been a crossing without a single bang, and a queue of stopped cars
+// on the carriageway would end that at every junction.
+function ltHighwayStop(s, dir, myS, mySpeed) {
+  for (const j of lights.junctions) {
+    if (!j.onHighway || j.s === null) continue;
+    if (ltAspect(j, true) === "green") continue;
+    const line = j.s - dir * LT.stopLine;
+    const toLine = (line - s) * dir;
+    if (toLine < 0 || toLine > 140) continue;             // behind it, or too far to care
+    if (myS !== null && myS !== undefined) {
+      // is he closing on this car from behind, near enough to arrive?
+      const gap = (s - myS) * dir;
+      if (gap > 0 && gap < Math.max(60, mySpeed * 2.2)) continue;
+    }
+    return line;
+  }
+  return null;
+}
+
 // ---- the test surface's questions ------------------------------------------
-function ltJunctionCount() { return lights.junctions.length; }
+function ltJunctionCount(kind) {
+  if (kind === "highway") return lights.junctions.filter(j => j.onHighway).length;
+  if (kind === "spur") return lights.junctions.filter(j => !j.onHighway).length;
+  return lights.junctions.length;
+}
 function ltStateOf(i) {
   const j = lights.junctions[i];
   if (!j) return null;
-  return { to: j.to, x: j.x, z: j.z, phase: LT_PHASES[j.phase], t: +j.t.toFixed(2),
+  return { to: j.to, x: j.x, z: j.z, onHighway: !!j.onHighway, phase: LT_PHASES[j.phase], t: +j.t.toFixed(2),
            main: ltAspect(j, true), cross: ltAspect(j, false),
            stopped: j.cars.filter(c => (c.sp || 0) < 0.5).length, cars: j.cars.length };
 }
@@ -418,6 +509,6 @@ function ltForce(i, phase) {
   if (!j) return false;
   j.phase = LT_PHASES.indexOf(phase);
   if (j.phase < 0) j.phase = 0;
-  j.t = ltPhaseTime(j.phase);
+  j.t = ltPhaseTime(j.phase, j);
   return true;
 }

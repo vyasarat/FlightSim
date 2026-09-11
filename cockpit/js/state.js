@@ -110,7 +110,6 @@ const safePos = { x: 0, y: 0, z: 0 };
 const VEHICLE_TONES = [
   ["boatHull", "triangle", 90], ["boatCannon", "sawtooth", 120],
   ["carTyre", "triangle", 90],
-  ["carHornA", "sawtooth", 370], ["carHornB", "sawtooth", 294],
   ["yachtHull", "triangle", 55],
   ["rover", "sawtooth", 55],
 ];

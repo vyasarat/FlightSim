@@ -163,6 +163,17 @@ const TUNE = {
   // with its own traffic queueing at its own red.
   lights: {
     scan: [0.20, 0.80], scanStep: 0.02,   // the stretch of spur searched for a site
+    // ON THE MAIN LINE TOO, roughly this far apart, so a coast-to-coast crossing
+    // meets several. Sited by the same measurement rule as the spurs, and never
+    // inside an interchange, a bore or a bridge -- a signalled crossroads on a
+    // viaduct is not a thing, and a crossroads in a tunnel is less of one.
+    // The scan is wide because a third of the route is bridge or bore: a slot
+    // that lands on a viaduct steps along until it finds ground.
+    highwaySpacing: 1500, highwayScan: 560, highwayStep: 30,
+    highwayKeepOut: 420,         // clear of an interchange centre
+    // The motorway keeps the long green: he should sail through most of them and
+    // meet a red now and then, not stop at every one.
+    highwayGreen: 23, highwayCross: 6,
     maxDrop: 12,                 // the most the cross street may fall over its length
     crossLen: 260, crossW: 13,   // the cross street, at full length
     crossScales: [1, 0.7, 0.5],  // ... and what it shrinks to rather than not fitting
@@ -201,11 +212,15 @@ const TUNE = {
     // metres a second on them, so this is a dozen seconds of going fast -- the
     // quick way out, against the slow one of simply waiting `maxChase` out.
     giveUpDist: 400,
-    maxChase: 75,                // and they give up anyway after this
+    // A BACKSTOP, not a mechanic. Outrunning them is the win and being caught is
+    // the scene; this only exists so there is no chase he can be stuck in, so it
+    // is long enough that he will almost always have ended it himself first.
+    maxChase: 180,
     caughtSpeed: 4.5, caughtTime: 1.6,   // stopped this long with them on him
     lightHz: 7.5, sirenHz: [520, 700], sirenRate: 1.35, sirenGain: 0.05,
     duck: 0.55,                  // how far the engine and bed duck under a siren
     crashChance: 0.5,            // per second, when one is near something solid
+    resumeIn: 1.2,               // after HIS crash, how long before they are back on him
     pullOver: { angle: 38, gap: 9, count: 3, hold: 1.1, leave: 2.6 },
     // Never the same scheme twice running -- an event pool, policy "once",
     // exactly like the space programme's draw.
@@ -400,7 +415,12 @@ const TUNE = {
     cruise: 46,                  // set from the road length for a ~4.5 minute crossing
     accel: 11, brake: 16, offRoadMax: 0.45,
     boost: 1.5, boostTime: 2.2,  // drag up: an EV's instant shove
-    steerRate: 34,               // degrees per second at full lock
+    steerRate: 34,               // degrees per second at full lock, at cruise
+    // 5, and not faster. A quicker actuator measured 17 ms to visible yaw instead
+    // of 33, which is one frame against two and nothing he can feel -- and it
+    // made the hands-off lane-keep overshoot enough to be captured by the lake
+    // spur and driven into the lake. Both numbers beat the 100 ms the response
+    // needs to hit; only one of them keeps a coast-to-coast crossing clean.
     steerAccel: 5,
     // Lane keep: the whole point. He holds a finger down and the car drives
     // itself coast to coast; steering overrides it, and letting go hands it back.
@@ -408,8 +428,29 @@ const TUNE = {
     // point lags on every curve, and on this road the lag grew past a lane width
     // and walked him across the median. Aiming at a point a second and a half
     // ahead, on the lane he is nearest, holds the line through anything.
-    laneKeep: { lookAhead: 1.5, minAhead: 30, gain: 3.4, offRoadGain: 1.4, override: 0.75 },
-                                 // `override`: how much stick fully overrides the assist
+    // THE ASSIST YIELDS ON A TIMER, NOT ON A THRESHOLD. `override: 0.75` meant a
+    // light steer was outvoted by the road -- at 30% of stick he asked for 10
+    // degrees a second and the car turned the OTHER WAY, and at 50% he lost
+    // three quarters of it. That is the "unresponsive, fighting me" feel, and it
+    // is not the steering: raw response was already 33 ms and a lane change in
+    // under a second. So the moment he steers at all the assist fades out over
+    // `yieldIn` and stays out; it only comes back `holdOff` after he lets go.
+    laneKeep: { lookAhead: 1.5, minAhead: 30, gain: 3.4, offRoadGain: 1.4,
+                yieldIn: 0.15, holdOff: 0.5, fadeBack: 0.45 },
+                                 // out in 0.15 s, then held out for 0.5 s after
+                                 // he lets go, then back over 0.45 s
+    deadzone: 0.06,              // small: past this he has proportional authority at once
+    // The car gets its own drag range, because the aeroplanes' is tuned with him
+    // and is not to be touched. Measured against the WIDTH, which is the
+    // dimension his thumb actually travels: the shared one is a fraction of
+    // min(w,h), and in portrait that is the width, so full lock took 42% of the
+    // screen. This is 26% of it, in both orientations.
+    dragRangeX: 0.26,
+    // A car turns TIGHTER slowly, not looser. The old grip curve halved the rate
+    // below 16 m/s, which is backwards for the two places he needs it -- junctions
+    // and exits. `rollAt` is the only thing left of it: a stopped car does not
+    // steer, because it is not rolling.
+    lowSpeedTurn: 1.45, rollAt: 2.5,
     onRoadHalf: 24,              // this far from the centreline still counts as on the road
     // Leaving the road must be a slope, not a cliff, and a step in the deck must
     // be taken at once. He drove underground without all three of these.
@@ -457,9 +498,12 @@ const TUNE = {
     // sustains the second note for as long as he holds it, which is the whole
     // joy of a horn and the reason it is press-and-hold rather than a toggle.
     horn: {
-      hz: [370, 294],             // F#4 over D4: the interval every road car uses
-      tap: 0.55, attack: 0.02, release: 0.18,
-      gain: 0.16, sustainMax: 4.0, // it cannot be held down forever
+      // A compact EV, not a bus: two clean tones a major third apart, high, with
+      // nothing underneath them. The old pair were sawtooths at 370 and 294 --
+      // every harmonic and a fat low fundamental -- on an 80 ms swell.
+      hz: [400, 500], bite: 0.16, highpass: 330,
+      tap: 0.4, attack: 0.008, release: 0.05,
+      gain: 0.13, sustainMax: 4.0, // it cannot be held down forever
       // Who answers, and how far away they can hear it.
       trafficRange: 220, trafficChance: 0.45, trafficDelay: [0.35, 0.9],
       seaRange: 2600,             // the yacht and the cruise ship, from the harbour spur

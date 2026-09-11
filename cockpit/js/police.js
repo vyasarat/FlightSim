@@ -33,7 +33,7 @@ const PL = TUNE.police;
 const police = {
   built: false, g: null, mesh: null, cars: [],
   active: false, state: "away",     // away | chase | pullover | leaving
-  t: 0, chaseT: 0, stoppedT: 0, scheme: null, schemeKey: null,
+  t: 0, chaseT: 0, stoppedT: 0, scheme: null, schemeKey: null, wasWrecked: false, resume: 0,
   sirenT: 0, blink: 0, from: null,
 };
 
@@ -132,8 +132,16 @@ function plPaint(key) {
 // ---------------------------------------------------------------------------
 // Starting, and stopping
 // ---------------------------------------------------------------------------
+// Two different questions, and conflating them is what let a crash end a chase.
+// `policeCan` is whether one may START -- never mid-explosion. `policeHolds` is
+// whether one CONTINUES, and a crash is not an escape: he explodes, reassembles
+// free on the road, and they are behind him again with the sirens still going.
+// Only climbing out of the car ends it that way.
 function policeCan() {
   return typeof vehKind === "function" && vehKind() === "car" && !state.exploding;
+}
+function policeHolds() {
+  return typeof vehKind === "function" && vehKind() === "car";
 }
 
 function policeStart(fromJunction) {
@@ -143,6 +151,7 @@ function policeStart(fromJunction) {
   police.active = true;
   police.state = "chase";
   police.t = 0; police.chaseT = 0; police.stoppedT = 0; police.sirenT = 0;
+  police.wasWrecked = false; police.resume = 0;
   police.from = fromJunction || null;
   police.g.visible = true;
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
@@ -198,24 +207,8 @@ function plSiren(gain, hz) {
   setTone("policeSirenB", "triangle", (hz || PL.sirenHz[0]) * 0.5, gain * 0.45);
 }
 
-// ---------------------------------------------------------------------------
-// The frame
-// ---------------------------------------------------------------------------
-function updatePolice(dt) {
-  if (!police.built) return;
-  // A crash ends it too -- he explodes, reassembles free, and they are gone.
-  // That is a third way out and it costs him nothing either.
-  if (police.active && !policeCan()) { policeStop(false); return; }
-  if (!police.active) { plSiren(0); if (typeof engDuck === "function") engDuck(1); return; }
-
-  police.t += dt;
-  police.chaseT += dt;
-  police.blink += dt * PL.lightHz;
-
-  const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
-  const rx = -fz, rz = fx;
-
-  // ---- the siren: two tones, alternating, ducked under everything
+// The siren and the duck, one frame of them. Returns how far the nearest is.
+function plSirenFrame(dt) {
   police.sirenT += dt * PL.sirenRate;
   const two = Math.sin(police.sirenT * Math.PI * 2) > 0;
   const nearest = Math.min(...police.cars.map(c => Math.hypot(c.x - state.x, c.z - state.z)));
@@ -226,14 +219,59 @@ function updatePolice(dt) {
   // little, not by being the loudest thing on the mix -- which is the rule the
   // engines already follow, applied to the one sound with an excuse to break it.
   if (typeof engDuck === "function") engDuck(lerp(1, PL.duck, near));
+  return nearest;
+}
 
-  // ---- the lamps strobe whatever else is happening
+// The lamps strobe whatever else is happening, including while he is in pieces.
+function plLamps() {
   for (const c of police.cars) {
     const u = c.g.userData;
     const a = Math.sin(police.blink * Math.PI * 2) > 0;
     u.lamps[0].visible = a;
     u.lamps[1].visible = !a;
   }
+}
+
+// ---------------------------------------------------------------------------
+// The frame
+// ---------------------------------------------------------------------------
+function updatePolice(dt) {
+  if (!police.built) return;
+  // A crash ends it too -- he explodes, reassembles free, and they are gone.
+  // That is a third way out and it costs him nothing either.
+  if (police.active && !policeHolds()) { policeStop(false); return; }
+  if (!police.active) { plSiren(0); if (typeof engDuck === "function") engDuck(1); return; }
+
+  police.t += dt;
+  police.chaseT += dt;
+  police.blink += dt * PL.lightHz;
+
+  // ---- HIS crash, and what happens after it.
+  // While he is in pieces they hold station with the sirens still on; the moment
+  // he is back on the road they re-form behind him and pick it straight up.
+  // Nothing about the chase is reset, because crashing is not a way out of one.
+  if (state.exploding) {
+    police.wasWrecked = true;
+    police.resume = PL.resumeIn;
+    for (const c of police.cars) c.speed *= Math.max(0, 1 - dt * 1.6);
+    plSirenFrame(dt);
+    plLamps();
+    for (const c of police.cars) { c.g.position.set(c.x, c.y, c.z); c.g.rotation.y = c.heading; }
+    return;
+  }
+  if (police.wasWrecked) {
+    police.wasWrecked = false;
+    const fx0 = -Math.sin(state.heading), fz0 = -Math.cos(state.heading);
+    for (const c of police.cars) { c.dead = 0; c.crashT = 0; plRespawn(c, fx0, fz0, -fz0, fx0); }
+    flags.policeResumed = (flags.policeResumed || 0) + 1;
+  }
+  if (police.resume > 0) police.resume -= dt;
+
+  const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
+  const rx = -fz, rz = fx;
+
+  const nearest = plSirenFrame(dt);
+  plLamps();
 
   if (police.state === "chase") plChase(dt, fx, fz, rx, rz, nearest);
   else if (police.state === "pullover") plPullOver(dt, fx, fz, rx, rz);
@@ -259,6 +297,9 @@ function updatePolice(dt) {
 function plChase(dt, fx, fz, rx, rz, nearest) {
   // He is out of it if he outruns them, or simply if he waits: two ways out,
   // and neither of them is something he has to be told about.
+  // Not while they are still re-forming after his crash: the reassembly moves
+  // HIM, and the jump in the gap is not something he outran.
+  if (police.resume > 0) return;
   if (nearest > PL.giveUpDist) { flags.policeOutrun = (flags.policeOutrun || 0) + 1; police.state = "leaving"; police.t = 0; return; }
   if (police.chaseT > PL.maxChase) { flags.policeGaveUp = (flags.policeGaveUp || 0) + 1; police.state = "leaving"; police.t = 0; return; }
 

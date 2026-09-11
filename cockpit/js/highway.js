@@ -925,6 +925,14 @@ function hwyUpdateTraffic(dt, px, pz) {
       const ahead = (carHere.s - t.s) * t.dir;      // positive: he is in front of it
       if (laneGap < HW.laneW * 1.1 && ahead > 0 && ahead < T.follow) sp = Math.min(sp, carHere.speed * 0.98);
     }
+    // and it stops at a red, unless stopping would put it in his way
+    if (typeof ltHighwayStop === "function") {
+      const line = ltHighwayStop(t.s, t.dir, carHere ? carHere.s : null, carHere ? carHere.speed : 0);
+      if (line !== null) {
+        const toLine = (line - t.s) * t.dir;
+        sp = Math.min(sp, Math.max(0, toLine) * 0.55);
+      }
+    }
     t.s += sp * t.dir * dt;
     if (t.s < 0 || t.s > highway.length) hwyPlaceTraffic(t, aroundS);
     const p = hwySampleAt(t.s);
