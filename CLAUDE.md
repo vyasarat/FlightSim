@@ -15,9 +15,8 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
 - **Nothing is ever taken away**: no score, timers, unlocks or failure. A crash explodes
   and reassembles free, *where it happened*; every reward re-arms.
 - **Pointing, not timing**: every control is "aim at it"; assists exist so *coasting in*
-  works.
-- **Drag up = nose up**, never inverted; on a surface vehicle it is that vehicle's burst,
-  except the yacht, where it is the horn.
+  works. **Drag up = nose up**, never inverted; on a surface vehicle it is that vehicle's
+  burst, except the yacht, where it is the horn.
 - **The picker always opens on the vehicles**, never the rocket's destination screen (the
   way back sits underneath it). A relaunch restores vehicle, direction and destination.
 - **Flight feel is tuned with the kid**: don't retune it; assists may weaken slowly.
