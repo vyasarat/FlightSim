@@ -21,8 +21,8 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
 - **The picker always opens on the vehicles**, never the rocket's destination screen (the
   way back sits underneath it). A relaunch restores vehicle, direction and destination.
 - **Flight feel is tuned with the kid**: don't retune it; assists may weaken slowly.
-- **Readability beats realism.** Nothing darker or muddier; if an effect hides something
-  he needs to see, it goes — that has overruled a brief three times.
+- **Readability beats realism** — nothing darker or muddier, and an effect that hides
+  something he needs to see goes. That has overruled a brief three times.
 
 ## The vehicle contract
 
