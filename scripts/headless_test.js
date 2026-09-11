@@ -5191,6 +5191,17 @@ function check(name, ok, extra) {
       out.mars = L.audio.bedName();
       L.rk.onBody = L.BODIES[0]; L.update(1 / 60);
       out.moon = L.audio.bedName();
+      // The harbour. A boat writes `phase = "TAXI"` every frame as a way of
+      // saying "not flying", so before v112 it fell through to the phase line
+      // and listened to the APRON RUMBLE of an airport two kilometres inland
+      // for the whole session. The vehicle is asked before the phase now.
+      L.rk.onBody = null; st.spaceF = 0;
+      L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1); L.update(1 / 60);
+      out.boat = L.audio.bedName();
+      L.api.setVehicle("yacht"); L.api.spawnAt(1, 1); L.update(1 / 60);
+      out.yacht = L.audio.bedName();
+      L.api.setVehicle("car"); L.api.placeOnRunway(); L.update(1 / 60);
+      out.car = L.audio.bedName();
       // and every bed is a real, distinct mix -- no two the same
       const beds = L.TUNE.audio.beds;
       out.bedCount = Object.keys(beds).length;
@@ -5200,10 +5211,11 @@ function check(name, ok, extra) {
       out.frameErrors = L.frameErrors || 0;
       return out;
     });
-    check("sound: the ambient bed follows where he actually is -- ground, wind aloft, cabin hum, rotor wash, near-silence in space, dust on Mars, and almost nothing on the airless Moon",
+    check("sound: the ambient bed follows where he actually is -- ground, wind aloft, cabin hum, rotor wash, the harbour's wash and swell, near-silence in space, dust on Mars, and almost nothing on the airless Moon",
       o.onRunway === "ground" && o.aloft === "wind" && o.airliner === "airliner" && o.heli === "heli" &&
       o.space === "space" && o.mars === "mars" && o.moon === "moon" &&
-      o.bedCount === 8 && o.distinct === 8 && o.moonQuietest && o.frameErrors === 0, JSON.stringify(o));
+      o.boat === "sea" && o.yacht === "sea" && o.car === "car" &&
+      o.bedCount === 9 && o.distinct === 9 && o.moonQuietest && o.frameErrors === 0, JSON.stringify(o));
     await page.close();
   }
 

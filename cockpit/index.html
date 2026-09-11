@@ -319,9 +319,11 @@
                                            top-right ladder clears the helicopter's
                                            bottom-anchored altitude pair */
   }
-  @media (max-height: 360px) {
-    html { --btn: 48px; --thr: 54px; --stack-bottom: 58px; --top-row: 14px; --edge: 10px; --spd: 48px; }
-  }
+  /* There was a `max-height: 360px` tier here, setting --btn to 48 and --spd to
+     48. It never applied to anything: the 520 block below matches every screen
+     the 360 one does and comes after it, so it won every property. Worth
+     noticing before restoring it -- 48 px controls would fail the harness's
+     56 px minimum, which is why the 520 tier's own comment stops at 58. */
   @media (max-height: 520px) {
     html {
       --btn: clamp(58px, 15vmin, 70px);
