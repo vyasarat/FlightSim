@@ -10,6 +10,31 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v104 — the car comes back where it crashed
+
+Crash the car and it did not come back where it crashed. It came back wherever
+the last **aeroplane** crashed.
+
+Every vehicle's reassembly begins by teleporting to one shared "safe spot", and
+only the aeroplane ever writes it. The boat has always kept its own crash
+position, which is why it comes back exactly where it hit. The car never did, so
+it inherited the plane's — and then snapped to the road nearest *that*. Fly
+first, then drive, then hit something, and he reappeared kilometres down the
+coast road at the other end of the flight he had taken earlier. Measured: a
+crash at z=3453 put him back at z=−3999 one time and z=+5088 the next, entirely
+according to a leftover number. He now comes back within a metre of where he hit,
+still pointing the way he was going.
+
+It was found by the new vehicle characterization gate — sixty checks that record
+what each of the ten vehicles actually does (spawn, ground height, control
+response, both camera anchors, buttons, and where a bang puts it back) and then
+refuse to let any of it move. It exists for the refactor that follows, but it
+earned its keep before that started: this is exactly the duplication it was
+built to watch, showing up as a bug in one of the four hand-written copies of
+crash-and-reassemble.
+
+---
+
 ## v103 — three more things at sea
 
 The harbour is the third place he can lose a whole session in, after the toy

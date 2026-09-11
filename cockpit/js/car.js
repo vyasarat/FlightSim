@@ -24,6 +24,7 @@ const car = {
   charging: 0, chargedAt: null, dust: 0, screen: null, screenArt: null, cabin: null, cabinWheel: null,
   screenPlaying: false, screenT: 0,
   hornHeld: false, hornT: 0, hornSustain: 0, hornReplyCool: 0, crashCool: 0,
+  crashX: null, crashZ: null,
 };
 
 function carActive() { return !!(state.vp && state.vp.car); }
@@ -430,6 +431,13 @@ function carCrash() {
   // at all in that window, and never at all under the harness's compressed time.
   if (state.exploding || car.crashCool > 0) return;
   car.crashCool = CAR.crashDebounce;
+  // WHERE IT HIT, remembered here, because the shared reassembly does not know.
+  // Every vehicle's reassembly begins by teleporting to `safePos`, which only
+  // the AEROPLANE ever writes -- so the car came back wherever the last plane
+  // crashed, then snapped to the road nearest THAT. Crash at one end of the
+  // coast road after a flight and he reappeared at the other end. The boat has
+  // always kept its own crash position for exactly this reason.
+  car.crashX = state.x; car.crashZ = state.z;
   triggerExplosion(state.x, state.y + 1.2, state.z, 1);
   cameraHitStop(1.2);
   state.exploding = true;
@@ -439,13 +447,16 @@ function carCrash() {
 
 // Put him back on the road, pointing the way he was going. Nothing is lost.
 function carReassemble() {
-  const n = hwyNearest(state.x, state.z);
+  // From where it HIT, not from wherever the shared safePos left him.
+  const fromX = car.crashX !== null ? car.crashX : state.x;
+  const fromZ = car.crashZ !== null ? car.crashZ : state.z;
+  const n = hwyNearest(fromX, fromZ);
   if (!n) return;
   const rx = -n.fz, rz = n.fx;
   // Keep the direction he was travelling. Deriving it from which side of the
   // road he happened to land on turned him round after a crash, and he drove
   // back the way he came for the rest of the trip.
-  const fwdDot = -Math.sin(state.heading) * n.fx + -Math.cos(state.heading) * n.fz;
+  const fwdDot = -Math.sin(state.heading) * n.fx + -Math.cos(state.heading) * n.fz;   // heading survives the bang
   const dir = fwdDot >= 0 ? 1 : -1;
   const off = dir * (HW.medianW / 2 + HW.laneW * 0.5);
   state.x = highway.pts[n.i].x + rx * off;
@@ -453,6 +464,7 @@ function carReassemble() {
   state.y = n.y;
   state.heading = Math.atan2(-n.fx * dir, -n.fz * dir);
   state.speed = 0; car.steer = 0; car.boost = 0;
+  car.crashX = car.crashZ = null;
   flags.carReassembles = (flags.carReassembles || 0) + 1;
 }
 
