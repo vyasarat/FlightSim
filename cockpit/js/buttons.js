@@ -179,48 +179,128 @@ const BTN_HUD_OVERLAY = ["homeArrow", "rotateArrow", "glideGuide", "aimMarker",
                          "heliTarget", "alarm", "wingman", "bigNum"];
 
 function btnVisibleRect(e) {
-  if (!e) return null;
-  const cs = getComputedStyle(e);
-  if (cs.display === "none" || cs.visibility === "hidden" || +cs.opacity < 0.05) return null;
-  let r = e.getBoundingClientRect();
-  if (r.width < 2) {
-    // several of these are zero-size anchors with a drawn child
-    for (const child of e.children) {
-      const cr = child.getBoundingClientRect();
-      if (cr.width > 2 && cr.height > 2) { r = cr; break; }
-    }
-  }
-  return (r.width > 2 && r.height > 2) ? r : null;
+  const rs = btnDrawnRects(e);
+  return rs.length ? rs[0] : null;
 }
+
+// What a thing actually PAINTS, as a list of rectangles.
+//
+// An overlay is not always the element you name. `#alarm` is `inset: 0` -- a
+// full-screen transparent container holding an edge vignette and a triangle --
+// so measuring its own box says "the alarm covers every button on the screen",
+// which is both true and useless. The same goes for `#homeArrow`, a zero-size
+// anchor with a drawn <svg> inside it. Descend until what is measured is the
+// thing that draws, and never count a full-bleed transparent box as coverage.
+function btnDrawnRects(e, out) {
+  out = out || [];
+  if (!e) return out;
+  const cs = getComputedStyle(e);
+  if (cs.display === "none" || cs.visibility === "hidden" || +cs.opacity < 0.05) return out;
+  const r = e.getBoundingClientRect();
+  const fullBleed = r.width >= innerWidth - 2 && r.height >= innerHeight - 2;
+  const paints = cs.backgroundImage !== "none" ||
+                 (cs.backgroundColor !== "rgba(0, 0, 0, 0)" && cs.backgroundColor !== "transparent") ||
+                 parseFloat(cs.borderTopWidth) > 0 ||
+                 e.tagName === "svg" || e.tagName === "IMG" || e.tagName === "CANVAS";
+  if (r.width > 2 && r.height > 2 && !fullBleed && paints) { out.push(r); return out; }
+  const before = out.length;
+  for (const child of e.children) btnDrawnRects(child, out);
+  if (out.length === before && r.width > 2 && r.height > 2 && !fullBleed) out.push(r);
+  return out;
+}
+
+// How far past its own box an element PAINTS -- the glow, the drop shadow, the
+// halo a held control grows. Offsets plus blur plus spread, on the element and
+// on anything inside it.
+const BTN_SHADOW_RE = /(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px(?:\s+(-?[\d.]+)px)?/g;
+function btnPaintReach(e) {
+  let m = 0;
+  const scan = (s) => {
+    BTN_SHADOW_RE.lastIndex = 0;
+    let x;
+    while ((x = BTN_SHADOW_RE.exec(s))) {
+      m = Math.max(m, Math.max(Math.abs(+x[1]), Math.abs(+x[2])) + +x[3] + +(x[4] || 0));
+    }
+  };
+  const one = (n) => {
+    const cs = getComputedStyle(n);
+    if (cs.boxShadow && cs.boxShadow !== "none") scan(cs.boxShadow);
+    if (cs.filter && cs.filter !== "none") scan(cs.filter);
+  };
+  one(e);
+  for (const n of e.querySelectorAll("*")) one(n);
+  return m;
+}
+
+// Every `.roundBtn` carries a resting drop shadow with more reach than the gap
+// between slots, so absolute paint reach says every stacked pair overlaps and
+// always has. The question that matters is what a PRESSED or EXPANDED state
+// ADDS over its own resting state -- `#heliUpBtn.pressed`'s cyan halo, the
+// horn's yellow glow -- so that is what is measured, against a rest value
+// learned the first time the control is seen unpressed.
+const btnRestReach = {};
+function btnHeldBleed(e) {
+  if (!e || !e.id) return 0;
+  const reach = btnPaintReach(e);
+  if (!e.classList.contains("pressed")) { btnRestReach[e.id] = reach; return 0; }
+  const rest = btnRestReach[e.id];
+  return rest === undefined ? 0 : Math.max(0, reach - rest);
+}
+
+function btnControlRects() {
+  const out = [];
+  for (const id in BUTTONS) {
+    const e = el[id];
+    const r = btnVisibleRect(e);
+    if (!r) continue;
+    const g = btnHeldBleed(e);
+    out.push({ id, left: r.left - g, top: r.top - g, right: r.right + g, bottom: r.bottom + g, bleed: g });
+  }
+  return out;
+}
+
+const btnHits = (a, b) => a.left < b.right - 3 && b.left < a.right - 3 &&
+                          a.top < b.bottom - 3 && b.top < a.bottom - 3;
 
 // Would something drawn at this rectangle sit on a control? Used by the aim
 // marker to take itself away rather than lie on top of a button.
 function btnRectBlocked(left, top, right, bottom) {
-  for (const id in BUTTONS) {
-    const r = btnVisibleRect(el[id]);
-    if (!r) continue;
-    if (left < r.right - 3 && r.left < right - 3 && top < r.bottom - 3 && r.top < bottom - 3) return true;
-  }
+  const box = { left, top, right, bottom };
+  for (const c of btnControlRects()) if (btnHits(box, c)) return true;
   return false;
 }
 
-// Anything drawn on top of a control he has to be able to press.
+// A ring indicator -- the home arrow -- cares about its ANGLE, not its radius.
+// So when the ring would put it on a control, walk it inwards along its own ray
+// until it is clear rather than hiding the one thing telling him which way home
+// is. Returns the original radius when nothing is in the way.
+function btnRingRadius(cx, cy, theta, radius, half) {
+  const sin = Math.sin(theta), cos = Math.cos(theta);
+  for (let r = radius; r > radius * 0.5; r -= 8) {
+    const x = cx + sin * r, y = cy - cos * r;
+    if (!btnRectBlocked(x - half, y - half, x + half, y + half)) return r;
+  }
+  return radius * 0.5;
+}
+
+// Anything drawn on top of a control he has to be able to press -- a HUD
+// indicator over a button, or a held control's own glow spilling onto its
+// neighbour.
 function btnObstructions() {
   const bad = [];
-  const controls = [];
-  for (const id in BUTTONS) {
-    const r = btnVisibleRect(el[id]);
-    if (r) controls.push({ id, r });
-  }
+  const controls = btnControlRects();
   for (const id of BTN_HUD_OVERLAY) {
-    const r = btnVisibleRect(document.getElementById(id));
-    if (!r) continue;
-    for (const c of controls) {
-      if (r.left < c.r.right - 3 && c.r.left < r.right - 3 &&
-          r.top < c.r.bottom - 3 && c.r.top < r.bottom - 3) bad.push(id + " over " + c.id);
+    for (const r of btnDrawnRects(document.getElementById(id))) {
+      for (const c of controls) if (btnHits(r, c)) bad.push(id + " over " + c.id);
     }
   }
-  return bad;
+  for (let i = 0; i < controls.length; i++) {
+    for (let j = i + 1; j < controls.length; j++) {
+      const a = controls[i], b = controls[j];
+      if ((a.bleed || b.bleed) && btnHits(a, b)) bad.push("held " + a.id + " over " + b.id);
+    }
+  }
+  return [...new Set(bad)];
 }
 
 function btnSlotClashes() {

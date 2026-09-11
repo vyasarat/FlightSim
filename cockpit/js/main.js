@@ -1,4 +1,21 @@
 "use strict";
+// The home arrow rides a ring around the middle of the screen. On a tall screen
+// that ring passes straight through the top-left pair, so it is walked inwards
+// along its own bearing until it is clear of every control -- the direction is
+// the whole message, the distance from the middle carries nothing.
+function homeArrowRadius(cx, cy, theta) {
+  // Measured, not assumed: the svg is sized in CSS and the narrow-screen media
+  // query changes it, so `TUNE.homeIndicatorSize` is the smaller of the two
+  // numbers and clearing by it leaves the arrow a third of the way onto the
+  // button. Take what it actually paints, plus a margin.
+  // offsetWidth, not getBoundingClientRect: the arrow is rotated, and what is
+  // wanted is the unrotated side so the diagonal can be allowed for once.
+  const w = el.homeArrow.offsetWidth || TUNE.homeIndicatorSize;
+  const half = w * 0.708 + 6;                  // half the rotated bounding box
+  const r0 = Math.min(cx, cy) - TUNE.homeIndicatorSize * 0.75 - 10;
+  return typeof btnRingRadius === "function" ? btnRingRadius(cx, cy, theta, r0, half) : r0;
+}
+
 function updateHomeArrow() {
   if (state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY") {
     el.homeArrow.classList.remove("on");
@@ -20,11 +37,9 @@ function updateHomeArrow() {
   const theta = Math.atan2(cross, dot);
 
   const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
-  const radius = Math.min(cx, cy) - TUNE.homeIndicatorSize * 0.75 - 10;
-  const px = cx + Math.sin(theta) * radius;
-  const py = cy - Math.cos(theta) * radius;
-  el.homeArrow.style.left = px + "px";
-  el.homeArrow.style.top = py + "px";
+  const radius = homeArrowRadius(cx, cy, theta);
+  el.homeArrow.style.left = (cx + Math.sin(theta) * radius) + "px";
+  el.homeArrow.style.top = (cy - Math.cos(theta) * radius) + "px";
   el.homeArrow.style.transform = `translate(-50%,-50%) rotate(${theta * 180 / Math.PI}deg)`;
 }
 
@@ -46,7 +61,7 @@ function updateSpaceArrow() {
   el.homeArrow.classList.add("on");
   const theta = Math.atan2(sx, sy);
   const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
-  const radius = Math.min(cx, cy) - TUNE.homeIndicatorSize * 0.75 - 10;
+  const radius = homeArrowRadius(cx, cy, theta);
   el.homeArrow.style.left = (cx + Math.sin(theta) * radius) + "px";
   el.homeArrow.style.top = (cy - Math.cos(theta) * radius) + "px";
   el.homeArrow.style.transform = `translate(-50%,-50%) rotate(${theta * 180 / Math.PI}deg)`;
