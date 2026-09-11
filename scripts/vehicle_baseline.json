@@ -107,8 +107,8 @@
   "buttons": "camBtn,ejectBtn,fastBtn,hornBtn,menuBtn,slowBtn,vehBtn,viewBtn,washBtn",
   "crash": {
    "exploded": true,
-   "backDx": 262.4,
-   "backDz": -2035,
+   "backDx": 1,
+   "backDz": 19.9,
    "settled": true
   }
  },
