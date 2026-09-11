@@ -92,7 +92,12 @@ module.exports = async function roadChecks({ newPage, check, viewports }) {
         let f = 0;
         while (f < 60 * 8 && !st.exploding) {
           L.api.setStick(0, 0.2); L.update(1 / 60); f++;
-          if (!st.exploding) st.speed = speed;
+          // HEADING PINNED as well as speed. This is a test of whether a
+          // building is solid, not of the lane-keep: with the car's low-speed
+          // turn rate raised in v114 the assist now hauls him back toward the
+          // road -- 338 m away -- before he has covered the eighteen metres to
+          // the wall, and the slow charge simply never arrived.
+          if (!st.exploding) { st.speed = speed; st.heading = 0; }
         }
         const out = { hits: (L.flags.wallHits || 0) - w0, crashes: (L.flags.carCrashes || 0) - c0,
                       exploded: st.exploding, frames: f, endSpeed: Math.round(st.speed) };

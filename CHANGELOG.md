@@ -10,6 +10,66 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v114 — signals on the motorway, steering that answers, a chase you cannot crash out of, and a horn that is not a bus
+
+**Six signalled crossroads on the main line**, on top of the six on the spurs.
+Sited by the same measurement rule — never wet, never steep — plus three things
+a motorway has that a spur has not: it must be a *ground* stretch (a signalled
+crossroads on a viaduct is not a thing, and one inside a bore is less of one),
+well clear of an interchange, and not on top of a junction already there. The
+motorway keeps the long green and the cross street gets a short one, so he
+sails through most of them and meets a red now and then.
+
+**Both roads stop.** The cross street queues at its red, and so does the
+motorway's own traffic — with one exception written into the code: a car that
+would become a stationary wall in front of *him* clears the junction instead of
+stopping. A finger held from New York to California has always been a crossing
+without a single bang, and a queue on the carriageway would have ended that at
+every junction. It is the same bend this codebase already puts in traffic to
+keep him safe. Measured after: 269 s, zero off-road frames, zero crashes, 16
+reds approached, 3 run, 29 traffic cars held at a line.
+
+**The steering.** Diagnosed before touching anything, and it was not the
+steering. Raw response was already 33 ms to visible yaw and a lane change in
+under a second. What was wrong is that **the lane-keep outvoted him**: below the
+old `override` threshold his command was *blended* with the assist, so at 30% of
+stick he asked for 10°/s and the car turned the other way, and at 50% he lost
+three quarters of it. The assist is never blended with him now — it yields on a
+timer, out within 0.15 s of a steer, held out for half a second after he lets
+go, then back over 0.45 s. His command always gets through whole.
+
+Also: a small deadzone with the range rescaled past it; **full lock in 26% of
+the screen width instead of 42%** (the car has its own drag range now, because
+the aeroplanes' is tuned with him and is not to be touched); and the low-speed
+turn rate *raised* rather than halved — a car turns tighter slowly, which is
+what a junction and an exit need.
+
+One thing I tried and took back out: a faster steering actuator. It measured
+17 ms to visible yaw instead of 33 — one frame against two, nothing he can feel
+— and it made the hands-off lane-keep overshoot enough to be captured by the
+lake spur and driven into the lake. Both numbers beat the target; only one of
+them keeps a coast-to-coast crossing clean.
+
+**Crashing is not a way out of a chase.** It was, because the explosion branch
+of the frame returns before `updateHighway` — so the police froze mid-bang and
+the chase quietly ended. The lights and the police run in that branch now: the
+sirens stay on while he is in pieces, and the moment he is back on the road they
+re-form behind him and pick it straight up, with the chase clock never reset.
+The give-up timer is a never-stuck backstop rather than a mechanic now, at 180
+seconds — outrunning them is the win.
+
+**The horn** was three wrong things at once: two sawtooth voices (every
+harmonic, including a fat low one), a fundamental at 294 Hz, and `setTone`'s
+80 ms smoothing giving it a swell and a long fade. It is 400 and 500 Hz
+triangles with a whisper of square for the bite, a high-pass at 330 under them
+so there is no low fundamental left at all, and an envelope of eight
+milliseconds up and fifty down. A tap is 0.4 s. Held, it stays high and clean.
+
+Frame time at a highway junction with a chase in frame: 2.04 ms against 1.90 ms
+without it, and eight *fewer* draw calls — inside the noise (SwiftShader).
+
+---
+
 ## v113 — traffic lights, and the chase you get for ignoring one
 
 **Six junctions, on the surface roads and none on the open motorway.** The spurs

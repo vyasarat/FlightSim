@@ -21,7 +21,14 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
       L.noRender = true; L.api.skipScreens();
       L.api.setVehicle("car"); L.api.placeOnRunway();
       for (let i = 0; i < 40; i++) L.update(1 / 60);
-      const out = { junctions: L.ltJunctionCount(), bothGreen: 0, redNoAmber: 0 };
+      const out = { junctions: L.ltJunctionCount(), highway: L.ltJunctionCount("highway"),
+                    spur: L.ltJunctionCount("spur"), bothGreen: 0, redNoAmber: 0 };
+      // the main-line ones get a long green and a short cross: he should sail
+      // through most of them and meet a red now and then
+      const hw = L.lights.junctions.filter(j => j.onHighway);
+      out.hwGreen = L.LT.highwayGreen; out.hwCross = L.LT.highwayCross;
+      out.hwSpread = hw.length > 1
+        ? Math.round(Math.min(...hw.slice(1).map((j, i) => Math.abs(j.s - hw[i].s)))) : 0;
       L.ltForce(0, "mainGreen");
       const seq = [];
       // Seeded from the CURRENT aspect. Starting at null makes whatever is up
@@ -62,7 +69,9 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
       out.blinkOff = lampOn.filter(x => !x).length;
       return out;
     });
-    check(`signals ${tag}: ${cyc.junctions} junctions on the surface roads and none on the open motorway, each cycling green → amber → red with the amber BLINKING first, and the two directions never green together`,
+    check(`signals ${tag}: ${cyc.highway} signalled crossroads on the main line and ${cyc.spur} on the spurs, each cycling green → amber → red with the amber BLINKING first, the two directions never green together, and the motorway holding the long green so he sails through most of them`,
+      cyc.highway >= 4 && cyc.spur >= 5 && cyc.hwGreen > cyc.hwCross * 2.5 &&
+      cyc.hwSpread > 600 &&
       cyc.junctions >= 5 && cyc.bothGreen === 0 && cyc.redNoAmber === 0 &&
       ["m:green", "m:amber", "m:red"].every(k => cyc.seq.includes(k)) &&
       cyc.blinkOn > 3 && cyc.blinkOff > 3, JSON.stringify(cyc));
@@ -92,6 +101,35 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
     });
     check(`signals ${tag}: the cross traffic obeys them -- ${traf.onRed.queued} of ${traf.onRed.total} cars sat still at the red, and they were moving again on the green`,
       traf.onRed.queued >= 3 && traf.onGreen.moving >= traf.onRed.moving + 2, JSON.stringify(traf));
+
+    // ---- 2b. the MAIN LINE: its own cross traffic queues, its own traffic is
+    // held at a red, and a finger held from New York still reaches California
+    // without a single bang -- which is the guarantee a queue on the
+    // carriageway would have ended at every junction.
+    const hwy = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      const j = L.lights.junctions.find(q => q.onHighway);
+      if (!j) return { found: false };
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+      for (let i = 0; i < 20; i++) L.update(1 / 60);
+      // beside it, off the carriageway, so the junction is awake
+      st.x = j.x + j.rx * 130; st.z = j.z + j.rz * 130; st.y = j.y; st.speed = 0;
+      j.phase = 0; j.t = 999;                       // main green, cross red
+      for (let i = 0; i < 60 * 22; i++) { L.update(1 / 60); st.x = j.x + j.rx * 130; st.z = j.z + j.rz * 130; st.speed = 0; }
+      const queued = j.cars.filter(c => (c.sp || 0) < 0.5).length;
+      // and the motorway's own traffic holds at ITS red
+      j.phase = 2; j.t = 999;
+      for (let i = 0; i < 60 * 10; i++) { L.update(1 / 60); st.x = j.x + j.rx * 130; st.z = j.z + j.rz * 130; st.speed = 0; }
+      let held = 0;
+      for (const t of L.highway.traffic) {
+        if (!t.alive) continue;
+        const line = L.ltHighwayStop(t.s, t.dir, null, 0);
+        if (line !== null && Math.abs(line - t.s) < 30) held++;
+      }
+      return { found: true, queued, total: j.cars.length, held };
+    });
+    check(`signals ${tag}: a main-line crossroads holds both roads -- ${hwy.queued} of ${hwy.total} cross-street cars queued at their red, and the motorway's own traffic stopped at its own`,
+      hwy.found && hwy.queued >= 3 && hwy.held >= 1, JSON.stringify(hwy));
 
     // ---- 3. running one starts a chase, and obeying one does not ----------
     const ran = await page.evaluate(() => {
@@ -179,7 +217,7 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
       // enough to be pulled over, so the ONLY way this can end is the clock.
       const px = st.x, pz = st.z, ph = st.heading;
       let f = 0;
-      while (f < 60 * 140 && L.police.active) {
+      while (f < 60 * (L.PL.maxChase + 25) && L.police.active) {
         L.api.setStick(0, 0.5); L.update(1 / 60); f++;
         // Twelve, not twenty: above the speed that counts as stopped and below
         // the one at which touching traffic is a bang, so neither of the other
@@ -243,6 +281,42 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
       pull.text.length === 0 && pull.drove > 10 && !pull.active && pull.secs < 22,
       JSON.stringify(pull));
 
+    // ---- 5b. A CRASH IS NOT AN ESCAPE. He explodes, reassembles free, and they
+    // are behind him again with the sirens still going. The only things that end
+    // a chase are being caught, outrunning them, and the backstop clock.
+    const wreck = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.policeStop(false);
+      L.api.setVehicle("car"); L.api.placeOnRunway();
+      for (let i = 0; i < 40; i++) L.update(1 / 60);
+      L.policeStart(null);
+      for (let i = 0; i < 60 * 3; i++) { L.api.setStick(0, 0.5); L.update(1 / 60); }
+      const before = { active: L.police.active, chaseT: +L.police.chaseT.toFixed(1) };
+      L.carCrash();
+      st.explodeTimer = L.TUNE.reassembleDelay;      // a full-length bang
+      let f = 0, aliveThroughout = true, sawWrecked = false;
+      while (f < 60 * 8 && st.exploding) {
+        L.update(1 / 60); f++;
+        if (!L.police.active) aliveThroughout = false;
+        if (L.police.wasWrecked) sawWrecked = true;
+      }
+      // within three seconds of being back on the road they are on him again
+      let g = 0;
+      while (g < 60 * 3 && L.police.active) { L.api.setStick(0, 0.5); L.update(1 / 60); g++; }
+      return { before, aliveThroughout, sawWrecked, bangFrames: f,
+               after: { active: L.police.active, state: L.police.state,
+                        nearest: L.police.active ? L.policeState().nearest : null,
+                        resumed: L.flags.policeResumed || 0,
+                        chaseT: +L.police.chaseT.toFixed(1) },
+               maxChase: L.PL.maxChase };
+    });
+    check(`chase ${tag}: crashing is not a way out of one -- he exploded, the sirens stayed on through it, and within three seconds of reassembling they were back behind him at ${wreck.after.nearest} m with the chase clock never reset`,
+      wreck.before.active && wreck.aliveThroughout && wreck.sawWrecked &&
+      wreck.after.active && wreck.after.resumed >= 1 &&
+      wreck.after.chaseT > wreck.before.chaseT && wreck.maxChase >= 150,
+      JSON.stringify(wreck));
+    await page.evaluate(() => window.__lp.policeStop(false));
+
     // ---- 6. never for anything but the car --------------------------------
     const other = await page.evaluate(() => {
       const L = window.__lp;
@@ -271,7 +345,7 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
       L.noRender = false; L.api.skipScreens();
       L.api.setVehicle("car"); L.api.placeOnRunway();
       for (let i = 0; i < 40; i++) L.update(1 / 60);
-      const j = L.lights.junctions[0];
+      const j = L.lights.junctions.find(q => q.onHighway) || L.lights.junctions[0];
       const sit = (chase) => {
         L.policeStop(false);
         st.x = j.x - j.fx * 55; st.z = j.z - j.fz * 55; st.y = j.y;
@@ -280,7 +354,10 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
         if (chase) L.policeStart(null);
         const px = st.x, pz = st.z, ph = st.heading;
         const hold = () => { st.x = px; st.z = pz; st.heading = ph; st.speed = 12; j.phase = 2; j.t = 999; st.exploding = false; };
-        for (let i = 0; i < 90; i++) { L.update(1 / 60); hold(); L.renderer.render(L.scene, L.camera); }
+        // long enough for them to close right up: they spawn seventy metres
+        // back, and behind the chase camera they cost nothing because they are
+        // not being drawn -- which is not what this is trying to price.
+        for (let i = 0; i < 60 * 9; i++) { L.update(1 / 60); hold(); L.renderer.render(L.scene, L.camera); }
         const ms = [];
         for (let r = 0; r < 7; r++) {
           const t0 = performance.now();
@@ -289,7 +366,9 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
         }
         ms.sort((a, b) => a - b);
         return { ms: +ms[3].toFixed(2), calls: L.renderer.info.render.calls,
-                 tris: L.renderer.info.render.triangles };
+                 tris: L.renderer.info.render.triangles,
+                 nearest: chase && L.police.active ? +L.policeState().nearest : null,
+                 chasing: !!(chase && L.police.active) };
       };
       // interleaved, because sampling one then the other lets drift land on a side
       const a = [], b = [];
@@ -299,8 +378,9 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
       return { quiet: a[1], chase: b[1], quietMs: +med(a).toFixed(2), chaseMs: +med(b).toFixed(2) };
     });
     const added = perf.chase.calls - perf.quiet.calls;
-    check(`chase 1180x820: a busy junction with a chase running costs a bounded number of extra draw calls over the same junction without one (SwiftShader: read calls/tris as the hardware proxy, cpuMs only as a bound)`,
-      added <= 24 && perf.chase.calls < 700, JSON.stringify({ ...perf, added }));
+    check(`chase 1180x820: a busy junction with a chase actually in frame costs a bounded number of extra draw calls over the same junction without one (SwiftShader: read calls/tris as the hardware proxy, cpuMs only as a bound)`,
+      perf.chase.chasing && perf.chase.nearest < 60 &&
+      added <= 32 && perf.chase.calls < 700, JSON.stringify({ ...perf, added }));
     console.log(`INFO  chase perf: ${perf.chaseMs} ms with the chase vs ${perf.quietMs} ms without, ` +
                 `+${added} draw calls (${perf.chase.calls} vs ${perf.quiet.calls}), ` +
                 `+${(perf.chase.tris - perf.quiet.tris).toLocaleString()} triangles (swiftshader, interleaved)`);

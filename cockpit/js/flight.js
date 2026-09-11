@@ -398,6 +398,13 @@ function update(dt) {
     updateMissiles(dt);
     updateRewards(dt);
     updateCrashWarning(dt);
+    // The junctions keep cycling and the police keep coming while he is in
+    // pieces. This branch returns before `updateHighway`, so without these two
+    // the lights froze mid-bang and popped on reassembly, and a chase stopped
+    // dead for the length of the explosion -- which made crashing a way of
+    // shaking them off, and it is not one.
+    if (typeof ltUpdate === "function" && lights.built) ltUpdate(dt);
+    if (typeof updatePolice === "function") updatePolice(dt);
     rumble = 0;
     skyDome.position.set(state.x, state.y, state.z);
     waterMesh.position.set(state.x, TUNE.waterLevel, state.z);

@@ -137,6 +137,65 @@ function alarmBeep() {
 }
 // Rolling-tyre rumble: one looped noise source whose gain follows ground speed
 // and cuts at liftoff. Created lazily, never recreated.
+// ---------------------------------------------------------------------------
+// THE CAR HORN.
+//
+// It sounded like a bus, and it was three things at once: two SAWTOOTH voices
+// (every harmonic, including a fat low one), a fundamental at 294 Hz, and
+// `setTone`'s 80 ms smoothing on both ends, which gave it a soft swell and a
+// long fade. A Model Y is the opposite of all three -- a short, high, clean
+// two-tone that starts and stops.
+//
+// So: triangles at 400 and 500 Hz (a triangle is nearly a sine with just enough
+// edge), a whisper of square for the bite, and a HIGH-PASS that removes what
+// little low energy is left, on an envelope of eight milliseconds up and fifty
+// down. Held, it simply stays on -- high and clean, never a drone, because
+// there is nothing low in it to drone with.
+let hornNodes = null;
+function ensureHorn() {
+  if (hornNodes || !audioCtx || audioCtx.state !== "running") return;
+  const H = TUNE.car.horn;
+  const g = audioCtx.createGain();
+  g.gain.value = 0;
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = "highpass"; hp.frequency.value = H.highpass; hp.Q.value = 0.7;
+  const oscs = [];
+  const mk = (type, hz, level) => {
+    const o = audioCtx.createOscillator();
+    o.type = type; o.frequency.value = hz;
+    const og = audioCtx.createGain(); og.gain.value = level;
+    o.connect(og); og.connect(hp); o.start();
+    oscs.push({ o, hz, type });
+  };
+  mk("triangle", H.hz[0], 1.0);
+  mk("triangle", H.hz[1], 0.85);
+  mk("square", H.hz[1], H.bite);      // the edge, and only the edge
+  hp.connect(g); g.connect(masterGain);
+  hornNodes = { g, hp, oscs, on: false };
+}
+function setCarHorn(on) {
+  ensureHorn();
+  if (!hornNodes || !audioCtx) return;
+  const H = TUNE.car.horn, t = audioCtx.currentTime;
+  if (on === hornNodes.on) return;
+  hornNodes.on = on;
+  const p = hornNodes.g.gain;
+  p.cancelScheduledValues(t);
+  p.setValueAtTime(Math.max(0.0001, p.value), t);
+  if (on) p.linearRampToValueAtTime(H.gain, t + H.attack);
+  else p.linearRampToValueAtTime(0.0001, t + H.release);
+}
+// What the harness reads: every voice in it, and the envelope it runs on.
+function carHornVoices() {
+  ensureHorn();
+  if (!hornNodes) return null;
+  return { hz: hornNodes.oscs.map(o => o.o.frequency.value),
+           types: hornNodes.oscs.map(o => o.type),
+           highpass: hornNodes.hp.frequency.value,
+           attack: TUNE.car.horn.attack, release: TUNE.car.horn.release,
+           tap: TUNE.car.horn.tap, on: hornNodes.on };
+}
+
 let rollNodes = null;
 function setRolling(norm) {
   if (!audioCtx || audioCtx.state !== "running") return;

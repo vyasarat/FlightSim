@@ -402,6 +402,7 @@ function carSpawn(originIdx) {
   state.heading = Math.atan2(-end.fx * dir, -end.fz * dir);
   state.speed = 0; state.pitch = 0; state.bank = 0; state.phase = "TAXI";
   car.steer = 0; car.boost = 0; car.offRoad = 0; car.charging = 0; car.chargedAt = null;
+  car.yield = 1; car.assistOff = 0;      // the assist is back the moment he is
   carBuildCabin();
   thunk();
 }
@@ -465,6 +466,7 @@ function carReassemble() {
   state.y = n.y;
   state.heading = Math.atan2(-n.fx * dir, -n.fz * dir);
   state.speed = 0; car.steer = 0; car.boost = 0;
+  car.yield = 1; car.assistOff = 0;
   car.crashX = car.crashZ = null;
   flags.carReassembles = (flags.carReassembles || 0) + 1;
 }
@@ -480,7 +482,13 @@ function updateCar(dt) {
   if (state.exploding) { setEngine(0); setTone("carTyre", "triangle", 90, 0); return; }
 
   const touching = state.touching && !menuOpen();
-  const bank = touching ? clamp(state.ctrlBank, -1, 1) : 0;
+  // The car's own drag range. `state.ctrlBank` is measured against the shared
+  // one, which is tuned with him for the aeroplanes and is not to be touched, so
+  // the car scales it: `CAR.dragRangeX` is the fraction of the SCREEN WIDTH his
+  // thumb travels for full lock, and this converts between the two.
+  const range = (TUNE.dragRangeX * Math.min(window.innerWidth, window.innerHeight)) /
+                (CAR.dragRangeX * window.innerWidth);
+  const bank = touching ? clamp(state.ctrlBank * range, -1, 1) : 0;
   const pitch = touching ? clamp(state.ctrlPitch, -1, 1) : 0;
 
   // ---- the road under him
@@ -526,9 +534,26 @@ function updateCar(dt) {
   // by the only gesture the brief gives him. Blending means holding right pulls
   // him across, the spur becomes the nearest road, and the assist then follows
   // it -- so "hold longer at an exit and you take the exit" falls out.
-  let cmd = bank * CAR.steerRate;
-  const steering = Math.abs(bank) > 0.08;
-  if (road) {
+  // A small deadzone, then proportional authority straight away. Past the
+  // deadzone the range is rescaled so the first millimetre of real steer is
+  // worth something, instead of the first tenth being thrown away.
+  const dz = CAR.deadzone;
+  const mag = Math.max(0, (Math.abs(bank) - dz) / (1 - dz));
+  const steer01 = Math.sign(bank) * mag;
+  const steering = mag > 0;
+
+  // THE ASSIST YIELDS, ON A TIMER. The moment he steers it fades out over
+  // `yieldIn`; it only starts coming back `holdOff` after he lets go. He never
+  // feels the road pulling against him, and letting go still walks him home.
+  car.yield = car.yield === undefined ? 1 : car.yield;
+  if (steering) { car.yield = Math.max(0, car.yield - dt / LK.yieldIn); car.assistOff = LK.holdOff; }
+  else {
+    car.assistOff = Math.max(0, (car.assistOff || 0) - dt);
+    if (car.assistOff <= 0) car.yield = Math.min(1, car.yield + dt / LK.fadeBack);
+  }
+
+  let cmd = steer01 * CAR.steerRate;
+  if (road && car.yield > 0) {
     // Pure pursuit: aim at a point on his lane a second or so ahead. A positive
     // steer command turns the nose right, and heading DECREASES to the right, so
     // the command is the negated bearing error.
@@ -536,13 +561,17 @@ function updateCar(dt) {
     const hErr = wrapPi(want - state.heading);
     const gain = car.onRoad ? LK.gain : LK.offRoadGain;
     const assist = clamp(-hErr / DEG * gain, -CAR.steerRate, CAR.steerRate);
-    const w = Math.min(1, Math.abs(bank) / LK.override);
-    cmd = bank * CAR.steerRate * w + assist * (1 - w);
+    // His command is never reduced -- the assist is only ADDED to it, and only
+    // by however much of itself is left. Blending the two is what let the road
+    // outvote him, and at a light steer actually reverse him.
+    cmd = clamp(cmd + assist * car.yield, -CAR.steerRate, CAR.steerRate);
   }
   car.steer += (cmd - car.steer) * Math.min(1, CAR.steerAccel * dt);
-  // it steers only when it is rolling, like a car
-  const grip = clamp(state.speed / (CAR.cruise * 0.35), 0, 1);
-  state.heading -= car.steer * DEG * dt * grip;
+  // A car turns tighter slowly and wider fast, and it does not steer at all
+  // standing still -- because it is not rolling, not because it has lost grip.
+  const rolling = clamp(state.speed / CAR.rollAt, 0, 1);
+  const tight = lerp(CAR.lowSpeedTurn, 1, clamp(state.speed / CAR.cruise, 0, 1));
+  state.heading -= car.steer * DEG * dt * rolling * tight;
   state.bank += ((car.steer / CAR.steerRate) * 6 - state.bank) * Math.min(1, 6 * dt);
 
   // ---- move
@@ -756,8 +785,9 @@ function carHornReplies() {
       && Math.random() < H.trafficChance) {
     const d = lerp(H.trafficDelay[0], H.trafficDelay[1], Math.random());
     setTimeout(() => {
-      synthBlip("sawtooth", H.hz[0] * 1.18, H.hz[0] * 1.16, 0.30, 0.055, 0);
-      synthBlip("sawtooth", H.hz[1] * 1.18, H.hz[1] * 1.16, 0.30, 0.040, 0);
+      // the answer is the same voice, shorter and quieter and a little higher
+      synthBlip("triangle", H.hz[0] * 1.18, H.hz[0] * 1.16, 0.22, 0.05, 0);
+      synthBlip("triangle", H.hz[1] * 1.18, H.hz[1] * 1.16, 0.22, 0.036, 0);
     }, d * 1000);
   }
 
@@ -790,8 +820,7 @@ function carUpdateHorn(dt) {
     car.hornSustain = 0;
   }
   const on = carHornCan() && (car.hornHeld || car.hornT > 0);
-  setTone("carHornA", "sawtooth", H.hz[0], on ? H.gain : 0);
-  setTone("carHornB", "sawtooth", H.hz[1], on ? H.gain * 0.8 : 0);
+  setCarHorn(on);
   if (!carHornCan()) { car.hornHeld = false; car.hornT = 0; }
   el.hornBtn.classList.toggle("pressed", on);
 }
