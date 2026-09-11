@@ -10,6 +10,40 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v108 — the layout check that had never seen a tall screen
+
+**The slot check ran three viewports, all of them landscape.** That is the
+answer to why the button system did not catch a clash on a portrait iPad: it
+was never asked. It runs six now, three of them portrait, every vehicle at rest
+*and* with its controls held.
+
+Adding that found a bug older than the button system. **The home arrow lay
+across the camera button at 768×1024**, and would have on any tall screen. The
+arrow rides a ring around the middle of the display, and on a tall screen that
+ring passes straight through the top-left pair. Its bearing is the entire
+message and its distance from the middle carries nothing, so it now walks
+inwards along its own bearing until it is clear of every control rather than
+taking itself away. It was also built as a 0 × 0 anchor with the arrow hanging
+off it, so `translate(-50%,-50%)` moved nothing and the rotation swung the arrow
+about its corner instead of turning it in place — which is why the first attempt
+to clear it cleared a rectangle eleven pixels from where the arrow actually was.
+The anchor shrink-wraps the arrow now.
+
+**Two things the matrix was measuring wrongly.** `#alarm` is `inset: 0` — a
+transparent full-screen box holding an edge vignette and a triangle — so
+measuring its own rectangle said the alarm covers every button on the screen.
+True, and no use. It descends to what actually paints now, and never counts a
+full-bleed transparent container as coverage. And **the pressed states are in
+the matrix**, but not by absolute paint reach: every `.roundBtn` carries a
+resting drop shadow with more reach than the gap between slots, so that answer
+is "every stacked pair overlaps, and always has", which is equally true and
+equally useless. What it measures is what a press *adds* over its own resting
+state — the helicopter pair's cyan halo, the horn's yellow glow.
+
+571 checks.
+
+---
+
 ## v107 — the airliners were pointing the wrong way, and the reticle sat on a button
 
 **Both new airliners were misoriented, and for two different reasons.** The A350
