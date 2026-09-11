@@ -660,3 +660,41 @@ function updateChunks(px, pz, buildAllNow) {
     scene.add(m);
   }
 }
+
+// ---------------------------------------------------------------------------
+// MERGE A PILE OF BOXES INTO ONE GEOMETRY.
+//
+// three.js batches nothing on its own, and the perf rig under-prices draw calls
+// against the iPad -- which is the machine that has to hold sixty frames -- so
+// everything static gets merged into one mesh per material. The harbour, the
+// lock, the boat, the yacht, the car and the models rig all build themselves
+// with this.
+//
+// It lived in car.js until now, and harbor.js carried a comment explaining that
+// it loaded after the car "precisely so it can". That is a load-order
+// constraint invented by a general helper living inside a vehicle, and it is
+// the one CLAUDE.md's load-order rule warns about. Here, in the file that owns
+// materials and the scene, nothing has to load after a car to build a harbour.
+function mergeBoxes(specs) {
+  const pos = [], nor = [];
+  const m = new THREE.Matrix4(), e = new THREE.Euler(), q = new THREE.Quaternion();
+  const t = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), n3 = new THREE.Matrix3();
+  const v = new THREE.Vector3(), n = new THREE.Vector3();
+  for (const b of specs) {
+    const g = new THREE.BoxGeometry(b.w, b.h, b.d).toNonIndexed();
+    e.set(b.rx || 0, b.ry || 0, b.rz || 0);
+    m.compose(t.set(b.x, b.y, b.z), q.setFromEuler(e), one);
+    n3.getNormalMatrix(m);
+    const P = g.attributes.position, N = g.attributes.normal;
+    for (let i = 0; i < P.count; i++) {
+      v.fromBufferAttribute(P, i).applyMatrix4(m); pos.push(v.x, v.y, v.z);
+      n.fromBufferAttribute(N, i).applyMatrix3(n3).normalize(); nor.push(n.x, n.y, n.z);
+    }
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  return out;
+}
+

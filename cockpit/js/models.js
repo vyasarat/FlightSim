@@ -338,11 +338,11 @@ function modelBuildBurner(g) {
     const s = r * B.diamondR * (1 - t * 0.55);
     dia.push({ w: s * 2, h: s * 2, d: s * 0.5, x: 0, y: 0, z: r * B.layers[0].len * t * 0.8 });
   }
-  // carMergeBoxes lives in car.js, which loads after this file -- fine, because
+  // mergeBoxes lives in car.js, which loads after this file -- fine, because
   // nothing here runs until a model has finished downloading, but guarded so a
   // missing helper costs the diamonds rather than the whole engine.
-  if (typeof carMergeBoxes === "function") {
-    const knots = new THREE.Mesh(carMergeBoxes(dia), add(B.diamondColor, B.diamondOpacity));
+  if (typeof mergeBoxes === "function") {
+    const knots = new THREE.Mesh(mergeBoxes(dia), add(B.diamondColor, B.diamondOpacity));
     knots.name = "burner_knots";
     burner.add(knots);
   }

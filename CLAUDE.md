@@ -1,196 +1,149 @@
 # Little Pilot — working rules
 
-A no-reading, no-failing flying game for a 4-year-old. `README.md` says what the
-game is; `CHANGELOG.md` says what shipped when. This file is the rules every
-change must respect, the map, and the checklist for shipping one.
-
-Per-feature implementation detail lives in a **WORKING RULES** comment at the top
-of the file it concerns. Read that file before changing it.
+A no-reading, no-failing flying game for a 4-year-old. `README.md` says what it is;
+`CHANGELOG.md` says what shipped. This is the rules, the map and the ship checklist.
+Per-feature detail lives in a **WORKING RULES** comment atop the file it concerns —
+read that file before changing it.
 
 ## Design rules (never break these)
 
-- **Zero text** in the UI: icons, silhouettes and numbers only. The harness audits
-  every DOM text node. `<title>` and `alt=""` are fine; nothing else may render text.
-- **Nothing living gets shot, hit or destroyed.** Targets, traffic and anything that
-  explodes or shatters are vehicles, machines and objects only — the *target* flocks
-  are paper planes for exactly this reason. Living things are fine where nothing can
-  happen to them: the astronaut in the station, on a spacewalk or in the rover, and
-  the ambient birds in `ambient.js`, which are not targets, not solids, carry
-  `noSolid`/`noShatter`, and are flown straight through in a harness check. Make
-  anything living hittable and it has to become a paper plane too.
-- **Nothing is ever taken away**: no score, no timers, no unlocks, no failure state.
-  Every crash explodes and reassembles for free; every reward re-arms.
-- **Pointing, not timing**: every control is "aim at it", never "press at the right
-  instant". Assists (approach alignment, flare, rocket landing assist) exist so that
-  *coasting in* works.
-- **Drag up = nose up**, never inverted. Keyboard mirrors this (arrow-up = nose up).
-  On surface vehicles drag up is the vehicle's own burst -- except the yacht,
-  where it is the horn, because fifty metres of ship has no burst to give.
-- **The picker always opens on the vehicles.** A relaunch restores the vehicle,
-  direction and destination and lights the last card, but it never opens on the
-  rocket's destination screen: the way back to the vehicles sits underneath it.
-- **Flight feel is tuned with the kid** (`TUNE` flight-feel block): don't retune it.
-  Landing-assist strengths (`align*`, `touchdown*`, flare, rocket assist) may be
-  weakened gradually as he improves.
-- **Readability beats realism.** Nothing gets darker or muddier; silhouettes stay
-  bold and the horizon stays clear. If an effect hides something he needs to see,
-  it goes — that has already overruled a brief twice.
+- **Zero text** in the UI — icons, silhouettes and numerals only, harness-audited;
+  numerals are for the wind-up counter, not for state.
+- **Nothing living gets shot, hit or destroyed.** Anything that explodes or shatters
+  is a machine — that is why the target flocks are paper planes. Living things are
+  fine where nothing can happen to them (the astronaut; the birds, gulls and whale,
+  which carry `noSolid`/`noShatter`). Make one hittable and it becomes a machine.
+- **Nothing is ever taken away**: no score, timers, unlocks or failure. A crash
+  explodes and reassembles free, *where it happened*; every reward re-arms.
+- **Pointing, not timing**: every control is "aim at it". Assists exist so *coasting
+  in* works.
+- **Drag up = nose up**, never inverted. On surface vehicles it is that vehicle's
+  burst — except the yacht, where it is the horn.
+- **The picker always opens on the vehicles**, never the rocket's destination screen
+  (the way back sits underneath it). A relaunch restores vehicle, direction and
+  destination; the menu button reaches the picker from anywhere.
+- **Flight feel is tuned with the kid**: don't retune it; assists may weaken slowly.
+- **Readability beats realism.** Nothing darker or muddier; if an effect hides
+  something he needs to see, it goes — that has overruled a brief three times.
+
+## The vehicle contract
+
+`vehicles.js` says, for whatever he is in: how it updates, where its cameras sit,
+whether it is **parked**, and where it comes back from a bang. `vehKind()` resolves
+the MODE, not the picker card (the rocket is also rover, astronaut and drone), in
+the one safe order — modes first, `bigBoat` before `boat`. **Add a vehicle by
+adding a row.**
+
+Ask the vehicle, not the flight model: `vehParked()` is the honest form of the
+`phase === "TAXI" && speed === 0` guess. `state.js`'s header says what each shared
+field means per vehicle (`state.y` is a waterline for a boat, meaningless for the
+rover); `state_semantics_checks.js` enforces what it can.
+
+`scripts/vehicle_baseline.json` pins 60 numbers across 10 vehicles (spawn, ground
+height, controls, both cameras, buttons, crash-return); regenerate **only** for a
+deliberate, stated behaviour change.
 
 ## Architecture (these bite)
 
-- `cockpit/js/*.js` are classic scripts sharing **one global scope**, loaded in the
-  order listed in `cockpit/index.html`. Two consequences, both of which have cost a
-  day: a top-level `const`/`let` used *at load time* must be declared in an earlier
-  file (using it later, inside a function, is fine); and a later `function foo`
-  **silently replaces** an earlier one of the same name. The harness checks that no
-  top-level name is declared in two files. Prefix anything new.
-- Buttons share a few fixed slots (`--stack-bottom`, the top-left corner). Two
-  visible at once and the one later in the DOM silently eats the tap — the harness
-  checks this across every state. Decide a slot button's visibility *before*
-  `updateRocket`'s rover / astronaut early returns, or whatever was up when he
-  climbed out stays up over the button he needs.
-- Set-pieces (`setpieces.js`) all run one loop: giant obvious thing → one aim or one
-  pulsing control → visible wind-up → huge payoff → free reset. **No unannounced
-  bangs**: every explosion or collapse gets a build first (beacons, rumble, the
-  shared `#bigNum` countdown — numerals only, and only while a wind-up runs). One
-  hero effect each, structures and machines only, at most one new contextual button.
-- Space events are drawn once per pad spawn and armed only by a real liftoff. An
-  event may never be required, block anything, or take anything away. **Sea
-  events (`seaevents.js`) obey the same three rules**, and the rival jet-ski is
-  rubber-banded like the rival rocket so there is no winner to be.
-- **Water is `terrainEff(x,z) < seaLevelAt(x,z)`, and nothing else.** There is
-  still exactly one definition; it takes a position now. `seaLevelAt`
-  (`terrain.js`) answers `TUNE.waterLevel` everywhere except the lock's chamber
-  and the dock above it, where `lockLevelAt` (`lock.js`) is the only thing that
-  ever says otherwise. Anything that floats, rests on or splashes into water asks
-  `seaLevelAt`; the open sea, the rockets and the ambient beds keep the constant,
-  because for them it is the same number everywhere. **Do not add a third
-  answer** — generalise this one.
-- The harbour is shaped in `terrain.js` -- dredge the basin, lay the spit, then
-  cut the mouth back through it, in that order -- so the mouth is the only way in
-  by water and the drawbridge the only way across by land. The lock is cut after
-  it, the same way: raise the rim, then cut the two floors back through it to
-  **different depths**. The dock's floor is left ABOVE the global sea so the
-  world's own plane never appears in it; the chamber's goes BELOW, because it
-  holds water at both heights. Move a number in `TUNE.harbor` or `TUNE.lock` and
-  the ground and the structures move together.
-- **A contextual button must be gated on a radius**, not only on "parked and
-  still". The car wash was gated on the latter alone and offered itself to a boat
-  sitting in the harbour lock two kilometres away. Every other one has a radius
-  (`cannonRadius`, the garage's, the drone's `callR`, the wash's `buttonR`).
-- **A boat can never be stuck.** A beached hull widens its search for water until
-  it finds some, and any beaching that has not ended in `boat.strandedAfter`
-  seconds ends itself by going home. Both are needed: the search alone deadlocks
-  against a quay standing in the water it can see. The lock obeys the same law
-  from the other direction: sitting in the chamber doing nothing re-opens the
-  gate he came in by, so there is no way to be shut in, and its gates open
-  themselves as he comes up to them so he never has to aim at a shut one.
-- **The harbour is the third place he can lose a whole session in**, after the
-  airport toy world and the space programme. It gets the same treatment: a pool
-  of sea events (`seaevents.js`) that grows the way the space pool did, all of
-  them under the three rules above. The rejected direction is the fishing boat --
-  do not bring it back.
-- **The speed steps are one control he learns once** (`speed.js`): same two
-  buttons, same top-right slot, same icons, on every vehicle but the rocket. The
-  helicopter is the one exception the screen forces -- four button slots a side,
-  three already spent -- and there it is a single stepper that wraps. Each
-  vehicle's range is `TUNE.<vehicle>.speedSteps`, and a step scales the speed the
-  model AIMS for and its cap, never the `speed / cruise` ratios that drive the
-  engine note, the wake and the field of view.
-- **Wake and spray must stay out of the shot, and size is what does it.** A puff
-  grows to 2.2x its size, so a 2.9 becomes a six-metre ball -- and the boat's
-  chase camera sits twenty-two metres astern, the yacht's ninety-five. Measuring
-  how HIGH a puff climbs will pass while the view is ruined; measure whether its
-  sphere intersects the camera's sightline.
-- The rocket's landing envelope (`landMax*`, `landPadR`/`landDeckR`/`landCatchR`)
-  says what counts as a landing; everything else crashes, and a crash stays free.
-  Assist strengths are separate knobs (`assist*`) — the assist may stand him up,
-  never rescue a last-second dive.
-- **No post-processing stack, and there is not going to be one.** Every glow is an
-  additive billboard on one shared texture (`glowSprite`, or `glowField` for many at
-  one draw call). On an iPad a full-screen bloom costs more than all of them together.
-- There is no weather/sky button; the sky moods stay in code (`state.sky`).
+- Classic scripts in **one global scope**, `index.html` order. A top-level
+  `const`/`let` used *at load time* must come from an earlier file (inside a function
+  is fine), and a later `function foo` **silently replaces** an earlier one. Prefix
+  anything new; the harness checks for duplicate top-level names.
+- **Every button is declared once in `buttons.js`** — its slot and its `when()` —
+  and one pass a frame computes all of them from scratch, so nothing another vehicle
+  did survives and no vehicle puts away buttons it never heard of. Two in one slot
+  means the later in the DOM eats the tap: `btnSlotClashes()` says so from the table.
+- Set-pieces run one loop: giant obvious thing → one aim or pulsing control →
+  visible wind-up → huge payoff → free reset. **No unannounced bangs** — every
+  explosion gets a build. One hero effect each, machines only, one new button.
+- Space events are drawn once per pad spawn, armed by a real liftoff. **Sea events
+  obey the same three rules** — never required, never blocking, never takes anything
+  away — and rivals are rubber-banded, so there is no winner to be.
+- **Water is `terrainEff(x,z) < seaLevelAt(x,z)`, and nothing else.** One
+  definition that takes a position: `seaLevelAt` (`terrain.js`) returns
+  `TUNE.waterLevel` except over the lock, where `lockLevelAt` is the only override.
+  Anything that floats asks it. **Do not add a third answer** — generalise this one.
+- The harbour is shaped in `terrain.js`, **in order**: dredge the basin, lay the
+  spit, cut the mouth back through it. Then the lock: raise the rim, cut its two
+  floors to *different* depths (dock above the global sea, chamber below, since it
+  holds both). Move a `TUNE.harbor`/`TUNE.lock` number and ground and structures
+  move together.
+- **A contextual button needs a RADIUS**, not just "parked and still" — true of a
+  boat in the lock, which is how the car wash offered itself two kilometres away.
+- **A boat can never be stuck.** A beached hull widens its water search *and* times
+  out — the search alone deadlocks against a quay. In the lock, idling re-opens it.
+- **The harbour is the third place he can lose a session in**; its event pool grows
+  the way the space pool did. The fishing boat is rejected — don't bring it back.
+- **The speed steps are one control he learns once** (`speed.js`): same pair, same
+  top-right slot, every vehicle but the rocket — the helicopter has four slots a side
+  and three spent, so it gets a single stepper. `TUNE.<vehicle>.speedSteps` scales
+  the speed the model AIMS for and its cap, never the `speed / cruise` ratios that
+  drive sound, wake and FOV.
+- **Wake stays out of the shot, and SIZE is what does it** — a puff grows to 2.2x,
+  so 2.9 is a six-metre ball before a camera 22 m astern. Test whether its sphere
+  crosses the sightline, not how high it climbs.
+- The rocket's envelope (`landMax*`, `land*R`) says what counts as a landing;
+  everything else crashes, free. Assists may stand him up, never rescue a dive.
+- **No post-processing stack, ever.** Glows are additive billboards on one shared
+  texture; on an iPad a full-screen bloom costs more than all of them. No weather
+  button either — the sky moods stay in code (`state.sky`).
 
 ## The map
 
 | file | what it owns |
 |---|---|
-| `nozoom.js` | loads **first**; stops iOS Safari zooming (pinch, multi-touch, double-tap) |
-| `tune.js` | every gameplay number: `TUNE`, `.rocketTune`, `.marsBase`, `.heli`, `.toyWorld`, `.eject`, `.light`, `.sky`, `.water`, `.audio`, `.camera`, `.ambient`, `.palette` |
-| `terrain.js` `scene.js` | the world, the sea, lighting and the shadow rig |
-| `sky.js` | sun, halo, haze, cirrus, stars, the shared glow helpers |
-| `flight.js` | the plane flight model and the frame loop |
-| `heli.js` | the helicopter's own model — it owns ground *and* air for that vehicle |
-| `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship/net boat, surface buggy, per-launch event |
-| `setpieces.js` `marsbase.js` | demolition, tower-catch, fire rig, carrier / the Mars base and its toys |
-| `toyworld.js` `workshop.js` `toyfinish.js` | airport magnet yards, ramp and pinwheels, toy/fleet finish |
-| `eject.js` | one-tap rescue |
-| `highway.js` `car.js` | the coast-to-coast road, its traffic and exits / the electric SUV and lane-keep |
-| `harbor.js` | the Californian port: terrain-shaped basin, terminal, marina, breakwater, drawbridge, coast road |
-| `boat.js` `yacht.js` `seaevents.js` | the speedboat and its water cannon / the yacht, her helipad and tender garage / the jet-ski, the whale, the cruise ship |
-| `lock.js` | the lock, its gates and the impounded dock six metres above the harbour |
-| `speed.js` | the speed steps: one control, every vehicle but the rocket |
-| `ambient.js` | birds, high airliners, flags — things that move on their own |
-| `audio.js` | the mix, the ambient beds, layered events |
-| `vehicle.js` | vehicle models, the cameras and camera feel |
-| `main.js` | the rAF loop and the `window.__lp` test surface |
+| `nozoom.js` | loads **first**; stops iOS Safari zooming |
+| `tune.js` | every gameplay number |
+| `terrain.js` `scene.js` `sky.js` | world and sea, lighting and shadows, sun/haze/stars, `mergeBoxes` |
+| `flight.js` `heli.js` | the plane model **and the frame loop** / the helicopter, ground *and* air |
+| `vehicles.js` `buttons.js` `speed.js` | the vehicle contract / every button's slot and `when()` / speed steps |
+| `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship, buggy, per-launch event |
+| `setpieces.js` `marsbase.js` | demolition, tower-catch, fire rig, carrier / Mars and its toys |
+| `toyworld.js` `workshop.js` `toyfinish.js` | airport magnet yards, ramp, toy/fleet finish |
+| `highway.js` `car.js` | the coast-to-coast road and its traffic / the SUV and lane-keep |
+| `harbor.js` `lock.js` | the Californian port / the lock and its impounded dock |
+| `boat.js` `yacht.js` `seaevents.js` | the speedboat and cannon / the yacht / eight things at sea |
+| `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
 
-`TUNE.palette` is the canonical ~21 colours; every colour snaps to one unless it is
-an airliner livery or a signal lamp. Flat shading is applied once, at the top of
-`scene.js`, by defaulting `flatShading: true` on the two lit material constructors —
-don't chase it per literal.
+`TUNE.palette` is the canonical ~21 colours; everything snaps to one unless it is an
+airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`.
+`mergeBoxes` merges static boxes per material — three.js batches nothing itself.
 
-## Adding a file under `cockpit/js/`
-
-1. Add a `<script src="js/….js">` tag in `cockpit/index.html` in the right order.
-2. Add `"./js/….js"` to `ASSETS` in `cockpit/sw.js`.
-3. Bump `CACHE_NAME` in `cockpit/sw.js`.
+**Adding a file under `cockpit/js/`**: script tag in `index.html` (right order),
+`"./js/….js"` in `ASSETS` in `sw.js`, bump `CACHE_NAME`.
 
 ## Testing habits
 
-- **Behavioural checks over existence checks.** The first audit found a train that
-  had never rendered, a glide arrow with the wrong sign and "shelved" vehicles that
-  were still tappable — all under a green harness that only checked things existed.
-- Long sections reuse one page and state carries between checks. Reset what you
-  touch, or give a check its own page (`newPage`) when it lands or respawns.
-- The harness stubs `requestAnimationFrame` and fires only the *last* queued
-  callback per pump — game code must not queue its own rAF callbacks for timing
-  (use `setTimeout` or `frameCount`).
-- **Never A/B a performance change in blocks.** Sampling A three times then B three
-  times lets machine drift land on one side; it once priced a layer at +19% that
-  interleaved sampling showed to be free. Alternate the samples.
-- Evidence, screenshots and recordings are **never committed** — they go in the
-  gitignored `evidence/`. `scripts/*_check.js` write there.
+- **Behaviour over existence, and deltas not totals** — a check reading
+  `flags.boatCrashes` outright stayed green for two releases while the boat sailed
+  through the container ship, on a 1 an earlier check had left behind.
+- One page is reused and state carries: reset what you touch, or take a `newPage` —
+  sparingly, the server is single-threaded and a third live page timed a run out.
+- It stubs rAF (only the *last* queued callback fires) and runs 12 sim-seconds in a
+  sixth of a real one, so **game code must never time off `performance.now()`** — use
+  a `dt` countdown. That bug hid two vehicles' crashes entirely.
+- **Never A/B perf in blocks** — alternate samples, and report more than one run:
+  a median can read +5% and reverse on the next.
+- Evidence is **never committed** — gitignored `evidence/`.
 
-## Perf
-
-`scripts/polish_check.js <tag>` renders four vantage points in both camera views and
-times the heaviest scenes with interleaved A/Bs. It runs under **SwiftShader, a
-software rasteriser — not an iPad**. It over-prices fill rate by a wide margin and
-under-prices draw calls, so read `calls`/`tris` as the hardware proxy and `cpuMs`
-only as a bound.
+- `scripts/polish_check.js <tag>` times the heaviest scenes under **SwiftShader, not
+  an iPad**: it over-prices fill rate and under-prices draw calls, so read
+  `calls`/`tris` as the hardware proxy and `cpuMs` only as a bound.
 
 ## Ship checklist
 
-1. Work on `cockpit-3d`. Keep `main` deployable. **Fetch first** — other work ships
-   to this repo too, and the published version may be ahead of you.
-2. Bump `CACHE_NAME` in `cockpit/sw.js` (and root `sw.js`) whenever anything under
-   `cockpit/` changes — `deploy.sh` refuses otherwise, measured against the rev
-   currently published. Match `/v\d+/`, don't guess the current number, and check
-   the file afterwards: a `sed` for a version that isn't there is a silent no-op.
-3. Harness green (it prints the count):
-   ```
-   CHROME_HEADLESS_SHELL=/path/to/chrome-headless-shell \
-   NODE_PATH=/path/to/node_modules \
-   node scripts/headless_test.js
-   ```
-   It serves the repo on :8177 and refuses to start if that port is busy. Don't edit
-   `cockpit/` while it runs — pages loaded later would see mixed code.
-   `UPDATE_VISUAL=1` regenerates `scripts/visual_baseline.json` after an intentional
-   look change; never edit that file by hand.
-4. For anything visual, render it and *look* at it — the harness hashes eight scenes.
-5. `git push origin cockpit-3d && git checkout main && git merge --no-ff cockpit-3d && git push`
+1. Work on `cockpit-3d`, keep `main` deployable, **fetch first** — the published
+   version may be ahead of you.
+2. Bump `CACHE_NAME` in `cockpit/sw.js` **and** root `sw.js` for any `cockpit/`
+   change — `deploy.sh` refuses otherwise. Match `/v\d+/`, don't guess the number,
+   and check afterwards: a `sed` for a version that isn't there is a silent no-op.
+3. Harness green: `CHROME_HEADLESS_SHELL=… NODE_PATH=… node scripts/headless_test.js`
+   (~15 min, prints the count; :8177, refuses if busy). **Don't edit `cockpit/` while
+   it runs.** Node buffers piped stdout — redirect to a file and poll. `UPDATE_VISUAL`
+   / `UPDATE_VEHICLE` regenerate baselines; never hand-edit them.
+4. For anything visual, render it and **look at it** — the eight hashed scenes cover
+   no boat, no HUD and no harbour.
+5. Push `cockpit-3d`, merge `--no-ff` into `main`, push.
 6. `ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'`
-   Rollback: `bash deploy/deploy.sh --rollback`.
-7. Add a paragraph to `CHANGELOG.md`.
-8. The iPad picks it up on its next launch from the runway menu.
+   (rollback: `deploy.sh --rollback`). Add a `CHANGELOG.md` paragraph. The iPad
+   picks it up on its next launch.

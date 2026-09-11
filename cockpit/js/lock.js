@@ -238,7 +238,7 @@ function lockSolid(x, y0, z, hw, hd, y1) {
 // The harbour's merge helper adds straight into `harbor.g`; this one hands the
 // mesh back so the lock owns its own group.
 function lkMergeBoxes(specs, mat) {
-  const m = new THREE.Mesh(carMergeBoxes(specs), mat);
+  const m = new THREE.Mesh(mergeBoxes(specs), mat);
   m.castShadow = true;
   m.receiveShadow = false;
   return m;

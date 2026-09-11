@@ -105,8 +105,6 @@ function spdMul() {
   return steps ? steps[spdIndex()] : 1;
 }
 
-function spdHasSteps() { return !!spdStepsFor(spdKey()); }
-
 // The helicopter is the one vehicle with no room for a pair.
 function spdUsesCycle() { return !!(state.vp && state.vp.heli); }
 

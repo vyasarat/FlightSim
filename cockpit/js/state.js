@@ -1,4 +1,48 @@
 "use strict";
+// ---------------------------------------------------------------------------
+// WORKING RULES -- WHAT THE SHARED STATE FIELDS ACTUALLY MEAN.
+//
+// One `state` object is read by forty files, and several of its fields mean
+// DIFFERENT THINGS depending on what he is driving. That is not a thing to fix
+// by renaming -- it is a thing to write down, because every bug this codebase
+// has had in that area came from a reader assuming the aeroplane's meaning.
+// scripts/state_semantics_checks.js asserts the ones that can be asserted.
+//
+//   state.y      THE VEHICLE'S OWN REFERENCE HEIGHT, and its zero is different
+//                per vehicle. Aircraft: the model origin, with the wheels
+//                TUNE.gearHeight below it. Car: the road surface (the body's
+//                origin is 2.6 m lower still). Boat and yacht: the WATERLINE --
+//                and the waterline is seaLevelAt(x,z), not TUNE.waterLevel, so
+//                inside the lock it is six metres higher. Rover and Mars drone:
+//                MEANINGLESS. They live on a sphere; rover.x/y/z and
+//                mars.drone.h are the truth, and state.y is stale for them.
+//
+//   state.phase  "TAXI" | "ROLL" | "AIRBORNE" | "CLIMB_AWAY" | "LANDED".
+//                An AEROPLANE's flight phase. The car, boat, yacht, helicopter
+//                and rocket set "TAXI" as a way of saying "not flying", which
+//                is a lie a reader can believe: it is why the car wash offered
+//                itself to a boat parked in the harbour lock. ASK THE VEHICLE
+//                (vehParked() in js/vehicles.js), not the phase, unless you
+//                genuinely mean an aeroplane's phase. Migrating its sixty-odd
+//                readers is a separate job, deliberately not done yet.
+//
+//   state.speed  metres per second along `forward`, for every vehicle. The one
+//                field that means the same thing everywhere -- EXCEPT for the
+//                rover and the drone, which keep their own (rover.speed,
+//                mars.drone.speed) and leave this one stale.
+//
+//   state.airVy  vertical velocity, aircraft only. Surface vehicles pin it to 0.
+//
+//   state.vp     the vehicle PROFILE from TUNE.vehicles. Its booleans are not
+//                exclusive: `bigBoat` implies `boat`, which is why anything
+//                asking must ask in the order js/vehicles.js asks.
+//
+//   safePos      where the SHARED respawn puts him after a bang -- and only the
+//                aeroplane ever writes it. A vehicle that wants to come back
+//                where it crashed records that itself (boat.crashX, car.crashX)
+//                and uses it in its own reassemble slot. The car not doing this
+//                is why it used to come back at the far end of the last flight.
+// ---------------------------------------------------------------------------
 const state = {
   x: 0, y: 0, z: 0,
   pitch: 0, bank: 0, heading: 0,
