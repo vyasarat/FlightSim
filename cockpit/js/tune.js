@@ -100,6 +100,7 @@ const TUNE = {
     beds: {
       ground:   { gain: 0.030, cut:  380, thumpRate: 0,   thump: 0 },
       car:      { gain: 0.055, cut:  900, thumpRate: 0,   thump: 0 },    // tyres and wind, not an engine
+      sea:      { gain: 0.075, cut:  620, thumpRate: 0.34, thump: 0.45 }, // the harbour: a wash with a slow swell in it
       wind:     { gain: 0.085, cut: 1400, thumpRate: 0,   thump: 0 },   // aloft, and it grows with speed
       heli:     { gain: 0.115, cut:  520, thumpRate: 12,  thump: 0.55 }, // rotor wash: a beat, not a drone
       airliner: { gain: 0.070, cut:  240, thumpRate: 0,   thump: 0 },    // cabin hum

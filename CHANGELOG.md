@@ -10,6 +10,31 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v112 — the harbour had the wrong ambience, and a CSS tier that had never applied
+
+**A boat in the harbour was listening to an airport.** `currentBedName` asked
+the vehicle about the car, the helicopter and the airliners, and then fell
+through to `state.phase === "TAXI"` — which every surface vehicle writes on
+every one of its frames as a way of saying "not flying". So a speedboat or a
+yacht two thousand metres out to sea got the apron rumble, for the whole
+session. The phase is the last question asked now, and only the aeroplane ever
+reaches it. There is a `sea` bed: a wash with a slow swell in it.
+
+That is the third time this particular lie has bitten — the car wash offering
+itself to a boat in the lock, the car's solid test that never ran, and now this
+— so the rule is written down: **ask the vehicle, and ask the phase last.**
+
+Also gone: a `@media (max-height: 360px)` block that had never applied to
+anything. The `max-height: 520px` block matches every screen it did and comes
+after it, so it won every property. Left a note rather than a silence, because
+the reason not to restore it is worth knowing: 48 px controls would fail the
+harness's 56 px minimum, which is exactly why the surviving tier's own comment
+stops at 58.
+
+593 checks.
+
+---
+
 ## v111 — the engine is two loops now, and the recordings are a drop-in
 
 Every engine in the game was **one sawtooth oscillator**, shared by every

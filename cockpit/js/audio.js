@@ -451,11 +451,19 @@ function ensureBed() {
   bedNodes = { src, lp, g, lfo, lfoG, level: 0, cut: 500, thump: 0 };
 }
 
+// Which room he is in. ASK THE VEHICLE, then the phase -- in that order, and
+// the order is the bug this fixes. Every surface vehicle writes
+// `phase = "TAXI"` as a way of saying "not flying", so a boat fell through to
+// the `phase === "TAXI"` line and spent the whole harbour listening to the
+// APRON RUMBLE of an airport two thousand metres inland. The phase is the last
+// question asked now, and only the aeroplane ever reaches it.
 function currentBedName() {
   if (typeof rk !== "undefined" && rk && rk.onBody) return rk.onBody.name === "mars" ? "mars" : "moon";
   if (state.spaceF > 0.55) return "space";
-  if (state.vp && state.vp.car) return "car";
-  if (state.vp && state.vp.heli) return "heli";
+  const k = typeof vehKind === "function" ? vehKind() : "plane";
+  if (k === "car") return "car";
+  if (k === "heli") return "heli";
+  if (k === "boat" || k === "yacht") return "sea";
   // the keys are airlinerDelta / airlinerEmirates, never "airliner"
   if (state.vehicleKey && state.vehicleKey.indexOf("airliner") === 0) return "airliner";
   if (state.phase === "TAXI" || state.phase === "ROLL") return "ground";
