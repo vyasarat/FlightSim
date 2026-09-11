@@ -10,6 +10,51 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v107 — the airliners were pointing the wrong way, and the reticle sat on a button
+
+**Both new airliners were misoriented, and for two different reasons.** The A350
+was nose-first into the chase camera; the 777 was sideways across the runway.
+
+The 90° error is the interesting one. `modelPrepare` decided which way round a
+model was with `size.x > size.z` — "the long axis is the fuselage". On an
+airliner that is a coin flip: a 777 is 63.7 m long with a 60.9 m span, an A350
+66.8 m with 64.8 m. Centimetres decided it, and it put one of them across the
+runway. The rig's taper test was no better — it called the 777's nose end 0.76 m
+wide, which is a nose-cone tip rather than a twenty-metre tailplane, because that
+file is 38 separate nodes and the sample found the wrong one.
+
+So the axis is **measured** now, from three facts true of every aeroplane: the
+highest part of the model is the fin and it is at the back; wings sweep back, so
+the tips sit behind the root; the engines hang below the wing ahead of the fin.
+All three must agree or the code falls back rather than picking one — a wrong
+answer here points an aeroplane backwards down a runway.
+
+**And they were more than twice the size of the bodies they replaced.** `length`
+was set to the real aeroplane's, but these are drop-in bodies and the hand-built
+airliner is 31.5 m long in this world. At 66.8 m the chase camera, which sits 30 ×
+the vehicle's size behind, ended up inside its own tail. Matched to the box it
+replaces, the vertical offset lands within 0.1 m of the built body's.
+
+**Ten new orientation checks** that cannot lie the way the taper test did, because
+they do not ask about the file — they ask about the aeroplane standing in the
+world. Fin behind the centroid along the runway heading in both views; after
+three seconds of throttle the nose leads along the direction it is actually
+*travelling*; and for a wide-body, span across the heading exceeds span along it,
+which is the 90° error the bounding box could not see. Applied to the prop and
+the fighter too, as the regression the imports earned.
+
+**The reticle was sitting on a button.** The slot-clash detector only ever looked
+at buttons, so a HUD indicator drawn on top of a control was invisible to it —
+which is exactly what was happening: on the helicopter the aim marker landed on
+the speed stepper, a reticle over a control, at every viewport tested. Detection
+now has three independent halves — geometric overlap between controls, the
+declared slot table, and **obstruction**, a HUD element over a control — and none
+subsumes the others. The marker itself now takes itself away while it would cover
+a control and returns the moment it would not, because readability beats the
+effect.
+
+---
+
 ## v106 — a real A350 and a real 777, with their liveries, and one fewer plane
 
 **Two imported airliner bodies**, replacing the hand-built ones for

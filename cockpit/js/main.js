@@ -76,6 +76,20 @@ function updateAimMarker() {
   const m = 30;
   const cx2 = clamp(px, m, window.innerWidth - m);
   const cy2 = clamp(py, m, window.innerHeight - m);
+  // IT GETS OUT OF THE WAY OF A CONTROL. The marker is clamped to the screen, so
+  // where he is aiming can land squarely on a button -- on the helicopter it sat
+  // on the speed stepper, a reticle over a control, at every viewport. Nothing
+  // becomes unpressable (it does not take pointer events) but he cannot read the
+  // button underneath, and readability beats the effect: it simply goes while it
+  // would overlap one, and comes back the moment it would not.
+  // its own drawn size, not a guess: the svg is clamp(24px, 4.2vmin, 38px)
+  const aimSvg = el.aimMarker.querySelector("svg");
+  const half = (aimSvg ? aimSvg.getBoundingClientRect().width || 32 : 32) / 2;
+  if (typeof btnRectBlocked === "function" &&
+      btnRectBlocked(cx2 - half, cy2 - half, cx2 + half, cy2 + half)) {
+    el.aimMarker.classList.remove("on");
+    return;
+  }
   el.aimMarker.classList.add("on");
   el.aimMarker.style.left = cx2 + "px";
   el.aimMarker.style.top = cy2 + "px";
@@ -175,7 +189,7 @@ window.__lp = {
   car, CAR, carActive, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
   carHornCan, carHornPress, carHornRelease, carUpdateHorn,
   vehKind, vehSlot, vehUpdate, vehCamera, vehParked, vehReassemble, VEHICLE_CONTRACT,
-  BUTTONS, btnUpdateAll, btnSlotClashes,
+  BUTTONS, btnUpdateAll, btnSlotClashes, btnObstructions,
   spdKey, spdStepsFor, spdIndex, spdMul, spdNudge, spdCycle, spdUsesCycle, spdReset, spdUpdateButtons,
   openPicker, openPickerAnywhere, pickerCanOpen, menuOpen,
   harbor, HB, hbBuild, updateHarbor, hbRoadY, hbHorn, hbBridgeHonked,

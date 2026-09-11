@@ -22,17 +22,129 @@ const modelState = {};        // key -> "loading" | "ready" | "failed"
 function modelPrototype(key) { return modelStore[key] || null; }
 
 // Fit a loaded scene into the box the built body occupied.
+// ---------------------------------------------------------------------------
+// WHICH WAY IS THE NOSE, measured rather than guessed.
+//
+// Three facts hold for every aeroplane in this game, and the test only trusts an
+// answer all three agree on:
+//
+//   FIN      the highest part of the model is the vertical stabiliser, and it is
+//            at the BACK. So the topmost cluster sits behind the centroid.
+//   SWEEP    wings sweep back, so the wingtips (the widest vertices) sit behind
+//            the wing root.
+//   ENGINES  the engines hang below the wings and AHEAD of the fin.
+//
+// It tries both horizontal axes and both directions, scores the four candidates,
+// and returns the turn that puts the nose at -Z. `agree` is false when the three
+// disagree, and the caller then falls back rather than picking one -- a wrong
+// answer here points an aeroplane backwards down a runway.
+// ---------------------------------------------------------------------------
+function modelAircraftAxis(scene) {
+  const pts = [];
+  const v = new THREE.Vector3();
+  scene.updateWorldMatrix(true, true);
+  scene.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    const pos = o.geometry.attributes.position;
+    const step = Math.max(1, Math.floor(pos.count / 4000));    // a sample is plenty
+    for (let i = 0; i < pos.count; i += step) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+      pts.push(v.x, v.y, v.z);
+    }
+  });
+  const n = pts.length / 3;
+  if (n < 200) return null;
+
+  let cx = 0, cy = 0, cz = 0;
+  for (let i = 0; i < n; i++) { cx += pts[i*3]; cy += pts[i*3+1]; cz += pts[i*3+2]; }
+  cx /= n; cy /= n; cz /= n;
+
+  // mean position of the highest / lowest / most lateral slices
+  const pick = (key, frac, cmp) => {
+    const idx = [...Array(n).keys()].sort((a, b) => cmp(key(a), key(b)));
+    const take = Math.max(8, Math.floor(n * frac));
+    let sx = 0, sy = 0, sz = 0;
+    for (let k = 0; k < take; k++) { const i = idx[k]; sx += pts[i*3]; sy += pts[i*3+1]; sz += pts[i*3+2]; }
+    return { x: sx / take, y: sy / take, z: sz / take };
+  };
+  const yOf = i => pts[i*3+1];
+  const desc = (a, b) => b - a, asc = (a, b) => a - b;
+  const top = pick(yOf, 0.02, desc);        // the fin
+  const low = pick(yOf, 0.06, asc);         // gear and engine pods
+
+  const score = (ax, sign) => {
+    // `ahead` is the coordinate along the candidate forward direction
+    const along = i => sign * (ax === "x" ? pts[i*3] : pts[i*3+2]);
+    const lat   = i => Math.abs((ax === "x" ? pts[i*3+2] : pts[i*3]) - (ax === "x" ? cz : cx));
+    const cAlong = sign * (ax === "x" ? cx : cz);
+    const topAlong = sign * (ax === "x" ? top.x : top.z);
+    const lowAlong = sign * (ax === "x" ? low.x : low.z);
+    // FIN: behind the centroid
+    const fin = topAlong < cAlong;
+    // SWEEP: the widest vertices sit behind the ones near the centreline
+    const idx = [...Array(n).keys()].sort((a, b) => lat(b) - lat(a));
+    const tipTake = Math.max(8, Math.floor(n * 0.02));
+    let tip = 0; for (let k = 0; k < tipTake; k++) tip += along(idx[k]); tip /= tipTake;
+    let root = 0, rootN = 0;
+    const span = lat(idx[0]);
+    for (let i = 0; i < n; i++) if (lat(i) < span * 0.12) { root += along(i); rootN++; }
+    root = rootN ? root / rootN : cAlong;
+    const sweep = tip < root;
+    // ENGINES: the low cluster is ahead of the fin
+    const engines = lowAlong > topAlong;
+    return { fin, sweep, engines, agree: fin && sweep && engines };
+  };
+
+  const cands = [
+    { ax: "z", sign: -1, turn: 0 },                 // nose already at -Z
+    { ax: "z", sign:  1, turn: Math.PI },
+    { ax: "x", sign: -1, turn: -Math.PI / 2 },
+    { ax: "x", sign:  1, turn:  Math.PI / 2 },
+  ];
+  let best = null;
+  for (const c of cands) {
+    const r = score(c.ax, c.sign);
+    const votes = (r.fin ? 1 : 0) + (r.sweep ? 1 : 0) + (r.engines ? 1 : 0);
+    const out = { ...c, ...r, votes };
+    if (!best || out.votes > best.votes) best = out;
+  }
+  return best;
+}
+
 function modelPrepare(key, scene) {
   const cfg = MODELS[key];
   const g = new THREE.Group();
   g.add(scene);
 
-  // 1. orient: the long horizontal axis becomes Z, and the nose points -Z
+  // 1. orient: the long horizontal axis becomes Z, and the nose points -Z.
+  //
+  // THE OLD TEST WAS `size.x > size.z`, AND ON AN AIRLINER THAT IS A COIN FLIP.
+  // A 777 is 63.7 m long with a 60.9 m span and an A350 66.8 m with 64.8 m: the
+  // bounding box is very nearly square, so "the long axis is the fuselage" is
+  // decided by centimetres. It put the 777 sideways across the runway. The taper
+  // test in the rig was no better -- it reported that model's nose end as 0.76 m
+  // wide, which is a nose-cone tip rather than a tailplane, because the file is
+  // 38 separate nodes and the sample found the wrong one.
+  //
+  // So the axis and the direction are MEASURED now, from three facts about every
+  // aeroplane ever built, and all three have to agree (modelAircraftAxis below).
+  // `yaw` remains as an explicit override for a model the geometry cannot read.
+  // Always MEASURE (it is cheap and once per model, and the harness reads it),
+  // but only ACT on it for a model that opts in. A car has no fin and no swept
+  // wing, so the three tests mean nothing to it: the car, the fighter and the
+  // two hulls keep exactly the path they had.
   scene.updateWorldMatrix(true, true);
   let bb = new THREE.Box3().setFromObject(scene);
   let size = bb.getSize(new THREE.Vector3());
-  if (size.x > size.z) { scene.rotation.y += Math.PI / 2; scene.updateWorldMatrix(true, true); }
+  const orient = modelAircraftAxis(scene);
+  if (cfg.autoOrient && orient && orient.agree) {
+    scene.rotation.y += orient.turn;
+  } else if (size.x > size.z) {
+    scene.rotation.y += Math.PI / 2;
+  }
+  scene.updateWorldMatrix(true, true);
   if (cfg.yaw) { scene.rotation.y += cfg.yaw; scene.updateWorldMatrix(true, true); }
+  g.userData.orient = orient;
 
   // 2. scale to the target length
   bb = new THREE.Box3().setFromObject(scene);

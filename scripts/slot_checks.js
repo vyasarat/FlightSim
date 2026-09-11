@@ -58,7 +58,14 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
         // that share a slot but whose CSS has drifted apart -- and the geometry
         // catches one the table cannot, a button sitting somewhere its entry
         // does not claim. Neither subsumes the other.
-        const bad = overlaps().concat(L.btnSlotClashes().map(c => "declared " + c));
+        // Three tests, and none subsumes the others: the geometric one over the
+        // controls, the DECLARED one from the button table, and obstruction --
+        // a HUD indicator drawn on top of a control. The third exists because
+        // the first two only ever looked at buttons, so a "pull up" arrow lying
+        // across the throttle was invisible to both.
+        const bad = overlaps()
+          .concat(L.btnSlotClashes().map(c => "declared " + c))
+          .concat(L.btnObstructions().map(c => "obstructed " + c));
         if (bad.length) out.push({ name, bad });
       };
 
