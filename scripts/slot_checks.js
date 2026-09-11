@@ -49,7 +49,28 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       };
 
       const out = [];
+
+      // The PRESSED and EXPANDED states, not just the resting ones. A control
+      // that grows a halo when held, or a speed ladder that opens over the
+      // throttle, is only wrong in the state he is actually in when he needs
+      // the next control -- so every scene is tested held as well as at rest.
+      const HELD = ["fastBtn", "slowBtn", "speedBtn", "throttleBtn", "heliUpBtn", "heliDownBtn",
+                    "hornBtn", "cannonBtn", "bucketBtn", "missileBtn", "magnetBtn", "washBtn"];
+      // Only the CSS-positioned indicators can be forced on: the home arrow,
+      // the aim marker, the heli target and the wingman are placed by script
+      // every frame they are up, so switching one on by hand shows it wherever
+      // it last legitimately was. Those four are covered at rest instead, in
+      // whichever scene actually raises them.
+      const HUD = ["rotateArrow", "glideGuide", "alarm", "bigNum"];
+      const setHeld = (on) => {
+        for (const id of HELD) { const e = document.getElementById(id); if (e) e.classList.toggle("pressed", on); }
+        for (const id of HUD) { const e = document.getElementById(id); if (e) e.classList.toggle("on", on); }
+        const g = document.getElementById("glideGuide"); if (g && on) g.dataset.state = "up";
+        const n = document.getElementById("bigNum"); if (n && on) n.textContent = "3";
+      };
+
       const at = (name, setup) => {
+        setHeld(false);
         setup();
         for (let i = 0; i < 14; i++) L.update(1 / 60);
         // The geometric test, PLUS the system's own answer from the same table
@@ -66,7 +87,13 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
         const bad = overlaps()
           .concat(L.btnSlotClashes().map(c => "declared " + c))
           .concat(L.btnObstructions().map(c => "obstructed " + c));
-        if (bad.length) out.push({ name, bad });
+        // The rest pass had to run first: `btnObstructions` learns each
+        // control's resting paint reach from it, and the held bleed it cares
+        // about is what a press ADDS over that.
+        setHeld(true);
+        for (const c of L.btnObstructions()) bad.push("held " + name + ": obstructed " + c);
+        setHeld(false);
+        if (bad.length) out.push({ name, bad: [...new Set(bad)] });
       };
 
       at("plane on the runway", () => { L.api.setVehicle("prop"); L.api.placeOnRunway(); });

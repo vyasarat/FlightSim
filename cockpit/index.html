@@ -239,8 +239,10 @@
     position: fixed;
     left: 50%;
     top: 50%;
-    width: 0;
-    height: 0;
+    /* shrink-wraps the svg rather than being a 0x0 anchor: translate(-50%,-50%)
+       then really centres it on the ring point, and the rotation turns it about
+       its own middle instead of swinging it off its corner. */
+    line-height: 0;
     z-index: 7;
     pointer-events: none;
   }
