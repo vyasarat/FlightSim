@@ -27,7 +27,14 @@ function respawnCloud(c, px, pz, hx, hz, ahead) {
   );
 }
 
+// Everywhere a vehicle is meant to be, that nothing may be placed in. There are
+// two: the airports' approach corridors, and -- only since v109 -- the highway,
+// which had none at all. That is why buildings stood in the carriageway from the
+// day the road shipped: the placement never knew the road was there.
 function inCorridor(x, z, extra) {
+  // highway.js loads long after this file, so the road answers for itself only
+  // once it exists. Before then there is no road to stand in.
+  if (typeof hwyInCorridor === "function" && hwyInCorridor(x, z, extra)) return true;
   for (let i = 0; i < AIRPORTS.length; i++) {
     if (Math.abs(x) < TUNE.runwayWidth / 2 + 35 + extra
       && Math.abs(z - AIRPORTS[i].cz) < TUNE.runwayLength / 2 + TUNE.ringStartDistance + extra) {
@@ -258,7 +265,7 @@ function rebuildBuildings(px, pz) {
         const wx = tcx + Math.cos(ang) * rad;
         const wz = tcz + Math.sin(ang) * rad;
         if (flattenMask(wx, wz) > 0.02 || inCorridor(wx, wz, 40)) continue;
-        if (Math.abs(wx - 340) < 14) continue;   // the freight line runs along x=340
+        if (Math.abs(wx - TRAIN_X) < 14) continue;   // nothing stands on the freight line either
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.8) continue;
         const w = 8 + hashSalt(cx + k, cz, 67) * 14;

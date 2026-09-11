@@ -91,14 +91,23 @@ function hwyGrade() {
     if (p.overWater) { p.y = Math.max(p.y, TUNE.waterLevel + HW.deckMin); p.type = "bridge"; }
   }
   // a bore is straight: hold one grade from portal to portal
+  hwyBores.length = 0;
   for (let i = 1; i < pts.length - 1; i++) {
     if (pts[i].type !== "tunnel") continue;
     let a = i; while (a > 0 && pts[a - 1].type === "tunnel") a--;
     let b = i; while (b < pts.length - 1 && pts[b + 1].type === "tunnel") b++;
     const y0 = pts[Math.max(0, a - 1)].y, y1 = pts[Math.min(pts.length - 1, b + 1)].y;
     for (let k = a; k <= b; k++) pts[k].y = lerp(y0, y1, (k - a) / Math.max(1, b - a));
+    // The bore is the tunnelled samples and nothing more. The cut feathers out
+    // over `boreBlend` past each end on its own, which is the approach cutting
+    // the portal stands in -- lidding that too would put the road under the
+    // mountain before it reached the tunnel mouth.
+    hwyBores.push({ a, b, pts: pts.slice(a, b + 1) });
     i = b;
   }
+  // Only now: everything above asked terrainEff for the UNCUT mountain, which is
+  // what let it find a tunnel in the first place.
+  hwyIndexBores();
 }
 
 // ---- queries the car lives on ---------------------------------------------
@@ -165,6 +174,162 @@ function hwyNearest(x, z) {
 }
 
 // ---------------------------------------------------------------------------
+// THE BORE: the mountain taken out of the way.
+//
+// The surveyor classified 800 metres of the route as tunnel and the builder put
+// a concrete tube along it, and that is where it stopped: the mountain was still
+// a solid heightfield, so the tube was buried inside it and the road dived into
+// rock. A tunnel you cannot see into is not a tunnel.
+//
+// A heightfield cannot have a hole in it. So the mountain is CUT down to the
+// road along the bore -- `hwyBoreCut`, which `terrainEff` calls, so that every
+// spawn, every scenery placement and the terrain mesh agree -- and the cut is
+// then LIDDED with the material that was removed (`hwyBuildBore`), sampled from
+// the uncut ground at the same colours the chunks use. From outside it is the
+// same mountain; from the road it is a tunnel.
+//
+// Nothing here runs until the surveyor has finished: `hwyBores` is empty while
+// hwyGrade is classifying, so the grading pass sees the uncut mountain. That
+// ordering is what makes a tunnel possible at all -- cut first and the road
+// would never sit far enough below the ground to be classified as one.
+// ---------------------------------------------------------------------------
+const hwyBores = [];              // one entry per run of tunnel samples
+const hwyBoreIndex = new Map();   // cell -> the bore samples that could reach it
+
+function hwyBoreCell(x, z) {
+  return Math.floor(x / HW.clearCell) + "," + Math.floor(z / HW.clearCell);
+}
+
+function hwyIndexBores() {
+  hwyBoreIndex.clear();
+  const reach = HW.boreBlend + HW.boreLidOver + HW.clearCell;
+  const span = Math.ceil(reach / HW.clearCell);
+  for (const bore of hwyBores) {
+    for (const p of bore.pts) {
+      const cx = Math.floor(p.x / HW.clearCell), cz = Math.floor(p.z / HW.clearCell);
+      for (let dx = -span; dx <= span; dx++) {
+        for (let dz = -span; dz <= span; dz++) {
+          const k = (cx + dx) + "," + (cz + dz);
+          let list = hwyBoreIndex.get(k);
+          if (!list) hwyBoreIndex.set(k, list = []);
+          list.push(p);
+        }
+      }
+    }
+  }
+}
+
+// How low the ground has to be here for the bore to be clear of it, and how far
+// the cut has feathered back by this point. Returns the original height wherever
+// there is no bore.
+function hwyBoreCut(x, z, h) {
+  if (!hwyBores.length) return h;
+  const list = hwyBoreIndex.get(hwyBoreCell(x, z));
+  if (!list) return h;
+  let best = null, bd = Infinity;
+  for (let i = 0; i < list.length; i++) {
+    const dx = list[i].x - x, dz = list[i].z - z;
+    const d = dx * dx + dz * dz;
+    if (d < bd) { bd = d; best = list[i]; }
+  }
+  const d = Math.sqrt(bd);
+  if (d >= HW.boreBlend) return h;
+  const floor = best.y - 1;                       // just under the carriageway
+  if (h <= floor) return h;
+  const t = 1 - smoothstep(HW.boreCut, HW.boreBlend, d);   // 1 inside the tube, 0 at the feather
+  return lerp(h, Math.min(h, floor), t);
+}
+
+// ---------------------------------------------------------------------------
+// THE CORRIDOR: the strip nothing else may stand in.
+//
+// Trees, towns and landmarks are placed from a hash of their grid cell, and the
+// only thing that ever kept them out of anything was `inCorridor` in scenery.js
+// -- which knew about the two AIRPORTS and nothing else. The road was laid
+// through the middle of all of it, so buildings stood in the carriageway from
+// the day the road shipped.
+//
+// The test has to be cheap: it is asked once per candidate tree and once per
+// candidate building on every scenery rebuild, thousands of times. So the road,
+// its spurs and its ramps are claimed as a flat list of nodes once at load, and
+// bucketed into a coarse grid; the question then costs one Map lookup and a
+// handful of distance checks against the few nodes that could possibly be near.
+//
+// Everything drivable claims: the carriageway, every exit spur, and every
+// interchange ramp. `hwyClaimCorridor` is called as each is built, so a new
+// piece of road cannot be forgotten -- it claims itself.
+// ---------------------------------------------------------------------------
+const hwyCorridorNodes = [];
+const hwyCorridorIndex = new Map();
+
+function hwyClaimCorridor(pts) {
+  for (const p of pts) hwyCorridorNodes.push({ x: p.x, z: p.z });
+}
+
+const hwyCell = (x, z) => Math.floor(x / HW.clearCell) + "," + Math.floor(z / HW.clearCell);
+
+function hwyIndexCorridor() {
+  hwyCorridorIndex.clear();
+  // Reach far enough that a query anywhere in a cell finds every node that
+  // could be inside the widest margin anyone asks for.
+  const reach = HW.clearHalf + HW.clearMaxExtra + HW.clearCell;
+  const span = Math.ceil(reach / HW.clearCell);
+  for (const n of hwyCorridorNodes) {
+    const cx = Math.floor(n.x / HW.clearCell), cz = Math.floor(n.z / HW.clearCell);
+    for (let dx = -span; dx <= span; dx++) {
+      for (let dz = -span; dz <= span; dz++) {
+        const k = (cx + dx) + "," + (cz + dz);
+        let list = hwyCorridorIndex.get(k);
+        if (!list) hwyCorridorIndex.set(k, list = []);
+        list.push(n);
+      }
+    }
+  }
+}
+
+// Metres from here to the nearest piece of road, or Infinity if nothing is near.
+function hwyCorridorDist(x, z) {
+  const list = hwyCorridorIndex.get(hwyCell(x, z));
+  if (!list) return Infinity;
+  let best = Infinity;
+  for (let i = 0; i < list.length; i++) {
+    const dx = list[i].x - x, dz = list[i].z - z;
+    const d = dx * dx + dz * dz;
+    if (d < best) best = d;
+  }
+  return Math.sqrt(best);
+}
+
+// How high anything following the road may ride here before it is through the
+// roof of a bore. Null out in the open. The chase camera asks; it normally sits
+// higher than a 15 m crown, and from up there the tunnel is a pipe below it.
+function hwyBoreCeiling(x, z) {
+  if (!hwyBores.length) return null;
+  const list = hwyBoreIndex.get(hwyBoreCell(x, z));
+  if (!list) return null;
+  let best = null, bd = Infinity;
+  for (let i = 0; i < list.length; i++) {
+    const dx = list[i].x - x, dz = list[i].z - z;
+    const d = dx * dx + dz * dz;
+    if (d < bd) { bd = d; best = list[i]; }
+  }
+  // only once he is properly inside -- a portal should not duck the camera from
+  // fifty metres out
+  // The farthest he can be from a centreline node while still in the tube is
+  // half a step along (20 m) and the outer edge of a carriageway across (21 m),
+  // so 34 covers inside and excludes anything past the portal.
+  const gate = HW.step * 0.85;
+  if (bd > gate * gate) return null;
+  return best.y + HW.tunnelR * 1.05;
+}
+
+// `extra` is the caller's own clearance on top of the road's -- a hundred-metre
+// radio tower wants far more room than a shrub.
+function hwyInCorridor(x, z, extra) {
+  return hwyCorridorDist(x, z) < HW.clearHalf + Math.min(extra || 0, HW.clearMaxExtra);
+}
+
+// ---------------------------------------------------------------------------
 // Geometry
 // ---------------------------------------------------------------------------
 function hwyStrip(pts, halfL, halfR, yOff, mat, closeEnds) {
@@ -191,6 +356,7 @@ function hwyBuild() {
   if (highway.built) return;
   hwyBuildSpline();
   hwyGrade();
+  hwyClaimCorridor(highway.pts);
   const C = TUNE.palette;
   const pts = highway.pts;
   const roadHalf = HW.lanes * HW.laneW + HW.shoulder;
@@ -254,33 +420,7 @@ function hwyBuild() {
     g.add(pm);
     highway.piers = piers;
   }
-  if (tunnels.length) {
-    // A full bore, not a half arch. The geometry is pre-rotated so its axis runs
-    // along +Z and each instance only has to yaw to the road's bearing; the
-    // half-cylinder version needed a second rotation to get its open face
-    // downward and ended up lying across the carriageway like a dropped pipe.
-    const bore = new THREE.CylinderGeometry(HW.tunnelR, HW.tunnelR, HW.step * HW.tunnelSeg * 1.06, 14, 1, true);
-    bore.rotateX(Math.PI / 2);
-    const tm = new THREE.InstancedMesh(bore,
-      new THREE.MeshPhongMaterial({ color: C.concrete, flatShading: true, shininess: 0,
-        specular: 0x000000, side: THREE.BackSide }),      // we are inside it
-      Math.ceil(tunnels.length / HW.tunnelSeg) + 1);
-    const d = new THREE.Object3D();
-    let k = 0;
-    for (let i = 0; i < tunnels.length; i += HW.tunnelSeg) {
-      const p = tunnels[i];
-      // the road runs along the floor of the bore, not through its centre
-      d.position.set(p.x, p.y + HW.tunnelR * 0.42, p.z);
-      d.rotation.set(0, Math.atan2(p.fx, p.fz), 0);
-      d.scale.set(1, 1, 1);
-      d.updateMatrix();
-      if (k < tm.count) tm.setMatrixAt(k++, d.matrix);
-    }
-    tm.count = k;
-    tm.frustumCulled = false;
-    g.add(tm);
-    highway.tunnelRuns = tunnels.length;
-  }
+  if (tunnels.length) hwyBuildBore(g, conc, steel);
 
   hwyBuildInterchanges(g, conc, steel);
   hwyBuildExits(g);
@@ -294,6 +434,7 @@ function hwyBuild() {
       break;
     }
   }
+  hwyIndexCorridor();             // after every piece of road has claimed its ground
   castsShadow(g, false);          // the road itself never casts; its structures do
   scene.add(g);
   highway.g = g;
@@ -303,6 +444,261 @@ function hwyBuild() {
 
 // A stack of ramp loops at each city end: pure spectacle, and the overpass decks
 // are solid so an aeroplane can fly into one and go bang like anything else.
+// ---------------------------------------------------------------------------
+// The bore: lining, lid and two portals.
+//
+// The lining was here already; what was missing is everything that makes it a
+// tunnel rather than a pipe buried in a hill. `hwyBoreCut` has taken the
+// mountain down to the road along the centreline, so this puts back a LID over
+// the cut -- the material that was removed, sampled from the uncut ground and
+// coloured by the terrain's own rule -- and stands a concrete headwall with an
+// arch at each end.
+//
+// The lid overhangs the feather of the cut and is lifted a hand's breadth, so
+// its triangles overlap the chunk's instead of meeting them: two surfaces at the
+// same height along a seam z-fight, and a gap between them is a slot of sky
+// through the mountain.
+// ---------------------------------------------------------------------------
+function hwyBuildBore(g, conc, steel) {
+  const C = TUNE.palette, R = HW.tunnelR;
+  // one bore over the middle of each carriageway
+  const lat = (HW.medianW / 2 + highway.halfW) / 2;
+  const LATS = [-lat, lat];
+  // the outside of a bore at a lateral offset from the road centre: what the lid
+  // has to clear
+  const shellTop = (off) => {
+    let top = -Infinity;
+    for (const l of LATS) {
+      const d = Math.abs(off - l);
+      if (d < R) top = Math.max(top, R * 0.42 + Math.sqrt(R * R - d * d));
+    }
+    return top;
+  };
+
+  // ---- the lining. A full bore, not a half arch: the geometry is pre-rotated
+  // so its axis runs along +Z and each instance only has to yaw to the road's
+  // bearing. Lit from inside by its own emissive -- there is no light down
+  // there, and a black tube reads as a wall he is about to hit.
+  const lit = new THREE.MeshPhongMaterial({
+    color: C.concrete, emissive: 0x3a4048, flatShading: true,
+    shininess: 0, specular: 0x000000, side: THREE.BackSide,
+  });
+  const lampMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0, fog: false });
+
+  // A point part-way between two centreline samples. The lining is laid in whole
+  // cylinders, and a cylinder centred on the first sample hangs half its length
+  // out of the portal -- which is what put two grey pipes in the air in front of
+  // the headwall. Laying them on the MIDPOINTS of each span keeps the lining
+  // inside the mountain.
+  const at = (pts, f) => {
+    const i = Math.min(pts.length - 2, Math.max(0, Math.floor(f)));
+    const t = clamp(f - i, 0, 1), a = pts[i], b = pts[i + 1];
+    return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), z: lerp(a.z, b.z, t),
+             fx: lerp(a.fx, b.fx, t), fz: lerp(a.fz, b.fz, t) };
+  };
+
+  for (const bore of hwyBores) {
+    const pts = bore.pts;
+    const seg = [];
+    const spans = Math.max(1, Math.ceil((pts.length - 1) / HW.tunnelSeg));
+    const per = (pts.length - 1) / spans;
+    for (let k = 0; k < spans; k++) seg.push(at(pts, (k + 0.5) * per));
+
+    const tube = new THREE.CylinderGeometry(R, R, per * HW.step * 1.06, 14, 1, true);
+    tube.rotateX(Math.PI / 2);
+    const tm = new THREE.InstancedMesh(tube, lit, seg.length * LATS.length);
+    const d = new THREE.Object3D();
+    let ti = 0;
+    for (const l of LATS) {
+      for (const p of seg) {
+        const rx = -p.fz, rz = p.fx;
+        // the road runs along the floor of the bore, not through its centre
+        d.position.set(p.x + rx * l, p.y + R * 0.42, p.z + rz * l);
+        d.rotation.set(0, Math.atan2(p.fx, p.fz), 0);
+        d.updateMatrix();
+        tm.setMatrixAt(ti++, d.matrix);
+      }
+    }
+    tm.frustumCulled = false;
+    g.add(tm);
+
+    // ---- the rock between the two bores. Without it the pair meet in a narrow
+    // open wedge that the daylight above the lid comes straight down, and the
+    // tunnel reads as two half-pipes in a trench rather than two tunnels.
+    const pierW = (lat - R) * 2, pierH = R * 1.42 + 3;
+    const pm = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(pierW, pierH, per * HW.step * 1.06), conc, seg.length);
+    seg.forEach((p, k) => {
+      d.position.set(p.x, p.y + pierH / 2 - 1.5, p.z);
+      d.rotation.set(0, Math.atan2(p.fx, p.fz), 0);
+      d.scale.set(1, 1, 1);
+      d.updateMatrix();
+      pm.setMatrixAt(k, d.matrix);
+    });
+    pm.frustumCulled = false;
+    g.add(pm);
+
+    // ---- crown lamps: a receding line of them is what says "there is a way
+    // through here" from the approach, long before the far end is visible.
+    const lampPts = [];
+    for (let i = HW.boreLampEvery; i < pts.length - 1; i += HW.boreLampEvery) {
+      const p = pts[i], rx = -p.fz, rz = p.fx;
+      for (const l of LATS) {
+        lampPts.push(new THREE.Vector3(p.x + rx * l, p.y + R * 0.42 + R * 0.72, p.z + rz * l));
+      }
+    }
+    if (lampPts.length) {
+      const lg = new THREE.InstancedMesh(new THREE.BoxGeometry(2.6, 0.35, 1.1), lampMat, lampPts.length);
+      lampPts.forEach((v, k) => {
+        d.position.copy(v); d.rotation.set(0, 0, 0); d.scale.set(1, 1, 1);
+        d.updateMatrix(); lg.setMatrixAt(k, d.matrix);
+      });
+      lg.frustumCulled = false;
+      g.add(lg);
+      g.add(glowField(lampPts, 0xffd9a0, 9, 0.42));
+    }
+
+    // ---- the lid ---------------------------------------------------------
+    // Sampled from the UNCUT ground: shapedTerrain is what the mountain was
+    // before hwyBoreCut took it away, so the lid is exactly the missing piece.
+    const half = HW.boreBlend + HW.boreLidOver;
+    const cols = Math.max(4, Math.round((half * 2) / HW.boreLidStep) | 1);
+    const rows = [];
+    // walk the centreline finely so the lid follows the cut, not the 40 m samples
+    const fine = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const n = Math.max(1, Math.round(HW.step / HW.boreLidStep));
+      for (let k = 0; k < n; k++) {
+        const t = k / n;
+        // `y` matters: the lid clears the bores by the ROAD's height, and without
+        // it `p.y + shellTop(off)` is `undefined + -Infinity`, which is NaN --
+        // and a NaN in a position attribute poisons the whole mesh silently.
+        fine.push({ x: lerp(a.x, b.x, t), z: lerp(a.z, b.z, t), y: lerp(a.y, b.y, t),
+                    fx: lerp(a.fx, b.fx, t), fz: lerp(a.fz, b.fz, t) });
+      }
+    }
+    fine.push(pts[pts.length - 1]);
+
+    const pos = [], col = [], idx = [];
+    const c = new THREE.Color();
+    const concColor = new THREE.Color(C.concrete);
+    for (let i = 0; i < fine.length; i++) {
+      const p = fine[i], rx = -p.fz, rz = p.fx;
+      const row = [];
+      for (let k = 0; k < cols; k++) {
+        const off = (k / (cols - 1) - 0.5) * 2 * half;
+        const wx = p.x + rx * off, wz = p.z + rz * off;
+        const natural = shapedTerrain(wx, wz) + HW.boreLidLift;
+        // The lid may never dip into a bore. Near the portals the hillside is
+        // thinner than the tunnel is tall, so the lid rises over the tubes -- the
+        // bank of earth every big portal has in front of it -- and takes the
+        // colour of structure rather than ground where it is doing that.
+            const st = shellTop(off);
+        const clear = Number.isFinite(st) ? p.y + st + 2 : -Infinity;
+        const hy = Math.max(natural, clear);
+        const banked = clamp((hy - natural) / 9, 0, 1);
+        row.push(pos.length / 3);
+        pos.push(wx, hy, wz);
+        terrainColorAt(natural, wx, wz, c);
+        c.lerp(concColor, banked * 0.75);
+        col.push(c.r, c.g, c.b);
+      }
+      rows.push(row);
+      if (i > 0) {
+        const prev = rows[i - 1];
+        for (let k = 0; k < cols - 1; k++) {
+          // Wound so the normal points UP. The obvious order gives
+          // forward x right, which is straight down: the lid rendered as a
+          // one-sided floor and you looked through it into the open trench.
+          idx.push(prev[k], prev[k + 1], row[k], row[k], prev[k + 1], row[k + 1]);
+        }
+      }
+    }
+    // The two cut faces, closing the ends of the lid down to the carved ground.
+    // Without them the mountain is an open-ended shell and the portal stands in
+    // front of a hole you can see the sky through.
+    for (const end of [0, 1]) {
+      const i = end ? fine.length - 1 : 0;
+      const p = fine[i], rx = -p.fz, rz = p.fx;
+      const top = rows[i];
+      const skirt = [];
+      for (let k = 0; k < cols; k++) {
+        const off = (k / (cols - 1) - 0.5) * 2 * half;
+        const wx = p.x + rx * off, wz = p.z + rz * off;
+        // Down to the carved floor everywhere EXCEPT across a bore, where it
+        // stops at the top of the tube -- otherwise the face that closes the
+        // mountain also closes the tunnel, and the exit is a green dome.
+        const st2 = shellTop(off);
+        const hy = Number.isFinite(st2) ? p.y + st2 + 2 : terrainEff(wx, wz) - 0.5;
+        skirt.push(pos.length / 3);
+        pos.push(wx, hy, wz);
+        terrainColorAt(hy, wx, wz, c);
+        col.push(c.r * 0.82, c.g * 0.82, c.b * 0.82);   // a cut face is in its own shadow
+      }
+      for (let k = 0; k < cols - 1; k++) {
+        if (end) idx.push(top[k], skirt[k], top[k + 1], top[k + 1], skirt[k], skirt[k + 1]);
+        else idx.push(top[k], top[k + 1], skirt[k], top[k + 1], skirt[k + 1], skirt[k]);
+      }
+    }
+    const lidGeo = new THREE.BufferGeometry();
+    lidGeo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    lidGeo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    lidGeo.setIndex(idx);
+    lidGeo.computeVertexNormals();
+    const lid = new THREE.Mesh(lidGeo, new THREE.MeshPhongMaterial({
+      vertexColors: true, flatShading: true, shininess: 0, specular: 0x000000,
+    }));
+    lid.receiveShadow = true;
+    g.add(lid);
+    bore.lid = lid;
+
+    // ---- the portals -----------------------------------------------------
+    bore.portals = [];
+    for (const end of [0, 1]) {
+      const p = end ? pts[pts.length - 1] : pts[0];
+      const sign = end ? 1 : -1;                 // outward along the road
+      const pg = new THREE.Group();
+      pg.position.set(p.x, p.y, p.z);
+      pg.rotation.y = Math.atan2(p.fx * sign, p.fz * sign);
+      const top = R * 0.42 + R + HW.portalRise;
+      const outer = lat + R + HW.portalW;
+      const wall = [];
+      // a pier outside each bore, a pier up the middle, and a lintel over the lot
+      for (const sx of [-1, 1]) {
+        wall.push({ w: HW.portalW, h: top, d: HW.portalT,
+                    x: sx * (lat + R + HW.portalW / 2), y: top / 2, z: 0 });
+      }
+      wall.push({ w: (lat - R) * 2, h: top, d: HW.portalT, x: 0, y: top / 2, z: 0 });
+      wall.push({ w: outer * 2, h: HW.portalRise, d: HW.portalT,
+                  x: 0, y: R * 0.42 + R + HW.portalRise / 2, z: 0 });
+      pg.add(new THREE.Mesh(mergeBoxes(wall), conc));
+      // an arch ring standing across each opening
+      for (const l of LATS) {
+        const arch = new THREE.Mesh(new THREE.TorusGeometry(R + 1.2, 1.4, 5, 18, Math.PI), conc);
+        arch.position.set(l, R * 0.42, HW.portalT / 2 + 0.4);
+        pg.add(arch);
+      }
+      // lamps across the headwall: the thing that says "in here", at range
+      const lp = [];
+      for (let k = 0; k < HW.portalLamps; k++) {
+        const lx = (k / (HW.portalLamps - 1) - 0.5) * 2 * (outer - 3);
+        const ly = R * 0.42 + R + HW.portalRise * 0.55;
+        const m = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 0.5), lampMat);
+        m.position.set(lx, ly, HW.portalT / 2 + 0.5);
+        pg.add(m);
+        lp.push(new THREE.Vector3(lx, ly, HW.portalT / 2 + 0.5));
+      }
+      pg.add(glowField(lp, 0xffd9a0, 10, 0.5));
+      castsShadow(pg);
+      g.add(pg);
+      bore.portals.push({ x: p.x, y: p.y, z: p.z, g: pg });
+    }
+  }
+  highway.tunnelRuns = hwyBores.reduce((n, b) => n + (b.b - b.a + 1), 0);
+  highway.bores = hwyBores;
+}
+
 function hwyBuildInterchanges(g, conc, steel) {
   const I = HW.interchange;
   highway.overpasses = [];
@@ -321,6 +717,7 @@ function hwyBuildInterchanges(g, conc, steel) {
         ramp.push({ x, z, y: lerp(base.y, y, Math.sin(Math.PI * k / seg)), fx: Math.cos(fa), fz: Math.sin(fa) });
       }
       g.add(hwyStrip(ramp, -7, 7, 0, conc));
+      hwyClaimCorridor(ramp);
       const rail = ramp.map(p => ({ ...p, y: p.y + HW.railH }));
       g.add(hwyStrip(rail, -7, -6.5, 0, steel));
       g.add(hwyStrip(rail, 6.5, 7, 0, steel));
@@ -389,6 +786,7 @@ function hwyBuildExits(g) {
       spur[k].s = run;
     }
     g.add(hwyStrip(spur, -HW.spurW, HW.spurW, 0, tarmac));
+    hwyClaimCorridor(spur);
 
     // the board: a blue panel on two posts, one white icon, no letters anywhere
     const bx = at.x + rx * ex.side * (highway.halfW + 16), bz = at.z + rz * ex.side * (highway.halfW + 16);

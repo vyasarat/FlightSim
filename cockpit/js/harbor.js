@@ -400,7 +400,18 @@ function hbBuildBridge(conc, steel, dark) {
   const towers = [], deckSpecs = [];
   for (const tx of HB_TOWER_X) {
     towers.push({ w: 30, h: HB_DECK_Y + 22, d: 34, x: tx, y: (HB_DECK_Y + 22) / 2 + TUNE.waterLevel - 12, z: HB_ROAD_Z });
-    hbSolid(tx, TUNE.waterLevel - 12, HB_ROAD_Z, 15, 17, HB_DECK_Y + 26);
+    // A PORTAL, not a plug. The tower is a pier below the deck and a pair of
+    // legs either side of the carriageway above it -- which is exactly what it
+    // looks like, and what the road drives through. One box for the whole thing
+    // reached from the sea bed to the top of the counterweight house and sealed
+    // the opening, so the moment the car became solid (v109) the only way across
+    // by land was a wall. The boat still cannot pass: the pier is unchanged.
+    // Five metres below the deck, not two: `resolveSolidWalls` inflates every box
+    // by a 3 m body radius, so a pier top two metres under the road still had the
+    // car inside it.
+    const deckU = HB_DECK_Y - 5;
+    hbSolid(tx, TUNE.waterLevel - 12, HB_ROAD_Z, 15, 17, deckU);
+    for (const sz of [-1, 1]) hbSolid(tx, deckU, HB_ROAD_Z + sz * 12.5, 15, 4.5, HB_DECK_Y + 26);
     // The counterweight house, and a pair of towers standing well above the
     // deck. Without them the whole bridge read from the air as a white plank
     // laid across the gap: it needs something tall enough to say "this lifts".
@@ -520,6 +531,11 @@ function hbBuildRoad(dark) {
   const rec = { s: 0.965, side: 1, icon: "wave", to: "harbor", railed: true,
                 x: at.x, z: at.z, y: at.y, spur: pts, bx: at.x, bz: at.z };
   highway.exits.push(rec);
+  // This spur is built here, long after highway.js indexed its corridor, so it
+  // claims its own ground and the index is rebuilt -- otherwise a town streams
+  // in across the only road to the harbour.
+  hwyClaimCorridor(pts);
+  hwyIndexCorridor();
   harbor.road = rec;
 }
 
