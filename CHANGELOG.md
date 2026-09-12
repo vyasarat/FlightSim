@@ -10,6 +10,10 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v116 — connected world, milestone 2: active connections (branch only)
+
+Helicopters can land on the carrier or yacht and hop into the waiting jet or tender. Roads lead onto the carrier and through an open cargo Starship bay; driving aboard announces a reusable trip and brings the car back to its boarding place. These transports use the shared event registry. The police follow the driven path along spurs and the toy track, wait behind the lifting drawbridge, and resume when it lowers. A fire-facing pier connects the harbor road to a speedboat within the existing cannon's working range; its fire still relights freely. All movement models and their tuning remain unchanged. Focused checks exercise drive-in, carriage, interruption, return, re-entry, helicopter transfers, pursuit, bridge reset, and extinguishing/re-lighting in portrait and landscape and both views; renders stay in `evidence/connected-world/`. No deployment.
+
 ## v115 — connected world, milestone 1: hop-in (branch only)
 
 Parked cars and helicopters at both airports, a car and speedboat at the harbor, a jet and helicopter on the carrier, and a yacht tender use one nearby, icon-only hop button and a ring around its target. Leaving a vehicle keeps it at its departure pose; the picker remains available. Mars uses the same interaction for its existing rover and drone, retaining the parked rover between hops. Switching releases held inputs, and the carrier answers the existing helicopter deck-surface query without changing its movement model. 168 focused behavioral checks pass, covering switching, a running simulation after the switch, leaving and returning, portrait and landscape, and both camera views; render evidence is under `evidence/connected-world/`. Both service-worker cache names are bumped. No deployment.

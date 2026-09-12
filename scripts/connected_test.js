@@ -18,10 +18,11 @@ const fs=require('fs'),path=require('path');
  if(process.argv.includes('--inspect')){
   const {page}=await newPage(390,844);
   if(process.argv.includes('--dock'))await page.evaluate(()=>{const p=hop.fleet.find(p=>p.id==='harbor-car');applyVehicle('car');Object.assign(state,{x:p.x,y:p.y,z:p.z,heading:Math.PI,viewChase:true});carBuildCabin();for(let i=0;i<60;i++)update(1/60);renderer.render(scene,camera);});
-  console.log(await page.evaluate(()=>({models:modelState,hop:hop.fleet.map(p=>({id:p.id,x:p.x,y:p.y,z:p.z,model:!!p.g})),target:hopTarget()?.id,ground:TUNE.hop.harborBoat.map(()=>0),boatGround:terrainEff(...TUNE.hop.harborBoat)})));
+  console.log(await page.evaluate(()=>({models:modelState,fireGround:terrainEff(...CW.fireBoat),fireSea:seaLevelAt(...CW.fireBoat),hop:hop.fleet.map(p=>({id:p.id,x:p.x,y:p.y,z:p.z,model:!!p.g})),target:hopTarget()?.id,ground:TUNE.hop.harborBoat.map(()=>0),boatGround:terrainEff(...TUNE.hop.harborBoat)})));
   await page.screenshot({path:path.join(out,process.argv.includes('--dock')?'dock-m1.png':'initial.png')});
- }else await require('./hop_checks')({newPage,check,shots:out});
- fs.writeFileSync(path.join(out,'focused-results.json'),JSON.stringify(results,null,2));
+ }else if(process.argv.includes('--connections'))await require('./connection_checks')({newPage,check,shots:out});
+ else await require('./hop_checks')({newPage,check,shots:out});
+ fs.writeFileSync(path.join(out,process.argv.includes('--connections')?'connections-results.json':'hop-results.json'),JSON.stringify(results,null,2));
  if(results.some(r=>!r.ok))process.exitCode=1;
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

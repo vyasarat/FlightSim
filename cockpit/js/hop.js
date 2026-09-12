@@ -55,7 +55,7 @@ function hopTarget() {
   if (Math.abs(state.speed) > TUNE.hop.speed || !['plane','heli','car','boat','yacht','rocket'].includes(vehKind())) return null;
   let best = null, dist = TUNE.hop.radius;
   for (const p of hop.fleet) {
-    if (p === hop.active || !p.g || Math.abs(state.y - p.y) > TUNE.hop.height) continue;
+    if (p === hop.active || p.key === state.vehicleKey || !p.g || Math.abs(state.y - p.y) > TUNE.hop.height) continue;
     const d = Math.hypot(state.x-p.x,state.z-p.z);
     if (d < dist) { best = p; dist = d; }
   }
@@ -65,8 +65,9 @@ function hopSave(p) {
   p.key = state.vehicleKey; p.x = state.x; p.y = state.y; p.z = state.z; p.heading = state.heading;
   p.rocket = state.vp.rocket ? {stage:rk.stage,fuel:rk.fuel.slice(),onBody:rk.onBody,groundHere:rk.groundHere} : null;
   p.saved = { pitch:state.pitch, bank:state.bank, gearDown:state.gearDown, originIdx:state.originIdx, destIdx:state.destIdx, dirIdx:state.dirIdx };
-  p.anchor = carrierNear() < TUNE.hop.radius && Math.abs(state.y-carrier.deck)<TUNE.hop.height ? 'carrier' : null;
-  if (yachtPadUnder(state.x,state.z) && !yachtPadUnder(state.x,state.z).carrier) { p.anchor='yacht-pad'; p.offset=yachtLocal(0,0); }
+  p.anchor = hopCarrierSurface(state.x,state.z) && Math.abs(state.y-carrier.deck)<TUNE.hop.height ? 'carrier' : null;
+  if (typeof cwCargoContains === 'function' && connections.built && cwCargoContains(state.x,state.z) && Math.abs(state.y-connections.cargo.g.position.y)<CW.cargo.boardHeight) p.anchor='cargo';
+  if (yachtPadUnder(state.x,state.z) && !yachtPadUnder(state.x,state.z).carrier) { p.anchor='yacht-pad'; const dx=state.x-yacht.x,dz=state.z-yacht.z,c=Math.cos(yacht.heading),s=Math.sin(yacht.heading);p.offset={x:c*dx-s*dz,z:s*dx+c*dz,y:state.y-seaLevelAt(state.x,state.z)-yacht.bob,heading:state.heading-yacht.heading}; }
 }
 function hopPress() {
   const p = hopTarget(); if (!p) return false;
@@ -113,7 +114,7 @@ function hopUpdate(dt) {
       const a=yachtLocal(...TUNE.hop.yachtTender); p.x=a.x;p.z=a.z;p.y=seaLevelAt(a.x,a.z);p.heading=yacht.heading;
     }
     if (p.anchor === 'yacht-pad' && yacht.built) {
-      const a=yachtPadWorld();p.x=a.x;p.y=a.y+TUNE.gearHeight;p.z=a.z;p.heading=yacht.heading;
+      const a=yachtLocal(p.offset.x,p.offset.z);p.x=a.x;p.z=a.z;p.y=seaLevelAt(a.x,a.z)+yacht.bob+p.offset.y;p.heading=yacht.heading+p.offset.heading;
     }
     const near = Math.hypot(state.x-p.x,state.z-p.z)<TUNE.hop.drawDistance;
     if (near) hopModel(p);

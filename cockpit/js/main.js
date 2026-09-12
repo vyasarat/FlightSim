@@ -187,6 +187,7 @@ for (const c of clouds) respawnCloud(c, state.x, state.z, 0, -1, false);
 grabWakeLock();
 
 window.__lp = {
+  connections, cwBuild, cwUpdate, cwLate, cwRoadPoint, cwPoliceAim, cwPoliceWaiting,
   hop, hopTarget, hopPress, hopUpdate,
   toyWorld, TW, twRelease, twWashStart, twWashCan, twWelcome, twHorn, updateToyWorld,
   TUNE, state, flags, update, terrainEff, shapedTerrain, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,

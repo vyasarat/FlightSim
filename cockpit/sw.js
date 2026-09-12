@@ -1,5 +1,6 @@
-const CACHE_NAME = "little-pilot-cockpit-v115-hop";
+const CACHE_NAME = "little-pilot-cockpit-v116-connections";
 const ASSETS = [
+  "./js/connections.js",
   "./js/hop.js",
   "./",
   "./index.html",

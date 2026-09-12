@@ -1457,3 +1457,17 @@ TUNE.hop = {
   carrierJet: [-19, -60], carrierHeli: [-22, 105],
   yachtTender: [0, 43],
 };
+
+TUNE.connections = {
+  roadStep: 35, lineWidth: 0.7, lineLift: 0.08,
+  airportLink: [[24,-6618],[24,-6740],[430,-6600]],
+  carrierRoad: [[24,-6740],[-240,-7050],[-900,-7550],[-900,-7960]],
+  carrier: { inset: 9, boardZ: 105, boardR: 25, warning: 3, duration: 36, distance: 420, resetR: 200 },
+  cargo: { x:-220,z:-6530,scale:2,hullR:3.6,hullH:36,bayH:8,bayHalf:6,wall:0.7,floor:0.25,plumeDrop:14,segments:14,
+    boardR:9,boardHeight:4,warning:3,duration:26,height:150,resetR:35,road:[[24,-6618],[-60,-6800],[-220,-6800],[-220,-6530],[-220,-6300]] },
+  track: { cx:2380,cz:-6360,rx:240,rz:200,steps:48,join:[[2140,-6640],[2180,-6560]],stripe:8 },
+  fireRoad: [[430,-6600],[-120,-6680],[-640,-6790]],
+  fireBoat: [-650,-6850], fireCar:[-640,-6790],
+  trailStep: 5, trailLimit: 400, trailGap: 75,
+  bridge: { west:1150,east:1450,margin:24,roadZ:-6745,radius:32,warning:1.8,hold:12,queue:16 },
+};

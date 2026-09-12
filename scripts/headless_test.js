@@ -5456,6 +5456,7 @@ function check(name, ok, extra) {
   server.kill();
 
   await require("./hop_checks")({ newPage, check });
+  await require("./connection_checks")({ newPage, check });
 
   const failed = results.filter(r => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

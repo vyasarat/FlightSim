@@ -1006,6 +1006,7 @@ buildFireRig();
 buildCarrier();
 
 function updateSetpieces(dt) {
+  if (typeof cwUpdate === "function") cwUpdate(dt);
   updateDemolition(dt);
   updateFirefight(dt);
   updateCarrier(dt);
@@ -1018,6 +1019,7 @@ function updateSetpieces(dt) {
 // Runs at the END of the frame: the deck has to hold him after the flight model
 // has had its say, or he simply flies on through it.
 function updateSetpiecesLate(dt) {
+  if (typeof cwLate === "function") cwLate();
   carrierLate(dt);
   if (typeof yachtLate === "function") yachtLate(dt);
   marsLate(dt);

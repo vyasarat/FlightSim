@@ -73,7 +73,10 @@ The rescue also works while parked, over water and in space. Helicopter/drone ro
 Nearby parked vehicles offer a door-and-arrow button and a cyan ring. Tap to
 hop in; the vehicle you leave stays where you stopped. The picker is still a
 shortcut. Both airports, the harbor, the carrier, the yacht tender, and the
-Mars rover/drone support the same interaction. `scripts/connected_test.js`
+Mars rover/drone support the same interaction. Roads also connect to the carrier,
+a cargo Starship bay, a toy track beyond the drawbridge, and a fire-facing pier.
+Driving aboard the carrier or cargo ship starts a round trip; the police can
+follow the roads, and the fire pier has a cannon-equipped speedboat waiting. `scripts/connected_test.js`
 runs the focused behavior checks; evidence stays in `evidence/connected-world/`.
 
 ## Vehicles

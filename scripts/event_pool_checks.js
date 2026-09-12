@@ -57,7 +57,7 @@ module.exports = async function eventPoolChecks({ newPage, check }) {
       r.pools.space && r.pools.space.policy === "once" &&
       r.pools.sea && r.pools.sea.policy === "standing" &&
       r.spaceMatches && r.pools.sea.keys.length === 8 &&
-      r.eventPools.length === 2 && r.events === 14 && r.forcible === 14 &&
+      r.pools.connections.policy === 'standing' && r.pools.connections.keys.length === 2 && r.eventPools.length === 3 && r.events === 16 && r.forcible === 16 &&
       r.livery.length === 1 && r.livery[0] === "once", JSON.stringify(r));
     await page.close();
   }
