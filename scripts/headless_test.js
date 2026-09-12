@@ -5462,6 +5462,8 @@ function check(name, ok, extra) {
     return result;
   };
   await require("./hop_checks")({ newPage: connectedPage, check });
+  await require("./hop_repeat_checks")({ newPage: connectedPage, check });
+  await require("./hop_discovery_checks")({ newPage: connectedPage, check });
   await require("./connection_checks")({ newPage: connectedPage, check });
   await require("./outing_checks")({ newPage: connectedPage, check });
 

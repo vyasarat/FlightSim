@@ -1446,6 +1446,7 @@ const DEG = Math.PI / 180;
 
 // Connected-world placement and interaction only; no vehicle tuning changes.
 TUNE.hop = {
+  guideLift: 3, guideScreenX: 0.72, guideScreenY: 0.55,
   roadLift: 0.15,
   visualWheelDrop: 1.9, visualHullDrop: 0.6,
   runwayInset: 50, marsRoverOffset: 7,

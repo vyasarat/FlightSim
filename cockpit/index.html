@@ -584,6 +584,9 @@
   #catBtn { left: auto; right: calc(var(--edge) + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
   #hopBtn > svg { position: absolute; width: 30%; height: 30%; left: 6%; bottom: 7%; }
   #hopBtn .hopVehicle { position: absolute; inset: 8% 8% 22% 22%; pointer-events: none; }
+  #hopBtn .hopDirection { position: absolute; inset: -16%; pointer-events: none; }
+  #hopBtn .hopDirection[hidden] { display: none; }
+  #hopBtn .hopDirection svg { width: 100%; height: 100%; }
   #hopBtn .hopVehicle svg { width: 100%; height: 100%; }
   #catBtn.hidden, #hopBtn.hidden { display: none; }
   /* the water bucket: the helicopter has no gear, so that row is free for it */
@@ -915,6 +918,7 @@
   </svg>
 </button>
 <button id="hopBtn" class="roundBtn hidden" aria-hidden="true">
+  <span class="hopDirection" hidden><svg viewBox="0 0 100 100"><path d="M39 15 L50 4 L61 15" fill="none" stroke="#23282f" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M39 15 L50 4 L61 15" fill="none" stroke="#5ff1ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
   <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
     <path d="M36 13h17v39H36M35 21v22M10 32h32m-9-9 10 9-10 9"/>
   </svg>

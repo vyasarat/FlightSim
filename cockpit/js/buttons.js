@@ -164,6 +164,7 @@ function btnUpdateAll() {
     if (id !== "hopBtn" && b.slot === "highLeft" && hopTarget()) show = false;
     e.classList.toggle("hidden", !show);
   }
+  if(typeof hopGuide === "function")hopGuide();
 }
 
 // ---------------------------------------------------------------------------

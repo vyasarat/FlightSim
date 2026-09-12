@@ -3,7 +3,7 @@
 // contextual button. Departed vehicles remain at their exact departure pose.
 // No spawn/reset calls on a hop: those reset independent activities. Mars uses
 // its existing modes. No control model or tuning is owned by this file.
-const hop = { built: false, fleet: [], active: null, clock: 0, switches: 0, target: null };
+const hop = { built: false, fleet: [], active: null, clock: 0, switches: 0, target: null, owners: Object.create(null) };
 function hopAdd(id, key, x, y, z, heading, anchor) {
   const p = { id, key, x, y, z, heading, anchor, g: null, ring: null, saved: null };
   hop.fleet.push(p); return p;
@@ -83,7 +83,9 @@ function hopPress() {
     hop.switches++; return true;
   }
   let left = hop.active;
-  if (!left) left = hopAdd('left-' + hop.switches, state.vehicleKey, state.x,state.y,state.z,state.heading);
+  if (!left) left = hopOwned(state.vehicleKey);
+  if (!left) left = hopAdd('picker-' + state.vehicleKey, state.vehicleKey, state.x,state.y,state.z,state.heading);
+  hop.owners[left.key]=left;
   hopSave(left); hopModel(left);
   carrierReset();
   hop.switching=true;
@@ -94,7 +96,7 @@ function hopPress() {
   if (state.vp.car) { carBuildCabin(); car.steer=0; car.boost=0; car.assistOff=0; }
   if (state.vp.boat) { boatBuildHelm(); boat.steer=0; boat.burst=0; boat.beach=0; boat.air=0; }
   if (p.anchor === 'carrier' && vehKind() === 'plane') { carrier.state='parked';state.phase='AIRBORNE'; }
-  hop.active=p; hop.returnTo=left; hop.switches++;
+  hop.active=p; hop.owners[p.key]=p; hop.returnTo=left; hop.switches++;
   try { localStorage.setItem('lp.vehicle',p.key); } catch (_) {}
   chirp(); hopUpdate(0); btnUpdateAll(); return true;
 }
@@ -138,9 +140,17 @@ function hopUpdate(dt) {
 }
 el.hopBtn.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();unlockAudio();hopPress();});
 
-function hopBeforeVehicleSwitch() {
-  if (hop.switching || !hop.active) return;
-  hopSave(hop.active); hop.active=null;
+// Picker selection reclaims the same vehicle, even after it was left by a hop.
+// At most one additional picker-owned actor per vehicle key; never recycle or
+// delete a parked actor to make room for another one.
+function hopOwned(key) {
+  const p=hop.owners[key];
+  return p && hop.fleet.includes(p) ? p : null;
+}
+function hopBeforeVehicleSwitch(key) {
+  if (hop.switching) return;
+  if (hop.active) hopSave(hop.active);
+  hop.active=hopOwned(key); hop.returnTo=null;
 }
 
 function hopCarrierSurface(x,z) {
@@ -170,4 +180,30 @@ function hopIcon(p) {
   let holder=el.hopBtn.querySelector('.hopVehicle');
   if(!holder){holder=document.createElement('span');holder.className='hopVehicle';el.hopBtn.appendChild(holder);}
   holder.replaceChildren(svg.cloneNode(true));hop.iconKey=key;
+}
+
+// Direction lives on the existing hop control, not in another HUD slot.
+// The world ring takes over when the parked target enters the useful view.
+const hopGuidePoint=new THREE.Vector3(),hopGuideLocal=new THREE.Vector3();
+function hopGuide() {
+  const arrow=el.hopBtn.querySelector('.hopDirection'),p=hopTarget();
+  if(!arrow)return;
+  arrow.hidden=true;hop.guide=null;
+  if(!p)return;
+  if(p.mode) {
+    const source=p.id==='mars-drone'?mars.drone:p.id==='mars-rocket'?state:
+      hop.marsRoverUsed?rover:rover.mesh&&rover.mesh.position;
+    if(!source)return;hopGuidePoint.set(source.x,source.y,source.z);
+  }else hopGuidePoint.set(p.x,p.y+TUNE.hop.guideLift,p.z);
+  camera.updateMatrixWorld();
+  hopGuideLocal.copy(hopGuidePoint).applyMatrix4(camera.matrixWorldInverse);
+  hopGuidePoint.project(camera);
+  const visible=hopGuideLocal.z<0&&Math.abs(hopGuidePoint.x)<TUNE.hop.guideScreenX&&Math.abs(hopGuidePoint.y)<TUNE.hop.guideScreenY;
+  if(visible)return;
+  // Behind means down/back; retain the camera-relative left/right component.
+  const dx=hopGuideLocal.z>=0?hopGuideLocal.x:hopGuidePoint.x;
+  const dy=hopGuideLocal.z>=0?Math.abs(hopGuideLocal.z):-hopGuidePoint.y;
+  const angle=Math.atan2(dy,dx)+Math.PI/2;
+  arrow.hidden=false;arrow.style.transform='rotate('+angle+'rad)';
+  hop.guide={id:p.id,angle,behind:hopGuideLocal.z>=0};
 }

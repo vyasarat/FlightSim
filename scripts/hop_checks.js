@@ -23,7 +23,7 @@ module.exports=async({newPage,check})=>{
    if(!process.env.LP_FAST) await page.screenshot({path:path.join(shots,`hop-${id}-${w}-${chase?'chase':'cockpit'}.png`)});
    await page.locator('#hopBtn').tap({force:true});
    // Avoid serializing meshes (Object3D has large, cyclic userData in some models).
-   const result=await page.evaluate(s=>{const left=hop.fleet.find(p=>p.id==='left-'+s.before);return{switched:hop.switches===s.before+1,left:!!left&&left.x===s.x&&left.y===s.y&&left.z===s.z&&left.g.visible,held:state.throttleHeld||state.touching,clashes:btnSlotClashes()};},setup);
+   const result=await page.evaluate(s=>{const left=hop.returnTo;return{switched:hop.switches===s.before+1,left:!!left&&left.x===s.x&&left.y===s.y&&left.z===s.z&&left.g.visible,held:state.throttleHeld||state.touching,clashes:btnSlotClashes()};},setup);
    check(`hop ${id} switches and leaves vehicle ${w} ${chase}`,result.switched&&result.left&&!result.held&&!result.clashes.length,JSON.stringify(result));
    const stable=await page.evaluate(chase=>{state.viewChase=chase;el.hud.classList.toggle('chase',chase);const x=state.x,y=state.y,z=state.z,key=state.vehicleKey;for(let i=0;i<30;i++)update(1/60);return{key:state.vehicleKey===key,drift:Math.hypot(state.x-x,state.y-y,state.z-z),crashed:state.exploding};},chase);
    check(`hop ${id} playable after switching ${w} ${chase}`,stable.key&&stable.drift<6&&!stable.crashed,JSON.stringify(stable));
