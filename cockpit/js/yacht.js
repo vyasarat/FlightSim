@@ -195,8 +195,9 @@ function yachtPadWorld() {
 // The deck height under a point, or null if that point is not over the pad.
 function yachtPadUnder(x, z) {
   const p = yachtPadWorld();
-  if (!p) return null;
-  return Math.hypot(x - p.x, z - p.z) <= p.r ? p : null;
+  if (p && Math.hypot(x - p.x, z - p.z) <= p.r) return p;
+  // A deck is a support surface, independent of the helicopter's controls.
+  return typeof hopCarrierSurface === "function" ? hopCarrierSurface(x,z) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -535,7 +536,7 @@ function yachtLate(dt) {
   // the helicopter, parked on the pad, goes where the ship goes
   if (typeof heliActive === "function" && heliActive() && !state.exploding) {
     const pad = yachtPadUnder(state.x, state.z);
-    const resting = pad && state.y <= pad.y + TUNE.gearHeight + 0.6;
+    const resting = pad && !pad.carrier && state.y <= pad.y + TUNE.gearHeight + 0.6;
     if (resting && state.phase === "TAXI") {
       const dx = yacht.x - yacht.lastX, dz = yacht.z - yacht.lastZ;
       state.x += dx; state.z += dz;

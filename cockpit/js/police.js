@@ -191,6 +191,8 @@ function policeStop(whoop) {
 // ask the same question the car asks.
 function plRoadY(x, z) {
   if (typeof hwyNearest !== "function" || !highway.built) return terrainEff(x, z);
+  const spur = typeof cwRoadPoint === "function" ? cwRoadPoint(x,z) : null;
+  if (spur && spur.distance < HW.spurW) return spur.y;
   const n = hwyNearest(x, z);
   const onRoad = n && Math.abs(n.lateral) < highway.halfW + 8;
   return onRoad ? n.y : Math.max(terrainEff(x, z), TUNE.waterLevel);
@@ -315,6 +317,7 @@ function plChase(dt, fx, fz, rx, rz, nearest) {
 
   police.cars.forEach((c, i) => {
     if (c.dead > 0) return;
+    if (typeof cwPoliceWaiting === "function" && cwPoliceWaiting(c,i)) return;
     // RUBBER-BANDED: the speed comes from the gap, not from a throttle. The
     // band is wide enough that he can see them fall back when he goes and come
     // up when he does not, and narrow enough that they never actually arrive.
@@ -328,8 +331,9 @@ function plChase(dt, fx, fz, rx, rz, nearest) {
     // aim at a point beside him, weaving
     c.weave += dt * PL.weave.rate * (1 + i * 0.35);
     const side = (i % 2 ? 1 : -1) * (PL.weave.amp + Math.sin(c.weave) * PL.weave.amp);
-    const tx = state.x - fx * want + rx * side;
-    const tz = state.z - fz * want + rz * side;
+    const trail = typeof cwPoliceAim === "function" ? cwPoliceAim(c,i) : null;
+    const tx = trail ? trail.x : state.x - fx * want + rx * side;
+    const tz = trail ? trail.z : state.z - fz * want + rz * side;
     const want2 = Math.atan2(-(tx - c.x), -(tz - c.z));
     c.heading += clamp(wrapPi(want2 - c.heading), -2.6 * dt, 2.6 * dt);
     c.x += -Math.sin(c.heading) * c.speed * dt;

@@ -15,7 +15,7 @@ const http = require("http");
 const { chromium } = require("playwright-core");
 
 const ROOT = path.resolve(__dirname, "..");            // repo root: both builds are reachable
-const SHOTS = path.resolve(__dirname, "..", "qa-screenshots");
+const SHOTS = path.resolve(__dirname, "..", "evidence", "connected-world", "full-harness");
 const PORT = 8177;
 const URL = `http://127.0.0.1:${PORT}/cockpit/index.html`;
 const SHELL = process.env.CHROME_HEADLESS_SHELL;
@@ -69,8 +69,8 @@ function check(name, ok, extra) {
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
   });
 
-  async function newPage(w, h) {
-    const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+  async function newPage(w, h, hasTouch = false) {
+    const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch });
     // every harness page boots on the picker, even if a previous test saved a choice
     await ctx.addInitScript(() => {
       try { localStorage.clear(); } catch (e) {}
@@ -4259,6 +4259,7 @@ function check(name, ok, extra) {
 
       // ---- 3. THE MARS HELICOPTER
       const dr = L.mars.drone;
+      const droneControl = () => document.getElementById(L.hopTarget()?.mode === 'drone' ? 'hopBtn' : 'droneBtn');
       o.droneParked = !!dr && !dr.active;
       o.droneByGarage = Math.round(Math.hypot(dr.x - L.mars.x, dr.y - L.mars.y, dr.z - L.mars.z));
       // too far away: no button
@@ -4274,7 +4275,7 @@ function check(name, ok, extra) {
       const btn = document.getElementById("droneBtn");
       const laidOut = () => {
         const ids = ["viewBtn", "skipBtn", "stageBtn", "satBtn", "chuteBtn", "roverBtn", "hatchBtn",
-                     "missileBtn", "gearBtn", "throttleBtn", "camBtn", "bucketBtn", "catBtn", "droneBtn"];
+                     "missileBtn", "gearBtn", "throttleBtn", "camBtn", "bucketBtn", "catBtn", "droneBtn", "hopBtn"];
         const rs = [];
         for (const id of ids) {
           const e = document.getElementById(id);
@@ -4289,11 +4290,11 @@ function check(name, ok, extra) {
         }
         return { bad, up: rs.map(r => r.id) };
       };
-      o.btnNear = !btn.classList.contains("hidden");
+      o.btnNear = !droneControl().classList.contains("hidden");
       o.slotDriving = laidOut();
       o.btnModeFly = btn.dataset.mode === "fly";
       // one tap and he is flying it
-      o.tapped = L.marsDronePress();
+      o.tapped = L.hopPress();
       L.update(1 / 60);
       o.flying = L.marsDroneActive();
       o.btnModeBack = btn.dataset.mode === "back";
@@ -4352,7 +4353,7 @@ function check(name, ok, extra) {
       L.api.setThrottle(true); for (let i = 0; i < 60; i++) L.update(1 / 60); L.api.setThrottle(false);
       o.rollsAgain = Math.abs(L.rover.speed) > 2;
       // and the button is a way back up, every time, for free
-      o.btnUpAgain = !document.getElementById("droneBtn").classList.contains("hidden");
+      o.btnUpAgain = !droneControl().classList.contains("hidden");
       o.canFlyAgain = L.marsDronePress() && L.marsDroneActive();
       // the button alone brings it home too: he can never be stuck in the air
       L.marsDronePress();
@@ -4385,8 +4386,8 @@ function check(name, ok, extra) {
       o.besideRover < 40 && o.drivingAgain && o.rollsAgain && o.btnUpAgain && o.canFlyAgain &&
       o.buttonSendsHome && o.buttonLandsIt && o.flights === 2 && o.exploded === 0 && o.frameErrors === 0, JSON.stringify(o));
     check("mars: the drone's button never lands on top of another one -- nothing overlaps with it up beside the rover, or up in the air as the way down",
-      o.slotDriving.bad.length === 0 && o.slotDriving.up.includes("droneBtn") &&
-      o.slotFlying.bad.length === 0 && o.slotFlying.up.includes("droneBtn") &&
+      o.slotDriving.bad.length === 0 && o.slotDriving.up.includes("hopBtn") && !o.slotDriving.up.includes("droneBtn") &&
+      o.slotFlying.bad.length === 0 && o.slotFlying.up.includes("hopBtn") && !o.slotFlying.up.includes("droneBtn") &&
       !o.slotFlying.up.includes("roverBtn") &&   // it must not be able to stow the rover from up in the air
       JSON.stringify({ driving: o.slotDriving, flying: o.slotFlying }));
     await page.close();
@@ -4554,6 +4555,9 @@ function check(name, ok, extra) {
       // ran first, and boxes alongside the road counted as boxes across it.
       out.wallHitsOnCrossing = L.flags.wallHits || 0;
       out.exits = L.highway.exits.length;
+      const connected = new Set(['hop-dock', 'airport-harbor', 'carrier-ramp', 'carrier-deck', 'cargo-bay', 'dock-return', 'toy-track', 'fire-dock']);
+      out.originalExits = L.highway.exits.filter(e => !connected.has(e.to)).length;
+      out.connectedExits = new Set(L.highway.exits.filter(e => connected.has(e.to)).map(e => e.to)).size;
       out.charges = L.highway.charges.length;
       out.overpasses = (L.highway.overpasses || []).length;
       return out;
@@ -4561,10 +4565,9 @@ function check(name, ok, extra) {
     check("highway: one continuous graded road coast to coast, with the mountain tunnel and the water crossings falling out of the profile rather than being placed by hand -- and it runs through nothing that was already in the world",
       road.length > 12000 && road.samples > 250 && road.tunnelRun > 300 && road.bridgeRun > 1000 &&
       road.underWater === 0 && road.buried === 0 && road.wallHitsOnCrossing === 0 &&
-      // seven exits now: the six on the main line plus the harbour coast spur,
-      // which is a hand-built polyline pushed into the same array -- that one
-      // line is all it takes to make the car able to drive over the drawbridge
-      road.exits === 7 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
+      // Preserve all seven original exits; connected routes use the same road registry.
+      road.originalExits === 7 && road.connectedExits === 8 && road.exits === 15 &&
+      road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
 
     // 4. zero text, with the boards, the interchange and the interior screen in frame
     const text = await page.evaluate(() => {
@@ -5346,7 +5349,7 @@ function check(name, ok, extra) {
         const dr = L.mars.drone;
         L.rover.x = dr.x; L.rover.y = dr.y; L.rover.z = dr.z;
         L.rover.speed = 0; L.rover.returning = false; L.update(1 / 60);
-        const ready = !hidden('droneBtn') && L.marsDroneCan();
+        const ready = !hidden('hopBtn') && L.marsDroneCan();
         key(code); out[code + 'Launch'] = ready && L.marsDroneActive() && !L.rover.returning;
         out[code + 'Picker'] = blocked();
         for (let i = 0; i < 120; i++) L.update(1 / 60);
@@ -5451,6 +5454,18 @@ function check(name, ok, extra) {
   await require("./engine_sound_checks")({ newPage, check, shots: SHOTS });
   await require("./lights_police_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
   await require("./car_feel_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[390,844]] });
+
+  const connectedPage = async (w, h) => {
+    const result = await newPage(w, h, true);
+    await result.page.waitForFunction(() => Object.values(modelState).every(s => s !== 'loading'));
+    await result.page.evaluate(() => { __lp.noRender = true; update(1 / 60); });
+    return result;
+  };
+  await require("./hop_checks")({ newPage: connectedPage, check });
+  await require("./hop_repeat_checks")({ newPage: connectedPage, check });
+  await require("./hop_discovery_checks")({ newPage: connectedPage, check });
+  await require("./connection_checks")({ newPage: connectedPage, check });
+  await require("./outing_checks")({ newPage: connectedPage, check });
 
   await browser.close();
   server.kill();

@@ -176,6 +176,8 @@ module.exports = async function lockChecks({ newPage, check, shots }) {
     const inLock = !document.getElementById("washBtn").classList.contains("hidden");
     // ... but it is still there where the wash actually is
     L.api.setVehicle("prop"); L.api.placeOnRunway();
+    const bay = L.toyWorld.washes[st.originIdx];
+    st.x = bay.x; st.z = bay.z;
     L.toyWorld.washCooldown = 0;
     for (let i = 0; i < 30; i++) L.update(1 / 60);
     const atAirport = !document.getElementById("washBtn").classList.contains("hidden");

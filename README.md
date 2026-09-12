@@ -68,6 +68,20 @@ the rocket with its stage button up.
 
 The rescue also works while parked, over water and in space. Helicopter/drone rotors move clear before launch; space rescues use a thruster canopy. Activity progress survives the return. See [CHANGELOG.md](CHANGELOG.md).
 
+## Connected world (branch preview)
+
+Nearby parked vehicles offer a door-and-arrow button and a cyan ring. Tap to
+hop in; the vehicle you leave stays where you stopped. The picker is still a
+shortcut. Both airports, the harbor, the carrier, the yacht tender, and the
+Mars rover/drone support the same interaction. Roads also connect to the carrier,
+a cargo Starship bay, a toy track beyond the drawbridge, and a fire-facing pier.
+Driving aboard the carrier or cargo ship starts a round trip; the police can
+follow the roads, and the fire pier has a cannon-equipped speedboat waiting. `scripts/connected_test.js`
+runs the focused behavior checks; evidence stays in `evidence/connected-world/`.
+
+See [the branch review handoff](CONNECTED_WORLD_REVIEW.md) for the local playable
+preview, verification commands and measured performance. This sprint is not deployed.
+
 ## Vehicles
 
 Defined in `TUNE.vehicles` + `TUNE.vehicleColors`; the cockpit accent recolours per

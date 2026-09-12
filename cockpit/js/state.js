@@ -116,6 +116,8 @@ const VEHICLE_TONES = [
 
 function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
+  if (typeof cwBeforeSwitch === "function") cwBeforeSwitch();
+  if (typeof hopBeforeVehicleSwitch === "function") hopBeforeVehicleSwitch(key);
   if (typeof heliReset === "function") heliReset();
   state.vehicleKey = key;
   state.vp = TUNE.vehicles[key];

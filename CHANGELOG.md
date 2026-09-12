@@ -10,6 +10,22 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v118 — hop ownership and discovery review (branch only)
+
+Repeating the normal touch loop car hop → picker → prop → car hop now reuses the same owned vehicles instead of adding a parked aircraft each time. The new eight-cycle regression checks fleet identity, parked geometry and total GPU residency in portrait and landscape, both camera views. An outlined cyan chevron on the existing hop control points toward an off-screen destination and clears when it enters the useful view; airport, harbor and fire-dock renders cover discovery without adding a button or changing camera/control tuning. Carrier, cargo and pursuit systems are not expanded. Physical iPad playtesting remains required before release; software-rendered measurements are evidence only. No deployment.
+
+## v117 — connected world, milestone 3: the outing (branch only)
+
+The portrait airport → car → harbor → speedboat → car → original aircraft outing runs twice through on-screen touch controls, with cancelled drags, a midway switch and return to the same parked car. It exposed a dock approach needing a gentler turn and landward return loop, raised road crossings hiding the parked plane's wings, and a neighboring car winning the return target; these are corrected without changing movement models or existing tuning. The hop button shows the destination silhouette. Review also fixed the first Mars landing frame reaching its preview before the base existed, aligned the parked rover preview with the ground, removed duplicate nearby drone entry while preserving keyboard and distant return behavior, and kept the carrier catapult usable beside the return hop. Transport rides do not offer the unrelated wash. Police breadcrumbs reset after a large relocation instead of following a stale route. Camera fixtures now retain their requested view through vehicle switches; the tunnel fixture resets inherited top speed to existing cruise. Paired performance measurements led to tighter culling of distant parked models. The full harness, both-view portrait/landscape renders, repeated SwiftShader A/B results and touch trace are in `evidence/connected-world/`, with a review handoff in `CONNECTED_WORLD_REVIEW.md`. No deployment.
+
+## v116 — connected world, milestone 2: active connections (branch only)
+
+Helicopters can land on the carrier or yacht and hop into the waiting jet or tender. Roads lead onto the carrier and through an open cargo Starship bay; driving aboard announces a reusable trip and brings the car back to its boarding place. These transports use the shared event registry. The police follow the driven path along spurs and the toy track, wait behind the lifting drawbridge, and resume when it lowers. A fire-facing pier connects the harbor road to a speedboat within the existing cannon's working range; its fire still relights freely. All movement models and their tuning remain unchanged. Focused checks exercise drive-in, carriage, interruption, return, re-entry, helicopter transfers, pursuit, bridge reset, and extinguishing/re-lighting in portrait and landscape and both views; renders stay in `evidence/connected-world/`. No deployment.
+
+## v115 — connected world, milestone 1: hop-in (branch only)
+
+Parked cars and helicopters at both airports, a car and speedboat at the harbor, a jet and helicopter on the carrier, and a yacht tender use one nearby, icon-only hop button and a ring around its target. Leaving a vehicle keeps it at its departure pose; the picker remains available. Mars uses the same interaction for its existing rover and drone, retaining the parked rover between hops. Switching releases held inputs, and the carrier answers the existing helicopter deck-surface query without changing its movement model. 168 focused behavioral checks pass, covering switching, a running simulation after the switch, leaving and returning, portrait and landscape, and both camera views; render evidence is under `evidence/connected-world/`. Both service-worker cache names are bumped. No deployment.
+
 ## v114 — signals on the motorway, steering that answers, a chase you cannot crash out of, and a horn that is not a bus
 
 **Six signalled crossroads on the main line**, on top of the six on the spurs.
