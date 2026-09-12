@@ -171,14 +171,27 @@ const TUNE = {
     // that lands on a viaduct steps along until it finds ground.
     highwaySpacing: 1500, highwayScan: 560, highwayStep: 30,
     highwayKeepOut: 420,         // clear of an interchange centre
+    boreKeepOut: 300,            // ... and of a tunnel mouth: a signalled crossroads
+                                 // seventy metres before a portal puts a head at
+                                 // windscreen height across the approach to it
     // The motorway keeps the long green: he should sail through most of them and
     // meet a red now and then, not stop at every one.
     highwayGreen: 23, highwayCross: 6,
     maxDrop: 12,                 // the most the cross street may fall over its length
     crossLen: 260, crossW: 13,   // the cross street, at full length
     crossScales: [1, 0.7, 0.5],  // ... and what it shrinks to rather than not fitting
-    stopLine: 11,                // how far before the middle the stop line is
-    mastH: 8.2, mastR: 0.32, headW: 2.3, headH: 6.0, lampR: 0.84,
+    // How far before the middle each stop line is -- and it is NOT one number.
+    // Each approach has to stop clear of the road it is crossing, so a cross
+    // street waiting at a motorway stops `highway.halfW` back and the motorway
+    // stops clear of the cross street. One shared 11 m put the cross street's
+    // stop line, and the masts that go with it, inside the motorway's outer lane
+    // with the heads at windscreen height.
+    stopGap: 4.5,
+    // The head hangs CLEAR of what drives under it. A 6 m head on an 8.2 m mast
+    // put its underside 1.9 m above the road -- below the roof of a 2.6 m car and
+    // well below a 4.4 m lorry. The halo is what makes a lamp read at distance,
+    // not the size of the box around it, so the head shrinks and the mast grows.
+    mastH: 9.8, mastR: 0.32, headW: 2.1, headH: 3.9, lampR: 0.6,
     armLen: 5.2,                 // the head hangs out over the carriageway
     // One cycle. Amber BLINKS before red -- the wind-up every set-piece has, at
     // the scale of a junction, so a red is never the first he knows of it.
@@ -402,7 +415,22 @@ const TUNE = {
                                  // and every road vertex becomes NaN.
     boardH: 16, boardW: 22,
     charge: { stalls: 4, canopyW: 34, canopyD: 22, canopyH: 9, pulse: 2.2, seconds: 10 },
-    interchange: { at: [0.045, 0.955], ramps: 4, r: 150, rise: 26, deckT: 2.2, pillarR: 3.4 },
+    interchange: { at: [0.16, 0.78], ramps: 4, r: 150, rise: 26, deckT: 2.2, pillarR: 3.4, clear: 9 },
+                                 // `clear`: a ramp never comes down to road level.
+                                 // Its loop is centred ON the carriageway, so ends
+                                 // at deck height laid a 14 m concrete strip and a
+                                 // 1.2 m guardrail straight across the lane.
+                                 // NOT 0.045/0.955. The road starts beside the
+                                 // runway, so four and a half percent along it is
+                                 // still inside the runway's own length -- and a
+                                 // 150 m ramp loop centred there put concrete
+                                 // pillars up to fifteen metres tall on the
+                                 // centreline, with a ramp deck two and a half
+                                 // metres over it. These sites clear the runways
+                                 // AND the ring corridor beyond each end -- a
+                                 // 150 m ramp loop reaches the centreline from a
+                                 // long way off, and the approach is as much his
+                                 // road as the runway is.
     traffic: { count: 70, range: 1800, keepOut: 260, follow: 90, speed: [49, 64], truckEvery: 4, respawn: 2.5 },
                                  // above TUNE.car.cruise on purpose: lane-keep with no
                                  // steering must never rear-end its own lane
@@ -797,6 +825,13 @@ const TUNE = {
     hoverAgl: 26,                   // initial takeoff height for a destination tap
     landingBrakeH: 24,              // slow horizontal travel on the last metres of a descent
     arriveDist: 4,                  // stop and clear the destination inside this radius
+    // A HELICOPTER CAN NEVER BE STUCK, for the same reason a boat cannot: if it
+    // has been going for `stallAfter` seconds and has not got `stallProgress`
+    // metres closer, it lets the spot go and hovers where it is. Fifty runs from
+    // random coastal and inland points all arrived, so nothing needs this today
+    // -- which is exactly when to put it in, because the old report of one
+    // hanging over land could never be reproduced and there was no floor under it.
+    stallAfter: 14, stallProgress: 12,
     turnRate: 85, turnAccel: 4.0, yawGain: 2.8, bankDeg: 12,
     dragDeadzone: 8, horizontalAccel: 42, horizontalBrake: 64,
     terrainLookahead: 1.2, terrainClearance: 8, cameraBack: 52, cameraHeight: 34,

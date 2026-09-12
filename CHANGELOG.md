@@ -10,6 +10,67 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v119/v120 — the connected-world sprint reverted, then six bugs found by sweeping rather than by looking
+
+**v119 reverts the connected-world merge** (`b13587f`): no hop-in, no parked
+fleet, no toy-track oval. The tree is byte-identical to v114 apart from the cache
+name, which goes *forward* — the sprint shipped as v118, so reverting the name
+too would have left every iPad holding the newer cached build for ever.
+
+**v120 is six bug fixes, and the interesting part is how they were found.** Two of
+the three reported bugs did not reproduce; the sweep written to look for them
+found different, real ones.
+
+- **Interchange ramp pillars stood on the New York runway.** The interchanges sit
+  at a fraction along the road, and the road *starts beside the runway*, so 4.5%
+  along it was still inside the runway's own length: concrete columns up to
+  fifteen metres tall on the centreline, with a ramp deck two and a half metres
+  over it. Moved to 0.16/0.78, which clears the runways *and* the ring corridor
+  beyond each end — a 150 m ramp loop reaches the centreline from a long way off,
+  and the approach is as much his road as the runway is.
+- **Interchange ramps came down to road level on the carriageway.** Their loops
+  are centred on the road, so the ends laid a 14 m concrete strip and a 1.2 m
+  guardrail straight across a lane. They stay up on their pillars now.
+- **The cross street's stop line, and the masts that go with it, were painted
+  inside the motorway's outer lane.** `stopLine` was one number for all four
+  approaches, but each has to stop clear of a *different* road: the cross street
+  waits `highway.halfW` back, the motorway waits clear of the cross street.
+- **Signal heads hung at 1.9 m over the carriageway** — below the roof of a 2.6 m
+  car. The halo is what makes a lamp read at distance, not the box around it, so
+  the head shrank and the mast grew. And the mast's height is measured from the
+  road *under the head* now, not from the middle of the junction: on a slope
+  those are metres apart, and a head that cleared everything at the centre hung
+  at chest height twenty metres up the hill.
+- **A junction was sited seventy metres before a tunnel portal**, putting a
+  signal head across the approach to it. Junctions keep clear of a bore mouth now,
+  the same way they keep clear of an interchange.
+- **The tunnel lid self-shadowed into a black slab** beside the portal. The ground
+  in this game does not receive shadows — `scene.js` switches that on per frame
+  for the handful of chunks near him — and the lid is ground.
+
+**Three invariants that were never stated, and so were never true on purpose**,
+are now checks (`scripts/cleanup_checks.js`):
+
+- *Exactly one of him.* Every path that spawns a vehicle — picker, respawn, three
+  kinds of crash, eject, rover, spacewalk, carrier launch — leaves exactly one
+  player vehicle, twenty times each. The player's model is tagged so this is a
+  question rather than an argument. **The reported duplicate did not reproduce on
+  any path.**
+- *Nothing standing on a surface he uses.* Asked by geometry over all 1174 meshes
+  in the world — per instance, and per triangle for merged meshes whose union box
+  says nothing about where their pieces are — against both runways and the whole
+  carriageway. A list of exclusions is a list someone has to remember to add to;
+  a sweep is not. This is what found the pillars and the stop lines.
+- *The helicopter can never be stuck.* Fifty point-to-go runs from random coastal
+  and inland spots all arrive (worst 8.4 s), so **the old "stuck over land" report
+  did not reproduce either** — which is exactly when to put a floor under it, and
+  there was none. A target it is getting nowhere with is now let go after 14 s,
+  the same rule the boat has.
+
+624 checks.
+
+---
+
 ## v114 — signals on the motorway, steering that answers, a chase you cannot crash out of, and a horn that is not a bus
 
 **Six signalled crossroads on the main line**, on top of the six on the spurs.

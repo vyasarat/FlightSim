@@ -646,10 +646,19 @@ function hwyBuildBore(g, conc, steel) {
     lidGeo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
     lidGeo.setIndex(idx);
     lidGeo.computeVertexNormals();
+    // DOUBLE-SIDED, because the lid is ground and ground is lit from whichever
+    // side you are looking at it from. Its cut faces at the portals point into
+    // the hill, so single-sided they were shaded by a sun behind them and read
+    // as black slabs hanging in the air beside the tunnel mouth.
     const lid = new THREE.Mesh(lidGeo, new THREE.MeshPhongMaterial({
       vertexColors: true, flatShading: true, shininess: 0, specular: 0x000000,
+      side: THREE.DoubleSide,
     }));
-    lid.receiveShadow = true;
+    // NOT receiveShadow. The lid is ground, and the ground in this game does not
+    // receive shadows -- scene.js switches that on per frame for the handful of
+    // chunks near him and leaves it off everywhere else. Left on, a surface this
+    // big self-shadows into a black slab hanging beside the portal.
+    lid.receiveShadow = false;
     g.add(lid);
     bore.lid = lid;
 
@@ -714,7 +723,7 @@ function hwyBuildInterchanges(g, conc, steel) {
         const a = a0 + (k / seg) * Math.PI * 1.5;
         const x = base.x + Math.cos(a) * rr, z = base.z + Math.sin(a) * rr;
         const fa = a + Math.PI / 2;
-        ramp.push({ x, z, y: lerp(base.y, y, Math.sin(Math.PI * k / seg)), fx: Math.cos(fa), fz: Math.sin(fa) });
+        ramp.push({ x, z, y: lerp(base.y + I.clear, y, Math.sin(Math.PI * k / seg)), fx: Math.cos(fa), fz: Math.sin(fa) });
       }
       g.add(hwyStrip(ramp, -7, 7, 0, conc));
       hwyClaimCorridor(ramp);

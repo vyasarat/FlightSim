@@ -26,6 +26,7 @@ function heliReset() {
   heli.vy = 0; heli.turn = 0; heli.speed = 0; heli.vx = heli.vz = 0;
   heliEndGesture();
   heli.facing = null; heli.target = null; heli.targetDist = 0; heli.sky = false;
+  heli.stallBest = undefined; heli.stallT = 0;
   heli.altitude = null; heli.cameraY = null; heli.cameraAhead = H.cameraLookAhead; heli.vertical = 0; heli.wasTouching = false;
   heli.lastNX = heli.lastNY = null;
   if (typeof releaseHeliAltitude === "function") releaseHeliAltitude();
@@ -216,7 +217,17 @@ function updateHelicopter(dt) {
     const dx = heli.target.x - state.x, dz = heli.target.z - state.z;
     const dist = Math.hypot(dx, dz);
     heli.targetDist = dist;
-    if (dist < H.arriveDist) { heli.target = null; heli.sky = false; }
+    // ---- the stall floor: going nowhere for long enough means letting it go
+    if (heli.stallBest === undefined || dist < heli.stallBest - H.stallProgress) {
+      heli.stallBest = dist; heli.stallT = 0;
+    } else {
+      heli.stallT = (heli.stallT || 0) + dt;
+    }
+    if (heli.stallT > H.stallAfter) {
+      heli.target = null; heli.sky = false; heli.stallBest = undefined; heli.stallT = 0;
+      flags.heliStalls = (flags.heliStalls || 0) + 1;
+    }
+    if (dist < H.arriveDist) { heli.target = null; heli.sky = false; heli.stallBest = undefined; heli.stallT = 0; }
     else {
       wantYaw = Math.atan2(-dx, -dz);
       // Point-to-go: the step scales the CRUISE CAP only. `dist * H.approach`

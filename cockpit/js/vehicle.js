@@ -13,6 +13,17 @@ const aimWorld = new THREE.Vector3();
 const aimTmp = new THREE.Vector3();
 const camFwd = new THREE.Vector3();
 
+// EXACTLY ONE OF THESE MAY BE IN THE SCENE AT A TIME. Tagged so that can be
+// asked as a question rather than reasoned about: a vehicle model that is built
+// without going through here, or an old one left behind by a path that forgot to
+// tear it down, shows up as a second tagged object and the harness says so.
+function vehTagPlayer(g) { if (g) g.userData.isPlayerVehicle = true; return g; }
+function vehPlayerModels() {
+  const out = [];
+  scene.traverse(o => { if (o.userData && o.userData.isPlayerVehicle) out.push(o); });
+  return out;
+}
+
 function buildVehicleModel(key) {
   if (vehicleModel) {
     scene.remove(vehicleModel);
@@ -37,7 +48,7 @@ function buildVehicleModel(key) {
       // was never wrong; only the body that was drawn.
       imported.rotation.order = "YXZ";
       scene.add(imported);
-      vehicleModel = imported;
+      vehicleModel = vehTagPlayer(imported);
       return;
     }
   }
@@ -46,7 +57,7 @@ function buildVehicleModel(key) {
     g.visible = state.viewChase;
     castsShadow(g);
     scene.add(g);
-    vehicleModel = g;
+    vehicleModel = vehTagPlayer(g);
     return;
   }
   if (key === "speedboat") {
@@ -54,7 +65,7 @@ function buildVehicleModel(key) {
     g.visible = state.viewChase;
     castsShadow(g);
     scene.add(g);
-    vehicleModel = g;
+    vehicleModel = vehTagPlayer(g);
     return;
   }
   if (key === "car") {
@@ -62,7 +73,7 @@ function buildVehicleModel(key) {
     g.visible = state.viewChase;
     castsShadow(g);
     scene.add(g);
-    vehicleModel = g;
+    vehicleModel = vehTagPlayer(g);
     return;
   }
   const cols = TUNE.vehicleColors[key];
@@ -186,7 +197,7 @@ function buildVehicleModel(key) {
     g.add(heat);
     g.userData.padHeat = heat;
   }
-  vehicleModel = g;
+  vehicleModel = vehTagPlayer(g);
 }
 
 function updateVehicleModel(dt) {

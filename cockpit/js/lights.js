@@ -65,6 +65,9 @@ function ltBuildJunction(j, g, tarmac, paint, masts, arms, boxes, lampPts) {
   const x = j.x, y = j.y, z = j.z;
   const fx = j.fx, fz = j.fz, rx = j.rx, rz = j.rz;
   const crossLen = j.crossLen, roadHalf = j.roadHalf;
+  // Each approach stops clear of the road it is about to cross.
+  j.stopMain = LT.crossW + LT.stopGap;      // the road, waiting for the cross street
+  j.stopCross = roadHalf + LT.stopGap;      // the cross street, waiting for the road
     // the cross street, laid flat across the spur
     const cross = [];
     for (let k = -1; k <= 1; k += 0.25) {
@@ -106,10 +109,11 @@ function ltBuildJunction(j, g, tarmac, paint, masts, arms, boxes, lampPts) {
     j.cross = cross;
 
     // stop lines: a painted bar on each of the four approaches
-    for (const [dx, dz, w] of [[fx, fz, roadHalf], [-fx, -fz, roadHalf],
-                               [rx, rz, LT.crossW], [-rx, -rz, LT.crossW]]) {
+    for (const [dx, dz, w, main] of [[fx, fz, roadHalf, true], [-fx, -fz, roadHalf, true],
+                                     [rx, rz, LT.crossW, false], [-rx, -rz, LT.crossW, false]]) {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(w * 2, 0.06, 1.1), paint);
-      bar.position.set(x - dx * LT.stopLine, y + 0.09, z - dz * LT.stopLine);
+      const back = main ? j.stopMain : j.stopCross;
+      bar.position.set(x - dx * back, y + 0.09, z - dz * back);
       bar.rotation.y = Math.atan2(dx, dz);
       g.add(bar);
     }
@@ -118,14 +122,26 @@ function ltBuildJunction(j, g, tarmac, paint, masts, arms, boxes, lampPts) {
     for (const [ax, az, main] of [[-fx, -fz, true], [fx, fz, true], [-rx, -rz, false], [rx, rz, false]]) {
       const half = main ? roadHalf : LT.crossW;
       const side = main ? rx : fx, sideZ = main ? rz : fz;
-      const mx = x - ax * (LT.stopLine + 2) + side * (half + 2.5);
-      const mz = z - az * (LT.stopLine + 2) + sideZ * (half + 2.5);
-      const hy = y + LT.mastH;
-      masts.push({ w: LT.mastR * 2, h: LT.mastH, d: LT.mastR * 2, x: mx, y: y + LT.mastH / 2, z: mz });
+      const back = (main ? j.stopMain : j.stopCross) + 2;
+      const mx = x - ax * back + side * (half + 2.5);
+      const mz = z - az * back + sideZ * (half + 2.5);
+      // Measured from the road UNDER THE HEAD, not from the middle of the
+      // junction. On a sloping stretch those are metres apart, and the head that
+      // cleared everything at the centre hung at chest height twenty metres up
+      // the hill.
+      const hx0 = mx - side * LT.armLen, hz0 = mz - sideZ * LT.armLen;
+      let under = y;
+      if (typeof hwyNearest === "function" && highway.built) {
+        const n = hwyNearest(hx0, hz0);
+        if (n && Math.abs(n.lateral) < j.roadHalf + 6) under = Math.max(under, n.y);
+      }
+      const hy = under + LT.mastH;
+      const mh = hy - y;
+      masts.push({ w: LT.mastR * 2, h: mh, d: LT.mastR * 2, x: mx, y: y + mh / 2, z: mz });
       const armDir = Math.atan2(-side, -sideZ);
       arms.push({ w: LT.armLen, h: LT.mastR * 1.6, d: LT.mastR * 1.6,
                   x: mx - side * LT.armLen / 2, y: hy, z: mz - sideZ * LT.armLen / 2, ry: armDir });
-      const hx = mx - side * LT.armLen, hz = mz - sideZ * LT.armLen;
+      const hx = hx0, hz = hz0;
       boxes.push({ w: LT.headW, h: LT.headH, d: 0.7, x: hx, y: hy - LT.headH / 2 - 0.3, z: hz,
                    ry: Math.atan2(ax, az) });
       // three lamps down the head, top to bottom: red, amber, green
@@ -227,6 +243,10 @@ function ltBuild() {
   // on top of a spur junction that is already there.
   {
     const inter = (HW.interchange.at || []).map(f => hwySampleAt(f * highway.length));
+    const portals = [];
+    for (const bore of (typeof hwyBores !== "undefined" ? hwyBores : [])) {
+      portals.push(bore.pts[0], bore.pts[bore.pts.length - 1]);
+    }
     for (let want = LT.highwaySpacing; want < highway.length - LT.highwaySpacing * 0.5; want += LT.highwaySpacing) {
       let pick = null, best = null, crossLen = 0, pickS = 0;
       for (const scale of LT.crossScales) {
@@ -236,6 +256,7 @@ function ltBuild() {
           const q = hwySampleAt(at);
           if (q.type !== "ground") continue;
           if (inter.some(c => Math.hypot(c.x - q.x, c.z - q.z) < LT.highwayKeepOut)) continue;
+          if (portals.some(c => Math.hypot(c.x - q.x, c.z - q.z) < LT.boreKeepOut)) continue;
           // Only against other MAIN-LINE junctions: a spur junction is a few
           // hundred metres off to the side and is not on this road, so counting
           // it here threw away half the candidate sites.
@@ -353,7 +374,7 @@ function ltUpdate(dt) {
       // approaching while `u` is still bigger than that. Backwards, this went to
       // zero only once the car was already through the junction, and nothing
       // ever stopped for anything.
-      const toStop = c.side > 0 ? (c.u - LT.stopLine) : (-LT.stopLine - c.u);
+      const toStop = c.side > 0 ? (c.u - j.stopCross) : (-j.stopCross - c.u);
       let sp = c.speed;
       if (!crossGo && toStop > 0 && toStop < 60) sp *= clamp(toStop / 26, 0, 1);
       // and it queues behind whatever is already stopped in its own lane
@@ -403,9 +424,8 @@ function ltStopLineSigned(j) {
   const dx = state.x - j.x, dz = state.z - j.z;
   const along = dx * j.fx + dz * j.fz, across = dx * j.rx + dz * j.rz;
   const onSpur = Math.abs(across) < Math.abs(along) ? false : true;
-  // the arm he is on is the axis he is furthest out along
-  if (!onSpur) return { d: (Math.abs(along) - LT.stopLine) * Math.sign(along || 1), main: true, lat: across };
-  return { d: (Math.abs(across) - LT.stopLine) * Math.sign(across || 1), main: false, lat: along };
+  if (!onSpur) return { d: (Math.abs(along) - j.stopMain) * Math.sign(along || 1), main: true, lat: across };
+  return { d: (Math.abs(across) - j.stopCross) * Math.sign(across || 1), main: false, lat: along };
 }
 
 function ltNearest() {
@@ -428,7 +448,7 @@ function ltAhead() {
   const axis = main ? along : across;
   const fwd = -Math.sin(state.heading) * (main ? j.fx : j.rx) +
               -Math.cos(state.heading) * (main ? j.fz : j.rz);
-  const toLine = -Math.sign(fwd || 1) * axis - LT.stopLine;   // positive: short of it
+  const toLine = -Math.sign(fwd || 1) * axis - (main ? j.stopMain : j.stopCross);   // positive: short of it
   return { j, main, aspect: ltAspect(j, main), toLine,
            lat: Math.abs(main ? across : along) };
 }
@@ -478,7 +498,7 @@ function ltHighwayStop(s, dir, myS, mySpeed) {
   for (const j of lights.junctions) {
     if (!j.onHighway || j.s === null) continue;
     if (ltAspect(j, true) === "green") continue;
-    const line = j.s - dir * LT.stopLine;
+    const line = j.s - dir * j.stopMain;
     const toLine = (line - s) * dir;
     if (toLine < 0 || toLine > 140) continue;             // behind it, or too far to care
     if (myS !== null && myS !== undefined) {
