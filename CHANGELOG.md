@@ -10,6 +10,10 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v115 — connected world, milestone 1: hop-in (branch only)
+
+Parked cars and helicopters at both airports, a car and speedboat at the harbor, a jet and helicopter on the carrier, and a yacht tender use one nearby, icon-only hop button and a ring around its target. Leaving a vehicle keeps it at its departure pose; the picker remains available. Mars uses the same interaction for its existing rover and drone, retaining the parked rover between hops. Switching releases held inputs, and the carrier answers the existing helicopter deck-surface query without changing its movement model. 168 focused behavioral checks pass, covering switching, a running simulation after the switch, leaving and returning, portrait and landscape, and both camera views; render evidence is under `evidence/connected-world/`. Both service-worker cache names are bumped. No deployment.
+
 ## v114 — signals on the motorway, steering that answers, a chase you cannot crash out of, and a horn that is not a bus
 
 **Six signalled crossroads on the main line**, on top of the six on the spurs.

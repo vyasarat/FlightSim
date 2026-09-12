@@ -68,6 +68,7 @@ const BUTTONS = {
   heliUpBtn:   { slot: "highRight", when: () => btnHeliShows() },
 
   missileBtn: { slot: "highLeft", when: () => btnMissileShows() },
+  hopBtn:     { slot: "highLeft", when: () => !!hopTarget() },
   catBtn:     { slot: "highLeft", when: () => typeof carrierCanLaunch === "function" && carrierCanLaunch() },
   washBtn:    { slot: "highLeft", when: () => twWashCan() && twWashNear() && !btnWash() },
 
@@ -160,6 +161,7 @@ function btnUpdateAll() {
     if (!e || !b.when) continue;                  // null `when`: its own module owns it
     let show = false;
     try { show = !!b.when(); } catch (err) { show = false; }
+    if (id !== "hopBtn" && b.slot === "highLeft" && hopTarget()) show = false;
     e.classList.toggle("hidden", !show);
   }
 }

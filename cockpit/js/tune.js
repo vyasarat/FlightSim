@@ -1443,3 +1443,17 @@ const TUNE = {
 };
 
 const DEG = Math.PI / 180;
+
+// Connected-world placement and interaction only; no vehicle tuning changes.
+TUNE.hop = {
+  visualWheelDrop: 1.9, visualHullDrop: 0.6,
+  runwayInset: 50, marsRoverOffset: 7,
+  radius: 70, height: 30, speed: 8, drawDistance: 1800,
+  ringR: 9, ringWidth: 0.5, ringSegments: 32, ringLift: 0.25,
+  pulseRate: 3, pulseSize: 0.08,
+  airportCar: [24, -32], airportHeli: [-42, -36],
+  dock: [[1800,-6745],[1770,-6715],[1690,-6680]],
+  harborCar: [1690, -6680], harborBoat: [1660, -6635],
+  carrierJet: [-19, -60], carrierHeli: [-22, 105],
+  yachtTender: [0, 43],
+};

@@ -573,14 +573,15 @@
   #droneBtn .fly, #droneBtn .back { display: none; }
   #droneBtn[data-mode="fly"] .fly, #droneBtn[data-mode="back"] .back { display: block; }
   /* the catapult: planes have gear, so this one lives in the shared slot above it */
-  #catBtn {
+  #catBtn, #hopBtn {
     bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
     left: calc(var(--edge) + env(safe-area-inset-left));
     z-index: 10;
     border-color: #5ff1ff;
     animation: homePulse 1.1s ease-in-out infinite;
   }
-  #catBtn.hidden { display: none; }
+  #hopBtn { color: #f2f4f7; }
+  #catBtn.hidden, #hopBtn.hidden { display: none; }
   /* the water bucket: the helicopter has no gear, so that row is free for it */
   #magnetBtn, #washBtn { left: calc(var(--edge) + env(safe-area-inset-left)); z-index: 10; border-color: #ffd23e; }
   #magnetBtn { bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
@@ -907,6 +908,11 @@
     <circle cx="34" cy="72" r="8" fill="#1f2328" stroke="#8a93a0" stroke-width="2"/>
     <circle cx="66" cy="72" r="8" fill="#1f2328" stroke="#8a93a0" stroke-width="2"/>
     <path d="M50 12 V34 M40 24 l10 10 l10 -10" fill="none" stroke="#5ff1ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</button>
+<button id="hopBtn" class="roundBtn hidden" aria-hidden="true">
+  <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M36 13h17v39H36M35 21v22M10 32h32m-9-9 10 9-10 9"/>
   </svg>
 </button>
 <button id="catBtn" class="roundBtn hidden" aria-hidden="true">
@@ -1239,6 +1245,7 @@
 <script src="js/boat.js"></script>
 <script src="js/yacht.js"></script>
 <script src="js/seaevents.js"></script>
+<script src="js/hop.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -68,6 +68,14 @@ the rocket with its stage button up.
 
 The rescue also works while parked, over water and in space. Helicopter/drone rotors move clear before launch; space rescues use a thruster canopy. Activity progress survives the return. See [CHANGELOG.md](CHANGELOG.md).
 
+## Connected world (branch preview)
+
+Nearby parked vehicles offer a door-and-arrow button and a cyan ring. Tap to
+hop in; the vehicle you leave stays where you stopped. The picker is still a
+shortcut. Both airports, the harbor, the carrier, the yacht tender, and the
+Mars rover/drone support the same interaction. `scripts/connected_test.js`
+runs the focused behavior checks; evidence stays in `evidence/connected-world/`.
+
 ## Vehicles
 
 Defined in `TUNE.vehicles` + `TUNE.vehicleColors`; the cockpit accent recolours per

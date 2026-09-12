@@ -848,7 +848,7 @@ function carrierCanLaunch() { return carrier.state === "parked"; }
 // The trap. Low along the deck, roughly the right way round, and it takes a wire.
 function carrierTryTrap() {
   if (carrier.state !== "none") return false;
-  if (!state.vp || state.vp.rocket) return false;
+  if (!state.vp || vehKind() !== "plane") return false;
   if (state.phase !== "AIRBORNE" || state.exploding) return false;
   const L = carrierLocal(state.x, state.z);
   if (Math.abs(L.s) > CV.deckW / 2 || Math.abs(L.f) > CV.deckL / 2) return false;
@@ -1021,4 +1021,5 @@ function updateSetpiecesLate(dt) {
   carrierLate(dt);
   if (typeof yachtLate === "function") yachtLate(dt);
   marsLate(dt);
+  if (typeof hopUpdate === "function") hopUpdate(dt);
 }
