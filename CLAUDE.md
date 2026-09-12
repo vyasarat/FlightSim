@@ -1,4 +1,5 @@
 # Little Pilot — working rules
+
 A no-reading, no-failing flying game for a 4-year-old. `README.md` says what it is;
 `CHANGELOG.md` says what shipped. This is the rules, the map and the ship checklist.
 Per-feature detail lives in a **WORKING RULES** comment atop the file it concerns.

@@ -68,9 +68,8 @@ const BUTTONS = {
   heliUpBtn:   { slot: "highRight", when: () => btnHeliShows() },
 
   missileBtn: { slot: "highLeft", when: () => btnMissileShows() },
-  hopBtn:     { slot: "highLeft", when: () => !!hopTarget() },
-  catBtn:     { slot: "lowRight", when: () => typeof carrierCanLaunch === "function" && carrierCanLaunch() },
-  washBtn:    { slot: "highLeft", when: () => twWashCan() && twWashNear() && !btnWash() && !cwRiding() },
+  catBtn:     { slot: "highLeft", when: () => typeof carrierCanLaunch === "function" && carrierCanLaunch() },
+  washBtn:    { slot: "highLeft", when: () => twWashCan() && twWashNear() && !btnWash() },
 
   stageBtn:   { slot: "highLeft", when: () => btnRocket() && rocketCanDrop() },
   satBtn:     { slot: "highLeft", when: () => btnRocket() && rocketCanDeploySat() },
@@ -78,7 +77,7 @@ const BUTTONS = {
   roverBtn:   { slot: "highLeft", when: () => btnRocket() && (roverCan() || roverActive()) && !marsDroneActive() },
   hatchBtn:   { slot: "highLeft", when: () => btnRocket() && (stationCanEnter() || astroActive()) },
 
-  droneBtn:   { slot: "lowLeft",  when: () => btnRocket() && typeof marsDroneCan === "function" && (marsDroneCan() || marsDroneActive()) && !hopTarget() },
+  droneBtn:   { slot: "lowLeft",  when: () => btnRocket() && typeof marsDroneCan === "function" && (marsDroneCan() || marsDroneActive()) },
   magnetBtn:  { slot: "lowLeft",  when: null },          // toyworld.js owns it
   bucketBtn:  { slot: "lowLeft",  when: () => btnBucketShows() },
   cannonBtn:  { slot: "lowLeft",  when: () => boatCannonCan() },
@@ -161,10 +160,8 @@ function btnUpdateAll() {
     if (!e || !b.when) continue;                  // null `when`: its own module owns it
     let show = false;
     try { show = !!b.when(); } catch (err) { show = false; }
-    if (id !== "hopBtn" && b.slot === "highLeft" && hopTarget()) show = false;
     e.classList.toggle("hidden", !show);
   }
-  if(typeof hopGuide === "function")hopGuide();
 }
 
 // ---------------------------------------------------------------------------
