@@ -520,7 +520,7 @@ window.addEventListener("keydown", (e) => {
   else if (c === "KeyB" || c === "Escape") openPicker();
   else if (c === "KeyF" || c === "Enter") {
     if (!el.magnetBtn.classList.contains("hidden")) twRelease();
-    else if (!el.droneBtn.classList.contains("hidden")) marsDronePress();
+    else if (btnRocket() && (marsDroneCan() || marsDroneActive())) marsDronePress();
     else if (state.vp.rocket) {
       // ... and during a meteor shower, with nothing else in the slot, F shoots
       if (!dropStage() && !deploySatellite() && !deployChute() && !toggleRover() && !toggleHatch() &&

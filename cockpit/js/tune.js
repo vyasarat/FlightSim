@@ -1446,19 +1446,21 @@ const DEG = Math.PI / 180;
 
 // Connected-world placement and interaction only; no vehicle tuning changes.
 TUNE.hop = {
+  roadLift: 0.15,
   visualWheelDrop: 1.9, visualHullDrop: 0.6,
   runwayInset: 50, marsRoverOffset: 7,
-  radius: 70, height: 30, speed: 8, drawDistance: 1800,
+  radius: 70, height: 30, speed: 8, drawDistance: 500,
   ringR: 9, ringWidth: 0.5, ringSegments: 32, ringLift: 0.25,
   pulseRate: 3, pulseSize: 0.08,
   airportCar: [24, -32], airportHeli: [-42, -36],
-  dock: [[1800,-6745],[1770,-6715],[1690,-6680]],
+  dock: [[1540,-6745],[1610,-6715],[1660,-6685],[1780,-6685]],
   harborCar: [1690, -6680], harborBoat: [1660, -6635],
   carrierJet: [-19, -60], carrierHeli: [-22, 105],
   yachtTender: [0, 43],
 };
 
 TUNE.connections = {
+  groundClearance: 0.15,
   roadStep: 35, lineWidth: 0.7, lineLift: 0.08,
   airportLink: [[24,-6618],[24,-6740],[430,-6600]],
   carrierRoad: [[24,-6740],[-240,-7050],[-900,-7550],[-900,-7960]],
@@ -1466,8 +1468,9 @@ TUNE.connections = {
   cargo: { x:-220,z:-6530,scale:2,hullR:3.6,hullH:36,bayH:8,bayHalf:6,wall:0.7,floor:0.25,plumeDrop:14,segments:14,
     boardR:9,boardHeight:4,warning:3,duration:26,height:150,resetR:35,road:[[24,-6618],[-60,-6800],[-220,-6800],[-220,-6530],[-220,-6300]] },
   track: { cx:2380,cz:-6360,rx:240,rz:200,steps:48,join:[[2140,-6640],[2180,-6560]],stripe:8 },
+  dockReturn: [[1660,-6685],[1780,-6685],[1840,-6715],[1860,-6760],[1820,-6800],[1740,-6795],[1680,-6745]],
   fireRoad: [[430,-6600],[-120,-6680],[-640,-6790]],
   fireBoat: [-650,-6850], fireCar:[-640,-6790],
-  trailStep: 5, trailLimit: 400, trailGap: 75,
+  trailStep: 5, trailLimit: 400, trailGap: 75, trailResetDistance: 200,
   bridge: { west:1150,east:1450,margin:24,roadZ:-6745,radius:32,warning:1.8,hold:12,queue:16 },
 };

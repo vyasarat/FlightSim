@@ -572,7 +572,7 @@
   #droneBtn.hidden { display: none; }
   #droneBtn .fly, #droneBtn .back { display: none; }
   #droneBtn[data-mode="fly"] .fly, #droneBtn[data-mode="back"] .back { display: block; }
-  /* the catapult: planes have gear, so this one lives in the shared slot above it */
+  /* Hop stays contextual; the catapult uses the vacant go slot on the deck. */
   #catBtn, #hopBtn {
     bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom));
     left: calc(var(--edge) + env(safe-area-inset-left));
@@ -581,6 +581,10 @@
     animation: homePulse 1.1s ease-in-out infinite;
   }
   #hopBtn { color: #f2f4f7; }
+  #catBtn { left: auto; right: calc(var(--edge) + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); }
+  #hopBtn > svg { position: absolute; width: 30%; height: 30%; left: 6%; bottom: 7%; }
+  #hopBtn .hopVehicle { position: absolute; inset: 8% 8% 22% 22%; pointer-events: none; }
+  #hopBtn .hopVehicle svg { width: 100%; height: 100%; }
   #catBtn.hidden, #hopBtn.hidden { display: none; }
   /* the water bucket: the helicopter has no gear, so that row is free for it */
   #magnetBtn, #washBtn { left: calc(var(--edge) + env(safe-area-inset-left)); z-index: 10; border-color: #ffd23e; }

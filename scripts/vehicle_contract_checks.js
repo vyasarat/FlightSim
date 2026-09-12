@@ -251,7 +251,13 @@ module.exports = async function vehicleContractChecks({ newPage, check }) {
           }
           continue;
         }
-        if (!cmp(got[k], ref[k], k)) bad.push(`${k} ${ref[k]} -> ${got[k]}`);
+        let expected = ref[k];
+        // The sprint deliberately adds hop-in at these characterized poses.
+        // Keep every movement/camera/crash value pinned to the original baseline.
+        if (k === 'buttons' && ['prop','fighter','airlinerDelta','helicopter','yacht','drone'].includes(c.key)) {
+          expected = [...ref[k].split(',').filter(id => id !== 'washBtn' && id !== 'droneBtn'), 'hopBtn'].sort().join(',');
+        }
+        if (!cmp(got[k], expected, k)) bad.push(`${k} ${expected} -> ${got[k]}`);
       }
       check(`contract: ${c.key} ${name}`, bad.length === 0, bad.length ? bad.join("; ") : JSON.stringify(
         Object.fromEntries(keys.filter(k => k !== "crash").map(k => [k, got[k]]))));

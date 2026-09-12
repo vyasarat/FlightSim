@@ -233,6 +233,9 @@ module.exports = async function roadChecks({ newPage, check, viewports }) {
       if (!bore) return { found: false };
       const first = bore.pts[0], last = bore.pts[bore.pts.length - 1];
       L.api.setVehicle("car"); L.api.placeOnRunway();
+      // The coast crossing deliberately chose the top step. This fixture is a
+      // hands-off tunnel clearance run at cruise, not an overtake into traffic.
+      st.speedStep = L.spdStepsFor(L.spdKey()).indexOf(1);
       for (let i = 0; i < 20; i++) L.update(1 / 60);
       // start 300 m short of the near portal, in lane, and let go
       const n0 = L.hwyNearest(first.x, first.z);

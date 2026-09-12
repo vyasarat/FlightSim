@@ -4,8 +4,27 @@ module.exports=async({newPage,check})=>{
  for(const [w,h] of [[390,844],[844,390]])for(const chase of [true,false]){
  const {page,ctx,errors}=await newPage(w,h);
  await page.waitForFunction(()=>Object.values(modelState).every(s=>s!=='loading'));
- const step=s=>page.evaluate(s=>{__lp.noRender=true;for(let i=0;i<s*60;i++)update(1/60);},s);
- const shot=async name=>{await page.evaluate(()=>{applyCamera(2);renderer.render(scene,camera);});if(!process.env.LP_FAST)await page.screenshot({path:path.join(out,`${name}-${w}-${chase}.png`)});};
+ const step=s=>page.evaluate(({s,chase})=>{state.viewChase=chase;el.hud.classList.toggle('chase',chase);__lp.noRender=true;for(let i=0;i<s*60;i++)update(1/60);},{s,chase});
+ const shot=async name=>{
+  await page.evaluate(()=>{applyCamera(2);renderer.render(scene,camera);});
+  if(!process.env.LP_FAST)await page.screenshot({path:path.join(out,`${name}-${w}-${chase}.png`)});
+  if(!process.env.LP_FAST&&['connection-chase-bridge','connection-car-carrier','connection-car-cargo','connection-chase-track'].includes(name)){
+    const visible=await page.evaluate(({name,portrait})=>{
+      const visible=vehicleModel.visible;vehicleModel.visible=true;
+      if(car.cabin)car.cabin.visible=false;if(boat.helm)boat.helm.visible=false;
+      el.hud.style.visibility='hidden';
+      camera.up.set(0,1,0);
+      if(name==='connection-chase-bridge'){camera.position.set(1320,portrait?220:115,portrait?-6020:-6500);camera.lookAt(1320,12,-6745);}
+      else if(name==='connection-car-carrier'){camera.position.set(carrier.x+190,carrier.deck+140,carrier.z+310);camera.lookAt(carrier.x,carrier.deck,carrier.z);}
+      else if(name==='connection-car-cargo'){const g=connections.cargo.g;camera.position.set(g.position.x+135,g.position.y+90,g.position.z+140);camera.lookAt(g.position.x,g.position.y+40,g.position.z);}
+      else{camera.position.set(state.x+100,state.y+140,state.z+160);camera.lookAt(state.x,state.y,state.z);}
+      renderer.render(scene,camera);
+      return visible;
+    },{name,portrait:h>w});
+    await page.screenshot({path:path.join(out,`${name}-overview-${w}-${chase}.png`)});
+    await page.evaluate(visible=>{vehicleModel.visible=visible;el.hud.style.visibility='';applyCamera(2);},visible);
+  }
+ };
  await page.evaluate(chase=>{cwBuild();releaseAllInputs();applyVehicle('car');spawnForTakeoff(1,1);Object.assign(state,{viewChase:chase});el.hud.classList.toggle('chase',chase);},chase);
  // Approach the carrier ramp under the ordinary held on-screen stick.
  await page.evaluate(()=>{const r=connections.carrierRoad.spur,p=r.at(-1);Object.assign(state,{x:p.x,z:p.z+35,y:p.y,speed:0,heading:0});carBuildCabin();});
@@ -16,8 +35,8 @@ module.exports=async({newPage,check})=>{
  await touch('touchStart',blank);await step(3);await touch('touchEnd');await step(.5);
  check(`connection drive onto carrier ${w} ${chase}`,await page.evaluate(n=>connections.carrier.trips>n,start),await page.evaluate(()=>JSON.stringify({x:state.x,y:state.y,z:state.z,phase:connections.carrier.phase})));
  await step(7);await shot('connection-car-carrier');
- const carried=await page.evaluate(()=>({z:state.z,shipZ:carrier.z,y:state.y,deck:carrier.deck,phase:connections.carrier.phase}));
- check(`connection carrier carries car ${w} ${chase}`,carried.phase==='ride'&&Math.abs(carried.y-carried.deck)<1&&carried.shipZ<TUNE_CARRIER_Z(),JSON.stringify(carried));
+ const carried=await page.evaluate(()=>({z:state.z,shipZ:carrier.z,homeZ:CV.at.z,y:state.y,deck:carrier.deck,phase:connections.carrier.phase,wash:!el.washBtn.classList.contains('hidden')}));
+ check(`connection carrier carries car ${w} ${chase}`,carried.phase==='ride'&&Math.abs(carried.y-carried.deck)<1&&carried.shipZ<carried.homeZ&&!carried.wash,JSON.stringify(carried));
  await step(40);
  check(`connection carrier returns without taking car ${w} ${chase}`,await page.evaluate(()=>connections.carrier.phase==='returned'&&Math.abs(carrier.z-CV.at.z)<1&&carActive()));
  // A second entry after departure must announce another trip.
@@ -28,7 +47,7 @@ module.exports=async({newPage,check})=>{
  await page.evaluate(()=>{connections.carrier.rider=false;applyVehicle('car');carrierReset();const C=CW.cargo;Object.assign(state,{x:C.x,z:C.z+25,y:terrainEff(C.x,C.z),heading:0,speed:0});carBuildCabin();});
  const cargoBefore=await page.evaluate(()=>connections.cargo.trips);
  await touch('touchStart',blank);await step(2);await touch('touchCancel');await page.evaluate(()=>window.dispatchEvent(new Event('blur')));await step(7);await shot('connection-car-cargo');
- check(`connection cargo carries through interrupted input ${w} ${chase}`,await page.evaluate(n=>connections.cargo.trips>n&&connections.cargo.height>20&&Math.abs(state.y-connections.cargo.g.position.y)<1&&!state.touching,cargoBefore),await page.evaluate(()=>JSON.stringify({x:state.x,y:state.y,z:state.z,cargo:connections.cargo.height,phase:connections.cargo.phase})));
+ check(`connection cargo carries through interrupted input ${w} ${chase}`,await page.evaluate(n=>connections.cargo.trips>n&&connections.cargo.height>20&&Math.abs(state.y-connections.cargo.g.position.y)<1&&!state.touching&&el.washBtn.classList.contains('hidden'),cargoBefore),await page.evaluate(()=>JSON.stringify({x:state.x,y:state.y,z:state.z,cargo:connections.cargo.height,phase:connections.cargo.phase})));
  await step(30);check(`connection cargo returns ${w} ${chase}`,await page.evaluate(()=>connections.cargo.phase==='returned'&&connections.cargo.height===0&&carActive()));
  await page.evaluate(()=>{state.x=CW.cargo.x+CW.cargo.resetR;});await step(.1);
  await page.evaluate(()=>Object.assign(state,{x:CW.cargo.x,z:CW.cargo.z,y:connections.cargo.ground,speed:0}));await step(.1);
@@ -40,6 +59,11 @@ module.exports=async({newPage,check})=>{
  check(`connection helicopter lands on carrier ${w} ${chase}`,await page.evaluate(()=>state.phase==='TAXI'&&Math.abs(state.y-carrier.deck-TUNE.gearHeight)<1));
  const selected=await page.evaluate(()=>hopTarget()?.id);if(selected==='carrier-jet')await page.locator('#hopBtn').tap({force:true});
  check(`connection helicopter to jet ${w} ${chase}`,await page.evaluate(()=>state.vehicleKey==='fighter'&&carrierCanLaunch()),selected);
+ const launchBefore=await page.evaluate(()=>flags.carrierLaunches||0);
+ await step(.1);await shot('connection-jet-ready');
+ const launchReady=await page.evaluate(()=>!el.catBtn.classList.contains('hidden')&&!el.hopBtn.classList.contains('hidden')&&!btnSlotClashes().length);
+ await page.locator('#catBtn').tap({force:true});await step(9);
+ check(`connection hopped jet launches without losing its return control ${w} ${chase}`,launchReady&&await page.evaluate(n=>(flags.carrierLaunches||0)>n&&carrier.state==='none'&&state.speed>0&&!state.exploding,launchBefore));
  // Yacht landing uses the existing moving pad. Tender is anchored to the yacht.
  await page.evaluate(()=>{hop.active=null;applyVehicle('helicopter');carrierReset();yachtBuild();yachtDropAnchor();const p=yachtPadWorld();Object.assign(state,{x:p.x,y:p.y+15,z:p.z,speed:0,phase:'AIRBORNE'});heliReset();});await step(.1);
  const yd=await page.locator('#heliDownBtn').boundingBox();await touch('touchStart',{x:yd.x+yd.width/2,y:yd.y+yd.height/2});await step(5);await touch('touchEnd');await step(.3);await shot('connection-heli-yacht');
@@ -54,7 +78,7 @@ module.exports=async({newPage,check})=>{
  const visits=await page.evaluate(()=>connections.trackVisits);await touch('touchStart',blank);await step(5);await touch('touchEnd');await step(.5);await shot('connection-chase-track');
  check(`connection chase continues onto track ${w} ${chase}`,await page.evaluate(n=>connections.trackVisits>n&&police.active&&police.cars.some(c=>cwRoadPoint(c.x,c.z)?.road===connections.track),visits));
  // A harbor arrival faces the standing fire with the cannon boat at the dock.
- await page.evaluate(()=>{policeStop(false);hop.active=null;applyVehicle('car');carBuildCabin();const [x,z]=CW.fireCar;Object.assign(state,{x,y:terrainEff(x,z)+TUNE.gearHeight,z,heading:Math.atan2(-(fire.x-x),-(fire.z-z)),phase:'TAXI',speed:0});heliReset();fireReset();});await step(.5);await shot('connection-harbor-fire');
+ await page.evaluate(()=>{policeStop(false);hop.active=null;applyVehicle('car');carBuildCabin();const [cx,cz]=CW.fireCar,x=cx+12,z=cz+2;Object.assign(state,{x,y:terrainEff(x,z)+TUNE.gearHeight,z,heading:Math.atan2(-(fire.x-x),-(fire.z-z)),phase:'TAXI',speed:0});heliReset();fireReset();});await step(.5);await shot('connection-harbor-fire');
  const target=await page.evaluate(()=>hopTarget()?.id);if(target==='fire-car'){await page.evaluate(()=>{state.z=CW.fireBoat[1]+25;state.y=seaLevelAt(state.x,state.z)+TUNE.gearHeight;hopUpdate(0);btnUpdateAll();});}
  const fireTarget=await page.evaluate(()=>hopTarget()?.id);if(fireTarget==='fire-speedboat')await page.locator('#hopBtn').tap({force:true});await step(.1);
  check(`connection harbor offers working cannon ${w} ${chase}`,await page.evaluate(()=>boatActive()&&boatCannonCan()),fireTarget);
@@ -65,8 +89,16 @@ module.exports=async({newPage,check})=>{
  if(cannon){await touch('touchStart',{x:cannon.x+cannon.width/2,y:cannon.y+cannon.height/2});await step(1);await shot('connection-harbor-cannon');await step(5);await touch('touchEnd');}
  check(`connection harbor cannon puts out standing fire ${w} ${chase}`,await page.evaluate(p=>(flags.ffPutOut||0)>p.out&&(flags.ffDrops||0)>p.drops,fireBefore));
  await step(30);check(`connection fire remains repeatable ${w} ${chase}`,await page.evaluate(()=>fire.level>0&&boatCannonCan()));
+ // A recovery/relocation must not leave the next chase aiming at an old path.
+ const relocated=await page.evaluate(()=>{
+   applyVehicle('car');spawnForTakeoff(0,0);for(let i=0;i<40;i++)update(1/60);
+   const j=lights.junctions.find(q=>q.onHighway),x=j.x-j.fx*55,z=j.z-j.fz*55,heading=Math.atan2(-j.fx,-j.fz);
+   Object.assign(state,{x,z,y:j.y,heading,speed:12});policeStop(false);policeStart();
+   for(let i=0;i<540;i++){update(1/60);Object.assign(state,{x,z,heading,speed:12});}
+   return {nearest:policeState().nearest,active:police.active,local:connections.trail.every(p=>Math.hypot(p.x-x,p.z-z)<CW.trailResetDistance)};
+ });
+ check(`connection pursuit recovers after relocation ${w} ${chase}`,relocated.active&&relocated.nearest<60&&relocated.local,JSON.stringify(relocated));
  check(`connection no errors ${w} ${chase}`,!errors.length,errors.join(';'));
  await ctx.close();
  }
 };
-function TUNE_CARRIER_Z(){return -8100;}

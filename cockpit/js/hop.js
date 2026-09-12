@@ -11,11 +11,11 @@ function hopAdd(id, key, x, y, z, heading, anchor) {
 function hopBuild() {
   if (hop.built || !highway.built || !harbor.built) return;
   hop.built = true;
-  if (!hop.dock) hop.dock=hopRoad('hop-dock',TUNE.hop.dock.map(([x,z],i)=>({x,z,y:i?Math.max(terrainEff(x,z),seaLevelAt(x,z))+HW.clearance:hbRoadY(x)})));
+  if (!hop.dock) hop.dock=hopRoad('hop-dock',TUNE.hop.dock.map(([x,z],i)=>({x,z,y:i?Math.max(terrainEff(x,z),seaLevelAt(x,z))+TUNE.hop.roadLift:hbRoadY(x)})));
 
   AIRPORTS.forEach((ap, i) => {
     const sign = i ? -1 : 1, z = ap.cz + sign * (TUNE.runwayLength / 2 - TUNE.hop.runwayInset);
-    hopAdd('airport-car-' + i, 'car', TUNE.hop.airportCar[0], ap.elev, z + sign * TUNE.hop.airportCar[1], i ? Math.PI : 0);
+    hopAdd('airport-car-' + i, 'car', TUNE.hop.airportCar[0], ap.elev, z + sign * TUNE.hop.airportCar[1], 0);
     hopAdd('airport-heli-' + i, 'helicopter', TUNE.hop.airportHeli[0], ap.elev + TUNE.gearHeight, z + sign * TUNE.hop.airportHeli[1], i ? Math.PI : 0);
   });
   const c = TUNE.hop.harborCar, b = TUNE.hop.harborBoat;
@@ -57,6 +57,7 @@ function hopTarget() {
   for (const p of hop.fleet) {
     if (p === hop.active || p.key === state.vehicleKey || !p.g || Math.abs(state.y - p.y) > TUNE.hop.height) continue;
     const d = Math.hypot(state.x-p.x,state.z-p.z);
+    if (d < TUNE.hop.radius && p === hop.returnTo) return p;
     if (d < dist) { best = p; dist = d; }
   }
   return best;
@@ -93,18 +94,20 @@ function hopPress() {
   if (state.vp.car) { carBuildCabin(); car.steer=0; car.boost=0; car.assistOff=0; }
   if (state.vp.boat) { boatBuildHelm(); boat.steer=0; boat.burst=0; boat.beach=0; boat.air=0; }
   if (p.anchor === 'carrier' && vehKind() === 'plane') { carrier.state='parked';state.phase='AIRBORNE'; }
-  hop.active=p; hop.switches++;
+  hop.active=p; hop.returnTo=left; hop.switches++;
   try { localStorage.setItem('lp.vehicle',p.key); } catch (_) {}
   chirp(); hopUpdate(0); btnUpdateAll(); return true;
 }
 function hopUpdate(dt) {
   hopBuild(); hop.clock += dt;
   if (hop.marsBase !== mars.g) { hop.marsBase=mars.g;hop.marsRoverUsed=false; }
-  if (marsIsHome() && !roverActive() && !marsDroneActive() && roverCan()) {
+  // The flight model can land after the early base update: wait one frame.
+  if (marsIsHome() && mars.g && mars.body === rk.onBody && !roverActive() && !marsDroneActive() && roverCan()) {
     if (!rover.mesh) buildRover();
     if (!hop.marsRoverUsed) {
       const p=surfacePoint(mars.body,mars.n,TUNE.hop.marsRoverOffset,state.heading+Math.PI/2);
       rover.mesh.position.set(p.x,p.y,p.z);rover.mesh.up.copy(p.dir);
+      rover.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),p.dir);
     }
     rover.mesh.visible=true;
   }
@@ -127,6 +130,7 @@ function hopUpdate(dt) {
     p.ring.visible=false;
   }
   const p=hopTarget(); hop.target=p;
+  hopIcon(p);
   if (p && p.ring) {
     p.ring.visible=true;p.ring.position.set(p.x,p.y+TUNE.hop.ringLift,p.z);
     p.ring.scale.setScalar(1+Math.sin(hop.clock*TUNE.hop.pulseRate)*TUNE.hop.pulseSize);
@@ -153,4 +157,17 @@ function hopRoad(id,pts) {
   const first=pts[0],rec={to:id,s:0,side:1,icon:'wave',x:first.x,z:first.z,y:first.y,bx:first.x,bz:first.z,spur:pts};
   highway.exits.push(rec);hwyClaimCorridor(pts);hwyIndexCorridor();
   rec.mesh=hwyStrip(pts,-HW.spurW,HW.spurW,0,mattMat(TUNE.runwaySurfaceColor));scene.add(rec.mesh);return rec;
+}
+
+// The outing can stop with the berth off-screen. Keep the entry arrow, and
+// show the destination's existing silhouette so the tap is never a mystery.
+function hopIcon(p) {
+  if(!p)return;
+  const key=p.key||(p.id==='mars-drone'?'drone':p.id==='mars-rocket'?'rocket':'rover');
+  if(hop.iconKey===key)return;
+  const source=key==='drone'?el.droneBtn:key==='rover'?el.roverBtn:document.querySelector('.vehCard[data-v="'+key+'"]');
+  const svg=source&&source.querySelector('svg');if(!svg)return;
+  let holder=el.hopBtn.querySelector('.hopVehicle');
+  if(!holder){holder=document.createElement('span');holder.className='hopVehicle';el.hopBtn.appendChild(holder);}
+  holder.replaceChildren(svg.cloneNode(true));hop.iconKey=key;
 }

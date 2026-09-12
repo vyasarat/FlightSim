@@ -16,7 +16,7 @@ function cwPath(points,height) {
     for(let j=i?1:0;j<=n;j++) {
       if(!i&&j)continue;
       const x=lerp(a[0],b[0],j/n),z=lerp(a[1],b[1],j/n);
-      pts.push({x,z,y:height?height(x,z):Math.max(terrainEff(x,z),seaLevelAt(x,z))+HW.clearance});
+      pts.push({x,z,y:height?height(x,z):Math.max(terrainEff(x,z),seaLevelAt(x,z))+CW.groundClearance});
     }
   });return pts;
 }
@@ -30,9 +30,10 @@ function cwBuild() {
   connections.built=true;
   cwAddRoad('airport-harbor',CW.airportLink);
   const route=CW.carrierRoad, first=route[0],last=route[route.length-1];
-  connections.carrierRoad=cwAddRoad('carrier-ramp',route,(x,z)=>lerp(terrainEff(...first)+HW.clearance,carrier.deck,clamp((z-first[1])/(last[1]-first[1]),0,1)),true);
+  connections.carrierRoad=cwAddRoad('carrier-ramp',route,(x,z)=>lerp(terrainEff(...first)+CW.groundClearance,carrier.deck,clamp((z-first[1])/(last[1]-first[1]),0,1)),true);
   connections.deckRoad=cwAddRoad('carrier-deck',[[carrier.x,carrier.z+CV.deckL/2],[carrier.x,carrier.z-CV.deckL/2]],()=>carrier.deck,true);
   cwAddRoad('cargo-bay',CW.cargo.road);
+  cwAddRoad('dock-return',CW.dockReturn);
   const track=CW.track,points=[...track.join];
   for(let i=0;i<=track.steps;i++){const a=Math.PI+i/track.steps*Math.PI*2;points.push([track.cx+Math.cos(a)*track.rx,track.cz+Math.sin(a)*track.rz]);}
   connections.track=cwAddRoad('toy-track',points);
@@ -46,7 +47,7 @@ function cwBuild() {
     }
   }
   edges.forEach(cwMergeStrips);
-  cwAddRoad('fire-dock',CW.fireRoad,(x,z)=>Math.max(terrainEff(x,z)+HW.clearance,HB.spit.y));
+  cwAddRoad('fire-dock',CW.fireRoad,(x,z)=>Math.max(terrainEff(x,z)+CW.groundClearance,HB.spit.y));
   const [bx,bz]=CW.fireBoat,[cx,cz]=CW.fireCar;
   hopAdd('fire-speedboat','speedboat',bx,seaLevelAt(bx,bz),bz,Math.atan2(-(fire.x-bx),-(fire.z-bz)));
   hopAdd('fire-car','car',cx,cwRoadPoint(cx,cz).y,cz,0);
@@ -89,8 +90,8 @@ function cwUpdate(dt) {
   if(heliActive()&&heli.target&&(connections.heliTarget===heli.target||hopCarrierSurface(heli.target.x,heli.target.z-dz))) {
     connections.heliTarget=heli.target;heli.target.z+=dz;
   }
-  // The deck's guide travels with it; the shore ramp stays in place and is hidden
-  // until the ship returns. No parked vehicle is removed during the trip.
+  // The deck's guide travels with it; the shore ramp remains a visible pier.
+  // No parked vehicle is removed during the trip.
   const deck=connections.deckRoad;
   for(const p of deck.spur)p.z+=dz;deck.mesh.position.z=ship.offset;deck.line.position.z=ship.offset;
   connections.carrierRoad.mesh.visible=true;
@@ -117,6 +118,8 @@ function cwLate() {
 function cwTrail() {
   if(!carActive()||state.exploding)return;
   const t=connections.trail,last=t.at(-1);
+  // A relocation or recovery is not a road segment to drive backwards along.
+  if(last&&Math.hypot(state.x-last.x,state.z-last.z)>CW.trailResetDistance)t.length=0;
   if(!last||Math.hypot(state.x-last.x,state.z-last.z)>=CW.trailStep){t.push({x:state.x,z:state.z,y:state.y});if(t.length>CW.trailLimit)t.shift();}
   const n=cwRoadPoint(state.x,state.z),on=!!n&&n.road===connections.track&&n.distance<HW.spurW;
   if(on&&!connections.onTrack)connections.trackVisits++;
@@ -167,3 +170,4 @@ function cwMergeStrips(meshes) {
   const mesh=new THREE.Mesh(g,meshes[0].material);mesh.receiveShadow=true;scene.add(mesh);
 }
 function cwBeforeSwitch() {connections.carrier.rider=false;connections.cargo.rider=false;connections.trail=[];}
+function cwRiding() {return carActive()&&[connections.carrier,connections.cargo].some(r=>r.rider&&['warning','ride'].includes(r.phase));}

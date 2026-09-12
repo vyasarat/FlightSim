@@ -69,8 +69,8 @@ const BUTTONS = {
 
   missileBtn: { slot: "highLeft", when: () => btnMissileShows() },
   hopBtn:     { slot: "highLeft", when: () => !!hopTarget() },
-  catBtn:     { slot: "highLeft", when: () => typeof carrierCanLaunch === "function" && carrierCanLaunch() },
-  washBtn:    { slot: "highLeft", when: () => twWashCan() && twWashNear() && !btnWash() },
+  catBtn:     { slot: "lowRight", when: () => typeof carrierCanLaunch === "function" && carrierCanLaunch() },
+  washBtn:    { slot: "highLeft", when: () => twWashCan() && twWashNear() && !btnWash() && !cwRiding() },
 
   stageBtn:   { slot: "highLeft", when: () => btnRocket() && rocketCanDrop() },
   satBtn:     { slot: "highLeft", when: () => btnRocket() && rocketCanDeploySat() },
@@ -78,7 +78,7 @@ const BUTTONS = {
   roverBtn:   { slot: "highLeft", when: () => btnRocket() && (roverCan() || roverActive()) && !marsDroneActive() },
   hatchBtn:   { slot: "highLeft", when: () => btnRocket() && (stationCanEnter() || astroActive()) },
 
-  droneBtn:   { slot: "lowLeft",  when: () => btnRocket() && typeof marsDroneCan === "function" && (marsDroneCan() || marsDroneActive()) },
+  droneBtn:   { slot: "lowLeft",  when: () => btnRocket() && typeof marsDroneCan === "function" && (marsDroneCan() || marsDroneActive()) && !hopTarget() },
   magnetBtn:  { slot: "lowLeft",  when: null },          // toyworld.js owns it
   bucketBtn:  { slot: "lowLeft",  when: () => btnBucketShows() },
   cannonBtn:  { slot: "lowLeft",  when: () => boatCannonCan() },

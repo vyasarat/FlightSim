@@ -79,6 +79,9 @@ Driving aboard the carrier or cargo ship starts a round trip; the police can
 follow the roads, and the fire pier has a cannon-equipped speedboat waiting. `scripts/connected_test.js`
 runs the focused behavior checks; evidence stays in `evidence/connected-world/`.
 
+See [the branch review handoff](CONNECTED_WORLD_REVIEW.md) for the local playable
+preview, verification commands and measured performance. This sprint is not deployed.
+
 ## Vehicles
 
 Defined in `TUNE.vehicles` + `TUNE.vehicleColors`; the cockpit accent recolours per
