@@ -54,6 +54,23 @@ function setEngine(speedNorm) {
 }
 function engineLevelNow() { return engineLevel; }
 
+// ---------------------------------------------------------------------------
+// A ONE-SHOT CLEANS UP AFTER ITSELF.
+//
+// Every voice in this file that is fired and forgotten -- a blip, a noise burst,
+// the low tail of a bang -- connects itself into the graph and used to stay
+// connected for the rest of the session. Thirty minutes of ordinary play left
+// three and a half thousand finished nodes hanging off the master gain, and not
+// one of them ever went away: a real-time settle of forty seconds after a burst
+// of six hundred did not release a single one.
+//
+// `onended` fires when the source stops, which is the moment the whole little
+// chain behind it is finished with.
+// ---------------------------------------------------------------------------
+function sfxOneShot(src, chain) {
+  src.onended = () => { for (const n of chain) { try { n.disconnect(); } catch (e) {} } };
+}
+
 function synthBlip(type, f0, f1, dur, peak, when) {
   if (!audioCtx || audioCtx.state !== "running") return;
   const t = audioCtx.currentTime + (when || 0);
@@ -69,6 +86,7 @@ function synthBlip(type, f0, f1, dur, peak, when) {
   g.connect(masterGain);
   o.start(t);
   o.stop(t + dur + 0.05);
+  sfxOneShot(o, [o, g]);
 }
 
 function noiseBurst(dur, freq, peak, when) {
@@ -90,6 +108,8 @@ function noiseBurst(dur, freq, peak, when) {
   bp.connect(g);
   g.connect(masterGain);
   src.start(t);
+  src.stop(t + dur + 0.05);      // it would end on its own; this is what gives it an `onended`
+  sfxOneShot(src, [src, bp, g]);
 }
 
 function boing() {
@@ -471,8 +491,10 @@ function sfxBus(place, layer) {
     const p = audioCtx.createStereoPanner();
     p.pan.value = place.pan;
     g.connect(p); p.connect(masterGain);
+    g.__sfxChain = [g, p];
   } else {
     g.connect(masterGain);
+    g.__sfxChain = [g];
   }
   return g;
 }
@@ -587,6 +609,7 @@ function bigBoom(x, y, z) {
   gg.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
   o.connect(gg); gg.connect(g);
   o.start(t); o.stop(t + 1.9);
+  sfxOneShot(o, [o, gg].concat(g.__sfxChain || [g]));
 }
 
 // steam + clank + roar, in that order, which is what a catapult actually is

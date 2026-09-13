@@ -52,6 +52,17 @@ const releaseDrag = (e) => {
   state.touching = false;
   state.touchIsPoint = false;
   stickPointerId = null;
+  // No finger on the glass means the stick is CENTRED, not merely "not touching".
+  // Most vehicles ask `state.touching` before reading the stick, so a deflection
+  // left behind here was invisible -- but the rover (rover.js) and the spacewalking
+  // astronaut (station.js) read `ctrlBank` straight, with no guard. A `pointercancel`
+  // mid-drag -- which is what iOS sends when a finger slides off the edge of the
+  // screen, or a notification banner steals the touch -- left the stick pegged at
+  // its last value and those two turned on the spot for ever, with nothing on the
+  // screen to say why. The keyboard re-asserts itself the next frame (applyKeyboard),
+  // and the hand-over below re-takes the stick from where the resting finger is.
+  state.ctrlBank = 0;
+  state.ctrlPitch = 0;
   if (e && e.pointerId !== undefined && stickPointers.size) {   // a resting second finger becomes the stick, from where it is
     const [id, p] = stickPointers.entries().next().value;
     takeStick(id, p.x, p.y);
@@ -290,7 +301,11 @@ document.querySelectorAll(".vehCard").forEach(card => {
   const def = TUNE.vehicles[card.dataset.v];
   card.classList.toggle("hiddenS", !!(def && def.hidden));
   let downAt = null;
-  card.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); downAt = { x: e.clientX, y: e.clientY }; });
+  // The picker is the FIRST thing he touches in a session, so it is the first
+  // chance to start the audio -- and on iOS the earliest gesture is the one most
+  // likely to be honoured. Every other control in this file unlocks; this one did
+  // not, and the sound waited for the direction screen one tap later.
+  card.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); downAt = { x: e.clientX, y: e.clientY }; });
   card.addEventListener("pointercancel", () => { downAt = null; });
   card.addEventListener("pointerup", (e) => {
     e.preventDefault();
