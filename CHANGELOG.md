@@ -1331,3 +1331,26 @@ control, the space events drawn once per launch, the rocket landing envelope,
 the spacewalk and station interior, the rover and its toys, and the original
 flight model, route, landmarks and vehicle picker. See `git log` for the detail;
 each release is a merge commit on `main` with a full message.
+
+## v121 — what goes wrong over time, and under abuse
+
+The first sweep checked the world standing still. This one ran it for thirty
+simulated minutes at a stretch, twice, and then did to it what a device does to a
+page: backgrounded it for ten minutes mid-flight, turned it sideways with a button
+held down, put a second finger on it, took a finger off the edge of the screen,
+filled its saved settings with rubbish, exhausted its storage quota, and installed
+it fresh and over three older versions with the network switched off afterwards.
+
+Three things were wrong. Every finished one-shot sound stayed wired to the master
+gain for ever — thirty minutes of play left three and a half thousand of them
+hanging there, and a real-time settle released not one. A touch cancelled by the
+system, which is what iOS sends when a finger slides off the edge of the screen or
+a banner steals it, left the stick pegged where it was; the rover and the
+spacewalking astronaut read it without asking whether a finger was down, so they
+turned on the spot for ever. And the vehicle picker — the first thing he ever
+touches — was the one control that did not start the audio, so the sound waited
+for the second screen.
+
+Seven new checks guard them. The graph now comes back to ninety-five standing
+voices six seconds after he puts it down, and is still ninety-five twelve seconds
+later.
