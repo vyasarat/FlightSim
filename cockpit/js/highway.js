@@ -363,10 +363,10 @@ function hwyBuild() {
   highway.halfW = roadHalf + HW.medianW / 2;
   const g = new THREE.Group();
 
-  const tarmac = mattMat(TUNE.runwaySurfaceColor);
+  const tarmac = artPaint(mattMat(TUNE.runwaySurfaceColor), "asphalt");
   const paint = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
   const steel = metalMat(C.steel, 30);
-  const conc = mattMat(C.concrete);
+  const conc = artPaint(mattMat(C.concrete), "concrete");
 
   // two carriageways, a median between them
   g.add(hwyStrip(pts, -highway.halfW, -HW.medianW / 2, 0, tarmac));
@@ -479,10 +479,10 @@ function hwyBuildBore(g, conc, steel) {
   // so its axis runs along +Z and each instance only has to yaw to the road's
   // bearing. Lit from inside by its own emissive -- there is no light down
   // there, and a black tube reads as a wall he is about to hit.
-  const lit = new THREE.MeshPhongMaterial({
+  const lit = artPaint(new THREE.MeshPhongMaterial({
     color: C.concrete, emissive: 0x3a4048, flatShading: true,
     shininess: 0, specular: 0x000000, side: THREE.BackSide,
-  });
+  }), "concrete");
   const lampMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0, fog: false });
 
   // A point part-way between two centreline samples. The lining is laid in whole
@@ -644,16 +644,20 @@ function hwyBuildBore(g, conc, steel) {
     const lidGeo = new THREE.BufferGeometry();
     lidGeo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     lidGeo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    // the ground tile, chosen by the same rule as the terrain round it (art.js)
+    const lay = [];
+    for (let v = 0; v < pos.length; v += 3) lay.push(artTerrainLayer(pos[v + 1], pos[v], pos[v + 2]));
+    lidGeo.setAttribute("artLayerA", new THREE.Float32BufferAttribute(lay, 1));
     lidGeo.setIndex(idx);
     lidGeo.computeVertexNormals();
     // DOUBLE-SIDED, because the lid is ground and ground is lit from whichever
     // side you are looking at it from. Its cut faces at the portals point into
     // the hill, so single-sided they were shaded by a sun behind them and read
     // as black slabs hanging in the air beside the tunnel mouth.
-    const lid = new THREE.Mesh(lidGeo, new THREE.MeshPhongMaterial({
+    const lid = new THREE.Mesh(lidGeo, artPaint(new THREE.MeshPhongMaterial({
       vertexColors: true, flatShading: true, shininess: 0, specular: 0x000000,
       side: THREE.DoubleSide,
-    }));
+    }), "terrain"));
     // NOT receiveShadow. The lid is ground, and the ground in this game does not
     // receive shadows -- scene.js switches that on per frame for the handful of
     // chunks near him and leaves it off everywhere else. Left on, a surface this
@@ -757,7 +761,7 @@ function hwyBuildExits(g) {
   const boardMat = mattMat(0x1c4f9c);
   const iconMat = new THREE.MeshBasicMaterial({ color: TUNE.palette.white });
   const post = metalMat(C.grey, 20);
-  const tarmac = mattMat(TUNE.runwaySurfaceColor);
+  const tarmac = artPaint(mattMat(TUNE.runwaySurfaceColor), "asphalt");
   for (const ex of HW.exits) {
     const at = hwySampleAt(ex.s * highway.length);
     const rx = -at.fz, rz = at.fx;

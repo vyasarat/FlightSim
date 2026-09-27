@@ -31,6 +31,16 @@ for (const name of ["MeshLambertMaterial", "MeshPhongMaterial"]) {
   THREE[name] = Wrapped;
 }
 
+// Unlit materials are colours he reads -- lamps, rings, reticles, paint, glows --
+// and a tone map must never dim or shift them. Defaulted here, once, like the
+// facets above; anything that wants the film curve can still ask for it.
+for (const name of ["MeshBasicMaterial", "SpriteMaterial", "PointsMaterial", "LineBasicMaterial"]) {
+  const Orig = THREE[name];
+  const Wrapped = function (params) { return new Orig(Object.assign({ toneMapped: false }, params || {})); };
+  Wrapped.prototype = Orig.prototype;
+  THREE[name] = Wrapped;
+}
+
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(TUNE.skyHorizonColor, TUNE.fogNear, TUNE.fogFar);
 
@@ -51,6 +61,10 @@ const renderer = new THREE.WebGLRenderer({
   antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: RIG_CAPTURE,
 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, TUNE.maxPixelRatio));
+if (TUNE.light.toneMap.on) {
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = TUNE.light.toneMap.exposure;
+}
 // Soft shadows, one tight box that follows him. PCFSoft costs a few taps per lit
 // fragment; the map itself is small and only what is near him is ever drawn into it.
 renderer.shadowMap.enabled = !!TUNE.light.shadow.on;
@@ -478,7 +492,7 @@ function updateWater(dt) {
 }
 
 {
-  const asphaltMat = mattMat(TUNE.runwaySurfaceColor);
+  const asphaltMat = artPaint(mattMat(TUNE.runwaySurfaceColor), "asphalt");
   const paintMat = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
   const dashCount = Math.floor(TUNE.runwayLength / 95) - 1;
   const stripesPerEnd = 6;
@@ -548,12 +562,12 @@ const tmpColor = new THREE.Color();
 // Per-fragment, and deliberately matt: the ground never glints. Phong here is
 // both cheaper than Standard and the only one of the three that puts a smooth
 // shadow across a big flat-shaded triangle.
-const terrainMat = new THREE.MeshPhongMaterial({
+const terrainMat = artPaint(new THREE.MeshPhongMaterial({
   vertexColors: true,
   flatShading: true,
   shininess: 0,
   specular: 0x000000,
-});
+}), "terrain");
 
 // The ground's colour at a point, given the height of the face it belongs to.
 // Lifted out of buildChunk so the tunnel LID can be coloured by exactly the same
@@ -601,10 +615,12 @@ function buildChunk(cx, cz) {
   geo.dispose();
   const fp = flat.attributes.position;
   const colors = new Float32Array(fp.count * 3);
+  const layers = new Float32Array(fp.count);   // which ground tile (art.js), one per face
   for (let f = 0; f < fp.count; f += 3) {
     const hy = (fp.getY(f) + fp.getY(f + 1) + fp.getY(f + 2)) / 3;
     const wx = ox + fp.getX(f), wz = oz + fp.getZ(f);
     terrainColorAt(hy, wx, wz, tmpColor);
+    layers[f] = layers[f + 1] = layers[f + 2] = artTerrainLayer(hy, wx, wz);
     const j = 1 + (hash2(Math.round(fp.getX(f)), Math.round(fp.getZ(f))) - 0.5) * 2 * TUNE.colorJitter;
     for (let v = 0; v < 3; v++) {
       colors[(f + v) * 3] = tmpColor.r * j;
@@ -613,6 +629,7 @@ function buildChunk(cx, cz) {
     }
   }
   flat.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  flat.setAttribute("artLayerA", new THREE.BufferAttribute(layers, 1));
   flat.computeVertexNormals();
 
   const mesh = new THREE.Mesh(flat, terrainMat);
@@ -704,3 +721,5 @@ function mergeBoxes(specs) {
   return out;
 }
 
+// The atlas: fetched now that the renderer and the sea exist (art.js).
+artLoad();

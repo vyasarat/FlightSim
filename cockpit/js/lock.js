@@ -109,7 +109,7 @@ function lockBuild() {
   lock.g = new THREE.Group();
   scene.add(lock.g);
 
-  const conc = mattMat(C.concrete);
+  const conc = artPaint(mattMat(C.concrete), "concrete");
   const dark = mattMat(C.slate);
   const boxes = [];
   const push = (x, y, z, w, h, d) => boxes.push({ x, y, z, w, h, d });

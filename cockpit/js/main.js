@@ -200,6 +200,8 @@ window.__lp = {
   birdMesh, birds, flocks, highJets, ambFlags, updateAmbient, AMB,
   feel, cameraPunch, cameraHitStop, cameraNod, updateFeel, shakeNow, speedLines, triggerExplosion,
   nozoom, NOZOOM,
+  art, ART_LAYER, cities, citiesSettled, terrainMeshY, cityCovers, CITY,
+  artReady() { return (art.ready || art.failed) && citiesSettled(); },
   MODELS, modelStore, modelState, modelInstance, modelPrototype, modelsPreload,
   highway, HW, hwyNearest, hwySampleAt, hwyBuild, updateHighway, hwyTrafficNear, hwyKnockTraffic,
   hwyInCorridor, hwyCorridorDist, inCorridor, hwyBoreCut, hwyBoreCeiling, hwyBores,

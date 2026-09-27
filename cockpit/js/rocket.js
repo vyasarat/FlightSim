@@ -46,8 +46,8 @@ for (const b of BODIES) {
   // Phong, not Lambert: this sphere is the ground out there and it has to take a
   // shadow per fragment. Lambert shades per vertex, and its triangles are 40 units
   // wide here -- a rover shadow came out as a dark blob the size of a dune field.
-  const mat = new THREE.MeshPhongMaterial({ color: b.color, flatShading: true, shininess: 0, specular: 0x000000,
-    emissive: b.name === "moon" ? 0x2f3a48 : 0x3a1608 });   // dim enough not to burn out up close (the rover drives on it)
+  const mat = artPaint(new THREE.MeshPhongMaterial({ color: b.color, flatShading: true, shininess: 0, specular: 0x000000,
+    emissive: b.name === "moon" ? 0x2f3a48 : 0x3a1608 }), b.name === "moon" ? "moon" : "mars");   // dim enough not to burn out up close (the rover drives on it)
   const sphere = new THREE.Mesh(new THREE.SphereGeometry(b.r, 96, 64), mat);   // fine enough that the ground is where the rover drives (facet sag < 1 m)
   sphere.receiveShadow = true;     // out there this sphere IS the ground
   g.add(sphere);
@@ -58,7 +58,7 @@ for (const b of BODIES) {
     const th = hashSalt(i, seedBase, 1) * Math.PI * 2, ph = (hashSalt(i, seedBase, 2) - 0.5) * Math.PI;
     const cr = b.r * (0.05 + hashSalt(i, seedBase, 3) * 0.09);
     // a cap of the sphere itself (a flat disc would stand proud of the ground at its rim)
-    const c = new THREE.Mesh(new THREE.SphereGeometry(b.r + 0.25, 16, 6, 0, Math.PI * 2, 0, cr / b.r), new THREE.MeshLambertMaterial({ color: b.name === "moon" ? 0x6e727b : 0x7c3319, emissive: b.name === "moon" ? 0x1f2328 : 0x22100a }));
+    const c = new THREE.Mesh(new THREE.SphereGeometry(b.r + 0.25, 16, 6, 0, Math.PI * 2, 0, cr / b.r), artPaint(new THREE.MeshLambertMaterial({ color: b.name === "moon" ? 0x6e727b : 0x7c3319, emissive: b.name === "moon" ? 0x1f2328 : 0x22100a }), b.name === "moon" ? "moon" : "mars"));
     const dir = new THREE.Vector3(Math.cos(ph) * Math.cos(th), Math.sin(ph), Math.cos(ph) * Math.sin(th));
     c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     g.add(c);

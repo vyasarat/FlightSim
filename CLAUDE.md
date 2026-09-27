@@ -93,13 +93,27 @@ a deliberate, stated behaviour change.
   loops crossfaded** (`engines.js`) and sit UNDER the events — the rocket keeps its bass.
 - **No post-processing stack, ever.** Glows are additive billboards on one shared
   texture; on an iPad a full-screen bloom costs more than all of them. No weather button
-  either — the sky moods stay in code (`state.sky`).
+  either — the sky moods stay in code (`state.sky`). SSAO was priced for the art sprint
+  (`scripts/art_ssao.js`): +70–105% frame, twice the draw calls, and the log depth buffer
+  blinds it. ACES is a `TUNE.light.toneMap` switch, OFF: this palette is display-space and
+  the curve bleaches it.
+- **Textures are detail, never colour** (`art.js`): one atlas, one texture array,
+  box-mapped in the shader, each tile divided by its mean and multiplied onto the
+  material's palette colour. Paint is opt-in per material with `artPaint`/`artLam`, at the
+  place that builds it — and **nothing he acts on is ever painted**: reticles, pad rings,
+  catch lights, signal heads, fire, scoop water. The atlas is `scripts/make_atlas.py`.
+- **The cities are generated, not edited** (`city.js`): `scripts/city/site.js` surveys,
+  Blender runs `scripts/city/build_city.py`, and out come both GLBs and `citydata.js`.
+  The layout is JS so solids and spots register at load; a building is not solid until
+  its mesh has arrived, so there is never an invisible wall.
 
 ## The map
 
 | file | what it owns |
 |---|---|
 | `nozoom.js` | loads **first**; stops iOS Safari zooming |
+| `art.js` | the texture atlas and `artPaint` (loads before `scene.js`; `artLoad()` runs at its end) |
+| `citydata.js` `city.js` | the generated city layout / the two block cities, their LODs and draped streets |
 | `tune.js` | every gameplay number |
 | `terrain.js` `scene.js` `sky.js` | world and sea, lighting and shadows, sun/haze/stars, `mergeBoxes` |
 | `flight.js` `heli.js` | the plane model **and the frame loop** / the helicopter, ground *and* air |

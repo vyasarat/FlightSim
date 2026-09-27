@@ -318,6 +318,17 @@ module.exports = async function seaChecks({ newPage, check, shots }) {
     const P = L.HB.buoys.path;
     st.x = P[2][0]; st.z = P[2][1]; st.y = L.seaLevelAt(st.x, st.z); st.speed = 0;
     L.sea.plane.next = 0.2; L.sea.sub.next = 0.2; L.sea.fboat.next = 0.2;
+    // Who draws from the shared puff pool, by caller. The pool is SUPPOSED to
+    // fill while the seaplane sprays, so reading it at the loop's last instant
+    // measured the seaplane's timetable, not the fireboat: it went red the day
+    // the random stream moved (v122's fog retune moved cloud respawns).
+    let fireboatPuffs = 0, allPuffs = 0;
+    const wp = window.wakePuff;
+    window.wakePuff = function () {
+      allPuffs++;
+      if (/seaFireboat/.test(new Error().stack)) fireboatPuffs++;
+      return wp.apply(this, arguments);
+    };
     const pS = new Set(), sS = new Set(), fS = new Set();
     let planeLow = 1e9, planeHigh = -1e9, subLow = 1e9, subHigh = -1e9;
     let jetsWhileWinding = false, jetsInShow = false;
@@ -346,6 +357,7 @@ module.exports = async function seaChecks({ newPage, check, shots }) {
       jetsWhileWinding, jetsInShow, solid, noSolid, ownJets,
       crashes: L.flags.boatCrashes || 0, exploded: st.exploding,
       poolAlive: L.wakePuffsAlive(), poolSize: L.wakePuffList.length,
+      fireboatPuffs, allPuffs, restored: (window.wakePuff = wp, true),
     };
   });
   const has = (a, ...k) => k.every(x => a.includes(x));
@@ -362,8 +374,8 @@ module.exports = async function seaChecks({ newPage, check, shots }) {
     pool.solid === 0 && pool.noSolid && pool.crashes === 0 && !pool.exploded,
     JSON.stringify({ solid: pool.solid, noSolid: pool.noSolid, crashes: pool.crashes }));
   check("sea: the fireboat draws its water from its own instanced mesh and does not drain the shared puff pool",
-    pool.ownJets && pool.poolAlive < pool.poolSize,
-    JSON.stringify({ own: pool.ownJets, alive: pool.poolAlive, size: pool.poolSize }));
+    pool.ownJets && pool.fireboatPuffs === 0 && pool.allPuffs > 0 && pool.fbStates.includes("show"),
+    JSON.stringify({ own: pool.ownJets, fireboatPuffs: pool.fireboatPuffs, allPuffs: pool.allPuffs, alive: pool.poolAlive, size: pool.poolSize }));
 
   // the seaplane's engine must not follow him out of the harbour
   const quiet = await page.evaluate(() => {

@@ -233,6 +233,11 @@ module.exports = async function roadChecks({ newPage, check, viewports }) {
       if (!bore) return { found: false };
       const first = bore.pts[0], last = bore.pts[bore.pts.length - 1];
       L.api.setVehicle("car"); L.api.placeOnRunway();
+      // Reset what the earlier checks touched: the charge at the building leaves
+      // a raised speed step behind, and at 85 hands-off he closes on slower
+      // traffic in his own lane and rear-ends it -- a real gap, reported with v122,
+      // but not what THIS check is asking about (the bore and its roof).
+      L.spdReset();
       for (let i = 0; i < 20; i++) L.update(1 / 60);
       // start 300 m short of the near portal, in lane, and let go
       const n0 = L.hwyNearest(first.x, first.z);

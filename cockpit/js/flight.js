@@ -675,12 +675,14 @@ function update(dt) {
   }
   waterMesh.visible = sf < 0.9;
   updateWater(dt);
+  artUpdate();
 
   updateChunks(state.x, state.z);
   updateScenery(state.x, state.z, false);
   updateTrain(dt, state.x, state.z);
   updateShatter(dt);
   cullLandmarks(dt, state.x, state.z);
+  cityUpdate(dt);
   updateTraffic(dt, state.x, state.y, state.z);
   updateMissiles(dt);
   updateRewards(dt);

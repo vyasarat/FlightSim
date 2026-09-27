@@ -95,7 +95,7 @@ function hbBuild() {
   harbor.g = g;
   scene.add(g);
 
-  const conc = mattMat(C.concrete);
+  const conc = artPaint(mattMat(C.concrete), "concrete");
   const steel = metalMat(C.grey, 34);
   const white = mattMat(C.white);
   const dark = mattMat(C.slate);
@@ -223,7 +223,7 @@ function hbBuildTerminal(conc, steel, white, rust, bed) {
   const S = T.ship;
   const sg = new THREE.Group();
   sg.position.set(S.x, 0, S.z);
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(S.len, 22, S.beam), mattMat(C.rust));
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(S.len, 22, S.beam), artPaint(mattMat(C.rust), "deck"));
   hull.position.y = TUNE.waterLevel + 5; sg.add(hull);
   const boot = new THREE.Mesh(new THREE.BoxGeometry(S.len + 0.6, 5, S.beam + 0.6), mattMat(C.ink));
   boot.position.y = TUNE.waterLevel - 3.5; sg.add(boot);
@@ -256,7 +256,7 @@ function hbBuildTerminal(conc, steel, white, rust, bed) {
                 S.z - 8 + (i % 3) * 7, 0]);
   }
   const cgeo = new THREE.BoxGeometry(T.containerL, T.containerH, T.containerW);
-  const cmesh = new THREE.InstancedMesh(cgeo, mattMat(0xffffff), cells.length);
+  const cmesh = new THREE.InstancedMesh(cgeo, artPaint(mattMat(0xffffff), "container"), cells.length);
   const dummy = new THREE.Object3D();
   const col = new THREE.Color();
   for (let i = 0; i < cells.length; i++) {
