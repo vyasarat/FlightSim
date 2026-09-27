@@ -942,7 +942,17 @@ function hwyPlaceTraffic(t, aroundS) {
   t.s = clamp(aroundS + sign * off, 0, highway.length);
   t.speed = T.speed[0] + Math.random() * (T.speed[1] - T.speed[0]);
   t.lane = Math.floor(Math.random() * HW.lanes);
+  t.laneF = t.lane;                   // where it actually is: eases toward `lane` on a lane change
   t.alive = true; t.spin = 0; t.respawn = 0;
+}
+
+// Is `lane` free alongside t -- nothing in it, same way, within a car's length or two?
+function hwyLaneClear(t, lane) {
+  for (const o of highway.traffic) {
+    if (o === t || !o.alive || o.dir !== t.dir) continue;
+    if (Math.abs(o.laneF - lane) < 0.8 && Math.abs(o.s - t.s) < 45) return false;
+  }
+  return true;
 }
 
 const hwyDummy = new THREE.Object3D();
@@ -971,10 +981,11 @@ function hwyUpdateTraffic(dt, px, pz) {
     // faster than he does, so without this it overtakes straight through him and
     // he gets rear-ended for holding a finger down and steering nothing.
     let sp = t.speed;
-    if (carHere && t.dir === carHere.side) {
-      const laneGap = Math.abs((t.dir * (HW.medianW / 2 + HW.laneW * (t.lane + 0.5))) - carHere.lateral);
+    const laneGap = carHere && t.dir === carHere.side
+      ? Math.abs((t.dir * (HW.medianW / 2 + HW.laneW * (t.laneF + 0.5))) - carHere.lateral) : Infinity;
+    if (laneGap < HW.laneW * 1.1) {
       const ahead = (carHere.s - t.s) * t.dir;      // positive: he is in front of it
-      if (laneGap < HW.laneW * 1.1 && ahead > 0 && ahead < T.follow) sp = Math.min(sp, carHere.speed * 0.98);
+      if (ahead > 0 && ahead < T.follow) sp = Math.min(sp, carHere.speed * 0.98);
     }
     // and it stops at a red, unless stopping would put it in his way
     if (typeof ltHighwayStop === "function") {
@@ -984,11 +995,35 @@ function hwyUpdateTraffic(dt, px, pz) {
         sp = Math.min(sp, Math.max(0, toLine) * 0.55);
       }
     }
+    // ...and it is never a wall IN FRONT of him either. At his top speed steps
+    // he is the faster one, and a car ahead in his lane was simply rear-ended: a
+    // bang for a held finger. So it yields. It moves over if the other lane is
+    // clear -- the road making way for him, which is how it should read -- and
+    // whether or not it can, it speeds up, so that by the time he is yieldMatch
+    // behind it is running faster than he is. He is never slowed: fast is his.
+    // (After the red-light rule on purpose: a car that has pulled up at a red
+    // and finds him arriving goes, rather than stays a wall.)
+    if (laneGap < HW.laneW * 1.1 && carHere.speed > sp) {
+      const gap = (t.s - carHere.s) * t.dir;        // positive: it is in front of him
+      if (gap > 0 && gap < T.yieldReach) {
+        if (t.laneF === t.lane) {
+          // across, to whichever lane is further from him
+          const want = carHere.lateral * t.dir > HW.medianW / 2 + HW.laneW ? 0 : HW.lanes - 1;
+          if (want !== t.lane && hwyLaneClear(t, want)) t.lane = want;
+        }
+        const k = clamp((T.yieldReach - gap) / (T.yieldReach - T.yieldMatch), 0, 1);
+        sp = Math.max(sp, lerp(sp, carHere.speed * 1.03, k));
+      }
+    }
+    if (t.laneF !== t.lane) {
+      const d = t.lane - t.laneF, step = dt / T.laneChange;
+      t.laneF = Math.abs(d) <= step ? t.lane : t.laneF + Math.sign(d) * step;
+    }
     t.s += sp * t.dir * dt;
     if (t.s < 0 || t.s > highway.length) hwyPlaceTraffic(t, aroundS);
     const p = hwySampleAt(t.s);
     const rx = -p.fz, rz = p.fx;
-    const off = t.dir * (HW.medianW / 2 + HW.laneW * (t.lane + 0.5));
+    const off = t.dir * (HW.medianW / 2 + HW.laneW * (t.laneF + 0.5));
     hwyDummy.position.set(p.x + rx * off, p.y + (t.truck ? 2.3 : 1.2), p.z + rz * off);
     hwyDummy.rotation.set(0, Math.atan2(p.fx * t.dir * -1, p.fz * t.dir * -1) + t.spin, 0);
     if (t.spin) { t.spin += dt * 6; hwyDummy.position.y += 1; }

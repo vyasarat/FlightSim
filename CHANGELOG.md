@@ -10,6 +10,23 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v124 — a held finger never bangs, at any speed step, either way
+
+Two holes in the promise that a finger held from coast to coast never ends in
+a bang. At the top speed steps he was the faster car, and slower traffic in
+his own lane was simply rear-ended: the follow rule only ever protected him
+from traffic faster than he was. Traffic ahead of him in his lane now YIELDS:
+from 160 m it moves into the other lane if that lane is clear, and whether or
+not it can, it speeds up so that by 45 m behind it he is the slower one. He is
+never slowed; fast is his. And at the slowest step, with no hand on the stick,
+every exit captured the car (too slow to be past a spur's mouth before it
+bit), ran it to the spur's end, turned it round and sent it back into the
+traffic. Hands-off on the main line, a spur now never competes; the exit
+gesture is unchanged, because once he has steered, the old rule holds until
+he is back on the main line. The crossing check now drives the country ten
+times, every speed step in both directions, and counts every traffic touch,
+crash and wall as a delta: all ten arrive, all zero.
+
 ## v123 — textures, round two: real sizes, grain you can see from the car, and traffic that is not a box
 
 v122's tiles repeated at the size of the thing they were on, and the palette

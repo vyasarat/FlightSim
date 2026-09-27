@@ -60,6 +60,10 @@ a deliberate, stated behaviour change.
   brakes for one** — stopping is the one choice out there that is his. Traffic stops at a
   red *except* where it would become a wall in front of him: a held finger crosses the
   country without a bang, and that guarantee outranks the queue.
+- **A held finger never bangs, at any speed step, either way** (`road_checks.js` crosses the
+  country ten times to prove it). Traffic ahead in his lane YIELDS — moves over if it can,
+  and always outruns him by `yieldMatch` — because he is never slowed: fast is his. And
+  hands-off, lane-keep never takes an exit: a spur competes only once he has steered.
 - **The assist is never BLENDED with his steering** — it yields on a timer and his command
   gets through whole. Blending let the road outvote him and, at a light steer, reverse him.
   Running a red starts the chase (`police.js`): rubber-banded, ducked under everything,

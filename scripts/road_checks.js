@@ -29,6 +29,45 @@ module.exports = async function roadChecks({ newPage, check, viewports }) {
     const { page } = await newPage(w, h);
     const tag = `${w}x${h}`;
 
+    // ---- 0. THE GUARANTEE: a held finger crosses the country without a bang,
+    // at EVERY speed step, in BOTH directions. Counted, not assumed: every touch
+    // of traffic (hwyTrafficHit), every crash and every wall, as deltas. Two holes
+    // were behind this. At the top steps he was the faster car and rear-ended
+    // slower traffic in his own lane; at the slowest, every exit captured the
+    // hands-off car and it ended up driving against the traffic. The crossing
+    // check below ran at the top step all along -- and stepped over each crash.
+    // Physics does not depend on the viewport, so this runs on the first only.
+    if (w === viewports[0][0] && h === viewports[0][1]) {
+      const runs = await page.evaluate(() => {
+        const L = window.__lp, st = L.state, out = [];
+        L.noRender = true; L.api.skipScreens(); L.api.setVehicle("car");
+        const n = L.spdStepsFor(L.spdKey()).length;
+        for (const origin of [0, 1]) {
+          for (let step = 0; step < n; step++) {
+            L.api.spawnAt(origin, origin);
+            for (let i = 0; i < 30; i++) L.update(1 / 60);
+            st.speedStep = step;
+            const h0 = L.flags.hwyTrafficHit || 0, c0 = L.flags.carCrashes || 0, w0 = L.flags.wallHits || 0;
+            const endZ = origin === 0 ? L.AIRPORTS[1].cz + 900 : L.AIRPORTS[0].cz - 900;
+            let f = 0;
+            while (f < 60 * 60 * 12 && (origin === 0 ? st.z > endZ : st.z < endZ)) {
+              L.api.setStick(0, 0); L.update(1 / 60); f++;
+              if (st.exploding) { st.explodeTimer = 0; for (let i = 0; i < 40; i++) L.update(1 / 60); }
+            }
+            out.push({ dir: origin === 0 ? "NY>CA" : "CA>NY", step, mul: L.spdMul(),
+              arrived: origin === 0 ? st.z <= endZ : st.z >= endZ, secs: Math.round(f / 60),
+              touches: (L.flags.hwyTrafficHit || 0) - h0, crashes: (L.flags.carCrashes || 0) - c0,
+              walls: (L.flags.wallHits || 0) - w0 });
+          }
+        }
+        L.spdReset();
+        return out;
+      });
+      const bad = runs.filter(r => !r.arrived || r.touches || r.crashes || r.walls);
+      check(`road: hands-off, the crossing is crash-free at every speed step in both directions -- ${runs.length} crossings, every one arriving, zero traffic touches, zero crashes, zero walls`,
+        runs.length >= 10 && bad.length === 0, JSON.stringify(bad.length ? bad : runs.map(r => `${r.dir} x${r.mul} ${r.secs}s`)));
+    }
+
     // ---- 1. the crossing: nothing streamed inside the corridor, nothing hit
     const cross = await page.evaluate(() => {
       const L = window.__lp, st = L.state;

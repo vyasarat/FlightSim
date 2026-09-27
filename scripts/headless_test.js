@@ -4497,10 +4497,29 @@ function check(name, ok, extra) {
 
       // ---- hit traffic at cruise: he crashes, it spins off, both come back
       start(); driveTo(0.42);
+      // Traffic yields to him now (v124): a car ahead in his lane moves over and
+      // outruns him, so one parked 30 m ahead simply drives off. The bang is
+      // still what TOUCHING traffic at speed does, so the touch is set up here:
+      // a stopped car inside his bumper, in his own lane.
       const n = L.hwyNearest(st.x, st.z);
       const victim = L.highway.traffic.find(t => t.alive);
-      victim.s = n.s + 30; victim.dir = Math.sign(n.lateral) || 1;
-      victim.lane = 0; victim.speed = 0;
+      victim.dir = Math.sign(n.lateral) || 1;
+      victim.lane = victim.laneF = Math.abs(n.lateral) > L.HW.medianW / 2 + L.HW.laneW ? 1 : 0;
+      victim.speed = 0;
+      // placed by position, not by adding to `s`: the nearest-point `s` and the
+      // traffic's own `s` disagree by metres, which put a "3 m" car 9 m off
+      {
+        const fx = -Math.sin(st.heading), fz = -Math.cos(st.heading);
+        const tx = st.x + fx * 3, tz = st.z + fz * 3;
+        const off = victim.dir * (L.HW.medianW / 2 + L.HW.laneW * (victim.lane + 0.5));
+        let bestS = n.s, bestD = Infinity;
+        for (let ds = -30; ds <= 30; ds += 0.25) {
+          const q = L.hwySampleAt(n.s + ds);
+          const d = Math.hypot(q.x - q.fz * off - tx, q.z + q.fx * off - tz);
+          if (d < bestD) { bestD = d; bestS = n.s + ds; }
+        }
+        victim.s = bestS;
+      }
       const ex0 = L.flags.exploded || 0, th0 = L.flags.hwyTrafficHit || 0;
       for (let i = 0; i < 60 * 6; i++) {
         victim.speed = 0;

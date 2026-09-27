@@ -439,7 +439,10 @@ const TUNE = {
                                  // 150 m ramp loop reaches the centreline from a
                                  // long way off, and the approach is as much his
                                  // road as the runway is.
-    traffic: { count: 70, range: 1800, keepOut: 260, follow: 90, speed: [49, 64], truckEvery: 4, respawn: 2.5 },
+    traffic: { count: 70, range: 1800, keepOut: 260, follow: 90, speed: [49, 64], truckEvery: 4, respawn: 2.5,
+               // the car AHEAD of him in his lane yields: from yieldReach it moves
+               // over if it can and speeds up, and by yieldMatch it runs faster than he does
+               yieldReach: 160, yieldMatch: 45, laneChange: 1.4 },
                                  // above TUNE.car.cruise on purpose: lane-keep with no
                                  // steering must never rear-end its own lane
   },

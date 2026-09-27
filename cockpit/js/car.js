@@ -328,8 +328,17 @@ function carRoadTarget() {
   const LK = CAR.laneKeep;
   const ahead = Math.max(LK.minAhead, state.speed * LK.lookAhead);
 
+  // An exit is HIS to take. Measured from the centreline, a spur's mouth comes
+  // within the outer lane's 14 m, and that is what lets a held steer pick the
+  // spur up while he is still on the carriageway -- the exit gesture. But with
+  // no hand on the stick at all, the same sum let every exit capture the car at
+  // the slow step (too slow to be past before it bit): it ran the spur to its
+  // end, turned round and met the traffic coming back. So hands-off on the main
+  // line, the carriageway counts as distance zero and no spur can win; once he
+  // has steered onto a spur, the old sum holds until he is back on the main line.
+  const handsOff = (car.yield === undefined || car.yield >= 1) && !car.onSpurRoad;
   let best = { lateral: n.lateral, y: n.y, fx: n.fx, fz: n.fz, s: n.s, spur: null,
-               dist: Math.abs(n.lateral) };
+               dist: handsOff ? Math.max(0, Math.abs(n.lateral) - highway.halfW) : Math.abs(n.lateral) };
   for (const ex of highway.exits) {
     for (let i = 1; i < ex.spur.length; i++) {
       const a = ex.spur[i - 1], b = ex.spur[i];
@@ -367,6 +376,7 @@ function carRoadTarget() {
     ax = q.x + (-q.fz) * off; az = q.z + q.fx * off;
   }
   best.aimX = ax; best.aimZ = az;
+  car.onSpurRoad = !!best.spur;
   return best;
 }
 
