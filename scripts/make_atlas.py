@@ -21,7 +21,15 @@ import os
 
 T = 512
 rng = np.random.default_rng(20260926)
+
+
+def set_size(n):
+    """Every helper reads T, X and Y at call time: the detail atlas is 256 px tiles."""
+    global T, X, Y
+    T = n
+    Y, X = np.mgrid[0:T, 0:T]
 OUT = os.path.join(os.path.dirname(__file__), "..", "evidence", "art", "atlas.png")
+OUT_DETAIL = os.path.join(os.path.dirname(__file__), "..", "evidence", "art", "atlas-detail.png")
 
 
 def pnoise(cells, seed):
@@ -121,15 +129,12 @@ def glass_facade():
 
 
 def brick_facade():
-    row = Y // 7
-    off = (row % 2) * 8
-    bx = (X + off) // 16
-    bid = (row * 64 + bx) % 4096
-    tone = np.random.default_rng(21).random(4096)[bid]
-    rgb = col([0.60, 0.29, 0.21]) + ((tone - 0.5) * 0.14)[..., None] + grain(22, 0.06)[..., None]
-    mortar = (((Y % 7) == 0) | (((X + off) % 16) == 0)).astype(float)
-    rgb = blend(rgb, col([0.76, 0.72, 0.66]), mortar * 0.9)
-    rgb = rgb * (0.92 + fbm(4, 3, 23)[..., None] * 0.16)       # weathering
+    # The wall is weathered brick COLOUR; the courses themselves are the detail
+    # tile's (2 m), so they resolve at the car instead of smearing at 12 m.
+    rgb = col([0.60, 0.31, 0.23]) + grain(22, 0.03)[..., None]
+    rgb = rgb * (0.86 + fbm(4, 3, 23)[..., None] * 0.28)       # weathering
+    soot = np.clip(fbm(16, 2, 24) - 0.5, 0, 1) * np.clip(1 - (Y % 128) / 128.0, 0, 1)
+    rgb = rgb - soot[..., None] * 0.18                          # rain streaks under every sill
     glaze = np.zeros((T, T))
     # punched windows: stone lintel and sill, white frame, a cross mullion
     lintel = rect(36, 22, 92, 30); sill = rect(34, 100, 94, 105)
@@ -166,18 +171,27 @@ def concrete_facade():
 
 def asphalt(paint):
     n = fbm(8, 5, 41)
-    rgb = col([0.30, 0.30, 0.31]) + (n[..., None] - 0.5) * 0.10
+    rgb = col([0.30, 0.30, 0.31]) + (n[..., None] - 0.5) * 0.16
     agg = np.random.default_rng(42).random((T, T))
-    rgb = rgb + ((agg > 0.93) * 0.10 - (agg < 0.05) * 0.06)[..., None]
+    rgb = rgb + ((agg > 0.90) * 0.14 - (agg < 0.07) * 0.09)[..., None]
     patch = fbm(2, 3, 43)
-    rgb = rgb * (0.94 + (patch[..., None] > 0.6) * -0.06 + 0.06)
-    crack = (np.abs(fbm(4, 4, 44) - 0.5) < 0.0035) & (fbm(2, 2, 46) > 0.62)
-    rgb = blend(rgb, col([0.17, 0.17, 0.18]), crack.astype(float))
+    rgb = rgb * np.where(patch[..., None] > 0.62, 0.92, 1.0)     # darker repair patches
+    crack = (np.abs(fbm(4, 4, 44) - 0.5) < 0.004) & (fbm(2, 2, 46) > 0.58)
+    rgb = blend(rgb, col([0.13, 0.13, 0.14]), crack.astype(float))
     if paint:
-        wear = np.clip(fbm(32, 3, 45) * 1.6 - 0.35, 0, 1)
-        edge = (((X >= 18) & (X < 30)) | ((X >= 482) & (X < 494))).astype(float)
-        dash = (((X >= 250) & (X < 262)) & ((Y % 256) < 150)).astype(float)
-        rgb = blend(rgb, col([0.92, 0.92, 0.88]), np.maximum(edge, dash) * wear)
+        # One carriageway, 17.5 m across and 12 m along: a solid line at the
+        # median edge, a dashed divider 7.5 m out (3 m of paint every 12 m, the
+        # motorway rule), a solid edge line 15 m out, then the shoulder. The
+        # wheel paths are worn darker and polished, the way a real lane is.
+        m = T / 17.5                                   # px per metre across
+        u = X / m
+        for c in (1.9, 5.6, 9.4, 13.1):                # two wheel paths per lane
+            rgb = rgb * (1 - 0.10 * np.exp(-((u - c) / 0.7) ** 2))[..., None]
+        wear = np.clip(fbm(32, 3, 45) * 1.3 - 0.1, 0.55, 1)
+        line = lambda a, b: ((u >= a) & (u < b)).astype(float)
+        edge = np.maximum(line(0.25, 0.45), line(15.0, 15.2))
+        dash = line(7.4, 7.6) * ((Y % T) < T * 3 / 12)
+        rgb = blend(rgb, col([0.95, 0.95, 0.92]), np.maximum(edge, dash) * wear)
     return rgb, np.zeros((T, T))
 
 
@@ -195,12 +209,12 @@ def concrete():
 
 def grass():
     n = fbm(4, 5, 61)
-    rgb = col([0.34, 0.54, 0.22]) + (n[..., None] - 0.5) * col([0.10, 0.14, 0.06]) * 1.6
+    rgb = col([0.34, 0.54, 0.22]) + (n[..., None] - 0.5) * col([0.10, 0.14, 0.06]) * 3.0
     blades = np.random.default_rng(62).random((T, T))
     rgb = rgb + ((blades - 0.5) * 0.10)[..., None]
-    clump = np.clip(fbm(16, 3, 63) - 0.58, 0, 1) * 2.5
-    rgb = blend(rgb, col([0.22, 0.40, 0.15]), clump)
-    dry = np.clip(fbm(4, 3, 64) - 0.62, 0, 1) * 2.0
+    clump = np.clip(fbm(16, 3, 63) - 0.55, 0, 1) * 3.5
+    rgb = blend(rgb, col([0.20, 0.36, 0.13]), clump)
+    dry = np.clip(fbm(4, 3, 64) - 0.58, 0, 1) * 3.0
     rgb = blend(rgb, col([0.55, 0.58, 0.30]), dry)
     return rgb, np.zeros((T, T))
 
@@ -219,7 +233,7 @@ def scrub():
 def sand():
     n = fbm(4, 4, 81)
     rip = np.sin(2 * np.pi * (X * 6 + Y * 14) / T + fbm(4, 2, 82) * 6) * 0.5 + 0.5
-    rgb = col([0.86, 0.78, 0.58]) + (n[..., None] - 0.5) * 0.08 + (rip[..., None] - 0.5) * 0.06
+    rgb = col([0.86, 0.78, 0.58]) + (n[..., None] - 0.5) * 0.14 + (rip[..., None] - 0.5) * 0.14
     rgb = rgb + grain(83, 0.07)[..., None]
     return rgb, np.zeros((T, T))
 
@@ -260,7 +274,7 @@ def corrugated():
 
 def container():
     p = X % 32
-    face = np.where(p < 10, 0.86, np.where(p < 14, 1.0, np.where(p < 26, 0.93, 0.78)))
+    face = np.where(p < 10, 0.80, np.where(p < 14, 1.05, np.where(p < 26, 0.92, 0.66)))
     rgb = col([0.80, 0.80, 0.80]) * face[..., None]
     rail = ((Y < 16) | (Y >= 496)).astype(float)
     post = ((X < 14) | (X >= 498)).astype(float)
@@ -308,11 +322,11 @@ def roof():
 def deck():
     n = fbm(4, 4, 151)
     plate = np.random.default_rng(152).random((8, 4))[Y // 64, X // 128]
-    rgb = col([0.50, 0.52, 0.54]) + (n[..., None] - 0.5) * 0.08 + ((plate - 0.5) * 0.05)[..., None]
+    rgb = col([0.50, 0.52, 0.54]) + (n[..., None] - 0.5) * 0.10 + ((plate - 0.5) * 0.14)[..., None]
     skid = np.random.default_rng(153).random((T, T))
     rgb = rgb + ((skid - 0.5) * 0.08)[..., None]
-    weld = (((X % 128) < 2) | ((Y % 64) < 2)).astype(float)
-    rgb = blend(rgb, col([0.38, 0.39, 0.40]), weld)
+    weld = (((X % 128) < 3) | ((Y % 64) < 3)).astype(float)
+    rgb = blend(rgb, col([0.30, 0.31, 0.32]), weld)
     scuff = np.clip(fbm(8, 4, 154) - 0.6, 0, 1) * 2
     rgb = blend(rgb, col([0.36, 0.36, 0.37]), scuff)
     return rgb, np.zeros((T, T))
@@ -325,6 +339,7 @@ TILES = [
     water_normal, lambda: asphalt(False), roof, deck,
 ]
 
+set_size(512)
 atlas = np.zeros((T * 4, T * 4, 4), dtype=np.uint8)
 for i, fn in enumerate(TILES):
     rgb, glaze = fn()
@@ -334,3 +349,100 @@ for i, fn in enumerate(TILES):
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 Image.fromarray(atlas, "RGBA").save(OUT)
 print("wrote", OUT)
+
+
+# ---------------------------------------------------------------------------
+# THE DETAIL ATLAS: 1024 x 1024, sixteen 256 px tiles of pure material grain,
+# each authored at a REAL size (art.js ART_DETAIL says which): brick courses
+# at 2 m, aggregate at 2 m, corrugation at 1 m... Laid over the big tiles close
+# up, as luminance only, so a brick wall has courses at the car and a container
+# has ridges at the boat without the big tile having to be tiny.
+def d_brick():          # 2 m: 215 x 65 mm bricks, 10 mm joints, running bond
+    ppm = T / 2.0
+    ch = 0.075 * ppm; cw = 0.225 * ppm
+    row = np.floor(Y / ch)
+    off = (row % 2) * cw / 2
+    bx = np.floor((X + off) / cw)
+    tone = np.random.default_rng(301).random(4096)[((row * 37 + bx) % 4096).astype(int)]
+    v = 0.62 + (tone - 0.5) * 0.30 + grain(302, 0.10)
+    joint = ((Y % ch) < 0.012 * ppm) | (((X + off) % cw) < 0.012 * ppm)
+    v = np.where(joint, 0.92, v)
+    return v
+
+
+def d_concrete():       # 2 m: pores, form-tie holes, trowel marks
+    v = 0.62 + (fbm(8, 4, 311) - 0.5) * 0.25 + grain(312, 0.12)
+    pore = np.random.default_rng(313).random((T, T)) < 0.004
+    return np.where(pore, 0.30, v)
+
+
+def d_asphalt():        # 2 m: aggregate
+    v = 0.50 + grain(321, 0.40) + (fbm(16, 3, 322) - 0.5) * 0.25
+    stone = np.random.default_rng(323).random((T, T))
+    v = v + (stone > 0.94) * 0.35 - (stone < 0.05) * 0.25
+    return v
+
+
+def d_ribs():           # 1 m: four trapezoidal ribs
+    p = (X % (T // 4)) / (T / 4.0)
+    return np.where(p < 0.30, 0.62, np.where(p < 0.40, 0.95, np.where(p < 0.80, 0.72, 0.40))) + grain(331, 0.05)
+
+
+def d_nonskid():        # 1 m: the carrier deck's grit, and scuffs
+    v = 0.60 + grain(341, 0.35) + (fbm(8, 3, 342) - 0.5) * 0.30
+    return v
+
+
+def d_grass():          # 2 m: blades and clumps
+    v = 0.55 + grain(351, 0.45) + (fbm(32, 3, 352) - 0.5) * 0.5
+    return v
+
+
+def d_sand():           # 2 m: grain and wind ripples
+    rip = np.sin(2 * np.pi * (X * 5 + Y * 2) / T + fbm(4, 2, 361) * 4) * 0.5 + 0.5
+    return 0.60 + grain(362, 0.25) + (rip - 0.5) * 0.25
+
+
+def d_dirt():           # 2 m: scrub ground, twigs and grit
+    return 0.58 + grain(371, 0.35) + (fbm(16, 4, 372) - 0.5) * 0.45
+
+
+def d_pebbles():        # 2 m: regolith pebbles
+    cov, sh = rocks(60, 2, 7, 381)
+    v = 0.60 + grain(382, 0.20) + (fbm(16, 3, 383) - 0.5) * 0.3
+    return np.where(cov > 0, 0.25 + sh * 0.7, v)
+
+
+def d_dust():           # 2 m: lunar fines and small craters
+    bowl, rim = scatter_discs(10, 6, 22, 391)
+    return 0.62 + grain(392, 0.22) - bowl * 0.25 + rim * 0.2
+
+
+def d_gravel():         # 1 m: roof gravel
+    return 0.55 + grain(401, 0.55) + (fbm(32, 2, 402) - 0.5) * 0.3
+
+
+def d_stucco():         # 1 m
+    return 0.64 + (fbm(16, 4, 411) - 0.5) * 0.35 + grain(412, 0.10)
+
+
+def d_plate():          # 2 m: steel grain and rust bloom
+    return 0.60 + (fbm(8, 4, 421) - 0.5) * 0.35 + grain(422, 0.10)
+
+
+def d_flat():
+    return np.full((T, T), 0.6)
+
+
+DETAIL = [d_brick, d_concrete, d_asphalt, d_ribs, d_nonskid, d_grass, d_sand, d_dirt,
+          d_pebbles, d_dust, d_gravel, d_stucco, d_plate, d_flat, d_flat, d_flat]
+
+set_size(256)
+det = np.zeros((T * 4, T * 4, 4), dtype=np.uint8)
+for i, fn in enumerate(DETAIL):
+    v = np.clip(fn(), 0, 1)
+    r, c = divmod(i, 4)
+    det[r * T:(r + 1) * T, c * T:(c + 1) * T, :3] = (v[..., None] * 255 + 0.5).astype(np.uint8)
+    det[r * T:(r + 1) * T, c * T:(c + 1) * T, 3] = 255
+Image.fromarray(det, "RGBA").save(OUT_DETAIL)
+print("wrote", OUT_DETAIL)

@@ -99,7 +99,7 @@ function marsBuild() {
   for (let i = 0; i < MB.domes; i++) {
     const dome = new THREE.Group();
     const shell = new THREE.Mesh(new THREE.SphereGeometry(MB.domeR, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      artPaint(new THREE.MeshLambertMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.45 }), "deck", { scale: [5, 5, 5, 5] }));
+      artPaint(new THREE.MeshLambertMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.45 }), "deck", { mul: [0.625, 0.625] }));
     dome.add(shell);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(MB.domeR, 0.9, 6, 24), lam(pale));
     rim.rotation.x = Math.PI / 2; dome.add(rim);

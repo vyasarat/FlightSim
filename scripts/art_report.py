@@ -1,12 +1,11 @@
 # Build the art sprint's before/after page from evidence/art/ (renders, perf.json,
-# ssao.json, the exposure sheet, the atlas).   python3 scripts/art_report.py <out.html>
+# the atlas previews).   python3 scripts/art_report.py <out.html>
 import base64, io, json, os, sys, html
 from PIL import Image
 
 ART = os.path.join(os.path.dirname(__file__), "..", "evidence", "art")
 OUT = sys.argv[1]
 perf = json.load(open(os.path.join(ART, "perf.json")))
-ssao = json.load(open(os.path.join(ART, "ssao.json")))
 
 VANTAGES = [
     ("ny-runway", "New York from the runway", "South end of the NY runway, looking down it across the harbour. The takeoff spot at the north end sits 2.5 km from the city, which is past the fog, and the runway lock always points the plane down the runway."),
@@ -74,16 +73,10 @@ for key, title, note in VANTAGES:
     <div class="pairs">{''.join(pairs)}</div>
   </section>""")
 
-ss_rows = "".join(
-    f"<tr><td>{k}</td><td>{v['plain']['frameMs']}</td><td>{v['ssao']['frameMs']}</td><td><b>+{v['ssaoPct']}%</b></td><td>{v['plain']['calls']:,} → {v['ssao']['calls']:,}</td><td>{v['aces']['frameMs']}</td><td>{'+' if v['acesPct'] >= 0 else ''}{v['acesPct']}%</td></tr>"
-    for k, v in ssao["scenes"].items())
-
-exposure = img(os.path.join(ART, "exposure-sheet.jpg"), 900, 82)
-atlas = img(os.path.join(ART, "atlas-preview.jpg"), 640, 85)
-ssao_shot = img(os.path.join(ART, "ssao-ny-300m.png"), 300, 80)
+atlas = img(os.path.join(ART, "atlas2-preview.jpg"), 1000, 85)
 extra = json.load(open(os.path.join(ART, "extra.json"))) if os.path.exists(os.path.join(ART, "extra.json")) else {}
 
-page = f"""<title>Little Pilot Art Sprint</title>
+page = f"""<title>Little Pilot Textures II</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -156,20 +149,20 @@ a {{ color: var(--sky); }}
 </style>
 <div class="wrap">
   <header>
-    <h1>Little Pilot, before and after the art sprint</h1>
-    <p class="lede">Eight vantage points, chase and cockpit, portrait (820×1180). Each "before" is the current <span class="mono">main</span> build (v121) and each "after" is the art build. The numbers are for the whole frame, shadow pass included, rendered by SwiftShader (a software renderer), not an iPad. Draw calls and triangles carry over to the iPad; SwiftShader's frame time exaggerates pixel-shading cost many times over.</p>
+    <h1>Little Pilot textures, round two</h1>
+    <p class="lede">The same nine vantage points, chase and cockpit, portrait (820×1180). Each "before" is v122 as shipped (<span class="mono">9f78cdc</span>) and each "after" is round two. The numbers are for the whole frame, shadow pass included, rendered by SwiftShader (a software renderer), not an iPad. Draw calls and triangles carry over to the iPad; SwiftShader's frame time exaggerates pixel-shading cost.</p>
   </header>
 
   <div class="verdicts">
-    <div class="v"><span class="chip ship">shipped</span><b>Textures</b><p>One 2048² atlas of 16 seamless tiles, box-mapped in the shader on buildings, landmarks, roads, terrain, the tunnel, the harbour, the carrier, the rig, containers, Mars and the Moon. The palette colours are kept; the tiles only add detail.</p></div>
-    <div class="v"><span class="chip ship">shipped</span><b>Two block cities</b><p>Generated in Blender: NY {extra.get('ny_buildings', '')} buildings, CA {extra.get('ca_buildings', '')}. Street grids, setbacks, rooftop detail, instanced by type, a per-building LOD at 650 m and one merged mesh beyond 1 km.</p></div>
-    <div class="v"><span class="chip no">not shipped</span><b>SSAO</b><p>Adds 71–105% frame time on the heaviest scenes, far over the 10% bar, and nearly doubles draw calls. It also draws nothing useful here, because of the log depth buffer.</p></div>
-    <div class="v"><span class="chip no">not shipped</span><b>ACES tone mapping</b><p>Costs almost nothing (0–2%) but doesn't look right: it bleaches this palette. The sea goes grey-teal and the red plane turns salmon. It stays behind an off switch in <span class="mono">TUNE.light.toneMap</span>.</p></div>
+    <div class="v"><span class="chip ship">1 · tiling</span><b>Real-world tile sizes</b><p>Each atlas slot now declares its real size once: asphalt 8 m, a facade four 3 m bays by four 3.5 m floors, a container side 12 m. A second, finer atlas adds grain close up: brick courses at 2 m, aggregate at 2 m, corrugation at 1 m, deck grit at 1 m.</p></div>
+    <div class="v"><span class="chip ship">2 · tint</span><b>Texture carries the detail</b><p>Each slot has a contrast gain, so a dark palette road still shows its grain and its paint. The motorway now carries its lanes in the texture: edge lines and a 3 m dash every 12 m. Before, it had one 9 m dash every 160 m.</p></div>
+    <div class="v"><span class="chip ship">3 · ground</span><b>Grass and sand at ground level</b><p>Grass blades, sand grain and dirt at 2 m close up. From height, a second, turned read of each ground tile hides the repeat, which had begun to show as a grid.</p></div>
+    <div class="v"><span class="chip ship">4 · the cube</span><b>It was a lorry</b><p>The grey cube beside the carriageway was traffic: every lorry was a bare 4.2 × 4.4 × 15 m white box, and every car a bare box too. Lorries now have a red cab, a windscreen, a container trailer and wheels. Cars have a glasshouse, wheels and one of eight palette colours. Same size as before, same single draw call each.</p></div>
   </div>
 
   <div class="note">
-    <p><b>Fog, retuned.</b> Daytime fog now runs from 950 m to 1560 m (was 700 m to 1450 m). The terrain edge is at least 1600 m out, so it stays hidden, and a city a kilometre away now reads through the haze. Shadows are unchanged. They land correctly on the textured faces, so there was nothing to retune.</p>
-    <p><b>Readability.</b> Nothing he acts on is textured: reticles, pad rings, catch-zone lights, signal heads, the fire, the scoop water and the buttons all keep their flat, high-contrast materials.</p>
+    <p><b>Also.</b> The ship's hull uses bigger plates than the carrier deck, so its plating reads from the harbour. The city streets are re-baked at the same real sizes: narrow NY streets get a double centre line, wide CA streets get lanes too.</p>
+    <p><b>Logged next:</b> hands-off, at a raised speed step, the car can rear-end slower traffic in its own lane. That breaks the no-bang crossing guarantee, and it is queued as the next fix after this round.</p>
   </div>
 
   <h2>The eight vantage points</h2>
@@ -182,33 +175,8 @@ a {{ color: var(--sky); }}
   </table></div>
   <p class="cap" style="margin-top:8px">The two builds were timed interleaved, five frames at a time, six rounds each, in one browser. Each frame is forced to finish with a 1-pixel readback. Ms values are medians.</p>
 
-  <h2>SSAO and ACES, measured</h2>
-  <p class="lede">three r128's own SSAOPass (32 samples, the stock blur), fetched into the test page only and never shipped, timed interleaved against the plain frame and an ACES frame on the heaviest scenes. The measurement stops SSAO's normal pass from redrawing the shadow map, so these numbers flatter it.</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>scene (chase)</th><th>plain ms</th><th>SSAO ms</th><th>SSAO cost</th><th>draw calls</th><th>ACES ms</th><th>ACES cost</th></tr></thead>
-    <tbody>{ss_rows}</tbody>
-  </table></div>
-  <div class="two">
-    <div class="figure"><img src="{ssao_shot}" alt="The NY vantage rendered through SSAOPass" width="300"><p class="cap">What SSAO draws here: no visible occlusion, because the logarithmic depth buffer breaks its depth reconstruction. The composer's render target has no MSAA, so the frame also loses its anti-aliasing. Fixing both would cost more, not less.</p></div>
-    <div class="figure"><p class="cap">To ship it, SSAO would have to cost under 10% of the frame on the heaviest scene. It costs 7 to 10 times that, so the "no post-processing" rule stands.</p></div>
-  </div>
-
-  <h2>ACES, at four exposures</h2>
-  <div class="figure"><img src="{exposure}" alt="Three scenes with ACES off, then at exposure 1.0, 1.2 and 1.4"><p class="cap">Left to right: ACES off (shipped), then exposure 1.0, 1.2 and 1.4. Top to bottom: New York from 300 m, the harbour, the carrier. Exposure only changes the brightness; the desaturation stays at every setting. Doing ACES properly would mean moving the whole palette to a linear colour workflow and relighting it, which is a much bigger change than a switch.</p></div>
-
-  <h2>The atlas</h2>
-  <div class="two">
-    <div class="figure"><img src="{atlas}" alt="The texture atlas: sixteen tiles" width="640"></div>
-    <div>
-      <p>Row by row: glass curtain wall, brick, concrete window grid, asphalt with lane paint; concrete, grass, dry scrub, sand; Mars regolith, lunar regolith, corrugated steel, container side; water normal map, plain asphalt, gravel roof, steel deck plate.</p>
-      <ul>
-        <li>Authored procedurally (periodic noise plus pattern) by <span class="mono">scripts/make_atlas.py</span>. 770 KB as WebP.</li>
-        <li>Sliced into one texture array at load, so each tile repeats with real mipmaps and there is one texture bind for everything.</li>
-        <li>The alpha channel marks glass. Glass reflects the sky it is under, is the only thing on a building that glints, and lights up at night.</li>
-        <li>Each tile is divided by its own mean colour and multiplied by the palette colour of what it is painted on, so the art stays on the palette.</li>
-      </ul>
-    </div>
-  </div>
+  <h2>The two atlases</h2>
+  <div class="figure"><img src="{atlas}" alt="Left: the sixteen macro tiles. Right: the sixteen detail tiles."><p class="cap">Left, the macro atlas (16 × 512 px): the layout of each surface at its real size. The road tile is one 17.5 m carriageway, 12 m long. Right, the detail atlas (16 × 256 px): brick courses, concrete, aggregate, corrugation, deck grit, grass, sand, dirt, regolith pebbles, lunar dust, gravel, stucco and steel. The detail is laid on as luminance only and fades out by 220 m. Both atlases come from <span class="mono">scripts/make_atlas.py</span>: 678 KB and 339 KB as WebP.</p></div>
 </div>
 """
 open(OUT, "w").write(page)

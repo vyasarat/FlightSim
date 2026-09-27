@@ -97,11 +97,14 @@ a deliberate, stated behaviour change.
   (`scripts/art_ssao.js`): +70–105% frame, twice the draw calls, and the log depth buffer
   blinds it. ACES is a `TUNE.light.toneMap` switch, OFF: this palette is display-space and
   the curve bleaches it.
-- **Textures are detail, never colour** (`art.js`): one atlas, one texture array,
-  box-mapped in the shader, each tile divided by its mean and multiplied onto the
-  material's palette colour. Paint is opt-in per material with `artPaint`/`artLam`, at the
-  place that builds it — and **nothing he acts on is ever painted**: reticles, pad rings,
-  catch lights, signal heads, fire, scoop water. The atlas is `scripts/make_atlas.py`.
+- **Textures are detail, never colour** (`art.js`): a macro atlas and a detail atlas,
+  each one texture array, box-mapped in the shader, each tile divided by its mean and
+  multiplied onto the material's palette colour with the slot's contrast `gain`. **A tile
+  repeats at a real-world size set once per slot** (`ART_LAYER_INFO`: asphalt 8 m, a facade
+  four 3 m bays by four 3.5 m floors, grain at 1–2 m) — never a fraction of a mesh; the city
+  generator bakes the same numbers. Paint is opt-in per material with `artPaint`/`artLam`, at
+  the place that builds it — and **nothing he acts on is ever painted**: reticles, pad rings,
+  catch lights, signal heads, fire, scoop water. Both atlases are `scripts/make_atlas.py`.
 - **The cities are generated, not edited** (`city.js`): `scripts/city/site.js` surveys,
   Blender runs `scripts/city/build_city.py`, and out come both GLBs and `citydata.js`.
   The layout is JS so solids and spots register at load; a building is not solid until

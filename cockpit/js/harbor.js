@@ -223,7 +223,7 @@ function hbBuildTerminal(conc, steel, white, rust, bed) {
   const S = T.ship;
   const sg = new THREE.Group();
   sg.position.set(S.x, 0, S.z);
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(S.len, 22, S.beam), artPaint(mattMat(C.rust), "deck"));
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(S.len, 22, S.beam), artPaint(mattMat(C.rust), "hull"));
   hull.position.y = TUNE.waterLevel + 5; sg.add(hull);
   const boot = new THREE.Mesh(new THREE.BoxGeometry(S.len + 0.6, 5, S.beam + 0.6), mattMat(C.ink));
   boot.position.y = TUNE.waterLevel - 3.5; sg.add(boot);

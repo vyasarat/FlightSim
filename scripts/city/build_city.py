@@ -31,8 +31,10 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
 # atlas slots (art.js ART_LAYER) and metres per tile
 GLASS, BRICK, OFFICE, ROAD, CONC, CORR, ASPH, ROOF, DECK = 0, 1, 2, 3, 4, 10, 13, 14, 15
-SCALE = {GLASS: (12, 14), BRICK: (12, 14), OFFICE: (12, 14), CONC: (10, 10), CORR: (8, 8),
-         ASPH: (14, 14), ROOF: (16, 16), DECK: (16, 16), ROAD: (1, 1)}
+# metres per tile: MUST match art.js ART_LAYER_INFO, which is where the real
+# sizes live -- these only bake the same numbers into the GLB's UVs
+SCALE = {GLASS: (12, 14), BRICK: (12, 14), OFFICE: (12, 14), CONC: (4, 4), CORR: (4, 4),
+         ASPH: (8, 8), ROOF: (8, 8), DECK: (8, 8), ROAD: (17.5, 12)}
 FLOOR = 3.5
 
 P = {  # the palette (TUNE.palette), the only colours a building may take
@@ -361,8 +363,12 @@ def layout(site, types, cfg, rnd):
                 if not site.free_rect(x0, z0, x1, z1):
                     continue
                 if layer_mid == ROAD:
-                    uv = [((x0 - (x - width / 2)) / width, z0 / width), ((x1 - (x - width / 2)) / width, z0 / width),
-                          ((x1 - (x - width / 2)) / width, z1 / width), ((x0 - (x - width / 2)) / width, z1 / width)]
+                    # the carriageway tile, mirrored about the centre line, in
+                    # metres: each half is one direction, so a narrow street
+                    # gets a double centre line and a wide one gets lanes too
+                    ru, rv = SCALE[ROAD]
+                    uv = [(abs(x0 - x) / ru, z0 / rv), (abs(x1 - x) / ru, z0 / rv),
+                          (abs(x1 - x) / ru, z1 / rv), (abs(x0 - x) / ru, z1 / rv)]
                     pts = [(x0, 0, z0), (x1, 0, z0), (x1, 0, z1), (x0, 0, z1)]
                     ground.face(pts, uv, ROAD, (0, 1, 0))
                 else:
@@ -380,8 +386,9 @@ def layout(site, types, cfg, rnd):
                     continue
                 if layer_mid == ROAD:
                     # u across the street, v along it: the tile's lanes run with the road
-                    uv = [((z0 - (z - width / 2)) / width, x0 / width), ((z0 - (z - width / 2)) / width, x1 / width),
-                          ((z1 - (z - width / 2)) / width, x1 / width), ((z1 - (z - width / 2)) / width, x0 / width)]
+                    ru, rv = SCALE[ROAD]
+                    uv = [(abs(z0 - z) / ru, x0 / rv), (abs(z0 - z) / ru, x1 / rv),
+                          (abs(z1 - z) / ru, x1 / rv), (abs(z1 - z) / ru, x0 / rv)]
                     pts = [(x0, 0, z0), (x1, 0, z0), (x1, 0, z1), (x0, 0, z1)]
                     ground.face(pts, uv, ROAD, (0, 1, 0))
                 else:

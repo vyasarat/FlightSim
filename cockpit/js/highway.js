@@ -332,12 +332,19 @@ function hwyInCorridor(x, z, extra) {
 // ---------------------------------------------------------------------------
 // Geometry
 // ---------------------------------------------------------------------------
+// UVs are the carriageway tile's, in metres (art.js "road": 17.5 m across, 12 m
+// along): u from the median edge outward, so both carriageways paint their
+// lanes on the right side of the tile, and v the distance along the road.
 function hwyStrip(pts, halfL, halfR, yOff, mat, closeEnds) {
-  const pos = [], idx = [];
+  const pos = [], idx = [], uv = [];
+  const uL = (Math.abs(halfL) - HW.medianW / 2) / 17.5, uR = (Math.abs(halfR) - HW.medianW / 2) / 17.5;
+  let along = 0;
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i], rx = -p.fz, rz = p.fx;
+    if (i > 0) along += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
     pos.push(p.x + rx * halfL, p.y + yOff, p.z + rz * halfL);
     pos.push(p.x + rx * halfR, p.y + yOff, p.z + rz * halfR);
+    uv.push(uL, along / 12, uR, along / 12);
     if (i < pts.length - 1) {
       const a = i * 2;
       idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
@@ -345,6 +352,7 @@ function hwyStrip(pts, halfL, halfR, yOff, mat, closeEnds) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx);
   g.computeVertexNormals();
   const m = new THREE.Mesh(g, mat);
@@ -363,35 +371,17 @@ function hwyBuild() {
   highway.halfW = roadHalf + HW.medianW / 2;
   const g = new THREE.Group();
 
-  const tarmac = artPaint(mattMat(TUNE.runwaySurfaceColor), "asphalt");
-  const paint = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
   const steel = metalMat(C.steel, 30);
   const conc = artPaint(mattMat(C.concrete), "concrete");
 
-  // two carriageways, a median between them
-  g.add(hwyStrip(pts, -highway.halfW, -HW.medianW / 2, 0, tarmac));
-  g.add(hwyStrip(pts, HW.medianW / 2, highway.halfW, 0, tarmac));
-  g.add(hwyStrip(pts, -HW.medianW / 2, HW.medianW / 2, 0.35, mattMat(C.grassMid)));
-
-  // lane dashes down the middle of each carriageway
-  {
-    const dash = [];
-    for (let i = 0; i < pts.length - 1; i += HW.dashEvery) {
-      const p = pts[i], rx = -p.fz, rz = p.fx;
-      for (const side of [-1, 1]) {
-        const off = side * (HW.medianW / 2 + HW.laneW);
-        dash.push({ x: p.x + rx * off, y: p.y + 0.06, z: p.z + rz * off, fx: p.fx, fz: p.fz });
-      }
-    }
-    const dm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.06, 9), paint, dash.length);
-    const d = new THREE.Object3D();
-    dash.forEach((p, k) => {
-      d.position.set(p.x, p.y, p.z);
-      d.rotation.set(0, Math.atan2(p.fx, p.fz), 0);
-      d.updateMatrix(); dm.setMatrixAt(k, d.matrix);
-    });
-    g.add(dm);
-  }
+  // two carriageways, a median between them. The lane paint is the road
+  // tile's (art.js): a solid line at each edge and the divider dashed 3 m in
+  // every 12 -- it replaced a 9 m box every 160 m, which is why no lane was
+  // ever visible from the car.
+  const lanes = artPaint(mattMat(TUNE.runwaySurfaceColor), "road");
+  g.add(hwyStrip(pts, -highway.halfW, -HW.medianW / 2, 0, lanes));
+  g.add(hwyStrip(pts, HW.medianW / 2, highway.halfW, 0, lanes));
+  g.add(hwyStrip(pts, -HW.medianW / 2, HW.medianW / 2, 0.35, artPaint(mattMat(C.grassMid), "grass")));
 
   // guardrails down both outer edges
   for (const side of [-1, 1]) {
@@ -874,12 +864,60 @@ function hwyBuildCharge(g, end, at) {
 // ---------------------------------------------------------------------------
 // Traffic: machines only, instanced, in both directions, keeping their lanes.
 // ---------------------------------------------------------------------------
+// A traffic vehicle as one merged geometry: boxes, each with its own colour and
+// atlas slot, in the SAME envelope as the plain box it replaced (the car 3.4 x
+// 2.2 x 7.6, the lorry 4.2 x 4.4 x 15, centred) -- nothing about where traffic
+// is, or how near counts as touching it, moves. Front is local -z.
+function hwyVehicleGeo(parts) {
+  const pos = [], nor = [], col = [], lay = [], c = new THREE.Color();
+  for (const b of parts) {
+    const g = new THREE.BoxGeometry(b.w, b.h, b.d).toNonIndexed();
+    g.translate(b.x || 0, b.y || 0, b.z || 0);
+    const P = g.attributes.position, N = g.attributes.normal;
+    c.setHex(b.c);
+    for (let i = 0; i < P.count; i++) {
+      pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i));
+      col.push(c.r, c.g, c.b); lay.push(b.l);
+    }
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  out.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  out.setAttribute("artLayerA", new THREE.Float32BufferAttribute(lay, 1));
+  return out;
+}
+const HWY_CAR_TINTS = [TUNE.palette.steel, TUNE.palette.red, TUNE.palette.blue, TUNE.palette.white,
+                       TUNE.palette.slate, TUNE.palette.warning, TUNE.palette.green, TUNE.palette.grey];
+
 function hwyBuildTraffic(g) {
-  const T = HW.traffic, C = TUNE.palette;
-  const carGeo = new THREE.BoxGeometry(3.4, 2.2, 7.6);
-  const truckGeo = new THREE.BoxGeometry(4.2, 4.4, 15);
-  highway.trafficMesh = new THREE.InstancedMesh(carGeo, metalMat(C.steel, 40), T.count);
-  highway.truckMesh = new THREE.InstancedMesh(truckGeo, metalMat(C.white, 20), Math.ceil(T.count / T.truckEvery));
+  const T = HW.traffic, C = TUNE.palette, L = ART_LAYER;
+  const W = 0xffffff, dark = C.ink, glass = C.night;
+  // the car: body, a glasshouse set back, a roof, four wheels. Tinted per car.
+  const carGeo = hwyVehicleGeo([
+    { w: 3.4, h: 1.05, d: 7.6, y: -0.55, c: W, l: L.deck },
+    { w: 3.0, h: 0.85, d: 3.9, y: 0.4, z: 0.4, c: glass, l: L.glass },
+    { w: 2.9, h: 0.2, d: 3.5, y: 0.93, z: 0.45, c: W, l: L.deck },
+    ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) =>
+      ({ w: 0.5, h: 1.0, d: 1.1, x: sx * 1.5, y: -0.6, z: sz * 2.4, c: dark, l: L.asphalt })),
+  ]);
+  // the lorry: a cab with a windscreen, a container trailer, a chassis, wheels
+  const truckGeo = hwyVehicleGeo([
+    { w: 3.9, h: 3.3, d: 3.3, y: 0.0, z: -5.85, c: C.red, l: L.deck },
+    { w: 3.3, h: 1.2, d: 0.12, y: 0.8, z: -7.52, c: glass, l: L.glass },
+    { w: 4.2, h: 3.7, d: 11.4, y: 0.35, z: 1.8, c: W, l: L.container },
+    { w: 3.4, h: 0.5, d: 15, y: -1.6, c: dark, l: L.asphalt },
+    ...[-5.8, 2.6, 4.3, 6.0].flatMap(z => [-1, 1].map(sx =>
+      ({ w: 0.6, h: 1.2, d: 1.2, x: sx * 1.8, y: -1.6, z, c: dark, l: L.asphalt }))),
+  ]);
+  const paint = (spec) => artPaint(new THREE.MeshPhongMaterial({
+    color: 0xffffff, vertexColors: true, shininess: spec, specular: 0x4a5058 }), "vehicle");
+  highway.trafficMesh = new THREE.InstancedMesh(carGeo, paint(40), T.count);
+  highway.truckMesh = new THREE.InstancedMesh(truckGeo, paint(20), Math.ceil(T.count / T.truckEvery));
+  // every car its own colour, fixed by its slot: no draw from the random stream
+  for (let i = 0; i < T.count; i++) highway.trafficMesh.setColorAt(i, new THREE.Color(HWY_CAR_TINTS[(i * 5 + 3) % HWY_CAR_TINTS.length]));
+  highway.trafficMesh.instanceColor.needsUpdate = true;
   highway.trafficMesh.frustumCulled = false;
   highway.truckMesh.frustumCulled = false;
   highway.trafficMesh.castShadow = true;
