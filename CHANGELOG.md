@@ -10,6 +10,25 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v123 — textures, round two: real sizes, grain you can see from the car, and traffic that is not a box
+
+v122's tiles repeated at the size of the thing they were on, and the palette
+tint flattened them. Now every atlas slot says its real size once
+(`ART_LAYER_INFO` in `art.js`: asphalt 8 m, a facade four 3 m bays by four
+3.5 m floors, a container side 12 m) and a second, detail atlas lays material
+grain over it close up: brick courses at 2 m, aggregate at 2 m, corrugation at
+1 m, deck grit at 1 m, grass blades and sand grain at 2 m. Each slot carries a
+contrast gain, so a dark palette road still shows its grain. The motorway paints
+its own lanes from the texture (edge lines and a 3 m dash every 12 m), which
+replaced one 9 m dash every 160 m, the reason no lane was ever visible from the
+car. Open ground reads its tile twice at two scales, so the repeat never shows
+as a grid from the air. The "grey cube" beside the road was traffic: every lorry
+was a bare white 4.2 x 4.4 x 15 m box and every car a bare box too. They are
+modelled now (cab, windscreen, container trailer and wheels; glasshouse, wheels
+and eight palette colours), in the same envelopes and still one draw call each.
+The ship's hull plates are sized to read from the harbour, and the city streets
+are re-baked at the same real sizes.
+
 ## v122 — the art sprint: textures, two block cities, and two lighting passes priced and left out
 
 Everything had a colour and nothing had a surface. One 2048² atlas of sixteen

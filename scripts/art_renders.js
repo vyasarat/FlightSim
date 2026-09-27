@@ -94,6 +94,11 @@ const VANTAGES = {
       L.api.setStick(0, 0); L.update(1 / 60);
       if ((sB - L.hwyNearest(st.x, st.z).s) * dir < 260) break;
     }
+    // Running a red on the way (hands-off never stops for one) starts a chase,
+    // and which lights are red depends on the random stream -- which any new
+    // object shifts (three.js draws a UUID for each). Park the police on both
+    // builds so the frame compares the art, not the traffic lights.
+    if (L.policeStop) L.policeStop();
     const px = st.x, pz = st.z, py = st.y, ph = st.heading;
     return () => { L.api.clearStick(); st.x = px; st.z = pz; st.y = py; st.heading = ph; st.speed = 0; };
   },

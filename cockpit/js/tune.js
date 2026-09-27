@@ -380,7 +380,6 @@ const TUNE = {
     bridgeAt: 6, tunnelAt: 9,    // height differences that make a bridge or a tunnel
     pierEvery: 3, pierW: 5,
     railH: 1.2, railT: 0.5,
-    dashEvery: 4,                // centreline dashes, every N samples
     // TWIN BORES, one per carriageway. A single tube wide enough for a divided
     // highway is 52 m across and its crown stands 37 m over the road -- taller
     // than the mountain it is supposed to be inside, so it came out of the
