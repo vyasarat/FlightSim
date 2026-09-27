@@ -96,7 +96,7 @@ function buildDemolition() {
     const tx = Math.cos(a) * rr, tz = Math.sin(a) * rr;
     const h = DEMO.towerH[0] + hashSalt(i, 909, 3) * (DEMO.towerH[1] - DEMO.towerH[0]);
     const w = DEMO.towerW * (0.8 + hashSalt(i, 909, 5) * 0.5);
-    const m = lmBox(g, w, h, w, i % 3 ? concrete : dark, tx, h / 2, tz, true);
+    const m = lmBox(g, w, h, w, i % 3 ? concrete : dark, tx, h / 2, tz, true, "office");
     m.userData.noShatter = true;      // the fold is choreographed: a missile must not just delete it
     // boarded-up windows, so it reads as condemned rather than merely grey
     // boarded-up windows: bands standing slightly PROUD of the tower, or they sit
@@ -506,10 +506,10 @@ function buildFireRig() {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, FF.legH + 8, 8), lam(dark));
     leg.position.set(x + lx, w + FF.legH / 2 - 4, z + lz); g.add(leg);
   }
-  const plat = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 60), lam(steel));
+  const plat = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 60), artLam(steel, "deck"));
   plat.position.set(x, deck, z); g.add(plat);
   addSolidBox(x, deck - 2, z, 23, 30, deck + 2, plat);
-  const block = new THREE.Mesh(new THREE.BoxGeometry(20, 12, 18), lam(pale));
+  const block = new THREE.Mesh(new THREE.BoxGeometry(20, 12, 18), artLam(pale, "corrugated"));
   block.position.set(x, deck + 8, z + 18); g.add(block);
   addSolidBox(x, deck + 2, z + 18, 10, 9, deck + 14, block);
   // the derrick over the middle: the thing that is on fire
@@ -749,17 +749,17 @@ function buildCarrier() {
   const grey = 0x6d747d, dark = 0x3c4350, pale = 0x9a9ea6;
   const deck = w + CV.deckY;
   // hull
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(CV.hullW, CV.deckY + 10, CV.deckL - 26), lam(dark));
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(CV.hullW, CV.deckY + 10, CV.deckL - 26), artLam(dark, "deck"));
   hull.position.set(x, w + CV.deckY / 2 - 5, z); g.add(hull);
   // (no bow cone: it only ever poked out under the hull line -- the deck's own
   // overhang past the hull reads as the bow perfectly well)
   // flight deck
-  const fd = new THREE.Mesh(new THREE.BoxGeometry(CV.deckW, 3, CV.deckL), lam(grey));
+  const fd = new THREE.Mesh(new THREE.BoxGeometry(CV.deckW, 3, CV.deckL), artLam(grey, "deck"));
   fd.position.set(x, deck - 1.5, z); g.add(fd);
   // the angled landing strip, and its wires
   // bow at -z: he lands toward it, and the catapults throw him off it the same way,
   // so the landing strip is aft and the catapults are forward
-  const strip = new THREE.Mesh(new THREE.BoxGeometry(20, 0.4, CV.deckL * 0.62), lam(0x4a505a));
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(20, 0.4, CV.deckL * 0.62), artLam(0x4a505a, "asphalt"));
   strip.position.set(x - 8, deck + 0.3, z + 42);
   strip.rotation.y = CV.angleDeg * DEG; g.add(strip);
   for (let i = 0; i < 5; i++) {
@@ -783,7 +783,7 @@ function buildCarrier() {
     }
   }
   // the island, to starboard, with a mast and a dish
-  const isl = new THREE.Mesh(new THREE.BoxGeometry(13, 22, 40), lam(pale));
+  const isl = new THREE.Mesh(new THREE.BoxGeometry(13, 22, 40), artLam(pale, "office"));
   isl.position.set(x + CV.deckW / 2 - 8, deck + 11, z + 16); g.add(isl);
   addSolidBox(x + CV.deckW / 2 - 8, deck, z + 16, 6.5, 20, deck + 22, isl);
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 26, 6), lam(0xf2f4f7));

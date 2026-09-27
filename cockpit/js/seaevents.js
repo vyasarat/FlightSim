@@ -137,7 +137,8 @@ function seaBuild() {
   const lit = [];
   for (let d = 0; d < CS.decks; d++) {
     const w = CS.beam * (1 - d * 0.06), l = CS.len * (1 - d * 0.10);
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(w, 5.4, l), mattMat(C.white));
+    // cabin windows: the office tile at one row of windows per deck
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(w, 5.4, l), artPaint(mattMat(C.white), "office", { scale: [12, 21.6, 16, 16] }));
     deck.position.set(0, TUNE.waterLevel + 17 + d * 6, -CS.len * 0.02 * d);
     cs.add(deck);
     const band = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 1.6, l * 0.98), mattMat(C.night));

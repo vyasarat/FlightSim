@@ -90,7 +90,7 @@ function marsBuild() {
   for (let i = 0; i < MB.dunes; i++) {
     const r = MB.duneR[0] + hashSalt(i, 77, 4) * (MB.duneR[1] - MB.duneR[0]);
     const d = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshLambertMaterial({ color: i % 2 ? 0x9c4522 : rust }));
+      artLam(i % 2 ? 0x9c4522 : rust, "mars"));
     d.scale.y = 0.22;
     marsPlace(d, MB.spread * (0.7 + hashSalt(i, 77, 6) * 1.5), hashSalt(i, 77, 8) * Math.PI * 2, -1);
     g.add(d);
@@ -99,13 +99,13 @@ function marsBuild() {
   for (let i = 0; i < MB.domes; i++) {
     const dome = new THREE.Group();
     const shell = new THREE.Mesh(new THREE.SphereGeometry(MB.domeR, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshLambertMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.45 }));
+      artPaint(new THREE.MeshLambertMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.45 }), "deck", { scale: [5, 5, 5, 5] }));
     dome.add(shell);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(MB.domeR, 0.9, 6, 24), lam(pale));
     rim.rotation.x = Math.PI / 2; dome.add(rim);
     const lamp = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff2b0, fog: false }));
     lamp.position.y = MB.domeR + 1.5; dome.add(lamp);
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, MB.domeR * 1.4, 8), lam(pale));
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, MB.domeR * 1.4, 8), artLam(pale, "corrugated"));
     tube.rotation.z = Math.PI / 2; tube.position.set(MB.domeR * 0.8, 3, 0); dome.add(tube);
     marsPlace(dome, MB.spread * 0.62, 0.7 + i * 1.5, 0);
     g.add(dome);
@@ -113,7 +113,7 @@ function marsBuild() {
   // the rover garage: an open shed it could drive into
   {
     const gar = new THREE.Group();
-    const shed = new THREE.Mesh(new THREE.BoxGeometry(22, 9, 16), lam(pale));
+    const shed = new THREE.Mesh(new THREE.BoxGeometry(22, 9, 16), artLam(pale, "corrugated"));
     shed.position.y = 4.5; gar.add(shed);
     const mouth = new THREE.Mesh(new THREE.BoxGeometry(14, 7, 1), lam(0x1f2328));
     mouth.position.set(0, 3.6, 8.2); gar.add(mouth);

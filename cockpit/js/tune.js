@@ -25,8 +25,8 @@ const TUNE = {
   chunkSegments: 24,
   chunkRadius: 5,
 
-  fogNear: 700,
-  fogFar: 1450,
+  fogNear: 950,                  // art sprint: the city 1.2 km off reads through it
+  fogFar: 1560,                  // the terrain edge is >= 1600 m out (chunkRadius 5 x 320)
   skyTopColor: 0x4a90d9,
   skyHorizonColor: 0xcfe8f7,
   skyCurveExponent: 0.55,
@@ -40,6 +40,15 @@ const TUNE = {
   // shadow box that follows him, plus a hemisphere fill so shaded sides are never
   // black. Readability first: nothing here may make a thing he needs darker.
   light: {
+    // ACES filmic on the LIT surfaces only (scene.js). Unlit things -- lamps,
+    // reticles, pad rings, signal heads, fire, glows -- are never tone-mapped, and
+    // neither is the sky, because three.js fogs AFTER the tone map and the fog
+    // has to meet the sky it fades into.
+    // OFF: this palette is authored in display space (no linear workflow), so the
+    // film curve bleaches it -- the sea goes grey-teal, the red plane salmon
+    // (evidence/art/exposure-sheet.jpg, art sprint). Doing it properly means
+    // converting every colour to linear and relighting; that is not a switch.
+    toneMap: { on: false, exposure: 1.0 },
     sunAzimDeg: 133,                   // a real angle: shadows fall across the runway, not down it
                                        // (the elevation is passed in to sunDirection, not read from here)
     shadow: {

@@ -10,6 +10,35 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v122 — the art sprint: textures, two block cities, and two lighting passes priced and left out
+
+Everything had a colour and nothing had a surface. One 2048² atlas of sixteen
+seamless tiles (glass, brick and concrete facades, asphalt with and without
+paint, concrete, grass, scrub, sand, Mars and lunar regolith, corrugated steel,
+container panels, a roof, a steel deck, and the sea's normal map), authored
+procedurally by `scripts/make_atlas.py`, sliced at load into one texture array
+and box-mapped in the shader (`art.js`). Each tile is divided by its own mean
+and multiplied onto the material's palette colour, so it adds detail and never
+changes a colour; glass reflects the sky, is the only thing on a building that
+glints, and lights up at night. Painted: towns, landmarks, airports, runways, the
+highway and its tunnel, the harbour and its containers, the carrier, the rig,
+the demolition towers, Mars, the Moon and the terrain. Never painted: anything
+he acts on. The New York skyline and the California downtown are block cities
+now — generated in Blender (`scripts/city/`) as street grids with setback towers,
+cornices, water tanks and rooftop plant, 433 and 307 buildings, instanced by type,
+a per-building LOD at 650 m and one merged mesh beyond 1 km; the layout ships as
+JS so their solids and sparkle spots register at load, and a building is not
+solid until its mesh has arrived. Daytime fog now runs 950–1560 m (was 700–1450),
+still inside the terrain's edge, so a city a kilometre off reads. SSAO was priced
+and not shipped (+71–105% of the frame on the heaviest scenes under SwiftShader,
+nearly twice the draw calls, and blind under the log depth buffer); ACES costs
+nothing but bleaches a palette authored in display space, so it is a switch left
+off. Two harness checks were made honest along the way: the fireboat's pool check
+now asks who emits, not how full the pool is at one instant, and the bore drive
+resets the speed step an earlier check left raised. That last one found a real
+gap, not fixed here: hands-off at a raised speed step, the car can rear-end
+slower traffic in its own lane.
+
 ## v119/v120 — the connected-world sprint reverted, then six bugs found by sweeping rather than by looking
 
 **v119 reverts the connected-world merge** (`b13587f`): no hop-in, no parked

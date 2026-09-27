@@ -56,11 +56,16 @@ const canopyInst = new THREE.InstancedMesh(
 );
 canopyInst.setColorAt(0, tmpColor.setHex(TUNE.treeCanopyColor));
 
+// Town buildings wear brick, render or office glass by instance (art.js reads
+// `artLayerI` for the walls; the roof is the preset's).
 const buildingInst = new THREE.InstancedMesh(
   new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
-  new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }),
+  artPaint(new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }), "brick", { instLayer: true }),
   TUNE.buildingMaxInstances
 );
+const buildingLayer = new THREE.InstancedBufferAttribute(new Float32Array(TUNE.buildingMaxInstances), 1);
+buildingInst.geometry.setAttribute("artLayerI", buildingLayer);
+const BUILDING_FACADES = [ART_LAYER.brick, ART_LAYER.brick, ART_LAYER.office, ART_LAYER.concrete];
 buildingInst.setColorAt(0, tmpColor.setHex(0xcfc4ae));
 
 const buildingBoxes = [];
@@ -96,7 +101,7 @@ const towerProto = (() => {
 
 const bridgeProto = (() => {
   const g = new THREE.Group();
-  const steel = new THREE.MeshLambertMaterial({ color: 0x9a9ea6 });
+  const steel = artPaint(new THREE.MeshLambertMaterial({ color: 0x9a9ea6 }), "deck");
   const deck = new THREE.Mesh(new THREE.BoxGeometry(360, 5, 18), steel);
   g.add(deck);
   for (const sx of [-115, 115]) {
@@ -123,6 +128,7 @@ function placeLandmark(cellX, cellZ) {
   let lz = czw + (hashSalt(cellX, cellZ, 93) - 0.5) * TUNE.landmarkGrid * 0.5;
   if (Math.abs(lx) < 1700 && Math.abs(lz) < 1700) return null;
   if (inCorridor(lx, lz, 200)) return null;
+  if (typeof cityCovers === "function" && cityCovers(lx, lz, 220)) return null;   // city.js: never through a block
   if (flattenMask(lx - 190, lz) > 0 || flattenMask(lx + 190, lz) > 0 || flattenMask(lx, lz - 190) > 0 || flattenMask(lx, lz + 190) > 0) return null;   // never across an airport pad
   const proto = isTower ? towerProto : bridgeProto;
   const inst = proto.clone();
@@ -205,6 +211,7 @@ function rebuildTrees(px, pz) {
         const wz = (cz + hashSalt(cx, cz * 5 + k, 44)) * cs;
         if (flattenMask(wx, wz) > 0.02) continue;
         if (inCorridor(wx, wz, 40)) continue;
+        if (typeof cityCovers === "function" && cityCovers(wx, wz, 4)) continue;
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.6) continue;
         const palm = pFromNY(wz) < 0.055;
@@ -264,7 +271,7 @@ function rebuildBuildings(px, pz) {
         const rad = (0.25 + hashSalt(cx * 7 + k, cz * 7 + k, 66) * 0.75) * grid * 0.33;
         const wx = tcx + Math.cos(ang) * rad;
         const wz = tcz + Math.sin(ang) * rad;
-        if (flattenMask(wx, wz) > 0.02 || inCorridor(wx, wz, 40)) continue;
+        if (flattenMask(wx, wz) > 0.02 || inCorridor(wx, wz, 40) || (typeof cityCovers === "function" && cityCovers(wx, wz, 16))) continue;
         if (Math.abs(wx - TRAIN_X) < 14) continue;   // nothing stands on the freight line either
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.8) continue;
@@ -279,6 +286,7 @@ function rebuildBuildings(px, pz) {
         buildingInst.setMatrixAt(bi, dummyObj.matrix);
         tmpColor.setHex(BUILDING_PALETTE[Math.floor(hashSalt(cx + k, cz + k, 72) * BUILDING_PALETTE.length)]);
         buildingInst.setColorAt(bi, tmpColor);
+        buildingLayer.setX(bi, BUILDING_FACADES[Math.floor(hashSalt(cx - k, cz + 2 * k, 73) * BUILDING_FACADES.length)]);
         // Collider follows the visual quarter-turn: odd turns swap the x/z extents.
         const hw = (rotIdx % 2 ? d : w) / 2, hd = (rotIdx % 2 ? w : d) / 2;
         buildingBoxes.push({ x: wx, z: wz, hw, hd, y0: gy - 0.3, y1: gy - 0.3 + hgt, top: gy - 0.3 + hgt, idx: bi });
@@ -289,6 +297,7 @@ function rebuildBuildings(px, pz) {
   buildingInst.count = bi;
   buildingInst.instanceMatrix.needsUpdate = true;
   if (buildingInst.instanceColor) buildingInst.instanceColor.needsUpdate = true;
+  buildingLayer.needsUpdate = true;
 }
 
 let scenCenterX = null, scenCenterZ = null;

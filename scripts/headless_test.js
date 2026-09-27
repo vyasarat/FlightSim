@@ -56,7 +56,15 @@ function check(name, ok, extra) {
     console.error(`Port ${PORT} is already serving something; stop it first.`);
     process.exit(2);
   }
-  const server = spawn("python3", ["-m", "http.server", String(PORT)], { cwd: ROOT, stdio: "ignore" });
+  // The stock `python3 -m http.server` listens with a backlog of FIVE. A page
+  // asks for ~60 files at once, and on a loaded machine (a security daemon
+  // filtering local sockets) the overflow comes back as ERR_CONNECTION_RESET and
+  // a page that never boots -- the same on the old build as the new. Same
+  // server, deeper queue.
+  const server = spawn("python3", ["-c",
+    "import http.server as h; h.ThreadingHTTPServer.request_queue_size = 128; " +
+    `h.test(HandlerClass=h.SimpleHTTPRequestHandler, ServerClass=h.ThreadingHTTPServer, port=${PORT}, bind="127.0.0.1")`],
+    { cwd: ROOT, stdio: "ignore" });
   process.on("exit", () => server.kill());
   server.on("exit", code => {
     if (results.length === 0) { console.error(`static server exited early (code ${code})`); process.exit(2); }
@@ -89,6 +97,8 @@ function check(name, ok, extra) {
     `);
     await page.goto(URL);
     await page.waitForFunction(() => !!window.__lp, null, { timeout: 15000 });
+    // the atlas and the two city GLBs arrive after load (art.js, city.js)
+    await page.waitForFunction(() => !window.__lp.artReady || window.__lp.artReady(), null, { timeout: 30000 });
     await page.evaluate(() => window.__lp.api.skipScreens());
     return { ctx, page, errors };
   }
