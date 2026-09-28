@@ -473,6 +473,7 @@ const TUNE = {
     commitIn: 4,                 // ... and it is committed this far into the junction; short of it, letting go is straight on
     cornerSpeed: 6.5,            // the speed it lets him take the corner at: the car turns on
                                  // an 8 m circle here, inside turnR with room for lag
+    lateBrake: 140,              // a turn held too late for cornerBrake: as hard as the corner needs, up to this
     cornerBrake: 60,             // how hard it sheds speed on the approach (m/s^2): from the
                                  // window's edge it can take a corner from up to the 1.4 step
     uturnSpeed: 3.2,             // a turnaround at a dead end
@@ -581,6 +582,8 @@ const TUNE = {
     // and at or past it it is, and held on an approach it is the turn he takes.
     fullSteer: 0.7,
     liftGrace: 0.4,              // a finger off the glass this briefly has not let go of a turn
+    centreBelow: 0.3,            // a turn done is spent until the stick is back under this (or lifted)
+    relatchFor: 1.0,             // after a lift under liftGrace, this long to find the drag again: the hold stands
     // The car gets its own drag range, because the aeroplanes' is tuned with him
     // and is not to be touched. Measured against the WIDTH, which is the
     // dimension his thumb actually travels: the shared one is a fraction of

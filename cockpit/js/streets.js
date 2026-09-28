@@ -12,7 +12,9 @@
 // (car.js): below a FULL steer the stick does not steer and lane-keep holds his
 // lane, straight on through every junction; a full steer held on a junction's
 // approach is the turn there. Nothing latches and nothing is remembered from
-// one junction to the next: let go and it is straight on. Lane-keep uses the
+// one junction to the next: let go and it is straight on. A turn DONE holds
+// him on the new street while the finger stays where it was: the next turn
+// needs the stick centred (or lifted) and a fresh full steer. Lane-keep uses the
 // motorway's own law on a street; only on the corner itself does it follow the
 // curve by pure pursuit.
 // Hands-off he goes straight on, and where the road ends he is taken round the
@@ -275,7 +277,7 @@ function stBuildGrid(key) {
 // the assist slows him and lane-keep takes the turn that keeps him on the loop
 // (`policy`). Nowhere else does it touch his speed.
 // ---------------------------------------------------------------------------
-const stPlan = { road: null, dir: 1, turn: null, giveBack: 0, cap: Infinity, holding: false, corner: false, curve: false };
+const stPlan = { road: null, dir: 1, turn: null, giveBack: 0, cap: Infinity, holding: false, corner: false, curve: false, capBrake: 0 };
 const stTmpA = {}, stTmpB = {};
 
 // Signed angle from travelling (fx,fz) to an arm: positive is a RIGHT turn.
@@ -485,7 +487,7 @@ const stAim = {};
 function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
   const P = stPlan;
   P.giveBack = Math.max(0, P.giveBack - dt);
-  P.holding = false; P.corner = false;
+  P.holding = false; P.corner = false; P.turned = false; P.capBrake = 0;
   // `steer01` is his HOLD (car.js): zero unless he is holding a full steer
   const held = steer01 !== 0;
   // re-read the road whenever he is steering or has left the one we had
@@ -619,15 +621,24 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
     // on the corner itself lane-keep follows the curve by pure pursuit; on a
     // street it is the motorway's own law (car.js)
     P.corner = !!(J.turn && (engaged || P.turn.committed) && stAim.s >= J.t1S - ST.turnAhead);
+    P.capBrake = 0;
     if (engaged || P.turn.committed) {
       const vc = J.uturn ? ST.uturnSpeed : ST.cornerSpeed;
       const early = P.turn.forced ? ST.forcedMargin : 0;
       P.cap = Math.sqrt(vc * vc + 2 * ST.cornerBrake * Math.max(0, toApex - early));
+      // A turn held LATE -- a finger that finds the street forty metres out at
+      // cruise -- is still his turn, and the corner brake cannot make it: he ran
+      // past the corner's start, round wide and into the far kerb's parked cars.
+      // So it brakes as hard as the corner needs, up to `lateBrake`.
+      if (speed > vc) P.capBrake = Math.min(ST.lateBrake, (speed * speed - vc * vc) / (2 * Math.max(2, toApex - early)));
     }
     // through it: on to the road it leads to
     const through = J.turn ? stAim.s > J.exitS + ST.exitSlack : toGo < -ST.exitSlack;
     if (through) {
       if (J.turn && P.turn.committed) P.giveBack = ST.giveBackTime;
+      // a turn he held is DONE: car.js holds him on this street until his
+      // finger lifts or the stick centres, and the next turn needs a new steer
+      if (J.turn && P.turn.held) P.turned = true;
       P.road = P.turn.arm.road; P.dir = stArmDir(P.turn.arm); P.turn = null;
     }
     p = stProject(road, x, z);
@@ -675,7 +686,7 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
   }
   return { lateral: pLat, y, fx: pFx, fz: pFz, s: pS, spur: null, street: road, dir,
            laneOff: road.lo * dir, aimX: stAim.x, aimZ: stAim.z, cap: P.cap,
-           holding: P.holding, corner: P.corner, curve: P.curve,
+           holding: P.holding, corner: P.corner, curve: P.curve, turned: P.turned, capBrake: P.capBrake,
            railHalf: road.railed ? road.halfW : 0, dist: pD };
 }
 

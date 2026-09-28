@@ -111,13 +111,20 @@ function hwyGrade() {
 }
 
 // ---- queries the car lives on ---------------------------------------------
-// Bisection on z, then a short local walk: the route is monotonic in z.
+// ONE MEASURE: `s` is metres along the road, the same measure hwyNearest
+// answers in (each sample's own `s`). The samples are only NEARLY `HW.step`
+// apart -- three.js spaces them off a coarse arc-length table -- and reading
+// sample i at i * HW.step made a second measure that was 14 m out by
+// California: traffic alongside him read as a car's length behind. So the
+// pair that holds s is looked up, never divided for.
 function hwySampleAt(s) {
   const pts = highway.pts;
-  const f = clamp(s, 0, highway.length) / HW.step;
-  const i = Math.min(pts.length - 2, Math.max(0, Math.floor(f)));
-  const t = clamp(f - i, 0, 1);
+  const sc = clamp(s, 0, highway.length);
+  let i = Math.min(pts.length - 2, Math.max(0, Math.floor(sc / HW.step)));
+  while (i > 0 && pts[i].s > sc) i--;
+  while (i < pts.length - 2 && pts[i + 1].s < sc) i++;
   const a = pts[i], b = pts[i + 1];
+  const t = clamp((sc - a.s) / Math.max(1e-6, b.s - a.s), 0, 1);
   return {
     x: lerp(a.x, b.x, t), z: lerp(a.z, b.z, t), y: lerp(a.y, b.y, t),
     fx: lerp(a.fx, b.fx, t), fz: lerp(a.fz, b.fz, t),
@@ -165,11 +172,6 @@ function hwyNearest(x, z) {
   const px = lerp(a.x, b.x, bt), pz = lerp(a.z, b.z, bt);
   const rx = -nz, rz = nx;                      // road's right-hand vector
   hwyTmp.s = lerp(a.s, b.s, bt);
-  // the same place in hwySampleAt's measure, which is the one traffic lives in:
-  // that reads sample i at i * HW.step, and the samples are not quite HW.step
-  // apart on the ground -- by California the two disagree by 14 m, and traffic
-  // alongside him took him for a car's length ahead of it
-  hwyTmp.u = (bi + bt) * HW.step;
   hwyTmp.lateral = (x - px) * rx + (z - pz) * rz;
   hwyTmp.y = lerp(a.y, b.y, bt);
   hwyTmp.fx = nx; hwyTmp.fz = nz;
@@ -949,14 +951,14 @@ function hwyUpdateTraffic(dt, px, pz) {
   if (!highway.trafficMesh) return;
   const T = HW.traffic;
   const near = hwyNearest(px, pz);
-  const aroundS = near ? near.u : 0;
+  const aroundS = near ? near.s : 0;
   // where he is, if he is the car: traffic needs it to keep off his bumper
   let carHere = null;
   if (near && typeof car !== "undefined" && state.vp && state.vp.car) {
     // Which CARRIAGEWAY he is on, which is the sign of his lateral offset --
     // not his direction of travel. Matching on direction put the follow rule on
     // the oncoming side and let his own lane drive straight through him.
-    carHere = { s: near.u, lateral: near.lateral, side: Math.sign(near.lateral) || 1, speed: state.speed };
+    carHere = { s: near.s, lateral: near.lateral, side: Math.sign(near.lateral) || 1, speed: state.speed };
     // On the last of a city's way on he is about to be in the outer lane, and
     // the traffic makes room for him there; over the motorway on a flyover he
     // is not on it at all (streets.js). Only on ANOTHER road: off every road,

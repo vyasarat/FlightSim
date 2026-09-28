@@ -448,7 +448,9 @@ function carRoadTarget(steer01, dt) {
     return along > -ST.ramp.chooseEarly && along < (ex.spur[0].hs - g.s) * g.c + ST.ramp.taperLen;
   };
   let choice = car.exitChoice || null;
-  if (choice && (!heldRight || (car.spurRec !== choice && !approach(choice)))) choice = null;
+  // (once the ramp is his, the spent hold keeps it: the finger has not moved)
+  const keeps = heldRight || (car.spent && car.spurRec === choice);
+  if (choice && (!keeps || (car.spurRec !== choice && !approach(choice)))) choice = null;
   if (!choice && heldRight && !mainOff) {
     for (const ex of highway.exits) if (approach(ex)) { choice = ex; break; }
   }
@@ -508,7 +510,10 @@ function carRoadTarget(steer01, dt) {
   let ax, az;
   if (best.spur) {
     const sp = best.spur.spur;
-    const want = clamp(best.s + ahead * best.dir, 0, sp[sp.length - 1].s);
+    // a city's ramp bends as a street's corner does, and is aimed along as one:
+    // from 1.5 s the pursuit cut the inside of a flyover's peel at the top step
+    const look = best.spur.city ? Math.max(TUNE.city.turnAhead, Math.min(ahead, state.speed * TUNE.city.turnLook)) : ahead;
+    const want = clamp(best.s + look * best.dir, 0, sp[sp.length - 1].s);
     let i = 1; while (i < sp.length - 1 && sp[i].s < want) i++;
     const a = sp[i - 1], b = sp[i];
     const t = clamp((want - a.s) / Math.max(1e-3, b.s - a.s), 0, 1);
@@ -614,7 +619,7 @@ function carSpawn(originIdx) {
   state.speed = 0; state.pitch = 0; state.bank = 0; state.phase = "TAXI";
   car.steer = 0; car.boost = 0; car.offRoad = 0; car.charging = 0; car.chargedAt = null;
   car.yield = 1; car.assistOff = 0;      // the assist is back the moment he is
-  car.exitChoice = null; car.spurRec = null; car.lastHeld = 0; car.liftT = 0;
+  car.exitChoice = null; car.spurRec = null; car.lastHeld = 0; car.liftT = 0; car.spent = 0; car.arrived = null;
   if (typeof stPlan !== "undefined") { stPlan.road = null; stPlan.turn = null; }
   carBuildCabin();
   thunk();
@@ -679,7 +684,7 @@ function carReassemble() {
   const on = car.crashOn || {};
   const nx = car.crashNx, nz = car.crashNz;
   car.crashX = car.crashZ = null; car.crashOn = null; car.crashNx = car.crashNz = 0;
-  car.rejoin = null; car.exitChoice = null; car.spurRec = null; car.lastHeld = 0;
+  car.rejoin = null; car.exitChoice = null; car.spurRec = null; car.lastHeld = 0; car.spent = 0; car.arrived = null;
   const settle = () => { state.speed = 0; car.steer = 0; car.boost = 0; car.yield = 1; car.assistOff = 0;
                          flags.carReassembles = (flags.carReassembles || 0) + 1; };
   // A city street -- or a city ramp, which is the planner's road near the grid
@@ -799,18 +804,53 @@ function updateCar(dt) {
   // Nothing is remembered between junctions; letting go is straight on. The
   // one allowance is a finger LIFTED (not recentred) for under `liftGrace`:
   // a four-year-old's finger comes off the glass, and that is not a choice.
+  //
+  // A TURN DONE IS SPENT. The full steer that took a corner, an exit or a ramp
+  // holds him on the road it took him to for as long as the finger stays where
+  // it is: it reads as hands-off, lane-keep drives, and it is no one's choice of
+  // the next junction. It is his again only once the finger lifts or the stick
+  // comes back under `centreBelow` -- the next turn is a fresh full steer.
   const full = Math.abs(bank) >= CAR.fullSteer;
   car.liftT = touching ? 0 : (car.liftT || 0) + dt;
-  if (full) car.lastHeld = Math.sign(bank);
-  else if (touching || car.liftT > CAR.liftGrace) car.lastHeld = 0;
+  // A lift is a real lift only past `liftGrace`. A finger that comes off the
+  // glass for a moment lands again at the middle of its NEW drag, so for
+  // `relatchFor` after it touches down the stick reading centred is the finger
+  // finding its way back, not letting go -- of a turn it is holding or of one
+  // it has done. (Without it, a blip sixteen metres from a corner dropped the
+  // hold on touch-down, the drag came back too late to be a choice, and the
+  // full steer went through raw at 33 m/s.) A full steer either way ends it.
+  if (!touching) car.relatch = car.liftT <= CAR.liftGrace ? CAR.relatchFor : 0;
+  else if (car.relatch > 0) car.relatch = full ? 0 : car.relatch - dt;
+  const finding = touching && car.relatch > 0;
+  if (car.spent) {
+    if (!touching) { if (car.liftT > CAR.liftGrace) car.spent = 0; }
+    else if (full ? Math.sign(bank) !== car.spent : !finding && Math.abs(bank) < CAR.centreBelow) car.spent = 0;
+  }
+  const spent = !!car.spent;
+  if (full && !spent) car.lastHeld = Math.sign(bank);
+  else if (spent || (touching && !finding) || car.liftT > CAR.liftGrace) car.lastHeld = 0;
   const dz = CAR.deadzone;
-  const mag = full ? Math.max(0, (Math.abs(bank) - dz) / (1 - dz)) : 0;
+  const mag = full && !spent ? Math.max(0, (Math.abs(bank) - dz) / (1 - dz)) : 0;
   let steer01 = Math.sign(bank) * mag;
   let steering = mag > 0;
-  const hold = full ? steer01 : (car.lastHeld || 0);
+  const hold = spent ? 0 : full ? steer01 : (car.lastHeld || 0);
 
   // ---- the road under him
   const road = carRoadTarget(hold, dt);
+  // the turn is done: a street's corner behind him, or on to an exit's spur or
+  // a city ramp with the steer that took it still held. (Only the steer that
+  // TOOK the spur: `arrived` is the one he last came on to, so a full steer
+  // made later along it is his to make.)
+  const onSpur = road && road.spur && car.onSpurRoad ? road.spur : null;
+  const arrived = onSpur && onSpur !== car.arrived;
+  car.arrived = onSpur;
+  if (!spent && full && road && (road.turned || arrived)) {
+    car.spent = Math.sign(bank);
+    // and the spur it took is held as chosen, or at its mouth the motorway
+    // beside it -- nearer, and the spent finger reading as hands-off -- took
+    // him back
+    if (arrived && !car.exitChoice) car.exitChoice = onSpur;
+  }
   // on a city street, the street's own width is the road; the motorway's 24 m
   // would call the whole of the square "on the road"
   // (and a city's ramps are one lane: their own width too, not a spur's)
@@ -850,7 +890,7 @@ function updateCar(dt) {
   const up = giveBack ? Math.max(CAR.accel, TUNE.city.giveBackAccel) : CAR.accel;
   const down = cornering && state.speed > want
     ? Math.max(CAR.brake, road && !road.spur && !road.street ? HW.endTurn.brake
-               : road && road.spur ? TUNE.city.ramp.safeBrake : TUNE.city.cornerBrake) : CAR.brake;
+               : road && road.spur ? TUNE.city.ramp.safeBrake : Math.max(TUNE.city.cornerBrake, road && road.capBrake || 0)) : CAR.brake;
   const rate = (want > state.speed ? up : down) * dt;
   state.speed += clamp(want - state.speed, -rate, rate);
   state.speed = clamp(state.speed, 0, CAR.cruise * step * CAR.boost * 1.05);
@@ -891,14 +931,15 @@ function updateCar(dt) {
     const gain = car.onRoad ? LK.gain : LK.offRoadGain;
     let assist = clamp(-hErr / DEG * gain, -CAR.steerRate, CAR.steerRate);
     // On a CURVE the motorway never has -- a city corner, a ramp, the bridge's
-    // link, and the grid street whose aim is already up it -- pure pursuit:
+    // link, a city's ramps, and the grid street whose aim is already up it
+    // (at the top step the motorway's law swung him off a ramp's far edge) -- pure pursuit:
     // the turn rate that arc to the aim point needs, as
     // the steer THIS car needs for it at this speed. A heading error held on a
     // tight curve saturates the other law: it overshot the cross street, and
     // coming down the bridge ramp at cruise it cut the curve on to the centre
     // line beside the oncoming queue. Along a straight grid street it is the
     // motorway's law, so the street feels like the motorway (feel_compare.js).
-    if (road.street && (road.corner || road.curve) && car.onRoad && state.speed > 0.5) {
+    if (((road.street && (road.corner || road.curve)) || (road.spur && road.spur.city)) && car.onRoad && state.speed > 0.5) {
       const Ld = Math.max(4, Math.hypot(road.aimX - state.x, road.aimZ - state.z));
       const yaw = 2 * state.speed * Math.sin(hErr) / Ld;                    // rad/s, + is left
       const rate = clamp(state.speed / CAR.rollAt, 0, 1) * lerp(CAR.lowSpeedTurn, 1, clamp(state.speed / CAR.cruise, 0, 1));

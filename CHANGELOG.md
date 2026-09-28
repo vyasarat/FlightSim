@@ -10,6 +10,37 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v128 — a turn done stays done, and the motorway has one measure
+
+A full steer that has taken a corner, an exit or a city ramp now holds him on
+the road it took him to for as long as the finger stays where it is. The hold
+reads as hands-off, lane-keep drives, and it is not a choice of the next
+junction. It is his again only once he lifts (longer than the 0.4 s a
+four-year-old's finger comes off the glass by accident) or brings the stick
+back near the middle, and the next turn is a fresh full steer. In v127 a
+finger still held after an exit steered him off the spur into the field. The
+motorway now has a single distance measure. Everything that asks where along
+it something is (traffic, the lights, the exits, the car) reads the same
+metres, instead of two that drifted 14 m apart by California. Lane-keep on a
+city's ramps now follows the curve as on a street corner, with the corner's
+shorter aim; at the top speed step the motorway's law had swung him off a
+ramp's far edge. The noisy drive found two more, both older than this
+release. A finger that came off the glass for a moment, just short of a
+corner, landed at the middle of a new drag. It read as centred, the turn was
+dropped on touch-down, and by the time the drag was back the junction was too
+close to choose. His full steer then went through raw at 33 m/s, into traffic
+on the next street. A re-touch after a brief lift now has a second to find its
+drag again, for a turn being held and for one already done. And a turn held
+late (forty metres out at cruise) could not shed its speed at the corner brake
+and ran wide into the far kerb's parked cars. It now brakes as hard as the
+corner needs, up to 140 m/s², speed-only as before. The noisy drive's hand
+now keeps holding for 1 to 3.5 s after half its turns, as a child does. It
+lets go in time when turns remain and the next junction leads out of the city.
+A touch of a parked car now dumps its frames, like a bang. The city checks
+gained the kept hold (way in and street corner) and a lift just short of a
+corner; with the re-touch fix switched off, the lift check misses every turn
+and hits a wall once.
+
 ## v127 — a turn is something he does, and a noisy finger drives it first
 
 The city was being tested by a steady robot hand, and a four-year-old's hand is
