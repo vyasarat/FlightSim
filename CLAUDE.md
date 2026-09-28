@@ -20,6 +20,16 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
 - **The picker always opens on the vehicles**, never the rocket's destination screen (the
   way back sits underneath it). A relaunch restores vehicle, direction and destination.
 - **Flight feel is tuned with the kid**: don't retune it; assists may weaken slowly.
+- **The city corner assist is a carve-out, stated here, not a bend** (`streets.js`). At
+  cruise the car turns on a 77 m circle and a street is 14 m wide, so a block corner is only
+  makeable slowly. The assist is SPEED-ONLY and never changes where he pointed: holding left
+  means he turns left; it sheds speed on the approach and gives it back on exit. It engages
+  only within `TUNE.city.cornerAssistDist` of a junction, only while a turn is held into a
+  street that is there (or the road ends ahead of a hands-off finger), never on the motorway.
+  A turn held on the approach is his CHOICE of that street, so lane-keep holds his lane to
+  the corner and takes it — an assist may hold the road for him, never choose the road — and
+  one hold is one turn. Point at a building halfway along a block and nothing saves him.
+  Every strength is `TUNE.city.*`, to be weakened as he improves, like the landing assists.
 - **Readability beats realism** — an effect that hides something he needs to see goes.
 
 ## The vehicle contract
@@ -82,6 +92,20 @@ a deliberate, stated behaviour change.
   removed, and stays silent until the surveyor has classified the route — cut first and
   nothing is ever low enough to be a tunnel. Twin bores: one tube wide enough for a divided
   road stands taller than the hill.
+- **The cities are driven on a graph read off the layout** (`streets.js`): every block edge
+  in `citydata.js` is a street centreline, avenues `avenueW` and streets `streetW` wide — both
+  written by the generator. An edge is kept only if it is dry (the generator's 1.5 m margin)
+  and clear of every solid; a stub left by a dropped edge is pruned, so the grid has no dead
+  end (the bridge deck's turnaround is the one kept on purpose). Hands-off goes straight on;
+  where the road ends, `policy` is a value iteration toward the way out. City traffic keeps
+  the motorway's promises three ways — behind him holds his speed, ahead of him in his lane
+  outruns him, nothing enters a junction he will reach before it could clear — and under all
+  three a net measured on the ground: nothing stays in front of him. A city signal's head
+  stands on the FAR side, facing its traffic: from a city stop line the near side is behind
+  the windscreen pillar.
+- **The guardrail holds him at the road's edge, and only there** (`CAR.railReach`): unbounded,
+  anywhere off-road below the nearest road's height read as "past the rail" and he was
+  pushed the whole way on to it — 850 m from the square in New York to the motorway.
 - **A contextual button needs a RADIUS**, not just "parked and still". **A boat can never
   be stuck**: a beached hull widens its water search *and* times out — the search alone
   deadlocks against a quay. The harbour is the third place he can lose a session in, so its
@@ -128,6 +152,7 @@ a deliberate, stated behaviour change.
 | `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship, buggy, per-launch event |
 | `setpieces.js` `marsbase.js` `toyworld.js` `workshop.js` `toyfinish.js` | demolition, tower-catch, fire rig, carrier, Mars and its toys / the airport magnet yards, ramp and toy-fleet finish |
 | `highway.js` `car.js` `lights.js` `police.js` | the coast-to-coast road and its traffic / the SUV and lane-keep / the junctions / the chase |
+| `streets.js` | both cities, driveable: the street graph, the corner assist, the links (off-ramps, New York's bridge, California's boulevard), city traffic, parking, people, the square |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
 | `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
 

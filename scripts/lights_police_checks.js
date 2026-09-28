@@ -51,19 +51,23 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
         if (seq.length > 8) break;
       }
       out.seq = seq;
-      // and the amber actually blinks: sampled fast, the lamp is not steady
-      L.ltForce(0, "mainAmber");
-      const j = L.lights.junctions[0];
+      // and the amber actually blinks: sampled fast, the lamp is not steady.
+      // Only an AWAKE junction's lamps are drawn (v125), so this is the nearest
+      // one, and its lamp is found where the frame put it: after the lamps of
+      // every awake junction before it in the list.
+      const near = L.lights.junctions.map((q, i) => ({ i, d: Math.hypot(q.x - L.state.x, q.z - L.state.z) })).sort((a, b) => a.d - b.d)[0].i;
+      L.ltForce(near, "mainAmber");
+      const j = L.lights.junctions[near];
       j.t = 99;
       const lampOn = [];
       for (let i = 0; i < 40; i++) {
         L.update(1 / 60);
-        const m = new THREE.Matrix4();
-        // the amber lamp of the first head is instance 1
+        let base = 0;
+        for (const q of L.lights.junctions) { if (q === j) break; if (q.awake) base += q.lamps.length; }
+        // the amber lamp of its first head is the second of its lamps
         const c = new THREE.Color();
-        L.lights.lampMesh.getColorAt(1, c);
+        L.lights.lampMesh.getColorAt(base + 1, c);
         lampOn.push(c.getHex() !== L.LT.colors.dark);
-        void m;
       }
       out.blinkOn = lampOn.filter(Boolean).length;
       out.blinkOff = lampOn.filter(x => !x).length;

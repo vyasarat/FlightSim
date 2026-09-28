@@ -217,6 +217,7 @@ const TUNE = {
   // is ever aimed at anybody, and being caught costs him nothing at all. The
   // whole of it is a chase that ends by itself.
   police: {
+    trailAhead: 14, trailWeave: 2.2,   // in a city: how far along his trail they aim, and how wide they weave
     cars: 2,
     spawnBehind: 70, spawnSide: 26,
     speedOver: 1.18,             // how much faster than him they can manage when close
@@ -447,6 +448,66 @@ const TUNE = {
                                  // steering must never rear-end its own lane
   },
 
+  // ---- The city streets (js/streets.js): both block cities, driveable.
+  city: {
+    hashCell: 64,                // the street lookup's bucket
+    wideHalf: 10,                // a street this half-wide has two lanes and parking
+    laneWide: 3.75, laneNarrow: 3.5,   // lane centres from the centreline: wide / narrow street
+    capture: 8,                  // this far past a street's kerb he is still "on" it
+    offStreetReach: 45,          // ... and from this far off one (the square) it is still the road that pulls him back
+    endSlack: 14,                // ... and this far past its end, while he crosses the junction
+    headPenalty: 18,             // metres a road loses for pointing across him
+    straightDeg: 30,             // an arm within this of dead ahead is "straight on"
+    edgePad: 3,                  // a street is dropped if a solid comes this close to its lanes
+    // THE CORNER ASSIST, speed-only (see streets.js and CLAUDE.md). Weaken it as
+    // he gets better at corners: a smaller dist, a lower brake, a higher speed.
+    cornerAssistDist: 42,        // a turn held this close to a junction engages it
+    cornerSpeed: 6.5,            // the speed it lets him take the corner at: the car turns on
+                                 // an 8 m circle here, inside turnR with room for lag
+    cornerBrake: 60,             // how hard it sheds speed on the approach (m/s^2): from the
+                                 // window's edge it can take a corner from up to the 1.4 step
+    uturnSpeed: 3.2,             // a turnaround at a dead end
+    rejoinSpeed: 8, rejoinCos: 0.8,   // hands-off back on to a street from off it, across its line
+    giveBackTime: 2.4, giveBackAccel: 16,   // and how fast it hands the speed back after
+    turnIntent: 0.28,            // how hard a held steer must be to mean "turn here"
+    turnR: 11,                   // the fillet a corner is driven on
+    forcedMargin: 22,            // hands-off: brake this much earlier than the physics needs
+    minAhead: 12, turnAhead: 6, turnLook: 0.8,   // lane-keep's aim, on a street / round a corner
+    pursuitGain: 1.15,           // on a street lane-keep is pure pursuit; a touch over 1 takes up the steer lag
+    pathIn: 70, pathOut: 60, exitSlack: 3,
+    handoff: 60,                 // within this of the grid a city spur is the planner's
+    linkLift: 1.2,               // a link road rides this far above the ground it follows
+    signalEvery: [3, 3],         // signals at every third avenue by every third street
+    mastOut: 2.2,                // a signal mast stands this far onto the pavement
+    zebraGap: 1.0, zebraLen: 3.2, zebraW: 0.6,
+    kerbW: 0.45, kerbH: 0.12, kerbStep: 6,
+    parkEvery: 9.5, parkedPct: 55, parkOut: 1.7, parkClear: 9, parkedDrawn: 220, parkedRange: 360,
+    reassembleReach: 160,
+    trailStep: 4, trailMax: 220,
+    wake: 700,                   // his distance from a city's edge at which it comes alive
+    fountain: { r: 7, jetH: 8, splashCool: 1.6 },
+    // New York's bridge: up from the north-east corner, along the deck, round
+    // at the far end. California's boulevard: downtown to the coast road.
+    bridge: { from: [-76, 4427], halfW: 9, endBack: 30 },
+    boulevard: { from: [506, -5542], toZ: -6641, halfW: 10 },
+    ny: { manholes: 9, steamEvery: 0.45, steamRange: 260 },
+    people: { count: 110, range: 320, speed: [1.1, 1.7], dodge: 16, hide: 5.5 },
+    traffic: {
+      count: 64, range: 620, keepOut: 110, speed: [11, 17], accel: 5, brake: 11,
+      turnSpeed: 6.5, decide: 45, straightP: 0.6, stopGap: 2.5, lineBack: 0.6, queueGap: 9,
+      boxR: 12, yieldT: 3.2, resHold: 2.6, respawn: 2.5, parkedBack: 6,
+      spawnClear: 26,            // a car is placed at least this far from either end of its street
+      // the three promises (streets.js): ahead of him in his lane it outruns him
+      // from yieldReach, faster than he is by yieldMatch; behind, it holds his speed
+      yieldReach: 150, yieldMatch: 40, yieldAccel: 60, follow: 70,
+      chainT: 4.5,               // how many seconds of his road ahead the promises look along
+      closeT: 1.6, closeGap: 18, // this close ahead of him it keeps ahead even when he is slow
+      claimT: 11,                // how far ahead (in seconds of him) a junction is his to claim
+      guardT: 1.2, guardGap: 14, guardLat: 4.5,   // the net: in front of him, this close, this wide
+      turnClearT: 4,             // a turning car needs this much longer to clear a junction
+    },
+  },
+
   // ---- The car (js/car.js). A stealth-grey electric SUV: the silhouette, the
   // paint, the glass roof and the light bar, and nothing else -- no badge, no
   // wordmark, same rule as the airline liveries.
@@ -498,6 +559,7 @@ const TUNE = {
     settleMax: 1.2,              // a drop bigger than this is a step, not a crest
     railAt: 4,                   // a deck this high above the ground has a rail that holds him
     crashSpeed: 18,              // below this a contact is a bump, not a bang
+    railReach: 8,                // the guardrail holds him within this of a raised road's edge
     crashDebounce: 0.9,          // seconds of GAME time between bangs, driven by the frame
     bodyL: 9.2, bodyW: 4.2, bodyH: 2.6,
     camChase: [17, 6.5], camLag: 5,

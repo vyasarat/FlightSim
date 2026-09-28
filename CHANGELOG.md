@@ -10,6 +10,39 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v125 — drivable cities
+
+Both block cities are places to drive. Every street the generator laid is a
+road now, read off the layout rather than authored (`streets.js`): two lanes,
+the centre line, kerbs, a zebra across every arm of every junction, and signals
+at every third avenue by every third street. Two new exits off the motorway
+each side carry a skyline on the board. The way in arrives through the middle
+of the city, and hands-off he drives straight through, is taken round where
+the road ends and leaves by the other exit, crash-free at every speed step
+checked, with the city's traffic running. Holding left or right as he
+approaches a junction turns him on to that street. That needs the one new
+assist, a stated carve-out in CLAUDE.md: at cruise the car turns on a 77 m
+circle and a street is 14 m wide, so the corner assist sheds speed on the
+approach and hands it back after, only near a junction, and only for a street
+that is there. Point at a building halfway along a block and nothing saves him;
+he comes back on that street, facing along it. The city is alive: cars, taxis,
+buses and vans both ways, queuing at the reds; parked cars on the wide streets;
+people on the pavements who step back to the wall if he mounts one. Traffic
+keeps the motorway's promises (nothing behind drives into him, nothing ahead is
+a wall, nothing crosses in front), with a net under all three measured on the
+ground. Run a red and the chase follows him down the streets he drives. New
+York has steam out of the manholes, a hot-dog cart and a subway grate. It also
+has a ramp up on to the harbour bridge and a drive along its deck to a
+turnaround over the water; the bridge's towers stepped outboard to make the
+deck a road. And it has an open square with a fountain he can drive straight
+through. California has a 1.1 km boulevard from downtown to the coast road,
+which is how the car reaches the boats. Two old bugs went in passing: the car's
+guardrail clamp pulled a car anywhere below the motorway's height on to it
+(850 m in one frame from the square), and every signal lamp in the world was
+drawn every frame, asleep or not. Busiest New York junction with a chase,
+SwiftShader (not an iPad): +21 draw calls and +50k triangles over v124 at the
+same spot, frame +10–12%.
+
 ## v124 — a held finger never bangs, at any speed step, either way
 
 Two holes in the promise that a finger held from coast to coast never ends in

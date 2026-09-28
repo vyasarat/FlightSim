@@ -4583,6 +4583,7 @@ function check(name, ok, extra) {
       // ran first, and boxes alongside the road counted as boxes across it.
       out.wallHitsOnCrossing = L.flags.wallHits || 0;
       out.exits = L.highway.exits.length;
+      out.cityExits = L.highway.exits.filter(e => e.city).length;
       out.charges = L.highway.charges.length;
       out.overpasses = (L.highway.overpasses || []).length;
       return out;
@@ -4590,10 +4591,11 @@ function check(name, ok, extra) {
     check("highway: one continuous graded road coast to coast, with the mountain tunnel and the water crossings falling out of the profile rather than being placed by hand -- and it runs through nothing that was already in the world",
       road.length > 12000 && road.samples > 250 && road.tunnelRun > 300 && road.bridgeRun > 1000 &&
       road.underWater === 0 && road.buried === 0 && road.wallHitsOnCrossing === 0 &&
-      // seven exits now: the six on the main line plus the harbour coast spur,
-      // which is a hand-built polyline pushed into the same array -- that one
-      // line is all it takes to make the car able to drive over the drawbridge
-      road.exits === 7 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
+      // eleven exits now: the six on the main line, the harbour coast spur
+      // (a hand-built polyline pushed into the same array -- that one line is
+      // all it takes to make the car able to drive over the drawbridge), and
+      // each city's way in and way out (streets.js, v125)
+      road.exits === 11 && road.cityExits === 4 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
 
     // 4. zero text, with the boards, the interchange and the interior screen in frame
     const text = await page.evaluate(() => {
@@ -5476,6 +5478,8 @@ function check(name, ok, extra) {
   await require("./aircraft_orientation_checks")({ newPage, check });
   await require("./slot_checks")({ newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] });
   await require("./road_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
+  // the drivable cities: portrait, the driving seat on the first and the chase view on the second
+  await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
   await require("./event_pool_checks")({ newPage, check, shots: SHOTS });
   await require("./engine_sound_checks")({ newPage, check, shots: SHOTS });
   await require("./lights_police_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });

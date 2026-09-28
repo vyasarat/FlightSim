@@ -321,8 +321,22 @@ function carHideCabin() {
 // Nearest road (the main line or any spur -- a spur is a road too, which is what
 // makes taking an exit fall out of the same rule), plus an aim point that far
 // AHEAD along it, offset onto the lane he is nearest.
-function carRoadTarget() {
+function carRoadTarget(steer01, dt) {
   if (typeof highway === "undefined" || !highway.built) return null;
+  // A city street (streets.js) is a road too, and there the planner answers:
+  // which road he is on, the junction ahead, the corner. A city's spurs are the
+  // motorway's until he is near the grid, then the planner's.
+  if (typeof stCarNear === "function" && stCarNear(state.x, state.z)) {
+    const handsOff = (car.yield === undefined || car.yield >= 1) && !(Math.abs(steer01 || 0) > 0);
+    const st = stCarTarget(state.x, state.z, state.heading, state.speed, steer01 || 0, handsOff, dt || 0);
+    if (st) {
+      const k = st.street.kind;
+      const node = st.street.a || st.street.b;
+      const near = node && Math.hypot(state.x - node.x, state.z - node.z) < TUNE.city.handoff;
+      if (k === "grid" || k === "link" || near) { car.onSpurRoad = false; car.onStreet = true; return st; }
+    }
+  }
+  car.onStreet = false;
   const n = hwyNearest(state.x, state.z);
   if (!n) return null;
   const LK = CAR.laneKeep;
@@ -413,6 +427,7 @@ function carSpawn(originIdx) {
   state.speed = 0; state.pitch = 0; state.bank = 0; state.phase = "TAXI";
   car.steer = 0; car.boost = 0; car.offRoad = 0; car.charging = 0; car.chargedAt = null;
   car.yield = 1; car.assistOff = 0;      // the assist is back the moment he is
+  if (typeof stPlan !== "undefined") { stPlan.road = null; stPlan.turn = null; }
   carBuildCabin();
   thunk();
 }
@@ -462,6 +477,17 @@ function carReassemble() {
   // From where it HIT, not from wherever the shared safePos left him.
   const fromX = car.crashX !== null ? car.crashX : state.x;
   const fromZ = car.crashZ !== null ? car.crashZ : state.z;
+  // In a city: on the street nearest where it hit, in his lane, facing along it.
+  const onStreet = typeof stReassembleAt === "function" ? stReassembleAt(fromX, fromZ, state.heading) : null;
+  if (onStreet) {
+    state.x = onStreet.x; state.z = onStreet.z; state.y = onStreet.y; state.heading = onStreet.heading;
+    state.speed = 0; car.steer = 0; car.boost = 0; car.yield = 1; car.assistOff = 0;
+    car.crashX = car.crashZ = null;
+    stPlan.road = onStreet.road; stPlan.dir = onStreet.dir; stPlan.turn = null;
+    flags.carReassembles = (flags.carReassembles || 0) + 1;
+    flags.carReassemblesCity = (flags.carReassemblesCity || 0) + 1;
+    return;
+  }
   const n = hwyNearest(fromX, fromZ);
   if (!n) return;
   const rx = -n.fz, rz = n.fx;
@@ -501,9 +527,17 @@ function updateCar(dt) {
   const bank = touching ? clamp(state.ctrlBank * range, -1, 1) : 0;
   const pitch = touching ? clamp(state.ctrlPitch, -1, 1) : 0;
 
+  // his steer, read first: the city planner needs to know if he is holding a turn
+  const dz = CAR.deadzone;
+  const mag = Math.max(0, (Math.abs(bank) - dz) / (1 - dz));
+  let steer01 = Math.sign(bank) * mag;
+  let steering = mag > 0;
+
   // ---- the road under him
-  const road = carRoadTarget();
-  car.onRoad = !!road && Math.abs(road.lateral) < CAR.onRoadHalf;
+  const road = carRoadTarget(steer01, dt);
+  // on a city street, the street's own width is the road; the motorway's 24 m
+  // would call the whole of the square "on the road"
+  car.onRoad = !!road && Math.abs(road.lateral) < (road.street ? road.street.halfW + 2 : CAR.onRoadHalf);
   car.lateral = road ? road.lateral : 0;
   car.roadY = road ? road.y : 0;
   const wantOff = car.onRoad ? 0 : 1;
@@ -525,8 +559,17 @@ function updateCar(dt) {
   // point slides further ahead as he goes faster and the pursuit stays stable.
   const step = spdMul();
   const roadMax = CAR.cruise * step * lerp(1, CAR.offRoadMax, car.offRoad) * boosting;
-  const want = touching ? roadMax : 0;
-  const rate = (want > state.speed ? CAR.accel : CAR.brake) * dt;
+  let want = touching ? roadMax : 0;
+  // THE CORNER ASSIST (streets.js), speed-only: near a junction, with a turn
+  // held into a street that is there -- or the road ending ahead of him -- it
+  // sheds speed so the corner fits, and hands it back on the way out.
+  const cap = road && road.cap !== undefined ? road.cap : Infinity;
+  const cornering = touching && cap < want;
+  if (cornering) want = cap;
+  const giveBack = road && road.street && typeof stPlan !== "undefined" && stPlan.giveBack > 0;
+  const up = giveBack ? Math.max(CAR.accel, TUNE.city.giveBackAccel) : CAR.accel;
+  const down = cornering && state.speed > want ? Math.max(CAR.brake, TUNE.city.cornerBrake) : CAR.brake;
+  const rate = (want > state.speed ? up : down) * dt;
   state.speed += clamp(want - state.speed, -rate, rate);
   state.speed = clamp(state.speed, 0, CAR.cruise * step * CAR.boost * 1.05);
   if (state.speed < 0.05) state.speed = 0;
@@ -547,10 +590,12 @@ function updateCar(dt) {
   // A small deadzone, then proportional authority straight away. Past the
   // deadzone the range is rescaled so the first millimetre of real steer is
   // worth something, instead of the first tenth being thrown away.
-  const dz = CAR.deadzone;
-  const mag = Math.max(0, (Math.abs(bank) - dz) / (1 - dz));
-  const steer01 = Math.sign(bank) * mag;
-  const steering = mag > 0;
+  // THE CITY'S ONE CARVE-OUT (streets.js, CLAUDE.md): inside the corner window a
+  // turn held toward a street that is there is his choice of that street, and
+  // lane-keep drives the corner; after it, the same finger still held is not a
+  // second turn. Both read as hands-off here, so the assist stays whole.
+  const chosen = road && (road.holding || road.latched);
+  if (chosen) { steer01 = 0; steering = false; car.yield = 1; car.assistOff = 0; }
 
   // THE ASSIST YIELDS, ON A TIMER. The moment he steers it fades out over
   // `yieldIn`; it only starts coming back `holdOff` after he lets go. He never
@@ -570,7 +615,17 @@ function updateCar(dt) {
     const want = Math.atan2(-(road.aimX - state.x), -(road.aimZ - state.z));
     const hErr = wrapPi(want - state.heading);
     const gain = car.onRoad ? LK.gain : LK.offRoadGain;
-    const assist = clamp(-hErr / DEG * gain, -CAR.steerRate, CAR.steerRate);
+    let assist = clamp(-hErr / DEG * gain, -CAR.steerRate, CAR.steerRate);
+    // On a city street, pure pursuit: the turn rate that arc to the aim point
+    // needs, as the steer THIS car needs for it at this speed. A heading error
+    // held on a corner's curve saturates the other law and it overshoots the
+    // cross street; this one follows an 11 m curve. The motorway keeps its own.
+    if (road.street && car.onRoad && state.speed > 0.5) {
+      const Ld = Math.max(4, Math.hypot(road.aimX - state.x, road.aimZ - state.z));
+      const yaw = 2 * state.speed * Math.sin(hErr) / Ld;                    // rad/s, + is left
+      const rate = clamp(state.speed / CAR.rollAt, 0, 1) * lerp(CAR.lowSpeedTurn, 1, clamp(state.speed / CAR.cruise, 0, 1));
+      assist = clamp(-yaw / DEG / Math.max(0.2, rate) * TUNE.city.pursuitGain, -CAR.steerRate, CAR.steerRate);
+    }
     // His command is never reduced -- the assist is only ADDED to it, and only
     // by however much of itself is left. Blending the two is what let the road
     // outvote him, and at a light steer actually reverse him.
@@ -608,9 +663,14 @@ function updateCar(dt) {
     // drawbridge, and without the main road's guardrail he can steer off the
     // side of the span and into the sea. Every other spur runs on the ground and
     // never asks for one.
-    if ((!road.spur || road.spur.railed) && road.y - gnd > CAR.railAt) {
-      const lim = (road.spur ? HW.spurW : highway.halfW) - 1.6;
-      if (Math.abs(road.lateral) > lim) {
+    const railed = road.street ? road.railHalf > 0 : (!road.spur || road.spur.railed);
+    if (railed && road.y - gnd > CAR.railAt) {
+      const lim = (road.street ? road.railHalf : road.spur ? HW.spurW : highway.halfW) - 1.6;
+      // The rail holds him AT the road's edge, and only there. Without the upper
+      // bound, anywhere off-road in ground lower than the nearest road -- the
+      // square in New York, 850 m from the motorway -- read as "past the rail"
+      // and the clamp pushed him the whole way on to it in one frame.
+      if (Math.abs(road.lateral) > lim && Math.abs(road.lateral) < lim + CAR.railReach) {
         const rx = -road.fz, rz = road.fx, sgn = Math.sign(road.lateral);
         const push = Math.abs(road.lateral) - lim;
         state.x -= rx * sgn * push; state.z -= rz * sgn * push;
@@ -643,7 +703,15 @@ function updateCar(dt) {
     if (state.speed > CAR.crashSpeed) { hwyKnockTraffic(hit); carCrash(); }
     else { state.speed *= 0.4; hwyKnockTraffic(hit); noiseBurst(0.12, 220, 0.2, 0); }
   }
-  resolveSolidWalls();
+  // the city's traffic and its parked cars: the same two outcomes, box against box
+  const cityHit = car.onStreet && typeof stTouching === "function" ? stTouching(state.x, state.z, state.heading) : null;
+  if (cityHit && !state.exploding) {
+    if (state.speed > CAR.crashSpeed) { stKnock(cityHit); carCrash(); }
+    else { state.speed *= 0.4; stKnock(cityHit); noiseBurst(0.12, 220, 0.2, 0); }
+  }
+  // On a raised link -- the bridge ramp and deck -- the deck he is driving on is
+  // a solid box under him, and a box under him is ground, not a wall.
+  resolveSolidWalls(road && road.street && !road.street.drape ? state.y : undefined);
 
   // ---- charging stalls: a ritual, nothing tracked
   for (const c of highway.charges) {
@@ -733,8 +801,13 @@ function carCamera(dt) {
           car.screenArt.tex.needsUpdate = true;
         }
       } else if ((frameCount % 6) === 0) {
-        const road = typeof highway !== "undefined" && highway.built ? hwyNearest(state.x, state.z) : null;
-        const rh = road ? Math.atan2(-road.fx, -road.fz) : state.heading;
+        const onSt = car.onStreet && typeof stPlan !== "undefined" && stPlan.road;
+        const road = onSt ? null : typeof highway !== "undefined" && highway.built ? hwyNearest(state.x, state.z) : null;
+        let rh = road ? Math.atan2(-road.fx, -road.fz) : state.heading;
+        if (onSt) {
+          const p = stProject(stPlan.road, state.x, state.z);
+          rh = Math.atan2(-p.fx * stPlan.dir, -p.fz * stPlan.dir);
+        }
         car.screenArt.draw(wrapPi(rh - state.heading));
         car.screenArt.tex.needsUpdate = true;
       }

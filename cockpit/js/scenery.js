@@ -212,6 +212,8 @@ function rebuildTrees(px, pz) {
         if (flattenMask(wx, wz) > 0.02) continue;
         if (inCorridor(wx, wz, 40)) continue;
         if (typeof cityCovers === "function" && cityCovers(wx, wz, 4)) continue;
+        // a city street's outer half runs past the edge of its blocks (streets.js)
+        if (typeof stNearStreet === "function" && stNearStreet(wx, wz, 4)) continue;
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.6) continue;
         const palm = pFromNY(wz) < 0.055;
@@ -272,6 +274,7 @@ function rebuildBuildings(px, pz) {
         const wx = tcx + Math.cos(ang) * rad;
         const wz = tcz + Math.sin(ang) * rad;
         if (flattenMask(wx, wz) > 0.02 || inCorridor(wx, wz, 40) || (typeof cityCovers === "function" && cityCovers(wx, wz, 16))) continue;
+        if (typeof stNearStreet === "function" && stNearStreet(wx, wz, 16)) continue;
         if (Math.abs(wx - TRAIN_X) < 14) continue;   // nothing stands on the freight line either
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.8) continue;
