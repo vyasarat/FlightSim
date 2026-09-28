@@ -432,19 +432,15 @@ function carRoadTarget(steer01, dt) {
   const laneDist = Math.abs(n.lateral - carLaneCentre(n.lateral, false));
   const hx = -Math.sin(state.heading), hz = -Math.cos(state.heading);
 
-  // THE EXIT GESTURE, at a city's way off. Holding right anywhere on its
-  // painted approach -- from a little before the gantry to where the ramp has
-  // left the kerb -- is his CHOICE of that ramp, and it stands like an
-  // indicator: lane-keep takes the lane and then the ramp, and the finger he is
-  // holding reads as hands-off meanwhile, so he is never steered into the verge
-  // before the ramp begins. It ends when the ramp is his, when its mouth is
-  // behind him, or when he steers LEFT -- the other way is a choice too. One
-  // hold is one exit. It is the city's held turn (streets.js) at motorway
-  // scale, and like it never picks a way off he did not hold toward:
-  // hands-off, nothing here ever runs.
-  const intent = typeof ST !== "undefined" ? ST.turnIntent : 0.28;
-  const heldRight = (steer01 || 0) > intent;
-  if (car.exitLatch && !heldRight) car.exitLatch = false;
+  // THE EXIT GESTURE, at a city's way off: the same rule as a turn in the city.
+  // A FULL steer right (`CAR.fullSteer` of the drag range) held on its painted
+  // approach -- from a little before the gantry to where the ramp has left the
+  // kerb -- takes that ramp: lane-keep takes the lane and then the ramp, and the
+  // held finger reads as hands-off while it does, so he is never steered into
+  // the verge. Let go before the ramp is his and he goes straight on. Nothing
+  // latches and nothing is remembered: a light touch, or none, never takes it.
+  // (`steer01` arrives as his hold: zero below a full steer.)
+  const heldRight = (steer01 || 0) > 0;
   const approach = (ex) => {
     const g = ex.gantry;
     if (!g || Math.sign(n.lateral) !== g.c || (hx * n.fx + hz * n.fz) * g.c < 0.5) return false;
@@ -452,8 +448,8 @@ function carRoadTarget(steer01, dt) {
     return along > -ST.ramp.chooseEarly && along < (ex.spur[0].hs - g.s) * g.c + ST.ramp.taperLen;
   };
   let choice = car.exitChoice || null;
-  if (choice && car.spurRec !== choice && ((steer01 || 0) < -intent || !approach(choice))) choice = null;
-  if (!choice && heldRight && !car.exitLatch && !mainOff) {
+  if (choice && (!heldRight || (car.spurRec !== choice && !approach(choice)))) choice = null;
+  if (!choice && heldRight && !mainOff) {
     for (const ex of highway.exits) if (approach(ex)) { choice = ex; break; }
   }
   car.exitChoice = choice;
@@ -494,13 +490,9 @@ function carRoadTarget(steer01, dt) {
   }
   if (!best.spur) best.dist = mainDist;
   car.spurRec = best.spur;
-  // the choice made: to the outer lane until the ramp leaves, then down it; once
-  // he is down it the same finger still held is latched, not a second steer
-  if (choice) {
-    best.holding = heldRight;
-    if (best.spur === choice && best.s > ST.ramp.taperLen) { car.exitChoice = null; car.exitLatch = heldRight; }
-  }
-  best.latched = !!car.exitLatch;
+  // the choice made: to the outer lane until the ramp leaves, then down it,
+  // for as long as the hold that chose it lasts
+  if (choice) best.holding = true;
 
   // which way along this road is he travelling?
   const fwdDot = -Math.sin(state.heading) * best.fx + -Math.cos(state.heading) * best.fz;
@@ -528,6 +520,22 @@ function carRoadTarget(steer01, dt) {
     ax = q.x + (-q.fz) * off; az = q.z + q.fx * off;
   }
   best.aimX = ax; best.aimZ = az;
+  // THE MOTORWAY'S ENDS ARE TURNAROUNDS. The road stops, and a finger held
+  // straight drove him off the end at cruise -- in California into the building
+  // a hundred metres on. So, as at the city's one dead end (the bridge deck),
+  // the road ending is taken round: the speed comes off on the approach, and in
+  // the last metres lane-keep turns him back into the other carriageway's lane.
+  // Speed-only, and only while he is not steering; hands on, it is his.
+  if (!best.spur) {
+    const E = HW.endTurn, toEnd = best.dir > 0 ? highway.length - best.s : best.s;
+    if (toEnd < E.zone) {
+      best.cap = Math.sqrt(E.speed * E.speed + 2 * E.brake * Math.max(0, toEnd - E.turnAt));
+      if (toEnd < E.turnAt) {
+        const q = hwySampleAt(best.s - best.dir * E.back), o = -best.laneOff;
+        best.aimX = q.x + (-q.fz) * o; best.aimZ = q.z + q.fx * o; best.endTurn = true;
+      }
+    }
+  }
   car.onSpurRoad = !!best.spur;
   // on a city's ramp, the speed its bends ahead allow (streets.js, the ramp
   // assist) -- and from the moment he has chosen one, on the way to it: at the
@@ -606,7 +614,7 @@ function carSpawn(originIdx) {
   state.speed = 0; state.pitch = 0; state.bank = 0; state.phase = "TAXI";
   car.steer = 0; car.boost = 0; car.offRoad = 0; car.charging = 0; car.chargedAt = null;
   car.yield = 1; car.assistOff = 0;      // the assist is back the moment he is
-  car.exitChoice = null; car.exitLatch = false; car.spurRec = null;
+  car.exitChoice = null; car.spurRec = null; car.lastHeld = 0; car.liftT = 0;
   if (typeof stPlan !== "undefined") { stPlan.road = null; stPlan.turn = null; }
   carBuildCabin();
   thunk();
@@ -671,7 +679,7 @@ function carReassemble() {
   const on = car.crashOn || {};
   const nx = car.crashNx, nz = car.crashNz;
   car.crashX = car.crashZ = null; car.crashOn = null; car.crashNx = car.crashNz = 0;
-  car.rejoin = null; car.exitChoice = null; car.exitLatch = false; car.spurRec = null;
+  car.rejoin = null; car.exitChoice = null; car.spurRec = null; car.lastHeld = 0;
   const settle = () => { state.speed = 0; car.steer = 0; car.boost = 0; car.yield = 1; car.assistOff = 0;
                          flags.carReassembles = (flags.carReassembles || 0) + 1; };
   // A city street -- or a city ramp, which is the planner's road near the grid
@@ -683,7 +691,7 @@ function carReassemble() {
     : on.off ? stReassembleAt(fromX, fromZ, state.heading) : null;
   if (street) {
     state.x = street.x; state.z = street.z; state.y = street.y; state.heading = street.heading;
-    stPlan.road = street.road; stPlan.dir = street.dir; stPlan.turn = null; stPlan.latch = 0;
+    stPlan.road = street.road; stPlan.dir = street.dir; stPlan.turn = null;
     car.onSpurRoad = street.road.kind === "exit";
     settle();
     if (street.road.city) flags.carReassemblesCity = (flags.carReassemblesCity || 0) + 1;
@@ -783,19 +791,33 @@ function updateCar(dt) {
   const bank = touching ? clamp(state.ctrlBank * range, -1, 1) : 0;
   const pitch = touching ? clamp(state.ctrlPitch, -1, 1) : 0;
 
-  // his steer, read first: the city planner needs to know if he is holding a turn
+  // ---- THE ONE STEERING RULE, the same on every road (CLAUDE.md). Below
+  // `fullSteer` of his drag range the stick does not steer: that is a hand
+  // resting on the glass, a wobble, a drift -- and lane-keep holds his lane,
+  // straight on through every junction. At or past it he steers, and a full
+  // steer held on a junction's approach, or an exit's, is the turn he takes.
+  // Nothing is remembered between junctions; letting go is straight on. The
+  // one allowance is a finger LIFTED (not recentred) for under `liftGrace`:
+  // a four-year-old's finger comes off the glass, and that is not a choice.
+  const full = Math.abs(bank) >= CAR.fullSteer;
+  car.liftT = touching ? 0 : (car.liftT || 0) + dt;
+  if (full) car.lastHeld = Math.sign(bank);
+  else if (touching || car.liftT > CAR.liftGrace) car.lastHeld = 0;
   const dz = CAR.deadzone;
-  const mag = Math.max(0, (Math.abs(bank) - dz) / (1 - dz));
+  const mag = full ? Math.max(0, (Math.abs(bank) - dz) / (1 - dz)) : 0;
   let steer01 = Math.sign(bank) * mag;
   let steering = mag > 0;
+  const hold = full ? steer01 : (car.lastHeld || 0);
 
   // ---- the road under him
-  const road = carRoadTarget(steer01, dt);
+  const road = carRoadTarget(hold, dt);
   // on a city street, the street's own width is the road; the motorway's 24 m
   // would call the whole of the square "on the road"
   // (and a city's ramps are one lane: their own width too, not a spur's)
   const rampHalf = road && road.spur && road.spur.halfW;
-  car.onRoad = !!road && Math.abs(road.lateral) < (road.street ? road.street.halfW + 2 : rampHalf ? rampHalf + 2 : CAR.onRoadHalf);
+  // (on a corner he is measured against the street he is leaving: the corner
+  // itself is road, or every turn read as leaving it)
+  car.onRoad = !!road && (!!road.corner || Math.abs(road.lateral) < (road.street ? road.street.halfW + 2 : rampHalf ? rampHalf + 2 : CAR.onRoadHalf));
   car.lateral = road ? road.lateral : 0;
   car.roadY = road ? road.y : 0;
   const wantOff = car.onRoad ? 0 : 1;
@@ -827,7 +849,8 @@ function updateCar(dt) {
   const giveBack = road && road.street && typeof stPlan !== "undefined" && stPlan.giveBack > 0;
   const up = giveBack ? Math.max(CAR.accel, TUNE.city.giveBackAccel) : CAR.accel;
   const down = cornering && state.speed > want
-    ? Math.max(CAR.brake, road && road.spur ? TUNE.city.ramp.safeBrake : TUNE.city.cornerBrake) : CAR.brake;
+    ? Math.max(CAR.brake, road && !road.spur && !road.street ? HW.endTurn.brake
+               : road && road.spur ? TUNE.city.ramp.safeBrake : TUNE.city.cornerBrake) : CAR.brake;
   const rate = (want > state.speed ? up : down) * dt;
   state.speed += clamp(want - state.speed, -rate, rate);
   state.speed = clamp(state.speed, 0, CAR.cruise * step * CAR.boost * 1.05);
@@ -840,20 +863,12 @@ function updateCar(dt) {
   // and running one is not a mistake, it is how the chase starts.
 
   // ---- steering. His stick first; the assist only when he is not using it.
-  // The stick DOMINATES the assist rather than switching it off. With the assist
-  // off entirely, holding a steer at an exit just drove him into the field: he
-  // left the main line, never picked the spur up, and the exit was unreachable
-  // by the only gesture the brief gives him. Blending means holding right pulls
-  // him across, the spur becomes the nearest road, and the assist then follows
-  // it -- so "hold longer at an exit and you take the exit" falls out.
-  // A small deadzone, then proportional authority straight away. Past the
-  // deadzone the range is rescaled so the first millimetre of real steer is
-  // worth something, instead of the first tenth being thrown away.
-  // THE CITY'S ONE CARVE-OUT (streets.js, CLAUDE.md): inside the corner window a
-  // turn held toward a street that is there is his choice of that street, and
-  // lane-keep drives the corner; after it, the same finger still held is not a
-  // second turn. Both read as hands-off here, so the assist stays whole.
-  const chosen = road && (road.holding || road.latched);
+  // A full steer is his, whole: the assist fades out on a timer rather than
+  // being blended with it. The one exception is a turn he has chosen -- a full
+  // steer held toward a street on the approach to a junction, or toward a way
+  // off on its approach -- where lane-keep drives the turn he chose and the held
+  // finger reads as hands-off until the turn is done or he lets go.
+  const chosen = road && road.holding;
   if (chosen) { steer01 = 0; steering = false; car.yield = 1; car.assistOff = 0; }
 
   // THE ASSIST YIELDS, ON A TIMER. The moment he steers it fades out over
@@ -875,11 +890,15 @@ function updateCar(dt) {
     const hErr = wrapPi(want - state.heading);
     const gain = car.onRoad ? LK.gain : LK.offRoadGain;
     let assist = clamp(-hErr / DEG * gain, -CAR.steerRate, CAR.steerRate);
-    // On a city street, pure pursuit: the turn rate that arc to the aim point
-    // needs, as the steer THIS car needs for it at this speed. A heading error
-    // held on a corner's curve saturates the other law and it overshoots the
-    // cross street; this one follows an 11 m curve. The motorway keeps its own.
-    if (road.street && car.onRoad && state.speed > 0.5) {
+    // On a CURVE the motorway never has -- a city corner, a ramp, the bridge's
+    // link, and the grid street whose aim is already up it -- pure pursuit:
+    // the turn rate that arc to the aim point needs, as
+    // the steer THIS car needs for it at this speed. A heading error held on a
+    // tight curve saturates the other law: it overshot the cross street, and
+    // coming down the bridge ramp at cruise it cut the curve on to the centre
+    // line beside the oncoming queue. Along a straight grid street it is the
+    // motorway's law, so the street feels like the motorway (feel_compare.js).
+    if (road.street && (road.corner || road.curve) && car.onRoad && state.speed > 0.5) {
       const Ld = Math.max(4, Math.hypot(road.aimX - state.x, road.aimZ - state.z));
       const yaw = 2 * state.speed * Math.sin(hErr) / Ld;                    // rad/s, + is left
       const rate = clamp(state.speed / CAR.rollAt, 0, 1) * lerp(CAR.lowSpeedTurn, 1, clamp(state.speed / CAR.cruise, 0, 1));

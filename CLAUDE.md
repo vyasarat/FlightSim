@@ -20,25 +20,24 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
 - **The picker always opens on the vehicles**, never the rocket's destination screen (the
   way back sits underneath it). A relaunch restores vehicle, direction and destination.
 - **Flight feel is tuned with the kid**: don't retune it; assists may weaken slowly.
-- **The city corner assist is a carve-out, stated here, not a bend** (`streets.js`). At
-  cruise the car turns on a 77 m circle and a street is 14 m wide, so a block corner is only
-  makeable slowly. The assist is SPEED-ONLY and never changes where he pointed: holding left
-  means he turns left; it sheds speed on the approach and gives it back on exit. It engages
-  only within `TUNE.city.cornerAssistDist` of a junction, only while a turn is held into a
-  street that is there (or the road ends ahead of a hands-off finger), never on the motorway.
-  A turn held on the approach is his CHOICE of that street, so lane-keep holds his lane to
-  the corner and takes it — an assist may hold the road for him, never choose the road — and
-  one hold is one turn. Point at a building halfway along a block and nothing saves him.
-  Every strength is `TUNE.city.*`, to be weakened as he improves, like the landing assists.
-- **The city exit gesture is a second carve-out, stated here** (`car.js`, `streets.js`).
-  Traffic keeps right, so every way into a city leaves from the RIGHT of his carriageway,
-  after a gantry, down a painted lane. A held right anywhere on that approach is his CHOICE
-  of the ramp and stands like an indicator: lane-keep takes the lane (only when no car is
-  beside him in it) and then the ramp, and his held finger reads as hands-off meanwhile, so
-  a long hold never steers him into the verge. It ends when the ramp is his, its mouth is
-  behind him, or he steers left. Hands-off, nothing here runs. On a city ramp a SPEED-ONLY
-  ramp assist holds him under what its bends allow (`TUNE.city.ramp.safe*`); below the top
-  speed step it never binds.
+- **A turn is a deliberate act, never a drift — one rule, everywhere he drives** (`car.js`,
+  `streets.js`). Hands-off or a light touch goes straight through every junction, always. A
+  turn happens only on a FULL steer (`TUNE.car.fullSteer`, 70% of the drag range) HELD
+  through the approach (`TUNE.city.approach`) while he is on the line of his street; anything
+  less is lane-keep, straight on. Nothing latches and nothing is remembered between
+  junctions: release is straight (a lift shorter than `TUNE.car.liftGrace` is not a
+  release). The same rule takes a motorway exit and a city ramp — full right held on the
+  painted approach until the ramp is his. A turn commits only once he is at the junction.
+- **The corner assist is a carve-out, stated here, not a bend.** At cruise the car turns on a
+  77 m circle and a street is 14 m wide, so a block corner is only makeable slowly. The
+  assist is SPEED-ONLY and NEVER decides the turn: once his held turn (or the road ending
+  ahead of a hands-off finger) has chosen the street, it sheds speed to the corner and gives
+  it back on exit, and lane-keep follows the corner's curve. On a city ramp a speed-only ramp
+  assist holds him under what its bends allow (`TUNE.city.ramp.safe*`). Point at a building
+  halfway along a block and nothing saves him. Every strength is `TUNE.city.*`, to be
+  weakened as he improves. **Otherwise the city feels like the motorway, only slower**:
+  same steer rate, deadzone, lookahead and lane-keep law on a straight street
+  (`scripts/feel_compare.js` measures the same inputs on both).
 - **Off every road, the road in front of him** (`carRejoinTarget`): the pull-back aims at the
   nearest road inside a cone off his nose — a city street ahead beats the motorway behind —
   and eases him there; with nothing ahead, the nearest road, as before. **A bang comes back on
@@ -88,7 +87,9 @@ a deliberate, stated behaviour change.
 - **A held finger never bangs, at any speed step, either way** (`road_checks.js` crosses the
   country ten times to prove it). Traffic ahead in his lane YIELDS — moves over if it can,
   and always outruns him by `yieldMatch` — because he is never slowed: fast is his. And
-  hands-off, lane-keep never takes an exit: a spur competes only once he has steered.
+  hands-off, lane-keep never takes an exit: a spur competes only once he has steered. At
+  either END of the motorway it slows him and turns him round on to the other carriageway
+  (`HW.endTurn`): a held finger that runs out of road used to drive into California.
 - **The assist is never BLENDED with his steering** — it yields on a timer and his command
   gets through whole. Blending let the road outvote him and, at a light steer, reverse him.
   Running a red starts the chase (`police.js`): rubber-banded, ducked under everything,
@@ -180,7 +181,7 @@ a deliberate, stated behaviour change.
 | `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship, buggy, per-launch event |
 | `setpieces.js` `marsbase.js` `toyworld.js` `workshop.js` `toyfinish.js` | demolition, tower-catch, fire rig, carrier, Mars and its toys / the airport magnet yards, ramp and toy-fleet finish |
 | `highway.js` `car.js` `lights.js` `police.js` | the coast-to-coast road and its traffic / the SUV and lane-keep / the junctions / the chase |
-| `streets.js` | both cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, people, the square |
+| `streets.js` | both cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, the square (no people) |
 | `vehiclekit.js` | the traffic's six low-poly shapes (and the police sedan): wheels spun in the shader, lamps lit per vertex, one instanced call per shape |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
 | `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
@@ -192,6 +193,14 @@ airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, 
 `"./js/….js"` in `ASSETS` in `sw.js`, bump `CACHE_NAME`.
 
 ## Testing habits
+
+- **Before every city release, drive it with a noisy finger** (`scripts/noisy_drive.js`, and
+  in the harness): five REAL minutes at 60 Hz by touch events, portrait, driving seat, one
+  finger wobbling ±15%, lifting for 300 ms and overshooting for 1 s — a four-year-old's hand
+  — from New York's way in, five held turns, to the way out. Ship only on zero unintended
+  turns, zero missed turns, zero bangs or touches, and nothing off the road; run more seeds
+  than the harness's one (`node scripts/noisy_drive.js 300 <seed>`) and **report the log,
+  not the pass count**. A deterministic check that passes says nothing about his hand.
 
 - **Behaviour over existence, and deltas not totals** — a check reading
   `flags.boatCrashes` outright stayed green for two releases while the boat sailed through

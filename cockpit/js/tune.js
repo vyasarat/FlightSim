@@ -418,6 +418,10 @@ const TUNE = {
     clearHalf: 72,
     clearCell: 128,              // the corridor index's bucket size
     clearMaxExtra: 200,          // the widest extra clearance any caller may ask for
+    // the motorway's two ends are turnarounds (car.js): the speed comes off over
+    // `zone` metres, and `turnAt` from the end lane-keep takes him round on to
+    // the other carriageway, aiming `back` metres behind him
+    endTurn: { zone: 260, turnAt: 30, speed: 7, brake: 14, back: 40 },
     spurLen: 320, spurW: 16, spurCapture: 3.2,   // spur capture radius, in road widths
     spurDescend: 0.55,           // fraction of the spur spent coming down from the deck to
                                  // the ground. Without it the blend is smoothstep(0, undefined)
@@ -443,7 +447,9 @@ const TUNE = {
     traffic: { count: 70, range: 1800, keepOut: 260, follow: 90, speed: [49, 64], truckEvery: 4, respawn: 2.5,
                // the car AHEAD of him in his lane yields: from yieldReach it moves
                // over if it can and speeds up, and by yieldMatch it runs faster than he does
-               yieldReach: 160, yieldMatch: 45, laneChange: 1.4 },
+               yieldReach: 160, yieldMatch: 45, laneChange: 1.4,
+               // a car closer than keepBack behind him drops back, dropBack m/s per metre short
+               keepBack: 25, dropBack: 1.2 },
                                  // above TUNE.car.cruise on purpose: lane-keep with no
                                  // steering must never rear-end its own lane
   },
@@ -461,7 +467,10 @@ const TUNE = {
     edgePad: 3,                  // a street is dropped if a solid comes this close to its lanes
     // THE CORNER ASSIST, speed-only (see streets.js and CLAUDE.md). Weaken it as
     // he gets better at corners: a smaller dist, a lower brake, a higher speed.
-    cornerAssistDist: 42,        // a turn held this close to a junction engages it
+    approach: 150,               // a full steer held this close to a junction (or anywhere in the block
+                                 // leading to it) is the turn there; the assist brakes only as it needs to
+    approachCos: 0.95,           // he is driving along the street (not pointing off it) inside this of its line (18 deg)
+    commitIn: 4,                 // ... and it is committed this far into the junction; short of it, letting go is straight on
     cornerSpeed: 6.5,            // the speed it lets him take the corner at: the car turns on
                                  // an 8 m circle here, inside turnR with room for lag
     cornerBrake: 60,             // how hard it sheds speed on the approach (m/s^2): from the
@@ -470,10 +479,9 @@ const TUNE = {
     rejoinSpeed: 8, rejoinCos: 0.8,   // hands-off back on to a street from off it, across its line
     rejoinAlong: 13,             // ... and along it, over the parked cars: under TUNE.car.crashSpeed
     giveBackTime: 2.4, giveBackAccel: 16,   // and how fast it hands the speed back after
-    turnIntent: 0.28,            // how hard a held steer must be to mean "turn here"
     turnR: 11,                   // the fillet a corner is driven on
     forcedMargin: 22,            // hands-off: brake this much earlier than the physics needs
-    minAhead: 12, turnAhead: 6, turnLook: 0.8,   // lane-keep's aim, on a street / round a corner
+    turnAhead: 6, turnLook: 0.8,   // lane-keep's aim round a corner (along a street it aims as on the motorway)
     pursuitGain: 1.15,           // on a street lane-keep is pure pursuit; a touch over 1 takes up the steer lag
     pathIn: 70, pathOut: 60, exitSlack: 3,
     handoff: 60,                 // within this of the grid a city spur is the planner's
@@ -506,7 +514,7 @@ const TUNE = {
       // and how hard it may slow for a bend ahead
       safeMargin: 0.85, safeBrake: 22,
       holdReach: 30,             // a chosen ramp he is on holds him this far from its middle while he swings over
-      chooseEarly: 120,          // a held right this far before the gantry already means that ramp
+      chooseEarly: 420,          // a held right this far before the gantry already means that ramp: he sees it from 300 m+
       gantryBack: 170, gantryOut: 5, beamY: 9.5, panelW: 20, panelH: 13, iconScale: 1.7,
       panelColor: 0x1c4f9c, lampColor: 0xfff2c4,
     },
@@ -518,7 +526,6 @@ const TUNE = {
     bridge: { from: [-76, 4427], halfW: 9, endBack: 30 },
     boulevard: { from: [506, -5542], toZ: -6641, halfW: 10 },
     ny: { manholes: 9, steamEvery: 0.45, steamRange: 260 },
-    people: { count: 110, range: 320, speed: [1.1, 1.7], dodge: 16, hide: 5.5 },
     traffic: {
       count: 64, range: 620, keepOut: 110, speed: [11, 17], accel: 5, brake: 11,
       turnSpeed: 6.5, decide: 45, straightP: 0.6, stopGap: 2.5, lineBack: 0.6, queueGap: 9,
@@ -528,6 +535,7 @@ const TUNE = {
       // from yieldReach, faster than he is by yieldMatch; behind, it holds his speed
       yieldReach: 150, yieldMatch: 40, yieldAccel: 60, follow: 70,
       shed: 30,                  // how fast a car sheds the speed it only had to outrun him
+      behindMargin: 15,          // a car more than this behind him on the ground is not 'ahead of him in his lane'
       chainT: 4.5,               // how many seconds of his road ahead the promises look along
       closeT: 1.6, closeGap: 18, // this close ahead of him it keeps ahead even when he is slow
       claimT: 11,                // how far ahead (in seconds of him) a junction is his to claim
@@ -568,6 +576,11 @@ const TUNE = {
                                  // out in 0.15 s, then held out for 0.5 s after
                                  // he lets go, then back over 0.45 s
     deadzone: 0.06,              // small: past this he has proportional authority at once
+    // THE ONE STEERING RULE (car.js): below this fraction of the drag range the
+    // stick is not steering at all -- lane-keep holds the lane, straight on --
+    // and at or past it it is, and held on an approach it is the turn he takes.
+    fullSteer: 0.7,
+    liftGrace: 0.4,              // a finger off the glass this briefly has not let go of a turn
     // The car gets its own drag range, because the aeroplanes' is tuned with him
     // and is not to be touched. Measured against the WIDTH, which is the
     // dimension his thumb actually travels: the shared one is a fraction of
@@ -580,8 +593,8 @@ const TUNE = {
     // steer, because it is not rolling.
     lowSpeedTurn: 1.45, rollAt: 2.5,
     onRoadHalf: 24,              // this far from the centreline still counts as on the road
-    mergeLook: 260,
-    laneClear: 16,               // taking a chosen exit, he moves over only with no car within this, alongside,              // the last this-many metres of a way on: traffic makes room for him
+    mergeLook: 260,              // the last this-many metres of a way on: traffic makes room for him
+    laneClear: 16,               // taking a chosen exit, he moves over only with no car within this, alongside
     // Leaving the road must be a slope, not a cliff, and a step in the deck must
     // be taken at once. He drove underground without all three of these.
     shoulderBlend: 26,           // metres of ramp between the deck and the ground

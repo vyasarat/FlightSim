@@ -52,6 +52,9 @@ function installDriver() {
   };
   D.onHighway = () => { const n = L.hwyNearest(st.x, st.z); return !L.car.onStreet && n && Math.abs(n.lateral) < L.highway.halfW; };
   D.city = (k) => L.streets.cities[k];
+  // a fraction of the CAR's own drag range, as a stick value: the car rescales
+  // the shared range (car.js), so setStick(0.5) is most of a full steer
+  D.carStick = (frac) => frac * L.CAR.dragRangeX * innerWidth / (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight));
 }
 
 module.exports = async function cityChecks({ newPage, check, viewports }) {
@@ -183,7 +186,7 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
       const L = window.__lp, st = L.state, D = window.__city, out = [];
       for (const step of steps) for (const k of ["ny", "ca"]) for (const way of ["inNear", "inFar"]) {
         const rec = L.streets.cities[k].ramps[way], g = rec.gantry, c = g.c;
-        for (const pat of ["hold", "tap", "hands-off"]) {
+        for (const pat of ["hold", "tap", "light", "hands-off"]) {
           D.start(step);
           const v = L.CAR.cruise * L.spdMul(), s0 = g.s - c * 500;
           const q = L.hwySampleAt(s0), lat = c * (L.HW.medianW / 2 + L.HW.laneW * 0.5);
@@ -191,14 +194,20 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
           L.car.onSpurRoad = false; L.car.spurRec = null; L.car.exitChoice = null; L.stPlan.road = null;
           for (const t of L.highway.traffic) if (t.alive && Math.abs(t.s - s0) < 250) { t.alive = false; t.respawn = 3; }
           const mouth = 500 + Math.abs(rec.spur[0].hs - g.s);
-          const t0 = pat === "hold" ? (500 - 60) / v : (mouth - 60) / v, t1 = t0 + (pat === "hold" ? 6 : 1.2);
+          // hold: full right from 300 m before the gantry until he is on the ramp;
+          // tap: full right for 1.2 s near the mouth; light: 0.5 held past it --
+          // only the first is a held choice
+          // (the tap ends 20 m short of the mouth: a tap still held as he reaches
+          // it, at the top step, IS a held turn)
+          const t0 = pat === "hold" ? (500 - 300) / v : (mouth - 60) / v, t1 = pat === "tap" ? (mouth - 20) / v : pat === "light" ? t0 + 8 : Infinity;
           const f0 = D.flags(); let took = null, street = null, f = 0;
           for (; f < 60 * 75 && street === null; f++) {
             const tt = f / 60;
-            D.frame(pat !== "hands-off" && tt > t0 && tt < t1 ? 0.8 : 0);
+            const holding = pat === "hold" ? tt > t0 && !(L.car.spurRec === rec && took !== null && tt > took + 1.5) : tt > t0 && tt < t1;
+            D.frame(pat === "hands-off" || !holding ? 0 : pat === "light" ? D.carStick(0.5) : 1);
             if (L.car.spurRec === rec && took === null) took = +tt.toFixed(1);
             if (L.car.onStreet && L.stPlan.road && L.stPlan.road.kind === "grid") street = +tt.toFixed(1);
-            if (pat === "hands-off" && tt > mouth / v + 4) break;
+            if (pat !== "hold" && tt > mouth / v + 4) break;
           }
           const d = D.delta(f0);
           out.push({ step, mul: L.spdMul(), k, way, pat, took, street, crashes: d.c, walls: d.w });
@@ -207,9 +216,9 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
       L.spdReset();
       return out;
     }, vi === 0 ? [0, 2, 4] : [2]);
-    const badTakes = takes.filter(t => t.crashes || t.walls || (t.pat === "hands-off" ? t.took !== null : t.took === null || t.street === null));
-    check(`city ${tag}: holding right on the approach takes each way in, and a tap at the mouth does too, all the way to a city street -- ${takes.filter(t => t.pat === "hold").map(t => `${t.k} ${t.way === "inNear" ? "near" : "far"} x${t.mul} ${t.street}s`).join(", ")} -- and hands-off he drives past; never a bang`,
-      takes.length >= 12 && badTakes.length === 0, JSON.stringify(badTakes.length ? badTakes : takes));
+    const badTakes = takes.filter(t => t.crashes || t.walls || (t.pat === "hold" ? t.took === null || t.street === null : t.took !== null));
+    check(`city ${tag}: a full right held from the gantry takes each way in, all the way to a city street -- ${takes.filter(t => t.pat === "hold").map(t => `${t.k} ${t.way === "inNear" ? "near" : "far"} x${t.mul} ${t.street}s`).join(", ")} -- and a tap, a light steer or no steer at all drives past; never a bang`,
+      takes.length >= 16 && badTakes.length === 0, JSON.stringify(badTakes.length ? badTakes : takes));
 
     // What he can see: from the driving seat the gantry's panel and the ramp
     // are on the screen from 300 m out, from 150 m and at the mouth -- and the
@@ -248,8 +257,11 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     check(`city ${tag}: from the ${chase ? "chase view" : "driving seat"} each way in's gantry is on the screen and in the clear from 300 m and 150 m out, and its ramp from ${chase ? "150 m" : "300 m"} to the mouth -- not behind a pillar`,
       sight.length === 12 && blind.length === 0, JSON.stringify(blind.length ? blind : sight.map(v => [v.k, v.way, v.back, v.panel.ndc, v.ramp.ndc])));
 
-    // ---- 2. TURNING: at a four-way junction, holding left or right turns him
-    // on to the cross street; the corner assist sheds speed and gives it back
+    // ---- 2. TURNING IS A DELIBERATE ACT. At a four-way junction, a FULL steer
+    // held through the approach turns him on to the cross street (the corner
+    // assist only sheds the speed and gives it back); a LIGHT steer held all the
+    // way through is straight on; a full steer let go of before the junction is
+    // straight on. Nothing latches.
     const turns = await page.evaluate(() => {
       const L = window.__lp, st = L.state, D = window.__city, out = [];
       for (const k of ["ny", "ca"]) {
@@ -258,41 +270,45 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
         const node = C.nodes.filter(n => n.arms.length === 4 && n.arms.every(a => a.road.kind === "grid") && !n.signal)
           .sort((a, b) => Math.hypot(a.x - C.nodes[0].x, a.z - C.nodes[0].z) - Math.hypot(b.x - C.nodes[0].x, b.z - C.nodes[0].z))[Math.floor(C.nodes.length / 3)];
         const inArm = node.arms[0], road = inArm.road, dir = inArm.atStart ? -1 : 1;
-        for (const side of [-1, 1]) {
+        const straightArm = L.stStraight(L.stChoices(node, inArm)).arm;
+        for (const [how, side] of [["full", -1], ["full", 1], ["light", -1], ["light", 1], ["let go", 1]]) {
           D.start(2);
           for (const v of L.stTraffic.list) v.alive = false;     // his turn, not the traffic's
           D.placeOn(road, dir, Math.min(road.len - 5, 60), L.CAR.cruise);
           const want = L.stChoices(node, inArm).find(c => Math.sign(c.ang) === side && Math.abs(c.ang) > 1.2);
           const f0 = D.flags();
-          let f = 0, minV = Infinity, held = 0, done = false, maxAfter = 0, turned = false, bangAt = null;
+          let f = 0, minV = Infinity, done = false, maxAfter = 0, turned = false, bangAt = null, ended = null;
           while (f < 60 * 14) {
             const p = L.stProject(road, st.x, st.z);
             const toGo = dir > 0 ? road.len - p.s : p.s;
             const onTarget = L.stPlan.road === want.arm.road;
             const hdg = L.stProject(want.arm.road, st.x, st.z);
             const along = Math.abs(-Math.sin(st.heading) * hdg.fx + -Math.cos(st.heading) * hdg.fz);
-            // hold the turn from inside the corner window until he is round it
-            const hold = !turned && (!onTarget || along < 0.94);
-            const steer = (toGo < L.ST.cornerAssistDist - 4 && hold && held < 60 * 5) ? side : 0;
-            if (steer) held++;
+            // full: held from the start of the block until he is round the corner;
+            // light: 0.5 held the whole way; let go: full, released 30 m short
+            const hold = !turned && (!onTarget || along < 0.94) && L.stPlan.road === road;
+            const steer = how === "light" ? (f < 60 * 4 ? side * D.carStick(0.5) : 0)
+                        : how === "let go" ? (toGo > 30 && L.stPlan.road === road ? side : 0)
+                        : (hold ? side : 0);
             if (D.frame(steer) && !bangAt) bangAt = { t: +(f / 60).toFixed(1), x: Math.round(st.x), z: Math.round(st.z), turned };
             f++;
             minV = Math.min(minV, st.speed);
             if (onTarget && along > 0.94 && hdg.d < want.arm.road.halfW) turned = true;
             if (onTarget && along > 0.94 && !steer) { done = true; maxAfter = Math.max(maxAfter, st.speed); }
-            if (done && f > 60 * 10) break;
+            if (L.stPlan.road !== road && ended === null) ended = L.stPlan.road === straightArm.road ? "straight" : L.stPlan.road === want.arm.road ? "turned" : "other";
+            if ((done || ended) && f > 60 * 10) break;
           }
           const d = D.delta(f0);
-          const hdg = L.stProject(want.arm.road, st.x, st.z);
-          out.push({ city: k, side: side < 0 ? "left" : "right", onCross: turned,
+          out.push({ city: k, how, side: side < 0 ? "left" : "right", turned, ended,
                      cornerV: +minV.toFixed(1), after: +maxAfter.toFixed(1), crashes: d.c, walls: d.w, bangAt, node: [node.x, node.z] });
         }
       }
       return out;
     });
-    const badTurns = turns.filter(t => !t.onCross || t.crashes || t.walls || t.cornerV > 12 || t.after < 25);
-    check(`city ${tag}: holding left or right at a junction turns him on to the cross street -- ${turns.map(t => `${t.city} ${t.side} at ${t.cornerV} m/s`).join(", ")} -- the corner assist slowing him for the corner and giving the speed back after, never a bang`,
-      turns.length === 4 && badTurns.length === 0, JSON.stringify(turns));
+    const badTurns = turns.filter(t => t.crashes || t.walls ||
+      (t.how === "full" ? (!t.turned || t.cornerV > 12 || t.after < 25) : t.ended !== "straight"));
+    check(`city ${tag}: turning is deliberate -- a full steer held through the approach turns him (${turns.filter(t => t.how === "full").map(t => `${t.city} ${t.side} at ${t.cornerV} m/s`).join(", ")}), a light steer held through the junction and a full steer let go of before it are both straight on, never a bang`,
+      turns.length === 10 && badTurns.length === 0, JSON.stringify(badTurns.length ? badTurns : turns));
 
     // ---- 3. A BUILDING AT SPEED: a bang, and he is back on the street, in his
     // lane, facing along it -- not wherever the last aeroplane crashed
@@ -304,6 +320,9 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
         // the middle of a long street with buildings on it, far from either end
         const road = C.roads.filter(r => r.kind === "grid" && r.len > 90).sort((a, b) => b.len - a.len)[3];
         D.placeOn(road, 1, road.len / 2 + 30, L.CAR.cruise);
+        // already swerving at the buildings on his right: a full steer mid-block
+        // is the choice of the next street now, not a swerve into the wall
+        st.heading -= 70 * Math.PI / 180; st.speed = 30;
         const f0 = D.flags();
         let f = 0, banged = false;
         while (f < 60 * 6 && !banged) { banged = D.frame(1); f++; }
@@ -468,9 +487,10 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
         if (d < 3) through = true;
         let steer = 0;
         if (!through) {
-          // point at the fountain
-          const want = Math.atan2(-(S.x - st.x), -(S.z - st.z));
-          steer = Math.max(-1, Math.min(1, -L.wrapPi(want - st.heading) * 3));
+          // point at the fountain -- the way he does now: pulses of full lock
+          // (less than a full steer is not steering)
+          const want = Math.atan2(-(S.x - st.x), -(S.z - st.z)), err = -L.wrapPi(want - st.heading);
+          steer = Math.abs(err) > 3 * Math.PI / 180 ? Math.sign(err) : 0;
         }
         const x0 = st.x, z0 = st.z, v0 = st.speed, ph = through;
         if (D.frame(steer) && !bangAt) bangAt = { x: Math.round(x0), z: Math.round(z0), v: +v0.toFixed(1), through: ph, hit: L.stTraffic.lastTouch };
