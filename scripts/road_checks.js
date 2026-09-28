@@ -140,16 +140,26 @@ module.exports = async function roadChecks({ newPage, check, viewports }) {
         }
         const out = { hits: (L.flags.wallHits || 0) - w0, crashes: (L.flags.carCrashes || 0) - c0,
                       exploded: st.exploding, frames: f, endSpeed: Math.round(st.speed) };
-        st.explodeTimer = 0; for (let i = 0; i < 60; i++) L.update(1 / 60);
+        const hitAt = { x: st.x, z: st.z };
+        st.explodeTimer = 0; L.update(1 / 60);
+        // where he came back: off every road, a bang comes back where it
+        // happened -- not on the motorway 400 m away -- and never inside the wall
+        let inside = false;
+        L.forEachSolid(b => { if (Math.abs(st.x - b.x) < b.hw && Math.abs(st.z - b.z) < b.hd && st.y < b.y1) inside = true; });
+        out.backFrom = +Math.hypot(st.x - hitAt.x, st.z - hitAt.z).toFixed(1); out.backInside = inside;
+        for (let i = 0; i < 59; i++) L.update(1 / 60);
         st.exploding = false;
         return out;
       };
-      const fast = charge(45);
+      // the crawl first: the bang shatters the building, and it stands again
+      // on its own timer, which a crawl straight after would drive through
       const slow = charge(L.CAR.crashSpeed * 0.5);
+      const fast = charge(45);
       return { found: true, box, fast, slow, onRoad: +L.hwyCorridorDist(box.x, box.z).toFixed(1) };
     });
-    check(`road ${tag}: a building beside the road is solid -- driven into at speed it is a bang and a free reassemble, and at a crawl it is a shove that costs him nothing`,
+    check(`road ${tag}: a building beside the road is solid -- driven into at speed it is a bang and a free reassemble where it happened (${solid.fast && solid.fast.backFrom} m back, not on the motorway ${solid.onRoad} m away), and at a crawl it is a shove that costs him nothing`,
       solid.found && solid.fast.hits >= 1 && solid.fast.crashes === 1 && solid.fast.exploded &&
+      solid.fast.backFrom < 15 && !solid.fast.backInside &&
       solid.slow.hits >= 1 && solid.slow.crashes === 0 && !solid.slow.exploded,
       JSON.stringify(solid));
 

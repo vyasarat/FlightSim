@@ -259,7 +259,9 @@ function ltBuild() {
           if (inter.some(c => Math.hypot(c.x - q.x, c.z - q.z) < LT.highwayKeepOut)) continue;
           if (portals.some(c => Math.hypot(c.x - q.x, c.z - q.z) < LT.boreKeepOut)) continue;
           // and not where a city's ramp leaves: the ramp and a cross street would share the verge
-          if (highway.exits.some(e => e.city && Math.hypot(e.x - q.x, e.z - q.z) < LT.boreKeepOut)) continue;
+          // (a city's ways in and out keep it off their gantries and flyovers too)
+          if (highway.exits.some(e => e.city && (Math.hypot(e.x - q.x, e.z - q.z) < LT.boreKeepOut ||
+              (e.keep || []).some(k => Math.hypot(k.x - q.x, k.z - q.z) < LT.boreKeepOut)))) continue;
           // Only against other MAIN-LINE junctions: a spur junction is a few
           // hundred metres off to the side and is not on this road, so counting
           // it here threw away half the candidate sites.

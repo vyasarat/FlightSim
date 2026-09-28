@@ -208,6 +208,7 @@ window.__lp = {
   car, CAR, carActive, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
   streets, ST, stPlan, stTraffic, stTrail, stProject, stPointAt, stRoadsNear, stCarNear, stCarTarget,
   stCityNear, stTouching, stSurfaceAt, stTrailPoint, stReassembleAt, stJunctionPath, stChoices, stArmDir,
+  stRoadY, stHwyAt, stArmAllowed, carRejoinTarget,
   stArrivalArm, stStraight, stHim, stSignalAspect, get trunkInst() { return trunkInst; }, updateScenery,
   ringsGroup, guideGroup,
   lights, LT, ltBuild, ltUpdate, ltAhead, ltNearest, ltJunctionCount, ltStateOf, ltForce, ltAspect, ltHighwayStop,

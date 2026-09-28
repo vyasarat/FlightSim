@@ -72,9 +72,10 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
           const C = L.streets.cities[k];
           const deadEnds = C.nodes.filter(n => n.arms.length < 2).map(n => ({ x: Math.round(n.x), z: Math.round(n.z),
             road: n.arms[0] && n.arms[0].road.kind }));
-          // walk the policy from the entry, the way a held finger would
+          // walk the policy from the entry, the way a held finger would: the
+          // way in runs FROM the motorway, so it arrives at its far end
           const enter = L.highway.exits.find(e => e.to === k + "CityIn").street;
-          let arm = enter.a.arms.find(a => a.road === enter), node = enter.a, steps = 0, out_ = false;
+          let arm = enter.b.arms.find(a => a.road === enter), node = enter.b, steps = 0, out_ = false;
           const straightOr = (n, inArm) => {
             const ch = L.stChoices(n, inArm), s = L.stStraight(ch);
             return s ? s.arm : n.policy.get(inArm);
@@ -82,7 +83,8 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
           let next = straightOr(node, arm);
           while (steps++ < 400) {
             if (!next) break;
-            if (next.road.kind === "exit") { out_ = true; break; }
+            if (next.road.out) { out_ = true; break; }
+            if (next.road.kind === "exit") break;                // a way IN is no way out
             const r = next.road, far = next.atStart ? r.b : r.a;
             if (!far) break;
             const inArm = far.arms.find(b => b.road === r && b.atStart !== next.atStart);
@@ -105,10 +107,10 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     // on to the motorway, at the slowest, default and top steps
     const loops = await page.evaluate((steps) => {
       const L = window.__lp, st = L.state, D = window.__city, out = [];
-      for (const k of ["ny", "ca"]) {
+      for (const k of ["ny", "ca"]) for (const way of ["CityIn", "CityInFar"]) {
         for (const step of steps) {
           D.start(step);
-          const ex = L.highway.exits.find(e => e.to === k + "CityIn");
+          const ex = L.highway.exits.find(e => e.to === k + way);
           const sp = ex.spur, p = sp[Math.floor(sp.length * 0.35)];
           st.x = p.x; st.z = p.z; st.heading = Math.atan2(-p.fx, -p.fz); st.speed = L.CAR.cruise * 0.8;
           st.y = p.y; L.car.yield = 1; L.stPlan.road = null;
@@ -129,7 +131,7 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
             if (grid.size > 6 && D.onHighway()) { home = true; break; }
           }
           const d = D.delta(f0);
-          out.push({ city: k, step, mul: L.spdMul(), home, secs: Math.round(f / 60), streets: grid.size, hwyT: d.h,
+          out.push({ city: k, way, step, mul: L.spdMul(), home, secs: Math.round(f / 60), streets: grid.size, hwyT: d.h,
                      cornerV: +minV.toFixed(1), crashes: d.c, walls: d.w, cityTouches: d.t, hwyTouches: d.h, bangs });
         }
       }
@@ -137,8 +139,114 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
       return out;
     }, vi === 0 ? [0, 2, 4] : [2]);
     const badLoops = loops.filter(r => !r.home || r.crashes || r.walls || r.cityTouches || r.hwyTouches);
-    check(`city ${tag}: hands-off from each city's off-ramp he loops through the streets and back out on to the motorway -- ${loops.length} loops, ${loops.map(r => `${r.city} x${r.mul} ${r.secs}s ${r.streets} streets`).join(", ")} -- with no crash, no wall and no touch of any traffic`,
+    check(`city ${tag}: hands-off from each of each city's ways in he loops through the streets and back out on to the motorway -- ${loops.length} loops, ${loops.map(r => `${r.city}${r.way === "CityInFar" ? " far" : ""} x${r.mul} ${r.secs}s ${r.streets} streets`).join(", ")} -- with no crash, no wall and no touch of any traffic`,
       loops.length >= 2 && badLoops.length === 0, JSON.stringify(badLoops.length ? badLoops : loops));
+
+    // ---- 1b. THE WAYS IN, FOUND FROM THE MOTORWAY. Each city has one on each
+    // carriageway, on its RIGHT (traffic keeps right): a gantry across the road,
+    // the lane painted, the ramp leaving the kerb. The far one sweeps OVER the
+    // motorway, clear of a lorry; nothing crosses a carriageway at grade.
+    if (vi === 0) {
+      const lay = await page.evaluate(() => {
+        const L = window.__lp, out = [];
+        for (const k of ["ny", "ca"]) {
+          const R = L.streets.cities[k].ramps;
+          for (const [way, rec] of [["near", R.inNear], ["far", R.inFar]]) {
+            const g = rec.gantry, sp = rec.spur;
+            // his carriageway is the gantry's; its traffic travels +s on +lat
+            const right = Math.sign(sp[0].lat) === g.c;
+            const before = (sp[0].hs - g.s) * g.c >= 0;           // the gantry comes first
+            let clear = Infinity, grade = 0, minR = Infinity;
+            for (let i = 1; i < sp.length - 1; i++) {
+              const p = sp[i], n = L.hwyNearest(p.x, p.z);
+              if (Math.abs(n.lateral) < L.highway.halfW - 1 && p.s > 150) clear = Math.min(clear, p.y - n.y);
+              grade = Math.max(grade, Math.abs(sp[i + 1].y - p.y) / Math.max(0.1, sp[i + 1].s - p.s));
+              if (p.vSafe < Infinity) minR = Math.min(minR, p.vSafe);
+            }
+            out.push({ k, way, right, before, oneWay: rec.street.oneWay === 1, crossesAtGrade: clear < 5.5, clear: clear === Infinity ? null : +clear.toFixed(1),
+                       grade: +grade.toFixed(3), minSafe: Math.round(minR) });
+          }
+          out.push({ k, way: "out", merges: Math.sign(R.outRec.spur[0].lat) === -R.inNear.gantry.c, oneWay: R.out.oneWay === 1 });
+        }
+        return out;
+      });
+      const bad = lay.filter(r => r.way === "out" ? !(r.merges && r.oneWay) : !(r.right && r.before && r.oneWay && !r.crossesAtGrade && r.grade < 0.12 && r.minSafe > 55));
+      check(`city: each city has a way in on each carriageway, on its right, after its gantry, one-way, and the far one over the motorway clear of a lorry (${lay.filter(r => r.clear).map(r => r.k + " " + r.clear + " m").join(", ")}), and one way out merging into the other carriageway`,
+        lay.length === 6 && bad.length === 0, JSON.stringify(lay));
+    }
+
+    // Hold right on the approach and he takes it, to a city street; a tap near
+    // the mouth does too; hands-off he drives past. Every way in, in both
+    // cities, at the slowest, default and top steps (the default step in the
+    // chase view).
+    const takes = await page.evaluate((steps) => {
+      const L = window.__lp, st = L.state, D = window.__city, out = [];
+      for (const step of steps) for (const k of ["ny", "ca"]) for (const way of ["inNear", "inFar"]) {
+        const rec = L.streets.cities[k].ramps[way], g = rec.gantry, c = g.c;
+        for (const pat of ["hold", "tap", "hands-off"]) {
+          D.start(step);
+          const v = L.CAR.cruise * L.spdMul(), s0 = g.s - c * 500;
+          const q = L.hwySampleAt(s0), lat = c * (L.HW.medianW / 2 + L.HW.laneW * 0.5);
+          st.x = q.x - q.fz * lat; st.z = q.z + q.fx * lat; st.y = q.y; st.heading = Math.atan2(-q.fx * c, -q.fz * c); st.speed = v;
+          L.car.onSpurRoad = false; L.car.spurRec = null; L.car.exitChoice = null; L.stPlan.road = null;
+          for (const t of L.highway.traffic) if (t.alive && Math.abs(t.s - s0) < 250) { t.alive = false; t.respawn = 3; }
+          const mouth = 500 + Math.abs(rec.spur[0].hs - g.s);
+          const t0 = pat === "hold" ? (500 - 60) / v : (mouth - 60) / v, t1 = t0 + (pat === "hold" ? 6 : 1.2);
+          const f0 = D.flags(); let took = null, street = null, f = 0;
+          for (; f < 60 * 75 && street === null; f++) {
+            const tt = f / 60;
+            D.frame(pat !== "hands-off" && tt > t0 && tt < t1 ? 0.8 : 0);
+            if (L.car.spurRec === rec && took === null) took = +tt.toFixed(1);
+            if (L.car.onStreet && L.stPlan.road && L.stPlan.road.kind === "grid") street = +tt.toFixed(1);
+            if (pat === "hands-off" && tt > mouth / v + 4) break;
+          }
+          const d = D.delta(f0);
+          out.push({ step, mul: L.spdMul(), k, way, pat, took, street, crashes: d.c, walls: d.w });
+        }
+      }
+      L.spdReset();
+      return out;
+    }, vi === 0 ? [0, 2, 4] : [2]);
+    const badTakes = takes.filter(t => t.crashes || t.walls || (t.pat === "hands-off" ? t.took !== null : t.took === null || t.street === null));
+    check(`city ${tag}: holding right on the approach takes each way in, and a tap at the mouth does too, all the way to a city street -- ${takes.filter(t => t.pat === "hold").map(t => `${t.k} ${t.way === "inNear" ? "near" : "far"} x${t.mul} ${t.street}s`).join(", ")} -- and hands-off he drives past; never a bang`,
+      takes.length >= 12 && badTakes.length === 0, JSON.stringify(badTakes.length ? badTakes : takes));
+
+    // What he can see: from the driving seat the gantry's panel and the ramp
+    // are on the screen from 300 m out, from 150 m and at the mouth -- and the
+    // car's own body (its A-pillars, its roof) is not between his eye and them.
+    // The glass does not count: it is what he looks through.
+    const sight = await page.evaluate((chase) => {
+      const L = window.__lp, st = L.state, D = window.__city, out = [];
+      for (const k of ["ny", "ca"]) for (const way of ["inNear", "inFar"]) for (const back of [300, 150, "mouth"]) {
+        const rec = L.streets.cities[k].ramps[way], g = rec.gantry, c = g.c;
+        D.start(2);
+        const s = back === "mouth" ? rec.spur[0].hs - c * 12 : g.s - c * back;
+        const q = L.hwySampleAt(s), lat = c * (L.HW.medianW / 2 + L.HW.laneW * (back === "mouth" ? 1.5 : 0.5));
+        const x = q.x - q.fz * lat, z = q.z + q.fx * lat, h = Math.atan2(-q.fx * c, -q.fz * c);
+        for (let i = 0; i < 90; i++) { st.x = x; st.z = z; st.y = q.y; st.heading = h; st.speed = L.CAR.cruise; L.api.setStick(0, 0); L.update(1 / 60); }
+        const cam = L.camera; cam.updateMatrixWorld();
+        const body = [];
+        const add = (o) => o && o.traverse(m => { if (!m.isMesh || !m.visible) return;
+          const ms = Array.isArray(m.material) ? m.material : [m.material];
+          if (ms.every(mt => mt.transparent && mt.opacity < 0.95)) return; body.push(m); });
+        add(L.vehicleModel); add(L.car.cabin);
+        const ray = new THREE.Raycaster(), r = {};
+        for (const [name, P] of [["panel", g.panel], ["ramp", rec.spur[Math.min(rec.spur.length - 1, 10)]]]) {
+          const p = new THREE.Vector3(P.x, (P.y || 0) + (name === "ramp" ? 0.5 : 0), P.z), ndc = p.clone().project(cam);
+          const dir = p.clone().sub(cam.position), dist = dir.length(); dir.normalize();
+          ray.set(cam.position, dir); ray.far = dist;
+          const hit = chase ? null : ray.intersectObjects(body, false)[0];
+          r[name] = { on: Math.abs(ndc.x) < 0.98 && Math.abs(ndc.y) < 0.98 && ndc.z < 1, hidden: !!hit, ndc: [+ndc.x.toFixed(2), +ndc.y.toFixed(2)] };
+        }
+        out.push({ k, way, back, ...r });
+      }
+      return out;
+    }, chase);
+    // (at the mouth the gantry is overhead or behind him, so there it is the ramp)
+    const blind = sight.filter(v => (v.back !== "mouth" && (!v.panel.on || v.panel.hidden)) ||
+                                    ((v.back !== 300 || !chase) && (!v.ramp.on || v.ramp.hidden)));
+    check(`city ${tag}: from the ${chase ? "chase view" : "driving seat"} each way in's gantry is on the screen and in the clear from 300 m and 150 m out, and its ramp from ${chase ? "150 m" : "300 m"} to the mouth -- not behind a pillar`,
+      sight.length === 12 && blind.length === 0, JSON.stringify(blind.length ? blind : sight.map(v => [v.k, v.way, v.back, v.panel.ndc, v.ramp.ndc])));
 
     // ---- 2. TURNING: at a four-way junction, holding left or right turns him
     // on to the cross street; the corner assist sheds speed and gives it back
@@ -214,6 +322,70 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     });
     check(`city ${tag}: steering into a building at speed is a bang, and he comes back on the street he hit it from, in a lane, facing along it`,
       bang.every(b => b.banged && b.crashes === 1 && b.reassembledOnStreet === 1 && b.back && b.along > 0.97 && !b.inside), JSON.stringify(bang));
+
+    // ---- 3b. A CRASH COMES BACK ON THE ROAD HE WAS ON, where it happened: a
+    // grid street in each city, New York's bridge deck, California's
+    // boulevard, a way in and a flyover -- within 5 m along that same road,
+    // facing along it, never on the motorway. v125 knew only "nearest grid
+    // street, else the motorway": off the boulevard that was 800 m away.
+    const back = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, D = window.__city, out = [];
+      const R = { ny: L.streets.cities.ny.ramps, ca: L.streets.cities.ca.ramps };
+      const cases = [
+        ["ny grid", D.city("ny").roads.filter(r => r.kind === "grid" && r.len > 90).sort((a, b) => b.len - a.len)[5], 0.5],
+        ["ca grid", D.city("ca").roads.filter(r => r.kind === "grid" && r.len > 90).sort((a, b) => b.len - a.len)[5], 0.5],
+        ["ny bridge deck", D.city("ny").bridge.deck, 0.5],
+        ["ca boulevard", D.city("ca").boulevard, 0.5],
+        ["ny way in", R.ny.near, 0.6],
+        ["ca flyover", R.ca.far, 0.55],
+      ];
+      for (const [name, road, frac] of cases) {
+        D.start(2);
+        D.placeOn(road, 1, road.len * (1 - frac), 20);
+        for (let i = 0; i < 20; i++) { L.api.setStick(0, 0); L.update(1 / 60); }       // settle on it at speed
+        const was = L.car.road && (L.car.road.street || L.car.road.spur && L.car.road.spur.street);
+        const s0 = L.stProject(road, st.x, st.z).s, c0 = D.flags().c;
+        L.carCrash();                                                                // a bang, here
+        st.explodeTimer = 0; L.update(1 / 60); L.api.setStick(0, 0);
+        const p = L.stProject(road, st.x, st.z), n = L.hwyNearest(st.x, st.z);
+        const along = Math.abs(-Math.sin(st.heading) * p.fx + -Math.cos(st.heading) * p.fz);
+        out.push({ name, road: road.id, wasOn: was === road, crashed: D.flags().c - c0, sameRoad: L.stPlan.road === road || (L.car.spurRec && L.car.spurRec.street === road) || p.d < road.halfW,
+                   alongM: +Math.abs(p.s - s0).toFixed(1), lateral: +p.d.toFixed(1), facing: +along.toFixed(2),
+                   onMotorway: Math.abs(n.lateral) < L.highway.halfW && Math.abs(n.y - st.y) < 3 });
+      }
+      return out;
+    });
+    check(`city ${tag}: a crash comes back where it happened, on the road he was on -- ${back.map(b => `${b.name} ${b.alongM} m`).join(", ")} -- facing along it, never on the motorway`,
+      back.length === 6 && back.every(b => b.wasOn && b.crashed === 1 && b.sameRoad && b.alongM < 5 && b.facing > 0.97 && !b.onMotorway), JSON.stringify(back));
+
+    // ---- 3c. OFF THE ROAD, THE ROAD IN FRONT OF HIM. In the fields between
+    // the motorway and a city, finger held and no steer: facing the city he is
+    // taken on to a city street, never back to the motorway behind him;
+    // facing the motorway, on to the motorway. Eased there -- never a jump.
+    const fields = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, D = window.__city, out = [];
+      const cases = [["ny facing the city", 100, 4100, -1, 0, "city"], ["ny facing the motorway", 100, 4100, 1, 0, "motorway"],
+                     ["ca facing the city", -20, -5200, 1, 0, "city"], ["ca facing the motorway", -20, -5200, -1, 0, "motorway"]];
+      for (const [name, x, z, fx, fz, want] of cases) {
+        D.start(2);
+        st.x = x; st.z = z; st.y = L.terrainEff(x, z); st.heading = Math.atan2(-fx, -fz); st.speed = 15;
+        L.car.rejoin = null; L.stPlan.road = null; L.car.onSpurRoad = false;
+        const f0 = D.flags(); let street = null, motorway = null, jump = 0, px = st.x, pz = st.z, f = 0;
+        for (; f < 60 * 40 && street === null && motorway === null; f++) {
+          const banged = D.frame(0);
+          if (!banged) jump = Math.max(jump, Math.hypot(st.x - px, st.z - pz) - st.speed / 60);
+          px = st.x; pz = st.z;
+          const n = L.hwyNearest(st.x, st.z);
+          if (L.car.onStreet && L.stPlan.road && L.stPlan.road.kind === "grid") street = +(f / 60).toFixed(1);
+          if (!L.car.onStreet && Math.abs(n.lateral) < L.highway.halfW - 4) motorway = +(f / 60).toFixed(1);
+        }
+        const d = D.delta(f0);
+        out.push({ name, want, street, motorway, jump: +jump.toFixed(2), crashes: d.c });
+      }
+      return out;
+    });
+    check(`city ${tag}: off the road the pull-back takes him to the road in front of him -- ${fields.map(f => `${f.name}: ${f.street !== null ? "a city street in " + f.street + "s" : f.motorway !== null ? "the motorway in " + f.motorway + "s" : "nowhere"}`).join("; ")} -- eased, never a jump`,
+      fields.every(f => (f.want === "city" ? f.street !== null : f.motorway !== null) && f.jump < 1 && f.crashes === 0), JSON.stringify(fields));
 
     // ---- 4. A RED IN THE CITY: the flash, and a chase that follows him down
     // the streets he takes rather than through the buildings between them
