@@ -4467,12 +4467,18 @@ function check(name, ok, extra) {
       const ex = L.HW.exits[2];
       driveTo(ex.s - 0.004);
       let onSpur = false;
-      // a HOLD toward the exit, not a full-lock swerve: full lock is the
-      // "steer hard off the road" gesture, which the next check covers
-      for (let i = 0; i < 60 * 5; i++) {
-        L.api.setStick(ex.side * 0.55, 0); L.update(1 / 60);
+      // a FULL steer HELD toward the exit (v127: anything under
+      // TUNE.car.fullSteer is lane-keep, straight past it) -- 85% of the car's
+      // own drag range, which the car rescales from the shared stick
+      const full = 0.85 * L.CAR.dragRangeX * innerWidth / (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight));
+      // ... until the spur is his, and half a second on: past that a full steer
+      // is steering again, and held for seconds it takes him off the spur
+      let onFor = 0;
+      for (let i = 0; i < 60 * 5 && onFor < 30; i++) {
+        L.api.setStick(ex.side * full, 0); L.update(1 / 60);
         const t = L.carRoadTarget();
         if (t && t.spur) onSpur = true;
+        if (onSpur) onFor++;
       }
       out.tookSpur = onSpur;
       // let go: the assist takes it back over, on whichever road it is nearest
@@ -5480,6 +5486,9 @@ function check(name, ok, extra) {
   await require("./road_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
   await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
+  // the usability test, before every city release: five REAL minutes of a noisy
+  // four-year-old's finger through New York, by touch, from the driving seat
+  await require("./noisy_drive")({ newPage, check });
   await require("./event_pool_checks")({ newPage, check, shots: SHOTS });
   await require("./engine_sound_checks")({ newPage, check, shots: SHOTS });
   await require("./lights_police_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });

@@ -10,6 +10,43 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v127 — a turn is something he does, and a noisy finger drives it first
+
+The city was being tested by a steady robot hand, and a four-year-old's hand is
+not steady: a wobble read as a turn, a drift read as a choice, and the indicator
+latch remembered a hold he had long forgotten. Now there is one rule everywhere
+he drives. Hands-off or a light touch goes straight through every junction.
+Only a FULL steer (70% of the drag range), held through the approach while he is
+on his street's line, is a turn; nothing latches, nothing is remembered between
+junctions, and letting go is straight on (a lift under 0.4 s is not a let-go).
+The same rule takes a motorway exit and a city ramp, and the corner assist only
+sheds speed for a turn he has chosen, never chooses one. The city was compared
+with the motorway under the same stick inputs (`scripts/feel_compare.js`), and
+every difference that was not the corner assist came out: the city's own
+pursuit law on straight streets, its shorter 12 m aim, and its lighter
+held-turn threshold. A full-lock blip at 20 m/s now turns him 16.5° in the city
+and 17.1° on the motorway. The pedestrians are gone from both cities. The
+noisy drive found these, all now fixed. On the bridge's curving ramp, lane-keep
+aimed at a fixed point 150 m up the curve. Going up he drove the chord and off
+the kerb; coming down he crossed the centre line beside the oncoming queue. It
+now aims along his own lane, with pursuit and the corner's shorter aim on
+curves. A turn let go of just before a T went nowhere. The ends of the
+motorway were a wall; they are now turnarounds. A full right held before the
+gantry's approach steered him into the lane beside him. Pulled back on to
+the motorway from the fields, a car in the lane he was joining hit him, for
+three reasons. Traffic took him, on a bank beside the road, for a car on a
+flyover. Traffic measures the road by sample index and he was measured by
+distance, which drift 14 m apart by California, so a car alongside him read
+as well behind. And nothing kept its distance behind him. Traffic now reads
+him in its own measure and ignores him only on another road, and a car closer
+than 25 m behind him drops back. 120 pull-backs at the California end, 0 bangs;
+it was about 1 in 30. The two measures still disagree for everything else that
+samples the road; that is left for its own release. The new harness check drives
+five real minutes of touch events at 60 Hz, portrait, from the driving seat.
+The finger wobbles ±15%, lifts for 300 ms and overshoots for a second, and the
+drive runs from New York's way in, through five held turns, to the way out. It
+fails on any unintended turn, missed turn, bang, touch or trip off the road.
+
 ## v126 — the ways into the cities, and traffic that looks like cars
 
 He couldn't see how to get into a city and drove across the fields instead, so

@@ -8,22 +8,22 @@
 // centreline, north-south ones `avenueW` wide and east-west ones `streetW`.
 // Move the generator's grid and the streets move with it.
 //
-// THE ROAD IS HIS, THE CORNER IS HIS. Lane-keep works on a street exactly as on
-// the motorway -- the nearest lane, a point ahead along it, and it yields the
-// instant he steers. At a junction, holding left or right on the approach is
-// the exit gesture: that street is his choice, and the corner assist (below)
-// makes the turn fit and takes it.
+// THE STREET FEELS LIKE THE MOTORWAY, ONLY SLOWER. The one steering rule
+// (car.js): below a FULL steer the stick does not steer and lane-keep holds his
+// lane, straight on through every junction; a full steer held on a junction's
+// approach is the turn there. Nothing latches and nothing is remembered from
+// one junction to the next: let go and it is straight on. Lane-keep uses the
+// motorway's own law on a street; only on the corner itself does it follow the
+// curve by pure pursuit.
 // Hands-off he goes straight on, and where the road ends he is taken round the
 // corner that keeps him on the loop.
 //
-// THE CORNER ASSIST NEVER CHANGES WHERE HE POINTED, and it is the one assist
-// in the game that touches his speed. At cruise the car turns on a 77 m circle and a street is
-// 14 m wide, so a corner is only makeable slowly. It engages only within
-// `cornerAssistDist` of a junction, only while a turn is held into a street
-// that is there or the road ends ahead, never on the motorway, and it never
-// changes where he pointed: it sheds speed on the approach and gives it back on
-// the way out. Point at a building halfway along a block and nothing saves him.
-// Every strength is TUNE.city.*, to be weakened as he gets better at corners.
+// THE CORNER ASSIST NEVER DECIDES A TURN: it sheds the speed a turn he is
+// holding needs (or a road that ends ahead of him) and gives it back after.
+// At cruise the car turns on a 77 m circle and a street is 14 m wide, so a
+// corner is only makeable slowly. Never on the motorway. A full steer toward
+// a side with no street is his own steering: point at a building and nothing
+// saves him. Every strength is TUNE.city.*, to be weakened as he gets better.
 //
 // NEVER STUCK. Every street joins the grid at both ends; the one dead end (the
 // bridge deck) has a turnaround. Off the street -- the square, a pavement --
@@ -35,8 +35,7 @@
 // nothing crosses in front of him. Traffic queues at the signals, which are
 // lights.js junctions like any other -- run a red and the chase comes, and in a
 // city it follows the way he drove rather than the line through the buildings.
-// People walk the pavements and never step into a road; they cannot be hit --
-// the ones in his way step back to the wall.
+// There are no people: pedestrians came out in v127.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -267,16 +266,16 @@ function stBuildGrid(key) {
 // So the junction ahead is decided before he reaches it, and the corner is a
 // PATH: his lane in, a fillet of `turnR`, the cross street's lane out.
 //
-// THE CORNER ASSIST NEVER CHANGES WHERE HE POINTED. A turn held on the approach,
-// inside `cornerAssistDist` of a junction that has a street on that side, is his
-// choice of that street: the assist sheds speed so the corner fits, lane-keep
-// holds his lane to the corner and takes it, and the speed is handed back on
-// the way out (CLAUDE.md states it as a carve-out). Hands-off, a junction with no
-// straight on is "the road ends": the assist slows him and lane-keep takes the
-// turn that keeps him on the loop (`policy`). Nowhere else does it touch his
-// speed -- point at a building halfway along a block and nothing saves him.
+// THE CORNER ASSIST NEVER DECIDES THE TURN. A full steer held on the approach
+// (`ST.approach`) toward a street that is there is his choice of that street:
+// the assist sheds speed so the corner fits, lane-keep holds his lane to the
+// corner and takes it, and the speed is handed back on the way out. Let go
+// before the junction and it is straight on (CLAUDE.md states it as a
+// carve-out). Hands-off, a junction with no straight on is "the road ends":
+// the assist slows him and lane-keep takes the turn that keeps him on the loop
+// (`policy`). Nowhere else does it touch his speed.
 // ---------------------------------------------------------------------------
-const stPlan = { road: null, dir: 1, turn: null, giveBack: 0, cap: Infinity, holding: false, latch: 0 };
+const stPlan = { road: null, dir: 1, turn: null, giveBack: 0, cap: Infinity, holding: false, corner: false, curve: false };
 const stTmpA = {}, stTmpB = {};
 
 // Signed angle from travelling (fx,fz) to an arm: positive is a RIGHT turn.
@@ -486,8 +485,9 @@ const stAim = {};
 function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
   const P = stPlan;
   P.giveBack = Math.max(0, P.giveBack - dt);
-  P.holding = false;
-  if (P.latch && !(Math.sign(steer01) === P.latch && Math.abs(steer01) > ST.turnIntent)) P.latch = 0;
+  P.holding = false; P.corner = false;
+  // `steer01` is his HOLD (car.js): zero unless he is holding a full steer
+  const held = steer01 !== 0;
   // re-read the road whenever he is steering or has left the one we had
   let cur = P.road ? { road: P.road, dir: P.dir } : null;
   if (cur) {
@@ -523,20 +523,30 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
     const inArm = stArrivalArm(node, road, dir);
     const choices = inArm ? stChoices(node, inArm) : [];
     const straight = stStraight(choices);
-    const held = Math.abs(steer01) > ST.turnIntent;
     if (P.turn && P.turn.node === node) plan = P.turn;
-    // A held turn: the street on that side, if there is one, inside the window
-    // -- on the APPROACH. Steering once he is in the junction itself is his own:
-    // that is how he drives off the corner into the square.
+    // A held turn: the street on that side, if there is one, on the APPROACH --
+    // anywhere in the block leading to it (`ST.approach`). Steering once he is
+    // in the junction itself is his own: that is how he drives off the corner
+    // into the square.
     const box = node.arms.reduce((m, a) => a.road === road ? m : Math.max(m, a.road.halfW), 0);
-    if (held && toGo < ST.cornerAssistDist && toGo > box) {
+    // ... and only while he is driving ALONG the street: lane-keep is driving
+    // him (coming out of the last corner he is still swinging on to the line),
+    // or he is on its line. Pointing off it by his own steering -- into the
+    // square, at a building -- is his own steering.
+    const lkDriving = typeof car !== "undefined" && (car.yield === undefined || car.yield >= 1);
+    const along = (-Math.sin(heading) * p.fx + -Math.cos(heading) * p.fz) * dir;
+    const onLine = Math.abs(p.lat) < road.halfW && (along > ST.approachCos || (lkDriving && along > 0.5));
+    P.dbg = { toGo: +toGo.toFixed(1), box: +box.toFixed(1), along: +along.toFixed(2), lat: +p.lat.toFixed(1), lk: lkDriving, held };
+    if (held && onLine && toGo < ST.approach && toGo > box) {
       const side = Math.sign(steer01);
       let pick = null;
       for (const c of choices) {
         const a = Math.abs(c.ang);
         if (Math.sign(c.ang) === side && a > 45 * DEG && a < 135 * DEG) pick = c;
       }
-      if (pick && (!plan || plan.arm !== pick.arm)) plan = { node, arm: pick.arm, held: true, forced: false };
+      // (held even where the road's own turn goes the same way: a forced plan
+      // only engages hands-off, and his full steer went through it raw)
+      if (pick && (!plan || plan.arm !== pick.arm || !plan.held)) plan = { node, arm: pick.arm, held: true, forced: false, committed: !!(plan && plan.arm === pick.arm && plan.committed) };
     }
     if (!plan) {
       if (straight) plan = { node, arm: straight.arm, held: false, forced: false };
@@ -549,42 +559,67 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
       }
     }
     // a held turn he lets go of before he has started it is no longer his
-    // choice: lane-keep goes back to straight on
-    if (plan && plan.held && !held && !plan.committed && straight) {
-      plan = { node, arm: straight.arm, held: false, forced: false };
+    // choice: lane-keep goes back to what the road does -- straight on, or where
+    // the road ends, the turn it always takes. (Only back to straight, a held
+    // choice made at a T by a finger still down off the last corner stayed.)
+    if (plan && plan.held && !held && !plan.committed) {
+      if (straight) plan = { node, arm: straight.arm, held: false, forced: false };
+      else {
+        const want = node.policy.get(inArm);
+        const c = choices.find(q => q.arm === want) || choices[0];
+        plan = { node, arm: c ? c.arm : inArm, held: false, forced: true };
+      }
     }
+    P.onLine = onLine;
     P.turn = plan;
   } else P.turn = null;
 
   // ---- the path, the aim point and the corner ceiling
   const LK = CAR.laneKeep;
-  let ahead = Math.max(ST.minAhead, speed * LK.lookAhead);
+  let ahead = Math.max(LK.minAhead, speed * LK.lookAhead);          // the motorway's own aim
   P.cap = Infinity;
   if (P.turn) {
     const J = stJunctionPath(road, dir, node, P.turn.arm);
-    if (J.turn) ahead = Math.max(ST.turnAhead, Math.min(ahead, speed * ST.turnLook));
-    stPathAim(J, x, z, ahead, stAim);
+    // the way he is aiming bends: a corner, or a road that is not a straight
+    // grid street (the bridge's curving ramp) once the aim is on it. On a bend
+    // the aim comes in to the corner's: from the motorway's 1.5 s the pursuit
+    // began the bridge's curve 70 m early and cut its inside kerb at cruise.
+    P.curve = road.kind !== "grid" || (ahead > toGo - J.inLen && P.turn.arm.road.kind !== "grid");
+    if (J.turn || P.curve) ahead = Math.max(ST.turnAhead, Math.min(ahead, speed * ST.turnLook));
+    // Where he is along the path -- short of its first point, negative. The aim
+    // is `ahead` on from THERE: short of the path, along his own lane. Asked of
+    // the path from short of it, the answer was its first point plus `ahead`,
+    // a fixed point that on the bridge's curving ramp stood 150 m up it; he
+    // drove the chord to it and off the outside of the curve.
+    stPathAim(J, x, z, 0, stAim);
+    const short = Math.max(0, toGo - J.inLen);
+    const sp = short > 0 ? -short : stAim.s;
+    let tgt = sp + ahead;
     // Short of where the corner starts, the aim stays in his lane: a point
     // round the corner, seen from twenty metres back, pulls him across the
     // parked cars on the inside before the corner has begun.
-    if (J.turn && stAim.s < J.t1S - 1) {
-      const lim = Math.min(stAim.s + ahead, J.t1S + ST.turnAhead * 0.5);
-      stPathAim(J, x, z, lim - stAim.s, stAim);
-    }
+    if (J.turn && sp < J.t1S - 1) tgt = Math.min(tgt, J.t1S + ST.turnAhead * 0.5);
+    if (tgt < 0) stPointAt(road, p.s + dir * (tgt - sp), dir, road.lo, stAim);
+    else if (short > 0) stPathAim(J, J.pts[0].x, J.pts[0].z, tgt, stAim);
+    else stPathAim(J, x, z, tgt - sp, stAim);
+    stAim.s = Math.max(0, sp);
     // To where the corner STARTS: that is where he must already be slow enough.
     // Measured along his road while he is short of where the path begins -- the
     // path's own s stops at its first point, and read from there a corner a
     // block away looked a block nearer than it is.
     const toApex = toGo > J.inLen ? toGo - (J.inLen - J.t1S) : J.t1S - stAim.s;
-    // engaged: a turn held inside the window, or the road ending ahead of him
-    const engaged = J.turn && ((P.turn.held && Math.abs(steer01) > ST.turnIntent) ||
-                                (P.turn.forced && handsOff));
-    // A held turn inside the window is his CHOICE of that street: lane-keep holds
-    // his lane to the corner and takes it, the way it takes an exit he has
-    // steered for. It never picks a street he did not hold toward.
+    // engaged: a turn he is holding, or the road ending ahead of him. The turn
+    // is his CHOICE of that street: lane-keep holds his lane to the corner and
+    // takes it, and the assist only sheds the speed. It commits only once he is
+    // at the junction; short of it, letting go is straight on.
+    const engaged = J.turn && ((P.turn.held && held) || (P.turn.forced && handsOff));
     P.holding = !!(engaged && P.turn.held);
-    if (engaged) {
-      P.turn.committed = true;
+    const box = node.arms.reduce((m, a) => a.road === road ? m : Math.max(m, a.road.halfW), 0);
+    if (engaged && toGo < box + ST.commitIn) P.turn.committed = true;
+    // on the corner itself lane-keep follows the curve by pure pursuit; on a
+    // street it is the motorway's own law (car.js)
+    P.corner = !!(J.turn && (engaged || P.turn.committed) && stAim.s >= J.t1S - ST.turnAhead);
+    if (engaged || P.turn.committed) {
       const vc = J.uturn ? ST.uturnSpeed : ST.cornerSpeed;
       const early = P.turn.forced ? ST.forcedMargin : 0;
       P.cap = Math.sqrt(vc * vc + 2 * ST.cornerBrake * Math.max(0, toApex - early));
@@ -593,14 +628,13 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
     const through = J.turn ? stAim.s > J.exitS + ST.exitSlack : toGo < -ST.exitSlack;
     if (through) {
       if (J.turn && P.turn.committed) P.giveBack = ST.giveBackTime;
-      // one hold, one turn: a finger still held round the corner is not a
-      // second turn into the building on the far side
-      if (P.turn.held && Math.abs(steer01) > ST.turnIntent) P.latch = Math.sign(steer01);
       P.road = P.turn.arm.road; P.dir = stArmDir(P.turn.arm); P.turn = null;
     }
     p = stProject(road, x, z);
   } else {
     // no junction ahead (a link that runs out onto the motorway): its lane
+    P.curve = road.kind !== "grid";
+    if (P.curve) ahead = Math.max(ST.turnAhead, Math.min(ahead, speed * ST.turnLook));
     stPointAt(road, p.s + dir * ahead, dir, road.lo, stAim);
   }
   // Hands-off, the corner where the road ends may be several junctions on:
@@ -641,7 +675,7 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
   }
   return { lateral: pLat, y, fx: pFx, fz: pFz, s: pS, spur: null, street: road, dir,
            laneOff: road.lo * dir, aimX: stAim.x, aimZ: stAim.z, cap: P.cap,
-           holding: P.holding, latched: !!P.latch,
+           holding: P.holding, corner: P.corner, curve: P.curve,
            railHalf: road.railed ? road.halfW : 0, dist: pD };
 }
 
@@ -1514,7 +1548,7 @@ function stBuildLinks(g) {
 // Everything else is ordinary traffic: a queue, a signal, a turn.
 // ---------------------------------------------------------------------------
 const STT = TUNE.city.traffic;
-const stTraffic = { list: [], meshes: [], city: null, parked: null, peds: null };
+const stTraffic = { list: [], meshes: [], city: null, parked: null };
 // type: 0 car, 1 taxi, 2 bus, 3 delivery van -- half-extents for touching, speed
 const ST_TYPES = [
   { hw: 1.7, hl: 3.8, y: 1.2 },
@@ -1675,9 +1709,11 @@ function stInHisWay(v, him) {
   return !!v.path || v.crossing;                                  // across him: only once committed
 }
 
-// Is it in front of him at all, on the ground?
+// Is it not clearly BEHIND him, on the ground? (Coming round a curve -- down
+// the bridge ramp -- a car ahead in his lane is off to the side of his nose,
+// and "in front" read strictly left it a wall.)
 function stInFront(v, him) {
-  return (v.wx - him.x) * -Math.sin(state.heading) + (v.wz - him.z) * -Math.cos(state.heading) > 0;
+  return (v.wx - him.x) * -Math.sin(state.heading) + (v.wz - him.z) * -Math.cos(state.heading) > -STT.behindMargin;
 }
 
 // Would he be inside this junction before a vehicle entering it now is out of
@@ -2213,44 +2249,6 @@ function stLayParking(city) {
 }
 
 // ---------------------------------------------------------------------------
-// PEOPLE, on the pavements and nowhere else. Each walks round its own block a
-// pace in from the kerb, so it never steps into a road -- and never has to
-// cross one. They are un-hittable: nothing checks them against anything, and
-// if he mounts the pavement the ones in his way step back against the wall.
-// ---------------------------------------------------------------------------
-function stBuildPeople(g) {
-  const C = TUNE.palette;
-  const parts = [
-    { w: 0.7, h: 1.0, d: 0.45, y: 0.95, c: 0xffffff, l: ART_LAYER.deck },       // coat
-    { w: 0.6, h: 0.85, d: 0.4, y: 0.42, c: C.slate, l: ART_LAYER.deck },          // legs
-    { w: 0.42, h: 0.42, d: 0.42, y: 1.68, c: 0xd9b48f, l: ART_LAYER.deck },       // head
-  ];
-  const m = new THREE.InstancedMesh(hwyVehicleGeo(parts),
-    new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), ST.people.count);
-  m.frustumCulled = false; m.userData.noSolid = true;
-  const tints = [C.red, C.blue, C.gold, C.white, C.green, C.sea, C.rust, C.steel];
-  for (let i = 0; i < ST.people.count; i++) m.setColorAt(i, new THREE.Color(tints[i % tints.length]));
-  m.instanceColor.needsUpdate = true;
-  g.add(m);
-  stTraffic.peds = { mesh: m, list: [] };
-  for (let i = 0; i < ST.people.count; i++) stTraffic.peds.list.push({ alive: false, block: null, u: 0, speed: 1.3, back: 0 });
-}
-
-// the walk round one block: its perimeter, `inset` from the kerb
-function stPedPoint(city, b, u, back, out) {
-  const D = city.data, aw = D.avenueW / 2, sw = D.streetW / 2;
-  const walk = Math.min(D.inset * 0.5, 1.8) + back * Math.max(0, D.inset - 1.8);
-  const x0 = b[0] + aw + walk, x1 = b[2] - aw - walk, z0 = b[1] + sw + walk, z1 = b[3] - sw - walk;
-  const W = x1 - x0, H = z1 - z0, P = 2 * (W + H);
-  let t = ((u % P) + P) % P;
-  if (t < W) { out.x = x0 + t; out.z = z0; out.hx = 1; out.hz = 0; }
-  else if ((t -= W) < H) { out.x = x1; out.z = z0 + t; out.hx = 0; out.hz = 1; }
-  else if ((t -= H) < W) { out.x = x1 - t; out.z = z1; out.hx = -1; out.hz = 0; }
-  else { t -= W; out.x = x0; out.z = z1 - t; out.hx = 0; out.hz = -1; }
-  return out;
-}
-
-// ---------------------------------------------------------------------------
 // THE SQUARE (New York). One block the generator left open, paved, with a
 // fountain in the middle he can drive straight through: a splash, the sound of
 // one, and nothing else. The basin rim is a kerb, not a wall -- nothing here is
@@ -2391,47 +2389,6 @@ function stUpdateParked(city, dt) {
   ms.forEach((m, h) => vkCommit(m, n[h]));
 }
 
-const stPedTmp = {};
-function stUpdatePeople(city, dt) {
-  const Pp = stTraffic.peds;
-  if (!Pp) return;
-  const m = Pp.mesh, R = ST.people;
-  let n = 0;
-  for (const p of Pp.list) {
-    if (!city) { p.alive = false; continue; }
-    if (!p.alive || p.city !== city.key || Math.hypot(p.x - state.x, p.z - state.z) > R.range * 1.2) {
-      // a block near him, somewhere along its walk
-      const blocks = city.data.blocks;
-      let b = null;
-      for (let t = 0; t < 8 && !b; t++) {
-        const c = blocks[Math.floor(Math.random() * blocks.length)];
-        const cx = (c[0] + c[2]) / 2, cz = (c[1] + c[3]) / 2;
-        if (Math.hypot(cx - state.x, cz - state.z) < R.range) b = c;
-      }
-      if (!b) { p.alive = false; continue; }
-      p.block = b; p.u = Math.random() * 400; p.speed = lerp(R.speed[0], R.speed[1], Math.random()) * (Math.random() < 0.5 ? 1 : -1);
-      p.alive = true; p.city = city.key; p.back = 0; p.bob = Math.random() * 6;
-    }
-    p.u += p.speed * dt; p.bob += dt * 7;
-    stPedPoint(city, p.block, p.u, p.back, stPedTmp);
-    // he has mounted the pavement: the ones in his way step back to the wall
-    const d = Math.hypot(stPedTmp.x - state.x, stPedTmp.z - state.z);
-    const want = carActive() && d < R.dodge ? 1 : 0;
-    p.back += clamp(want - p.back, -dt * 1.5, dt * 5);
-    stPedPoint(city, p.block, p.u, p.back, stPedTmp);
-    p.x = stPedTmp.x; p.z = stPedTmp.z;
-    const hide = carActive() && Math.hypot(p.x - state.x, p.z - state.z) < R.hide;
-    stDummy.position.set(p.x, terrainMeshY(p.x, p.z) + CITY.sidewalkLift + Math.abs(Math.sin(p.bob)) * 0.08, p.z);
-    const s = Math.sign(p.speed) || 1;
-    stDummy.rotation.set(0, Math.atan2(-stPedTmp.hx * s, -stPedTmp.hz * s), 0);
-    stDummy.scale.setScalar(hide ? 0.001 : 1);
-    stDummy.updateMatrix();
-    m.setMatrixAt(n++, stDummy.matrix);
-  }
-  stDummy.position.set(0, -9999, 0); stDummy.scale.setScalar(0.001); stDummy.updateMatrix();
-  for (let i = n; i < m.count; i++) m.setMatrixAt(i, stDummy.matrix);
-  m.instanceMatrix.needsUpdate = true;
-}
 // ---------------------------------------------------------------------------
 // BUILD, once, at load -- after the highway (the off-ramps leave it) and the
 // cities' layout (citydata.js), before the car (which asks all of this).
@@ -2452,7 +2409,6 @@ function stBuild() {
   stMergeStatic(g);                // the links' strips, rails, piers and the dressing: a call per material
   stBuildTrafficMeshes(g);
   stBuildParkedMesh(g);
-  stBuildPeople(g);
   hwyIndexCorridor();             // the links claimed their ground as they were laid
   scene.add(g);
   streets.g = g;
@@ -2501,7 +2457,6 @@ function stUpdate(dt) {
   stUpdateTraffic(dt);
   const city = stCityNear(state.x, state.z, ST.wake);
   stUpdateParked(city, dt);
-  stUpdatePeople(city, dt);
   if (city) { stUpdateSquare(city, dt); if (city.key === "ny") stUpdateNY(city, dt); }
 }
 

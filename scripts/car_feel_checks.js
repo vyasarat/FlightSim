@@ -84,17 +84,18 @@ module.exports = async function carFeelChecks({ newPage, check, viewports }) {
         out.laneChangeSec = settled === null ? null : +settled.toFixed(2);
       }
 
-      // ---- 4. HIS COMMAND GETS THROUGH. At every stick position the car does
-      // what he asked, to within the smoothing -- never less, and never the
-      // other way. This is the number that was wrong.
+      // ---- 4. THE ONE STEERING RULE (v127). Below a full steer (`fullSteer` of
+      // the car's drag range) the stick is not steering: the assist stays whole
+      // and he holds his lane. At or past it his command gets through whole --
+      // never less, and never the other way.
       const pull = [];
       for (const bank of [0.2, 0.35, 0.5, 0.75, 1.0]) {
         onRoad(L.CAR.cruise);
         for (let i = 0; i < 90; i++) { L.api.setStick(bank, 0.9); L.update(1 / 60); st.speed = L.CAR.cruise; }
         const scaled = Math.min(1, bank * (L.TUNE.dragRangeX * Math.min(W, H)) / (L.CAR.dragRangeX * W));
         const want = Math.max(0, (scaled - L.CAR.deadzone) / (1 - L.CAR.deadzone)) * L.CAR.steerRate;
-        pull.push({ bank, want: +want.toFixed(1), got: +L.car.steer.toFixed(1),
-                    yieldLeft: +L.car.yield.toFixed(3) });
+        pull.push({ bank, scaled: +scaled.toFixed(2), steers: scaled >= L.CAR.fullSteer, want: +(scaled >= L.CAR.fullSteer ? want : 0).toFixed(1),
+                    got: +L.car.steer.toFixed(1), yieldLeft: +L.car.yield.toFixed(3) });
       }
       out.commandThrough = pull;
 
@@ -119,10 +120,11 @@ module.exports = async function carFeelChecks({ newPage, check, viewports }) {
       r.yaw_slow > r.yaw_cruise * 1.15 &&
       r.laneChangeSec !== null && r.laneChangeSec < 2.2, JSON.stringify(r));
 
-    const worst = r.commandThrough.reduce((m, p) => Math.min(m, p.want <= 0.5 ? 1 : p.got / p.want), 1);
-    check(`car ${tag}: and the road never pulls against him -- at every stick position the car does what he asked (worst case ${Math.round(worst * 100)}% of it), the assist is fully out while he steers, still out a quarter of a second after he lets go, and all the way back ${r.restoredInSec} s later`,
-      worst > 0.92 && r.commandThrough.every(p => p.got >= -0.01) &&
-      r.commandThrough[r.commandThrough.length - 1].yieldLeft < 0.01 &&
+    const steers = r.commandThrough.filter(p => p.steers), rests = r.commandThrough.filter(p => !p.steers);
+    const worst = steers.reduce((m, p) => Math.min(m, p.got / p.want), 1);
+    check(`car ${tag}: below a full steer the stick is a resting hand -- ${rests.map(p => Math.round(p.scaled * 100) + "%").join(", ")} of his range hold the lane, the assist whole -- and past it the road never pulls against him: the car does what he asked (worst case ${Math.round(worst * 100)}% of it), the assist is fully out while he steers, still out a quarter of a second after he lets go, and all the way back ${r.restoredInSec} s later`,
+      steers.length >= 1 && rests.length >= 1 && worst > 0.92 && steers.every(p => p.yieldLeft < 0.01) &&
+      rests.every(p => Math.abs(p.got) < 1 && p.yieldLeft > 0.99) &&
       r.yieldAt250ms < 0.05 && r.yieldAfterRelease > 0.99 && r.restoredInSec < 1.3,
       JSON.stringify({ through: r.commandThrough, at250ms: r.yieldAt250ms, restoredIn: r.restoredInSec }));
 

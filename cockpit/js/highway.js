@@ -165,6 +165,11 @@ function hwyNearest(x, z) {
   const px = lerp(a.x, b.x, bt), pz = lerp(a.z, b.z, bt);
   const rx = -nz, rz = nx;                      // road's right-hand vector
   hwyTmp.s = lerp(a.s, b.s, bt);
+  // the same place in hwySampleAt's measure, which is the one traffic lives in:
+  // that reads sample i at i * HW.step, and the samples are not quite HW.step
+  // apart on the ground -- by California the two disagree by 14 m, and traffic
+  // alongside him took him for a car's length ahead of it
+  hwyTmp.u = (bi + bt) * HW.step;
   hwyTmp.lateral = (x - px) * rx + (z - pz) * rz;
   hwyTmp.y = lerp(a.y, b.y, bt);
   hwyTmp.fx = nx; hwyTmp.fz = nz;
@@ -884,31 +889,9 @@ function hwyBuildCharge(g, end, at) {
 // ---------------------------------------------------------------------------
 // Traffic: machines only, instanced, in both directions, keeping their lanes.
 // ---------------------------------------------------------------------------
-// Boxes merged into one geometry, each with its own colour and atlas slot. The
-// traffic itself is the kit's lofted shapes now (vehiclekit.js), in the SAME
-// envelopes the boxes had (the car 3.4 x 2.2 x 7.6, the lorry 4.2 x 4.4 x 15) --
+// The shapes are the kit's lofted vehicles (vehiclekit.js), in the SAME envelopes
+// the old boxes had (the car 3.4 x 2.2 x 7.6, the lorry 4.2 x 4.4 x 15) --
 // nothing about where traffic is, or how near counts as touching it, moves.
-// This stays for the city's people (streets.js).
-function hwyVehicleGeo(parts) {
-  const pos = [], nor = [], col = [], lay = [], c = new THREE.Color();
-  for (const b of parts) {
-    const g = new THREE.BoxGeometry(b.w, b.h, b.d).toNonIndexed();
-    g.translate(b.x || 0, b.y || 0, b.z || 0);
-    const P = g.attributes.position, N = g.attributes.normal;
-    c.setHex(b.c);
-    for (let i = 0; i < P.count; i++) {
-      pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(N.getX(i), N.getY(i), N.getZ(i));
-      col.push(c.r, c.g, c.b); lay.push(b.l);
-    }
-    g.dispose();
-  }
-  const out = new THREE.BufferGeometry();
-  out.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  out.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
-  out.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  out.setAttribute("artLayerA", new THREE.Float32BufferAttribute(lay, 1));
-  return out;
-}
 const HWY_CAR_TINTS = [TUNE.palette.steel, TUNE.palette.red, TUNE.palette.blue, TUNE.palette.white,
                        TUNE.palette.slate, TUNE.palette.warning, TUNE.palette.green, TUNE.palette.grey];
 // a lorry's cab (its box is white)
@@ -966,19 +949,21 @@ function hwyUpdateTraffic(dt, px, pz) {
   if (!highway.trafficMesh) return;
   const T = HW.traffic;
   const near = hwyNearest(px, pz);
-  const aroundS = near ? near.s : 0;
+  const aroundS = near ? near.u : 0;
   // where he is, if he is the car: traffic needs it to keep off his bumper
   let carHere = null;
   if (near && typeof car !== "undefined" && state.vp && state.vp.car) {
     // Which CARRIAGEWAY he is on, which is the sign of his lateral offset --
     // not his direction of travel. Matching on direction put the follow rule on
     // the oncoming side and let his own lane drive straight through him.
-    carHere = { s: near.s, lateral: near.lateral, side: Math.sign(near.lateral) || 1, speed: state.speed };
+    carHere = { s: near.u, lateral: near.lateral, side: Math.sign(near.lateral) || 1, speed: state.speed };
     // On the last of a city's way on he is about to be in the outer lane, and
     // the traffic makes room for him there; over the motorway on a flyover he
-    // is not on it at all (streets.js).
+    // is not on it at all (streets.js). Only on ANOTHER road: off every road,
+    // on a bank beside the carriageway, he is higher or lower than it too, and
+    // read as a flyover the lane he was pulled back into never saw him coming.
     if (car.merging) { carHere.side = car.merging; carHere.lateral = car.merging * (HW.medianW / 2 + HW.laneW * 1.5); }
-    else if (typeof ST !== "undefined" && Math.abs(near.y - state.y) > ST.levelTol) carHere = null;
+    else if (typeof ST !== "undefined" && (car.onStreet || car.onSpurRoad) && Math.abs(near.y - state.y) > ST.levelTol) carHere = null;
   }
   const vkN = { sedan: 0, hatch: 0, lorry: 0 };
   const vkM = { sedan: highway.trafficMesh, hatch: highway.hatchMesh, lorry: highway.truckMesh };
@@ -997,7 +982,10 @@ function hwyUpdateTraffic(dt, px, pz) {
       ? Math.abs((t.dir * (HW.medianW / 2 + HW.laneW * (t.laneF + 0.5))) - carHere.lateral) : Infinity;
     if (laneGap < HW.laneW * 1.1) {
       const ahead = (carHere.s - t.s) * t.dir;      // positive: he is in front of it
-      if (ahead > 0 && ahead < T.follow) sp = Math.min(sp, carHere.speed * 0.98);
+      // and it keeps its distance: pulled back on to the carriageway beside
+      // one, he arrived in its lane a car's length ahead of it, and matching
+      // his speed from there it hit him as he straightened up
+      if (ahead > 0 && ahead < T.follow) sp = Math.min(sp, Math.max(0, carHere.speed * 0.98 - Math.max(0, T.keepBack - ahead) * T.dropBack));
     }
     // and it stops at a red, unless stopping would put it in his way
     if (typeof ltHighwayStop === "function") {

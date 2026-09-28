@@ -1,4 +1,4 @@
-const CACHE_NAME = "little-pilot-v19";
+const CACHE_NAME = "little-pilot-v20";
 const ASSETS = [
   "./",
   "./index.html",
