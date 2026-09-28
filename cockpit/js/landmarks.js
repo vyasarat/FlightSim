@@ -260,18 +260,25 @@ function addRouteLandmark(g, x, z, name) {
   }
 }
 
-function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
+// `roadway`: the deck is a road (streets.js drives New York's). The towers then
+// stand OUTSIDE the deck edges, with a portal beam over it, instead of on it:
+// standing on it they left a slot a metre wide between their solids.
+function suspensionBridge(cableColor, len, towerH, deckY, deckW, roadway) {
   const g = new THREE.Group();
   g.userData.trackSolids = true;
   g.userData.pending = [];
   g.userData.bridgeDeckY = deckY;
+  g.userData.bridgeDeckW = deckW;
+  g.userData.bridgeLen = len;
   g.userData.art = "concrete";
+  const tz0 = roadway ? -6.5 : 0, tz1 = roadway ? deckW + 6.5 : deckW;
   for (const sx of [-len / 2 + 55, len / 2 - 55]) {
-    lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, 0);
-    lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, deckW);
+    lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, tz0);
+    lmBox(g, 13, towerH, 11, 0x8a4a3a, sx, deckY + towerH / 2, tz1);
+    if (roadway) lmBox(g, 13, 5, tz1 - tz0 + 11, 0x8a4a3a, sx, deckY + towerH - 2.5, deckW / 2);
   }
   lmBox(g, len, 4.5, deckW + 2, 0x9a9ea6, 0, deckY, deckW / 2);
-  for (const sz of [0, deckW]) {
+  for (const sz of [tz0, tz1]) {
     lmBox(g, len * 0.44, 1.6, 1.6, cableColor, -len * 0.28, deckY + towerH * 0.4, sz, false);
     lmBox(g, len * 0.44, 1.6, 1.6, cableColor, len * 0.28, deckY + towerH * 0.4, sz, false);
   }
@@ -320,7 +327,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW) {
   // and 3 m under the deck) and no deck crossing the departure/arrival
   // centreline (|x| < 150 is kept clear of every bridge).
   const harborZ = half - 1480 * RS;
-  addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 34, 18), -520, harborZ, "bridgeNY1");
+  addRouteLandmark(suspensionBridge(0xd0342c, 620, 58, 34, 18, true), -520, harborZ, "bridgeNY1");
   addRouteLandmark(suspensionBridge(0xd0342c, 540, 52, 32, 16), 480, harborZ - 260 * RS, "bridgeNY2");
 
   const silosFarm = new THREE.Group();

@@ -476,8 +476,20 @@ def layout(site, types, cfg, rnd):
                 if not ok:
                     x += 3
                     misses += 1
+    # ---- the square: one block left open, by taking its buildings back out
+    # AFTER everything is placed, so the random stream -- and with it every
+    # other block in the city -- is exactly what it was without one
+    plaza = None
+    if cfg.get("plaza"):
+        px, pz = cfg["plaza"]
+        for (bx0, bz0, bx1, bz1) in blocks:
+            if bx0 < px < bx1 and bz0 < pz < bz1:
+                plaza = [round(bx0, 1), round(bz0, 1), round(bx1, 1), round(bz1, 1)]
+                placed[:] = [p for p in placed if not (bx0 < p[1] < bx1 and bz0 < p[2] < bz1)]
+        if plaza is None:
+            print("WARNING: no block under the plaza at", px, pz)
     rects = [[round(b[0] - aw / 2, 1), round(b[1] - sw / 2, 1), round(b[2] + aw / 2, 1), round(b[3] + sw / 2, 1)] for b in blocks]
-    return ground, placed, rects
+    return ground, placed, rects, plaza
 
 
 # ---------------------------------------------------------------------------
@@ -511,7 +523,7 @@ def build(city, cfg, type_fn, seed):
     rnd = random.Random(seed)
     site = Site(os.path.join(HERE, f"site-{city}.json"))
     types = type_fn(rnd)
-    ground, placed, rects = layout(site, types, cfg, rnd)
+    ground, placed, rects, plaza = layout(site, types, cfg, rnd)
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     obs = []
@@ -548,6 +560,10 @@ def build(city, cfg, type_fn, seed):
         "anchor": cfg["anchor"], "glb": f"models/city-{city}.glb",
         "bounds": [round(min(xs) - 40), round(min(zs) - 40), round(max(xs) + 40), round(max(zs) + 40)],
         "types": out_types, "buildings": placed, "blocks": rects,
+        # what streets.js drives on: every block edge is a street centreline,
+        # north-south ones avenueW wide and east-west ones streetW, and the
+        # buildings stand `inset` back from the kerb
+        "avenueW": cfg["avenue_w"], "streetW": cfg["street_w"], "inset": cfg["inset"], "plaza": plaza,
         "tris": {"lod0": tris0 + ground.tris, "lod1": tris1, "ground": ground.tris},
     }
     print(f"{city}: {len(placed)} buildings, {len(used)} types, tris lod0 {tris0} + ground {ground.tris}, lod1 {tris1}")
@@ -559,6 +575,7 @@ NY = {
     "x_origin": -220 + 36, "x_step": 108, "z_origin": 4130 - 33, "z_step": 66,
     "avenue_w": 20, "street_w": 14, "r_core": 230, "r_mid": 420,
     "inset": 3, "gap": 0, "tower_p": 0.8, "mix": 0.3,
+    "plaza": (-454, 4196),           # the square with the fountain, on the street in from the off-ramp
 }
 CA = {
     "anchor": "downtown", "core": (470, -4930), "hero": (460, -4920),

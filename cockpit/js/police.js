@@ -160,6 +160,9 @@ function policeStart(fromJunction) {
     const side = i % 2 ? 1 : -1;
     c.x = state.x - fx * (PL.spawnBehind + i * 16) + rx * side * PL.spawnSide;
     c.z = state.z - fz * (PL.spawnBehind + i * 16) + rz * side * PL.spawnSide;
+    // in a city, out of the street he just came down, not out of a building
+    const tp = typeof stTrailPoint === "function" ? stTrailPoint(PL.spawnBehind + i * 16, plTrailTmp) : null;
+    if (tp) { c.x = tp.x; c.z = tp.z; }
     c.y = plRoadY(c.x, c.z);
     c.heading = state.heading;
     c.speed = state.speed;
@@ -190,6 +193,9 @@ function policeStop(whoop) {
 // surface and not a metre above it. They drive the same roads he does, so they
 // ask the same question the car asks.
 function plRoadY(x, z) {
+  // a city street first: the grid is draped on the ground, the bridge is not
+  const st = typeof stSurfaceAt === "function" ? stSurfaceAt(x, z) : null;
+  if (st !== null) return st;
   if (typeof hwyNearest !== "function" || !highway.built) return terrainEff(x, z);
   const n = hwyNearest(x, z);
   const onRoad = n && Math.abs(n.lateral) < highway.halfW + 8;
@@ -328,8 +334,16 @@ function plChase(dt, fx, fz, rx, rz, nearest) {
     // aim at a point beside him, weaving
     c.weave += dt * PL.weave.rate * (1 + i * 0.35);
     const side = (i % 2 ? 1 : -1) * (PL.weave.amp + Math.sin(c.weave) * PL.weave.amp);
-    const tx = state.x - fx * want + rx * side;
-    const tz = state.z - fz * want + rz * side;
+    let tx = state.x - fx * want + rx * side;
+    let tz = state.z - fz * want + rz * side;
+    // In a city the straight line to him goes through a building, so they drive
+    // where HE drove: a point on his trail a little ahead of them, weaving only
+    // as wide as the street allows.
+    const tp = typeof stTrailPoint === "function" ? stTrailPoint(Math.max(4, gap - PL.trailAhead), plTrailTmp) : null;
+    if (tp) {
+      const w = Math.sin(c.weave) * PL.trailWeave;
+      tx = tp.x - tp.fz * w; tz = tp.z + tp.fx * w;
+    }
     const want2 = Math.atan2(-(tx - c.x), -(tz - c.z));
     c.heading += clamp(wrapPi(want2 - c.heading), -2.6 * dt, 2.6 * dt);
     c.x += -Math.sin(c.heading) * c.speed * dt;
@@ -347,6 +361,7 @@ function plChase(dt, fx, fz, rx, rz, nearest) {
   });
 }
 
+const plTrailTmp = {};
 function plNearSolid(x, y, z) {
   let hit = false;
   forEachSolid(b => {
@@ -362,6 +377,8 @@ function plRespawn(c, fx, fz, rx, rz) {
   const side = c.role % 2 ? 1 : -1;
   c.x = state.x - fx * (PL.spawnBehind + 20) + rx * side * PL.spawnSide;
   c.z = state.z - fz * (PL.spawnBehind + 20) + rz * side * PL.spawnSide;
+  const tp = typeof stTrailPoint === "function" ? stTrailPoint(PL.spawnBehind + 20, plTrailTmp) : null;
+  if (tp) { c.x = tp.x; c.z = tp.z; }
   c.y = plRoadY(c.x, c.z);
   c.heading = state.heading;
   c.speed = state.speed;

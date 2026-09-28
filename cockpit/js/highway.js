@@ -747,10 +747,6 @@ function hwyBuildInterchanges(g, conc, steel) {
 
 // Exit spurs, each with a big blue board carrying one icon and no letters.
 function hwyBuildExits(g) {
-  const C = TUNE.palette;
-  const boardMat = mattMat(0x1c4f9c);
-  const iconMat = new THREE.MeshBasicMaterial({ color: TUNE.palette.white });
-  const post = metalMat(C.grey, 20);
   const tarmac = artPaint(mattMat(TUNE.runwaySurfaceColor), "asphalt");
   for (const ex of HW.exits) {
     const at = hwySampleAt(ex.s * highway.length);
@@ -793,19 +789,7 @@ function hwyBuildExits(g) {
 
     // the board: a blue panel on two posts, one white icon, no letters anywhere
     const bx = at.x + rx * ex.side * (highway.halfW + 16), bz = at.z + rz * ex.side * (highway.halfW + 16);
-    const bg = new THREE.Group();
-    bg.position.set(bx, at.y, bz);
-    // face the traffic coming toward it, not the traffic that has passed
-    bg.rotation.y = Math.atan2(-at.fx, -at.fz);
-    const panel = new THREE.Mesh(new THREE.BoxGeometry(HW.boardW, HW.boardH * 0.62, 0.6), boardMat);
-    panel.position.y = HW.boardH; bg.add(panel);
-    for (const sx of [-1, 1]) {
-      const pst = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, HW.boardH, 6), post);
-      pst.position.set(sx * HW.boardW * 0.36, HW.boardH / 2, 0); bg.add(pst);
-    }
-    hwyIcon(bg, ex.icon, iconMat, HW.boardH);
-    castsShadow(bg);
-    g.add(bg);
+    hwyExitBoard(g, bx, at.y, bz, at, ex.icon);
 
     const rec = { ...ex, x: at.x, z: at.z, y: at.y, spur, bx, bz };
     if (ex.charge) rec.charge = hwyBuildCharge(g, spur[spur.length - 1], at);
@@ -813,8 +797,35 @@ function hwyBuildExits(g) {
   }
 }
 
-// Icons only: a control tower, a wave, an aeroplane. Built from boxes so there
-// is not a glyph anywhere near them.
+// One exit board: a blue panel on two posts facing the traffic coming toward
+// it, one white icon, no letters anywhere. The city spurs (streets.js) put up
+// their own with the same call.
+const hwyBoardMats = {};
+function hwyExitBoard(g, bx, by, bz, at, icon) {
+  const M = hwyBoardMats;
+  if (!M.board) {
+    M.board = mattMat(0x1c4f9c);
+    M.icon = new THREE.MeshBasicMaterial({ color: TUNE.palette.white });
+    M.post = metalMat(TUNE.palette.grey, 20);
+  }
+  const bg = new THREE.Group();
+  bg.position.set(bx, by, bz);
+  // face the traffic coming toward it, not the traffic that has passed
+  bg.rotation.y = Math.atan2(-at.fx, -at.fz);
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(HW.boardW, HW.boardH * 0.62, 0.6), M.board);
+  panel.position.y = HW.boardH; bg.add(panel);
+  for (const sx of [-1, 1]) {
+    const pst = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, HW.boardH, 6), M.post);
+    pst.position.set(sx * HW.boardW * 0.36, HW.boardH / 2, 0); bg.add(pst);
+  }
+  hwyIcon(bg, icon, M.icon, HW.boardH);
+  castsShadow(bg);
+  g.add(bg);
+  return bg;
+}
+
+// Icons only: a control tower, a wave, an aeroplane, a skyline. Built from
+// boxes so there is not a glyph anywhere near them.
 function hwyIcon(parent, kind, mat, boardH) {
   const G = new THREE.Group();
   G.position.set(0, boardH, 0.5);
@@ -827,6 +838,11 @@ function hwyIcon(parent, kind, mat, boardH) {
     box(6.4, 0.9, 0.3, 0, 0.6, 0); box(2.6, 0.7, 0.3, 0, -1.9, 0);
   } else if (kind === "wave") {
     for (let i = 0; i < 3; i++) box(6.6, 0.75, 0.3, 0, -1.4 + i * 1.4, 0, i % 2 ? 0.12 : -0.12);
+  } else if (kind === "skyline") {
+    // five towers of different heights standing on one line: a city
+    const T = [[-2.9, 2.6], [-1.5, 4.4], [0, 5.8], [1.5, 3.4], [2.9, 4.8]];
+    for (const [x, h] of T) box(1.1, h, 0.3, x, -2.6 + h / 2, 0);
+    box(0.25, 1.2, 0.3, 0, 3.8, 0);                       // the spire on the tallest
   } else {
     box(1.5, 5.4, 0.3, 0, -0.4, 0); box(3.6, 1.4, 0.3, 0, 2.4, 0); box(4.6, 0.6, 0.3, 0, 3.3, 0);
   }
@@ -1068,6 +1084,7 @@ function updateHighway(dt) {
   // load after this file, so both answer for themselves only once they exist.
   if (typeof ltBuild === "function") { ltBuild(); ltUpdate(dt); }
   if (typeof updatePolice === "function") updatePolice(dt);
+  if (typeof stUpdate === "function") stUpdate(dt);           // the city streets (streets.js)
   for (const c of highway.charges) {
     if (c.t > 0) c.t -= dt;
     const on = c.t > 0 ? (Math.floor(c.t * HW.charge.pulse) % 2 === 0) : true;

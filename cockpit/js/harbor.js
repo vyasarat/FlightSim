@@ -537,6 +537,8 @@ function hbBuildRoad(dark) {
   hwyClaimCorridor(pts);
   hwyIndexCorridor();
   harbor.road = rec;
+  // California's boulevard (streets.js) comes down from downtown to meet it
+  if (typeof stJoinHarbour === "function") stJoinHarbour(rec);
 }
 
 // ---- the ferry, on a loop for ever ----------------------------------------

@@ -200,6 +200,7 @@ function ltBuild() {
   for (const ex of highway.exits) {
     const sp = ex.spur;
     if (!sp || sp.length < 4) continue;
+    if (ex.noJunction) continue;          // a city's ramps: the city has its own signals
     // WHERE ALONG THE SPUR IS MEASURED, not assumed. A fixed fraction put the
     // lake junction in the lake and ran the harbour one off the quay into the
     // water -- the spurs go to places, and some of those places are wet. So the
@@ -257,6 +258,8 @@ function ltBuild() {
           if (q.type !== "ground") continue;
           if (inter.some(c => Math.hypot(c.x - q.x, c.z - q.z) < LT.highwayKeepOut)) continue;
           if (portals.some(c => Math.hypot(c.x - q.x, c.z - q.z) < LT.boreKeepOut)) continue;
+          // and not where a city's ramp leaves: the ramp and a cross street would share the verge
+          if (highway.exits.some(e => e.city && Math.hypot(e.x - q.x, e.z - q.z) < LT.boreKeepOut)) continue;
           // Only against other MAIN-LINE junctions: a spur junction is a few
           // hundred metres off to the side and is not on this road, so counting
           // it here threw away half the candidate sites.
@@ -271,6 +274,10 @@ function ltBuild() {
       ltAdd("highway", pick, crossLen, highway.halfW, true, pickS, g, tarmac, paint, masts, arms, boxes, lampPts);
     }
   }
+
+  // ---- AND IN THE CITIES (streets.js): the bigger junctions of both grids,
+  // into the same merged masts, the same lamp mesh and the same halos
+  if (typeof stBuildSignals === "function") stBuildSignals(g, masts, arms, boxes, lampPts);
 
   if (masts.length) g.add(new THREE.Mesh(mergeBoxes(masts), steel));
   if (arms.length) g.add(new THREE.Mesh(mergeBoxes(arms), steel));
@@ -305,6 +312,7 @@ function ltBuild() {
     new THREE.BoxGeometry(3.2, 2.1, 7.0), metalMat(C.steel, 40),
     Math.max(1, lights.junctions.length * LT.cars));
   lights.carMesh.frustumCulled = false;
+  lights.carCap = lights.carMesh.count;              // `count` is how many are drawn this frame
   lights.carMesh.castShadow = true;
   lights.carMesh.userData.noSolid = true;   // traffic is never a wall
   g.add(lights.carMesh);
@@ -338,9 +346,11 @@ function ltUpdate(dt) {
     if (j.t <= 0) { j.phase = (j.phase + 1) % LT_PHASES.length; j.t = ltPhaseTime(j.phase, j); }
     j.blink += dt * LT.blinkHz;
 
-    // lamps
+    // lamps -- only an awake junction's are drawn. With the cities there are
+    // thirty-odd junctions and four hundred lamps, and every one of them used to
+    // be drawn every frame, the sleeping ones scaled to nothing.
     const on = { main: ltAspect(j, true), cross: ltAspect(j, false) };
-    for (const lamp of j.lamps) {
+    if (j.awake) for (const lamp of j.lamps) {
       const asp = lamp.main ? on.main : on.cross;
       const wantK = asp === "red" ? 0 : asp === "amber" ? 1 : 2;
       let lit = lamp.k === wantK;
@@ -348,7 +358,7 @@ function ltUpdate(dt) {
       ltDummy.position.set(lamp.x, lamp.y, lamp.z);
       ltDummy.scale.setScalar(j.awake ? 1 : 0.001);
       ltDummy.updateMatrix();
-      if (li < lights.lampMesh.count) {
+      if (li < lights.lampCount) {
         lights.lampMesh.setMatrixAt(li, ltDummy.matrix);
         const which = lamp.k === 0 ? "red" : lamp.k === 1 ? "amber" : "green";
         ltColor.setHex(lit ? LT.colors[which] : LT.colors.dark);
@@ -393,7 +403,7 @@ function ltUpdate(dt) {
       ltDummy.rotation.set(0, Math.atan2(j.rx * -c.side, j.rz * -c.side), 0);
       ltDummy.scale.setScalar(c.truck ? 1.2 : 1);
       ltDummy.updateMatrix();
-      if (ci < lights.carMesh.count) lights.carMesh.setMatrixAt(ci++, ltDummy.matrix);
+      if (ci < lights.carCap) lights.carMesh.setMatrixAt(ci++, ltDummy.matrix);
       c.wx = wx; c.wz = wz;
     }
   }
@@ -401,8 +411,13 @@ function ltUpdate(dt) {
   // park what is not in use rather than leaving stale matrices standing about
   ltDummy.position.set(0, -9999, 0); ltDummy.rotation.set(0, 0, 0);
   ltDummy.scale.setScalar(0.001); ltDummy.updateMatrix();
-  for (let k = li; k < lights.lampMesh.count; k++) lights.lampMesh.setMatrixAt(k, ltDummy.matrix);
-  for (let k = ci; k < lights.carMesh.count; k++) lights.carMesh.setMatrixAt(k, ltDummy.matrix);
+  for (let k = li; k < lights.lampCount; k++) {
+    lights.lampMesh.setMatrixAt(k, ltDummy.matrix);
+    for (const name of ["red", "amber", "green"]) { const arr = gpos[name], o = k * 3; arr[o] = 0; arr[o + 1] = -9999; arr[o + 2] = 0; }
+  }
+  lights.lampMesh.count = Math.max(1, li);
+  for (let k = ci; k < lights.carCap; k++) lights.carMesh.setMatrixAt(k, ltDummy.matrix);
+  lights.carMesh.count = Math.max(1, ci);
   lights.lampMesh.instanceMatrix.needsUpdate = true;
   if (lights.lampMesh.instanceColor) lights.lampMesh.instanceColor.needsUpdate = true;
   lights.carMesh.instanceMatrix.needsUpdate = true;
@@ -458,7 +473,8 @@ function ltWatchCar(dt) {
   const isCar = typeof vehKind === "function" && vehKind() === "car";
   if (!isCar || state.exploding) { ltLastTo = null; ltLastJ = null; return; }
   const a = ltAhead();
-  if (!a || a.lat > (a.main ? HW.spurW : LT.crossW) + 4) { ltLastTo = null; ltLastJ = null; return; }
+  const half = a ? (a.main ? (a.j.mainHalf || HW.spurW) : (a.j.crossHalf || LT.crossW)) : 0;
+  if (!a || a.lat > half + 4) { ltLastTo = null; ltLastJ = null; return; }
   const was = ltLastJ === a.j ? ltLastTo : null;
   ltLastJ = a.j; ltLastTo = a.toLine;
   if (was === null || was === undefined) return;
@@ -514,7 +530,8 @@ function ltHighwayStop(s, dir, myS, mySpeed) {
 // ---- the test surface's questions ------------------------------------------
 function ltJunctionCount(kind) {
   if (kind === "highway") return lights.junctions.filter(j => j.onHighway).length;
-  if (kind === "spur") return lights.junctions.filter(j => !j.onHighway).length;
+  if (kind === "spur") return lights.junctions.filter(j => !j.onHighway && !j.city).length;
+  if (kind === "city") return lights.junctions.filter(j => j.city).length;
   return lights.junctions.length;
 }
 function ltStateOf(i) {
