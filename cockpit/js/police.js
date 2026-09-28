@@ -52,32 +52,27 @@ POLICE_POOL.prev = evpLoadLast(POLICE_POOL);
 // ---------------------------------------------------------------------------
 // One car: a body, a roof bar with two lamps, and an officer who stays in it.
 // ---------------------------------------------------------------------------
-function plBuildCar() {
+function plBuildCar() { return vkQuiet(VK_V125_DRAWS.policeCar, plBuildCarKit); }
+function plBuildCarKit() {
   const g = new THREE.Group();
   // Sized against HIS car, which is the only scale reference he has: a police
   // car that dwarfs the thing it is chasing reads as a lorry with a light on.
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.0, 5.4), mattMat(0xffffff));
-  body.position.y = 0.85; g.add(body);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 2.5), mattMat(0x20242b));
-  cabin.position.set(0, 1.72, -0.25); g.add(cabin);
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(2.54, 0.55, 3.0), mattMat(0xf2f4f7));
-  panel.position.set(0, 0.85, 0.35); g.add(panel);
+  // The body is the traffic kit's sedan at 2.5 x 5.4 (vehiclekit.js): `body` is
+  // its paint and `panel` its doors, which is what a livery repaints; glass,
+  // tyres and lamps are fixed, and its wheels turn.
+  const K = vkPoliceParts();
+  const body = new THREE.Mesh(K.body, mattMat(0xffffff)); g.add(body);
+  const panel = new THREE.Mesh(K.panel, mattMat(0xf2f4f7)); g.add(panel);
+  g.add(K.fixed);
   // the roof bar
   const bar = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.2, 0.5), mattMat(0x20242b));
-  bar.position.set(0, 2.24, -0.25); g.add(bar);
+  bar.position.set(0, K.roof + 0.08, K.roofZ); g.add(bar);
   const lamps = [];
   for (const sx of [-1, 1]) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.26, 0.44),
       new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }));
-    m.position.set(sx * 0.52, 2.26, -0.25);
+    m.position.set(sx * 0.52, K.roof + 0.10, K.roofZ);
     g.add(m); lamps.push(m);
-  }
-  // wheels, so it reads as a car from the chase camera rather than a brick
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.42, 10), mattMat(0x1a1d22));
-    w.rotation.z = Math.PI / 2;
-    w.position.set(sx * 1.26, 0.56, sz * 1.72);
-    g.add(w);
   }
   // The officer. Drawn in the seat, and that is where he stays: he is not a
   // target, he is not solid, nothing can be aimed at him and nothing can
@@ -90,7 +85,7 @@ function plBuildCar() {
   const arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.46, 0.14), mattMat(0x1c4f9c));
   arm.position.set(-0.34, 0.38, 0); arm.geometry.translate(0, -0.23, 0);
   who.add(arm);
-  who.position.set(-0.46, 1.32, -0.35);
+  who.position.set(-0.46, 0.74, 0.2);                 // in the driver's seat, under the roof
   who.userData.noSolid = true; who.userData.noShatter = true;
   g.add(who);
 

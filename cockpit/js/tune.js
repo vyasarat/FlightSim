@@ -468,6 +468,7 @@ const TUNE = {
                                  // window's edge it can take a corner from up to the 1.4 step
     uturnSpeed: 3.2,             // a turnaround at a dead end
     rejoinSpeed: 8, rejoinCos: 0.8,   // hands-off back on to a street from off it, across its line
+    rejoinAlong: 13,             // ... and along it, over the parked cars: under TUNE.car.crashSpeed
     giveBackTime: 2.4, giveBackAccel: 16,   // and how fast it hands the speed back after
     turnIntent: 0.28,            // how hard a held steer must be to mean "turn here"
     turnR: 11,                   // the fillet a corner is driven on
@@ -483,6 +484,32 @@ const TUNE = {
     kerbW: 0.45, kerbH: 0.12, kerbStep: 6,
     parkEvery: 9.5, parkedPct: 55, parkOut: 1.7, parkClear: 9, parkedDrawn: 220, parkedRange: 360,
     reassembleReach: 160,
+    // A crash comes back on the road he was on, where it happened: only out of a
+    // junction's box (the cross street's half-width and this), and never on the
+    // motorway end of a city ramp (this far back from the carriageway's centre).
+    reassembleClear: 3, reassembleRampEnd: 60,
+    levelTol: 5,                 // a raised road more than this above or below him is not his road
+    levelCatch: 2.5,             // ... and one he is not on already must be within this to pick him up
+    // THE WAYS IN AND OUT (streets.js, stBuildRamps). A ramp is a one-lane road
+    // `halfW` each side of its middle; it leaves the kerb over `taperLen`, and a
+    // flyover sweeps over the motorway on `sweepR` -- a circle the car follows at
+    // the top speed step -- climbing at no more than `grade` to stand `clear`
+    // over whatever it crosses (a lorry is 4.5 m).
+    ramp: {
+      halfW: 10, step: 8, ease: 90, joinClear: 60, taperLen: 90, k: 110, sweepR: 150, sweepOut: 45, farTaper: 140, leaveStraight: 40, outLand: 36, outTaper: 120, runOut: 40, mergeDeg: 20,
+      leave: 120, flat: 25, flatJunction: 12, grade: 0.045, gradeMax: 0.065, clear: 7.6, sag: 1.5, deckT: 1.4, parapet: 1.1, pierEvery: 28,
+      // the approach: the lane painted from the gantry to where the ramp leaves,
+      // and the first stretch of the ramp with it
+      laneColor: 0x2b4fb0, paintOn: 160, arrowEvery: 34, arrowLen: 9, arrowW: 3.4, arrowLean: 22,
+      // the gantry: across the whole road, `gantryBack` before the ramp leaves
+      // the ramp assist (speed-only): the car's own turn rate, a margin under it,
+      // and how hard it may slow for a bend ahead
+      safeMargin: 0.85, safeBrake: 22,
+      holdReach: 30,             // a chosen ramp he is on holds him this far from its middle while he swings over
+      chooseEarly: 120,          // a held right this far before the gantry already means that ramp
+      gantryBack: 170, gantryOut: 5, beamY: 9.5, panelW: 20, panelH: 13, iconScale: 1.7,
+      panelColor: 0x1c4f9c, lampColor: 0xfff2c4,
+    },
     trailStep: 4, trailMax: 220,
     wake: 700,                   // his distance from a city's edge at which it comes alive
     fountain: { r: 7, jetH: 8, splashCool: 1.6 },
@@ -500,6 +527,7 @@ const TUNE = {
       // the three promises (streets.js): ahead of him in his lane it outruns him
       // from yieldReach, faster than he is by yieldMatch; behind, it holds his speed
       yieldReach: 150, yieldMatch: 40, yieldAccel: 60, follow: 70,
+      shed: 30,                  // how fast a car sheds the speed it only had to outrun him
       chainT: 4.5,               // how many seconds of his road ahead the promises look along
       closeT: 1.6, closeGap: 18, // this close ahead of him it keeps ahead even when he is slow
       claimT: 11,                // how far ahead (in seconds of him) a junction is his to claim
@@ -552,6 +580,8 @@ const TUNE = {
     // steer, because it is not rolling.
     lowSpeedTurn: 1.45, rollAt: 2.5,
     onRoadHalf: 24,              // this far from the centreline still counts as on the road
+    mergeLook: 260,
+    laneClear: 16,               // taking a chosen exit, he moves over only with no car within this, alongside,              // the last this-many metres of a way on: traffic makes room for him
     // Leaving the road must be a slope, not a cliff, and a step in the deck must
     // be taken at once. He drove underground without all three of these.
     shoulderBlend: 26,           // metres of ramp between the deck and the ground
@@ -560,6 +590,17 @@ const TUNE = {
     railAt: 4,                   // a deck this high above the ground has a rail that holds him
     crashSpeed: 18,              // below this a contact is a bump, not a bang
     railReach: 8,                // the guardrail holds him within this of a raised road's edge
+    // OFF THE ROAD, the pull-back aims at the nearest road IN FRONT of him (car.js,
+    // carRejoinTarget): a city street ahead beats the motorway behind. A road
+    // counts as ahead inside `cone` (cosine) of his nose; a point off to the side
+    // costs `turnCost` times its distance more; nothing past `reach` counts, and
+    // with nothing ahead the nearest road is the answer, as it always was. Within
+    // `near` of it the ordinary lane-keep has him. Re-picked every `every`
+    // seconds, and a new pick must beat the old by `stick` to replace it.
+    rejoin: { cone: 0.5, turnCost: 1.5, reach: 1500, near: 40, every: 0.25, stick: 1.25, sample: 15 },
+    // A bang off-road comes back where it happened, this far back from the wall,
+    // bounced off it -- the same rule as everything else, not the motorway.
+    reassembleBack: 7,
     crashDebounce: 0.9,          // seconds of GAME time between bangs, driven by the frame
     bodyL: 9.2, bodyW: 4.2, bodyH: 2.6,
     camChase: [17, 6.5], camLag: 5,

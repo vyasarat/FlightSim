@@ -30,6 +30,21 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
   the corner and takes it — an assist may hold the road for him, never choose the road — and
   one hold is one turn. Point at a building halfway along a block and nothing saves him.
   Every strength is `TUNE.city.*`, to be weakened as he improves, like the landing assists.
+- **The city exit gesture is a second carve-out, stated here** (`car.js`, `streets.js`).
+  Traffic keeps right, so every way into a city leaves from the RIGHT of his carriageway,
+  after a gantry, down a painted lane. A held right anywhere on that approach is his CHOICE
+  of the ramp and stands like an indicator: lane-keep takes the lane (only when no car is
+  beside him in it) and then the ramp, and his held finger reads as hands-off meanwhile, so
+  a long hold never steers him into the verge. It ends when the ramp is his, its mouth is
+  behind him, or he steers left. Hands-off, nothing here runs. On a city ramp a SPEED-ONLY
+  ramp assist holds him under what its bends allow (`TUNE.city.ramp.safe*`); below the top
+  speed step it never binds.
+- **Off every road, the road in front of him** (`carRejoinTarget`): the pull-back aims at the
+  nearest road inside a cone off his nose — a city street ahead beats the motorway behind —
+  and eases him there; with nothing ahead, the nearest road, as before. **A bang comes back on
+  the road he was on, where it happened** (`carReassemble`, `stReassembleAt`): the street, the
+  ramp, the boulevard, the carriageway — or, off every road, the spot itself, backed off the
+  wall. Never some other road because it was the nearest.
 - **Readability beats realism** — an effect that hides something he needs to see goes.
 
 ## The vehicle contract
@@ -100,9 +115,22 @@ a deliberate, stated behaviour change.
   where the road ends, `policy` is a value iteration toward the way out. City traffic keeps
   the motorway's promises three ways — behind him holds his speed, ahead of him in his lane
   outruns him, nothing enters a junction he will reach before it could clear — and under all
-  three a net measured on the ground: nothing stays in front of him. A city signal's head
-  stands on the FAR side, facing its traffic: from a city stop line the near side is behind
-  the windscreen pillar.
+  three a net measured on the ground: nothing stays in front of him — and "ahead of him in
+  his lane" means ahead on the ground too, or his tour hurries a car round the block into
+  his back. A city signal's head stands on the FAR side, facing its traffic: from a city stop
+  line the near side is behind the windscreen pillar.
+- **The ways in and out** (`stBuildRamps`): per city a near way in (on the ground), a far way
+  in that peels right and sweeps OVER the motorway, merging before the city on its street's
+  own line, and one way out over the motorway into the carriageway for the other city. Laid
+  in the motorway's (s, lat) frame, finished in the world where they meet a junction (the
+  frame is metres off, 200 m out). Every ramp is one-way (`oneWay`), level at its ends, and
+  stands `ramp.clear` over whatever it crosses. **A road he is not level with is not his
+  road** (`ST.levelTol`/`levelCatch`): the planner, the spur pick, the traffic touch and the
+  traffic that yields all ask his height first, or a flyover picks up the car beneath it.
+- **Seeded traffic sees v125's random stream** (`vkQuiet`, `vehiclekit.js`): three.js draws
+  `Math.random` for every object's id, so a builder that makes different meshes runs on its
+  own stream and then draws what v125's builder drew (`VK_V125_DRAWS`, `ST_V125_LINK_DRAWS`).
+  Change such a builder, keep the count.
 - **The guardrail holds him at the road's edge, and only there** (`CAR.railReach`): unbounded,
   anywhere off-road below the nearest road's height read as "past the rail" and he was
   pushed the whole way on to it — 850 m from the square in New York to the motorway.
@@ -152,7 +180,8 @@ a deliberate, stated behaviour change.
 | `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship, buggy, per-launch event |
 | `setpieces.js` `marsbase.js` `toyworld.js` `workshop.js` `toyfinish.js` | demolition, tower-catch, fire rig, carrier, Mars and its toys / the airport magnet yards, ramp and toy-fleet finish |
 | `highway.js` `car.js` `lights.js` `police.js` | the coast-to-coast road and its traffic / the SUV and lane-keep / the junctions / the chase |
-| `streets.js` | both cities, driveable: the street graph, the corner assist, the links (off-ramps, New York's bridge, California's boulevard), city traffic, parking, people, the square |
+| `streets.js` | both cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, people, the square |
+| `vehiclekit.js` | the traffic's six low-poly shapes (and the police sedan): wheels spun in the shader, lamps lit per vertex, one instanced call per shape |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
 | `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
 

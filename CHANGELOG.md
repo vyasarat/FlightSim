@@ -10,6 +10,46 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v126 — the ways into the cities, and traffic that looks like cars
+
+He couldn't see how to get into a city and drove across the fields instead, so
+the city exits are now found from the motorway. Traffic keeps right, so every
+city has a way in on each carriageway, on its right: a lit gantry across the
+whole road carrying the skyline, with two arrows pointing down into the lane,
+the exit lane painted blue with arrows leaning off it, and the ramp visibly
+peeling away from the kerb. From the side the city is on, the ramp runs to it
+on the ground. From the other side it peels right, climbs, and sweeps left over
+the motorway, clear of a lorry, joining the first ramp on the line of the
+street it becomes. The way out also sweeps over the motorway and merges from
+the right into the carriageway that heads for the other city. The v125 spurs
+started on the centreline, so taking one crossed the oncoming carriageway, and
+leaving New York put him briefly on the wrong side of the median. Holding right
+anywhere on the painted approach is his choice of that ramp and stands like an
+indicator: lane-keep moves him over (once the lane beside him is clear) and
+takes the ramp, and his held finger reads as hands-off meanwhile. It ends when
+the ramp is his, when its mouth is behind him, or when he steers left.
+Hands-off he drives past. A speed-only ramp assist holds him under what each
+bend allows, and in practice binds only at the top speed step. Both are stated
+in CLAUDE.md as carve-outs. The gantry and ramp are on screen and clear of the
+pillars from 300 m and 150 m out in the driving seat; that is harness-checked,
+and so is taking each way in, with a long hold and with a tap, at every step
+checked. Sixteen interchange pillars that stood in the lanes (not solid, driven
+through) are gone. Off the road, the pull-back now aims at the nearest road in
+front of him: in the fields facing a city he is taken on to a city street, not
+back to the motorway behind him. A crash comes back where it happened, on the
+road he was on: a street, the boulevard, the bridge deck, a ramp or the
+carriageway. Off every road it comes back at the spot itself, a few metres off
+the wall. v125 knew only "nearest grid street, else the motorway", which put a
+crash on the boulevard 800 m away. The traffic is six low-poly vehicles (sedan,
+hatchback, taxi with its roof sign, van, bus with its row of windows, box
+lorry) with wheels that turn and lamps that glow, and the police car keeps its
+livery on the new sedan. There is one instanced draw call per shape, collision
+boxes are unchanged, and the new builders leave the seeded random stream as
+v125's builders left it. City
+traffic keeps its promises more strictly: a car only counts as "ahead of him"
+if it is ahead on the ground, and speed it only had to outrun him goes as fast
+as it came.
+
 ## v125 — drivable cities
 
 Both block cities are places to drive. Every street the generator laid is a

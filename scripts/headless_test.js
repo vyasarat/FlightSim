@@ -4591,11 +4591,11 @@ function check(name, ok, extra) {
     check("highway: one continuous graded road coast to coast, with the mountain tunnel and the water crossings falling out of the profile rather than being placed by hand -- and it runs through nothing that was already in the world",
       road.length > 12000 && road.samples > 250 && road.tunnelRun > 300 && road.bridgeRun > 1000 &&
       road.underWater === 0 && road.buried === 0 && road.wallHitsOnCrossing === 0 &&
-      // eleven exits now: the six on the main line, the harbour coast spur
+      // thirteen exits now: the six on the main line, the harbour coast spur
       // (a hand-built polyline pushed into the same array -- that one line is
       // all it takes to make the car able to drive over the drawbridge), and
-      // each city's way in and way out (streets.js, v125)
-      road.exits === 11 && road.cityExits === 4 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
+      // each city's two ways in and one way out (streets.js, v126)
+      road.exits === 13 && road.cityExits === 6 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
 
     // 4. zero text, with the boards, the interchange and the interior screen in frame
     const text = await page.evaluate(() => {

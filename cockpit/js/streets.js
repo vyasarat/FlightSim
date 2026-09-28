@@ -290,11 +290,15 @@ function stArrivalArm(node, road, dir) {
   return null;
 }
 
+// A ramp is one-way: leaving a junction along an arm travels +1 along its road
+// if the arm is the road's start, so an arm against the road's flow is no choice.
+function stArmAllowed(a) { return !a.road.oneWay || stArmDir(a) === a.road.oneWay; }
+
 function stChoices(node, inArm) {
   const fx = -inArm.dx, fz = -inArm.dz;          // travelling INTO the junction
   const out = [];
   for (const a of node.arms) {
-    if (a === inArm) continue;
+    if (a === inArm || !stArmAllowed(a)) continue;
     out.push({ arm: a, ang: stArmAngle(fx, fz, a) });
   }
   return out;
@@ -435,7 +439,16 @@ function stPathAim(P, x, z, ahead, out) {
 // Sticky: the road he is on keeps him until he is off it or through the
 // junction at its end. Otherwise the nearest, with a heading penalty, so that
 // crossing a junction does not hand him to the cross street.
-function stAcquire(x, z, heading, wide) {
+// A raised road -- a ramp, a deck -- more than `levelTol` above or below `y` is
+// not a road he is on, however near it is on the map: under a flyover, the
+// road is the one under the flyover.
+// Staying on one tolerates `levelTol`; being picked up by one needs `levelCatch`,
+// or a car on the verge under a flyover is lifted five metres in a frame.
+function stLevel(r, x, z, s, y, tol) {
+  return y === undefined || r.drape || Math.abs(stRoadY(r, x, z, clamp(s, 0, r.len)) - y) < (tol || ST.levelTol);
+}
+
+function stAcquire(x, z, heading, wide, y) {
   const list = stRoadsNear(x, z);
   if (!list) return null;
   const fx = -Math.sin(heading), fz = -Math.cos(heading);
@@ -444,6 +457,7 @@ function stAcquire(x, z, heading, wide) {
   for (const r of list) {
     const p = stProject(r, x, z);
     if (p.d > r.halfW + reach) continue;
+    if (!stLevel(r, x, z, p.s, y, ST.levelCatch)) continue;
     if (p.s < -ST.endSlack || p.s > r.len + ST.endSlack) continue;
     const c = fx * p.fx + fz * p.fz;
     const score = p.d + ST.headPenalty * (1 - Math.abs(c));
@@ -455,12 +469,12 @@ function stAcquire(x, z, heading, wide) {
 // Is he in a city, near enough a street for the planner to be the one asked?
 // Inside a city that is anywhere he could be pulled back to a street from --
 // the middle of the square is thirty metres from the nearest one.
-function stCarNear(x, z) {
+function stCarNear(x, z, y) {
   const list = stRoadsNear(x, z);
   if (!list) return false;
   for (const r of list) {
     const p = stProject(r, x, z);
-    if (p.d < r.halfW + ST.offStreetReach && p.s > -ST.endSlack && p.s < r.len + ST.endSlack) return true;
+    if (p.d < r.halfW + ST.offStreetReach && p.s > -ST.endSlack && p.s < r.len + ST.endSlack && stLevel(r, x, z, p.s, y, ST.levelCatch)) return true;
   }
   return false;
 }
@@ -488,11 +502,12 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
     }
     const fx = -Math.sin(heading), fz = -Math.cos(heading);
     const c = (fx * p.fx + fz * p.fz) * cur.dir;
+    if (!stLevel(cur.road, x, z, p.s, state.y)) off = true;       // he has left the deck, or never was on it
     if (off || (!handsOff && !P.turn && c < 0.5)) cur = null;
   }
   if (!cur) {
     // on a street by the usual reach; off one (the square), the nearest there is
-    cur = stAcquire(x, z, heading) || stAcquire(x, z, heading, true);
+    cur = stAcquire(x, z, heading, false, state.y) || stAcquire(x, z, heading, true, state.y);
     if (!cur) { P.road = null; P.turn = null; P.cap = Infinity; return null; }
     if (cur.road !== P.road || cur.dir !== P.dir) P.turn = null;
   }
@@ -600,18 +615,34 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
   // him back. Coming at it across its line, the far kerb is a building: so this
   // is the road ending too, and the assist sheds speed before the near kerb so
   // the turn on to it fits. His own steering is never capped here.
+  // Coming at it along its line instead -- off the fields, on to the edge of a
+  // city -- he still crosses the parked cars at the kerb, and at speed that is
+  // a bang the assist drove him into: so it holds him under a bang's speed
+  // until he is inside the kerb.
   const across = Math.abs(p.lat) - road.halfW;
   if (handsOff && across > -2) {
     const fx = -Math.sin(heading), fz = -Math.cos(heading);
-    if (Math.abs(fx * p.fx + fz * p.fz) < ST.rejoinCos) {
-      P.cap = Math.min(P.cap, Math.sqrt(ST.rejoinSpeed * ST.rejoinSpeed + 2 * ST.cornerBrake * Math.max(0, across - 2)));
-    }
+    const v = Math.abs(fx * p.fx + fz * p.fz) < ST.rejoinCos ? ST.rejoinSpeed : ST.rejoinAlong;
+    P.cap = Math.min(P.cap, Math.sqrt(v * v + 2 * ST.cornerBrake * Math.max(0, across - 2)));
   }
-  const y = stRoadY(road, x, z, clamp(p.s, 0, road.len));
-  return { lateral: p.lat, y, fx: p.fx, fz: p.fz, s: p.s, spur: null, street: road, dir,
+  // past either end of a draped street -- crossing the junction on to a ramp --
+  // its ground is the ground at its end, not wherever he now is
+  let y;
+  if (road.drape && (p.s < 0 || p.s > road.len)) { const e = p.s < 0 ? road.pts[0] : road.pts[road.pts.length - 1]; y = stRoadY(road, e.x, e.z, 0); }
+  else y = stRoadY(road, x, z, clamp(p.s, 0, road.len));
+  // (stProject answers in one shared object: take what is needed before asking again)
+  const pLat = p.lat, pFx = p.fx, pFz = p.fz, pS = p.s, pD = p.d;
+  // Round a corner on to a raised road -- a ramp leaving the grid -- the corner
+  // cuts over ground outside the city's own, lower than the ramp it is joining:
+  // the ramp's start is the floor, or he met its end as a step.
+  if (P.turn && P.turn.arm.road !== road && !P.turn.arm.road.drape) {
+    const ar = P.turn.arm.road, q = stProject(ar, x, z);
+    if (q.d < ar.halfW + ST.capture) y = Math.max(y, stRoadY(ar, x, z, clamp(q.s, 0, ar.len)));
+  }
+  return { lateral: pLat, y, fx: pFx, fz: pFz, s: pS, spur: null, street: road, dir,
            laneOff: road.lo * dir, aimX: stAim.x, aimZ: stAim.z, cap: P.cap,
            holding: P.holding, latched: !!P.latch,
-           railHalf: road.railed ? road.halfW : 0, dist: p.d };
+           railHalf: road.railed ? road.halfW : 0, dist: pD };
 }
 
 // How far, hands-off, to the next junction where the road ends -- following
@@ -661,7 +692,7 @@ function stBuildPolicy(city) {
       for (const c of opts) {
         const r = c.arm.road;
         let cost;
-        if (r.kind === "exit") cost = r.len;
+        if (r.kind === "exit") cost = r.out ? r.len : Infinity;   // a way IN is no way out
         else if (r.kind === "coast") cost = Infinity;        // the harbour road: see below
         else {
           const nxt = farArm(c.arm);
@@ -688,29 +719,59 @@ function stBuildPolicy(city) {
 // ---------------------------------------------------------------------------
 // THE LINKS: the roads that join a grid to the rest of the world.
 //
-// Each city has two exits off the motorway, both real spurs in highway.exits
-// with a skyline on the board, so taking one IS the exit gesture and a hands-off
-// finger on the main line never does. The way IN arrives on a street through
-// the middle of the city; the way OUT leaves from a corner, continuing a street,
-// and the hands-off policy is what brings him round to it. New York adds a ramp
-// up onto the harbour bridge and a drive along its deck; California a boulevard
-// from downtown to the harbour's coast road, which is how the car reaches the
-// boats. That is all: one thing each, no more.
+// THE WAY IN IS FOUND FROM THE MOTORWAY, not from a board on a post. Traffic
+// keeps right, so every way off is on the RIGHT of the carriageway he is on, in
+// both directions: the lane painted its own colour, arrows on it leaning off,
+// a lit gantry across the whole road with the skyline over that lane and
+// arrows pointing down into it -- and the ramp visibly peeling away from the
+// kerb. Hold right on the approach and he takes it; it is the only exit
+// gesture there is.
+//   - On the side the city is on, the ramp peels away and runs to it on the
+//     ground.
+//   - From the other side the city is on his LEFT, so the ramp still peels
+//     away to the right, climbs, and sweeps left OVER the motorway -- a
+//     flyover, never a crossing of the oncoming carriageway -- and joins the
+//     first ramp before the city.
+//   - The way OUT is one on-ramp, over the motorway the same way, merging from
+//     the right into the carriageway that heads for the OTHER city, which is
+//     where hands-off from anywhere in the grid takes him.
+// The v125 spurs started on the centreline: taking one crossed the oncoming
+// carriageway, and leaving put him on the wrong side of the median.
+//
+// A RAMP IS ONE-WAY (`oneWay`). The planner never offers one against its flow,
+// so hands-off never drives up an off-ramp on to the motorway backwards.
+//
+// A ROAD HE IS NOT LEVEL WITH IS NOT HIS ROAD. Where a flyover crosses the
+// motorway or another ramp, the planner, the spur pick, the traffic touch and
+// the traffic that yields to him all ask his height first (`ST.levelTol`).
+//
+// New York adds a ramp up onto the harbour bridge and a drive along its deck;
+// California a boulevard from downtown to the harbour's coast road, which is
+// how the car reaches the boats.
 //
 // Every link claims its corridor as it is laid, the way the spurs do, so no
 // streamed scenery ever stands in one.
 // ---------------------------------------------------------------------------
+// Laid in the motorway's own frame: `s` metres along it, `lat` metres to its
+// right. `side` is where the city is. `land` is the city junction the way in
+// arrives at; the two ways in meet `linkLen` short of it ON THAT STREET'S OWN
+// LINE, so he arrives in the grid dead straight -- at speed, a twelve-degree
+// kink at the kerb put him across a waiting van.
+// `near.taper`: where the near ramp leaves the kerb; `far.taper` and
+// `far.turn`: where the far ramp leaves it and where it starts its sweep over;
+// `out.node`: where the way out leaves the city (its sweep is solved to land
+// beside its lane). Every one of these was checked against the other exits,
+// the interchange loops and the city's own junctions.
+const ST_V125_LINK_DRAWS = 176;       // what v125's two spurs per city drew from Math.random; never change it
 const ST_LINKS = {
-  ny: {
-    // in: off the motorway south of the loops, on to 3899 street heading west
-    enter: { s: 0.178, side: -1, node: [-76, 3899], out: [1, 0] },
-    // out: from the south-east corner, carrying 3767 street on to the motorway
-    leave: { s: 0.1905, side: -1, node: [-76, 3767], out: [1, 0] },
-  },
-  ca: {
-    enter: { s: 0.8625, side: 1, node: [122, -4678], out: [-1, 0] },
-    leave: { s: 0.8912, side: 1, node: [122, -4966], out: [-1, 0] },
-  },
+  // New York's far gantry stands at the ramp mouth: 170 m back is inside the
+  // interchange loops. Its paint still starts 170 m back, under them.
+  ny: { side: -1, land: [-76, 3833], linkLen: 157,
+        near: { taper: 2710 }, far: { taper: 2180, turn: 2325, gantry: 2178 },
+        out: { node: [-76, 3767] } },
+  ca: { side: 1, land: [122, -4582], linkLen: 80,
+        near: { taper: 10560 }, far: { taper: 11210, turn: 10980 },
+        out: { node: [122, -4486] } },
 };
 
 // A cubic from (a, leaving along ta) to (b, arriving along tb), sampled.
@@ -771,49 +832,521 @@ function stDirs(pts) {
   return pts;
 }
 
-// ---- off the motorway and on to a street -----------------------------------
-function stBuildExitSpur(city, spec, g, tarmac, into) {
-  const node = city.nodeMap.get(stKey(spec.node[0], spec.node[1]));
-  if (!node) { console.warn("streets: no junction for the", city.key, "spur at", spec.node); return null; }
-  const [ox, oz] = spec.out;
-  const along = stCarriedOn(node, ox, oz);
-  const at = hwySampleAt(spec.s * highway.length);
-  const rx = -at.fz, rz = at.fx;
-  // from the carriageway's centreline, the way every spur starts
-  const raw = stBezier(at.x, at.z, at.fx, at.fz, node.x, node.z, -ox, -oz, 150, 170, 10);
-  const pts = stDirs(raw);
-  const n = pts.length, streetHalf = along ? along.road.halfW : 10;
-  const endY = terrainMeshY(node.x, node.z) + CITY.groundLift;
-  const widths = [];
-  for (let k = 0; k < n; k++) {
-    const t = k / (n - 1);
-    const p = pts[k];
-    const ground = Math.max(terrainEff(p.x, p.z), TUNE.waterLevel) + HW.clearance;
-    let y = lerp(at.y, ground, smoothstep(0, HW.spurDescend, t));
-    // and down on to the city's own ground over the last stretch, to meet the street
-    y = lerp(y, terrainMeshY(p.x, p.z) + CITY.groundLift, smoothstep(0.8, 1, t));
-    if (k === n - 1) y = endY;
-    p.y = y;
-    widths.push(lerp(HW.spurW, streetHalf, smoothstep(0.7, 1, t)));
+// ---- the ramps ---------------------------------------------------------------
+// A point `lat` metres right of the motorway's centreline, `s` metres along it.
+function stHwyAt(s, lat) {
+  const q = hwySampleAt(s);
+  return { x: q.x + (-q.fz) * lat, z: q.z + q.fx * lat, y: q.y };
+}
+
+// A path in the motorway's frame, as headings and turns. `h` is the heading as
+// (ds, dlat); right of it is (-dlat, ds) because `lat` is to the road's right.
+function stPathSL(s, lat, hs, hl) {
+  const P = { pts: [{ s, lat }], s, lat, hs, hl };
+  const step = ST.ramp.step;
+  P.line = (len) => {
+    const n = Math.max(1, Math.ceil(len / step));
+    for (let k = 1; k <= n; k++) P.pts.push({ s: P.s + P.hs * len * k / n, lat: P.lat + P.hl * len * k / n });
+    P.s += P.hs * len; P.lat += P.hl * len;
+    return P;
+  };
+  // along the road `len` metres while easing `dLat` sideways: a taper
+  P.taper = (len, dLat) => {
+    const n = Math.max(2, Math.ceil(len / step)), s0 = P.s, l0 = P.lat;
+    for (let k = 1; k <= n; k++) P.pts.push({ s: s0 + P.hs * len * k / n, lat: l0 + dLat * smoothstep(0, 1, k / n) });
+    P.s += P.hs * len; P.lat += dLat;
+    return P;
+  };
+  // a circular turn of `deg` (+ right, - left) on radius R
+  P.arc = (R, deg) => {
+    const sg = Math.sign(deg), rs = -P.hl * sg, rl = P.hs * sg;          // toward the centre
+    const cs = P.s + rs * R, cl = P.lat + rl * R;
+    // a right turn sweeps the angle up, a left one down, in (s, lat)
+    const a0 = Math.atan2(P.lat - cl, P.s - cs), turn = sg * Math.abs(deg) * DEG;
+    const n = Math.max(3, Math.ceil(R * Math.abs(deg) * DEG / step));
+    for (let k = 1; k <= n; k++) {
+      const a = a0 + turn * k / n;
+      P.pts.push({ s: cs + Math.cos(a) * R, lat: cl + Math.sin(a) * R });
+    }
+    const e = P.pts[P.pts.length - 1];
+    const c = Math.cos(turn), sn = Math.sin(turn);
+    const hs = P.hs * c - P.hl * sn, hl = P.hs * sn + P.hl * c;
+    P.s = e.s; P.lat = e.lat; P.hs = hs; P.hl = hl;
+    return P;
+  };
+  // a cubic to (s, lat), arriving along (ths, thl)
+  P.to = (s1, l1, ths, thl, k1, k2) => {
+    const b = stBezier(P.s, P.lat, P.hs, P.hl, s1, l1, ths, thl, k1, k2, step);
+    for (let k = 1; k < b.length; k++) P.pts.push({ s: b[k].x, lat: b[k].z });
+    P.s = s1; P.lat = l1; P.hs = ths; P.hl = thl;
+    return P;
+  };
+  return P;
+}
+
+// The motorway frame to the world, with arc length and direction. The frame is
+// only exact near the road: two hundred metres out, a point read off it and
+// laid back comes out several metres away. So the end of a ramp that must meet
+// a junction exactly is laid in the WORLD instead (`stWorldTail`), and a start
+// that must leave one is eased off it (`startAt`).
+function stSLToWorld(pts, startAt) {
+  const w = stDirs(pts.map(p => { const q = stHwyAt(p.s, p.lat); return { x: q.x, z: q.z, hs: p.s, lat: p.lat, hy: q.y }; }));
+  if (startAt) {
+    const dx = startAt.x - w[0].x, dz = startAt.z - w[0].z;
+    for (const p of w) { const k = 1 - smoothstep(0, ST.ramp.ease, p.s); p.x += dx * k; p.z += dz * k; }
   }
+  return stDirs(w);
+}
+
+// From the end of `w`, on to `to` arriving along (tx, tz): a cubic in the world.
+function stWorldTail(w, to, tx, tz) {
+  const a = w[w.length - 1], b = w[w.length - 2];
+  const hl = Math.hypot(a.x - b.x, a.z - b.z) || 1, hx = (a.x - b.x) / hl, hz = (a.z - b.z) / hl;
+  const k = Math.hypot(to.x - a.x, to.z - a.z) * 0.4;
+  const bz = stBezier(a.x, a.z, hx, hz, to.x, to.z, tx, tz, k, k, ST.ramp.step);
+  const out = w.map(p => ({ x: p.x, z: p.z, hs: p.hs, lat: p.lat, hy: p.hy }));
+  for (let i = 1; i < bz.length; i++) {
+    const q = hwyNearest(bz[i].x, bz[i].z);
+    out.push({ x: bz[i].x, z: bz[i].z, hs: q.s, lat: q.lateral, hy: q.y });
+  }
+  return stDirs(out);
+}
+
+// How high a ramp stands. Alongside the kerb it is level with the motorway
+// beside it (`onRoadAt`: its start, its end, or neither); away from it, a
+// clearance over the ground; at a junction, the junction's height (`y0`, `y1`).
+// Where it crosses something -- the motorway, another ramp, a spur -- the deck
+// must stand `ramp.clear` over it (`needs`: {s, y}), and it climbs to that no
+// steeper than it has to: `ramp.grade`, or whatever reaches it from the end.
+// Across a dip it keeps to an embankment: never more than `ramp.sag` below the
+// straight line between its ends.
+function stRampHeights(pts, y0, y1, needs, onRoadAt) {
+  const R = ST.ramp, len = pts[pts.length - 1].s;
+  const base = pts.map(p => {
+    const ground = Math.max(terrainEff(p.x, p.z), TUNE.waterLevel) + HW.clearance;
+    let y = ground;
+    if (onRoadAt === "start") y = lerp(p.hy, ground, smoothstep(R.flat, R.flat + R.leave, p.s));
+    else y = lerp(y0, y, smoothstep(10, 10 + R.leave, p.s));
+    if (onRoadAt === "end") y = lerp(y, p.hy, smoothstep(len - R.flat - R.leave, len - R.flat, p.s));
+    else y = lerp(y, y1, smoothstep(len - 10 - R.leave, len - 10, p.s));
+    return y;
+  });
+  const yA = base[0], yB = base[base.length - 1];
+  let up = R.grade, down = R.grade;       // steeper only where a crossing needs it
+  // level for `flat` metres at either end -- the kerb it leaves, or the
+  // junction it leaves from, where a car crossing the box would otherwise land
+  // on it already a metre up
+  const fA = onRoadAt === "start" ? R.flat : R.flatJunction, fB = onRoadAt === "end" ? R.flat : R.flatJunction;
+  for (const n of needs) {
+    if (n.s > fA) up = Math.max(up, (n.y - yA) / (n.s - fA));
+    if (len - n.s > fB) down = Math.max(down, (n.y - yB) / (len - n.s - fB));
+  }
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    let y = Math.max(base[i], lerp(yA, yB, p.s / len) - R.sag);
+    for (const n of needs) {
+      const g = p.s < n.s ? up : down;
+      y = Math.max(y, Math.min(n.y - g * Math.abs(p.s - n.s), p.s < n.s ? yA + g * Math.max(0, p.s - fA) : yB + g * Math.max(0, len - p.s - fB)));
+    }
+    p.y = y;
+  }
+  pts[0].y = yA; pts[pts.length - 1].y = yB;
+  return pts;
+}
+
+// Where along `pts` it passes over another road at ground level, and how high
+// the deck must be there. The motorway counts only where the ramp runs ACROSS
+// it: the stretch alongside the kerb is the ramp leaving it, not crossing it.
+// Another ramp counts however it runs -- over one at a shallow angle is still
+// over it -- except near a junction the two share (`joins`), where they meet.
+function stRampNeeds(pts, halfW, others, joins, kerbAtEnd) {
+  const R = ST.ramp, needs = [], len = pts[pts.length - 1].s;
+  for (const p of pts) {
+    const n = hwyNearest(p.x, p.z);
+    // anywhere it overhangs a carriageway, except its own taper off (or on to)
+    // the kerb -- the first cut of this only counted it once it was well
+    // across, and the start of the sweep hung a metre over the outer lane
+    const taper = (kerbAtEnd ? len - p.s : p.s) < R.taperLen + 10;
+    if (!taper && Math.abs(n.lateral) - halfW < highway.halfW + 1) {
+      needs.push({ s: p.s, y: n.y + R.clear });
+    }
+    if ((joins || []).some(j => Math.hypot(j.x - p.x, j.z - p.z) < ST.ramp.joinClear)) continue;
+    for (const o of others) {
+      for (let i = 0; i < o.pts.length; i++) {
+        const q = o.pts[i];
+        if (Math.hypot(q.x - p.x, q.z - p.z) < o.halfW + halfW + 2) {
+          needs.push({ s: p.s, y: q.y + R.clear }); break;
+        }
+      }
+    }
+  }
+  return needs;
+}
+
+// Parapet, fascia, soffit and piers wherever a ramp is off the ground.
+const stRampMats = {};
+function stRampDeck(pts, widths, g, avoid) {
+  const M = stRampMats;
+  if (!M.conc) M.conc = artPaint(mattMat(TUNE.palette.concrete), "concrete");
+  const pos = [], idx = [], piers = [];
+  const quad = (a, b, c, d) => {
+    const o = pos.length / 3;
+    pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, d.x, d.y, d.z);
+    idx.push(o, o + 1, o + 2, o, o + 2, o + 3, o, o + 2, o + 1, o, o + 3, o + 2);   // both faces
+  };
+  const up = (p, i) => p.y - Math.max(terrainEff(p.x, p.z), TUNE.waterLevel) > 1.2;
+  let lastPier = -Infinity;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    if (!up(a) && !up(b)) continue;
+    for (const sd of [-1, 1]) {
+      const ea = { x: a.x - a.fz * sd * widths[i - 1], z: a.z + a.fx * sd * widths[i - 1] };
+      const eb = { x: b.x - b.fz * sd * widths[i], z: b.z + b.fx * sd * widths[i] };
+      // parapet over the edge and the fascia below it, one face
+      quad({ ...ea, y: a.y - ST.ramp.deckT }, { ...eb, y: b.y - ST.ramp.deckT },
+           { ...eb, y: b.y + ST.ramp.parapet }, { ...ea, y: a.y + ST.ramp.parapet });
+    }
+    // the soffit
+    const la = { x: a.x + a.fz * widths[i - 1], z: a.z - a.fx * widths[i - 1], y: a.y - ST.ramp.deckT };
+    const ra = { x: a.x - a.fz * widths[i - 1], z: a.z + a.fx * widths[i - 1], y: a.y - ST.ramp.deckT };
+    const lb = { x: b.x + b.fz * widths[i], z: b.z - b.fx * widths[i], y: b.y - ST.ramp.deckT };
+    const rb = { x: b.x - b.fz * widths[i], z: b.z + b.fx * widths[i], y: b.y - ST.ramp.deckT };
+    quad(la, ra, rb, lb);
+    // piers, never on another road
+    const gy = Math.max(terrainEff(b.x, b.z), TUNE.waterLevel);
+    if (b.s - lastPier > ST.ramp.pierEvery && b.y - gy > 3.5 && !avoid(b.x, b.z)) {
+      // not solid, like the interchange's pillars: they stand on the verge a
+      // swerve off the motorway crosses, and the verge has never had a wall in it
+      piers.push({ w: 2.6, h: b.y - ST.ramp.deckT - gy, d: 2.6, x: b.x, y: (b.y - ST.ramp.deckT + gy) / 2, z: b.z });
+      lastPier = b.s;
+    }
+  }
+  if (idx.length) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, M.conc); m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
+  }
+  if (piers.length) g.add(new THREE.Mesh(mergeBoxes(piers), M.conc));
+}
+
+// THE RAMP ASSIST, speed-only, like the city's corner assist: the tightest a
+// city ramp bends is ~105 m, and at the top speed step the car cannot turn
+// that tight -- it ran wide off the near ramp back into the motorway's traffic.
+// So each ramp point carries the speed its curve can be driven at, and on the
+// ramp the car is held under it with room to slow. It never changes where he
+// points, and below the top step it never binds. TUNE.city.ramp.safe*.
+function stRampSafeSpeeds(pts) {
+  const R = ST.ramp, yaw = TUNE.car.steerRate * DEG * R.safeMargin;   // the turn rate the car has at speed (car.js loads after this)
+  for (let i = 0; i < pts.length; i++) {
+    // the bend at i, from two points either side (one-sided at the ends: an
+    // end compared with itself read as a hairpin, and braked him on the motorway)
+    const i0 = Math.max(0, Math.min(i - 2, pts.length - 5)), i2 = Math.min(pts.length - 1, Math.max(i + 2, 4));
+    const ib = Math.min(Math.max(i, i0 + 1), i2 - 1);
+    const a = pts[i0], b = pts[ib], c = pts[i2];
+    const h1 = Math.atan2(b.z - a.z, b.x - a.x), h2 = Math.atan2(c.z - b.z, c.x - b.x);
+    const dh = Math.abs(wrapPi(h2 - h1)), ds = Math.hypot(b.x - a.x, b.z - a.z) + Math.hypot(c.x - b.x, c.z - b.z);
+    pts[i].vSafe = dh > 1e-3 ? yaw * (ds / dh) : Infinity;
+  }
+}
+
+// Is (x, z) on a road -- the motorway, a spur, a street -- or one of `extra`?
+function stOnAnyRoad(x, z, extra) {
+  if (Math.abs(hwyNearest(x, z).lateral) < highway.halfW + 4) return true;
+  for (const o of extra) for (const q of o.pts) if (Math.hypot(q.x - x, q.z - z) < o.halfW + 4) return true;
+  return stNearStreet(x, z, 4);
+}
+
+// One ramp: the strip, its colour, the deck where it is off the ground, its
+// corridor, and the road the planner drives.
+function stLayRamp(city, pts, halfW, g, tarmac, paintTo, laid, kerbAtEnd) {
+  // It leaves (or meets) the kerb at nothing and widens away from it, its inner
+  // edge on the carriageway's: the path runs a half-width out, so it is not a
+  // second road laid over the first. Only along the kerb -- over the motorway
+  // it is a whole road.
+  const len = pts[pts.length - 1].s, T = ST.ramp.taperLen + 4;
+  const widths = pts.map(p => (kerbAtEnd ? len - p.s : p.s) > T ? halfW
+    : Math.max(0.6, Math.min(halfW, Math.abs(p.lat) - highway.halfW - 0.3)));
   stStrip(pts, widths, tarmac, g);
+  // the way-in ramps carry the exit lane's colour off the motorway with them
+  if (paintTo > 0) {
+    const sub = pts.filter(p => p.s <= paintTo), w = widths.slice(0, sub.length).map(v => v * 0.82);
+    if (sub.length > 1) stStrip(sub.map(p => ({ ...p, y: p.y + 0.05 })), w, stExitLaneMat(), g);
+  }
+  stRampDeck(pts, widths, g, (x, z) => stOnAnyRoad(x, z, laid));
   hwyClaimCorridor(pts);
-  // the board, one icon, no letters: a skyline
-  const bx = at.x + rx * spec.side * (highway.halfW + 16), bz = at.z + rz * spec.side * (highway.halfW + 16);
-  hwyExitBoard(g, bx, at.y, bz, at, "skyline");
-  const rec = { s: spec.s, side: spec.side, icon: "skyline", to: city.key + (into ? "CityIn" : "CityOut"),
-                city: city.key, noJunction: true, x: at.x, z: at.z, y: at.y, spur: pts, bx, bz };
-  highway.exits.push(rec);
-  // and to the planner, a road from the junction out to the motorway
-  // Its lanes are the street's: the planner has him from `handoff` out, and
-  // arriving down the middle of the ramp put him on the street's centre line
-  // with the oncoming lane a car's width away.
-  const r = stRoad({ city: city.key, kind: "exit", pts: pts.map(p => ({ x: p.x, z: p.z, y: p.y })).reverse(),
-                     halfW: streetHalf, lo: along ? along.road.lo : ST.laneWide, drape: false, spurExit: rec });
-  stAttach(node, r, true);
-  city.links.push(r);
-  rec.street = r;
-  return rec;
+  laid.push({ pts, halfW });
+  return widths;
+}
+
+// The colour of the way off, shared by the lane, the ramp and the gantry.
+function stExitLaneMat() {
+  const M = stRampMats;
+  if (!M.lane) {
+    M.lane = mattMat(ST.ramp.laneColor);
+    M.lane.polygonOffset = true; M.lane.polygonOffsetFactor = -2; M.lane.polygonOffsetUnits = -2;
+  }
+  return M.lane;
+}
+
+// ---- the approach: the painted lane, the arrows and the gantry ---------------
+// `c` is the carriageway (+1 right of the centreline, travelling +s); `from`
+// and `to` the painted stretch in travel order, ending where the ramp leaves.
+function stBuildApproach(c, from, to, g, gantryAt) {
+  const R = ST.ramp, d = c, inner = HW.medianW / 2 + HW.laneW, outer = HW.medianW / 2 + HW.laneW * 2;
+  const lo = Math.min(from, to), hi = Math.max(from, to);
+  // the lane, inside its own lines
+  const lane = [];
+  for (let s = lo; s <= hi + 1e-6; s += 10) {
+    const q = hwySampleAt(s), m = c * (inner + outer) / 2;
+    lane.push({ x: q.x - q.fz * m, z: q.z + q.fx * m, y: q.y + 0.04, fx: q.fx, fz: q.fz });
+  }
+  stStrip(lane, lane.map(() => (HW.laneW / 2) - 0.6), stExitLaneMat(), g);
+  // the arrows, leaning toward the ramp: a shaft and a head, flat on the lane
+  const pos = [];
+  const tri = (a, b, e) => pos.push(a.x, a.y, a.z, b.x, b.y, b.z, e.x, e.y, e.z, a.x, a.y, a.z, e.x, e.y, e.z, b.x, b.y, b.z);
+  for (let s = lo + R.arrowEvery * 0.5; s < hi; s += R.arrowEvery) {
+    const q = hwySampleAt(s), m = c * (inner + outer) / 2;
+    const cx = q.x - q.fz * m, cz = q.z + q.fx * m, y = q.y + 0.08;
+    // the road's heading for this carriageway, turned toward the ramp side
+    const lean = R.arrowLean * DEG, fx0 = q.fx * d, fz0 = q.fz * d;
+    const cl = Math.cos(lean), sl = Math.sin(lean) * c * d;
+    const fx = fx0 * cl - fz0 * sl, fz = fx0 * sl + fz0 * cl, rx = -fz, rz = fx;
+    const at = (u, v) => ({ x: cx + fx * u + rx * v, y, z: cz + fz * u + rz * v });
+    const L = R.arrowLen, W = R.arrowW;
+    tri(at(-L / 2, -W * 0.18), at(-L / 2, W * 0.18), at(L * 0.15, W * 0.18));
+    tri(at(-L / 2, -W * 0.18), at(L * 0.15, W * 0.18), at(L * 0.15, -W * 0.18));
+    tri(at(L * 0.15, -W / 2), at(L * 0.15, W / 2), at(L / 2, 0));
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  const M = stRampMats;
+  if (!M.arrow) {
+    M.arrow = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
+    M.arrow.polygonOffset = true; M.arrow.polygonOffsetFactor = -4; M.arrow.polygonOffsetUnits = -4;
+  }
+  g.add(new THREE.Mesh(geo, M.arrow));
+  // the gantry, where the paint begins
+  return stBuildGantry(c, gantryAt === undefined ? from : gantryAt, g);
+}
+
+// A lit gantry across the whole motorway: two legs, a truss, and a panel over
+// the exit lane facing the traffic coming at it (local -z is the way that
+// carriageway travels, +x its outer side, so the face is +z) -- the skyline, and under it
+// arrows pointing down into the lane. Unlit materials, so it reads lit at any
+// hour; and a row of lamps along the beam. No letters anywhere.
+function stBuildGantry(c, s, g) {
+  const R = ST.ramp, C = TUNE.palette, M = stRampMats;
+  if (!M.steel) {
+    M.steel = metalMat(C.grey, 24);
+    M.panel = new THREE.MeshBasicMaterial({ color: R.panelColor });
+    M.icon = new THREE.MeshBasicMaterial({ color: C.white });
+  }
+  const q = hwySampleAt(s), y = q.y;
+  const leg = highway.halfW + R.gantryOut;
+  const grp = new THREE.Group();
+  grp.position.set(q.x, y, q.z);
+  // local +x is the road's right, local -z the way this carriageway travels
+  grp.rotation.y = Math.atan2(-q.fx * c, -q.fz * c);
+  const box = (w, h, dd, x, yy, z, mat) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), mat || M.steel);
+    m.position.set(x, yy, z); grp.add(m); return m;
+  };
+  // in this frame the carriageway's right is +x for c = +1 and for c = -1 alike
+  for (const sx of [-1, 1]) box(1.3, R.beamY + 2.2, 1.3, sx * leg, (R.beamY + 2.2) / 2, 0);
+  box(leg * 2 + 1.3, 0.7, 1.1, 0, R.beamY, 0);
+  box(leg * 2 + 1.3, 0.7, 1.1, 0, R.beamY + 2.2, 0);
+  for (let x = -leg; x <= leg; x += 5) box(0.35, 2.2, 0.35, x, R.beamY + 1.1, 0);
+  // the panel over the exit lane
+  const laneX = HW.medianW / 2 + HW.laneW * 1.5;
+  const py = R.beamY + 1.4 + R.panelH / 2;
+  box(R.panelW, R.panelH, 0.5, laneX, py, 0.9, M.panel);
+  hwyIcon(grp, "skyline", M.icon, 0);
+  const icon = grp.children[grp.children.length - 1];
+  icon.position.set(laneX, py + R.panelH * 0.18, 1.25);
+  icon.scale.setScalar(R.iconScale);
+  // two arrows pointing down into the lane
+  for (const ax of [-R.panelW * 0.22, R.panelW * 0.22]) {
+    const a = new THREE.Group();
+    a.position.set(laneX + ax, py - R.panelH * 0.27, 1.25);
+    a.scale.setScalar(R.iconScale * 0.8);
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.4, 0.3), M.icon); shaft.position.y = 0.6; a.add(shaft);
+    for (const sd of [-1, 1]) {
+      const h = new THREE.Mesh(new THREE.BoxGeometry(0.85, 2.2, 0.3), M.icon);
+      h.position.set(sd * 0.62, -0.55, 0); h.rotation.z = sd * 0.8; a.add(h);
+    }
+    grp.add(a);
+  }
+  grp.updateMatrixWorld(true);
+  // the lamps along the beam's face, lit whatever the hour: one glow field for
+  // every gantry in the world (stBuildLinks lays it)
+  for (let x = -leg + 2; x <= leg - 2; x += 4) stGantryLamps.push(new THREE.Vector3(x, R.beamY - 0.6, 0.8).applyMatrix4(grp.matrixWorld));
+  // Flattened into the links' group, baked where they stand, so stMergeStatic
+  // makes every gantry's steel one call, its panels one and its icons one: as a
+  // group of boxes each gantry was thirty draw calls.
+  const parts = [];
+  grp.traverse(o => { if (o.isMesh) parts.push(o); });
+  for (const m of parts) {
+    const geo = m.geometry.clone(); geo.applyMatrix4(m.matrixWorld);
+    const flat = new THREE.Mesh(geo, m.material);
+    flat.castShadow = true; flat.receiveShadow = true;
+    g.add(flat);
+  }
+  return { x: q.x, z: q.z, y, s, c, panel: new THREE.Vector3(laneX, py, 0.9).applyMatrix4(grp.matrixWorld) };
+}
+
+const stGantryLamps = [];
+
+// ---- one city's three ramps ----------------------------------------------------
+function stBuildRamps(city, spec, g, tarmac) {
+  const R = ST.ramp, S = spec.side, key = city.key;
+  const land = city.nodeMap.get(stKey(spec.land[0], spec.land[1]));
+  const outNode = city.nodeMap.get(stKey(spec.out.node[0], spec.out.node[1]));
+  if (!land || !outNode) { console.warn("streets: no junction for the", key, "ramps"); return; }
+  const W = R.halfW, edge = highway.halfW + 0.5, wide = highway.halfW + W + 2;
+  const groundY = (x, z) => Math.max(terrainEff(x, z), TUNE.waterLevel) + ST.linkLift;
+  // the street the way in carries on as, and the merge on its line
+  const q0 = hwyNearest(land.x, land.z);
+  const awayX = -q0.fz * S, awayZ = q0.fx * S;                 // from the motorway toward the city
+  const into = land.arms.filter(a => a.road.kind === "grid").sort((a, b) => (b.dx * awayX + b.dz * awayZ) - (a.dx * awayX + a.dz * awayZ))[0];
+  const M = { x: land.x - into.dx * spec.linkLen, z: land.z - into.dz * spec.linkLen };
+  const mq = hwyNearest(M.x, M.z), ms = mq.s, mLat = mq.lateral;
+  // that line's direction in the motorway's frame, at the merge
+  const lS = into.dx * mq.fx + into.dz * mq.fz, lL = into.dx * (-mq.fz) + into.dz * mq.fx;
+  const mergeNode = stNodeAt(city, M.x, M.z);
+  let mY = groundY(M.x, M.z);         // raised below, if the flyover cannot come down to it
+  const laid = [];
+  // --- near: peels right off the carriageway on the city's side, to the merge
+  // off the taper, one circular turn and a straight, solved to arrive at the
+  // merge `90 - mergeDeg` degrees round: the widest circle the ground allows
+  const cN = S;
+  const nearP = stPathSL(spec.near.taper, cN * edge, cN, 0).taper(R.taperLen, cN * (wide - edge));
+  {
+    // the turn from along the road to the link's line, less `mergeDeg`
+    const toLink = Math.abs(Math.atan2(cN * lL, cN * lS));
+    const F = Math.abs(ms - nearP.s), Rt = Math.abs(mLat - nearP.lat), th = toLink - R.mergeDeg * DEG;
+    const det = 1 - Math.cos(th);
+    const rad = (F * Math.sin(th) - Rt * Math.cos(th)) / det, run = (Rt * Math.sin(th) - det * F) / det;
+    // most of the turn in the frame; the last of it, and the straight, laid in
+    // the world so it meets the merge on the line it arrives along
+    nearP.arc(rad, th / DEG * 0.7);
+    void run;
+  }
+  // arriving `mergeDeg` off the link's line, from the side it comes from
+  const nearIn = (() => {
+    const c = Math.cos(R.mergeDeg * DEG), sn = Math.sin(R.mergeDeg * DEG);
+    // turn the link's direction back toward the way the ramp was travelling
+    const fx = mq.fx * cN, fz = mq.fz * cN;
+    const x = into.dx * c + fx * sn, z = into.dz * c + fz * sn, l = Math.hypot(x, z);
+    return { x: x / l, z: z / l };
+  })();
+  const near = stWorldTail(stSLToWorld(nearP.pts), M, nearIn.x, nearIn.z);
+  stRampHeights(near, 0, mY, [], "start");
+  // --- the link from the merge to the city
+  const nl = Math.max(2, Math.ceil(Math.hypot(land.x - M.x, land.z - M.z) / R.step));
+  const link = stDirs(Array.from({ length: nl + 1 }, (_, k) => ({ x: lerp(M.x, land.x, k / nl), z: lerp(M.z, land.z, k / nl) })));
+  const landY = terrainMeshY(land.x, land.z) + CITY.groundLift;
+  for (const p of link) p.y = lerp(groundY(p.x, p.z), landY, smoothstep(0, 1, p.s / link[link.length - 1].s));
+  link[0].y = mY;
+  // --- far: peels right off the other carriageway, climbs, sweeps left over
+  const cF = -S;
+  // it runs out beyond the kerb before it sweeps, so it has climbed clear of
+  // the lanes by the time it swings over them
+  const farP = stPathSL(spec.far.taper, cF * edge, cF, 0).taper(R.farTaper, cF * (R.sweepOut - edge));
+  farP.line(Math.abs(spec.far.turn - farP.s)).arc(R.sweepR, -90);
+  const far = stWorldTail(stSLToWorld(farP.pts), M, into.dx, into.dz);
+  // --- out: from the city, sweeps left over, merges from the right
+  // it leaves the junction along the street it carries on -- off that line, a
+  // car coming out of the grid at speed carried straight on past the ramp
+  const o = outNode, oq = hwyNearest(o.x, o.z), oSL = { s: oq.s, lateral: oq.lateral, fx: oq.fx, fz: oq.fz };
+  // (the grid street that runs INTO the city from here; the ramp carries it on the other way)
+  const along = o.arms.filter(a => a.road.kind === "grid").sort((a, b) => (b.dx * awayX + b.dz * awayZ) - (a.dx * awayX + a.dz * awayZ))[0];
+  const oS = -along.dx * oSL.fx - along.dz * oSL.fz, oL = -along.dx * (-oSL.fz) - along.dz * oSL.fx;
+  // Straight along that line, then ONE sweep over the motorway round to its
+  // way: the straight is exactly long enough that the sweep comes down on the
+  // verge beside the lane it merges into. (A sweep of radius R turning from
+  // heading h0 to h1 moves the car R * (left(h0) - left(h1)).)
+  const th = Math.atan2(oS * 0 - oL * cF, oS * cF + oL * 0);          // h0 round to (cF, 0); negative is left
+  const straight = (cF * R.outLand - oSL.lateral - R.sweepR * (cF - oS)) / oL;
+  const outP = stPathSL(oSL.s, oSL.lateral, oS, oL).line(Math.max(R.leaveStraight, straight))
+    .arc(R.sweepR, th / DEG).line(R.runOut);
+  outP.taper(R.outTaper, cF * edge - outP.lat);
+  const out = stSLToWorld(outP.pts, o);
+  // heights: the near ramp and the link are on the ground; the two flyovers
+  // stand clear of the motorway, of them, and of every other spur
+  const spurs = highway.exits.filter(e => !e.city).map(e => ({ pts: e.spur, halfW: HW.spurW }));
+  const ground = [{ pts: near, halfW: W }, { pts: link, halfW: W }, ...spurs];
+  const farNeeds = stRampNeeds(far, W, ground, [M]), farLen = far[far.length - 1].s;
+  // the merge stands as high as the flyover can come down to: the near ramp
+  // climbs to it and the link comes down from it
+  for (const n of farNeeds) mY = Math.max(mY, n.y - R.gradeMax * (farLen - n.s));
+  stRampHeights(near, 0, mY, [], "start");
+  for (const p of link) p.y = lerp(mY, landY, smoothstep(0, 1, p.s / link[link.length - 1].s));
+  stRampHeights(far, 0, mY, farNeeds, "start");
+  const oY = terrainMeshY(o.x, o.z) + CITY.groundLift;
+  stRampHeights(out, oY, 0, stRampNeeds(out, W, ground, [o], true), "end");
+  // --- lay them, near first so the flyovers know to keep their piers off it
+  const paint = R.paintOn;
+  stLayRamp(city, near, W, g, tarmac, paint, laid);
+  laid.push({ pts: link, halfW: W });
+  stStrip(link, link.map(() => W), tarmac, g); hwyClaimCorridor(link);
+  stLayRamp(city, far, W, g, tarmac, paint, laid);
+  stLayRamp(city, out, W, g, tarmac, 0, laid, true);
+  // --- the planner's roads: one-way ramps, a two-way link
+  const nearRoad = stRoad({ city: key, kind: "exit", pts: near.map(p => ({ x: p.x, z: p.z, y: p.y })), halfW: W, lo: 0,
+                            drape: false, railed: true });
+  const farRoad = stRoad({ city: key, kind: "exit", pts: far.map(p => ({ x: p.x, z: p.z, y: p.y })), halfW: W, lo: 0,
+                           drape: false, railed: true });
+  // one-way like the ramps, and in the lane of the street it becomes: driven
+  // down its middle he met the grid astride the centre line, a hand's width
+  // from the cars coming the other way
+  const linkRoad = stRoad({ city: key, kind: "link", pts: link.map(p => ({ x: p.x, z: p.z, y: p.y })), halfW: W,
+                            lo: into.road.lo, drape: false, parking: false });
+  const outRoad = stRoad({ city: key, kind: "exit", pts: out.map(p => ({ x: p.x, z: p.z, y: p.y })), halfW: W, lo: 0,
+                           drape: false, railed: true });
+  nearRoad.oneWay = 1; farRoad.oneWay = 1; linkRoad.oneWay = 1; outRoad.oneWay = 1; outRoad.out = true;
+  // the speed each ramp's curve can be driven at, point by point (car.js)
+  for (const pts of [near, far, out]) stRampSafeSpeeds(pts);
+  stAttach(mergeNode, nearRoad, false);
+  stAttach(mergeNode, farRoad, false);
+  stAttach(mergeNode, linkRoad, true);
+  stAttach(land, linkRoad, false);
+  stAttach(outNode, outRoad, true);
+  city.links.push(nearRoad, farRoad, linkRoad, outRoad);
+  // --- to the motorway: two ways off and one on, each a spur of highway.exits.
+  // A way off is taken from its LANE (`fromLane`): he has to have moved over to
+  // it, the way he would to take any exit. The way on is never taken from the
+  // carriageway at all (`out`).
+  const rec = (to, pts, road, extra) => {
+    const r = { s: pts[0].hs / highway.length, side: Math.sign(pts[0].lat), icon: "skyline", to, city: key,
+                noJunction: true, x: pts[0].x, z: pts[0].z, y: pts[0].y, spur: pts, street: road, bx: pts[0].x, bz: pts[0].z, halfW: W,
+                keep: [], ...extra };
+    road.spurExit = r;
+    highway.exits.push(r);
+    return r;
+  };
+  const inNear = rec(key + "CityIn", near, nearRoad, { fromLane: true, railed: false });
+  const inFar = rec(key + "CityInFar", far, farRoad, { fromLane: true, railed: true });
+  const outRev = stDirs(out.map(p => ({ ...p })).reverse());
+  const outRec = rec(key + "CityOut", outRev, outRoad, { out: true, railed: true });
+  outRec.side = Math.sign(outRev[0].lat);
+  // the approaches: the paint from the gantry to where the ramp leaves
+  const gNear = stBuildApproach(cN, spec.near.taper - cN * R.gantryBack, spec.near.taper, g);
+  const gFar = stBuildApproach(cF, spec.far.taper - cF * R.gantryBack, spec.far.taper, g, spec.far.gantry);
+  inNear.gantry = gNear; inFar.gantry = gFar;
+  inNear.bx = gNear.panel.x; inNear.bz = gNear.panel.z; inFar.bx = gFar.panel.x; inFar.bz = gFar.panel.z;
+  // nothing else stands on this ground: the motorway's own crossroads keep off
+  // the gantries, the ramp mouths and where the flyovers cross
+  const keep = [gNear, gFar, near[0], far[0], outRev[0]];
+  for (const p of [...far, ...out]) if (Math.abs(p.lat) < highway.halfW) { keep.push(p); break; }
+  for (const p of [...far].reverse()) if (Math.abs(p.lat) < highway.halfW) { keep.push(p); break; }
+  for (const p of [...out].reverse()) if (Math.abs(p.lat) < highway.halfW) { keep.push(p); break; }
+  inNear.keep = keep.map(p => ({ x: p.x, z: p.z }));
+  city.ramps = { near: nearRoad, far: farRoad, link: linkRoad, out: outRoad, merge: mergeNode, land, outNode,
+                 inNear, inFar, outRec, gantries: [gNear, gFar] };
 }
 
 // ---- New York: up on to the harbour bridge -----------------------------------
@@ -954,10 +1487,17 @@ function stBuildLinks(g) {
   for (const k in streets.cities) {
     const city = streets.cities[k], L = ST_LINKS[k];
     if (!L) continue;
-    stBuildExitSpur(city, L.enter, g, tarmac, true);
-    stBuildExitSpur(city, L.leave, g, tarmac, false);
+    // On the kit's own random stream (vehiclekit.js, vkQuiet): three.js draws
+    // Math.random for every object's id, and the harness seeds that stream for
+    // its traffic. The seeded stream carries on exactly as v125's two city
+    // spurs left it -- 88 draws each -- so no traffic anywhere is reshuffled by
+    // the shape of a ramp.
+    vkQuiet(ST_V125_LINK_DRAWS, () => stBuildRamps(city, L, g, tarmac));
     if (k === "ny") stBuildBridge(city, g, tarmac);
     if (k === "ca") stBuildBoulevard(city, g, tarmac);
+  }
+  if (stGantryLamps.length && typeof glowField === "function") {
+    vkQuiet(0, () => g.add(glowField(stGantryLamps, ST.ramp.lampColor, 5, 0.85)));
   }
 }
 // ---------------------------------------------------------------------------
@@ -983,50 +1523,33 @@ const ST_TYPES = [
   { hw: 1.6, hl: 4.6, y: 1.8 },
 ];
 
-function stBuildTrafficMeshes(g) {
-  const C = TUNE.palette, L = ART_LAYER, W = 0xffffff, dark = C.ink, glass = C.night;
-  const wheels = (xs, zs, y) => zs.flatMap(z => xs.map(x => ({ w: 0.5, h: 1.0, d: 1.1, x, y, z, c: dark, l: L.asphalt })));
-  const car = [
-    { w: 3.4, h: 1.05, d: 7.6, y: -0.55, c: W, l: L.deck },
-    { w: 3.0, h: 0.85, d: 3.9, y: 0.4, z: 0.4, c: glass, l: L.glass },
-    { w: 2.9, h: 0.2, d: 3.5, y: 0.93, z: 0.45, c: W, l: L.deck },
-    ...wheels([-1.5, 1.5], [-2.4, 2.4], -0.6),
-  ];
-  const taxi = [...car.map(b => b.c === W ? { ...b, c: C.gold } : b),
-    { w: 1.4, h: 0.45, d: 0.6, y: 1.25, z: 0.5, c: W, l: L.deck }];      // the roof lamp, no letters
-  const bus = [
-    { w: 3.4, h: 3.0, d: 14, y: 0.2, c: C.blue, l: L.deck },
-    { w: 3.5, h: 1.1, d: 12.4, y: 0.7, z: 0.4, c: glass, l: L.glass },
-    { w: 3.2, h: 1.3, d: 0.12, y: 0.6, z: -7.02, c: glass, l: L.glass },
-    ...wheels([-1.5, 1.5], [-4.6, 4.8], -1.3),
-  ];
-  const van = [
-    { w: 3.2, h: 2.2, d: 2.6, y: -0.2, z: -3.3, c: W, l: L.deck },
-    { w: 2.8, h: 0.9, d: 0.12, y: 0.4, z: -4.62, c: glass, l: L.glass },
-    { w: 3.2, h: 3.2, d: 6.4, y: 0.3, z: 1.3, c: W, l: L.container },
-    ...wheels([-1.4, 1.4], [-3.2, 3.2], -1.3),
-  ];
-  const mat = artPaint(new THREE.MeshPhongMaterial({ color: 0xffffff, vertexColors: true,
-    shininess: 30, specular: 0x4a5058 }), "vehicle");
-  const counts = [0, 0, 0, 0];
-  for (let i = 0; i < STT.count; i++) counts[stTypeOf(i)]++;
-  stTraffic.meshes = [car, taxi, bus, van].map((parts, k) => {
-    const m = new THREE.InstancedMesh(hwyVehicleGeo(parts), mat, Math.max(1, counts[k]));
-    m.frustumCulled = false; m.castShadow = true; m.userData.noSolid = true;
-    m.userData.cap = Math.max(1, counts[k]);           // `count` is how many are drawn this frame
-    m.setColorAt(0, new THREE.Color(0xffffff));
+// What each slot is drawn as (vehiclekit.js), in its type's envelope: a car is
+// a sedan or a hatchback by its index; the taxi, bus and van are their own.
+// Mesh k is shape ST_SHAPES[k]; the first four are the four types.
+const ST_SHAPES = ["sedan", "taxi", "bus", "van", "hatch"];
+function stShapeOf(i) { const t = stTypeOf(i); return t === 0 && vkCarShape(i) === "hatch" ? 4 : t; }
+// a slot's colour: cars from the motorway's tints, taxis yellow, buses blue,
+// and a van is white with its stripe in one of these
+const ST_VAN_TINTS = [TUNE.palette.red, TUNE.palette.blue, TUNE.palette.green, TUNE.palette.rust, TUNE.palette.sea];
+function stTintOf(v) {
+  const C = TUNE.palette;
+  return v.type === 1 ? C.gold : v.type === 2 ? C.blue : v.type === 3 ? ST_VAN_TINTS[v.slot % ST_VAN_TINTS.length]
+    : HWY_CAR_TINTS[(v.slot * 3 + 1) % HWY_CAR_TINTS.length];
+}
+
+function stBuildTrafficMeshes(g) { vkQuiet(VK_V125_DRAWS.stTraffic, () => stBuildTrafficKit(g)); }
+function stBuildTrafficKit(g) {
+  const counts = ST_SHAPES.map(() => 0);
+  for (let i = 0; i < STT.count; i++) counts[stShapeOf(i)]++;
+  stTraffic.meshes = ST_SHAPES.map((name, k) => {
+    const m = vkMesh(name, ST_TYPES[k === 4 ? 0 : k].y, counts[k]);
     g.add(m);
     return m;
   });
-  // a car's colour comes from its slot, as on the motorway; the rest are liveries
-  let ci = 0;
-  for (let i = 0; i < STT.count; i++) if (stTypeOf(i) === 0) {
-    stTraffic.meshes[0].setColorAt(ci++, new THREE.Color(HWY_CAR_TINTS[(i * 3 + 1) % HWY_CAR_TINTS.length]));
-  }
-  for (let k = 1; k < 4; k++) for (let i = 0; i < counts[k]; i++) stTraffic.meshes[k].setColorAt(i, new THREE.Color(0xffffff));
-  for (const m of stTraffic.meshes) m.instanceColor.needsUpdate = true;
+  stTraffic.vkRoll = new Float32Array(STT.count * 3);
   for (let i = 0; i < STT.count; i++) stTraffic.list.push({ type: stTypeOf(i), alive: false, road: null, dir: 1, s: 0,
-    speed: 0, sp: 0, path: null, ps: 0, next: null, wx: 0, wz: 0, wy: 0, hx: 0, hz: -1, spin: 0, respawn: 0 });
+    speed: 0, sp: 0, path: null, ps: 0, next: null, wx: 0, wz: 0, wy: 0, hx: 0, hz: -1, spin: 0, respawn: 0,
+    slot: i, shape: stShapeOf(i) });                  // slot and shape: what it is drawn as, nothing else
 }
 function stTypeOf(i) { return i % 9 === 4 ? 2 : i % 7 === 3 ? 3 : i % 4 === 1 ? 1 : 0; }
 
@@ -1152,6 +1675,11 @@ function stInHisWay(v, him) {
   return !!v.path || v.crossing;                                  // across him: only once committed
 }
 
+// Is it in front of him at all, on the ground?
+function stInFront(v, him) {
+  return (v.wx - him.x) * -Math.sin(state.heading) + (v.wz - him.z) * -Math.cos(state.heading) > 0;
+}
+
 // Would he be inside this junction before a vehicle entering it now is out of
 // it again (`clearT`)? Then nothing enters. A turning car is slow and its path
 // is long; a straight one still has two stop lines, a box and itself to clear.
@@ -1214,7 +1742,7 @@ function stUpdateTraffic(dt) {
   const city = stCityNear(px, pz, ST.wake);
   const him = stHim();
   stPlaceHim = him;
-  const idx = [0, 0, 0, 0];
+  const idx = ST_SHAPES.map(() => 0);
   for (const v of stTraffic.list) {
     if (!city) { v.alive = false; continue; }
     if (!v.alive || v.city !== city.key) {
@@ -1226,20 +1754,19 @@ function stUpdateTraffic(dt) {
       if (!stPlaceVehicle(v, city, px, pz, true)) continue;
     }
     stDriveVehicle(v, dt, him);
-    const T = ST_TYPES[v.type], m = stTraffic.meshes[v.type];
+    const m = stTraffic.meshes[v.shape], k = idx[v.shape];
     stDummy.position.set(v.wx, v.wy, v.wz);
     stDummy.rotation.set(0, Math.atan2(-v.hx, -v.hz) + v.spin, 0);
     stDummy.scale.setScalar(1);
     stDummy.updateMatrix();
-    if (idx[v.type] < m.userData.cap) m.setMatrixAt(idx[v.type]++, stDummy.matrix);
-    void T;
+    if (k < m.userData.cap) {
+      m.setMatrixAt(k, stDummy.matrix);
+      vkInstance(m, k, stTraffic.vkRoll, v.slot, stDummy.matrix, stTintOf(v), VK_WHEEL_R[ST_SHAPES[v.shape]]);
+      idx[v.shape]++;
+    }
   }
-  stDummy.position.set(0, -9999, 0); stDummy.scale.setScalar(0.001); stDummy.updateMatrix();
   // only the cars that exist are drawn
-  stTraffic.meshes.forEach((m, k) => {
-    m.count = idx[k];
-    m.instanceMatrix.needsUpdate = true;
-  });
+  stTraffic.meshes.forEach((m, k) => vkCommit(m, idx[k]));
 }
 
 function stDriveVehicle(v, dt, him) {
@@ -1259,17 +1786,25 @@ function stDriveVehicle(v, dt, him) {
       v.sp = Math.max(v.sp, him.speed * 1.1, STT.turnSpeed);
       sp = Math.max(sp, him.speed * 1.1);
       yieldMode = true;
-    } else if (gap !== null && gap > 0 && gap < reach && (him.speed > sp * 0.9 || close)) {
+    } else if (gap !== null && gap > 0 && gap < reach && (him.speed > sp * 0.9 || close) && stInFront(v, him)) {
       // ahead of him in his lane: never a wall. It goes, and it keeps going.
+      // (Ahead on the GROUND too: his tour can come back round, and a car on a
+      // street he will drive in a minute was hurried to motorway speed down it
+      // and on to his street -- behind him, into the back of him.)
       const k = clamp((reach - gap) / Math.max(1, reach - STT.yieldMatch), 0, 1);
       sp = Math.max(sp, lerp(sp, him.speed * 1.05, k));
       yieldMode = true;
-    } else if (gap !== null && gap < 0 && -gap < STT.follow) {
-      // behind him: never into the back of him
+    } else if (gap !== null && gap < 0 && -gap < STT.follow + Math.max(0, (v.sp * v.sp - him.speed * him.speed) / (2 * STT.shed))) {
+      // behind him: never into the back of him -- from as far back as it
+      // needs to stop in, when it is still carrying speed from outrunning him
       sp = Math.min(sp, him.speed * 0.98);
     }
   }
   const acc = (yieldMode ? STT.yieldAccel : STT.accel) * dt;
+  // Speed it was only carrying to outrun him goes as quickly as it came, once
+  // it is out of his way: left at 70 m/s with a city car's brakes, one came
+  // round the block and up behind him while he slowed for a corner.
+  const dec = (!yieldMode && v.sp > STT.speed[1] * 1.3 ? STT.shed : STT.brake) * dt;
   if (v.path) {
     // ---- round a corner, on the cached path; still short of the junction's
     // middle it stops for the same things it would on the road
@@ -1278,7 +1813,7 @@ function stDriveVehicle(v, dt, him) {
     const toNode = P.inLen - v.ps;
     v.hold = null;
     if (!yieldMode && toNode > 0) sp = stStopFor(v, P.node, v.road, toNode, sp, true, him);
-    v.sp += clamp(sp - v.sp, -STT.brake * dt, acc);
+    v.sp += clamp(sp - v.sp, -dec, acc);
     let move = v.sp * dt;
     if (v.hold !== null) { move = Math.min(move, Math.max(0, v.hold)); if (v.hold <= 0.05) v.sp = 0; }
     v.ps += move;
@@ -1336,7 +1871,7 @@ function stDriveVehicle(v, dt, him) {
   }
   // slow for a corner it is about to take
   if (!yieldMode && J && J.turn) sp = Math.min(sp, Math.sqrt(STT.turnSpeed * STT.turnSpeed + 2 * STT.brake * Math.max(0, toGo - J.inLen + J.t1S)));
-  v.sp += clamp(sp - v.sp, -STT.brake * dt, acc);
+  v.sp += clamp(sp - v.sp, -dec, acc);
   let move = v.sp * dt;
   if (v.hold !== null) { move = Math.min(move, Math.max(0, v.hold)); if (v.hold <= 0.05) v.sp = 0; }
   v.s += move * v.dir;
@@ -1469,29 +2004,41 @@ function stSurfaceAt(x, z) {
 }
 
 // ---------------------------------------------------------------------------
-// WHERE A CRASH IN A CITY COMES BACK: on the street nearest where it happened,
-// in the lane for the way he was going, facing along it. Null when the
-// motorway is nearer -- the car's own reassembly handles that.
+// WHERE A CRASH IN A CITY COMES BACK: on the road he was ON, where it happened,
+// in the lane for the way he was going, facing along it. `road` is that road
+// when the car knew it (the planner's, or a city ramp); without one, the
+// nearest street -- he was off the street, on the square or a pavement. Null
+// when he was not in a city at all: the car's own reassembly handles that.
+//
+// It used to be the nearest GRID street or the motorway, and nothing else: a
+// crash on the boulevard came back 800 m away on the motorway, on the harbour
+// road 1.7 km away, and on a city ramp on the carriageway beside it.
 // ---------------------------------------------------------------------------
-function stReassembleAt(x, z, heading) {
-  if (!stCityNear(x, z, 120)) return null;
-  let best = null, bd = Infinity;
-  for (const r of streets.roads) {
-    if (r.kind !== "grid" && r.kind !== "link") continue;
-    const p = stProject(r, x, z);
-    const s = clamp(p.s, 0, r.len);
-    if (p.d < bd) { bd = p.d; best = { r, s }; }
+function stReassembleAt(x, z, heading, road) {
+  let r = road || null, s0 = 0;
+  if (r) s0 = stProject(r, x, z).s;
+  else {
+    if (!stCityNear(x, z, 120)) return null;
+    let bd = Infinity;
+    for (const q of streets.roads) {
+      if (q.kind !== "grid" && q.kind !== "link") continue;
+      const p = stProject(q, x, z);
+      if (p.d < bd) { bd = p.d; r = q; s0 = p.s; }
+    }
+    if (!r || bd > ST.reassembleReach) return null;
   }
-  if (!best || bd > ST.reassembleReach) return null;
-  const r = best.r;
-  // not in the middle of a junction: back along the road a little if need be
-  const s = clamp(best.s, Math.min(r.len / 2, 24), Math.max(r.len / 2, r.len - 24));
+  // Where it happened, only out of a junction's box -- he never comes back in
+  // the middle of a crossing -- and never on the motorway end of a ramp.
+  const box = (node) => node ? node.arms.reduce((m, a) => a.road === r ? m : Math.max(m, a.road.halfW), 0) + ST.reassembleClear
+                             : ST.reassembleRampEnd;
+  const lo = box(r.a), hi = r.len - box(r.b);
+  const s = lo <= hi ? clamp(s0, lo, hi) : r.len / 2;
   const fx = -Math.sin(heading), fz = -Math.cos(heading);
   stPointAt(r, s, 1, 0, stTmpA);
   const dir = (fx * stTmpA.fx + fz * stTmpA.fz) >= 0 ? 1 : -1;
   stPointAt(r, s, dir, r.lo, stTmpA);
   return { x: stTmpA.x, z: stTmpA.z, y: stRoadY(r, stTmpA.x, stTmpA.z, s),
-           heading: Math.atan2(-stTmpA.fx, -stTmpA.fz), road: r, dir };
+           heading: Math.atan2(-stTmpA.fx, -stTmpA.fz), road: r, dir, s, crashS: s0 };
 }
 // ---------------------------------------------------------------------------
 // SIGNALS. The bigger junctions -- every third avenue by every third street --
@@ -1805,19 +2352,14 @@ function stUpdateNY(city, dt) {
   }
 }
 
-function stBuildParkedMesh(g) {
-  const L = ART_LAYER, C = TUNE.palette, W = 0xffffff;
-  const geo = hwyVehicleGeo([
-    { w: 3.4, h: 1.05, d: 7.6, y: -0.55, c: W, l: L.deck },
-    { w: 3.0, h: 0.85, d: 3.9, y: 0.4, z: 0.4, c: C.night, l: L.glass },
-    { w: 2.9, h: 0.2, d: 3.5, y: 0.93, z: 0.45, c: W, l: L.deck },
-  ]);
-  const m = new THREE.InstancedMesh(geo, artPaint(new THREE.MeshPhongMaterial({ color: 0xffffff,
-    vertexColors: true, shininess: 30, specular: 0x4a5058 }), "vehicle"), ST.parkedDrawn);
-  m.frustumCulled = false; m.castShadow = true; m.userData.noSolid = true;
-  m.setColorAt(0, new THREE.Color(W)); m.count = 0;
-  g.add(m);
-  stTraffic.parked = { mesh: m, t: 0, x: 1e9, z: 1e9 };
+// Parked cars are the kit's sedans and hatchbacks, lamps off, one draw each.
+// Which is which is fixed by the slot's place in the city's list.
+function stBuildParkedMesh(g) { vkQuiet(VK_V125_DRAWS.stParked, () => stBuildParkedKit(g)); }
+function stBuildParkedKit(g) {
+  const sedan = vkMesh("sedan", 1.2, ST.parkedDrawn, { lampsOff: true });
+  const hatch = vkMesh("hatch", 1.2, ST.parkedDrawn, { lampsOff: true });
+  g.add(sedan); g.add(hatch);
+  stTraffic.parked = { mesh: sedan, hatch, t: 0, x: 1e9, z: 1e9 };
 }
 
 function stUpdateParked(city, dt) {
@@ -1827,24 +2369,26 @@ function stUpdateParked(city, dt) {
   P.t -= dt;
   if (P.t > 0 && Math.hypot(state.x - P.x, state.z - P.z) < 40) return;
   P.t = 0.4; P.x = state.x; P.z = state.z;
-  const m = P.mesh;
-  m.count = 0;
-  if (!city || !city.parked) return;
-  const r2 = ST.parkedRange * ST.parkedRange, col = new THREE.Color();
-  for (const p of city.parked) {
-    if (m.count >= ST.parkedDrawn) break;
-    if (p.gone > 0) continue;
-    const dx = p.x - state.x, dz = p.z - state.z;
-    if (dx * dx + dz * dz > r2) continue;
-    stDummy.position.set(p.x, p.y, p.z);
-    stDummy.rotation.set(0, Math.atan2(-p.hx, -p.hz), 0);
-    stDummy.scale.setScalar(1); stDummy.updateMatrix();
-    m.setMatrixAt(m.count, stDummy.matrix);
-    m.setColorAt(m.count, col.setHex(HWY_CAR_TINTS[p.c]));
-    m.count++;
+  const n = [0, 0], ms = [P.mesh, P.hatch];
+  if (city && city.parked) {
+    const r2 = ST.parkedRange * ST.parkedRange, col = new THREE.Color();
+    let i = -1;
+    for (const p of city.parked) {
+      i++;
+      if (n[0] + n[1] >= ST.parkedDrawn) break;
+      if (p.gone > 0) continue;
+      const dx = p.x - state.x, dz = p.z - state.z;
+      if (dx * dx + dz * dz > r2) continue;
+      stDummy.position.set(p.x, p.y, p.z);
+      stDummy.rotation.set(0, Math.atan2(-p.hx, -p.hz), 0);
+      stDummy.scale.setScalar(1); stDummy.updateMatrix();
+      const h = i % 3 === 1 ? 1 : 0, m = ms[h];
+      m.setMatrixAt(n[h], stDummy.matrix);
+      m.setColorAt(n[h], col.setHex(HWY_CAR_TINTS[p.c]));
+      n[h]++;
+    }
   }
-  m.instanceMatrix.needsUpdate = true;
-  if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  ms.forEach((m, h) => vkCommit(m, n[h]));
 }
 
 const stPedTmp = {};

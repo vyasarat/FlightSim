@@ -732,6 +732,10 @@ function hwyBuildInterchanges(g, conc, steel) {
         const gy = Math.max(terrainEff(p.x, p.z), TUNE.waterLevel);
         const h = Math.max(2, p.y - gy);
         d.position.set(p.x, gy + h / 2, p.z); d.scale.set(1, h, 1);
+        // Never on the carriageway: sixteen of these stood in the lanes, drawn
+        // but not solid, and he drove through concrete -- and one hid New
+        // York's city gantry from 300 m. The deck spans the road without them.
+        if (Math.abs(hwyNearest(p.x, p.z).lateral) < highway.halfW + 4) d.scale.set(0.001, 0.001, 0.001);
         d.updateMatrix(); pm.setMatrixAt(k, d.matrix);
       }
       pm.castShadow = true;
@@ -880,10 +884,11 @@ function hwyBuildCharge(g, end, at) {
 // ---------------------------------------------------------------------------
 // Traffic: machines only, instanced, in both directions, keeping their lanes.
 // ---------------------------------------------------------------------------
-// A traffic vehicle as one merged geometry: boxes, each with its own colour and
-// atlas slot, in the SAME envelope as the plain box it replaced (the car 3.4 x
-// 2.2 x 7.6, the lorry 4.2 x 4.4 x 15, centred) -- nothing about where traffic
-// is, or how near counts as touching it, moves. Front is local -z.
+// Boxes merged into one geometry, each with its own colour and atlas slot. The
+// traffic itself is the kit's lofted shapes now (vehiclekit.js), in the SAME
+// envelopes the boxes had (the car 3.4 x 2.2 x 7.6, the lorry 4.2 x 4.4 x 15) --
+// nothing about where traffic is, or how near counts as touching it, moves.
+// This stays for the city's people (streets.js).
 function hwyVehicleGeo(parts) {
   const pos = [], nor = [], col = [], lay = [], c = new THREE.Color();
   for (const b of parts) {
@@ -906,45 +911,30 @@ function hwyVehicleGeo(parts) {
 }
 const HWY_CAR_TINTS = [TUNE.palette.steel, TUNE.palette.red, TUNE.palette.blue, TUNE.palette.white,
                        TUNE.palette.slate, TUNE.palette.warning, TUNE.palette.green, TUNE.palette.grey];
+// a lorry's cab (its box is white)
+const HWY_CAB_TINTS = [TUNE.palette.red, TUNE.palette.blue, TUNE.palette.white, TUNE.palette.green,
+                       TUNE.palette.slate, TUNE.palette.rust];
 
-function hwyBuildTraffic(g) {
-  const T = HW.traffic, C = TUNE.palette, L = ART_LAYER;
-  const W = 0xffffff, dark = C.ink, glass = C.night;
-  // the car: body, a glasshouse set back, a roof, four wheels. Tinted per car.
-  const carGeo = hwyVehicleGeo([
-    { w: 3.4, h: 1.05, d: 7.6, y: -0.55, c: W, l: L.deck },
-    { w: 3.0, h: 0.85, d: 3.9, y: 0.4, z: 0.4, c: glass, l: L.glass },
-    { w: 2.9, h: 0.2, d: 3.5, y: 0.93, z: 0.45, c: W, l: L.deck },
-    ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) =>
-      ({ w: 0.5, h: 1.0, d: 1.1, x: sx * 1.5, y: -0.6, z: sz * 2.4, c: dark, l: L.asphalt })),
-  ]);
-  // the lorry: a cab with a windscreen, a container trailer, a chassis, wheels
-  const truckGeo = hwyVehicleGeo([
-    { w: 3.9, h: 3.3, d: 3.3, y: 0.0, z: -5.85, c: C.red, l: L.deck },
-    { w: 3.3, h: 1.2, d: 0.12, y: 0.8, z: -7.52, c: glass, l: L.glass },
-    { w: 4.2, h: 3.7, d: 11.4, y: 0.35, z: 1.8, c: W, l: L.container },
-    { w: 3.4, h: 0.5, d: 15, y: -1.6, c: dark, l: L.asphalt },
-    ...[-5.8, 2.6, 4.3, 6.0].flatMap(z => [-1, 1].map(sx =>
-      ({ w: 0.6, h: 1.2, d: 1.2, x: sx * 1.8, y: -1.6, z, c: dark, l: L.asphalt }))),
-  ]);
-  const paint = (spec) => artPaint(new THREE.MeshPhongMaterial({
-    color: 0xffffff, vertexColors: true, shininess: spec, specular: 0x4a5058 }), "vehicle");
-  highway.trafficMesh = new THREE.InstancedMesh(carGeo, paint(40), T.count);
-  highway.truckMesh = new THREE.InstancedMesh(truckGeo, paint(20), Math.ceil(T.count / T.truckEvery));
-  // every car its own colour, fixed by its slot: no draw from the random stream
-  for (let i = 0; i < T.count; i++) highway.trafficMesh.setColorAt(i, new THREE.Color(HWY_CAR_TINTS[(i * 5 + 3) % HWY_CAR_TINTS.length]));
-  highway.trafficMesh.instanceColor.needsUpdate = true;
-  highway.trafficMesh.frustumCulled = false;
-  highway.truckMesh.frustumCulled = false;
-  highway.trafficMesh.castShadow = true;
-  highway.truckMesh.castShadow = true;
-  highway.trafficMesh.userData.noSolid = true;
-  highway.truckMesh.userData.noSolid = true;
-  g.add(highway.trafficMesh); g.add(highway.truckMesh);
+function hwyBuildTraffic(g) { vkQuiet(VK_V125_DRAWS.hwyTraffic, () => hwyBuildTrafficKit(g)); }
+function hwyBuildTrafficKit(g) {
+  const T = HW.traffic;
+  // The kit's shapes (vehiclekit.js), in the same envelopes the boxes had: a car
+  // slot is a sedan or a hatchback by its index, every lorry is the box lorry.
+  // Each shape is one instanced draw of only the ones in use.
+  let nS = 0, nH = 0, nT = 0;
+  for (let i = 0; i < T.count; i++) {
+    if (i % T.truckEvery === 0) nT++; else if (vkCarShape(i) === "hatch") nH++; else nS++;
+  }
+  highway.trafficMesh = vkMesh("sedan", 1.2, nS);
+  highway.hatchMesh = vkMesh("hatch", 1.2, nH);
+  highway.truckMesh = vkMesh("lorry", 2.3, nT);
+  highway.vkRoll = new Float32Array(T.count * 3);
+  g.add(highway.trafficMesh); g.add(highway.hatchMesh); g.add(highway.truckMesh);
   for (let i = 0; i < T.count; i++) {
     highway.traffic.push({
       s: 0, dir: i % 2 ? 1 : -1, lane: (i >> 1) % HW.lanes,
       speed: 0, truck: i % T.truckEvery === 0, alive: false, spin: 0, respawn: 0,
+      slot: i, vk: i % T.truckEvery === 0 ? "lorry" : vkCarShape(i),      // what it is drawn as
     });
   }
 }
@@ -984,8 +974,14 @@ function hwyUpdateTraffic(dt, px, pz) {
     // not his direction of travel. Matching on direction put the follow rule on
     // the oncoming side and let his own lane drive straight through him.
     carHere = { s: near.s, lateral: near.lateral, side: Math.sign(near.lateral) || 1, speed: state.speed };
+    // On the last of a city's way on he is about to be in the outer lane, and
+    // the traffic makes room for him there; over the motorway on a flyover he
+    // is not on it at all (streets.js).
+    if (car.merging) { carHere.side = car.merging; carHere.lateral = car.merging * (HW.medianW / 2 + HW.laneW * 1.5); }
+    else if (typeof ST !== "undefined" && Math.abs(near.y - state.y) > ST.levelTol) carHere = null;
   }
-  let ci = 0, ti = 0;
+  const vkN = { sedan: 0, hatch: 0, lorry: 0 };
+  const vkM = { sedan: highway.trafficMesh, hatch: highway.hatchMesh, lorry: highway.truckMesh };
   for (const t of highway.traffic) {
     if (!t.alive) {
       t.respawn -= dt;
@@ -1045,16 +1041,19 @@ function hwyUpdateTraffic(dt, px, pz) {
     if (t.spin) { t.spin += dt * 6; hwyDummy.position.y += 1; }
     hwyDummy.scale.setScalar(1);
     hwyDummy.updateMatrix();
-    if (t.truck) { if (ti < highway.truckMesh.count) highway.truckMesh.setMatrixAt(ti++, hwyDummy.matrix); }
-    else { if (ci < highway.trafficMesh.count) highway.trafficMesh.setMatrixAt(ci++, hwyDummy.matrix); }
+    const m = vkM[t.vk], k = vkN[t.vk];
+    if (k < m.userData.cap) {
+      m.setMatrixAt(k, hwyDummy.matrix);
+      // every car its own colour, fixed by its slot: no draw from the random stream
+      vkInstance(m, k, highway.vkRoll, t.slot, hwyDummy.matrix,
+        t.truck ? HWY_CAB_TINTS[t.slot % HWY_CAB_TINTS.length] : HWY_CAR_TINTS[(t.slot * 5 + 3) % HWY_CAR_TINTS.length],
+        VK_WHEEL_R[t.vk]);
+      vkN[t.vk]++;
+    }
     t.wx = hwyDummy.position.x; t.wy = hwyDummy.position.y; t.wz = hwyDummy.position.z;
   }
-  // park the unused instances out of sight rather than leaving stale matrices
-  hwyDummy.position.set(0, -9999, 0); hwyDummy.scale.setScalar(0.001); hwyDummy.updateMatrix();
-  for (let k = ci; k < highway.trafficMesh.count; k++) highway.trafficMesh.setMatrixAt(k, hwyDummy.matrix);
-  for (let k = ti; k < highway.truckMesh.count; k++) highway.truckMesh.setMatrixAt(k, hwyDummy.matrix);
-  highway.trafficMesh.instanceMatrix.needsUpdate = true;
-  highway.truckMesh.instanceMatrix.needsUpdate = true;
+  // only the ones in use are drawn
+  for (const k in vkM) vkCommit(vkM[k], vkN[k]);
 }
 
 // A traffic car that has been hit spins off and comes back later. It is a
