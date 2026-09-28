@@ -4471,16 +4471,16 @@ function check(name, ok, extra) {
       // TUNE.car.fullSteer is lane-keep, straight past it) -- 85% of the car's
       // own drag range, which the car rescales from the shared stick
       const full = 0.85 * L.CAR.dragRangeX * innerWidth / (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight));
-      // ... until the spur is his, and half a second on: past that a full steer
-      // is steering again, and held for seconds it takes him off the spur
-      let onFor = 0;
-      for (let i = 0; i < 60 * 5 && onFor < 30; i++) {
+      // ... and KEPT held for five seconds: the turn done is spent (v128), so
+      // the finger that took the spur holds him on it rather than steering on
+      for (let i = 0; i < 60 * 5; i++) {
         L.api.setStick(ex.side * full, 0); L.update(1 / 60);
         const t = L.carRoadTarget();
         if (t && t.spur) onSpur = true;
-        if (onSpur) onFor++;
       }
       out.tookSpur = onSpur;
+      const held = L.carRoadTarget();
+      out.keptOnSpur = !!(held && held.spur) && L.car.onRoad;
       // let go: the assist takes it back over, on whichever road it is nearest
       for (let i = 0; i < 60 * 4; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
       const back = L.carRoadTarget();
@@ -4558,7 +4558,7 @@ function check(name, ok, extra) {
       return out;
     });
     check("car: holding a steer at an exit takes the spur, and letting go hands it straight back to the assist",
-      rest.tookSpur && rest.assistResumed, JSON.stringify(rest));
+      rest.tookSpur && rest.keptOnSpur && rest.assistResumed, JSON.stringify(rest));
     check("car: he can steer hard off the road -- and the assist walks him back onto it within a few seconds of letting go, so he is never stranded",
       rest.wentOffRoad && rest.offLateral > 25 && rest.backOnRoadSecs > 0 && rest.backOnRoadSecs < 14,
       JSON.stringify(rest));

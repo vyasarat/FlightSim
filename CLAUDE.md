@@ -26,8 +26,13 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
   through the approach (`TUNE.city.approach`) while he is on the line of his street; anything
   less is lane-keep, straight on. Nothing latches and nothing is remembered between
   junctions: release is straight (a lift shorter than `TUNE.car.liftGrace` is not a
-  release). The same rule takes a motorway exit and a city ramp — full right held on the
+  release, and the finger that lands again has `relatchFor` to find its drag — it lands
+  at the middle of a new one). The same rule takes a motorway exit and a city ramp — full right held on the
   painted approach until the ramp is his. A turn commits only once he is at the junction.
+  **A turn done is spent** (`car.spent`): the full steer that took a corner, an exit or a
+  ramp holds him on the new road while the finger stays put — it reads as hands-off and is
+  nobody's choice of the next junction — until he lifts (longer than `liftGrace`) or the
+  stick comes back under `TUNE.car.centreBelow`. The next turn is a fresh full steer.
 - **The corner assist is a carve-out, stated here, not a bend.** At cruise the car turns on a
   77 m circle and a street is 14 m wide, so a block corner is only makeable slowly. The
   assist is SPEED-ONLY and NEVER decides the turn: once his held turn (or the road ending
@@ -84,6 +89,10 @@ a deliberate, stated behaviour change.
   brakes for one** — stopping is the one choice out there that is his. Traffic stops at a
   red *except* where it would become a wall in front of him: a held finger crosses the
   country without a bang, and that guarantee outranks the queue.
+- **The motorway has ONE measure**: `s` is metres along it, what `hwyNearest` answers and
+  what `hwySampleAt` takes — it looks the pair up by each sample's own `s`, never
+  `i * HW.step` (the samples are only nearly `step` apart; dividing made a second measure
+  14 m out by California, and traffic alongside him read as a car's length behind).
 - **A held finger never bangs, at any speed step, either way** (`road_checks.js` crosses the
   country ten times to prove it). Traffic ahead in his lane YIELDS — moves over if it can,
   and always outruns him by `yieldMatch` — because he is never slowed: fast is his. And
