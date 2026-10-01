@@ -119,7 +119,8 @@ a deliberate, stated behaviour change.
   vehicle into every kind at cruise and crawl and prints the matrix; a cell that passes
   through is a bug. **A ramp is a surface driven up, never a trigger zone.**
 - **Roads cross only at a junction or on a bridge** (`roadCrossings`, streets.js): no
-  route over a runway, taxiway, apron or another road at grade. The cities' ramp specs
+  route over a runway, taxiway, apron or another road at grade. A city's ramps clear EACH
+  OTHER by `ramp.clear`, not only the motorway (`stRampConflict`). The cities' ramp specs
   are metres along the motorway, anchored to their junction (`anchorS`), so moving the
   road before them does not slide them.
 - **The road owns a corridor, and in it everything is solid.** `TUNE.highway.clearHalf`
@@ -165,6 +166,8 @@ a deliberate, stated behaviour change.
 - **The giant toy track is rail-locked** (`track.js`, `TUNE.track`): finger down is go,
   finger off coasts and rolls back, and nothing is ever stuck. Its forks are the city's turn
   rule (a full steer held through the approach, with the car's lift and relatch allowances).
+  The way off is the exit lane off the start deck (a gantry with the motorway's icon), taken
+  like every exit: a full steer held through the deck; hands-off stays on the track.
   He falls off in two places only: short at the gap, or out of a loop he came into too slowly.
   Either way he comes back at the drop or booster that feeds it, so he has the speed to go
   again. The track is data: a graph of segments made of typed sections, each laid in the
@@ -256,7 +259,10 @@ airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, 
    `deploy.sh` refuses otherwise. Check afterwards: a `sed` for a version that is not
    there is a silent no-op.
 3. Harness green: `CHROME_HEADLESS_SHELL=… NODE_PATH=… node scripts/headless_test.js`
-   (~15 min, prints the count; :8177, refuses if busy). **Don't edit `cockpit/` while it
+   (~40 min, prints the count; :8177, refuses if busy). Its static server is supervised: a
+   dead or silent server is restarted and the page boot retried, and a run with no check for
+   20 minutes stops itself (`HARNESS STALLED`). Run it with nothing else alongside; iterate on
+   one module with `node scripts/run_module.js <module> [root]`. **Don't edit `cockpit/` while it
    runs.** Node buffers piped stdout — redirect to a file and poll. `UPDATE_VISUAL` /
    `UPDATE_VEHICLE` regenerate the baselines; never hand-edit them.
 4. For anything visual, render it and **look at it** — the hashed scenes cover no boat,

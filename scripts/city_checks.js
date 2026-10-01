@@ -145,6 +145,51 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     check(`city ${tag}: hands-off from each of each city's ways in he loops through the streets and back out on to the motorway -- ${loops.length} loops, ${loops.map(r => `${r.city}${r.way === "CityInFar" ? " far" : ""} x${r.mul} ${r.secs}s ${r.streets} streets`).join(", ")} -- with no crash, no wall and no touch of any traffic`,
       loops.length >= 2 && badLoops.length === 0, JSON.stringify(badLoops.length ? badLoops : loops));
 
+    // ---- 1a. THE RAMPS CLEAR EACH OTHER. Each flyover used to be solved
+    // against the motorway and the ground roads only, so two of them could meet
+    // at grade (v129's roadCrossings found New York's far way in and its way
+    // out 0.7 m apart). Measured on the built roads: wherever two of a city's
+    // ramps overlap on the ground, outside a junction they share, they stand at
+    // least the ramp clearance apart. (Decks overlapping, not merely side by
+    // side: two ramps converging on their merge run alongside at different
+    // heights, and that is not a crossing.)
+    if (vi === 0) {
+      const sep = await page.evaluate(() => {
+        const L = window.__lp, R = L.ST.ramp, out = [];
+        for (const k of ["ny", "ca"]) {
+          const C = L.streets.cities[k].ramps, M = C.merge;
+          const roads = [["near", C.near, 1], ["link", C.link, 1], ["far", C.far, 1], ["out", C.out, 0]];
+          for (let i = 0; i < roads.length; i++) for (let j = i + 1; j < roads.length; j++) {
+            const [na, A, ma] = roads[i], [nb, B, mb] = roads[j];
+            // two converging on the merge they share meet LEVEL near it; anywhere
+            // else, overlapping decks are a crossing and clear each other
+            const zone = ma && mb ? R.mergeZone : R.joinClear;
+            let min = Infinity, level = 0;
+            // each against the other's segments, both ways round
+            for (const [P, Q] of [[A, B], [B, A]]) for (const p of P.pts) {
+              const nearM = Math.hypot(M.x - p.x, M.z - p.z) < zone;
+              if (!nearM && Math.hypot(C.outNode.x - p.x, C.outNode.z - p.z) < R.joinClear) continue;
+              // against every segment of the other, its height read where nearest
+              for (let k = 1; k < Q.pts.length; k++) {
+                const u = Q.pts[k - 1], v = Q.pts[k], ex = v.x - u.x, ez = v.z - u.z, l2 = ex * ex + ez * ez || 1;
+                const t = Math.max(0, Math.min(1, ((p.x - u.x) * ex + (p.z - u.z) * ez) / l2));
+                if (Math.hypot(u.x + ex * t - p.x, u.z + ez * t - p.z) >= A.halfW + B.halfW) continue;
+                const qy = u.y + (v.y - u.y) * t;
+                if (nearM) { if (ma && mb && Math.hypot(M.x - p.x, M.z - p.z) > R.flat) level = Math.max(level, Math.abs(p.y - qy)); }
+                else min = Math.min(min, Math.abs(p.y - qy));
+              }
+            }
+            if (min < Infinity || level) out.push({ city: k, pair: na + "/" + nb, gap: min < Infinity ? +min.toFixed(1) : null, mergeStep: +level.toFixed(1) });
+          }
+        }
+        return { clear: R.clear, crossings: out };
+      });
+      const tight = sep.crossings.filter(c => c.gap !== null && c.gap < sep.clear - 0.1);
+      const step = sep.crossings.filter(c => c.mergeStep > 1.5);
+      check(`city: every one of a city's ramps clears every other where they cross (${sep.crossings.filter(c => c.gap !== null).map(c => c.city + " " + c.pair + " " + c.gap + " m").join(", ") || "none cross"}), and where two converge on their merge they meet level, never one deck over the other -- the ramp clearance is ${sep.clear} m`,
+        tight.length === 0 && step.length === 0, JSON.stringify(sep));
+    }
+
     // ---- 1b. THE WAYS IN, FOUND FROM THE MOTORWAY. Each city has one on each
     // carriageway, on its RIGHT (traffic keeps right): a gantry across the road,
     // the lane painted, the ramp leaving the kerb. The far one sweeps OVER the

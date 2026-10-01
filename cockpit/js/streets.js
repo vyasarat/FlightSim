@@ -1006,6 +1006,34 @@ function stRampHeights(pts, y0, y1, needs, onRoadAt) {
   return pts;
 }
 
+// Where two ramps' decks overlap (outside the junctions they share) and
+// stand less than `clear` apart: every such pair of points, or null.
+function stRampConflict(a, b, halfW, joins) {
+  const R = ST.ramp, all = [];
+  // every point of one against every SEGMENT of the other, its height read
+  // where it is nearest: the samples are eight metres apart, and two ramps
+  // passing close can be nearest between them
+  const scan = (P, Q, flip) => {
+    for (const p of P) {
+      if (joins.some(j => Math.hypot(j.x - p.x, j.z - p.z) < (j.r || R.joinClear))) continue;
+      for (let i = 1; i < Q.length; i++) {
+        const u = Q[i - 1], v = Q[i], ex = v.x - u.x, ez = v.z - u.z, l2 = ex * ex + ez * ez || 1;
+        const t = clamp(((p.x - u.x) * ex + (p.z - u.z) * ez) / l2, 0, 1);
+        // their DECKS overlap (two ramps side by side into a merge are not a
+        // crossing, whatever their heights)
+        if (Math.hypot(u.x + ex * t - p.x, u.z + ez * t - p.z) >= 2 * halfW) continue;
+        const qy = u.y + (v.y - u.y) * t, qs = u.s + (v.s - u.s) * t;
+        if (Math.abs(p.y - qy) < R.clear - 0.05) all.push(flip ? { aS: qs, aY: qy, bS: p.s, bY: p.y } : { aS: p.s, aY: p.y, bS: qs, bY: qy });
+      }
+    }
+  };
+  scan(a, b, false); scan(b, a, true);
+  if (!all.length) return null;
+  // which of the two stands higher where they cross (the middle of the overlap)
+  const mid = all[all.length >> 1];
+  return { list: all, aHigher: mid.aY >= mid.bY };
+}
+
 // Where along `pts` it passes over another road at ground level, and how high
 // the deck must be there. The motorway counts only where the ramp runs ACROSS
 // it: the stretch alongside the kerb is the ramp leaving it, not crossing it.
@@ -1344,7 +1372,66 @@ function stBuildRamps(city, spec0, g, tarmac) {
   for (const p of link) p.y = lerp(mY, landY, smoothstep(0, 1, p.s / link[link.length - 1].s));
   stRampHeights(far, 0, mY, farNeeds, "start");
   const oY = terrainMeshY(o.x, o.z) + CITY.groundLift;
-  stRampHeights(out, oY, 0, stRampNeeds(out, W, ground, [o], true), "end");
+  const outNeeds = stRampNeeds(out, W, ground, [o], true);
+  stRampHeights(out, oY, 0, outNeeds, "end");
+  // The two flyovers clear EACH OTHER, not only the motorway and the ground.
+  // Each was solved against the ground roads and the carriageways alone, so
+  // where the far way in and the way out crossed, nothing kept them apart:
+  // moving the motorway's New York end put them through each other at grade
+  // (v129's roadCrossings found it). Where they overlap, the one already higher
+  // there is raised to clear the other by `clear`, and solved again.
+  // Where the far ramp's deck runs over the near ramp's as the two converge on
+  // the merge, they must be ONE level. They used to meet in plan a hundred
+  // metres before they met in height, the far deck hanging half over the near
+  // one four metres up -- and the far ramp cannot come down sooner: it is still
+  // clearing the motorway. So the merge stands at the height the far ramp is at
+  // where the decks begin to overlap; the near ramp climbs to it before then,
+  // and the link takes the drop to the city instead.
+  for (let pass = 0; pass < 4; pass++) {
+    let top = -Infinity, nearAt = [];
+    for (const p of far) {
+      if (Math.hypot(p.x - M.x, p.z - M.z) < ST.ramp.flat) continue;
+      let q = null, d = Infinity;
+      for (const r of near) { const e = Math.hypot(r.x - p.x, r.z - p.z); if (e < d) { d = e; q = r; } }
+      if (d < 2 * W - 1) { top = Math.max(top, p.y); nearAt.push(q.s); }
+    }
+    if (!nearAt.length || top - mY < 0.3) break;
+    mY = top;
+    stRampHeights(far, 0, mY, farNeeds, "start");
+    const sFirst = Math.min(...nearAt);
+    stRampHeights(near, 0, mY, [{ s: sFirst, y: mY }], "start");
+    for (let k = near.length - 1; k >= 0 && near[k].s >= sFirst; k--) near[k].y = Math.max(near[k].y, mY);
+    // and the far ramp does not sag below it there either: one level
+    for (const p of far) {
+      if (Math.hypot(p.x - M.x, p.z - M.z) < ST.ramp.flat) continue;
+      if (near.some(r => Math.hypot(r.x - p.x, r.z - p.z) < 2 * W - 1)) p.y = Math.max(p.y, mY);
+    }
+    for (const p of link) p.y = lerp(mY, landY, smoothstep(0, 1, p.s / link[link.length - 1].s));
+  }
+  // (And the same against the near ramp and the link: a flyover is solved
+  // against their heights, but the grade it may climb at can leave it short.)
+  const fly = [{ pts: far, needs: farNeeds, solve: () => stRampHeights(far, 0, mY, farNeeds, "start") },
+               { pts: out, needs: outNeeds, solve: () => stRampHeights(out, oY, 0, outNeeds, "end") }];
+  const all = [{ pts: near, atM: true }, { pts: link, atM: true }, { ...fly[0], atM: true }, fly[1]];
+  for (let pass = 0; pass < 6; pass++) {
+    let fixed = false;
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+      const A = all[i], B = all[j];
+      if (!A.solve && !B.solve) continue;               // two ground roads meet at the merge
+      // two that converge on the merge are merging, not crossing, near it
+      const joins = A.atM && B.atM ? [{ x: M.x, z: M.z, r: R.mergeZone }, o] : [M, o];
+      const c = stRampConflict(A.pts, B.pts, W, joins);
+      if (!c) continue;
+      // the flyover goes over; of two flyovers, the one already higher there --
+      // at EVERY point of the overlap, or the one point raised has neighbours
+      // still sloping down into the other
+      const upA = A.solve && (!B.solve || c.aHigher);
+      const F = upA ? A : B;
+      for (const k of c.list) F.needs.push(upA ? { s: k.aS, y: k.bY + R.clear } : { s: k.bS, y: k.aY + R.clear });
+      F.solve(); fixed = true;
+    }
+    if (!fixed) break;
+  }
   // --- lay them, near first so the flyovers know to keep their piers off it
   const paint = R.paintOn;
   stLayRamp(city, near, W, g, tarmac, paint, laid);
@@ -2515,7 +2602,8 @@ function rxRoutes() {
     highway.exits.forEach((e, i) => {
       if (!e.spur || e.spur.street) return;       // a city's ways in are streets.roads, below
       if (e.to === "harbor" && streets.roads.some(r => r.kind === "coast")) return;   // it IS the coast roads, split at the boulevard
-      R.push({ id: "spur" + i + ":" + (e.to || ""), kind: "spur", halfW: HW.spurW, pts: e.spur.map(p => ({ x: p.x, z: p.z, y: p.y })), nodes: [] });
+      // (its own width: a city's ramps are narrower than a motorway spur)
+      R.push({ id: "spur" + i + ":" + (e.to || ""), kind: "spur", halfW: e.halfW || HW.spurW, pts: e.spur.map(p => ({ x: p.x, z: p.z, y: p.y })), nodes: [] });
     });
   }
   for (const r of streets.roads) {

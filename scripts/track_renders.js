@@ -9,6 +9,8 @@
 //   net         off the ski-jump, into the net
 //   air         the whole tangle from a helicopter
 //   hwy         from the motorway, as he drives past
+//   deck-seat   on the start deck: the exit lane's gantry ahead, to the right
+//   lane        on the exit lane, going down beside the tower
 //   node scripts/track_renders.js [root] [views...]    -> evidence/track/
 const path = require("path"), fs = require("fs");
 const { launch, openGame, serve } = require("./art_rig.js");
@@ -18,6 +20,10 @@ async function render(root, views) {
   fs.mkdirSync(out, { recursive: true });
   const port = +(process.env.PORT || 8196), srv = serve(root, port), browser = await launch();
   const page = await openGame(browser, port, { width: 1280, height: 800 });
+  // the first frame painted after load comes out white (the art is still being
+  // uploaded): warm up with a throwaway paint and screenshot
+  await page.evaluate(() => { window.__lp.api.skipScreens(); window.__hold = () => {}; for (let i = 0; i < 3; i++) window.__paint(); });
+  await page.screenshot({ timeout: 180000 });
   for (const v of views) {
     await page.evaluate((v) => {
       const L = window.__lp, st = L.state, T = L.trk;
@@ -39,7 +45,7 @@ async function render(root, views) {
         L.api.setView(true);
       } else {
         L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
-        L.api.setView(!v.endsWith("seat"));
+        L.api.setView(!v.split("@")[0].endsWith("seat"));
         T.on = true; T.lift = null; T.air = null; T.bang = null; T.bounce = null;
         let seg = "main0", s = 24, vel = 12;
         const topOf = (id, n) => { const sg = T.segs[id]; let best = 0, by = -1e9, k = 0, inLoop = false;
@@ -47,6 +53,8 @@ async function render(root, views) {
         if (v.startsWith("loop")) { s = topOf("main0", 1) - 2; vel = 17; }
         if (v === "triple") { seg = "main2"; s = topOf("main2", 2) - 18; vel = 26; }
         if (v === "cork") { seg = "A_stunt"; s = 70; vel = 24; }
+        if (v.startsWith("deck")) { seg = "deck"; s = +(v.split("@")[1] || 0); vel = 0; }
+        if (v === "lane") { seg = "exit"; s = 70; vel = 12; }
         if (v === "net") { seg = T.order[T.order.length - 1].id; s = T.order[T.order.length - 1].len - 1; vel = 40; }
         T.seg = seg; T.s = s; T.v = vel;
         hold = v === "net" ? () => {} : () => { T.seg = seg; T.s = s; T.v = vel; };
@@ -65,5 +73,5 @@ async function render(root, views) {
 module.exports = render;
 if (require.main === module) {
   const args = process.argv.slice(2), root = args[0] && fs.existsSync(path.join(args[0], "cockpit")) ? args.shift() : path.join(__dirname, "..");
-  render(path.resolve(root), args.length ? args : ["drop-seat", "loop-chase", "loop-seat", "triple", "cork", "net", "air", "hwy"]);
+  render(path.resolve(root), args.length ? args : ["drop-seat", "loop-chase", "loop-seat", "triple", "cork", "net", "air", "hwy", "deck-seat", "deck", "lane"]);
 }

@@ -925,6 +925,11 @@ function hwyIcon(parent, kind, mat, boardH) {
     box(6.4, 0.9, 0.3, 0, 0.6, 0); box(2.6, 0.7, 0.3, 0, -1.9, 0);
   } else if (kind === "wave") {
     for (let i = 0; i < 3; i++) box(6.6, 0.75, 0.3, 0, -1.4 + i * 1.4, 0, i % 2 ? 0.12 : -0.12);
+  } else if (kind === "road") {
+    // the motorway: a road running away from him, its edges closing in and its
+    // middle dashed
+    box(0.6, 6.0, 0.3, -2.0, -0.2, 0, -0.32); box(0.6, 6.0, 0.3, 2.0, -0.2, 0, 0.32);
+    for (const [y, h] of [[-2.3, 1.3], [-0.2, 1.0], [1.7, 0.7]]) box(0.45, h, 0.3, 0, y, 0);
   } else if (kind === "loop") {
     // the toy track: an orange loop on the blue board, standing on a short run of track
     const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.55, 8, 24), new THREE.MeshBasicMaterial({ color: TUNE.palette.fire }));

@@ -36,8 +36,10 @@ function waitForServer(url, tries) {
 
 const L_GEAR = 3.2;   // TUNE.gearHeight (asserted below)
 const results = [];
+let harnessTick = () => {};
 function check(name, ok, extra) {
   results.push({ name, ok });
+  harnessTick();
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${extra ? "  — " + extra : ""}`);
 }
 
@@ -61,24 +63,97 @@ function check(name, ok, extra) {
   // filtering local sockets) the overflow comes back as ERR_CONNECTION_RESET and
   // a page that never boots -- the same on the old build as the new. Same
   // server, deeper queue.
-  const server = spawn("python3", ["-c",
-    "import http.server as h; h.ThreadingHTTPServer.request_queue_size = 128; " +
-    `h.test(HandlerClass=h.SimpleHTTPRequestHandler, ServerClass=h.ThreadingHTTPServer, port=${PORT}, bind="127.0.0.1")`],
-    { cwd: ROOT, stdio: "ignore" });
-  process.on("exit", () => server.kill());
-  server.on("exit", code => {
-    if (results.length === 0) { console.error(`static server exited early (code ${code})`); process.exit(2); }
+  // SUPERVISED. One page load that timed out used to end the whole run (a
+  // HARNESS ERROR half an hour in), and the server and browser it left behind
+  // kept the process alive for two hours. Now the server is restarted if it
+  // dies or stops answering, every page boot is retried behind a health check,
+  // a run that stops producing checks is stopped with a diagnosis, and whatever
+  // ends the run kills what it started.
+  let server = null, shuttingDown = false, restarts = 0;
+  const startServer = () => {
+    server = spawn("python3", ["-c",
+      "import http.server as h; h.ThreadingHTTPServer.request_queue_size = 128; " +
+      `h.test(HandlerClass=h.SimpleHTTPRequestHandler, ServerClass=h.ThreadingHTTPServer, port=${PORT}, bind="127.0.0.1")`],
+      { cwd: ROOT, stdio: "ignore" });
+    const me = server;
+    me.on("exit", code => {
+      if (shuttingDown || me !== server) return;
+      if (results.length === 0) { console.error(`static server exited early (code ${code})`); process.exit(2); }
+      console.log(`INFO  static server exited (code ${code}) -- restarting it`);
+      restarts++;
+      startServer();
+    });
+  };
+  const healthy = () => new Promise(resolve => {
+    const req = http.get(URL, { timeout: 4000 }, res => { res.resume(); resolve(res.statusCode === 200); });
+    req.on("timeout", () => { req.destroy(); resolve(false); });
+    req.on("error", () => resolve(false));
   });
+  const ensureServer = async () => {
+    if (await healthy()) return;
+    console.log("INFO  static server not answering -- restarting it");
+    restarts++;
+    const old = server; server = null;
+    try { old && old.kill("SIGKILL"); } catch (e) {}
+    await new Promise(r => setTimeout(r, 300));
+    startServer();
+    await waitForServer(URL, 120);
+  };
+  const killAll = () => { shuttingDown = true; try { server && server.kill("SIGKILL"); } catch (e) {} };
+  process.on("exit", killAll);
+  startServer();
   await new Promise(r => setTimeout(r, 500));
   await waitForServer(URL);
+  // the stall watchdog: no check for 20 minutes is a hang, not a slow module
+  let lastCheckAt = Date.now();
+  harnessTick = () => { lastCheckAt = Date.now(); };
+  const watchdog = setInterval(() => {
+    if (Date.now() - lastCheckAt < 20 * 60 * 1000) return;
+    const last = results.length ? results[results.length - 1].name.slice(0, 120) : "(none)";
+    console.error(`HARNESS STALLED: no check for 20 minutes; the last was: ${last}`);
+    console.log(`\n${results.filter(r => r.ok).length}/${results.length} checks passed (STALLED -- incomplete)`);
+    killAll();
+    process.exit(3);
+  }, 60 * 1000);
+  watchdog.unref();
 
   const browser = await chromium.launch({
     executablePath: SHELL,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
   });
 
+  // Every navigation goes through here: behind a health check, and retried on a
+  // timeout (re-navigating keeps the context's storage, which the persistence
+  // checks depend on).
+  async function gotoSafe(pg) {
+    for (let attempt = 1; ; attempt++) {
+      await ensureServer();
+      try { return await pg.goto(URL, { timeout: 60000 }); }
+      catch (e) {
+        if (attempt >= 3) throw e;
+        console.log(`INFO  page load failed (attempt ${attempt}: ${String(e.message).split("\n")[0].slice(0, 120)}) -- retrying`);
+      }
+    }
+  }
+  // Booting a page is retried: a load that times out restarts the server (if it
+  // has stopped answering) and tries again, instead of ending the run.
   async function newPage(w, h) {
+    for (let attempt = 1; ; attempt++) {
+      try { return await newPageOnce(w, h); }
+      catch (e) {
+        if (attempt >= 3) throw e;
+        console.log(`INFO  page boot failed (attempt ${attempt}: ${String(e.message).split("\n")[0].slice(0, 120)}) -- retrying`);
+        await ensureServer();
+      }
+    }
+  }
+  async function newPageOnce(w, h) {
+    await ensureServer();
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+    try { return await bootPage(ctx); }
+    catch (e) { await ctx.close().catch(() => {}); throw e; }
+  }
+  async function bootPage(ctx) {
     // every harness page boots on the picker, even if a previous test saved a choice
     await ctx.addInitScript(() => {
       try { localStorage.clear(); } catch (e) {}
@@ -95,8 +170,8 @@ function check(name, ok, extra) {
       window.__simTime = 0;
       window.requestAnimationFrame = cb => { __rafQueue.push(cb); return __rafQueue.length; };
     `);
-    await page.goto(URL);
-    await page.waitForFunction(() => !!window.__lp, null, { timeout: 15000 });
+    await gotoSafe(page);
+    await page.waitForFunction(() => !!window.__lp, null, { timeout: 30000 });
     // the atlas and the two city GLBs arrive after load (art.js, city.js)
     await page.waitForFunction(() => !window.__lp.artReady || window.__lp.artReady(), null, { timeout: 30000 });
     await page.evaluate(() => window.__lp.api.skipScreens());
@@ -1967,7 +2042,7 @@ function check(name, ok, extra) {
       const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 1 });
       const p1 = await ctx.newPage();
       await p1.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
-      await p1.goto(URL);
+      await gotoSafe(p1);
       await p1.waitForFunction(() => window.__lp);
       await p1.click('[data-v="rocket"]');
       await p1.click('[data-d="1"]');
@@ -1978,7 +2053,7 @@ function check(name, ok, extra) {
       await p1.evaluate(() => { window.__lp.update(1 / 60); for (let i = 0; i < 25; i++) window.__lp.update(1 / 60); try { localStorage.setItem("lp.sky", "3"); } catch (e) {} });
       const p2 = await ctx.newPage();
       await p2.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
-      await p2.goto(URL);
+      await gotoSafe(p2);
       await p2.waitForFunction(() => window.__lp);
       const restored = await p2.evaluate(() => ({
         key: window.__lp.state.vehicleKey, dir: window.__lp.state.dirIdx, phase: window.__lp.state.phase, sky: window.__lp.state.sky, dest: window.__lp.state.dest,
@@ -1995,7 +2070,7 @@ function check(name, ok, extra) {
       const spotsReset = await p2.evaluate(() => { try { localStorage.setItem("lp.spots", JSON.stringify(window.__lp.spots.map(() => 1))); } catch (e) {} return true; });
       const p3 = await ctx.newPage();
       await p3.addInitScript(() => { window.__rafQueue = []; window.__simTime = 0; window.requestAnimationFrame = cb => { window.__rafQueue.push(cb); return 1; }; });
-      await p3.goto(URL);
+      await gotoSafe(p3);
       await p3.waitForFunction(() => window.__lp);
       const spotsAfter = await p3.evaluate(() => ({ lit: window.__lp.spots.filter(s => s.lit).length, saved: localStorage.getItem("lp.spots") }));
       check("spots: once all twenty are found, the next launch starts them fresh", spotsReset && spotsAfter.lit === 0 && spotsAfter.saved === null, JSON.stringify(spotsAfter));
@@ -2664,7 +2739,7 @@ function check(name, ok, extra) {
       }, seed);
       const p = await ctx.newPage();
       await p.addInitScript(`window.__rafQueue=[];window.__simTime=0;window.requestAnimationFrame=cb=>{__rafQueue.push(cb);return __rafQueue.length;};`);
-      await p.goto(URL);
+      await gotoSafe(p);
       await p.waitForFunction(() => !!window.__lp, null, { timeout: 15000 });
       await p.evaluate(() => { window.__lp.noRender = true; window.__lp.api.skipScreens(); });
       return { ctx, page: p };
@@ -4624,12 +4699,12 @@ function check(name, ok, extra) {
     check("highway: one continuous graded road coast to coast, with the mountain tunnel and the water crossings falling out of the profile rather than being placed by hand -- and it runs through nothing that was already in the world",
       road.length > 12000 && road.samples > 250 && road.tunnelRun > 300 && road.bridgeRun > 1000 &&
       road.underWater === 0 && road.buried === 0 && road.wallHitsOnCrossing === 0 &&
-      // fourteen exits now: the six on the main line, the harbour coast spur
+      // fifteen exits now: the six on the main line, the harbour coast spur
       // (a hand-built polyline pushed into the same array -- that one line is
       // all it takes to make the car able to drive over the drawbridge), and
       // each city's two ways in and one way out (streets.js, v126), and the
-      // giant toy track's own (track.js, v130)
-      road.exits === 14 && road.cityExits === 6 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
+      // giant toy track's own (track.js, v130) and its road back on (v131)
+      road.exits === 15 && road.cityExits === 6 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
 
     // 4. zero text, with the boards, the interchange and the interior screen in frame
     const text = await page.evaluate(() => {
@@ -5527,9 +5602,10 @@ function check(name, ok, extra) {
   await require("./hardening_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] });
 
   await browser.close();
-  server.kill();
+  killAll();
 
   const failed = results.filter(r => !r.ok);
+  if (restarts) console.log(`INFO  the static server was restarted ${restarts} time(s) during the run`);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
   process.exit(failed.length ? 1 : 0);
 })().catch(e => { console.error("HARNESS ERROR:", e); process.exit(2); });

@@ -10,6 +10,33 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v131 — a way off the toy track, ramps that clear each other, a harness that finishes
+
+The toy track's way off is now a visible exit lane, not a drag down on the
+start deck. It peels right off the deck under a blue gantry carrying the
+motorway's icon, and is taken like every exit: a full steer held through the
+deck. Hands-off, a light steer or a held left stays on the track. The lane
+runs down beside the tower on to a road back that merges into the carriageway
+that brought him. The merge comes before the track's own exit mouth, so the
+two roads never cross. It meets the carriageway at its edge, running with the
+traffic. Laid first from the motorway's centreline, it had brought him across
+his own carriageway and the median on to the other one, the wrong way. The
+deck's fork now reads his hold through the lift and the net's throw too, since
+those are how he arrives on the deck. The noisy finger, deciding part-way round
+a lap to leave, is off at the next deck. The cities' ramps now clear each other,
+not only the motorway: wherever two decks overlap, the flyover stands
+`ramp.clear` over the other, measured against every segment both ways round.
+Where the near and far ways in converge on their merge they now meet level.
+They used to meet in plan a hundred metres before they met in height, the far
+deck hanging half over the near one four metres up (in both cities, in every
+release since v126). The merge now stands at the far ramp's height there, the
+near ramp climbs to it, and the link takes the drop to the city. The crossing
+check measured city ramps at a motorway spur's width; it now uses their own.
+The harness's static server is supervised. A dead or silent server is
+restarted and the page boot retried, a run with no check for twenty minutes
+stops itself, and whatever ends a run kills what it started. v130's own full
+run passed 683 of 683 under it, uninterrupted.
+
 ## v130 — the giant toy track
 
 An orange toy-car track at enormous scale in the desert between the canyon and
