@@ -109,9 +109,23 @@ a deliberate, stated behaviour change.
 - The harbour is shaped in `terrain.js`, **in order**: dredge the basin, lay the spit, cut
   the mouth back through it. Then the lock: raise the rim, cut its two floors to *different*
   depths. Move a `TUNE.harbor`/`TUNE.lock` number and ground and structures move together.
+- **ONE solids registry, and every vehicle asks it** (`solids.js`). Anything solid
+  registers once through `solidAdd`/`addSolidBox` (or `solidBox3`, `solidCapsule`,
+  `solidRamp` for shapes that turn), with a `kind` from `SOLID_KINDS` and the classes it
+  `blocks` (default ALL). No vehicle keeps a collision list: they all call `solidQuery`
+  (or `solidCol` for a hull) with their radius from `TUNE.solid`. One law: over the
+  vehicle's `crawl` a bang and a free reassembly where it happened, at or under it a
+  shove, always sideways for anything on the ground. `solidity_checks.js` drives every
+  vehicle into every kind at cruise and crawl and prints the matrix; a cell that passes
+  through is a bug. **A ramp is a surface driven up, never a trigger zone.**
+- **Roads cross only at a junction or on a bridge** (`roadCrossings`, streets.js): no
+  route over a runway, taxiway, apron or another road at grade. The cities' ramp specs
+  are metres along the motorway, anchored to their junction (`anchorS`), so moving the
+  road before them does not slide them.
 - **The road owns a corridor, and in it everything is solid.** `TUNE.highway.clearHalf`
   keeps streamed scenery off the carriageway, spurs and ramps, and the railway too.
-  `resolveSolidWalls` asks `vehSolid()`, **never a flight phase**.
+  `resolveSolidWalls` asks `vehSolid()`, **never a flight phase**. The bore's lining is
+  solid on both sides and the roof.
 - **A bore is a hole in the GROUND, not a pipe laid on it.** `hwyBoreCut` (from
   `terrainEff`) cuts the mountain to the road; `hwyBuildBore` lids the cut with what was
   removed, and stays silent until the surveyor has classified the route — cut first and
@@ -184,6 +198,7 @@ a deliberate, stated behaviour change.
 | `art.js` | the texture atlas and `artPaint` (loads before `scene.js`; `artLoad()` runs at its end) |
 | `citydata.js` `city.js` | the generated city layout / the two block cities, their LODs and draped streets |
 | `tune.js` | every gameplay number |
+| `solids.js` | the one solids registry: shapes, kinds, classes, `solidQuery`/`solidCol` (loads before `scenery.js`) |
 | `terrain.js` `scene.js` `sky.js` | world and sea, lighting and shadows, sun/haze/stars, `mergeBoxes` |
 | `flight.js` `heli.js` | the plane model **and the frame loop** / the helicopter, ground *and* air |
 | `vehicles.js` `buttons.js` `speed.js` `eventpool.js` `engines.js` | the vehicle contract / every button's slot and `when()` / speed steps / event pools and policies / the two-loop engine voice |

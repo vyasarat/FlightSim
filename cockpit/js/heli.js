@@ -329,3 +329,23 @@ function updateHelicopter(dt) {
     state.heliDown = false;
   }
 }
+
+// The helicopter against a wall, through the one law (collision.js): over its
+// crawl the shared bang; at or under it, a shove. It moves by its own velocity
+// rather than `state.speed`, so the shove is its own -- out of the thing, and
+// the part of its drift that was INTO it gone.
+function heliWallHit(push, hit) {
+  if (Math.hypot(heli.vx, heli.vz) > vehCrawl()) return false;   // the shared bang
+  const k = push.d + 0.3;
+  state.x += (push.nx || 0) * k; state.z += (push.nz || 0) * k; state.y += (push.ny || 0) * k;
+  // under a roof it is held down, over one held up: the climb into it goes
+  if ((push.ny || 0) * heli.vy < 0) { heli.vy = 0; heli.altitude = state.y; }
+  const into = heli.vx * (push.nx || 0) + heli.vz * (push.nz || 0);
+  if (into < 0) { heli.vx -= into * (push.nx || 0); heli.vz -= into * (push.nz || 0); }
+  heli.vx *= 0.35; heli.vz *= 0.35;
+  heli.speed = state.speed = Math.hypot(heli.vx, heli.vz);
+  heli.target = null;
+  noiseBurst(0.12, 220, 0.2, 0);
+  flags.solidShoves = (flags.solidShoves || 0) + 1;
+  return true;
+}

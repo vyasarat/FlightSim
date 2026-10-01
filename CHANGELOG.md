@@ -10,6 +10,44 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v129 — one solids registry, and every vehicle asks it
+
+A solid used to be solid only for the vehicle it had been built for. The boat
+swept the harbour's own list and never saw the lock's walls. The rover and the
+Mars drone had no list at all and drove through the whole base. The motorway's
+bore had a lining you could see and nothing you could hit, and its bridge
+piers, the quay's containers and the launch mount's legs were drawn but not
+there. Now everything solid registers once, in `solids.js`, with a kind and
+the vehicle classes it blocks (every one, unless it says otherwise). Every
+vehicle asks that one registry with its own radius, and one law applies to
+all of them. Above its crawl speed a solid is a bang and a free reassembly
+where it happened; at or under it, a shove. The yacht, the rover and the drone
+can now go bang too; the rover and the drone come back backed off the thing
+they hit. The Mars base is solid but never breakable. The rover's ramps are
+now surfaces it drives up, and the lip's slope is the launch. On every ramp,
+at three speeds, it flies higher the faster it came (5–7 m at 8 m/s, 11–15 m
+at 14, 20–29 m at 21). The bore is a corridor: rock between and outside the
+tubes from floor to lid, and a roof over each from its own arch. A new
+check, `solidity_checks.js`, drives every vehicle into every kind of solid it
+can reach, at cruise and at crawl, and prints the matrix. It replays the same
+scenarios on the old build for a before. Before, 39 of 96 cells went
+through (the rover and the drone through everything on Mars, the car through
+the bore and its portals, the helicopter through portals and containers, the
+hulls through ships and bridge piers); after, none. Nothing checked where roads crossed things, and three did. The
+motorway's New York end ran 488 m along the airport's taxiway and over its
+apron, and its California end ran along that apron's edge. The harbour road
+crossed the Californian runway itself at grade. Both motorway ends now pass
+outside the terminal side, and the harbour road goes round the runway's north
+end. `roadCrossings()` finds any route over a runway, taxiway, apron or
+another road that isn't at a junction or on a bridge, and the harness asks for
+none. The cities' ramps were placed by metres from the New York end, so moving
+that end slid every ramp along the road, California's too. They are now
+anchored to their city's junction. Found on the way: inside the car's crash
+debounce a wall at speed did nothing, and he drove through it; the
+helicopter's shove could only ever push up, so a roof let it through; a
+ground vehicle under a low overhang was pushed down into the ground and crept
+through; and the boat's search for water led into a walled-off lock chamber.
+
 ## v128 — a turn done stays done, and the motorway has one measure
 
 A full steer that has taken a corner, an exit or a city ramp now holds him on

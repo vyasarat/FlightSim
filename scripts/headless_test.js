@@ -2498,7 +2498,14 @@ function check(name, ok, extra) {
       out.rocketStayed = st.phase === "TAXI" && !!L.rk.onBody;
       // the toys: a ramp jump, the sand (wiggle out), a boulder into a crater, the horn
       const R0 = L.rover, ramp = R0.toys.find(t => t.kind === "ramp"), sand = R0.toys.find(t => t.kind === "sand"), bould = R0.toys.find(t => t.kind === "boulder"), crat = R0.craters[0];
-      R0.x = ramp.x; R0.y = ramp.y; R0.z = ramp.z; R0.f.copy(ramp.dir); R0.speed = 9; R0.h = 0; R0.vh = 0; R0.stuck = false; const j0 = L.flags.roverJumps || 0; L.update(1 / 60); out.jump = (L.flags.roverJumps || 0) > j0 && R0.vh > 5;
+      // v129: a ramp is a SURFACE he drives up (solids.js), not a circle that sets a
+      // hop -- so he starts short of its foot and the throw comes off the lip
+      { const m0 = new THREE.Vector3(R0.x - m.x, R0.y - m.y, R0.z - m.z).normalize();
+        const back = new THREE.Vector3(ramp.x - ramp.dir.x * 14, ramp.y - ramp.dir.y * 14, ramp.z - ramp.dir.z * 14).sub(new THREE.Vector3(m.x, m.y, m.z)).normalize();
+        R0.x = m.x + back.x * (m.r + 0.9); R0.y = m.y + back.y * (m.r + 0.9); R0.z = m.z + back.z * (m.r + 0.9); void m0; }
+      R0.f.copy(ramp.dir); R0.speed = 9; R0.h = 0; R0.vh = 0; R0.stuck = false; R0.onRamp = null; R0.gPrev = 0; const j0 = L.flags.roverJumps || 0;
+      let launchVh = 0; for (let i = 0; i < 60 * 3 && (L.flags.roverJumps || 0) === j0; i++) { R0.speed = 9; L.update(1 / 60); }
+      launchVh = L.flags.rampLaunch ? L.flags.rampLaunch.vh : 0; out.jump = (L.flags.roverJumps || 0) > j0 && launchVh > 5;
       let hTop = 0; for (let i = 0; i < 60 * 8; i++) { L.update(1 / 60); hTop = Math.max(hTop, R0.h); } out.jumpHigh = hTop > 3;
       R0.x = sand.x; R0.y = sand.y; R0.z = sand.z; R0.h = 0; R0.vh = 0; R0.speed = 6; L.update(1 / 60); out.sandIn = R0.stuck && (L.flags.roverSandIn || 0) > 0;
       L.api.setThrottle(true); for (let i = 0; i < 30; i++) L.update(1 / 60); out.sandSlow = Math.abs(R0.speed) < 2; L.api.setThrottle(false);
@@ -4071,6 +4078,8 @@ function check(name, ok, extra) {
         let p = bx.mesh; while (p) { if (p === L.mars.g) { solid++; return; } p = p.parent; }
       });
       o.baseSolid = solid;
+      o.baseShatter = 0;
+      L.forEachSolid(bx => { if (bx.owner === "mars" && bx.mesh && !bx.mesh.userData.noShatter) o.baseShatter++; });
       o.noTargets = L.targets.every(t => Math.hypot(t.x - L.mars.x, t.z - L.mars.z) > 200);
 
       // ---- the Moon is left exactly as it was
@@ -4135,8 +4144,11 @@ function check(name, ok, extra) {
       o.frameErrors = L.frameErrors || 0;
       return o;
     });
-    check("set-piece: Mars is a place -- domes, masts, a garage, parked Starships, dunes and astronauts, built around wherever he came down, and none of it solid or hittable",
-      m.built && m.pieces > 20 && m.padLights >= 10 && m.padOnHim && m.baseSolid === 0 && m.noTargets, JSON.stringify(m));
+    // v129: the base is SOLID now (solids.js) -- the rover and the drone went
+    // through every dome, and the one registry says a dome is a dome for whoever
+    // drives at it -- but never a target and never breakable: people live there.
+    check("set-piece: Mars is a place -- domes, masts, a garage, parked Starships, dunes and astronauts, built around wherever he came down, solid to drive into and never a target or breakable",
+      m.built && m.pieces > 20 && m.padLights >= 10 && m.padOnHim && m.baseSolid >= 10 && m.baseShatter === 0 && m.noTargets, JSON.stringify(m));
     check("set-piece: the Moon is left exactly as it was -- no base, and its rover still rolls out",
       m.moonHasNoBase && m.moonRoverStillWorks, JSON.stringify({ noBase: m.moonHasNoBase, rover: m.moonRoverStillWorks }));
     check("set-piece: a cargo Starship is announced by a horizon light and big numerals, then comes down under power beside the base and stays for the visit",
@@ -4243,11 +4255,26 @@ function check(name, ok, extra) {
       const cairnId = stackRock ? stackRock.cairn : -1;
       const sn = V(stackRock.x - b.x, stackRock.y - b.y, stackRock.z - b.z).normalize();
       let t2 = V(1, 0, 0); if (Math.abs(sn.x) > 0.9) t2 = V(0, 1, 0);
-      const tan2 = t2.clone().cross(sn).normalize();
+      let tan2 = t2.clone().cross(sn).normalize();
+      // v129: the base is solid now, and a cairn can stand beside a dome -- come
+      // at it from a side with nothing solid on the way in, or on the run out
+      for (let k = 0; k < 12; k++) {
+        const d = tan2.clone().applyAxisAngle(sn, k * Math.PI / 6);
+        let clear = true;
+        for (let m = -8; m <= 16 && clear; m += 2) {
+          if (Math.abs(m) < 4) continue;
+          const p = V(stackRock.x - d.x * m, stackRock.y - d.y * m, stackRock.z - d.z * m);
+          if (L.solidQuery(p.x, p.y, p.z, L.TUNE.solid.r.rover + 1, L.SOLID.ROVER, undefined, q => !!q.toy || !!q.ramp)) clear = false;
+        }
+        if (clear) { tan2 = d; break; }
+      }
       put(stackRock.x - tan2.x * 14, stackRock.y - tan2.y * 14, stackRock.z - tan2.z * 14, tan2);
       const cairns0 = L.flags.marsCairns || 0;
-      for (let i = 0; i < 60 * 6; i++) { L.api.setThrottle(true); L.update(1 / 60); }
-      L.api.setThrottle(false);
+      // (through the stack and off the throttle: since v129 the base is solid,
+      // and six seconds flat out beyond the cairn could reach a dome)
+      for (let i = 0; i < 60 * 6 && (L.flags.marsCairns || 0) === cairns0; i++) { L.api.setThrottle(true); L.update(1 / 60); }
+      L.api.setThrottle(false); L.rover.speed = 0;
+      for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
       o.cairnDown = (L.flags.marsCairns || 0) > cairns0;
       o.cairnScattered = L.mars.rocks.filter(r => r.cairn === cairnId).every(r => !r.stack);
 
@@ -5484,6 +5511,7 @@ function check(name, ok, extra) {
   await require("./aircraft_orientation_checks")({ newPage, check });
   await require("./slot_checks")({ newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] });
   await require("./road_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
+  await require("./solidity_checks")({ newPage, check });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
   await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
   // the usability test, before every city release: five REAL minutes of a noisy

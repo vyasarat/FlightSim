@@ -9,6 +9,8 @@ let shatterTimer = 0;
 const MAX_HIDDEN_PIECES = 24;
 
 function isSolidHidden(b) {
+  // a parked car knocked spinning, or one too far off to be drawn
+  if (b.park) return b.park.gone > 0 || !b.park.drawn;
   // `noSolid`: standing there but not a wall -- a set-piece tower part-way through
   // its collapse, say. Nothing visible-and-solid is ever left inconsistent.
   if (b.mesh) return b.mesh.visible === false || !!b.mesh.userData.noSolid || (b.mesh.parent && b.mesh.parent.visible === false);
@@ -66,9 +68,16 @@ function updateShatter(dt) {
   if (shatterTimer <= 0) restoreShattered();
 }
 
-// baseY (optional, the rocket): the body's lowest point. A box whose top is under
-// that is ground to stand on, not a wall -- the capsule's reference point sits
-// below its base, so without this it "hit" the launch mount 3 m above it.
+// THE ONE WALL LAW, for every vehicle in the world frame (solids.js has the
+// registry and the rule). Who he is decides only three numbers, all from the
+// vehicle contract: his class (what may block him), his radius, and his crawl
+// speed. Over the crawl a bang and a free reassembly -- his own (`vehWallHit`)
+// if he knows how, the shared explode-to-safePos if not; at or under it a shove
+// straight out of the thing, and his speed mostly gone.
+//
+// baseY (optional): the body's lowest point. A box whose top is under that is
+// ground to stand on, not a wall -- the capsule's reference point sits below its
+// base, so without this it "hit" the launch mount 3 m above it.
 function resolveSolidWalls(baseY) {
   // Ask the VEHICLE, not the flight phase. This line used to read
   // `state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY"`, and the car
@@ -77,35 +86,18 @@ function resolveSolidWalls(baseY) {
   // for the life of the coast road. Nothing it drove at was ever solid.
   if (!vehSolid()) return;
   flags.wallChecks = (flags.wallChecks || 0) + 1;
-  const PRAD = 3;
-  let hit = null;
-  forEachSolid(b => {
-    if (hit) return;
-    if (isSolidHidden(b)) return;
-    if (baseY !== undefined && baseY >= b.y1 - 1) return;
-    const ex = b.hw + PRAD, ez = b.hd + PRAD;
-    if (!(state.x > b.x - ex && state.x < b.x + ex &&
-          state.z > b.z - ez && state.z < b.z + ez)) return;
-    if (!(state.y > b.y0 - PRAD && state.y < b.y1 + PRAD)) return;
-    // Push direction points OUT of the face the plane is nearest to.
-    const pens = [
-      { d: (b.x + ex) - state.x, nx: 1, nz: 0, ny: 0 },
-      { d: state.x - (b.x - ex), nx: -1, nz: 0, ny: 0 },
-      { d: (b.z + ez) - state.z, nx: 0, nz: 1, ny: 0 },
-      { d: state.z - (b.z - ez), nx: 0, nz: -1, ny: 0 },
-      { d: (b.y1 + PRAD) - state.y, nx: 0, nz: 0, ny: 1 },
-      { d: state.y - (b.y0 - PRAD), nx: 0, nz: 0, ny: -1 },
-    ];
-    let best = pens[0];
-    for (const q of pens) if (q.d < best.d) best = q;
-    hit = { b, best };
-  });
+  // on the ground, the way out of anything is sideways (solids.js `flat`)
+  const flat = state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY";
+  const hit = solidQuery(state.x, state.y, state.z, vehSolidR(), vehSolidClass(), baseY, null, flat);
   if (!hit) return;
   flags.wallHits = (flags.wallHits || 0) + 1;
-  const { best } = hit;
+  const best = hit;
+  const kind = vehKind(), crawl = Math.abs(state.speed) <= vehCrawl();
+  solidCount(kind, hit.kind, crawl ? "shove" : "crash");
   // A vehicle that knows how it bangs handles its own: the shared path below
   // ends at `safePos`, which only the aeroplane ever reads back.
-  if (vehWallHit(best)) return;
+  if (vehWallHit(best, hit)) return;
+  if (crawl) { solidShove(best); return; }
   shatterAround(state.x, state.y, state.z);
   triggerExplosion(state.x, state.y, state.z, clamp(state.speed / 80, 0, 1));
   state.exploding = true;
@@ -117,4 +109,18 @@ function resolveSolidWalls(baseY) {
     state.y + 40,
     best.ny ? hit.b.y1 + 40 : -Infinity
   );
+}
+
+// At a crawl: out of it by as far as he is in, plus a hand's width, and most of
+// the speed gone. Horizontal only for anything on the ground -- a shove never
+// lifts a wheel.
+function solidShove(hit) {
+  const k = hit.d + 0.3;
+  const onGround = state.phase !== "AIRBORNE" && state.phase !== "CLIMB_AWAY";
+  let nx = hit.nx || 0, nz = hit.nz || 0, ny = onGround ? 0 : (hit.ny || 0);
+  if (onGround && !nx && !nz) return;
+  state.x += nx * k; state.z += nz * k; state.y += ny * k;
+  state.speed *= 0.35;
+  noiseBurst(0.12, 220, 0.2, 0);
+  flags.solidShoves = (flags.solidShoves || 0) + 1;
 }

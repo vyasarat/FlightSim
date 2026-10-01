@@ -218,15 +218,21 @@ function yachtSpawn() {
 }
 
 function yachtReassemble() {
-  // It cannot really crash -- nothing it can hit is harder than it is -- but the
-  // shared explosion path can still land here, and when it does it comes back at
-  // its own berth, facing out, with nothing lost.
-  state.x = yacht.x = YT.berth[0];
-  state.z = yacht.z = YT.berth[1];
+  // Where she went bang, walked clear of what she hit, facing the harbour mouth.
+  // Anything that lands here without a crash of hers (the shared explosion path)
+  // comes back at her own berth, as it always did. Nothing is lost either way.
+  let px = YT.berth[0], pz = YT.berth[1];
+  if (yacht.crashX !== undefined && yacht.crashX !== null) {
+    ({ x: px, z: pz } = solidClearHull(yacht.crashX, yacht.crashZ, YT.hullR + 6, 24));
+    yacht.crashX = yacht.crashZ = null;
+  }
+  state.x = yacht.x = px;
+  state.z = yacht.z = pz;
   state.heading = yacht.heading = yachtHeadingToMouth(yacht.x, yacht.z);
   state.y = yachtSeaY(); state.speed = 0; state.pitch = 0; state.bank = 0;
   yacht.steer = 0;
   yachtPlace();
+  flags.yachtReassembles = (flags.yachtReassembles || 0) + 1;
 }
 
 function updateYacht(dt) {
@@ -325,21 +331,30 @@ function updateYacht(dt) {
   yachtSound();
 }
 
-// Bumping. She is fifty metres of steel: she does not explode against a pier,
-// she leans on it and stops. Nothing is lost either way.
+// Bumping, through the one registry (solids.js) and the one law: at a crawl she
+// leans on it and stops; at speed she goes bang like anything else and comes
+// back where it happened, free. (She used to lean at ANY speed -- fifty metres
+// of steel at 32 m/s into a quay, and a shrug.)
 function yachtBump() {
-  for (const b of harbor.solids) {
-    if (isSolidHidden(b)) continue;
-    if (b.y1 < TUNE.waterLevel - 0.5) continue;
-    const ex = b.hw + YT.hullR, ez = b.hd + YT.hullR;
-    if (!(state.x > b.x - ex && state.x < b.x + ex && state.z > b.z - ez && state.z < b.z + ez)) continue;
-    const dx = state.x - b.x, dz = state.z - b.z;
-    if (Math.abs(dx) / ex > Math.abs(dz) / ez) state.x = b.x + Math.sign(dx || 1) * ex;
-    else state.z = b.z + Math.sign(dz || 1) * ez;
-    if (state.speed > 3) { noiseBurst(0.35, 90, 0.16, 0); rumble = Math.max(rumble, 0.22); }
-    state.speed *= 0.55;
-    return;
-  }
+  const hit = solidCol(state.x, state.z, TUNE.waterLevel - 0.5, state.y + 12, YT.hullR, SOLID.BOAT);
+  if (!hit) return;
+  const crawl = state.speed <= vehCrawl();
+  solidCount("yacht", hit.kind, crawl ? "shove" : "crash");
+  if (!crawl) { yachtCrash(); return; }
+  state.x += hit.nx * (hit.d + 0.2); state.z += hit.nz * (hit.d + 0.2);
+  if (state.speed > 3) { noiseBurst(0.35, 90, 0.16, 0); rumble = Math.max(rumble, 0.22); }
+  state.speed *= 0.55;
+  flags.solidShoves = (flags.solidShoves || 0) + 1;
+}
+
+function yachtCrash() {
+  if (state.exploding) return;
+  yacht.crashX = state.x; yacht.crashZ = state.z;
+  triggerExplosion(state.x, state.y + 4, state.z, 1);
+  cameraHitStop(1.2);
+  state.exploding = true;
+  state.explodeTimer = 0;
+  flags.yachtCrashes = (flags.yachtCrashes || 0) + 1;
 }
 
 let yachtWakeT = 0;

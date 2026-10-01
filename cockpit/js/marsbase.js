@@ -60,6 +60,7 @@ function marsClear() {
   mars.phase = "none"; mars.t = 0; mars.cargoT = 0; mars.cargoPhase = "waiting";
   mars.wentOut = false;
   marsToysClear();
+  solidDropOwner("mars");
 }
 
 // Everything is laid out around the rocket, on the surface, standing up along
@@ -69,6 +70,27 @@ function marsPlace(g, dist, angle, lift) {
   g.position.set(p.x + p.dir.x * (lift || 0), p.y + p.dir.y * (lift || 0), p.z + p.dir.z * (lift || 0));
   g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.dir);
   return p;
+}
+
+// The base in the one registry (solids.js). `obj` has been placed (its
+// position and quaternion are the world's: the base group stands at the
+// origin); shapes are given in its own frame and turned into the world's.
+const msA = new THREE.Vector3(), msB = new THREE.Vector3();
+function marsCap(obj, a, b, r, kind) {
+  msA.set(a[0], a[1], a[2]).applyQuaternion(obj.quaternion).add(obj.position);
+  msB.set(b[0], b[1], b[2]).applyQuaternion(obj.quaternion).add(obj.position);
+  const sb = solidCapsule([msA.x, msA.y, msA.z], [msB.x, msB.y, msB.z], r, kind, SOLID.ALL, surfSolids);
+  sb.owner = "mars"; sb.mesh = obj;
+  obj.userData.noShatter = true;       // solid, not breakable: people live here
+  return sb;
+}
+function marsBox(obj, c, e, kind) {
+  msA.set(c[0], c[1], c[2]).applyQuaternion(obj.quaternion).add(obj.position);
+  const ax = k => { const v = new THREE.Vector3(k === 0 ? 1 : 0, k === 1 ? 1 : 0, k === 2 ? 1 : 0).applyQuaternion(obj.quaternion); return [v.x, v.y, v.z]; };
+  const sb = solidBox3(msA.x, msA.y, msA.z, ax(0), ax(1), ax(2), e[0], e[1], e[2], kind, SOLID.ALL, surfSolids);
+  sb.owner = "mars"; sb.mesh = obj;
+  obj.userData.noShatter = true;
+  return sb;
 }
 
 function marsBuild() {
@@ -109,6 +131,8 @@ function marsBuild() {
     tube.rotation.z = Math.PI / 2; tube.position.set(MB.domeR * 0.8, 3, 0); dome.add(tube);
     marsPlace(dome, MB.spread * 0.62, 0.7 + i * 1.5, 0);
     g.add(dome);
+    marsCap(dome, [0, 0, 0], [0, 0, 0], MB.domeR, "dome");
+    marsCap(dome, [MB.domeR * 0.1, 3, 0], [MB.domeR * 1.5, 3, 0], 3, "dome");   // its tube
   }
   // the rover garage: an open shed it could drive into
   {
@@ -121,6 +145,7 @@ function marsBuild() {
     roof.position.y = 9.4; gar.add(roof);
     marsPlace(gar, MB.spread * 0.5, 3.4, 0);
     g.add(gar);
+    marsBox(gar, [0, 5, 0], [12, 5, 9], "building");
   }
   // antenna masts with dishes
   for (let i = 0; i < MB.masts; i++) {
@@ -141,6 +166,8 @@ function marsBuild() {
     }
     marsPlace(m, MB.spread * 0.75, 2.2 + i * 1.15, 0);
     g.add(m);
+    marsCap(m, [0, 0, 0], [0, MB.mastH, 0], 0.9, "pillar");
+    marsCap(m, [0, MB.mastH, 0], [0, MB.mastH, 0], 3.2, "pillar");            // the dish
   }
   // a row of Starships already standing there
   for (let i = 0; i < MB.parked; i++) {
@@ -157,6 +184,7 @@ function marsBuild() {
     }
     marsPlace(sh, MB.spread * 1.05, 4.4 + i * 0.42, 0);
     g.add(sh);
+    marsCap(sh, [0, 2, 0], [0, 42, 0], 3.6, "parked");
   }
   // tiny astronauts, dotted about. Never solid, never a target, never removed.
   for (let i = 0; i < MB.astros; i++) {
@@ -253,6 +281,7 @@ function marsCargoDown() {
       0xc98a5a, 3.2, MB.dustRise, MB.dustLife);
   }
   if (mars.cargo.userData.glow) mars.cargo.userData.glow.visible = false;
+  marsCap(mars.cargo, [0, 2, 0], [0, 44, 0], 3.8, "parked");                 // down, it is solid
   deepPop(); noiseBurst(0.5, 110, 0.34, 0);
   shakeAmp = Math.max(shakeAmp, 0.5);
 }
@@ -422,16 +451,9 @@ function marsBuildJumps(g) {
     if (mbT2.lengthSq() < 1e-4) mbT2.set(1, 0, 0);
     const fwd = marsAim(jg, p.dir, mbT2);
 
-    const sh = new THREE.Shape();
-    sh.moveTo(0, 0);
-    sh.lineTo(J.len, 0);
-    sh.lineTo(J.len, J.rise);
-    sh.quadraticCurveTo(J.len * 0.45, J.rise * 0.30, 0, 0);   // a scooped run-up
-    const geo = new THREE.ExtrudeGeometry(sh, { depth: J.w, bevelEnabled: false });
-    geo.translate(0, 0, -J.w / 2);
-    const ramp = new THREE.Mesh(geo, dirt);
-    ramp.rotation.y = Math.PI / 2;      // shape-x runs uphill along local -Z
-    jg.add(ramp);
+    // a scooped run-up, drawn from the very profile the rover drives up (solids.js)
+    const k = Math.max(1, J.lipSlope * J.len / J.rise);
+    jg.add(rampProfileMesh(J.len, J.rise, J.w, k, dirt));
     const edge = new THREE.Mesh(new THREE.BoxGeometry(J.w + 0.6, 0.5, 1.2), lip);
     edge.position.set(0, J.rise, -J.len);
     jg.add(edge);
@@ -442,31 +464,29 @@ function marsBuildJumps(g) {
     ring.rotation.x = -0.4;
     jg.add(ring);
     g.add(jg);
-    mars.jumps.push({ g: jg, ring, mat: ringMat, x: p.x, y: p.y, z: p.z, dir: fwd, armed: false });
+    const sb = solidRamp([p.x, p.y, p.z], [fwd.x, fwd.y, fwd.z], [p.dir.x, p.dir.y, p.dir.z],
+                         J.len, J.rise, J.w, J.lipSlope, null, { owner: "mars" });
+    mars.jumps.push({ g: jg, ring, mat: ringMat, x: p.x, y: p.y, z: p.z, dir: fwd, armed: false, solid: sb });
   }
 }
 
-// The launch itself. Runs before updateRover, so it sets the hop the rover's own
-// gravity then flies -- no second physics model, and it lands the way it always did.
+// The ramps are SURFACES now (solids.js): he drives up one and leaves its lip
+// with the lip's slope times his speed -- no kick, no trigger circle. This only
+// blinks the rings; the launch comes from the rover (roverLaunched), and this is
+// what it does on Mars: the tumble, the noise, the dust.
 function marsJumpCheck(dt) {
+  for (const j of mars.jumps) j.mat.color.setHex((frameCount % 30) < 18 ? 0xffd23e : 0x6b5410);
+}
+function marsJumpLaunched(sb) {
   const J = MB.jumps, a = mars.jump;
-  const sp = Math.abs(rover.speed);
-  for (const j of mars.jumps) {
-    const d = Math.hypot(j.x - rover.x, j.y - rover.y, j.z - rover.z);
-    j.mat.color.setHex((frameCount % 30) < 18 ? 0xffd23e : 0x6b5410);
-    if (d < J.hitR && sp > J.minSpeed && rover.h < J.groundish && !j.armed && rover.f.dot(j.dir) > 0.3) {
-      j.armed = true;
-      rover.vh = Math.max(rover.vh, J.kick + sp * J.kickPerSpeed);
-      rover.h = Math.max(rover.h, 0.06);
-      a.air = true; a.roll = 0; a.peaked = false; a.t = 0;
-      a.spin = J.spin * (0.7 + rnd() * 0.6);
-      synthBlip("sine", 380, 980, 0.4, 0.3, 0);
-      noiseBurst(0.18, 650, 0.18, 0);
-      for (let k = 0; k < 8; k++) wakePuff(j.x + (rnd() - 0.5) * 6, j.y + rnd() * 3, j.z + (rnd() - 0.5) * 6, 0xc98a5a, 1.6, 3, 1.2);
-      flags.marsJumps = (flags.marsJumps || 0) + 1;
-    }
-    if (d > J.hitR * 1.8) j.armed = false;      // one launch per pass
-  }
+  const j = mars.jumps.find(q => q.solid === sb);
+  if (!j) return;
+  a.air = true; a.roll = 0; a.peaked = false; a.t = 0;
+  a.spin = J.spin * (0.7 + rnd() * 0.6);
+  synthBlip("sine", 380, 980, 0.4, 0.3, 0);
+  noiseBurst(0.18, 650, 0.18, 0);
+  for (let k = 0; k < 8; k++) wakePuff(j.x + (rnd() - 0.5) * 6, j.y + rnd() * 3, j.z + (rnd() - 0.5) * 6, 0xc98a5a, 1.6, 3, 1.2);
+  flags.marsJumps = (flags.marsJumps || 0) + 1;
 }
 
 // The tumble, applied after the rover has written its own orientation.
@@ -505,13 +525,33 @@ function marsJumpLate(dt) {
 // knocks the next one on, and topples the stacked cairns. Drive away and come
 // back and the whole field is set up again.
 // ---------------------------------------------------------------------------
+// A spot on the ground clear of the base (solids.js): since v129 a dome is a
+// dome, and a cairn laid against one could not be reached without hitting it.
+// Walked straight out of whatever is in the way; no random numbers drawn, so
+// the stream everything after it sees is the one it always saw.
+function marsClearSpot(p, clearR) {
+  const b = mars.body, q = { x: p.x, y: p.y, z: p.z, dir: p.dir.clone() };
+  for (let i = 0; i < 12; i++) {
+    const hit = solidQuery(q.x + q.dir.x * 1.5, q.y + q.dir.y * 1.5, q.z + q.dir.z * 1.5, clearR, SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp);
+    if (!hit) break;
+    const dn = hit.nx * q.dir.x + hit.ny * q.dir.y + hit.nz * q.dir.z;
+    let tx = hit.nx - q.dir.x * dn, ty = hit.ny - q.dir.y * dn, tz = hit.nz - q.dir.z * dn;
+    const tl = Math.hypot(tx, ty, tz) || 1;
+    tx /= tl; ty /= tl; tz /= tl;
+    q.x += tx * (hit.d + 1.5); q.y += ty * (hit.d + 1.5); q.z += tz * (hit.d + 1.5);
+    q.dir.set(q.x - b.x, q.y - b.y, q.z - b.z).normalize();
+    q.x = b.x + q.dir.x * b.r; q.y = b.y + q.dir.y * b.r; q.z = b.z + q.dir.z * b.r;
+  }
+  return q;
+}
+
 function marsBuildBoulders(g) {
   const B = MB.boulders;
   mars.rocks = [];
   const mat1 = new THREE.MeshLambertMaterial({ color: MARS_ROCK });
   const mat2 = new THREE.MeshLambertMaterial({ color: MARS_ROCK2 });
   const add = (dist, ang, r, h, stack) => {
-    const p = surfacePoint(mars.body, mars.n, dist, ang);
+    const p = marsClearSpot(surfacePoint(mars.body, mars.n, dist, ang), B.r[1] + TUNE.solid.r.rover + 3);
     const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), stack ? mat2 : mat1);
     m.position.set(p.x + p.dir.x * h, p.y + p.dir.y * h, p.z + p.dir.z * h);
     m.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
@@ -519,6 +559,7 @@ function marsBuildBoulders(g) {
     const rk_ = { mesh: m, r, h, vh: 0, stack: !!stack,
                   x: m.position.x, y: m.position.y, z: m.position.z,
                   v: new THREE.Vector3(), home: { dist, ang, r, h, stack: !!stack } };
+    rk_.solid = solidToyBall(rk_.x, rk_.y, rk_.z, r, "mars", m);
     mars.rocks.push(rk_);
     return rk_;
   };
@@ -543,7 +584,7 @@ function marsBuildBoulders(g) {
 function marsRocksReset() {
   const B = MB.boulders;
   for (const rk_ of mars.rocks) {
-    const p = surfacePoint(mars.body, mars.n, rk_.home.dist, rk_.home.ang);
+    const p = marsClearSpot(surfacePoint(mars.body, mars.n, rk_.home.dist, rk_.home.ang), B.r[1] + TUNE.solid.r.rover + 3);
     rk_.h = rk_.home.h; rk_.vh = 0; rk_.stack = rk_.home.stack;
     rk_.v.set(0, 0, 0); rk_.armed = false;
     rk_.x = p.x + p.dir.x * rk_.h; rk_.y = p.y + p.dir.y * rk_.h; rk_.z = p.z + p.dir.z * rk_.h;
@@ -635,6 +676,7 @@ function marsUpdateBoulders(dt, b) {
       flags.marsRockHits = (flags.marsRockHits || 0) + 1;
     }
   }
+  for (const rk_ of mars.rocks) if (rk_.solid) solidFollow(rk_.solid, rk_.x, rk_.y, rk_.z);
 }
 
 // ---------------------------------------------------------------------------
@@ -705,6 +747,50 @@ function marsDronePress() {
   flags.marsDroneFlights = (flags.marsDroneFlights || 0) + 1;
   return true;
 }
+// The drone against the one registry. Over its crawl a bang, at or under it a
+// shove; flying itself home it slides round and never bangs. True if it went bang.
+function marsDroneSolid(b) {
+  const dr = mars.drone;
+  const hit = solidQuery(dr.x, dr.y, dr.z, TUNE.solid.r.drone, SOLID.ROVER);
+  if (!hit) return false;
+  const crawl = dr.home || dr.speed <= TUNE.solid.crawl.drone;
+  solidCount("drone", hit.kind, crawl ? "shove" : "crash");
+  flags.wallHits = (flags.wallHits || 0) + 1;
+  if (!crawl) {
+    dr.bangT = TUNE.solid.reassemble; dr.bangN = [hit.nx, hit.ny, hit.nz];
+    dr.speed = 0; dr.vh = 0;
+    triggerExplosion(dr.x, dr.y, dr.z, 0.5);
+    cameraHitStop(0.6);
+    dr.g.visible = false;
+    flags.droneCrashes = (flags.droneCrashes || 0) + 1;
+    return true;
+  }
+  const k = hit.d + 0.3;
+  dr.x += hit.nx * k; dr.y += hit.ny * k; dr.z += hit.nz * k;
+  dr.h = Math.max(0, Math.hypot(dr.x - b.x, dr.y - b.y, dr.z - b.z) - b.r);
+  const into = dr.f.x * hit.nx + dr.f.y * hit.ny + dr.f.z * hit.nz;
+  if (dr.home && into < 0) { dr.f.x -= hit.nx * into; dr.f.y -= hit.ny * into; dr.f.z -= hit.nz * into; }
+  dr.speed *= dr.home ? 0.9 : 0.35;
+  if (!dr.home) { noiseBurst(0.12, 220, 0.2, 0); flags.solidShoves = (flags.solidShoves || 0) + 1; }
+  return false;
+}
+function marsDroneReassemble(b) {
+  const dr = mars.drone, n = dr.bangN || [0, 0, 0], back = TUNE.solid.backOff;
+  dr.bangT = 0;
+  dr.x += n[0] * back; dr.y += n[1] * back; dr.z += n[2] * back;
+  for (let i = 0; i < 8; i++) {
+    const h = solidQuery(dr.x, dr.y, dr.z, TUNE.solid.r.drone + 1, SOLID.ROVER);
+    if (!h) break;
+    dr.x += h.nx * (h.d + 1); dr.y += h.ny * (h.d + 1); dr.z += h.nz * (h.d + 1);
+  }
+  dr.h = Math.max(0, Math.hypot(dr.x - b.x, dr.y - b.y, dr.z - b.z) - b.r);
+  dr.speed = 0; dr.vh = 0;
+  dr.g.visible = true;
+  dr.g.position.set(dr.x, dr.y, dr.z);
+  thunk();
+  flags.droneReassembles = (flags.droneReassembles || 0) + 1;
+}
+
 function marsDroneLand() {
   const dr = mars.drone;
   dr.active = false; dr.home = false; dr.speed = 0; dr.turn = 0; dr.vh = 0; dr.h = 0;
@@ -755,6 +841,12 @@ function marsDronePick(nx, ny) {
 
 function updateMarsDrone(dt) {
   const D = MB.drone, dr = mars.drone, b = mars.body;
+  // in pieces: it waits, then comes back where it happened, backed off
+  if (dr.bangT > 0) {
+    dr.bangT -= dt; dr.speed = 0;
+    if (dr.bangT <= 0) marsDroneReassemble(b);
+    return;
+  }
   // one finger, always: the same as the big helicopter, nothing else to hold
   el.rotateArrow.classList.remove("on");
 
@@ -846,6 +938,8 @@ function updateMarsDrone(dt) {
   const R = b.r + dr.h;
   dr.x = b.x + mbT3.x * R; dr.y = b.y + mbT3.y * R; dr.z = b.z + mbT3.z * R;
   dr.n.copy(mbT3);
+  // the one registry and the one law (solids.js): a mast, a dome, a Starship
+  if (marsDroneSolid(b)) return;
 
   dr.spin += D.rotor * dt;
   dr.blades[0].rotation.y = dr.spin;

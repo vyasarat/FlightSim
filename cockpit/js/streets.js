@@ -186,6 +186,7 @@ function stEdgeClear(x0, z0, x1, z1, half) {
   const solids = [];
   forEachSolid(b => {
     if (b.mesh && b.mesh.isCityProxy) return;
+    if (b.park) return;                         // the city's own parked cars stand on its streets
     const cx = Math.max(Math.min(x0, x1) - half - pad, Math.min(Math.max(x0, x1) + half + pad, b.x));
     const cz = Math.max(Math.min(z0, z1) - half - pad, Math.min(Math.max(z0, z1) + half + pad, b.z));
     if (Math.abs(cx - b.x) < b.hw + half + pad && Math.abs(cz - b.z) < b.hd + half + pad) solids.push(b);
@@ -807,14 +808,20 @@ function stBuildPolicy(city) {
 // `out.node`: where the way out leaves the city (its sweep is solved to land
 // beside its lane). Every one of these was checked against the other exits,
 // the interchange loops and the city's own junctions.
+// `anchorS`: where the city's `land` junction stood along the motorway when
+// those numbers were set (v125-v128). They are metres from the New York end, so
+// any change to the road before them -- v129 moved both ends off the airports
+// -- slid every ramp along it, California's too. stBuildRamps shifts them by
+// however far the junction has moved since, so they stay where they were
+// checked, beside their city.
 const ST_V125_LINK_DRAWS = 176;       // what v125's two spurs per city drew from Math.random; never change it
 const ST_LINKS = {
   // New York's far gantry stands at the ramp mouth: 170 m back is inside the
   // interchange loops. Its paint still starts 170 m back, under them.
-  ny: { side: -1, land: [-76, 3833], linkLen: 157,
+  ny: { side: -1, land: [-76, 3833], linkLen: 157, anchorS: 2534.66,
         near: { taper: 2710 }, far: { taper: 2180, turn: 2325, gantry: 2178 },
         out: { node: [-76, 3767] } },
-  ca: { side: 1, land: [122, -4582], linkLen: 80,
+  ca: { side: 1, land: [122, -4582], linkLen: 80, anchorS: 10822.78,
         near: { taper: 10560 }, far: { taper: 11210, turn: 10980 },
         out: { node: [122, -4486] } },
 };
@@ -1246,11 +1253,16 @@ function stBuildGantry(c, s, g) {
 const stGantryLamps = [];
 
 // ---- one city's three ramps ----------------------------------------------------
-function stBuildRamps(city, spec, g, tarmac) {
-  const R = ST.ramp, S = spec.side, key = city.key;
-  const land = city.nodeMap.get(stKey(spec.land[0], spec.land[1]));
-  const outNode = city.nodeMap.get(stKey(spec.out.node[0], spec.out.node[1]));
+function stBuildRamps(city, spec0, g, tarmac) {
+  const R = ST.ramp, S = spec0.side, key = city.key;
+  const land = city.nodeMap.get(stKey(spec0.land[0], spec0.land[1]));
+  const outNode = city.nodeMap.get(stKey(spec0.out.node[0], spec0.out.node[1]));
   if (!land || !outNode) { console.warn("streets: no junction for the", key, "ramps"); return; }
+  // the s numbers, moved with the city's junction (see anchorS)
+  const dS = spec0.anchorS !== undefined ? hwyNearest(land.x, land.z).s - spec0.anchorS : 0;
+  const spec = { ...spec0, near: { ...spec0.near, taper: spec0.near.taper + dS },
+                 far: { ...spec0.far, taper: spec0.far.taper + dS, turn: spec0.far.turn + dS,
+                        gantry: spec0.far.gantry !== undefined ? spec0.far.gantry + dS : undefined } };
   const W = R.halfW, edge = highway.halfW + 0.5, wide = highway.halfW + W + 2;
   const groundY = (x, z) => Math.max(terrainEff(x, z), TUNE.waterLevel) + ST.linkLift;
   // the street the way in carries on as, and the merge on its line
@@ -1971,13 +1983,8 @@ function stTouching(x, z, heading) {
     const T = ST_TYPES[v.type];
     if (stBoxesTouch(x, z, hx, hz, W, L, v.wx, v.wz, v.hx, v.hz, T.hw, T.hl)) return v;
   }
-  const city = stCityNear(x, z, 50);
-  if (city && city.parked) {
-    for (const p of city.parked) {
-      if (p.gone > 0 || Math.abs(p.x - x) > 14 || Math.abs(p.z - z) > 14) continue;
-      if (stBoxesTouch(x, z, hx, hz, W, L, p.x, p.z, p.hx, p.hz, 1.7, 3.8)) return p;
-    }
-  }
+  // (Parked cars are not here any more: they are solids, in the one registry,
+  // and the car meets them through resolveSolidWalls like any other.)
   return null;
 }
 
@@ -2251,9 +2258,14 @@ function stLayParking(city) {
         // across the street round it and into whatever is parked on the far side
         const P = city.data.plaza, m = 2 * r.halfW + 4;           // both sides of the street round it
         if (P && stTmpA.x > P[0] - m && stTmpA.x < P[2] + m && stTmpA.z > P[1] - m && stTmpA.z < P[3] + m) continue;
-        city.parked.push({ x: stTmpA.x, z: stTmpA.z, hx: stTmpA.fx, hz: stTmpA.fz,
-                           y: terrainMeshY(stTmpA.x, stTmpA.z) + CITY.groundLift + 1.2, c: (h >>> 16) % HWY_CAR_TINTS.length,
-                           gone: 0 });
+        const pk = { x: stTmpA.x, z: stTmpA.z, hx: stTmpA.fx, hz: stTmpA.fz,
+                     y: terrainMeshY(stTmpA.x, stTmpA.z) + CITY.groundLift + 1.2, c: (h >>> 16) % HWY_CAR_TINTS.length,
+                     gone: 0, drawn: false };
+        city.parked.push(pk);
+        // In the one registry (solids.js), turned with it. Solid only while it
+        // is drawn and not knocked away: never an invisible wall.
+        const sb = solidBox3(pk.x, pk.y, pk.z, [pk.hz, 0, -pk.hx], [0, 1, 0], [pk.hx, 0, pk.hz], 1.7, 1.2, 3.8, "parked");
+        sb.park = pk; sb.pad = -0.9;
       }
     }
   }
@@ -2382,6 +2394,7 @@ function stUpdateParked(city, dt) {
   if (city && city.parked) {
     const r2 = ST.parkedRange * ST.parkedRange, col = new THREE.Color();
     let i = -1;
+    for (const p of city.parked) p.drawn = false;
     for (const p of city.parked) {
       i++;
       if (n[0] + n[1] >= ST.parkedDrawn) break;
@@ -2395,6 +2408,7 @@ function stUpdateParked(city, dt) {
       m.setMatrixAt(n[h], stDummy.matrix);
       m.setColorAt(n[h], col.setHex(HWY_CAR_TINTS[p.c]));
       n[h]++;
+      p.drawn = true;
     }
   }
   ms.forEach((m, h) => vkCommit(m, n[h]));
@@ -2473,3 +2487,128 @@ function stUpdate(dt) {
 
 // Built once, at load, after the highway it leaves from.
 stBuild();
+
+// ---------------------------------------------------------------------------
+// WHERE ROADS MAY CROSS (v129). Traffic may cross a runway, a taxiway, an apron
+// or another road ONLY at a junction or on a bridge. Nothing checked that: the
+// motorway was laid from control points and the cities' links from the
+// motorway's frame, and nobody asked what else was on the ground there.
+//
+// `roadCrossings()` answers it from the built world, every route against every
+// surface and every other route:
+//   - a route sampled every 4 m, and any sample over an airport's runway,
+//     taxiway, apron or connector (widened by the road's own half-width) is a
+//     crossing, unless the road stands `bridgeClear` over it;
+//   - two routes whose corridors meet are a crossing unless they are at
+//     different levels (a flyover), share a junction node there, or one of them
+//     ENDS on the other there (a spur's mouth, a ramp's merge -- counted along
+//     `mergeLen` of the ending road, where it runs alongside before it peels).
+// The harness asks for an empty list (solidity_checks.js).
+// ---------------------------------------------------------------------------
+const RX = { step: 4, bridgeClear: 5, mergeLen: 420, cell: 60 };
+
+function rxRoutes() {
+  const R = [];
+  const yOf = (r, p) => r.drape ? terrainMeshY(p.x, p.z) : (p.y !== undefined ? p.y : terrainEff(p.x, p.z));
+  if (highway.built) {
+    R.push({ id: "motorway", kind: "motorway", halfW: highway.halfW, pts: highway.pts.map(p => ({ x: p.x, z: p.z, y: p.y })), nodes: [] });
+    highway.exits.forEach((e, i) => {
+      if (!e.spur || e.spur.street) return;       // a city's ways in are streets.roads, below
+      if (e.to === "harbor" && streets.roads.some(r => r.kind === "coast")) return;   // it IS the coast roads, split at the boulevard
+      R.push({ id: "spur" + i + ":" + (e.to || ""), kind: "spur", halfW: HW.spurW, pts: e.spur.map(p => ({ x: p.x, z: p.z, y: p.y })), nodes: [] });
+    });
+  }
+  for (const r of streets.roads) {
+    R.push({ id: "st" + r.id + ":" + r.city + ":" + r.kind, kind: r.kind, halfW: r.halfW, road: r,
+             pts: r.pts.map(p => ({ x: p.x, z: p.z, y: yOf(r, p) })), nodes: [r.a, r.b].filter(Boolean) });
+  }
+  // lengths along, for the merge allowance
+  for (const rt of R) { let s = 0; rt.pts.forEach((p, i) => { if (i) s += Math.hypot(p.x - rt.pts[i - 1].x, p.z - rt.pts[i - 1].z); p.s = s; }); rt.len = s; }
+  return R;
+}
+
+// The airport surfaces nothing may drive across: rectangles in the world.
+function rxSurfaces() {
+  const out = [], hw = TUNE.runwayWidth / 2, hl = TUNE.runwayLength / 2;
+  AIRPORTS.forEach((ap, idx) => {
+    const m = idx === 0 ? 1 : -1, y = ap.elev;
+    const rect = (name, cx, cz, hx, hz) => out.push({ name: name + idx, x0: cx - hx, x1: cx + hx, z0: ap.cz + cz - hz, z1: ap.cz + cz + hz, y });
+    rect("runway", 0, 0, hw, hl);
+    rect("taxiway", m * 88, 0, 9, 450);
+    rect("apron", m * 170, 0, 100, 380);
+    for (const cz of [-300, 300]) rect("connector", m * (hw + 30), cz, 35, 9);
+  });
+  return out;
+}
+
+// Samples of a route every RX.step metres: x, z, y, s.
+function rxSamples(rt) {
+  const out = [];
+  for (let i = 1; i < rt.pts.length; i++) {
+    const a = rt.pts[i - 1], b = rt.pts[i], l = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(1, Math.ceil(l / RX.step));
+    for (let k = i === 1 ? 0 : 1; k <= n; k++) {
+      const t = k / n;
+      out.push({ x: lerp(a.x, b.x, t), z: lerp(a.z, b.z, t), y: lerp(a.y, b.y, t), s: lerp(a.s, b.s, t) });
+    }
+  }
+  return out;
+}
+
+function roadCrossings() {
+  const routes = rxRoutes(), surf = rxSurfaces(), bad = [];
+  const samples = routes.map(rxSamples);
+  // ---- against the airports
+  routes.forEach((rt, ri) => {
+    let run = null;
+    for (const p of samples[ri]) {
+      const w = rt.halfW * 0.8;
+      const hitS = surf.find(S => p.x > S.x0 - w && p.x < S.x1 + w && p.z > S.z0 - w && p.z < S.z1 + w && p.y - S.y < RX.bridgeClear);
+      if (hitS) { if (!run || run.with !== hitS.name) { run = { route: rt.id, with: hitS.name, x: Math.round(p.x), z: Math.round(p.z), metres: 0 }; bad.push(run); } run.metres += RX.step; }
+      else run = null;
+    }
+  });
+  // ---- route against route, through a coarse hash of samples
+  const hash = new Map();
+  samples.forEach((ss, ri) => ss.forEach((p, k) => {
+    const key = Math.floor(p.x / RX.cell) + "," + Math.floor(p.z / RX.cell);
+    let l = hash.get(key); if (!l) hash.set(key, l = []); l.push([ri, k]);
+  }));
+  // does route A end on route B near sample p of A? (a mouth, a merge)
+  const endsOn = (A, B, p) => {
+    for (const atEnd of [0, 1]) {
+      const along = atEnd ? A.len - p.s : p.s;
+      if (along > RX.mergeLen) continue;
+      const e = atEnd ? A.pts[A.pts.length - 1] : A.pts[0];
+      // that end lies on B's corridor
+      for (let i = 1; i < B.pts.length; i++) {
+        const a = B.pts[i - 1], b = B.pts[i], ex = b.x - a.x, ez = b.z - a.z, l2 = ex * ex + ez * ez || 1;
+        const t = clamp(((e.x - a.x) * ex + (e.z - a.z) * ez) / l2, 0, 1);
+        if (Math.hypot(a.x + ex * t - e.x, a.z + ez * t - e.z) < B.halfW + A.halfW + 6) return true;
+      }
+    }
+    return false;
+  };
+  const shareNode = (A, B, p) => A.nodes.some(n => B.nodes.includes(n) && Math.hypot(n.x - p.x, n.z - p.z) < A.halfW + B.halfW + 30);
+  const seen = new Set();
+  samples.forEach((ss, ri) => {
+    const A = routes[ri];
+    for (const p of ss) {
+      const cx = Math.floor(p.x / RX.cell), cz = Math.floor(p.z / RX.cell);
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        const l = hash.get((cx + dx) + "," + (cz + dz)); if (!l) continue;
+        for (const [rj, k] of l) {
+          if (rj <= ri) continue;
+          const B = routes[rj], q = samples[rj][k];
+          if (Math.hypot(p.x - q.x, p.z - q.z) > (A.halfW + B.halfW) * 0.85) continue;
+          if (Math.abs(p.y - q.y) >= RX.bridgeClear) continue;
+          const pair = ri + ":" + rj;
+          if (seen.has(pair)) continue;
+          if (shareNode(A, B, p) || endsOn(A, B, p) || endsOn(B, A, q)) continue;
+          seen.add(pair);
+          bad.push({ route: A.id, with: B.id, x: Math.round(p.x), z: Math.round(p.z), dy: +(p.y - q.y).toFixed(1) });
+        }
+      }
+    }
+  });
+  return bad;
+}

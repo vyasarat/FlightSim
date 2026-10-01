@@ -1,20 +1,11 @@
 "use strict";
-const trainSolids = [];
-function forEachSolid(cb) {
-  for (const b of buildingBoxes) cb(b);
-  for (const b of staticSolids) cb(b);
-  for (const arr of streamedSolids.values()) for (const b of arr) cb(b);
-  for (const b of trainSolids) cb(b);
-}
+// trainSolids, staticSolids, addSolidBox and forEachSolid live in solids.js:
+// the one registry every vehicle asks.
 
 const matCache = {};
 function lam(color) {
   if (!matCache[color]) matCache[color] = new THREE.MeshLambertMaterial({ color });
   return matCache[color];
-}
-const staticSolids = [];
-function addSolidBox(x, y0, z, hw, hd, y1, mesh) {
-  staticSolids.push({ x, y0, z, hw, hd, y1, mesh });
 }
 // The material for a landmark part. `art` names an art.js preset for this one
 // part; left out, the group's own userData.art (if any) applies. Paint, lamps
@@ -28,7 +19,7 @@ function lmBox(g, w, h, d, color, x, y, z, solid, art) {
   m.position.set(x, y, z);
   g.add(m);
   if ((solid === undefined || solid) && g.userData.trackSolids) {
-    g.userData.pending.push({ lx: x, ly0: y - h / 2, lz: z, hw: w / 2, hd: d / 2, y1: y + h / 2, mesh: m });
+    g.userData.pending.push({ lx: x, ly0: y - h / 2, lz: z, hw: w / 2, hd: d / 2, y1: y + h / 2, mesh: m, kind: g.userData.solidKind });
     m.userData.shatterable = true;
   }
   return m;
@@ -39,7 +30,7 @@ function lmCyl(g, rT, rB, h, color, x, y, z, seg, solid, art) {
   g.add(m);
   if ((solid === undefined || solid) && g.userData.trackSolids) {
     const r = Math.max(rT, rB);
-    g.userData.pending.push({ lx: x, ly0: y - h / 2, lz: z, hw: r, hd: r, y1: y + h / 2, mesh: m });
+    g.userData.pending.push({ lx: x, ly0: y - h / 2, lz: z, hw: r, hd: r, y1: y + h / 2, mesh: m, kind: g.userData.solidKind });
     m.userData.shatterable = true;
   }
   return m;
@@ -255,7 +246,7 @@ function addRouteLandmark(g, x, z, name) {
   ROUTE_LANDMARKS.push({ g, x, z, name: g.userData.name });
   if (g.userData.pending) {
     for (const p of g.userData.pending) {
-      addSolidBox(x + p.lx, p.ly0 + g.position.y, z + p.lz, p.hw, p.hd, p.y1 + g.position.y, p.mesh);
+      addSolidBox(x + p.lx, p.ly0 + g.position.y, z + p.lz, p.hw, p.hd, p.y1 + g.position.y, p.mesh, p.kind || g.userData.solidKind);
     }
   }
 }
@@ -269,6 +260,7 @@ function suspensionBridge(cableColor, len, towerH, deckY, deckW, roadway) {
   g.userData.pending = [];
   g.userData.bridgeDeckY = deckY;
   g.userData.bridgeDeckW = deckW;
+  g.userData.solidKind = "bridge";
   g.userData.bridgeLen = len;
   g.userData.art = "concrete";
   const tz0 = roadway ? -6.5 : 0, tz1 = roadway ? deckW + 6.5 : deckW;
@@ -628,13 +620,16 @@ function buildAirport(idx) {
   for (const cz of [-300, 300]) for (let x = halfW + 8; x < halfW + 62; x += 14) lmBox(g, 12, 0.04, 0.8, paint, m * x, 0.62, cz, false);
 
   // terminal: long hall, glass band, roof, jet bridges toward the apron
+  g.userData.solidKind = "building";          // (the matrix check's column, solids.js)
   lmBox(g, 40, 14, 220, 0xd8dde4, m * 232, 7, 0, true, "concrete");
   lmBox(g, 41, 4, 222, 0x6fa7d9, m * 232, 8, 0, false, "glass");
   lmBox(g, 46, 1.2, 226, 0x8a93a0, m * 232, 14.6, 0, false, "roof");
+  g.userData.solidKind = "bridge";            // the jet bridges
   for (const z of [-70, 0, 70]) {
     lmBox(g, 26, 3.2, 4, 0xb8c2cf, m * 199, 6.5, z, true);
     lmBox(g, 5, 6, 5, 0x8a93a0, m * 188, 3, z, true);
   }
+  g.userData.solidKind = "building";
   // control tower with cab and beacon
   lmCyl(g, 4, 5, 42, 0xf2f4f7, m * 150, 21, 260, 10, true);
   const cab = lmBox(g, 15, 6, 15, 0x2f3a48, m * 150, 45, 260, true);
@@ -680,7 +675,7 @@ function buildAirport(idx) {
     plane.position.set(m * 160, 3.2, z);
     plane.rotation.y = m > 0 ? -Math.PI / 2 : Math.PI / 2;
     g.add(plane);
-    g.userData.pending.push({ lx: m * 160, ly0: 0, lz: z, hw: 12, hd: 12, y1: 8, mesh: plane });
+    g.userData.pending.push({ lx: m * 160, ly0: 0, lz: z, hw: 12, hd: 12, y1: 8, mesh: plane, kind: "parked" });
   }
   // radar dish (spins) and windsock on the far side
   lmCyl(g, 1.2, 1.6, 10, 0xf2f4f7, -m * 95, 5, -470, 8, false);
@@ -729,8 +724,13 @@ function buildAirport(idx) {
     for (let z = 0; z < 60; z += 12) lmBox(g, 15, 0.3, 1, 0x5d6269, px, 0.5, pz + 8 + z, false);   // trench grating
     const defl = lmBox(g, 12, 1.4, 14, 0x555a62, px, 1.4, pz + 12, false);       // flame deflector ramp
     defl.rotation.x = -0.55;
+    g.userData.solidKind = "pad";
     lmBox(g, 16, 1.2, 16, 0x6b7078, px, H - 0.6, pz, true);                     // launch mount (its top is the pad floor)
-    for (const [cx, cz] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) lmBox(g, 2.4, H - 1.2, 2.4, 0x5a5f66, px + cx, (H - 1.2) / 2, pz + cz, false);
+    g.userData.solidKind = "building";
+    // its legs are solid too: a car drove in under the mount between them (solids.js)
+    g.userData.solidKind = "pad";
+    for (const [cx, cz] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) lmBox(g, 2.4, H - 1.2, 2.4, 0x5a5f66, px + cx, (H - 1.2) / 2, pz + cz, true);
+    g.userData.solidKind = "building";
     lmBox(g, 0.5, 1.4, 0.5, 0xff7a1a, px - 7.5, H + 0.7, pz - 7.5, false);       // hold-down clamps
     lmBox(g, 0.5, 1.4, 0.5, 0xff7a1a, px + 7.5, H + 0.7, pz - 7.5, false);
     const sb = new THREE.Group();                                                // strongback (TEL), hinged at its base
@@ -743,7 +743,9 @@ function buildAirport(idx) {
     g.add(sb);
     rec.strongback = sb;
     for (const [cx, cz] of [[-42, -42], [42, -42], [-42, 42], [42, 42]]) {      // lightning towers
+      g.userData.solidKind = "pillar";
       lmCyl(g, 0.9, 1.6, 40, 0xf2f4f7, px + cx, 20, pz + cz, 8, true);
+      g.userData.solidKind = "building";
       lmBox(g, 1.6, 1.6, 1.6, 0xd71920, px + cx, 40.8, pz + cz, false);
     }
     lmCyl(g, 1.4, 1.4, 16, 0x8a93a0, px - m * 44, 8, pz - 70, 8, false);       // water tower
@@ -762,7 +764,9 @@ function buildAirport(idx) {
     // the catch tower ("Mechazilla"): a tall lattice with two arms that close on a Super Heavy booster
     {
       const C = TUNE.rocketTune.catch, tz = pz + C.dz - 18;
+      g.userData.solidKind = "crane";           // the catch tower is a crane: arms that close
       lmBox(g, 6, 62, 6, 0x3c4350, px, 31, tz, true);
+      g.userData.solidKind = "building";
       for (let y = 6; y < 62; y += 8) lmBox(g, 7, 0.5, 7, 0x8a93a0, px, y, tz, false);
       lmBox(g, 8, 2, 8, 0x2f3a48, px, C.armY + 1.5, tz, false);
       const arms = [];

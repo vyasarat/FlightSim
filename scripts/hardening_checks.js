@@ -57,15 +57,19 @@ module.exports = async function hardeningChecks({ newPage, check, viewports }) {
         L.api.setVehicle("car"); L.api.placeOnRunway();
         for (let i = 0; i < 60 * 10; i++) L.update(1 / 60);
         await new Promise(r0 => setTimeout(r0, 2000));
-        const base = live;
+        const base = live, tones0 = Object.keys(tones).length;
         // then drive it hard: its horn, tyres, boosts and bangs are the busiest
         // one-shot source in the game
         for (let i = 0; i < 60 * 180; i++) { L.api.setStick(0, 0.9); L.update(1 / 60); }
         const peak = live, madeAll = made;
         // let real time pass: every one of those has long since finished playing
         await new Promise(r2 => setTimeout(r2, 2500));
-        const after = live;
-        return { base, peak, after, made: madeAll };
+        // A named tone (setTone) is a voice kept for good, two nodes, made once:
+        // one first heard during the drive -- the sirens, if the drive ran a red --
+        // is the baseline, not a one-shot left hanging.
+        const newTones = Object.keys(tones).length - tones0;
+        const after = live - 2 * newTones;
+        return { base, peak, after, made: madeAll, newTones };
       });
       check(`sound: a one-shot lets go of the graph when it ends -- ${r.made} voices fired, ${r.peak} connected at the peak, and a couple of seconds later the graph is back to ${r.after}. Before this, thirty minutes of play left three and a half thousand finished nodes hanging off the master gain for ever`,
         r.made > 200 && r.after <= r.base + 12 && r.after < r.peak * 0.4, JSON.stringify(r));

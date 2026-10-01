@@ -464,7 +464,10 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     const fields = await page.evaluate(() => {
       const L = window.__lp, st = L.state, D = window.__city, out = [];
       const cases = [["ny facing the city", 100, 4100, -1, 0, "city"], ["ny facing the motorway", 100, 4100, 1, 0, "motorway"],
-                     ["ca facing the city", -20, -5200, 1, 0, "city"], ["ca facing the motorway", -20, -5200, -1, 0, "motorway"]];
+                     // (v129: California's start moved north of z -5100: the harbour road
+                     // now runs round the runway's north end and down the strip at x 120, so
+                     // from -5200 the road in front of him is IT -- he takes it, rightly)
+                     ["ca facing the city", -20, -4950, 1, 0, "city"], ["ca facing the motorway", -20, -4950, -1, 0, "motorway"]];
       for (const [name, x, z, fx, fz, want] of cases) {
         D.start(2);
         st.x = x; st.z = z; st.y = L.terrainEff(x, z); st.heading = Math.atan2(-fx, -fz); st.speed = 15;
@@ -633,6 +636,9 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
                 const y = L.stSurfaceAt(q.x, q.z) ?? L.terrainEff(q.x, q.z);
                 out.samples++;
                 for (const o of solids) {
+                  // (a parked car stands on its street's outer strip on purpose;
+                  // since v129 it is a solid in the one registry, like everything)
+                  if (o.park) continue;
                   if (Math.abs(q.x - o.x) < o.hw && Math.abs(q.z - o.z) < o.hd && y + 2 > o.y0 && y + 0.5 < o.y1) {
                     if (out.solidHits.length < 8) out.solidHits.push({ road: r.kind + r.id, x: Math.round(q.x), z: Math.round(q.z), city: !!(o.mesh && o.mesh.isCityProxy) });
                   }

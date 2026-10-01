@@ -34,7 +34,7 @@ function buildRecoveryFleet() {
     }
     barge.position.set(bx, 0, bz);
     scene.add(barge);
-    addSolidBox(bx, TUNE.waterLevel - 0.5, bz, 27, 45, deckY, hull);
+    addSolidBox(bx, TUNE.waterLevel - 0.5, bz, 27, 45, deckY, hull, "ship");
     // recovery boat with a net between four posts, a little inshore of the barge
     const nbx = bx + m * 220, nbz = bz - seaSign * 260;
     const netBoat = makeBoat(0xf2f4f7);

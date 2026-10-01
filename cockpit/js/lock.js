@@ -151,7 +151,7 @@ function lockBuild() {
   for (let i = 0; i < LK.sheds; i++) {
     const sx = lerp(D.x[0] + 80, D.x[1] - 80, LK.sheds === 1 ? 0.5 : i / (LK.sheds - 1));
     push(sx, wharfY + 5, wharfZ, 62, 10, 30);
-    lockSolid(sx, wharfY, wharfZ, 31, 15, wharfY + 10);
+    lockSolid(sx, wharfY, wharfZ, 31, 15, wharfY + 10, "building");
   }
   lock.g.add(lkMergeBoxes(boxes, conc));
 
@@ -227,12 +227,11 @@ function lockBuild() {
   lockApplyGates();
 }
 
-// A box that the boat bumps and anything flying hits, in both lists at once --
-// the harbour's rule, so the two can never disagree.
-function lockSolid(x, y0, z, hw, hd, y1) {
-  const b = { x, y0, z, hw, hd, y1, mesh: null };
-  staticSolids.push(b);
-  return b;
+// A box in the one registry (solids.js): the boat and the yacht bump it now as
+// well as anything flying or driving. (It used to go into staticSolids alone,
+// which the hulls never read -- the lock's walls were air to them.)
+function lockSolid(x, y0, z, hw, hd, y1, kind) {
+  return addSolidBox(x, y0, z, hw, hd, y1, null, kind || "wall");
 }
 
 // The harbour's merge helper adds straight into `harbor.g`; this one hands the

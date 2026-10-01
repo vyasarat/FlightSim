@@ -412,6 +412,7 @@ function hwyBuild() {
       d.scale.set(1, h, 1);
       d.rotation.set(0, Math.atan2(p.fx, p.fz), 0);
       d.updateMatrix(); pm.setMatrixAt(k, d.matrix);
+      hwyPierSolid(p.x, p.ground, p.z, p.y, p.fx, p.fz, HW.pierW / 2);
     });
     pm.castShadow = true;
     g.add(pm);
@@ -703,10 +704,84 @@ function hwyBuildBore(g, conc, steel) {
       castsShadow(pg);
       g.add(pg);
       bore.portals.push({ x: p.x, y: p.y, z: p.z, g: pg });
+      // the headwall is solid: its piers and lintel, turned with it
+      const oy = Math.atan2(p.fx * sign, p.fz * sign), cu = Math.cos(oy), su = Math.sin(oy);
+      for (const w of wall) {
+        solidBox3(p.x + cu * w.x + su * w.z, p.y + w.y, p.z - su * w.x + cu * w.z,
+                  [cu, 0, -su], [0, 1, 0], [su, 0, cu], w.w / 2, w.h / 2, w.d / 2, "portal");
+      }
     }
+    hwyBoreSolids(bore, lat, R, shellTop);
   }
   highway.tunnelRuns = hwyBores.reduce((n, b) => n + (b.b - b.a + 1), 0);
   highway.bores = hwyBores;
+}
+
+// THE BORE IS A CORRIDOR (solids.js). It had a lining you could see and nothing
+// you could hit: the ground under the lid is cut away to the road, so a car
+// steering at the wall drove out through it into the trench and an aeroplane
+// could dive through the lid. Now every 20 m of it is a slice of oriented boxes
+// laid across the road: the rock between the tubes and outside them from the
+// floor to the lid, and over each tube a roof from its own arch up to the lid.
+// The inside of each tube -- the carriageway, the lanes and a margin -- is the
+// only way through.
+function hwyBoreSolids(bore, lat, R, shellTop) {
+  const pts = bore.pts, fh = Math.sqrt(R * R - (R * 0.42) * (R * 0.42));   // half-width at the floor
+  const out = HW.boreBlend, centre = R * 0.42;
+  // lateral columns, right of the centreline; mirrored for the left
+  const cols = [];
+  cols.push({ a: -(lat - fh), b: lat - fh, floor: true });                 // the rock between the tubes
+  const q = fh / 2;
+  for (const sx of [-1, 1]) {
+    for (let k = 0; k < 4; k++) {                                          // the roof over each tube
+      const a = lat - fh + k * q, b = a + q;
+      const dmax = Math.max(Math.abs(a - lat), Math.abs(b - lat));
+      const arch = centre + Math.sqrt(Math.max(0, R * R - dmax * dmax));
+      cols.push(sx > 0 ? { a, b, arch } : { a: -b, b: -a, arch });
+    }
+    const n = 4, w = (out - (lat + fh)) / n;                               // the rock outside
+    for (let k = 0; k < n; k++) {
+      const a = lat + fh + k * w, b = a + w;
+      cols.push(sx > 0 ? { a, b, floor: true } : { a: -b, b: -a, floor: true });
+    }
+  }
+  const lidAt = (p, off) => {
+    const wx = p.x - p.fz * off, wz = p.z + p.fx * off, st = shellTop(off);
+    return Math.max(shapedTerrain(wx, wz) + HW.boreLidLift, Number.isFinite(st) ? p.y + st + 2 : -Infinity);
+  };
+  // walk the centreline in 20 m slices
+  const along = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.z - a.z) / 20));
+    for (let k = 0; k < n; k++) along.push([a, b, k / n, (k + 1) / n]);
+  }
+  bore.solids = [];
+  for (const [a, b, t0, t1] of along) {
+    const P = t => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), z: lerp(a.z, b.z, t), fx: lerp(a.fx, b.fx, t), fz: lerp(a.fz, b.fz, t) });
+    const p0 = P(t0), p1 = P(t1), m = P((t0 + t1) / 2);
+    const dx = p1.x - p0.x, dz = p1.z - p0.z, L = Math.hypot(dx, dz) || 1;
+    const wv = [dx / L, 0, dz / L], uv = [-dz / L, 0, dx / L];            // along, and right
+    for (const c of cols) {
+      let top = -Infinity;
+      for (const pp of [p0, m, p1]) for (const off of [c.a, (c.a + c.b) / 2, c.b]) top = Math.max(top, lidAt(pp, off));
+      const y0 = c.floor ? Math.min(p0.y, p1.y) - 1 : Math.min(p0.y, p1.y) + c.arch;
+      top = Math.max(top, y0 + 2);
+      const mid = (c.a + c.b) / 2;
+      bore.solids.push(solidBox3(m.x + uv[0] * mid, (y0 + top) / 2, m.z + uv[2] * mid, uv, [0, 1, 0], wv,
+                                 (c.b - c.a) / 2, (top - y0) / 2, L / 2 + 0.5, "tunnel"));
+    }
+  }
+}
+
+// A pier is solid (solids.js) -- it was drawn and not there, so a boat, a plane
+// or a car off the road went through concrete. It stops under the deck: the
+// top few metres are the deck's own depth, and a car driving over it is on the
+// road, not on a pier.
+function hwyPierSolid(x, ground, z, deckY, fx, fz, half, kind) {
+  const top = deckY - 3.5;
+  if (top - ground < 1) return null;
+  const L = Math.hypot(fx, fz) || 1, w = [fx / L, 0, fz / L], u = [fz / L, 0, -fx / L];
+  return solidBox3(x, (ground + top) / 2, z, u, [0, 1, 0], w, half, (top - ground) / 2, half, kind || "bridge");
 }
 
 function hwyBuildInterchanges(g, conc, steel) {
@@ -743,6 +818,7 @@ function hwyBuildInterchanges(g, conc, steel) {
         // but not solid, and he drove through concrete -- and one hid New
         // York's city gantry from 300 m. The deck spans the road without them.
         if (Math.abs(hwyNearest(p.x, p.z).lateral) < highway.halfW + 4) d.scale.set(0.001, 0.001, 0.001);
+        else hwyPierSolid(p.x, gy, p.z, p.y, p.fx || 0, p.fz || 1, I.pillarR, "pillar");
         d.updateMatrix(); pm.setMatrixAt(k, d.matrix);
       }
       pm.castShadow = true;
@@ -750,7 +826,7 @@ function hwyBuildInterchanges(g, conc, steel) {
       const mid = ramp[Math.round(seg / 2)];
       // deck-sized, not ramp-sized: rr*0.5 made a 100 m square block that
       // overlapped the carriageway underneath it
-      addSolidBox(mid.x, mid.y - 2, mid.z, 16, 16, mid.y + I.deckT, pm);
+      addSolidBox(mid.x, mid.y - 2, mid.z, 16, 16, mid.y + I.deckT, pm, "bridge");
       highway.overpasses.push({ x: mid.x, y: mid.y, z: mid.z });
     }
   }

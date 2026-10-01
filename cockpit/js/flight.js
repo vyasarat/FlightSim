@@ -457,6 +457,9 @@ function update(dt) {
     // the vehicle owned the frame
   } else if (state.phase === "TAXI" || state.phase === "ROLL") {
     groundPhase(dt);
+    // Solid on the ground too (solids.js): a hangar is a wall at taxi speed as
+    // well as in the air. Anything under the wheels plus a kerb is ground.
+    resolveSolidWalls(Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + 0.5);
     setEngine(state.speed / state.vp.cruiseSpeed);
     el.rotateArrow.classList.toggle("on",
       state.phase === "ROLL" && state.canRotate);

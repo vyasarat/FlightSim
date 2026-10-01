@@ -56,12 +56,24 @@ function boatOnWater() { return boatWaterAt(state.x, state.z); }
 // button to press. Never stuck is a law, so the search widens until it finds
 // water or runs out of ring -- and boatStranded() below is the backstop for
 // when it does run out.
+// Water counts only if the way to it is open: since the lock's walls became
+// solid to a hull (solids.js), the nearest water from the shore beside it was
+// the chamber -- behind a wall -- and the search pushed him into the wall until
+// the backstop fired. A walled-off patch is not a way back; the search widens.
+function boatWayClear(x, z, x2, z2) {
+  const L = Math.hypot(x2 - x, z2 - z), n = Math.max(1, Math.ceil(L / 10));
+  for (let k = 1; k <= n; k++) {
+    const t = k / n;
+    if (solidCol(x + (x2 - x) * t, z + (z2 - z) * t, TUNE.waterLevel - 0.5, TUNE.waterLevel + 2.5, BT.hullR, SOLID.BOAT)) return false;
+  }
+  return true;
+}
 function boatWaterDir(x, z) {
   for (const r of BT.beachRings) {
     let bx = 0, bz = 0, found = 0;
     for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      if (boatWaterAt(x + Math.cos(a) * r, z + Math.sin(a) * r)) { bx += Math.cos(a); bz += Math.sin(a); found++; }
+      const a = (i / 16) * Math.PI * 2, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
+      if (boatWaterAt(px, pz) && boatWayClear(x, z, px, pz)) { bx += Math.cos(a); bz += Math.sin(a); found++; }
     }
     if (found) { const l = Math.hypot(bx, bz) || 1; return { x: bx / l, z: bz / l, r }; }
   }
@@ -102,14 +114,9 @@ function boatReassemble() {
     if (d) { px += d.x * BT.beachProbe * 2; pz += d.z * BT.beachProbe * 2; }
     else { px = M.spawn[0]; pz = M.spawn[1]; }
   }
-  // and clear of whatever he hit
-  for (const b of harbor.solids) {
-    if (px > b.x - b.hw - 14 && px < b.x + b.hw + 14 && pz > b.z - b.hd - 14 && pz < b.z + b.hd + 14) {
-      const dx = px - b.x, dz = pz - b.z;
-      if (Math.abs(dx) / (b.hw + 1) > Math.abs(dz) / (b.hd + 1)) px = b.x + Math.sign(dx || 1) * (b.hw + 22);
-      else pz = b.z + Math.sign(dz || 1) * (b.hd + 22);
-    }
-  }
+  // and clear of whatever he hit -- anything in the one registry, not only the
+  // harbour's own boxes (the lock's walls were never on that list)
+  ({ x: px, z: pz } = solidClearHull(px, pz, BT.hullR + 14, 22));
   state.x = px; state.z = pz;
   state.y = boatSeaY();
   const mx = TUNE.harbor.cx, mz = (TUNE.harbor.mouth.z[0] + TUNE.harbor.mouth.z[1]) / 2;
@@ -335,22 +342,20 @@ function boatRampTest(dt) {
 // bang; a slow bump is a bump. Both are free.
 // ---------------------------------------------------------------------------
 function boatHitTest(dt, fx, fz) {
-  const PR = BT.hullR;
-  for (const b of harbor.solids) {
-    if (isSolidHidden(b)) continue;
-    if (b.y1 < TUNE.waterLevel - 0.5) continue;     // dredged bottom: nothing to hit
-    const ex = b.hw + PR, ez = b.hd + PR;
-    if (!(state.x > b.x - ex && state.x < b.x + ex && state.z > b.z - ez && state.z < b.z + ez)) continue;
-    if (state.speed > BT.crashSpeed) { boatCrash(); return; }
-    // a bump: stop dead, push clear, and make a noise
-    const dx = state.x - b.x, dz = state.z - b.z;
-    if (Math.abs(dx) / ex > Math.abs(dz) / ez) state.x = b.x + Math.sign(dx || 1) * ex;
-    else state.z = b.z + Math.sign(dz || 1) * ez;
-    state.speed *= 0.25;
-    noiseBurst(0.14, 190, 0.18, 0);
-    rumble = Math.max(rumble, 0.2);
-    return;
-  }
+  // The one registry (solids.js): a column from under the keel to over the
+  // screen, so a deck high overhead is not a wall and a dredged bottom is not
+  // either. Over the crawl a bang, at or under it a bump.
+  const hit = solidCol(state.x, state.z, Math.max(state.y - 1, TUNE.waterLevel - 0.5), state.y + 2.5,
+                       BT.hullR, SOLID.BOAT);
+  if (!hit) return;
+  const crawl = state.speed <= vehCrawl();
+  solidCount("boat", hit.kind, crawl ? "shove" : "crash");
+  if (!crawl) { boatCrash(); return; }
+  // a bump: stop dead, push clear, and make a noise
+  state.x += hit.nx * (hit.d + 0.2); state.z += hit.nz * (hit.d + 0.2);
+  state.speed *= 0.25;
+  noiseBurst(0.14, 190, 0.18, 0);
+  rumble = Math.max(rumble, 0.2);
 }
 
 // ---------------------------------------------------------------------------
