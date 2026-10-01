@@ -25,6 +25,10 @@
 //     round a loop, never pull him). Then he peels off, tumbles, goes bang --
 //     a machine, a toy car -- and comes back just before that section, free.
 //     Falling out of the loop is the best part; it costs nothing.
+//   - THE WAY OFF is an exit lane off the start deck, under a gantry with the
+//     motorway's icon: a full steer held right through the deck takes it, like
+//     every exit; hands-off stays on the track. It runs down beside the tower on
+//     to a road that merges back into the motorway.
 //   - Rear-ending another toy car on the course: both go bang, both come back.
 //     They never run into him: they hold back behind him.
 //   - The household props (the sofa, the bookshelf, the lamp) are scenery he
@@ -361,6 +365,7 @@ function tkBuildMeshes() {
   tkBuildTower(g, orange, blue);
   tkBuildRollers(g);
   tkBuildRing(g);
+  tkBuildGantry(g);
   tkBuildNet(g, blue);
   tkBuildProps(g);
   tkBuildCars(g);
@@ -494,6 +499,7 @@ function tkNetY(x, z) {
 // ---- the household props he weaves through: never solid, never hit ------------
 function tkFindType(type) {
   for (const seg of trk.order) {
+    if (seg.def.leave) continue;            // the exit lane's spiral down is not the lamp's
     const ks = seg.S.filter(q => q.type === type);
     if (ks.length) return { seg, a: ks[0], b: ks[ks.length - 1], mid: ks[Math.floor(ks.length / 2)], all: ks };
   }
@@ -600,7 +606,7 @@ function tkStep(segId, s, ds, pick) {
       if (seg.gapTo) return { seg: seg.id, s: seg.len, off: "gap" };
       let nx = seg.next;
       if (seg.fork) nx = pick ? pick(seg) : seg.fork.safe;
-      if (!nx) return { seg: seg.id, s: seg.len, off: "end" };
+      if (!nx) return { seg: seg.id, s: seg.len, off: seg.def.leave ? "leave" : "end" };
       s -= seg.len;
       trk.cameFrom[nx] = seg.id;
       seg = trk.segs[nx];
@@ -662,20 +668,23 @@ function trackBoard() {
   flags.trackBoards = (flags.trackBoards || 0) + 1;
   return true;
 }
+// Off the end of the exit lane and on to the road back, rolling: the car is
+// his again, on a way on that merges into the carriageway that brought him.
 function trackLeave() {
-  // down the lift and out on to the road that brought him, facing the motorway
-  const p = tkLiftPad(), ex = highway.exits.find(e => e.to === "track");
+  const rec = trk.back, v = Math.max(8, Math.abs(trk.v));
   trk.on = false; trk.lift = null; trk.air = null; trk.bang = null; trk.bounce = null;
+  setTone("trkRattle", "sawtooth", 50, 0); setTone("trkWhir", "square", 200, 0);
   if (vehicleModel) vehicleModel.visible = state.viewChase;
-  if (ex && ex.spur) {
-    const sp = ex.spur, e = sp[sp.length - 1], b = sp[sp.length - 3];
+  camera.up.set(0, 1, 0);
+  if (rec) {
+    const sp = rec.spur, e = sp[sp.length - 1], b = sp[sp.length - 2];
     state.x = e.x; state.z = e.z; state.y = e.y;
     state.heading = Math.atan2(-(b.x - e.x), -(b.z - e.z));
-  } else if (p) { state.x = p.x; state.z = p.z; state.y = Math.max(terrainEff(p.x, p.z), TUNE.waterLevel); }
-  state.speed = 0; state.pitch = 0; state.bank = 0;
+    car.spurRec = rec; car.onSpurRoad = true;
+  }
+  state.speed = v; state.pitch = 0; state.bank = 0;
   if (typeof stPlan !== "undefined") { stPlan.road = null; stPlan.turn = null; }
-  car.exitChoice = null; car.spurRec = null; car.onSpurRoad = true; car.spent = 0;
-  thunk();
+  car.exitChoice = null; car.spent = 0; car.steer = 0;
   flags.trackLeaves = (flags.trackLeaves || 0) + 1;
 }
 
@@ -685,6 +694,7 @@ function trackUpdate(dt) {
   trk.t += dt;
   const P = TK.physics, touching = state.touching && !menuOpen(), bank = tkBank();
   state.phase = "TAXI";
+  tkTrackHold(dt, touching, bank);
   tkUpdateCars(dt);
   tkUpdateNet(dt);
 
@@ -692,14 +702,14 @@ function trackUpdate(dt) {
   if (trk.lift) {
     const L = trk.lift, H = tkFirst().S[0].y - trk.g0, pad = tkLiftPad(), s0 = tkFirst().S[0];
     L.t += dt / TK.liftTime;
-    const t = clamp(L.t, 0, 1), up = L.dir > 0 ? t : 1 - t;
+    const t = clamp(L.t, 0, 1), up = t;
     tkPose.x = lerp(pad.x, s0.x - s0.tx * 6, clamp(up * 1.25 - 0.25, 0, 1)); tkPose.z = lerp(pad.z, s0.z - s0.tz * 6, clamp(up * 1.25 - 0.25, 0, 1));
     tkPose.y = trk.g0 + H * tkSm(clamp(up * 1.2, 0, 1));
     tkPose.T.set(s0.tx, 0, s0.tz).normalize(); tkPose.N.set(0, 1, 0);
     if (trk.liftCage) trk.liftCage.position.y = 1 + (tkPose.y - trk.g0);
     tkSync(0);
     setTone("trkRattle", "sawtooth", 50, 0.02);
-    if (L.t >= 1) { if (L.dir > 0) { trk.lift = null; trk.seg = tkFirst().id; trk.s = 0; trk.v = 0; } else trackLeave(); }
+    if (L.t >= 1) { trk.lift = null; trk.seg = tkFirst().id; trk.s = 0; trk.v = 0; }
     return;
   }
   // ---- in pieces: back just before the section, free
@@ -772,20 +782,34 @@ function trackUpdate(dt) {
   tkRail(dt, touching, bank);
 }
 
+// Which side he is holding, by the car's allowances (a lift shorter than
+// liftGrace is not a release; the finger that lands again has relatchFor to
+// find its drag). Tracked EVERY frame -- on the lift and in the net's throw too:
+// he comes on to the start deck that way, and a hold he made in the air is the
+// hold he has when the deck's fork asks.
+function tkTrackHold(dt, touching, bank) {
+  const full = Math.abs(bank) >= CAR.fullSteer;
+  if (!touching) {
+    trk.forkLift += dt;
+    trk.forkRelatch = trk.forkLift <= CAR.liftGrace ? CAR.relatchFor : 0;
+    if (trk.forkLift > CAR.liftGrace) trk.holdSide = 0;
+  } else {
+    trk.forkLift = 0;
+    const finding = trk.forkRelatch > 0;
+    if (full) { trk.forkRelatch = 0; trk.holdSide = Math.sign(bank); }
+    else if (finding) trk.forkRelatch -= dt;
+    else trk.holdSide = 0;
+  }
+}
+
 // On the rail: gravity along the track, the motor under his finger, the boosters,
 // the forks, and the one way off a loop.
 function tkRail(dt, touching, bank) {
   const P = TK.physics;
   let q = tkAt(trk.segs[trk.seg], trk.s);
   const vMax = P.motorSpeed * spdMul();
-  // On the start deck, stopped, a finger dragged DOWN and held is the way off:
-  // down the lift and out to the road. (Down is down; any other touch is go.)
-  const onDeck = trk.seg === tkFirst().id && trk.s < 0.5 && Math.abs(trk.v) < 0.3;
-  const down = touching && onDeck && state.ctrlPitch < -TK.leavePitch;
-  trk.leaveHold = down ? (trk.leaveHold || 0) + dt : 0;
-  if (trk.leaveHold > TK.leaveHold) { trk.leaveHold = 0; trk.lift = { dir: -1, t: 0 }; toot(); flags.trackLiftDown = (flags.trackLiftDown || 0) + 1; }
   let a = -P.g * q.ty;
-  if (touching && !down) a += P.motorAccel * clamp(1 - trk.v / vMax, 0, 1.6);
+  if (touching) a += P.motorAccel * clamp(1 - trk.v / vMax, 0, 1.6);
   a -= Math.sign(trk.v) * P.roll + P.drag * trk.v * Math.abs(trk.v);
   const boosting = q.type === "booster" && trk.v > -1;
   if (boosting && trk.v < P.boostMax) a += P.boostAccel;
@@ -800,18 +824,6 @@ function tkRail(dt, touching, bank) {
   // middle of a new one. The fork then asks whether that hold has stood through
   // its whole approach. (Read only at the moment the approach began, a 300 ms
   // lift that straddled it lost the turn.)
-  const full = Math.abs(bank) >= CAR.fullSteer;
-  if (!touching) {
-    trk.forkLift += dt;
-    trk.forkRelatch = trk.forkLift <= CAR.liftGrace ? CAR.relatchFor : 0;
-    if (trk.forkLift > CAR.liftGrace) trk.holdSide = 0;
-  } else {
-    trk.forkLift = 0;
-    const finding = trk.forkRelatch > 0;
-    if (full) { trk.forkRelatch = 0; trk.holdSide = Math.sign(bank); }
-    else if (finding) trk.forkRelatch -= dt;
-    else trk.holdSide = 0;
-  }
   const seg = trk.segs[trk.seg];
   if (seg.fork && seg.len - trk.s <= seg.fork.approach) {
     if (trk.forkEnter !== seg.id) { trk.forkEnter = seg.id; trk.forkHeld = trk.holdSide || 0; }
@@ -831,6 +843,8 @@ function tkRail(dt, touching, bank) {
   q = tkAt(trk.segs[trk.seg], trk.s);
   if (q.type === "loop" && was !== "loop") whoosh();
 
+  // ---- off the end of the exit lane: on to the road back
+  if (st.off === "leave") { trackLeave(); return; }
   // ---- off the lip of the gap, or the ski-jump: into the air
   if (st.off === "gap" || st.off === "end") {
     const sg = trk.segs[trk.seg];
@@ -912,7 +926,7 @@ function tkUpdateCars(dt) {
     // never into him: one closing on him from behind waits
     if (hisSeg && c.seg === hisSeg && trk.s - c.s > 0 && trk.s - c.s < TK.cars.hold) v = 0;
     const st = tkStep(c.seg, c.s, v * dt, sg => sg.fork.safe);
-    if (st.off === "end" || st.off === "gap") { c.gone = TK.cars.back; c.mesh.visible = false; continue; }
+    if (st.off === "end" || st.off === "gap" || st.off === "leave") { c.gone = TK.cars.back; c.mesh.visible = false; continue; }
     c.seg = st.seg; c.s = st.s; c.v = v;
     const q = tkAt(trk.segs[c.seg], c.s), L = tkFrameAt(q);
     tkM.makeBasis(tkV1.set(-L[0], -L[1], -L[2]), tkV2.set(q.nx, q.ny, q.nz), tkV3.set(-q.tx, -q.ty, -q.tz));
@@ -1044,8 +1058,70 @@ function tkBuildExit() {
                 x: A.x, z: A.z, y: A.y, spur: pts, bx, bz };
   highway.exits.push(rec);
   hwyClaimCorridor(pts);
-  hwyIndexCorridor();
   trk.exit = rec;
+  tkBuildBack(n, side, dir);
+  hwyIndexCorridor();
+}
+
+// The road back from the foot of the exit lane: a way ON (`out`), merging into
+// the same carriageway `TK.leave.back.lead` metres from the pad -- before the
+// track's own exit mouth, so the two roads never cross. Laid from the motorway
+// end (the order every way on is kept in) round to the lane's end.
+function tkBuildBack(n, side, dir) {
+  const ex = trk.segs.exit; if (!ex) return;
+  const E = ex.S[ex.S.length - 1], B = TK.leave.back;
+  const M = hwySampleAt(n.s - dir * B.lead);
+  const fx = M.fx * dir, fz = M.fz * dir, rx = -fz, rz = fx;     // his forward at the merge, and his right
+  // It meets the motorway at ITS carriageway's outer edge, running along it --
+  // not at the centreline: laid from the middle, it brought him in across his own
+  // carriageway, through the median and on to the other one, the wrong way.
+  const edge = HW.medianW / 2 + HW.lanes * HW.laneW;
+  const pts = [], seg = 10;
+  for (let k = 0; k <= seg; k++) {
+    // a taper first, alongside the edge, then the sweep away: he comes in
+    // running WITH the traffic, as on every way on
+    const t = k / seg, u = clamp((t - B.taper) / (1 - B.taper), 0, 1);
+    const out = edge + B.out * u * u * (3 - 2 * u), back = t * B.fwd;
+    pts.push({ x: M.x + rx * out - fx * back, z: M.z + rz * out - fz * back });
+  }
+  const from = pts[pts.length - 1], L = Math.hypot(E.x - from.x, E.z - from.z), nn = Math.max(4, Math.ceil(L / 40));
+  for (let k = 1; k <= nn; k++) pts.push({ x: lerp(from.x, E.x, k / nn), z: lerp(from.z, E.z, k / nn) });
+  for (let k = 0; k < pts.length; k++) {
+    const ground = Math.max(terrainEff(pts[k].x, pts[k].z), TUNE.waterLevel) + HW.clearance;
+    pts[k].y = k <= seg ? lerp(M.y, ground, smoothstep(0, HW.spurDescend, k / seg)) : ground;
+  }
+  pts[pts.length - 1].y = E.y;
+  let run = 0; pts[0].s = 0; pts[0].fx = -fx; pts[0].fz = -fz;
+  for (let k = 1; k < pts.length; k++) {
+    const dx = pts[k].x - pts[k - 1].x, dz = pts[k].z - pts[k - 1].z, l = Math.hypot(dx, dz) || 1;
+    pts[k].fx = dx / l; pts[k].fz = dz / l; run += l; pts[k].s = run;
+  }
+  trk.g.add(hwyStrip(pts, -HW.spurW, HW.spurW, 0, artPaint(mattMat(TUNE.runwaySurfaceColor), "asphalt")));
+  const rec = { s: (n.s - dir * B.lead) / highway.length, side, to: "trackBack", out: true,
+                x: M.x, z: M.z, y: M.y, spur: pts, bx: M.x, bz: M.z };
+  highway.exits.push(rec);
+  hwyClaimCorridor(pts);
+  trk.back = rec;
+}
+
+// The gantry over the exit lane's mouth, on the deck: blue, the motorway's
+// icon, facing him as he comes off the lift.
+function tkBuildGantry(g) {
+  const ex = trk.segs.exit; if (!ex) return;
+  const q = tkAt(ex, TK.leave.gantryAt), W = TK.width / 2 + 1.6, H = 7;
+  const gg = new THREE.Group();
+  gg.position.set(q.x, q.y, q.z);
+  gg.rotation.y = Math.atan2(-q.tx, -q.tz);          // its face toward him, coming along the lane
+  const post = new THREE.MeshLambertMaterial({ color: TUNE.palette.blue });
+  for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.8, H, 0.8), post); m.position.set(sx * W, H / 2, 0); gg.add(m); }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(2 * W + 0.8, 0.8, 0.8), post); beam.position.y = H; gg.add(beam);
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(8, 3.6, 0.5), new THREE.MeshLambertMaterial({ color: 0x1c4f9c }));
+  panel.position.y = H + 1.4; gg.add(panel);
+  const ic = new THREE.Group(); ic.scale.setScalar(0.42); ic.position.set(0, H + 1.4 - 0.42 * H, 0.3);
+  hwyIcon(ic, "road", new THREE.MeshBasicMaterial({ color: TUNE.palette.white }), H);
+  gg.add(ic);
+  g.add(gg);
+  trk.gantry = gg;
 }
 
 tkBuild();

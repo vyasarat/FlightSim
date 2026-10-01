@@ -509,6 +509,7 @@ const TUNE = {
     // over whatever it crosses (a lorry is 4.5 m).
     ramp: {
       halfW: 10, step: 8, ease: 90, joinClear: 60, taperLen: 90, k: 110, sweepR: 150, sweepOut: 45, farTaper: 140, leaveStraight: 40, outLand: 36, outTaper: 120, runOut: 40, mergeDeg: 20,
+      mergeZone: 150,          // round a merge two ramps share they CONVERGE: there they meet level, not over each other
       leave: 120, flat: 25, flatJunction: 12, grade: 0.045, gradeMax: 0.065, clear: 7.6, sag: 1.5, deckT: 1.4, parapet: 1.1, pierEvery: 28,
       // the approach: the lane painted from the gantry to where the ramp leaves,
       // and the first stretch of the ramp with it
@@ -1011,7 +1012,11 @@ const TUNE = {
     clipEvery: 14, legEvery: 12, // blue connector clips, blue legs
     ringR: 9,                    // the amber ring over the gap
     liftR: 24, liftTime: 3.5,    // the foot of the lift, and the ride up
-    leavePitch: 0.55, leaveHold: 1.2,   // on the start deck: drag DOWN held = down the lift and out
+    // the way off: an exit lane peeling right off the start deck under a gantry
+    // (the motorway's icon), taken like every exit -- a full steer held through
+    // the deck. Its road back merges into the carriageway that brought him,
+    // `back.lead` metres before the track's own exit mouth, so the two never cross.
+    leave: { gantryAt: 7, back: { lead: 210, out: 200, fwd: 150, taper: 0.4 } },
     reassemble: 1.6,             // seconds in pieces
     rattleEvery: 1.4,            // metres per plastic click (it clicks faster the faster he goes)
     physics: {
@@ -1033,8 +1038,18 @@ const TUNE = {
       lamp: { stemR: 2.2, footR: 10, shadeR: 17, shadeH: 13, over: 18 },
     },
     segments: [
-      { id: "main0", from: "tower", fork: { safe: "A_safe", stunt: "A_stunt", approach: 42 }, sections: [
+      // the start deck: where the lift leaves him and the net throws him back,
+      // and the fork for the way off (a full steer held right, through the deck)
+      { id: "deck", from: "tower", fork: { safe: "main0", stunt: "exit", approach: 12 }, sections: [
         { type: "straight", len: 12 },
+      ] },
+      { id: "exit", from: "deck", leave: true, sections: [            // the exit lane, down beside the tower
+        { type: "sbend", len: 24, shift: -10 },
+        { type: "spiral", turns: 0.5, radius: 18, rise: -20, dir: -1, bank: 10 },
+        { type: "straight", len: 110, climb: -17.5 },
+        { type: "straight", len: 16 },
+      ] },
+      { id: "main0", from: "deck", fork: { safe: "A_safe", stunt: "A_stunt", approach: 42 }, sections: [
         { type: "drop", len: 60, height: 30 },                 // the launch: steep in the middle
         { type: "straight", len: 22 },
         { type: "turn", angle: -180, radius: 38, bank: 32 },   // banked round (- = right)

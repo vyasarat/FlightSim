@@ -62,13 +62,15 @@ function install() {
 }
 
 // Run a finger pattern from the deck until the net throws him back (or time).
-function runFrom([steer, secs]) {
+function runFrom([steer, secs, deckSteer]) {
   const tk = window.__tk, L = window.__lp, T = L.trk;
   const f0 = tk.flags();
   const seen = new Set();
   let f = 0, maxV = 0;
-  tk.finger(true, steer);
   for (; f < 60 * secs; f++) {
+    // the deck's own fork is the way off: its steer is `deckSteer` (hands-off
+    // by default), the rest of the run's is `steer`
+    tk.finger(true, T.seg === "deck" ? (deckSteer || 0) : steer);
     const o = tk.frame();
     seen.add(o.seg); maxV = Math.max(maxV, o.v);
     if (tk.flags().runs > f0.runs) break;
@@ -79,7 +81,7 @@ function runFrom([steer, secs]) {
   const forks = {};
   for (const k of Object.keys(f1.forks)) forks[k] = (f1.forks[k] || 0) - (f0.forks[k] || 0);
   return { secs: +(f / 60).toFixed(1), net: d("net"), runs: d("runs"), crashes: d("crashes"), peels: d("peels"), gaps: d("gaps"),
-           forks, segs: [...seen], maxV: +maxV.toFixed(1), backOnDeck: T.seg === T.order[0].id && T.s < 1 };
+           forks, segs: [...seen], maxV: +maxV.toFixed(1), backOnDeck: T.seg === T.order[0].id && T.s < 1, on: T.on };
 }
 
 module.exports = async function trackChecks({ newPage, check }) {
@@ -92,7 +94,7 @@ module.exports = async function trackChecks({ newPage, check }) {
   const held = await page.evaluate(runFrom, [0, 150]);
   check("track: a finger held from the tower completes the run -- drop, banked turn, loop, corkscrew fork, booster, gap fork, sofa, spiral, booster, triple loop, ski-jump -- lands in the net and is thrown back up to the tower, with no bang",
     held.net === 1 && held.runs === 1 && held.crashes === 0 && held.peels === 0 && held.backOnDeck &&
-    held.forks["main0:safe"] === 1 && held.forks["main1:safe"] === 1, JSON.stringify(held));
+    held.forks["deck:safe"] === 1 && held.forks["main0:safe"] === 1 && held.forks["main1:safe"] === 1, JSON.stringify(held));
 
   // ---- 2. both forks by a held FULL steer; a steer short of full goes safe
   const right = await page.evaluate(runFrom, [1, 150]);
@@ -104,6 +106,48 @@ module.exports = async function trackChecks({ newPage, check }) {
   check("track: a steer short of full, or held left, is the safe way at both forks (the city's turn rule: only a full steer held is a choice)",
     light.forks["main0:safe"] === 1 && light.forks["main1:safe"] === 1 && left.forks["main0:safe"] === 1 && left.forks["main1:safe"] === 1 &&
     light.net === 1 && left.net === 1, JSON.stringify({ light, left }));
+
+  // ---- 2b. THE WAY OFF: the exit lane off the start deck. A full steer held
+  // right through the deck takes it, down beside the tower and on to the road
+  // back; hands-off, a light steer or a held left stays on the track.
+  const stay = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, T = L.trk, out = {};
+    for (const [k, st] of [["handsOff", 0], ["light", 0.55], ["left", -1]]) {
+      tk.at("deck", 0, 0);
+      const f0 = (L.flags.trackForks || {})["deck:safe"] || 0;
+      for (let i = 0; i < 60 * 6 && T.seg === "deck"; i++) { tk.finger(true, st); tk.frame(); }
+      tk.finger(false);
+      out[k] = { stayed: T.on && T.seg === "main0", counted: ((L.flags.trackForks || {})["deck:safe"] || 0) - f0 };
+    }
+    return out;
+  });
+  check("track: hands-off, a light steer or a held left goes past the exit lane and on round the track",
+    stay.handsOff.stayed && stay.light.stayed && stay.left.stayed, JSON.stringify(stay));
+  const off = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, back = T.back;
+    tk.at("deck", 0, 0);
+    const c0 = L.flags.carCrashes || 0, l0 = L.flags.trackLeaves || 0;
+    let tookLane = false, left = false, merged = false, f = 0, onBack = false;
+    for (; f < 60 * 90 && !merged; f++) {
+      // a full steer right through the deck, then hands-off
+      tk.finger(true, T.on && T.seg === "deck" ? 1 : 0);
+      L.update(1 / 60);
+      if (T.on && T.seg === "exit") tookLane = true;
+      if (!T.on && (L.flags.trackLeaves || 0) > l0) left = true;
+      if (left && L.car.spurRec === back) onBack = true;
+      const n = L.hwyNearest(st.x, st.z);
+      if (left && Math.abs(n.lateral) < L.highway.halfW - 2 && Math.sign(n.lateral) === T.exit.side &&
+          Math.abs(L.wrapPi(st.heading - Math.atan2(-n.fx * (T.exit.side > 0 ? 1 : -1), -n.fz * (T.exit.side > 0 ? 1 : -1)))) < 0.6) merged = true;
+    }
+    tk.finger(false);
+    const gantry = !!T.gantry && T.gantry.children.length >= 4;
+    return { tookLane, left, onBack, merged, secs: +(f / 60).toFixed(1), crashes: (L.flags.carCrashes || 0) - c0, gantry,
+             forks: { exit: (L.flags.trackForks || {})["deck:stunt"] || 0 } };
+  });
+  check("track: a full steer held right through the start deck takes the exit lane under its gantry (the motorway's icon), down beside the tower, and the road back merges him on to the motorway going the way he came -- no bang",
+    off.tookLane && off.left && off.onBack && off.merged && off.crashes === 0 && off.gantry, JSON.stringify(off));
+  // and back on: board again for what follows
+  await page.evaluate(() => window.__tk.board());
 
   // ---- 3. finger off on a loop: rolls back, and goes on when it comes down again
   const roll = await page.evaluate(() => {
@@ -256,7 +300,12 @@ module.exports = async function trackChecks({ newPage, check }) {
   const noisy = await noisyRun(page, 300, 1);
   console.log("TRACK NOISY LOG (seed 1)\n" + noisy.log.filter(e => !["lift", "overshoot"].includes(e.type)).map(e => "  " + JSON.stringify(e)).join("\n"));
   check("track: a noisy four-year-old's finger (wobble, lifts, overshoots) for five minutes on the track -- never stuck, every fork the way the hand meant, round and into the net again and again",
-    noisy.summary.stuck === 0 && noisy.summary.wrongWay === 0 && noisy.summary.runs >= 3 && noisy.summary.errors === 0, JSON.stringify(noisy.summary));
+    noisy.summary.stuck === 0 && noisy.summary.wrongWay === 0 && noisy.summary.leftUnasked === 0 && noisy.summary.runs >= 3 && noisy.summary.errors === 0, JSON.stringify(noisy.summary));
+  // and the way off, by the same hand: it decides part-way round a lap
+  const leave = await noisyRun(page, 240, 7, false, 37);
+  console.log("TRACK NOISY LEAVE LOG (seed 7)\n" + leave.log.filter(e => !["lift", "overshoot"].includes(e.type)).map(e => "  " + JSON.stringify(e)).join("\n"));
+  check("track: the noisy finger can leave -- deciding part-way round a lap, it holds toward the exit lane at the next start deck and is off the track within one lap, the right way",
+    leave.summary.leftWithinOneLap && leave.summary.wrongWay === 0 && leave.summary.stuck === 0, JSON.stringify(leave.summary));
 
   // ---- 8. no text; props never solid; the exit crosses nothing
   const misc = await page.evaluate(() => {
@@ -301,7 +350,10 @@ module.exports = async function trackChecks({ newPage, check }) {
 // fork, one time in two, hold a full steer (a random side) through the
 // approach. Stuck is: finger down, on the rail, and no ground covered for
 // `stuckSecs`. The log is the verdict.
-async function noisyRun(page, seconds, seed, real) {
+// `leaveAfter`: at that many seconds the hand decides it wants off, and from
+// then on means a full steer right at the start deck. It must be off the track
+// at the first deck it comes to: within one lap of deciding.
+async function noisyRun(page, seconds, seed, real, leaveAfter) {
   await page.evaluate(install);
   const cdp = await page.context().newCDPSession(page);
   const geo = await page.evaluate(() => {
@@ -332,10 +384,28 @@ async function noisyRun(page, seconds, seed, real) {
     });
     if (o.fe) S.errors = o.fe;
     // what the hand means: at a fork's approach, sometimes a full hold
-    if (o.toFork !== null && o.toFork < o.approach + 40 && S.meaning[o.seg] === undefined) {
-      const side = rand() < 0.5 ? 0 : (rand() < 0.5 ? 1 : -1);
-      S.meaning[o.seg] = side; hand.intent = side;
-      L("fork ahead", { fork: o.seg, means: side === 1 ? "hold right (stunt)" : side === -1 ? "hold left (safe)" : "straight (safe)" });
+    if (leaveAfter !== undefined && simT >= leaveAfter && S.decided === undefined) {
+      S.decided = simT; S.deckPasses = 0;
+      L("decides to leave", { at: o.seg + "@" + Math.round(o.s) });
+    }
+    if (o.seg === "deck" && S.lastSeg !== "deck" && S.decided !== undefined) S.deckPasses++;
+    S.lastSeg = o.seg;
+    // flying back to the tower in the net's throw, or riding the lift: the start
+    // deck is what is coming, and he holds for it now if he means to
+    const toDeck = (o.bounce || o.lift) && S.meaning.deck === undefined;
+    const fseg = toDeck ? "deck" : o.seg, toFork = toDeck ? 0 : o.toFork, appr = toDeck ? 0 : o.approach;
+    if (toFork !== null && toFork < appr + 40 && S.meaning[fseg] === undefined) {
+      // at the deck the fork is the way off: he holds toward it only once he
+      // wants to leave; otherwise he means to stay (straight on, or a left)
+      const side = fseg === "deck" ? (S.decided !== undefined ? 1 : (rand() < 0.5 ? 0 : -1))
+                                    : rand() < 0.5 ? 0 : (rand() < 0.5 ? 1 : -1);
+      S.meaning[fseg] = side; hand.intent = side; S.intentFor = fseg;
+      L("fork ahead", { fork: fseg, means: side === 1 ? (fseg === "deck" ? "hold right (the way off)" : "hold right (stunt)") : side === -1 ? "hold left (safe)" : "straight (safe)" });
+    }
+    if (S.decided !== undefined && !o.on) {
+      S.left = simT;
+      L("left the track", { secsAfterDeciding: +(simT - S.decided).toFixed(1), deckPasses: S.deckPasses });
+      break;
     }
     // a fork just taken: its counter ticked this frame
     for (const [k, n] of Object.entries(o.forks)) {
@@ -346,8 +416,11 @@ async function noisyRun(page, seconds, seed, real) {
       L("fork", { fork, meant, took: way, verdict: meant === way ? "ok" : "WRONG WAY" });
       if (meant !== way) S.wrong = (S.wrong || 0) + 1;
       delete S.meaning[fork];
-      if (hand.intent !== 0) hand.release(simT, L);
+      // let go of THIS fork's hold -- not one already taken up for the next
+      if (S.intentFor === fork && hand.intent !== 0) hand.release(simT, L);
+      if (S.intentFor === fork) S.intentFor = null;
     }
+    if (!o.on && S.decided === undefined && !S.leftUnasked) { S.leftUnasked = 1; L("LEFT THE TRACK UNASKED", { at: simT }); }
     // progress: ground covered on the rail, or a scripted moment (lift, flight, bang, net)
     const key = o.seg + ":" + Math.floor(o.s / 5);
     if (o.air || o.bang || o.bounce || o.lift || key !== S.lastKey) { S.lastProgT = simT; S.lastKey = key; }
@@ -359,6 +432,9 @@ async function noisyRun(page, seconds, seed, real) {
   const f1 = await page.evaluate(() => window.__tk.flags());
   const summary = { seconds, seed, runs: f1.runs - f0.runs, crashes: f1.crashes - f0.crashes, peels: f1.peels - f0.peels,
                     gaps: f1.gaps - f0.gaps, stuck: S.stuck, wrongWay: S.wrong || 0, errors: S.errors };
+  if (leaveAfter !== undefined) Object.assign(summary, { decidedAt: S.decided, leftAt: S.left === undefined ? null : +S.left.toFixed(1),
+    leftWithinOneLap: S.left !== undefined && S.deckPasses <= 1, deckPasses: S.deckPasses });
+  if (leaveAfter === undefined) summary.leftUnasked = S.leftUnasked || 0;
   L("end", summary);
   return { log, summary };
 }
@@ -372,10 +448,11 @@ if (require.main === module && process.argv[2] === "noisy") {
     const { launch, openGame, serve } = require("./art_rig.js");
     const [, , , secs, seed, rootArg] = process.argv;
     const real = process.argv.includes("--real");
+    const lv = process.argv.find(a => a.startsWith("--leave="));
     const root = path.resolve(rootArg && !rootArg.startsWith("--") ? rootArg : path.join(__dirname, ".."));
     const port = +(process.env.PORT || 8197), srv = serve(root, port), browser = await launch();
     const page = await openGame(browser, port, { width: 820, height: 1180 });
-    const res = await noisyRun(page, +(secs || 300), +(seed || 1), real);
+    const res = await noisyRun(page, +(secs || 300), +(seed || 1), real, lv ? +lv.slice(8) : undefined);
     for (const e of res.log) if (!["lift", "overshoot"].includes(e.type) || process.env.ALL) console.log(JSON.stringify(e));
     console.log("SUMMARY " + JSON.stringify(res.summary));
     const out = path.resolve(__dirname, "..", "evidence", "track");
