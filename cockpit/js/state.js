@@ -117,6 +117,7 @@ const VEHICLE_TONES = [
 function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
   if (typeof heliReset === "function") heliReset();
+  if (typeof trackReset === "function") trackReset();
   state.vehicleKey = key;
   state.vp = TUNE.vehicles[key];
   if (typeof rocketNodes !== "undefined" && rocketNodes) setRocketEngine(0, 0);   // silence the roar, but don't build the graph for a plane

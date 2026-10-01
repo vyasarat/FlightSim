@@ -707,6 +707,7 @@ function update(dt) {
   for (const b of blinkers) if (!b.userData.override) b.visible = blinkOn;
 
   updateHighway(dt);
+  if (typeof trackFrame === "function") trackFrame(dt);
   updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
   updateFeel(dt);            // field of view, bob, the nod and the hit-stop -- picture only
   applyCamera(dt);

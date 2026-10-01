@@ -205,6 +205,7 @@ function updateVehicleModel(dt) {
   const chaseVisible = state.viewChase && !state.exploding;
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
+  if (state.vp.car && typeof trk !== "undefined" && trk.on) { trackPoseModel(vehicleModel); return; }
   const wheelDrop = state.vp.heli ? vehicleModel.userData.groundOffset * (state.vp.size || 1) : state.vp.hasGear ? 1.9 * (state.vp.size || 1) : 0.6;
   if (state.vp.boat) {   // a hull rolls with its bank; it does not pitch about the world axis
     vehicleModel.position.set(state.x, state.y - TUNE.gearHeight + wheelDrop, state.z);

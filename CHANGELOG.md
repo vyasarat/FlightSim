@@ -10,6 +10,36 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v130 — the giant toy track
+
+An orange toy-car track at enormous scale in the desert between the canyon and
+the coast, off its own motorway exit (the board's icon is an orange loop). The
+exit is on the New York-bound side: a full steer at its mouth, like any exit.
+Its road ends at a lift up the back of the launch tower, and the car is the
+toy: rail-locked in a car-width walled channel, orange with blue connectors.
+The run: the steep launch drop, a banked turn, a loop, then a fork. Hands-off
+or a held left is an easy S; a full steer held right is a double corkscrew.
+Then a booster (spinning rollers, a whir, a kick), and a second fork: the safe
+span, or the gap jump under an amber ring. Then over a giant sofa, up a spiral
+round a giant lamp, a second booster, a triple loop, and a ski-jump into a
+giant padded net that throws him back up to the tower. Then again. The props
+(the sofa, a bookshelf he drives through, the lamp) are never solid. Finger
+down is go; finger off coasts, and on a climb he rolls back to the bottom and
+is never stuck. He falls off in two places only: short at the gap, or out of
+a loop he came into too slowly (a loop can push him round, never pull). Then
+he tumbles, goes bang, and comes back at the drop or booster that feeds it, so
+he has the speed to go again. A short booster before the first loop is the
+one addition to the brief's list: stopped before it, the motor alone could
+never reach loop speed, and he would roll back and forth under it for ever.
+Three toy cars run the course the safe way; rear-ending one bangs both, and
+they never run into him. The camera goes upside down with him in both views.
+The chase camera rides the track itself behind him, because a straight line
+back from the top of a loop leaves the loop. From the seat, it is the car's
+own seat. The track is data (`TUNE.track`): a graph of segments made of typed
+sections, each laid in the frame the last one ended in, with exact end
+tangents, so a stunt branch rejoins the safe one to the millimetre. To leave,
+drag down on the start deck.
+
 ## v129 — one solids registry, and every vehicle asks it
 
 A solid used to be solid only for the vehicle it had been built for. The boat

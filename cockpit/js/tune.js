@@ -995,6 +995,101 @@ const TUNE = {
   // literals in the middle of the model; they are here now because the speed
   // steps have to multiply them and a step list beside a number nobody can find
   // is worse than no step list at all.
+  // ---- THE GIANT TOY TRACK (js/track.js). A spline of TYPED SECTIONS in a graph
+  // of segments: lengthen it by adding sections, never by editing geometry. Each
+  // section is laid in the frame the one before it ended in (forward +z, up +y,
+  // +x LEFT), so a section's own numbers are all it knows. A fork's two branches
+  // start where its stem ends and must END in the same place: the stunt is laid
+  // to come back to the safe one's line (sbends that cancel, and the same length
+  // along). `approach` is how far before a fork a FULL steer must be held (the
+  // city's turn rule, car.js).
+  track: {
+    site: { x: -560, z: -4130, heading: 90 },   // the tower's foot; heading as the game's (forward = -sin, -cos)
+    ds: 0.5,                     // metres between samples
+    width: 6.4, wallH: 1.6, wallT: 0.5, deckT: 0.7,   // car-width, walled: the SUV is 4.2 wide
+    towerH: 40,
+    clipEvery: 14, legEvery: 12, // blue connector clips, blue legs
+    ringR: 9,                    // the amber ring over the gap
+    liftR: 24, liftTime: 3.5,    // the foot of the lift, and the ride up
+    leavePitch: 0.55, leaveHold: 1.2,   // on the start deck: drag DOWN held = down the lift and out
+    reassemble: 1.6,             // seconds in pieces
+    rattleEvery: 1.4,            // metres per plastic click (it clicks faster the faster he goes)
+    physics: {
+      g: 9.8,
+      motorAccel: 6.5, motorSpeed: 30,   // his finger: the push, and the speed it pushes toward on the flat
+      roll: 0.22, drag: 0.0011,          // rolling and air
+      boostAccel: 26, boostMax: 46,      // the spinning rollers
+      // A loop PUSHES him round and never pulls: he peels off once what it would
+      // have to pull with passes `grip` g. It is an assist, and weakens as he learns.
+      grip: 0.18,
+    },
+    cam: { back: 15, up: 5.5, lag: 5, upLag: 4.5 },   // the chase rides the track behind him; the seat is the car's own
+    net: { start: 5, len: 84, w: 48, drop: 7, farH: 17, flight: 3.6, arc: 48 },
+    cars: { count: 3, spacing: 150, speed: 27, hold: 32, touch: 7.5, back: 3 },
+    exit: { lead: 130, out: 220, fwd: 90, boardBack: 110 },    // its road: the mouth, the sweep off, the board before it
+    props: {
+      sofa: { w: 58, d: 24, seat: 7, back: 11, arm: 9 },
+      shelf: { w: 66, h: 38, d: 10, gap: 3, clear: 5 },
+      lamp: { stemR: 2.2, footR: 10, shadeR: 17, shadeH: 13, over: 18 },
+    },
+    segments: [
+      { id: "main0", from: "tower", fork: { safe: "A_safe", stunt: "A_stunt", approach: 42 }, sections: [
+        { type: "straight", len: 12 },
+        { type: "drop", len: 60, height: 30 },                 // the launch: steep in the middle
+        { type: "straight", len: 22 },
+        { type: "turn", angle: -180, radius: 38, bank: 32 },   // banked round (- = right)
+        { type: "straight", len: 4 },
+        { type: "booster", len: 14 },                          // stopped before the loop, it still gets him round
+        { type: "loop", radius: 15, offset: 9 },
+        { type: "straight", len: 46 },
+      ] },
+      { id: "A_safe", from: "main0", merge: "main1", sections: [
+        { type: "straight", len: 150 },
+      ] },
+      { id: "A_stunt", from: "main0", merge: "main1", sections: [   // the double corkscrew
+        { type: "sbend", len: 35, shift: -14 },
+        { type: "corkscrew", len: 80, turns: 2, radius: 6 },
+        { type: "sbend", len: 35, shift: 14 },
+      ] },
+      { id: "main1", from: "A_safe", fork: { safe: "B_safe", stunt: "B_stunt", approach: 36 }, sections: [
+        { type: "turn", angle: 180, radius: 36, bank: 30 },    // and round again, the other way: a snake
+        { type: "straight", len: 12 },
+        { type: "shelf", len: 28 },                            // through the bookshelf
+        { type: "straight", len: 12 },
+        { type: "booster", len: 28 },
+        { type: "straight", len: 40 },
+      ] },
+      { id: "B_safe", from: "main1", merge: "main2", sections: [
+        { type: "straight", len: 210 },
+      ] },
+      { id: "B_stunt", from: "main1", merge: "main2", sections: [   // the gap jump
+        { type: "sbend", len: 35, shift: -14 },
+        { type: "kicker", len: 14, rise: 3.2, lipSlope: 0.14 },
+        { type: "gap", len: 26, dy: -0.8 },
+        { type: "landing", len: 70, fall: 8 },
+        { type: "straight", len: 30, climb: 5.6 },
+        { type: "sbend", len: 35, shift: 14 },
+      ] },
+      { id: "main2", from: "B_safe", sections: [
+        { type: "straight", len: 12 },
+        { type: "hump", len: 90, height: 16 },                 // over the sofa
+        { type: "straight", len: 14 },
+        { type: "spiral", turns: 1.25, radius: 26, rise: 24, dir: -1, bank: 16 },   // round the lamp
+        { type: "straight", len: 10 },
+        { type: "booster", len: 22 },
+        { type: "drop", len: 46, height: 22 },
+        { type: "straight", len: 14 },
+        { type: "loop", radius: 14, offset: 9 },               // the triple loop
+        { type: "straight", len: 6 },
+        { type: "loop", radius: 13, offset: 9 },
+        { type: "straight", len: 6 },
+        { type: "loop", radius: 12, offset: 9 },
+        { type: "straight", len: 26 },
+        { type: "ski", len: 34, rise: 9, lipSlope: 0.75 },     // and into the net
+      ] },
+    ],
+  },
+
   // ---- THE ONE WALL LAW (solids.js, collision.js). Every vehicle asks the one
   // registry; these are the only things that differ between them. `r` is the
   // body radius the registry inflates every solid by; `crawl` is the speed at

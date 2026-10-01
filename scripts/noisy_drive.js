@@ -342,6 +342,8 @@ async function harness({ newPage, check }) {
 
 module.exports = harness;
 module.exports.drive = drive;
+module.exports.makeHand = makeHand;      // the track drives the same hand (track_checks.js)
+module.exports.mulberry = mulberry;
 
 if (require.main === module) {
   (async () => {

@@ -790,6 +790,12 @@ function updateCar(dt) {
   state.phase = "TAXI";
 
   if (state.exploding) { setEngine(0); setTone("carTyre", "triangle", 90, 0); return; }
+  // the giant toy track (track.js): on it, it drives him; at the foot of its
+  // lift, it takes him up
+  if (typeof trk !== "undefined") {
+    if (!trk.on && trackCanBoard()) trackBoard();
+    if (trk.on) { setTone("carTyre", "triangle", 90, 0); trackUpdate(dt); return; }
+  }
 
   const touching = state.touching && !menuOpen();
   // The car's own drag range. `state.ctrlBank` is measured against the shared
@@ -1088,6 +1094,7 @@ function updateCar(dt) {
 
 // ---------------------------------------------------------------------------
 function carCamera(dt) {
+  if (typeof trk !== "undefined" && trk.on) { trackCamera(dt); return; }   // upside down with him
   camera.up.set(0, 1, 0);
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   if (state.viewChase) {
