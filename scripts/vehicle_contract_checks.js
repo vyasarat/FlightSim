@@ -182,8 +182,8 @@ module.exports = async function vehicleContractChecks({ newPage, check }) {
       // ---- 6. a bang, and where it puts him back. Each vehicle's OWN crash
       // path, not a synthetic one -- that is the thing the contract has to
       // absorb, and the thing that was broken in two of them for two releases.
-      // The yacht has none on purpose -- she leans on a pier, she does not
-      // explode -- and neither the rover nor the drone can crash at all.
+      // (v129: the yacht, the rover and the drone can go bang now too -- the one
+      // wall law, solids.js -- and solidity_checks.js drives each into walls.)
       out.crash = null;
       const direct = { boat: "boatCrash", car: "carCrash" }[c.kind];
       const flies = c.kind === "plane" || c.kind === "heli";

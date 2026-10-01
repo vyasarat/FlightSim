@@ -74,17 +74,29 @@ function vehKind() {
 //                   doing its own is the difference between coming back on the
 //                   road and coming back wherever the last aeroplane crashed.
 //
-// The boat and the yacht are not in either slot: they run their own sweep over
-// `harbor.solids` in boat.js, with their own speed threshold, and always have.
+//   solidClass      which SOLID class he is (solids.js): what may block him. His
+//                   radius and his crawl speed are TUNE.solid.r / .crawl, by kind.
+//
+// Every vehicle asks the ONE registry (solids.js) now. The boat and the yacht
+// used to sweep `harbor.solids` on their own, and the lock walls, which were
+// never on that list, were air to them; the rover and the drone had no list.
 // ---------------------------------------------------------------------------
 const VEHICLE_CONTRACT = {
   plane: {
+    solidClass: SOLID.AIR,
+    // Solid on the ground as well as in the air: a plane rolling into a hangar
+    // is shoved at taxi speed and bangs at take-off speed, like anything else.
+    // (flight.js asks on the ground with the kerb allowance.)
+    solid: () => true,
     update: null,                      // the flight model runs inline; see vehUpdate
     camera: null,                      // ... and so does the shared camera
     parked: () => state.phase === "TAXI" && state.speed === 0,
     reassemble: null,
   },
   heli: {
+    solidClass: SOLID.AIR,
+    wallHit: (push, hit) => heliWallHit(push, hit),
+    solid: () => state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY",   // parked, it does not move
     update: (dt) => updateHelicopter(dt),
     camera: null,                      // the shared camera has the heli branch inside it
     // The helicopter still answers this with the phase, because it is the one
@@ -95,6 +107,7 @@ const VEHICLE_CONTRACT = {
     reassemble: null,
   },
   car: {
+    solidClass: SOLID.CAR,
     solid: () => true,
     wallHit: (push) => carWallHit(push),
     update: (dt) => updateCar(dt),
@@ -103,18 +116,24 @@ const VEHICLE_CONTRACT = {
     reassemble: () => carReassemble(),
   },
   boat: {
+    solidClass: SOLID.BOAT,
+    solid: () => true,
     update: (dt) => updateBoat(dt),
     camera: (dt) => boatCamera(dt),
     parked: () => state.speed === 0,
     reassemble: () => boatReassemble(),
   },
   yacht: {
+    solidClass: SOLID.BOAT,
+    solid: () => true,
     update: (dt) => updateYacht(dt),
     camera: (dt) => yachtCamera(dt),
     parked: () => state.speed === 0,
     reassemble: () => yachtReassemble(),
   },
   rocket: {
+    solidClass: SOLID.AIR,
+    solid: () => state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY",   // parked, it does not move
     update: (dt) => updateRocket(dt),
     camera: (dt) => rocketCamera(dt),
     // A rocket sitting on a body is somewhere he has to fly home FROM, so the
@@ -128,9 +147,9 @@ const VEHICLE_CONTRACT = {
   // asked `if (state.vp.rocket)`, which is true in all three, so they must too.
   // None of them is ever "parked" for the picker's purposes: out on a body, in
   // the rover or on a spacewalk, the way back is the go button, not the menu.
-  rover:  { update: (dt) => updateRocket(dt), camera: (dt) => roverCamera(dt),     parked: () => false, reassemble: () => rocketAfterReassemble() },
-  drone:  { update: (dt) => updateRocket(dt), camera: (dt) => marsDroneCamera(dt), parked: () => false, reassemble: () => rocketAfterReassemble() },
-  astro:  { update: (dt) => updateRocket(dt), camera: (dt) => astroCamera(dt),     parked: () => false, reassemble: () => rocketAfterReassemble() },
+  rover:  { solidClass: SOLID.ROVER, solid: () => false, update: (dt) => updateRocket(dt), camera: (dt) => roverCamera(dt),     parked: () => false, reassemble: () => rocketAfterReassemble() },
+  drone:  { solidClass: SOLID.ROVER, solid: () => false, update: (dt) => updateRocket(dt), camera: (dt) => marsDroneCamera(dt), parked: () => false, reassemble: () => rocketAfterReassemble() },
+  astro:  { solidClass: SOLID.ROVER, solid: () => false, update: (dt) => updateRocket(dt), camera: (dt) => astroCamera(dt),     parked: () => false, reassemble: () => rocketAfterReassemble() },
 };
 
 function vehSlot(name) {
@@ -189,8 +208,13 @@ function vehSolid() {
 }
 
 // How this vehicle hits a wall. True means it handled it and the shared
-// explode-to-safePos must not run.
-function vehWallHit(push) {
+// explode-to-safePos (or, at a crawl, the shared shove) must not run.
+function vehWallHit(push, hit) {
   const fn = vehSlot("wallHit");
-  return fn ? !!fn(push) : false;
+  return fn ? !!fn(push, hit) : false;
 }
+
+// The three numbers the one wall law reads (solids.js, collision.js).
+function vehSolidClass() { return vehSlot("solidClass") || SOLID.AIR; }
+function vehSolidR() { const k = vehKind(); return TUNE.solid.r[k] !== undefined ? TUNE.solid.r[k] : 3; }
+function vehCrawl() { const k = vehKind(); return TUNE.solid.crawl[k] !== undefined ? TUNE.solid.crawl[k] : -1; }

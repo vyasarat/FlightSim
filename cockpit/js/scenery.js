@@ -139,7 +139,7 @@ function placeLandmark(cellX, cellZ) {
     inst.position.set(lx, gy, lz);
     const bl = inst.getObjectByName("blinker");
     if (bl) { inst.userData.blinker = bl; blinkers.push(bl); }
-    solids.push({ x: lx, z: lz, hw: 9, hd: 9, y0: gy, y1: gy + 101 });   // the base cylinder is r 9
+    solids.push({ x: lx, z: lz, hw: 9, hd: 9, y0: gy, y1: gy + 101, kind: "pillar" });   // the base cylinder is r 9
   } else {
     let deckY = TUNE.waterLevel + 15;
     let overWater = true;
@@ -151,13 +151,13 @@ function placeLandmark(cellX, cellZ) {
     inst.rotation.y = (hashSalt(cellX, cellZ, 94) < 0.5 ? 0 : Math.PI / 2);
     const rot = Math.abs(inst.rotation.y) > 0.1;
     if (rot) {
-      solids.push({ x: lx, z: lz, hw: 10, hd: 185, y0: deckY - 4, y1: deckY + 7 });
-      solids.push({ x: lx, z: lz - 115, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
-      solids.push({ x: lx, z: lz + 115, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
+      solids.push({ x: lx, z: lz, hw: 10, hd: 185, y0: deckY - 4, y1: deckY + 7, kind: "bridge" });
+      solids.push({ x: lx, z: lz - 115, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1, kind: "bridge" });
+      solids.push({ x: lx, z: lz + 115, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1, kind: "bridge" });
     } else {
-      solids.push({ x: lx, z: lz, hw: 185, hd: 10, y0: deckY - 4, y1: deckY + 7 });
-      solids.push({ x: lx - 115, z: lz, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
-      solids.push({ x: lx + 115, z: lz, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1 });
+      solids.push({ x: lx, z: lz, hw: 185, hd: 10, y0: deckY - 4, y1: deckY + 7, kind: "bridge" });
+      solids.push({ x: lx - 115, z: lz, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1, kind: "bridge" });
+      solids.push({ x: lx + 115, z: lz, hw: 7, hd: 7, y0: deckY - 31, y1: deckY - 1, kind: "bridge" });
     }
   }
   scene.add(inst);

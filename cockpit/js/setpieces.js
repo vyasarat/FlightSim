@@ -508,7 +508,7 @@ function buildFireRig() {
   }
   const plat = new THREE.Mesh(new THREE.BoxGeometry(46, 4, 60), artLam(steel, "deck"));
   plat.position.set(x, deck, z); g.add(plat);
-  addSolidBox(x, deck - 2, z, 23, 30, deck + 2, plat);
+  addSolidBox(x, deck - 2, z, 23, 30, deck + 2, plat, "pad");
   const block = new THREE.Mesh(new THREE.BoxGeometry(20, 12, 18), artLam(pale, "corrugated"));
   block.position.set(x, deck + 8, z + 18); g.add(block);
   addSolidBox(x, deck + 2, z + 18, 10, 9, deck + 14, block);
@@ -785,7 +785,7 @@ function buildCarrier() {
   // the island, to starboard, with a mast and a dish
   const isl = new THREE.Mesh(new THREE.BoxGeometry(13, 22, 40), artLam(pale, "office"));
   isl.position.set(x + CV.deckW / 2 - 8, deck + 11, z + 16); g.add(isl);
-  addSolidBox(x + CV.deckW / 2 - 8, deck, z + 16, 6.5, 20, deck + 22, isl);
+  addSolidBox(x + CV.deckW / 2 - 8, deck, z + 16, 6.5, 20, deck + 22, isl, "ship");
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 26, 6), lam(0xf2f4f7));
   mast.position.set(x + CV.deckW / 2 - 8, deck + 34, z + 10); g.add(mast);
   const dish = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 3), lam(0xf2f4f7));

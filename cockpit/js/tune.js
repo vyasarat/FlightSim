@@ -365,10 +365,13 @@ const TUNE = {
     // Every one of these was checked against the solids already in the world:
     // the first draft ran straight through the farm silo, the plains silo and
     // the New York apron furniture. The harness now asserts the clearance.
+    // v129: and both ENDS ran over an airport -- New York's first 500 m along
+    // its taxiway and apron, California's along its apron's edge
+    // (roadCrossings, streets.js). They now pass outside the terminal side.
     route: [
-      [6200, 105], [5900, 100], [5200, 180], [4200, 380], [3300, 150], [2400, 250],
+      [6200, 330], [5900, 328], [5500, 322], [5100, 285], [4200, 380], [3300, 150], [2400, 250],
       [1800, 330], [900, 360], [0, 300], [-1080, 250], [-1500, 240], [-2400, 200],
-      [-3330, 120], [-3800, 60], [-4520, -170], [-4920, -250], [-5400, -300], [-6200, -280],
+      [-3330, 120], [-3800, 60], [-4520, -170], [-4920, -250], [-5400, -330], [-6200, -330],
     ],
     step: 40,                    // metres between centreline samples
     laneW: 7.5, lanes: 2,        // two lanes each way
@@ -992,8 +995,26 @@ const TUNE = {
   // literals in the middle of the model; they are here now because the speed
   // steps have to multiply them and a step list beside a number nobody can find
   // is worse than no step list at all.
+  // ---- THE ONE WALL LAW (solids.js, collision.js). Every vehicle asks the one
+  // registry; these are the only things that differ between them. `r` is the
+  // body radius the registry inflates every solid by; `crawl` is the speed at
+  // or under which a solid is a SHOVE and over which it is a bang and a free
+  // reassembly. The rocket never crawls into anything: its landing envelope
+  // (landMax*) says what counts as arriving and everything else is a crash.
+  // The car's and the boat's crawls are their old crash speeds, unchanged.
+  solid: {
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99 },
+    reassemble: 1.6,             // seconds a rover or drone stays in pieces
+    backOff: 7,                  // metres it comes back from the thing it hit
+  },
+
   rover: {
     cruise: 14, reverse: 6,
+    // the toy ramps are SURFACES (solids.js): he drives up them and the lip's
+    // slope is the launch -- at cruise about the throw the old trigger gave
+    ramp: { len: 7.6, rise: 2.2, w: 6, lipSlope: 0.72 },
+    stepUp: 0.8,                 // a ledge higher than this is a wall, not a slope
     speedSteps: [0.6, 0.8, 1.0, 1.5, 2.1],   // it is a buggy on an empty world: let it go
   },
 
@@ -1329,6 +1350,10 @@ const TUNE = {
   // through the spit -- so the mouth is the only way in and out by water, and
   // the road is the only way across by land.
   harbor: {
+    // the coast road's way round the runway (harbor.js hbBuildRoad): it crosses
+    // the runway's line `pastEnd` beyond the north threshold, and runs down the
+    // strip at `stripX` between the runway (x 30) and the city (x 180)
+    road: { pastEnd: 200, out: 420, fwd: 80, lead: 80, stripX: 120 },
     cx: 1300,                        // the mouth's centreline: channel, drawbridge and buoys all share it
     depth: 15,                       // dredged this far below the waterline
     basin:   { x: [700, 1900], z: [-6660, -6070], feather: 70 },
@@ -1451,7 +1476,7 @@ const TUNE = {
       w: 13, len: 20, rise: 5,
       ringR: 7.5,                     // marked in the pad's own language, angled up
       minSpeed: 5, hitR: 6, groundish: 2.5,   // rolling fast on Mars it is half-airborne on its own bumps
-      kick: 3.2, kickPerSpeed: 0.42,  // how hard it throws him (~4 s of Mars air)
+      lipSlope: 0.62,                 // the lip's slope IS the throw now: he drives up it (~4 s of Mars air)
       spin: 2.2,                      // how fast it tumbles in the air
       airborneAt: 1.2, maxAir: 14,    // properly off the ground / a hard stop, so it can never spin for ever
       dust: 16, dustLife: 2.0,

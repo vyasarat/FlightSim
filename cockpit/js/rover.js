@@ -99,22 +99,48 @@ function placeRocks(b) {
 // jump with a whoop), a patch of soft sand where the wheels spin and dust flies until he
 // wiggles the stick -- or it pops him out by itself -- and three boulders to shove, which
 // roll off and thud into one of two craters with confetti. The camera button honks.
+// A ramp's shape, from the same profile its solid uses (solids.js): h(t) =
+// rise * t^k across its length, `w` wide, the foot at z = 0 and the lip at
+// z = -len, so it stands with local -Z uphill.
+function rampProfileMesh(len, rise, w, k, mat) {
+  const sh = new THREE.Shape();
+  sh.moveTo(0, 0);
+  sh.lineTo(len, 0);
+  sh.lineTo(len, rise);
+  const n = 14;
+  for (let i = n - 1; i >= 0; i--) { const t = i / n; sh.lineTo(len * t, rise * Math.pow(t, k)); }
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: w, bevelEnabled: false });
+  geo.translate(0, 0, -w / 2);
+  const m = new THREE.Mesh(geo, mat);
+  m.rotation.y = Math.PI / 2;           // shape-x runs uphill along local -Z
+  return m;
+}
+
 function placeToys(b) {
   disposeSurfaceObjects(rover.toys.map(o => o.mesh));
   rover.toys = [];
   const tan = new THREE.MeshLambertMaterial({ color: b.name === "mars" ? 0xc98a5a : 0xd9d2b8 });
   const rockM = new THREE.MeshLambertMaterial({ color: b.name === "mars" ? 0x8a3f22 : 0x777b84 });
   const put = (mesh, p, lift) => { mesh.position.set(p.x + p.dir.x * lift, p.y + p.dir.y * lift, p.z + p.dir.z * lift); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.dir); scene.add(mesh); };
-  for (let i = 0; i < 3; i++) {   // ramps: a wedge, its high lip facing away from the capsule
+  solidDropOwner("toys");
+  const RR = TUNE.rover.ramp;
+  for (let i = 0; i < 3; i++) {   // ramps: a kicker, its high lip facing away from the capsule
     const ang = 0.4 + i * 2.1, p = surfacePoint(b, rover.n, 40 + i * 12, ang);
     const g = new THREE.Group();
-    const wedge = new THREE.Mesh(new THREE.BoxGeometry(6, 2.2, 8), tan); wedge.position.y = 0.4; wedge.rotation.x = -0.32; g.add(wedge);
-    const lip = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.3, 0.6), new THREE.MeshBasicMaterial({ color: 0xffd23e })); lip.position.set(0, 2.05, -3.6); g.add(lip);
-    put(g, p, 0);
-    // turn it to face outward along the ground
+    // the surface he drives up, drawn from the same profile the rover rides
+    const k = Math.max(1, RR.lipSlope * RR.len / RR.rise);
+    const wedge = rampProfileMesh(RR.len, RR.rise, RR.w, k, tan);
+    wedge.position.z = RR.len / 2; g.add(wedge);
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(RR.w + 0.2, 0.3, 0.6), new THREE.MeshBasicMaterial({ color: 0xffd23e }));
+    lip.position.set(0, RR.rise, -RR.len / 2); g.add(lip);
+    g.position.set(p.x, p.y, p.z);
+    // turn it to face outward along the ground: local -Z is uphill
     const q = surfacePoint(b, rover.n, 52 + i * 12, ang), out = new THREE.Vector3(q.x - p.x, q.y - p.y, q.z - p.z); out.addScaledVector(p.dir, -out.dot(p.dir)).normalize();
     g.up.copy(p.dir); g.lookAt(p.x - out.x, p.y - out.y, p.z - out.z);
-    rover.toys.push({ kind: "ramp", mesh: g, x: p.x, y: p.y, z: p.z, dir: out });
+    scene.add(g);
+    const foot = [p.x - out.x * RR.len / 2, p.y - out.y * RR.len / 2, p.z - out.z * RR.len / 2];
+    const sb = solidRamp(foot, [out.x, out.y, out.z], [p.dir.x, p.dir.y, p.dir.z], RR.len, RR.rise, RR.w, RR.lipSlope, null, { owner: "toys" });
+    rover.toys.push({ kind: "ramp", mesh: g, x: p.x, y: p.y, z: p.z, dir: out, solid: sb });
   }
   { const p = surfacePoint(b, rover.n, 75, 3.6);   // the sand
     const disc = new THREE.Mesh(new THREE.SphereGeometry(b.r + 0.35, 20, 6, 0, Math.PI * 2, 0, 13 / b.r), tan);
@@ -128,20 +154,15 @@ function placeToys(b) {
   for (let i = 0; i < 3; i++) {   // boulders between the capsule and the craters
     const p = surfacePoint(b, rover.n, 60, 0.9 + i * 0.9 + (i === 2 ? 2.2 : 0));
     const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5, 0), rockM); put(m, p, 1.5);
-    rover.toys.push({ kind: "boulder", mesh: m, x: m.position.x, y: m.position.y, z: m.position.z, vx: 0, vy: 0, vz: 0, sunk: false });
+    rover.toys.push({ kind: "boulder", mesh: m, x: m.position.x, y: m.position.y, z: m.position.z, vx: 0, vy: 0, vz: 0, sunk: false,
+                      solid: solidToyBall(m.position.x, m.position.y, m.position.z, 1.5, "toys", m) });
   }
 }
 function updateToys(dt, b) {
   const sp = Math.abs(rover.speed);
   for (const t of rover.toys) {
     if (t.kind === "ramp") {
-      const d = Math.hypot(t.x - rover.x, t.y - rover.y, t.z - rover.z);
-      if (d < 4.5 && sp > 5 && rover.h < 0.4 && !t.armed && rover.f.dot(t.dir) > 0.3) {
-        t.armed = true; rover.vh = Math.max(rover.vh, 4 + sp * 0.45); rover.h = Math.max(rover.h, 0.05);
-        synthBlip("sine", 400, 900, 0.35, 0.28, 0); noiseBurst(0.15, 700, 0.15, 0);
-        flags.roverJumps = (flags.roverJumps || 0) + 1;
-      }
-      if (d > 8) t.armed = false;   // one jump per pass
+      // a surface now (solids.js), driven up in updateRover: nothing to trigger
     } else if (t.kind === "sand") {
       const inside = Math.hypot(t.x - rover.x, t.y - rover.y, t.z - rover.z) < t.r && rover.h <= 0;
       if (inside && !rover.stuck) { rover.stuck = true; t.inT = 0; t.wiggles = 0; t.lastSign = 0; noiseBurst(0.3, 250, 0.2, 0); flags.roverSandIn = (flags.roverSandIn || 0) + 1; }
@@ -169,9 +190,11 @@ function updateToys(dt, b) {
       t.x += t.vx * dt; t.y += t.vy * dt; t.z += t.vz * dt;
       const rr = Math.hypot(t.x - b.x, t.y - b.y, t.z - b.z); t.x = b.x + (t.x - b.x) / rr * (b.r + 1.5); t.y = b.y + (t.y - b.y) / rr * (b.r + 1.5); t.z = b.z + (t.z - b.z) / rr * (b.r + 1.5);
       t.mesh.position.set(t.x, t.y, t.z);
+      if (t.solid) solidFollow(t.solid, t.x, t.y, t.z);
       const vs = v.length(); if (vs > 0.2) { t.mesh.rotateOnWorldAxis(rvBax.crossVectors(n, v).normalize(), vs * dt / 1.5); if (rnd() < dt * 2) noiseBurst(0.08, 150, 0.08 * Math.min(1, vs / 6), 0); }
       for (const c of rover.craters) if (Math.hypot(c.x - t.x, c.y - t.y, c.z - t.z) < 5) {
         t.sunk = true; t.mesh.position.addScaledVector(n, -1.2); t.vx = t.vy = t.vz = 0;
+        if (t.solid) solidFollow(t.solid, t.mesh.position.x, t.mesh.position.y, t.mesh.position.z);
         deepPop(); confettiBurst(); chime(); flags.roverBoulders = (flags.roverBoulders || 0) + 1;
       }
     }
@@ -187,6 +210,7 @@ function roverDeploy() {
   // roll out to the side of the capsule, facing away from it
   const p = surfacePoint(b, rover.n, 7, state.heading + Math.PI / 2);
   rover.x = p.x; rover.y = p.y; rover.z = p.z; rover.h = 0; rover.vh = 0; rover.speed = 0; rover.t = 0;
+  rover.bangT = 0; rover.onRamp = null; rover.gPrev = 0;
   rover.f.set(rover.x - state.x, rover.y - state.y, rover.z - state.z);
   rover.f.addScaledVector(rover.n, -rover.f.dot(rover.n)).normalize();
   placeRocks(b);
@@ -214,6 +238,7 @@ function roverReset() {
   rover.rocks = [];
   disposeSurfaceObjects(rover.toys.map(o => o.mesh));
   rover.toys = []; rover.craters = []; rover.stuck = false;
+  solidDropOwner("toys");
   disposeSurfaceObjects(rover.beacons.map(o => o.mesh));
   rover.beacons = [];
   if (el.roverBtn) el.roverBtn.dataset.mode = "out";
@@ -235,6 +260,14 @@ function plantBeacon() {
 function updateRover(dt) {
   const b = rover.body;
   rover.t += dt;
+  // in pieces: it waits, then comes back where it happened, backed off the
+  // thing it hit, facing away from it. Nothing is lost.
+  if (rover.bangT > 0) {
+    rover.bangT -= dt;
+    rover.speed = 0;
+    if (rover.bangT <= 0) roverReassembleAt();
+    return;
+  }
   // local frame on the sphere
   rover.n.set(rover.x - b.x, rover.y - b.y, rover.z - b.z).normalize();
   rover.f.addScaledVector(rover.n, -rover.f.dot(rover.n)).normalize();
@@ -280,9 +313,28 @@ function updateRover(dt) {
   if (Math.abs(rover.speed) > 5 && rover.h <= 0 && rnd() < dt * 1.1) { rover.vh = 1.5 + rnd() * 2.5; noiseBurst(0.06, 400, 0.12, 0); }
   rover.vh -= b.g * 1.6 * dt;
   rover.h += rover.vh * dt;
-  if (rover.h < 0) { if (rover.vh < -2.5) noiseBurst(0.08, 300, 0.18, 0); rover.h = 0; rover.vh = 0; }
+  // THE GROUND is the sphere, or a ramp's surface where there is one (solids.js).
+  // He drives UP a ramp: while he is on it his height is its height and his
+  // climb is its rise under him, so what he leaves the lip with is the lip's
+  // slope times his speed, and nothing else. A face higher than a step is a
+  // wall, and the one wall law has it.
+  const gr = roverGround(rvTmp);
+  if (gr.wall) { roverHit(gr.wall); rvTmp.set(rover.x - b.x, rover.y - b.y, rover.z - b.z).normalize(); }
+  else if (rover.h < gr.g) {
+    if (rover.vh < -2.5 && gr.g <= 0) noiseBurst(0.08, 300, 0.18, 0);
+    rover.vh = gr.ramp ? Math.max(0, (gr.g - rover.gPrev) / Math.max(dt, 1e-3)) : 0;
+    rover.h = gr.g;
+  }
+  // off a lip: that is the launch
+  if (rover.onRamp && !gr.ramp && rover.h > 0.3) roverLaunched(rover.onRamp);
+  rover.onRamp = gr.ramp; rover.gPrev = gr.g;
   const R = b.r + 0.9 + rover.h;
   rover.x = b.x + rvTmp.x * R; rover.y = b.y + rvTmp.y * R; rover.z = b.z + rvTmp.z * R;
+  // everything else he can hit: the one registry, the one law
+  if (!rover.bangT) {
+    const hit = solidQuery(rover.x, rover.y, rover.z, TUNE.solid.r.rover, SOLID.ROVER, undefined, sb => !!sb.ramp || !!sb.toy);
+    if (hit) roverHit(hit);
+  }
   // rocks: roll over one and it chimes and sparkles
   for (const r of rover.rocks) {
     if (r.lit) continue;
@@ -320,4 +372,120 @@ function roverCamera(dt) {
     lookV.set(rover.x + rover.f.x * 40 + rover.n.x * 2, rover.y + rover.f.y * 40 + rover.n.y * 2, rover.z + rover.f.z * 40 + rover.n.z * 2);
   }
   camera.lookAt(lookV);
+}
+
+// ---------------------------------------------------------------------------
+// THE ROVER AND THE ONE REGISTRY (solids.js). It used to have no list at all:
+// the domes, the garage, the masts and the parked Starships were air to it,
+// and its ramps were circles that set a hop. Now it asks what everything asks.
+// ---------------------------------------------------------------------------
+const rvRampL = { a: 0, s: 0, h: 0 };
+const rvGround = { g: 0, ramp: null, wall: null };
+// The ground under him: 0 (the sphere), or the highest ramp surface he is over.
+// A ramp face he meets more than a step BELOW its surface -- its side, or the
+// lip's back -- is a wall.
+function roverGround(up) {
+  rvGround.g = 0; rvGround.ramp = null; rvGround.wall = null;
+  const b = rover.body, step = TUNE.rover.stepUp;
+  for (const sb of surfSolids) {
+    if (!sb.ramp) continue;
+    const rp = sb.ramp;
+    // his foot: the sphere's surface under him
+    const fx = b.x + up.x * b.r, fy = b.y + up.y * b.r, fz = b.z + up.z * b.r;
+    solidRampLocal(rp, fx, fy, fz, rvRampL);
+    const half = rp.w / 2, reach = TUNE.solid.r.rover * 0.6;
+    if (rvRampL.a < -reach || rvRampL.a > rp.len + reach || Math.abs(rvRampL.s) > half + reach) continue;
+    if (Math.abs(rvRampL.h) > 30) continue;
+    const inside = rvRampL.a >= 0 && rvRampL.a <= rp.len && Math.abs(rvRampL.s) <= half;
+    const top = solidRampH(rp, rvRampL.a);
+    if (inside) {
+      if (top - rover.h > step && rover.onRamp !== sb) {
+        // came at it through a face, not up its slope
+        const toSide = half - Math.abs(rvRampL.s), toBack = rp.len - rvRampL.a;
+        const n = toBack < toSide ? rp.dir : rvRampL.s > 0 ? rp.side : [-rp.side[0], -rp.side[1], -rp.side[2]];
+        rvGround.wall = { b: sb, kind: "ramp", d: Math.min(toSide, toBack) + reach, nx: n[0], ny: n[1], nz: n[2] };
+        return rvGround;
+      }
+      if (top > rvGround.g) { rvGround.g = top; rvGround.ramp = sb; }
+    } else if (rvRampL.a > rp.len && rover.onRamp !== sb && rover.h < rp.rise - step &&
+               Math.abs(rvRampL.s) <= half && rvRampL.a < rp.len + reach) {
+      // nose against the lip's back face
+      rvGround.wall = { b: sb, kind: "ramp", d: rp.len + reach - rvRampL.a, nx: rp.dir[0], ny: rp.dir[1], nz: rp.dir[2] };
+      return rvGround;
+    }
+  }
+  return rvGround;
+}
+
+// Off a lip, into the air: the noise, the count, and on Mars the tumble.
+function roverLaunched(sb) {
+  synthBlip("sine", 400, 900, 0.35, 0.28, 0); noiseBurst(0.15, 700, 0.15, 0);
+  flags.roverJumps = (flags.roverJumps || 0) + 1;
+  flags.rampLaunch = { owner: sb.owner, vh: +rover.vh.toFixed(2), speed: +Math.abs(rover.speed).toFixed(2) };
+  if (sb.owner === "mars" && typeof marsJumpLaunched === "function") marsJumpLaunched(sb);
+}
+
+// The one wall law, on a sphere: over the crawl a bang, at or under it a shove.
+// The push is along the ground (the part of the normal across the sphere); a
+// thing he lands on top of holds him up instead.
+function roverHit(hit) {
+  const n = rover.n;
+  let nx = hit.nx, ny = hit.ny, nz = hit.nz;
+  const dn = nx * n.x + ny * n.y + nz * n.z;
+  nx -= n.x * dn; ny -= n.y * dn; nz -= n.z * dn;
+  const tl = Math.hypot(nx, ny, nz);
+  if (tl < 0.3 && dn > 0) {           // on top of it: it is a floor
+    rover.h += hit.d; if (rover.vh < 0) rover.vh = 0;
+    return;
+  }
+  nx /= tl || 1; ny /= tl || 1; nz /= tl || 1;
+  // Driving itself home is not his choice: it slides round whatever is in the
+  // way and never bangs, or a dome between it and the capsule would be a loop.
+  if (rover.returning) {
+    rover.x += nx * (hit.d + 0.3); rover.y += ny * (hit.d + 0.3); rover.z += nz * (hit.d + 0.3);
+    const into = rover.f.x * nx + rover.f.y * ny + rover.f.z * nz;
+    if (into < 0) { rover.f.x -= nx * into; rover.f.y -= ny * into; rover.f.z -= nz * into; rover.f.normalize(); }
+    return;
+  }
+  const crawl = Math.abs(rover.speed) <= TUNE.solid.crawl.rover;
+  solidCount("rover", hit.kind, crawl ? "shove" : "crash");
+  flags.wallHits = (flags.wallHits || 0) + 1;
+  if (!crawl) { roverBang(nx, ny, nz); return; }
+  const k = hit.d + 0.3;
+  rover.x += nx * k; rover.y += ny * k; rover.z += nz * k;
+  rover.speed *= 0.35;
+  noiseBurst(0.12, 220, 0.2, 0);
+  flags.solidShoves = (flags.solidShoves || 0) + 1;
+}
+
+function roverBang(nx, ny, nz) {
+  rover.bangT = TUNE.solid.reassemble;
+  rover.bangN = [nx, ny, nz];
+  rover.speed = 0; rover.vh = 0;
+  triggerExplosion(rover.x, rover.y + 1, rover.z, 0.7);
+  cameraHitStop(0.8);
+  if (rover.mesh) rover.mesh.visible = false;
+  flags.roverCrashes = (flags.roverCrashes || 0) + 1;
+}
+
+// Back where it happened, walked off the thing it hit, turned away from it.
+function roverReassembleAt() {
+  const b = rover.body, n = rover.bangN || [0, 0, 0], back = TUNE.solid.backOff;
+  rover.bangT = 0;
+  rover.x += n[0] * back; rover.y += n[1] * back; rover.z += n[2] * back;
+  for (let i = 0; i < 8; i++) {
+    const h = solidQuery(rover.x, rover.y, rover.z, TUNE.solid.r.rover + 1, SOLID.ROVER);
+    if (!h) break;
+    rover.x += h.nx * (h.d + 1); rover.y += h.ny * (h.d + 1); rover.z += h.nz * (h.d + 1);
+  }
+  rvTmp.set(rover.x - b.x, rover.y - b.y, rover.z - b.z).normalize();
+  rover.n.copy(rvTmp);
+  rover.h = 0; rover.vh = 0; rover.onRamp = null; rover.gPrev = 0;
+  const R = b.r + 0.9;
+  rover.x = b.x + rvTmp.x * R; rover.y = b.y + rvTmp.y * R; rover.z = b.z + rvTmp.z * R;
+  rvTmp2.set(n[0], n[1], n[2]); rvTmp2.addScaledVector(rover.n, -rvTmp2.dot(rover.n));
+  if (rvTmp2.lengthSq() > 1e-4) rover.f.copy(rvTmp2.normalize());
+  if (rover.mesh) rover.mesh.visible = true;
+  thunk();
+  flags.roverReassembles = (flags.roverReassembles || 0) + 1;
 }

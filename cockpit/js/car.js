@@ -661,8 +661,13 @@ function carCrash(nx, nz) {
 // never costs him the drive. Called by resolveSolidWalls through the contract;
 // returning true keeps it off the shared explode-to-safePos path, which only an
 // aeroplane can come back from.
-function carWallHit(push) {
-  if (state.speed > CAR.crashSpeed) {
+function carWallHit(push, hit) {
+  // a parked car is knocked spinning either way, as it always was
+  if (hit && hit.b && hit.b.park && typeof stKnock === "function") stKnock(hit.b.park);
+  // (Only when a crash CAN happen: inside the crash debounce carCrash returns
+  // at once, and a wall at speed then did nothing at all -- he drove on through
+  // it. Inside the debounce, a wall is a shove at any speed.)
+  if (state.speed > CAR.crashSpeed && car.crashCool <= 0 && !state.exploding) {
     shatterAround(state.x, state.y, state.z);
     carCrash(push.nx, push.nz);
     return true;

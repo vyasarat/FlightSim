@@ -59,12 +59,12 @@ function hbMerge(specs, mat, solidY) {
   return m;
 }
 
-// Register a box as something solid: the boat crashes into it, and so does
-// anything flying. One record, two lists, so the two can never disagree.
-function hbSolid(x, y0, z, hw, hd, y1, mesh) {
-  const b = { x, y0, z, hw, hd, y1, mesh };
+// Register a box as something solid, in the one registry (solids.js) that every
+// vehicle asks. `harbor.solids` is kept as the harbour's own roll-call -- the
+// yacht's radar draws it -- and is never a collision list.
+function hbSolid(x, y0, z, hw, hd, y1, mesh, kind) {
+  const b = addSolidBox(x, y0, z, hw, hd, y1, mesh, kind || "wall");
   harbor.solids.push(b);
-  staticSolids.push(b);
   return b;
 }
 
@@ -212,7 +212,7 @@ function hbBuildBreakwater(conc, dark, white) {
   beam.castShadow = false; glow.castShadow = false;
   harbor.g.add(lg);
   harbor.lighthouse = { spin, beam, glow, t: 0 };
-  hbSolid(L.x, TUNE.waterLevel, L.z, L.r * 1.4, L.r * 1.4, L.h + 10, tower);
+  hbSolid(L.x, TUNE.waterLevel, L.z, L.r * 1.4, L.r * 1.4, L.h + 10, tower, "pillar");
 }
 
 // ---- container terminal ----------------------------------------------------
@@ -235,8 +235,8 @@ function hbBuildTerminal(conc, steel, white, rust, bed) {
   funnel.position.set(-S.len / 2 + 12, TUNE.waterLevel + 32, 0); sg.add(funnel);
   castsShadow(sg);
   harbor.g.add(sg);
-  hbSolid(S.x, TUNE.waterLevel - 6, S.z, S.len / 2, S.beam / 2, TUNE.waterLevel + 16, hull);
-  hbSolid(S.x - S.len / 2 + 26, TUNE.waterLevel + 16, S.z, 13, S.beam * 0.35, TUNE.waterLevel + 38, house);
+  hbSolid(S.x, TUNE.waterLevel - 6, S.z, S.len / 2, S.beam / 2, TUNE.waterLevel + 16, hull, "ship");
+  hbSolid(S.x - S.len / 2 + 26, TUNE.waterLevel + 16, S.z, 13, S.beam * 0.35, TUNE.waterLevel + 38, house, "ship");
 
   // --- the containers. One instanced mesh with per-instance colour: seven
   // stacks on the quay plus a deck load on the ship is 120-odd boxes and one
@@ -269,6 +269,20 @@ function hbBuildTerminal(conc, steel, white, rust, bed) {
   if (cmesh.instanceColor) cmesh.instanceColor.needsUpdate = true;
   cmesh.castShadow = true;
   harbor.g.add(cmesh);
+  // Solid, a box per stack (solids.js): they were drawn and not there. The one
+  // instanced mesh is every container, so a blast never hides it.
+  cmesh.userData.noShatter = true;
+  for (let s = 0; s < T.stacks; s++) {
+    const sx = T.x - T.quayW / 2 + 46 + s * ((T.quayW - 92) / (T.stacks - 1));
+    const high = 2 + Math.floor(hashSalt(s, 5, 6) * 3);
+    const z0 = T.z - 34 - T.containerW / 2, z1 = T.z - 34 + 2 * (T.containerW + 1.2) + T.containerW / 2;
+    hbSolid(sx, HB.quayY, (z0 + z1) / 2, T.containerL / 2, (z1 - z0) / 2, HB.quayY + T.containerH * high, cmesh, "container");
+  }
+  {
+    const x0 = S.x - S.len / 2 + 60 - T.containerL / 2, x1 = S.x - S.len / 2 + 60 + 10 * 16 + T.containerL / 2;
+    const z0 = S.z - 8 - T.containerW / 2, z1 = S.z + 6 + T.containerW / 2, y0 = TUNE.waterLevel + 19 - T.containerH / 2;
+    hbSolid((x0 + x1) / 2, y0, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, y0 + T.containerH * 2, cmesh, "container");
+  }
 
   // --- two gantry cranes, straddling the quay and reaching over the ship.
   // Each runs one loop for ever: trolley out over the hold, spreader down, a
@@ -295,7 +309,7 @@ function hbBuildTerminal(conc, steel, white, rust, bed) {
     const fm = new THREE.Mesh(mergeBoxes(frame), metalMat(TUNE.palette.warning, 26));
     fm.castShadow = true;
     cg.add(fm);
-    for (const lz of legZ) hbSolid(cx, HB.quayY, lz, 11, T.craneLegW, T.craneH + HB.quayY, fm);
+    for (const lz of legZ) hbSolid(cx, HB.quayY, lz, 11, T.craneLegW, T.craneH + HB.quayY, fm, "crane");
 
     const trolley = new THREE.Mesh(new THREE.BoxGeometry(16, 4, 8), metalMat(TUNE.palette.slate, 30));
     trolley.position.set(0, T.craneH + HB.quayY - 3.4, boomZ1 + 20);
@@ -365,7 +379,7 @@ function hbBuildMarina(conc, white, dark, bed) {
     d3.position.set(bx - len * 0.14, TUNE.waterLevel + 3.9, bz);
     d3.scale.set(len * 0.34, 1, M.boatBeam * 0.72);
     d3.updateMatrix(); houseMesh.setMatrixAt(i, d3.matrix);
-    hbSolid(bx, TUNE.waterLevel - 1.2, bz, len / 2, M.boatBeam / 2, TUNE.waterLevel + 2.6);
+    hbSolid(bx, TUNE.waterLevel - 1.2, bz, len / 2, M.boatBeam / 2, TUNE.waterLevel + 2.6, null, "parked");
   }
   hullMesh.instanceMatrix.needsUpdate = true;
   if (hullMesh.instanceColor) hullMesh.instanceColor.needsUpdate = true;
@@ -410,8 +424,8 @@ function hbBuildBridge(conc, steel, dark) {
     // by a 3 m body radius, so a pier top two metres under the road still had the
     // car inside it.
     const deckU = HB_DECK_Y - 5;
-    hbSolid(tx, TUNE.waterLevel - 12, HB_ROAD_Z, 15, 17, deckU);
-    for (const sz of [-1, 1]) hbSolid(tx, deckU, HB_ROAD_Z + sz * 12.5, 15, 4.5, HB_DECK_Y + 26);
+    hbSolid(tx, TUNE.waterLevel - 12, HB_ROAD_Z, 15, 17, deckU, null, "bridge");
+    for (const sz of [-1, 1]) hbSolid(tx, deckU, HB_ROAD_Z + sz * 12.5, 15, 4.5, HB_DECK_Y + 26, null, "portal");
     // The counterweight house, and a pair of towers standing well above the
     // deck. Without them the whole bridge read from the air as a white plank
     // laid across the gap: it needs something tall enough to say "this lifts".
@@ -483,24 +497,36 @@ function hbBuildBridge(conc, steel, dark) {
 function hbBuildRoad(dark) {
   const tarmac = mattMat(TUNE.runwaySurfaceColor);
   const pts = [];
-  const at = hwySampleAt(highway.length * 0.965);
+  // It leaves the motorway NORTH of the Californian runway and goes round its
+  // end. It used to leave at 96.5% and cut straight across the apron, the
+  // taxiway and 288 m of the runway itself at grade -- a road where aeroplanes
+  // land (roadCrossings, streets.js, found it). Now it crosses the runway's line
+  // `HB.road.pastEnd` beyond the threshold, runs south down the strip between the
+  // runway and the city, and meets the old shore road.
+  const R = HB.road, zCross = AIRPORTS[1].cz + TUNE.runwayLength / 2 + R.pastEnd;
+  let sAt = highway.length * 0.9;
+  for (const p of highway.pts) if (p.z <= zCross + R.lead) { sAt = p.s; break; }
+  const at = hwySampleAt(sAt);
   const rx = -at.fz, rz = at.fx;
-  // leave the carriageway on a quarter turn, the way every other spur does
+  // leave the carriageway on a quarter turn, the way every other spur does --
+  // flatter than the others, so it is heading east by the runway's line
   const seg = 10;
   for (let k = 0; k <= seg; k++) {
     const t = k / seg;
-    const out = Math.sin(t * Math.PI / 2) * 260;
-    const fwd = t * 200;
+    const out = Math.sin(t * Math.PI / 2) * R.out;
+    const fwd = t * R.fwd;
     pts.push({ x: at.x + rx * out + at.fx * fwd, z: at.z + rz * out + at.fz * fwd });
   }
-  // then a long easy run east along the shore and onto the spit
-  const tail = [[120, -6420], [430, -6600], [700, HB_ROAD_Z], [1000, HB_ROAD_Z],
+  // then across the runway's line, down the strip beside it, and a long easy
+  // run east along the shore and onto the spit
+  const tail = [[R.stripX, zCross], [R.stripX, -6420], [430, -6600], [700, HB_ROAD_Z], [1000, HB_ROAD_Z],
                 [1300, HB_ROAD_Z], [1600, HB_ROAD_Z], [1900, HB_ROAD_Z], [2140, -6640]];
   const from = pts[pts.length - 1];
   for (let i = 0; i < tail.length; i++) {
     const a = i === 0 ? [from.x, from.z] : tail[i - 1];
-    for (let k = 1; k <= 4; k++) {
-      const t = k / 4;
+    const n = Math.max(4, Math.ceil(Math.hypot(tail[i][0] - a[0], tail[i][1] - a[1]) / 80));
+    for (let k = 1; k <= n; k++) {
+      const t = k / n;
       pts.push({ x: lerp(a[0], tail[i][0], t), z: lerp(a[1], tail[i][1], t) });
     }
   }
@@ -528,7 +554,7 @@ function hbBuildRoad(dark) {
   // `railed`: this spur crosses water on a bridge, which no other spur does, so
   // it gets the main road's guardrail rule (car.js). Without it he can steer off
   // the side of the drawbridge and into the harbour.
-  const rec = { s: 0.965, side: 1, icon: "wave", to: "harbor", railed: true,
+  const rec = { s: sAt / highway.length, side: 1, icon: "wave", to: "harbor", railed: true,
                 x: at.x, z: at.z, y: at.y, spur: pts, bx: at.x, bz: at.z };
   highway.exits.push(rec);
   // This spur is built here, long after highway.js indexed its corridor, so it
@@ -558,7 +584,26 @@ function hbBuildFerry(white, dark) {
   castsShadow(g);
   harbor.g.add(g);
   harbor.ferry = { g, s: 0, hornT: F.hornEvery * 0.6, x: F.route[0][0], z: F.route[0][1], heading: 0,
-                   solid: hbSolid(F.route[0][0], TUNE.waterLevel - 2, F.route[0][1], F.beam, F.len / 2, TUNE.waterLevel + 8, hull) };
+                   solid: hbFerrySolid(F, hull) };
+}
+
+// The ferry is a box that turns with her: an oriented box (solids.js), half her
+// beam across and half her length along. (It was an axis-aligned box with the
+// FULL beam as its half-width that never turned -- side-on to the route it was
+// a wall twice her width standing across the channel.)
+function hbFerrySolid(F, hull) {
+  const b = solidBox3(F.route[0][0], TUNE.waterLevel + 3, F.route[0][1], [1, 0, 0], [0, 1, 0], [0, 0, 1],
+                      F.beam / 2, 5, F.len / 2, "ship");
+  b.mesh = hull;
+  harbor.solids.push(b);
+  return b;
+}
+function hbFerryPose(b, x, z, heading) {
+  const o = b.o3, c = Math.cos(heading), s = Math.sin(heading);
+  o.c[0] = x; o.c[2] = z;
+  o.u[0] = c; o.u[2] = -s;       // her local x
+  o.w[0] = s; o.w[2] = c;        // her local z, the length
+  solidBound3(b);
 }
 
 // ---- the tug, idling ------------------------------------------------------
@@ -582,7 +627,7 @@ function hbBuildTug(rust, dark, white) {
   castsShadow(g);
   harbor.g.add(g);
   harbor.tug = { g, y0: 0 };
-  hbSolid(T.x, TUNE.waterLevel - 2, T.z, T.beam / 2, T.len / 2, TUNE.waterLevel + 6, hull);
+  hbSolid(T.x, TUNE.waterLevel - 2, T.z, T.beam / 2, T.len / 2, TUNE.waterLevel + 6, hull, "ship");
 }
 
 // ---- the floating ski jump -------------------------------------------------
@@ -842,7 +887,7 @@ function hbUpdateFerry(dt) {
   }
   f.g.position.set(f.x, TUNE.waterLevel + Math.sin(harbor.clock * 1.3) * 0.25, f.z);
   f.g.rotation.y = f.heading;
-  f.solid.x = f.x; f.solid.z = f.z;
+  hbFerryPose(f.solid, f.x, f.z, f.heading);
   f.hornT -= dt;
   if (f.hornT <= 0) { f.hornT = F.hornEvery; hbHorn(f.x, TUNE.waterLevel + 10, f.z, 150, 1.1); }
 }
