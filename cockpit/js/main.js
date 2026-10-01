@@ -241,7 +241,7 @@ window.__lp = {
   get evGroup(){return evGroup;}, get evProps(){return ev.props;}, get evCraters(){return ev.craters;}, evSparksAlive,
   audio: { unlock(){unlockAudio(); return audioCtx ? audioCtx.state : null;}, now(){return audioCtx ? audioCtx.currentTime : 0;}, toneCount(){return Object.keys(tones).length;}, ctxState(){return audioCtx ? audioCtx.state : null;}, rocketNodes(){return !!rocketNodes;}, roarGain(){return rocketNodes ? +rocketNodes.roar.gain.value.toFixed(3) : null;}, engineGain(){const e=engState();return e.up ? +(e.idle+e.high).toFixed(4) : null;}, engine(){return engState();}, engLoaded, engSurge, engDuck, engVoiceKeys, engineLevelNow, bed(){return bedNodes ? {level:+bedNodes.level.toFixed(4), cut:Math.round(bedNodes.cut), thump:+bedNodes.thump.toFixed(2)} : null;}, bedName(){return currentBedName();}, place(x,y,z){return sfxPlace(x,y,z);} },
   bigBoom, catapultSound, fireHiss, updateAmbientAudio,
-  forEachSolid, roadCrossings, SOLID, SOLID_KINDS, solidQuery, solidTest, solidKind, solidBlocks, get surfSolids(){return surfSolids;}, get staticSolids(){return staticSolids;}, get vehicleModel(){return vehicleModel;}, vehPlayerModels, vehTagPlayer,
+  forEachSolid, roadCrossings, trk, TK, tkAt, tkStep, trackUpdate, trackBoard, trackCanBoard, trackReset, tkRetryFor, tkLiftPad, tkNetY, tkPose, SOLID, SOLID_KINDS, solidQuery, solidTest, solidKind, solidBlocks, get surfSolids(){return surfSolids;}, get staticSolids(){return staticSolids;}, get vehicleModel(){return vehicleModel;}, vehPlayerModels, vehTagPlayer,
   get traffic(){return traffic;},
   get missilesList(){return missiles;},
   fireMissile,

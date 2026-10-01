@@ -4624,11 +4624,12 @@ function check(name, ok, extra) {
     check("highway: one continuous graded road coast to coast, with the mountain tunnel and the water crossings falling out of the profile rather than being placed by hand -- and it runs through nothing that was already in the world",
       road.length > 12000 && road.samples > 250 && road.tunnelRun > 300 && road.bridgeRun > 1000 &&
       road.underWater === 0 && road.buried === 0 && road.wallHitsOnCrossing === 0 &&
-      // thirteen exits now: the six on the main line, the harbour coast spur
+      // fourteen exits now: the six on the main line, the harbour coast spur
       // (a hand-built polyline pushed into the same array -- that one line is
       // all it takes to make the car able to drive over the drawbridge), and
-      // each city's two ways in and one way out (streets.js, v126)
-      road.exits === 13 && road.cityExits === 6 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
+      // each city's two ways in and one way out (streets.js, v126), and the
+      // giant toy track's own (track.js, v130)
+      road.exits === 14 && road.cityExits === 6 && road.charges === 2 && road.overpasses === 8, JSON.stringify(road));
 
     // 4. zero text, with the boards, the interchange and the interior screen in frame
     const text = await page.evaluate(() => {
@@ -5512,6 +5513,7 @@ function check(name, ok, extra) {
   await require("./slot_checks")({ newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] });
   await require("./road_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
   await require("./solidity_checks")({ newPage, check });
+  await require("./track_checks")({ newPage, check });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
   await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
   // the usability test, before every city release: five REAL minutes of a noisy

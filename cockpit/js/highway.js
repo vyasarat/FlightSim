@@ -925,6 +925,12 @@ function hwyIcon(parent, kind, mat, boardH) {
     box(6.4, 0.9, 0.3, 0, 0.6, 0); box(2.6, 0.7, 0.3, 0, -1.9, 0);
   } else if (kind === "wave") {
     for (let i = 0; i < 3; i++) box(6.6, 0.75, 0.3, 0, -1.4 + i * 1.4, 0, i % 2 ? 0.12 : -0.12);
+  } else if (kind === "loop") {
+    // the toy track: an orange loop on the blue board, standing on a short run of track
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.55, 8, 24), new THREE.MeshBasicMaterial({ color: TUNE.palette.fire }));
+    ring.position.set(0, 0.6, 0.1); G.add(ring);
+    const run = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.6, 0.3), new THREE.MeshBasicMaterial({ color: TUNE.palette.fire }));
+    run.position.set(0, -1.9, 0.1); G.add(run);
   } else if (kind === "skyline") {
     // five towers of different heights standing on one line: a city
     const T = [[-2.9, 2.6], [-1.5, 4.4], [0, 5.8], [1.5, 3.4], [2.9, 4.8]];

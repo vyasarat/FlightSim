@@ -162,6 +162,14 @@ a deliberate, stated behaviour change.
   be stuck**: a beached hull widens its water search *and* times out — the search alone
   deadlocks against a quay. The harbour is the third place he can lose a session in, so its
   event pool grows as the space pool did.
+- **The giant toy track is rail-locked** (`track.js`, `TUNE.track`): finger down is go,
+  finger off coasts and rolls back, and nothing is ever stuck. Its forks are the city's turn
+  rule (a full steer held through the approach, with the car's lift and relatch allowances).
+  He falls off in two places only: short at the gap, or out of a loop he came into too slowly.
+  Either way he comes back at the drop or booster that feeds it, so he has the speed to go
+  again. The track is data: a graph of segments made of typed sections, each laid in the
+  frame the last one ended in. Lengthen it by adding sections; a fork's two branches must
+  end in the same place.
 - **The speed steps are one control he learns once** (`speed.js`): same pair, same slot,
   every vehicle but the rocket — the helicopter has three of its four slots spent, so it
   gets one cycling stepper. `TUNE.<vehicle>.speedSteps` scales what the model AIMS for and
@@ -207,6 +215,7 @@ a deliberate, stated behaviour change.
 | `highway.js` `car.js` `lights.js` `police.js` | the coast-to-coast road and its traffic / the SUV and lane-keep / the junctions / the chase |
 | `streets.js` | both cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, the square (no people) |
 | `vehiclekit.js` | the traffic's six low-poly shapes (and the police sedan): wheels spun in the shader, lamps lit per vertex, one instanced call per shape |
+| `track.js` | the giant toy track: its typed sections, the rail, the forks, the net, the lift, its own exit |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
 | `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
 
