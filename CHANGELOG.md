@@ -10,6 +10,23 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v132 — cleanup: a way out as gentle as the ways in, and a harness with no flake
+
+No features. New York's way out from the city had a 24% plunge. Between two
+things it had to clear, the height solver let the deck dip in a V at whatever
+grade the second crossing forced, and its last crossing left it 60 m to come
+down to the kerb. Now a deck between two nearby crossings spans them without
+dipping, and the way out runs further before it merges. Every way in and out of
+both cities is under 9%, and the city check now holds the ways out to that too
+(it had covered only the ways in, at 12%). The submarine check, which passed
+alone and failed in the full run, was reading state carried in from earlier on
+its shared page. The submarine picks its spot from the random stream and waits
+20 s each time it lands on a shallow one, so where the stream had got to set
+whether it first dived at 38 s or 158 s. The check now reseeds the stream and
+resets the sea events before it starts. The ship checklist now says that a
+check whose expected value was edited is re-run before ship, and that a check
+which passes alone and fails in the full run is a harness bug.
+
 ## v131 — a way off the toy track, ramps that clear each other, a harness that finishes
 
 The toy track's way off is now a visible exit lane, not a drag down on the

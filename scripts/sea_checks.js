@@ -317,6 +317,16 @@ module.exports = async function seaChecks({ newPage, check, shots }) {
     L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1);
     const P = L.HB.buoys.path;
     st.x = P[2][0]; st.z = P[2][1]; st.y = L.seaLevelAt(st.x, st.z); st.speed = 0;
+    // RESET what this test depends on, so it does not depend on what ran before
+    // it on this shared page. The submarine picks its spot from the random
+    // stream and waits 20 s each time it lands on a shallow one; where the stream
+    // had got to -- every draw made earlier on this page, and by the models and
+    // cities arriving asynchronously, which is slower on a loaded machine -- set
+    // whether it first dived at 38 s or at 158 s, and once past 260 s. It passed
+    // alone and failed in the full run: a harness bug, not an intermittent.
+    { let sd = 0x5EA5EA; Math.random = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; }; }
+    for (const k of ["plane", "sub", "fboat"]) L.sea[k].state = "away";
+    L.sea.plane.g.visible = false; L.sea.sub.g.visible = false;          // (the fireboat is moored: it stays)
     L.sea.plane.next = 0.2; L.sea.sub.next = 0.2; L.sea.fboat.next = 0.2;
     // Who draws from the shared puff pool, by caller. The pool is SUPPOSED to
     // fill while the seaplane sprays, so reading it at the loop's last instant

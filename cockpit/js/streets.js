@@ -993,12 +993,20 @@ function stRampHeights(pts, y0, y1, needs, onRoadAt) {
     if (n.s > fA) up = Math.max(up, (n.y - yA) / (n.s - fA));
     if (len - n.s > fB) down = Math.max(down, (n.y - yB) / (len - n.s - fB));
   }
+  // between two things it must clear, a deck does not dip: it spans from one to
+  // the other no lower than the lower of the two (a V between them came down
+  // at whatever grade the second crossing forced -- 24% on New York's way out)
+  const sorted = needs.slice().sort((a, b) => a.s - b.s);
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
     let y = Math.max(base[i], lerp(yA, yB, p.s / len) - R.sag);
     for (const n of needs) {
       const g = p.s < n.s ? up : down;
       y = Math.max(y, Math.min(n.y - g * Math.abs(p.s - n.s), p.s < n.s ? yA + g * Math.max(0, p.s - fA) : yB + g * Math.max(0, len - p.s - fB)));
+    }
+    for (let k = 1; k < sorted.length; k++) {
+      const a = sorted[k - 1], b = sorted[k];
+      if (p.s > a.s && p.s < b.s && b.s - a.s < R.spanMax) y = Math.max(y, Math.min(a.y, b.y));
     }
     p.y = y;
   }
