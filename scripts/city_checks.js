@@ -214,12 +214,18 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
             out.push({ k, way, right, before, oneWay: rec.street.oneWay === 1, crossesAtGrade: clear < 5.5, clear: clear === Infinity ? null : +clear.toFixed(1),
                        grade: +grade.toFixed(3), minSafe: Math.round(minR) });
           }
-          out.push({ k, way: "out", merges: Math.sign(R.outRec.spur[0].lat) === -R.inNear.gantry.c, oneWay: R.out.oneWay === 1 });
+          // the way out is held to the same grade as the ways in (v132: it
+          // had a 24% plunge between two crossings)
+          let og = 0;
+          const op = R.out.pts;
+          for (let i = 1; i < op.length; i++) og = Math.max(og, Math.abs(op[i].y - op[i - 1].y) / Math.max(0.1, Math.hypot(op[i].x - op[i - 1].x, op[i].z - op[i - 1].z)));
+          out.push({ k, way: "out", merges: Math.sign(R.outRec.spur[0].lat) === -R.inNear.gantry.c, oneWay: R.out.oneWay === 1, grade: +og.toFixed(3) });
         }
         return out;
       });
-      const bad = lay.filter(r => r.way === "out" ? !(r.merges && r.oneWay) : !(r.right && r.before && r.oneWay && !r.crossesAtGrade && r.grade < 0.12 && r.minSafe > 55));
-      check(`city: each city has a way in on each carriageway, on its right, after its gantry, one-way, and the far one over the motorway clear of a lorry (${lay.filter(r => r.clear).map(r => r.k + " " + r.clear + " m").join(", ")}), and one way out merging into the other carriageway`,
+      const gl = await page.evaluate(() => window.__lp.ST.ramp.gradeLimit);
+      const bad = lay.filter(r => r.way === "out" ? !(r.merges && r.oneWay && r.grade <= gl) : !(r.right && r.before && r.oneWay && !r.crossesAtGrade && r.grade <= gl && r.minSafe > 55));
+      check(`city: each city has a way in on each carriageway, on its right, after its gantry, one-way, and the far one over the motorway clear of a lorry (${lay.filter(r => r.clear).map(r => r.k + " " + r.clear + " m").join(", ")}), and one way out merging into the other carriageway -- none of the three steeper than ${(gl * 100).toFixed(0)}% anywhere (${lay.map(r => r.k + " " + r.way + " " + (r.grade * 100).toFixed(1) + "%").join(", ")})`,
         lay.length === 6 && bad.length === 0, JSON.stringify(lay));
     }
 

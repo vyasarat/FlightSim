@@ -238,6 +238,9 @@ airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, 
   than the harness's one (`node scripts/noisy_drive.js 300 <seed>`) and **report the log,
   not the pass count**. A deterministic check that passes says nothing about his hand.
 
+- **A check that passes alone and fails in the full run is a harness bug, not an
+  intermittent**: something it depends on was carried in from what ran before it on the
+  page (the random stream, an event's clock, a flag). Find it and reset it in the check.
 - **Behaviour over existence, and deltas not totals** — a check reading
   `flags.boatCrashes` outright stayed green for two releases while the boat sailed through
   the container ship, on a 1 an earlier check left behind. And check the states he is
@@ -265,9 +268,11 @@ airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, 
    one module with `node scripts/run_module.js <module> [root]`. **Don't edit `cockpit/` while it
    runs.** Node buffers piped stdout — redirect to a file and poll. `UPDATE_VISUAL` /
    `UPDATE_VEHICLE` regenerate the baselines; never hand-edit them.
-4. For anything visual, render it and **look at it** — the hashed scenes cover no boat,
+4. **A check whose expected value you edited is re-run before ship** -- the module alone,
+   or the inline check extracted -- and passes. Editing a number to match is not passing.
+5. For anything visual, render it and **look at it** — the hashed scenes cover no boat,
    no HUD and no harbour.
-5. Push `cockpit-3d`, merge `--no-ff` into `main`, push.
-6. `ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'` (rollback:
+6. Push `cockpit-3d`, merge `--no-ff` into `main`, push.
+7. `ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'` (rollback:
    `deploy.sh --rollback`). Add a `CHANGELOG.md` paragraph. The iPad picks it up next
    launch.

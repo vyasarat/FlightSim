@@ -508,8 +508,10 @@ const TUNE = {
     // the top speed step -- climbing at no more than `grade` to stand `clear`
     // over whatever it crosses (a lorry is 4.5 m).
     ramp: {
-      halfW: 10, step: 8, ease: 90, joinClear: 60, taperLen: 90, k: 110, sweepR: 150, sweepOut: 45, farTaper: 140, leaveStraight: 40, outLand: 36, outTaper: 120, runOut: 40, mergeDeg: 20,
-      mergeZone: 150,          // round a merge two ramps share they CONVERGE: there they meet level, not over each other
+      halfW: 10, step: 8, ease: 90, joinClear: 60, taperLen: 90, k: 110, sweepR: 150, sweepOut: 45, farTaper: 140, leaveStraight: 40, outLand: 36, outTaper: 120, runOut: 90, mergeDeg: 20,
+      mergeZone: 150,
+      spanMax: 260,            // two crossings closer than this are one deck: it does not dip between them
+      gradeLimit: 0.09,        // no way in or out is steeper than this anywhere (city_checks.js)          // round a merge two ramps share they CONVERGE: there they meet level, not over each other
       leave: 120, flat: 25, flatJunction: 12, grade: 0.045, gradeMax: 0.065, clear: 7.6, sag: 1.5, deckT: 1.4, parapet: 1.1, pierEvery: 28,
       // the approach: the lane painted from the gantry to where the ramp leaves,
       // and the first stretch of the ramp with it
