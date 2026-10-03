@@ -1,6 +1,11 @@
 .DS_Store
 node_modules/
-.claude/
+# Claude Code: the loop's own files are shared (the Stop gate, the two
+# reviewers, /cycle and /retro); everything else under .claude/ stays local.
+.claude/*
+!.claude/settings.json
+!.claude/agents/
+!.claude/skills/
 qa-screenshots/
 __pycache__/
 *.pyc

@@ -648,6 +648,7 @@
     opacity: 0; transition: opacity .18s ease-out;
   }
   #bigNum.on { opacity: .96; }
+  #bigNum.sky { top: 22%; }    /* the point-at set-pieces (launchsite.js, rocketsled.js, ...): up in the sky, off the thing it is counting down */
   #bigNum.beat { animation: numBeat .5s ease-out; }
   @keyframes numBeat { from { transform: translate(-50%,-50%) scale(1.5); } to { transform: translate(-50%,-50%) scale(1); } }
   .screen {
@@ -1246,6 +1247,10 @@
 <script src="js/yacht.js"></script>
 <script src="js/seaevents.js"></script>
 <script src="js/track.js"></script>
+<script src="js/launchsite.js"></script>
+<script src="js/rocketsled.js"></script>
+<script src="js/fireworksbarge.js"></script>
+<script src="js/monstertruck.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

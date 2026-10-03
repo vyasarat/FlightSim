@@ -127,12 +127,20 @@ module.exports = async function trackChecks({ newPage, check }) {
     const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, back = T.back;
     tk.at("deck", 0, 0);
     const c0 = L.flags.carCrashes || 0, l0 = L.flags.trackLeaves || 0;
-    let tookLane = false, left = false, merged = false, f = 0, onBack = false;
+    let tookLane = false, left = false, merged = false, f = 0, onBack = false, bang = null;
+    const h0 = { ...(L.flags.solidHits || {}) }, t0 = L.flags.hwyTrafficHit || 0;
     for (; f < 60 * 90 && !merged; f++) {
       // a full steer right through the deck, then hands-off
       tk.finger(true, T.on && T.seg === "deck" ? 1 : 0);
       L.update(1 / 60);
       if (T.on && T.seg === "exit") tookLane = true;
+      // what it was, if anything went bang: for the log, never for the verdict
+      if (!bang && (L.flags.carCrashes || 0) > c0) {
+        const h = L.flags.solidHits || {}, d = {};
+        for (const k in h) if (h[k] !== (h0[k] || 0)) d[k] = h[k] - (h0[k] || 0);
+        bang = { t: +(f / 60).toFixed(1), x: Math.round(st.x), z: Math.round(st.z), y: Math.round(st.y), v: Math.round(st.speed), onTrack: !!T.on, seg: T.seg,
+                 solid: d, traffic: (L.flags.hwyTrafficHit || 0) - t0, spur: !!L.car.spurRec };
+      }
       if (!T.on && (L.flags.trackLeaves || 0) > l0) left = true;
       if (left && L.car.spurRec === back) onBack = true;
       const n = L.hwyNearest(st.x, st.z);
@@ -141,11 +149,48 @@ module.exports = async function trackChecks({ newPage, check }) {
     }
     tk.finger(false);
     const gantry = !!T.gantry && T.gantry.children.length >= 4;
-    return { tookLane, left, onBack, merged, secs: +(f / 60).toFixed(1), crashes: (L.flags.carCrashes || 0) - c0, gantry,
+    return { tookLane, left, onBack, merged, secs: +(f / 60).toFixed(1), crashes: (L.flags.carCrashes || 0) - c0, gantry, bang,
              forks: { exit: (L.flags.trackForks || {})["deck:stunt"] || 0 } };
   });
   check("track: a full steer held right through the start deck takes the exit lane under its gantry (the motorway's icon), down beside the tower, and the road back merges him on to the motorway going the way he came -- no bang",
     off.tookLane && off.left && off.onBack && off.merged && off.crashes === 0 && off.gantry, JSON.stringify(off));
+  // ---- 2b. THE MERGE, over many traffic layouts. The exit-lane run above
+  // touched a traffic car at the merge in some full runs and not others: where
+  // the traffic stands then is not fixed by the seed alone. Swept over layouts
+  // (scripts/merge_sweep.js), the LIVE build (v132) banged in 4 of 60 -- layouts
+  // 7, 23, 29 and 40. The cause: `car.merging` said he was joining the +1
+  // carriageway (the track's road back writes no `lat`, and `lat || 1` is +1),
+  // while he was joining the -1, so the traffic in the lane he joined never saw
+  // him. This runs those four and eight more, each with the traffic laid out
+  // afresh from its own seed, and the page's own random stream put back after.
+  const sweep = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk;
+    const R = Math.random, res = [];
+    try {
+      for (const r of [7, 23, 29, 40, 0, 1, 2, 3, 4, 5, 6, 8]) {
+        tk.board();
+        tk.at("deck", 0, 0);
+        let seed = (0x9E3779B1 * (r + 1)) >>> 0;
+        Math.random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+        for (const t of L.highway.traffic) { t.alive = false; t.respawn = 0; }
+        const c0 = L.flags.carCrashes || 0, h0 = L.flags.hwyTrafficHit || 0, l0 = L.flags.trackLeaves || 0;
+        let left = false, merged = false, side = 0, joined = 0;
+        for (let f = 0; f < 60 * 60 && !merged; f++) {
+          tk.finger(true, T.on && T.seg === "deck" ? 1 : 0);
+          L.update(1 / 60);
+          if (!T.on && (L.flags.trackLeaves || 0) > l0) left = true;
+          if (L.car.merging) side = L.car.merging;
+          const n = L.hwyNearest(st.x, st.z);
+          if (left && Math.abs(n.lateral) < L.highway.halfW - 2 && Math.sign(n.lateral) === T.exit.side) { merged = true; joined = Math.sign(n.lateral); }
+        }
+        for (let i = 0; i < 60 * 5; i++) { tk.finger(false); L.update(1 / 60); }
+        res.push({ r, merged, side, joined, bangs: (L.flags.carCrashes || 0) - c0, touches: (L.flags.hwyTrafficHit || 0) - h0 });
+      }
+    } finally { Math.random = R; tk.finger(false); }
+    return res;
+  });
+  check(`track: off the toy track and on to the motorway over 12 traffic layouts (the 4 that banged on v132 among them): the side he is told he is merging into is the side he joins, and no bang, no touch, in any`,
+    sweep.length === 12 && sweep.every(x => x.merged && x.side === x.joined && x.bangs === 0 && x.touches === 0), JSON.stringify(sweep));
   // and back on: board again for what follows
   await page.evaluate(() => window.__tk.board());
 

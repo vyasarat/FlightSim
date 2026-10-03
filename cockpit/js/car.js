@@ -562,7 +562,7 @@ function carRoadTarget(steer01, dt) {
   }
   // on the last of a way on, the motorway's traffic sees him in its outer lane
   // and makes room, as it does for him anywhere in his lane
-  car.merging = best.spur && best.spur.out && best.s < CAR.mergeLook ? Math.sign(best.spur.spur[0].lat || 1) : 0;
+  car.merging = best.spur && best.spur.out && best.s < CAR.mergeLook ? carMergeSide(best.spur) : 0;
   // OFF THE ROAD, the pull-back aims at the road in front of him. Only the AIM
   // moves: the height, the shoulder and the guardrail stay the nearest road's,
   // because that is the ground he is actually beside. It used to be the nearest
@@ -601,6 +601,22 @@ function carLaneCentre(lat, onSpur) {
 }
 
 // ---------------------------------------------------------------------------
+// Which carriageway a way on joins: the sign of its lateral offset. The city
+// ramps write `lat` on their samples; the toy track's road back (track.js)
+// writes none, and `lat || 1` read that as the +1 carriageway every time -- so
+// on the -1 carriageway the traffic in the lane he was joining never saw him,
+// and a car coming up level hit him at the merge. Where a road has no `lat`,
+// ask the motorway where its last sample, the join, actually is. Asked once.
+function carMergeSide(rec) {
+  const lat0 = rec.spur[0].lat;
+  if (lat0 !== undefined) return Math.sign(lat0) || 1;
+  if (rec.mergeSide === undefined) {
+    const e = rec.spur[rec.spur.length - 1], n = hwyNearest(e.x, e.z);
+    rec.mergeSide = Math.sign(n.lateral) || 1;
+  }
+  return rec.mergeSide;
+}
+
 function carSpawn(originIdx) {
   const idx = originIdx === undefined ? state.originIdx : originIdx;
   // On the on-ramp, in the near lane, nose the way he is going. It used to spawn
