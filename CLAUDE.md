@@ -8,6 +8,7 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
 
 - **Zero text** in the UI — icons, silhouettes and numerals only, harness-audited; numerals
   are for the wind-up counter, not for state.
+  One exception, the parent's call (v138): the altimeter's digits on the right dial (`#altDigits`) are allowed.
 - **Nothing living gets shot, hit or destroyed.** Anything that explodes or shatters is a
   machine — that is why the target flocks are paper planes, and why the police officer never
   leaves his car. Living things are fine where nothing can happen to them (the astronaut;

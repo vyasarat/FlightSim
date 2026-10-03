@@ -27,6 +27,10 @@ entry below.
 | v134 | turn round and drive back past the brick wall to see the sled smash it again, and talk about the bricks flying | open |
 | v135 | go back to the lake to set the fireworks off again, and ask to see them "one more time" | open |
 | v136 | fly the helicopter down close to watch the monster truck squash the cars, and make the crunch noise himself | open |
+| v138 | in the car, look up from the road when the 5-4-3-2-1 starts and watch the rocket all the way up past the windscreen's edge | open |
+| v138 | in the car, notice the brick wall's smash without being shown, and turn round at the next chance to drive past it again | open |
+| v138 | in the car, slow down or stop by the lake to watch the fireworks finale (he is never asked to) | open |
+| v138 | say the monster truck is "giant" or "huge", and drive up and down past it to make it jump again | open |
 
 ## Entries
 
