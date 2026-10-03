@@ -24,6 +24,7 @@ entry below.
 | v132 | get the first city junction to go where his finger pointed | open |
 | v132 | be launched by the Mars ramps and drive at things on purpose | open |
 | v133 | drive (or fly) back at the launch pad to make the rocket go again, and say "blast off" or count down with it | open |
+| v134 | turn round and drive back past the brick wall to see the sled smash it again, and talk about the bricks flying | open |
 
 ## Entries
 

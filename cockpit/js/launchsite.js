@@ -460,6 +460,8 @@ function lsAimed() {
   const d = Math.hypot(dx, dy, dz), dh = Math.hypot(dx, dz);
   if (d > T.armR || dh < T.innerR) return false;
   if (lsNumBusy()) return false;
+  if (el.bigNum.classList.contains("on")) return false;   // another countdown is showing: wait for it
+  if (typeof sled !== "undefined" && sled.phase === "count") return false;   // ... or is about to be
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   return (dx * fx + dz * fz) / dh > Math.cos(T.coneDeg * DEG);
 }

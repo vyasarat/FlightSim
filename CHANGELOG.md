@@ -10,6 +10,24 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v134 — a rocket sled and a wall of giant toy bricks
+
+In the desert, just south of the mountain tunnel, a straight rail runs beside
+the motorway on its west side. A big red rocket sled waits at the north end of
+it, under a tower with three lamps. Further down the rail stands a wall of giant
+toy bricks, taller than a house. Point at the wall in any vehicle and it goes.
+The lamps go red, then amber, under 3-2-1 in the sky numerals, then green. The
+sled blasts off at 120 m/s, smashes straight through the wall with a bang, pops
+three parachutes (red, white and yellow) and stops before the end of the rail.
+Then it rolls home, and as it passes back through the gap every brick flies
+back into its place. In the car it waits until the smash will land about half a
+kilometre ahead of him, inside the windscreen, whichever way he is going and at
+any speed. The bricks always fly away from the road. The sled has no driver.
+Nothing in the mountain tunnel sets it off, where he could not see it.
+`scripts/rocketsled_checks.js` (22 checks) drives it hands-off both ways at
+every speed step and flies the plane into it. `scripts/rocketsled_renders.js`
+renders it, including real hands-off drives.
+
 ## v133 — a rocket launch beside the motorway
 
 A rocket as tall as a skyscraper now stands on a pad beside the motorway on

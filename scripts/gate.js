@@ -42,7 +42,7 @@ const MODULES = {
   "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks"],
   "vehiclekit.js": ["road_checks", "city_checks"],
   "solids.js": ["solidity_checks"], "collision.js": ["solidity_checks"],
-  "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks"],
+  "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks"], "rocketsled.js": ["rocketsled_checks"],
   "boat.js": ["boat_checks", "sea_checks"], "harbor.js": ["boat_checks", "lock_checks", "sea_checks"],
   "lock.js": ["lock_checks"], "yacht.js": ["yacht_checks"], "seaevents.js": ["sea_checks"],
   "heli.js": ["heli_control_checks", "heli_play_checks"],

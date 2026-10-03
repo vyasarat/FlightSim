@@ -253,6 +253,7 @@ module.exports = async function launchSiteChecks({ newPage, check }) {
     for (let i = 0; i < 60 * 2; i++) { L.police.active = true; L.police.state = "pullover"; hold(); L.update(1 / 60); }
     out.policeStarts = (L.flags.lsCountdowns || 0) - c1;
     L.police.active = false; L.police.state = "away";
+    L.setBigNum(null);                 // as the police do when they leave (countdownClear)
     for (let i = 0; i < 30; i++) { hold(); L.update(1 / 60); }
     out.afterPolice = S.phase;
     const s0 = L.flags.lsStandDowns || 0;

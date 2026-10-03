@@ -1188,6 +1188,45 @@ const TUNE = {
     selfLight: 0.35,                // the rocket's paint carries this share of its own colour as light
     glowSee: 900,                   // past this the engine glow grows with distance, so it never shrinks to nothing
   },
+  // ---- The rocket sled (js/rocketsled.js): a rocket on a rail in the desert,
+  // west of the motorway. Point at it and it blasts off down the rail, smashes
+  // through a giant wall of toy bricks, pops its parachutes, and the wall flies
+  // back together while the sled rolls home.
+  rocketSled: {
+    n: [79, -2550], s: [28, -3150], // the rail, north end (the start) to south end: 110 m west of the
+                                    // road's centre all the way, so it is in the windscreen
+    railY: 10,                      // the rail's top: level, on an embankment over the ground
+    bankW: 8,                       // the embankment's width
+    wallAt: 400,                    // the wall stands this far down the rail from the start
+    wallCols: 7, wallRows: 7,       // giant toy bricks, ...
+    wallShift: 1.5,                 // ... the wall standing this many bricks WEST of the rail, away from the road
+    brick: [7, 4.2, 3.5],           // ... each this big (w, h, d): a wall 50 m wide and 29 m tall
+    clearR: 60,                     // no streamed tree or town within this of the rail, the wall or the bricks' field
+    armR: 1100, innerR: 100, coneDeg: 42,   // he is this close to the WALL, not closer than innerR, and pointing at it
+    carView: 480,                   // ... in the car: the sled outruns him, so it arms when its smash will land
+                                    // this far ahead of him at the speed he is going -- inside the windscreen,
+                                    // whichever way he is driving and at any speed step
+    count: 3,                       // 3-2-1, with the start tower's lights going red-amber-green
+    accel: 40, burn: 3,             // m/s^2 for this long: 0 to 120 m/s
+    smashKeep: 0.75,                // the share of its speed it keeps through the wall
+    chuteDecel: 30,                 // m/s^2 under the parachutes
+    rest: 2,                        // stopped, then it rolls home
+    homeSpeed: 40,                  // m/s, back up the rail
+    rebuildT: 2.6, rebuildStagger: 0.9,   // the bricks fly back: each takes rebuildT, starting over rebuildStagger
+    // the bricks in the air
+    throwFwd: [22, 46], throwUp: [8, 22], throwSide: 16,  // m/s; sideways is biased WEST, away from the road
+    westBias: 0.75,                 // ... this share of the sideways throw always goes west
+    eastMax: 0.25,                  // ... and the rest goes east at no more than this share of it
+    brickBounce: 0.35, brickFriction: 3.5, gravity: 22,
+    // the show
+    roar: 0.26, roarHz: 44, hearR: 2600,
+    shake: 0.35, shakeR: 1400,
+    puffs: 120, trailEvery: 0.03, trailLife: 3.5,
+    selfLight: 0.3,
+    size: 2.6,                      // the sled, over a 12 m sled: 31 m of it
+    reticleR: 13, reticleRate: 2.4, // the pulsing target on both faces of the wall, as the demolition's
+    clearAhead: 80, clearSpeed: 40, // anything sitting still on the rail this far ahead is stepped aside, west, this fast
+  },
   // ---- The lock, and the dock it leads to (js/lock.js).
   //
   // A lock only means anything if the two waters are at DIFFERENT HEIGHTS, and

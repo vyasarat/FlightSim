@@ -230,6 +230,7 @@ window.__lp = {
   seaPlane, seaSub, seaFireboat, seaHideAll,
 
   lsite, LSITE, lsReset, lsForce, lsPuffsLive, lsStackSolid, lsCovers, updateLaunchSite,
+  sled, SLED, sledReset, sledForce, sledPuffsLive, sledBricksLive, sledWallWorld, sledSlotError, sledWallSolid, sledCovers, sledToWall, updateRocketSled,
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,
   fire, bucket, FF, bucketPress, bucketCanScoop, bucketCanDrop, fireReset,
