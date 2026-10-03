@@ -10,6 +10,25 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v133 — a rocket launch beside the motorway
+
+A rocket as tall as a skyscraper now stands on a pad beside the motorway on
+the plains, with its red tower behind it, nearly straight ahead from the
+driving seat. Point at it from within about a kilometre and a half (the car
+coming down the road, the plane, the helicopter) and it goes. Big numerals
+count 5-4-3-2-1 up in the sky, clear of the rocket, while the arms swing away.
+The engines light, a cloud rolls out of the flame trench, drifting away from
+the road, and it climbs, leaning east. Its two white side boosters let go
+with a puff. They flip, fly home with a double sonic boom and land upright on
+their own two pads across the railway. Then a fresh rocket rises out of the pad,
+ready to go again. Nothing to press and nothing to miss. The rocket is solid
+wherever it is, on the pad, climbing or landed, so flying into it is a free
+bang like any other. A helicopter hovering over a landing pad is pushed aside,
+never banged. The countdown steps aside for a police pull-over or the picker.
+`scripts/launchsite_checks.js` (21 checks) drives it hands-off from the car and
+flies the plane and the helicopter at it. `scripts/launchsite_renders.js`
+renders it from both seats.
+
 ## v132 — cleanup: a way out as gentle as the ways in, and a harness with no flake
 
 No features. New York's way out from the city had a 24% plunge. Between two

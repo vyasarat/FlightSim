@@ -1013,6 +1013,7 @@ function updateSetpieces(dt) {
   updateToyWorld(dt);
   updateHarbor(dt);
   if (typeof updateSeaEvents === "function") updateSeaEvents(dt);
+  if (typeof updateLaunchSite === "function") updateLaunchSite(dt);
   if (state.vp && state.vp.rocket) updateTowerCatch(dt);
 }
 // Runs at the END of the frame: the deck has to hold him after the flight model

@@ -129,6 +129,7 @@ function placeLandmark(cellX, cellZ) {
   if (Math.abs(lx) < 1700 && Math.abs(lz) < 1700) return null;
   if (inCorridor(lx, lz, 200)) return null;
   if (typeof cityCovers === "function" && cityCovers(lx, lz, 220)) return null;   // city.js: never through a block
+  if (typeof lsCovers === "function" && lsCovers(lx, lz, 220)) return null;
   if (flattenMask(lx - 190, lz) > 0 || flattenMask(lx + 190, lz) > 0 || flattenMask(lx, lz - 190) > 0 || flattenMask(lx, lz + 190) > 0) return null;   // never across an airport pad
   const proto = isTower ? towerProto : bridgeProto;
   const inst = proto.clone();
@@ -212,6 +213,7 @@ function rebuildTrees(px, pz) {
         if (flattenMask(wx, wz) > 0.02) continue;
         if (inCorridor(wx, wz, 40)) continue;
         if (typeof cityCovers === "function" && cityCovers(wx, wz, 4)) continue;
+        if (typeof lsCovers === "function" && lsCovers(wx, wz, 4)) continue;   // launchsite.js: the pad is bare
         // a city street's outer half runs past the edge of its blocks (streets.js)
         if (typeof stNearStreet === "function" && stNearStreet(wx, wz, 4)) continue;
         const gy = terrainEff(wx, wz);
@@ -266,6 +268,7 @@ function rebuildBuildings(px, pz) {
       const tcx = (cx + 0.5 + (hashSalt(cx, cz, 62) - 0.5) * 0.6) * grid;
       const tcz = (cz + 0.5 + (hashSalt(cx, cz, 63) - 0.5) * 0.6) * grid;
       if (inCorridor(tcx, tcz, 60)) continue;
+      if (typeof lsCovers === "function" && lsCovers(tcx, tcz, 60)) continue;
       const n = TUNE.townBuildingsMin + Math.floor(hashSalt(cx, cz, 64) * (TUNE.townBuildingsMax - TUNE.townBuildingsMin + 1));
       for (let k = 0; k < n; k++) {
         if (bi >= TUNE.buildingMaxInstances) break;
@@ -275,6 +278,7 @@ function rebuildBuildings(px, pz) {
         const wz = tcz + Math.sin(ang) * rad;
         if (flattenMask(wx, wz) > 0.02 || inCorridor(wx, wz, 40) || (typeof cityCovers === "function" && cityCovers(wx, wz, 16))) continue;
         if (typeof stNearStreet === "function" && stNearStreet(wx, wz, 16)) continue;
+        if (typeof lsCovers === "function" && lsCovers(wx, wz, 16)) continue;
         if (Math.abs(wx - TRAIN_X) < 14) continue;   // nothing stands on the freight line either
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.8) continue;

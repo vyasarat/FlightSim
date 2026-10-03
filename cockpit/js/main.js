@@ -229,6 +229,7 @@ window.__lp = {
   sea, SE, seaBuild, updateSeaEvents, seaCraneHonked, seaChannelNear,
   seaPlane, seaSub, seaFireboat, seaHideAll,
 
+  lsite, LSITE, lsReset, lsForce, lsPuffsLive, lsStackSolid, lsCovers, updateLaunchSite,
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,
   fire, bucket, FF, bucketPress, bucketCanScoop, bucketCanDrop, fireReset,

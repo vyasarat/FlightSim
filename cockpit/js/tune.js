@@ -1148,6 +1148,46 @@ const TUNE = {
     alarmMuteRadius: 240,           // no crash alarm inside the fence: the numerals are the
                                     // only lead-in there, and he is meant to fly straight at it
   },
+  // ---- The launch site (js/launchsite.js): a giant rocket beside the motorway
+  // that blasts off when he points at it, and whose two side boosters fly home
+  // and land on their own pads. Nothing to press and nothing to miss.
+  launchSite: {
+    x: 398, z: -450,                // the pad: 125 m east of the motorway, between it and the
+                                    // railway -- nearly dead ahead from the driving seat, and
+                                    // clear of the spur junction's signal heads
+    lz: [[565, -510], [575, -680]], // the boosters' landing pads, over the railway (+z booster -> the first)
+    size: 1.3,                      // the rocket and its tower, over a 96 m stack: a skyscraper
+    padHalf: 36, padRise: 2.5,      // the plinth, and how far its top stands over the highest ground under it
+    lzR: 21,                        // a landing pad's radius
+    clearR: 150,                    // no streamed tree or town inside this of the pad
+    armR: 1400, coneDeg: 42,        // he is this close AND pointing within this of it: the countdown starts
+    innerR: 150,                    // ... and no closer than this (on top of it, it would go off around him)
+    count: 5,                       // 5-4-3-2-1
+    holdDown: 1.4,                  // engines lit on the pad before it lets go
+    accel: 3.4, accelGain: 0.22,    // m/s^2 off the pad, growing this much a second
+    pitchStart: 9, pitchRate: 1.1, pitchMax: 32,   // the lean over, east, away from the road (deg, deg/s)
+    sepT: 18,                       // the side boosters let go this long after liftoff
+    sepPush: 22,                    // m/s, outward: wide enough to see them part from the road
+    flipT: 3,                       // seconds for a booster to turn engines-first
+    glideT: 13,                     // seconds from separation to the top of the landing burn
+    burnH: 150, burnT: 7,           // the landing burn: from this high, this long
+    legsT: 3,                       // the legs swing out over the last of it
+    coreGone: 75,                   // the core is out of sight by then and stops being drawn
+    rest: 7, restack: 4.5,          // landed, then a fresh stack rises out of the pad
+    // the show
+    roar: 0.28, roarHz: 36,         // the rumble tone at the pad, falling off with distance
+    hearR: 3200,                    // beyond this the launch is silent
+    shake: 0.42, shakeR: 2200,      // the ignition shake, falling to nothing at shakeR
+    climbShake: 0.12, climbShakeT: 6, // a rumble through the first seconds of the climb
+    puffs: 180,                     // one instanced pool of cloud for the whole show
+    cloudOut: 30, cloudLife: 6,     // ignition cloud: m/s outward along the trench, seconds
+    cloudDrift: 9,                  // ... and every puff of it drifts east, away from the road
+    trailEvery: 0.12, trailLife: 9, // the smoke column behind the climb
+    trailTop: 2600,                 // no trail above this (it is out of the fog by then)
+    boomAt: 0.55, boomGap: 0.4,     // the double sonic boom: this far through the boosters' glide, this far apart
+    selfLight: 0.35,                // the rocket's paint carries this share of its own colour as light
+    glowSee: 900,                   // past this the engine glow grows with distance, so it never shrinks to nothing
+  },
   // ---- The lock, and the dock it leads to (js/lock.js).
   //
   // A lock only means anything if the two waters are at DIFFERENT HEIGHTS, and
