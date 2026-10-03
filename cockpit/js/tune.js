@@ -1148,6 +1148,142 @@ const TUNE = {
     alarmMuteRadius: 240,           // no crash alarm inside the fence: the numerals are the
                                     // only lead-in there, and he is meant to fly straight at it
   },
+  // ---- The launch site (js/launchsite.js): a giant rocket beside the motorway
+  // that blasts off when he points at it, and whose two side boosters fly home
+  // and land on their own pads. Nothing to press and nothing to miss.
+  launchSite: {
+    x: 398, z: -450,                // the pad: 125 m east of the motorway, between it and the
+                                    // railway -- nearly dead ahead from the driving seat, and
+                                    // clear of the spur junction's signal heads
+    lz: [[565, -510], [575, -680]], // the boosters' landing pads, over the railway (+z booster -> the first)
+    size: 1.3,                      // the rocket and its tower, over a 96 m stack: a skyscraper
+    padHalf: 36, padRise: 2.5,      // the plinth, and how far its top stands over the highest ground under it
+    lzR: 21,                        // a landing pad's radius
+    clearR: 150,                    // no streamed tree or town inside this of the pad
+    armR: 1400, coneDeg: 42,        // he is this close AND pointing within this of it: the countdown starts
+    innerR: 150,                    // ... and no closer than this (on top of it, it would go off around him)
+    count: 5,                       // 5-4-3-2-1
+    holdDown: 1.4,                  // engines lit on the pad before it lets go
+    accel: 3.4, accelGain: 0.22,    // m/s^2 off the pad, growing this much a second
+    pitchStart: 9, pitchRate: 1.1, pitchMax: 32,   // the lean over, east, away from the road (deg, deg/s)
+    sepT: 18,                       // the side boosters let go this long after liftoff
+    sepPush: 22,                    // m/s, outward: wide enough to see them part from the road
+    flipT: 3,                       // seconds for a booster to turn engines-first
+    glideT: 13,                     // seconds from separation to the top of the landing burn
+    burnH: 150, burnT: 7,           // the landing burn: from this high, this long
+    legsT: 3,                       // the legs swing out over the last of it
+    coreGone: 75,                   // the core is out of sight by then and stops being drawn
+    rest: 7, restack: 4.5,          // landed, then a fresh stack rises out of the pad
+    // the show
+    roar: 0.28, roarHz: 36,         // the rumble tone at the pad, falling off with distance
+    hearR: 3200,                    // beyond this the launch is silent
+    shake: 0.42, shakeR: 2200,      // the ignition shake, falling to nothing at shakeR
+    climbShake: 0.12, climbShakeT: 6, // a rumble through the first seconds of the climb
+    puffs: 180,                     // one instanced pool of cloud for the whole show
+    cloudOut: 30, cloudLife: 6,     // ignition cloud: m/s outward along the trench, seconds
+    cloudDrift: 9,                  // ... and every puff of it drifts east, away from the road
+    trailEvery: 0.12, trailLife: 9, // the smoke column behind the climb
+    trailTop: 2600,                 // no trail above this (it is out of the fog by then)
+    boomAt: 0.55, boomGap: 0.4,     // the double sonic boom: this far through the boosters' glide, this far apart
+    selfLight: 0.35,                // the rocket's paint carries this share of its own colour as light
+    glowSee: 900,                   // past this the engine glow grows with distance, so it never shrinks to nothing
+  },
+  // ---- The rocket sled (js/rocketsled.js): a rocket on a rail in the desert,
+  // west of the motorway. Point at it and it blasts off down the rail, smashes
+  // through a giant wall of toy bricks, pops its parachutes, and the wall flies
+  // back together while the sled rolls home.
+  rocketSled: {
+    n: [79, -2550], s: [28, -3150], // the rail, north end (the start) to south end: 110 m west of the
+                                    // road's centre all the way, so it is in the windscreen
+    railY: 10,                      // the rail's top: level, on an embankment over the ground
+    bankW: 8,                       // the embankment's width
+    wallAt: 400,                    // the wall stands this far down the rail from the start
+    wallCols: 7, wallRows: 8,       // giant toy bricks, ...
+    wallShift: 2.5,                 // ... the wall standing this many bricks WEST of the rail, away from the road
+    brick: [10, 6, 5],              // ... each this big (w, h, d): a wall 75 m wide and 48 m tall
+    clearR: 60,                     // no streamed tree or town within this of the rail, the wall or the bricks' field
+    armR: 1100, innerR: 100, coneDeg: 42,   // he is this close to the WALL, not closer than innerR, and pointing at it
+    carView: 480,                   // ... in the car: the sled outruns him, so it arms when its smash will land
+                                    // this far ahead of him at the speed he is going -- inside the windscreen,
+                                    // whichever way he is driving and at any speed step
+    count: 3,                       // 3-2-1, with the start tower's lights going red-amber-green
+    accel: 40, burn: 3,             // m/s^2 for this long: 0 to 120 m/s
+    smashKeep: 0.75,                // the share of its speed it keeps through the wall
+    chuteDecel: 30,                 // m/s^2 under the parachutes
+    rest: 2,                        // stopped, then it rolls home
+    homeSpeed: 40,                  // m/s, back up the rail
+    rebuildT: 2.6, rebuildStagger: 0.9,   // the bricks fly back: each takes rebuildT, starting over rebuildStagger
+    // the bricks in the air
+    throwFwd: [26, 52], throwUp: [20, 36], throwSide: 20,  // m/s; sideways is biased WEST, away from the road
+    westBias: 0.75,                 // ... this share of the sideways throw always goes west
+    eastMax: 0,                     // ... and none of it goes east, towards the road
+    brickBounce: 0.35, brickFriction: 3.5, gravity: 22,
+    // the show
+    roar: 0.26, roarHz: 44, hearR: 2600,
+    shake: 0.35, shakeR: 1400,
+    puffs: 120, trailEvery: 0.03, trailLife: 3.5,
+    selfLight: 0.3,
+    size: 2.6,                      // the sled, over a 12 m sled: 31 m of it
+    reticleR: 13, reticleRate: 2.4, // the pulsing target on both faces of the wall, as the demolition's
+    clearAhead: 80, clearSpeed: 40, // anything sitting still on the rail this far ahead is stepped aside, west, this fast
+  },
+  // ---- The fireworks barge (js/fireworksbarge.js): a barge of mortar racks on
+  // the great lake, just west of the motorway. Point at it and every rack goes.
+  fireworksBarge: {
+    x: 130, z: 1800,                // on the lake's east water, 7 m deep, inside the target boats' orbit and clear of it
+    hullL: 46, hullW: 16, hullH: 3.2, deck: 1.6,   // the hull, and how far its deck stands over the water
+    armR: 1300, innerR: 120, coneDeg: 42,   // he is this close, no closer than innerR, and pointing at it
+    carView: 1150,                  // in the car it arms by his speed: the first shells burst this far ahead
+    count: 3,
+    // the show: [seconds after the first launch, shells] -- a build, then the finale
+    volleys: [[0, 1], [0.5, 1], [1, 1], [1.8, 3], [2.8, 2], [3.6, 4], [4.8, 3], [5.8, 5], [7, 4], [8.2, 8], [8.8, 8], [9.4, 10]],
+    shellSpeed: [62, 72], fuse: [1.9, 2.3],        // up, and how long until it bursts (~105-125 m: in the windscreen)
+    drift: 3,                       // m/s every shell leans WEST, away from the road
+    burstSpeed: [40, 58], willowSpeed: [24, 33],  // the stars' speed out of a burst
+    stars: 110, starLife: [1.6, 2.4], willowLife: [2.8, 3.6],
+    starDrag: 1.1, starGravity: 5,
+    sparks: 4200,                   // one Points draw for every star and trail spark of the show
+    starSize: 11, shellSize: 14,
+    flashes: 10, flashSize: 70, flashLife: 0.35, flashOpacity: 0.7,
+    shellGravity: 9.8, trailEvery: 0.03, shellsMax: 40,
+    drawFog: 1.45,                  // drawn within this many fog-distances
+    rest: 3,                        // after the last star, then armed again
+    hearR: 3000, boomGain: 0.5, soundsPerSec: 14,  // the finale is many bangs: no more than this many a second
+    reticleR: 14, reticleRate: 2.4, reticleY: 34,  // the target over the barge, turning to face him
+  },
+  // ---- The monster truck (js/monstertruck.js): a loop of dirt west of the
+  // motorway on the plains. Point at it and the truck roars off, jumps a ramp,
+  // lands on a row of six junk cars and squashes them flat, then drives round
+  // the loop home -- and the cars pop back up.
+  monsterTruck: {
+    n: [258, 880], s: [230, 420],   // the jump leg, north (the start) to south, ~95 m west of the road; the return leg runs west of it
+    loopR: 40,                      // the two U-turns' radius: the return leg is 2 x loopR west
+    trackW: 32, dirtY: 0.25,        // the dirt track, and how far it stands over the ground
+    runUp: 110,                     // metres of run-up before the ramp
+    rampLen: 60, rampRise: 30,      // the ramp: a 27 degree lip, as tall as a ten-storey block
+    cars: 5, carGap: 17, carsAt: 346,    // five junk cars, nose to tail, starting this far along
+    carScale: 3.6,                  // the junk cars, over a 4 m car: 15 m buses' worth -- the truck still a fifth bigger than five of them
+    squash: 0.32,                   // a squashed car is this tall
+    truckScale: 9,                  // the truck, over its 7 m model: 63 m long and 55 m tall -- a tower block on wheels
+    accel: 10, topSpeed: 52,        // m/s^2 and m/s up to the lip
+    gravity: 15,                    // in the air (a cartoon's: a high arc that comes down soon)
+    brake: 22, returnSpeed: 14,     // after the cars, and round the loop home
+    rest: 1.5, popDelay: 0.5, popTime: 0.45,  // stopped at the far end; the cars pop up this far apart, each taking popTime
+    airT: 4.0,                      // seconds in the air, for arming: from the lip to the cars
+    crushReach: 2.2,                // a car under the truck within this x truckScale of its middle is squashed
+    clearAhead: 40, clearSpeed: 30, // anything sitting still on the track this far ahead is stepped off it, this fast
+    armR: 1100, innerR: 90, coneDeg: 42,
+    carView: 310,                   // (unused by the car now: kept so a test holding it off still reads)
+    carArmR: 2000,                  // the car arms only within this of the landing (at the top speed step he covers 1.2 km before it lands)
+    landBearing: 18, landBearingR: 12,   // ... on his RIGHT less: he sits on the left, and the buttons and the map screen are there                // in the car it arms so that, at the landing, the truck is this many
+                                    // degrees off his nose -- in the open windscreen, whichever way he drives
+    count: 3,
+    reticleR: 14, reticleRate: 2.4, reticleY: 42,
+    hearR: 2400, roar: 0.22, roarHz: 52,
+    shake: 0.3, shakeR: 900,
+    puffs: 90, selfLight: 0.3,
+    drawFog: 1.45,
+  },
   // ---- The lock, and the dock it leads to (js/lock.js).
   //
   // A lock only means anything if the two waters are at DIFFERENT HEIGHTS, and

@@ -10,6 +10,118 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v138 — the merge bang's real cause, and payoffs you can see from the driving seat
+
+**The toy track's merge bang, found and fixed.** Swept over 60 traffic layouts,
+the live game (v132) banged at the merge in 4 of 60, and v137's "move over"
+rule only made that 3. The real cause: the track's road back is the one way
+onto the motorway that doesn't say which carriageway it joins, and the car
+read that as the wrong one. So the traffic in the lane he was joining never
+knew he was coming. It now asks the motorway where the road back actually
+ends. 0 of 60 bang. v137's extra rule is taken out again; with the right side
+it isn't needed. The toy track's check now runs the four layouts that banged.
+This bug is in the live game.
+
+**Bigger payoffs.** From the driving seat the four set-pieces were specks. They
+stay where they are, so nothing reaches the road, and are now big enough to
+cover at least a quarter of the windscreen's height at the payoff, both ways.
+That is measured only on open glass, never behind a pillar, the dash, the map
+screen or a button. The sled's brick wall is now 75 m wide and 48 m tall, its
+bricks thrown higher and only away from the road. The fireworks burst faster
+and bigger. The launch already met the target.
+
+**A real monster truck.** It is 63 m long and 55 m tall, against junk cars the
+size of buses. It leaves a 30 m ramp on a 48 m high arc, and in the car it waits
+until the landing will be in his open windscreen, on either side.
+`scripts/payoff_size_checks.js` measures all four; `scripts/merge_sweep.js`
+runs the merge over many traffic layouts on any build.
+
+## v137 — no bang at the merge, and the new set-pieces leave the traffic alone
+
+No new features; a fix found by the full harness. Leaving the toy track by its
+exit lane, hands-off, could end in a bang just as the road back joined the
+motorway: a traffic car was driving level with him in the lane he was joining.
+The traffic made room for a car ahead of him or behind him, but not one
+alongside. Now, while he merges, a car level with him in that lane moves over,
+or if it can't, drops back and lets him in; a car ahead of him still pulls
+away, as before. The touch was seen twice in the full harness and twice alone,
+then not again with nothing changed, so it depends on where the traffic happens
+to be at that moment. The new check places the traffic instead of waiting for
+it to be there. three.js uses up random numbers
+for every object it makes, and building them moved the traffic. They are now
+built on their own random numbers (`vkQuiet`, as the traffic's own models
+are), so the traffic is laid out as it was before. The toy track's exit check
+now says what any bang was.
+
+## v136 — a monster truck that squashes junk cars
+
+A loop of dirt track on the plains, just west of the motorway north of the
+launch pad. On it a giant blue monster truck waits, wheels as tall as a house,
+with a ramp ahead of it and six rusty junk cars parked nose to tail beyond the
+ramp. A red target ring floats over the ramp. Point at it in any vehicle and
+after 3-2-1 the truck revs and roars off. It hits the ramp, flies, lands on the
+junk cars with a boom and squashes all six flat with a crunch each. Then it
+brakes, drives round the loop home, and the cars pop back up one by one. The
+truck has dark windows and nobody in it; the cars are empty wrecks. In the car
+it waits until the landing will be in his windscreen, about 620 m ahead, at
+every speed and both ways. The truck, the ramp and the cars are solid, and a
+squashed car is only as tall as it is squashed.
+`scripts/monstertruck_checks.js` (12 checks), `scripts/monstertruck_renders.js`.
+
+## v135 — a fireworks barge on the great lake
+
+A red barge stacked with racks of coloured mortar tubes, strung with bulbs,
+floats on the great lake just west of the motorway, with a red target ring
+turning over it. Point at it in any vehicle and after 3-2-1 every rack goes:
+single shells first, then bigger and bigger volleys, then a finale of thirty at
+once. Red, gold, green, blue and pink peonies, rings, and gold willows, each
+with a flash and a boom. Then it rests and is ready again. In the car it waits
+until the first bursts will land in his windscreen, and the shells lean away
+from the road; no star ever comes over it. The countdowns of the launch pad,
+the rocket sled and the barge now share one numeral through a small registry
+in `setpieces.js`. None of them starts while another is counting. Each stands
+down for a police pull-over or the picker.
+`scripts/fireworksbarge_checks.js` (14 checks) drives it hands-off both ways
+and flies the plane and the helicopter at it.
+`scripts/fireworksbarge_renders.js` renders it.
+
+## v134 — a rocket sled and a wall of giant toy bricks
+
+In the desert, just south of the mountain tunnel, a straight rail runs beside
+the motorway on its west side. A big red rocket sled waits at the north end of
+it, under a tower with three lamps. Further down the rail stands a wall of giant
+toy bricks, taller than a house. Point at the wall in any vehicle and it goes.
+The lamps go red, then amber, under 3-2-1 in the sky numerals, then green. The
+sled blasts off at 120 m/s, smashes straight through the wall with a bang, pops
+three parachutes (red, white and yellow) and stops before the end of the rail.
+Then it rolls home, and as it passes back through the gap every brick flies
+back into its place. In the car it waits until the smash will land about half a
+kilometre ahead of him, inside the windscreen, whichever way he is going and at
+any speed. The bricks always fly away from the road. The sled has no driver.
+Nothing in the mountain tunnel sets it off, where he could not see it.
+`scripts/rocketsled_checks.js` (22 checks) drives it hands-off both ways at
+every speed step and flies the plane into it. `scripts/rocketsled_renders.js`
+renders it, including real hands-off drives.
+
+## v133 — a rocket launch beside the motorway
+
+A rocket as tall as a skyscraper now stands on a pad beside the motorway on
+the plains, with its red tower behind it, nearly straight ahead from the
+driving seat. Point at it from within about a kilometre and a half (the car
+coming down the road, the plane, the helicopter) and it goes. Big numerals
+count 5-4-3-2-1 up in the sky, clear of the rocket, while the arms swing away.
+The engines light, a cloud rolls out of the flame trench, drifting away from
+the road, and it climbs, leaning east. Its two white side boosters let go
+with a puff. They flip, fly home with a double sonic boom and land upright on
+their own two pads across the railway. Then a fresh rocket rises out of the pad,
+ready to go again. Nothing to press and nothing to miss. The rocket is solid
+wherever it is, on the pad, climbing or landed, so flying into it is a free
+bang like any other. A helicopter hovering over a landing pad is pushed aside,
+never banged. The countdown steps aside for a police pull-over or the picker.
+`scripts/launchsite_checks.js` (21 checks) drives it hands-off from the car and
+flies the plane and the helicopter at it. `scripts/launchsite_renders.js`
+renders it from both seats.
+
 ## v132 — cleanup: a way out as gentle as the ways in, and a harness with no flake
 
 No features. New York's way out from the city had a 24% plunge. Between two

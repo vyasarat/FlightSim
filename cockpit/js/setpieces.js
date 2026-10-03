@@ -38,6 +38,18 @@ function countdownTo(left, from) {
 }
 function countdownClear() { setBigNum(null); lastTick = -1; }
 
+// The big numeral is ONE thing on the screen, and the set-pieces that point-and-
+// count share it. Each registers whether it is counting; none STARTS while the
+// numeral is up or another one is counting (they could otherwise both start on
+// the same frame, before either had drawn a number). Police pull-overs and the
+// picker are each set-piece's own business: they stand the count down.
+const spCounters = [];
+function spCountRegister(name, counting) { spCounters.push({ name, counting }); }
+function spCountBusy(me) {
+  if (el.bigNum.classList.contains("on")) return true;
+  return spCounters.some(c => c.name !== me && c.counting());
+}
+
 // ===========================================================================
 // DEMOLITION DISTRICT
 // ===========================================================================
@@ -1013,6 +1025,10 @@ function updateSetpieces(dt) {
   updateToyWorld(dt);
   updateHarbor(dt);
   if (typeof updateSeaEvents === "function") updateSeaEvents(dt);
+  if (typeof updateLaunchSite === "function") updateLaunchSite(dt);
+  if (typeof updateRocketSled === "function") updateRocketSled(dt);
+  if (typeof updateFireworksBarge === "function") updateFireworksBarge(dt);
+  if (typeof updateMonsterTruck === "function") updateMonsterTruck(dt);
   if (state.vp && state.vp.rocket) updateTowerCatch(dt);
 }
 // Runs at the END of the frame: the deck has to hold him after the flight model

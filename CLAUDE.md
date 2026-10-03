@@ -8,6 +8,7 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
 
 - **Zero text** in the UI — icons, silhouettes and numerals only, harness-audited; numerals
   are for the wind-up counter, not for state.
+  One exception, the parent's call (v138): the altimeter's digits on the right dial (`#altDigits`) are allowed.
 - **Nothing living gets shot, hit or destroyed.** Anything that explodes or shatters is a
   machine — that is why the target flocks are paper planes, and why the police officer never
   leaves his car. Living things are fine where nothing can happen to them (the astronaut;
@@ -227,6 +228,26 @@ airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, 
 `mergeBoxes` merges static boxes per material — three.js batches nothing itself.
 **Adding a file under `cockpit/js/`**: script tag in `index.html` (right order),
 `"./js/….js"` in `ASSETS` in `sw.js`, bump `CACHE_NAME`.
+
+## The loop
+
+Every release passes five judges, cheapest first, none of them its author; `/cycle` runs
+one turn, `/retro` closes it.
+
+1. **The gate** — `node scripts/gate.js` (a second, no browser): syntax, one owner per
+   global name, files wired, version bumped and written up, nothing binary. It is the Stop
+   hook, so a turn cannot end on a failing one. **Fix the change, never the gate.**
+   `--run` then runs the harness modules the changed files answer to.
+2. **Fresh eyes** — `law-reviewer` on the diff, `render-critic` on the frames
+   (`.claude/agents/`). Three rounds at most; a standing BLOCK is reported, not argued down.
+3. **The full harness**, once, alone (below).
+4. **The parent** looks at the renders. Nothing merges to `main` or deploys before the yes.
+5. **The boy.** `PLAYTEST.md` holds what he did; each release writes a prediction there and
+   `/retro` scores it. The next thing to build is chosen from that file, not from ideas.
+
+**A lesson becomes a check, not a sentence** (`/retro`): gate if a file can prove it, a
+module if the running game can, the critic if a picture can, and a line here only if
+nothing else can — paid for by cutting one.
 
 ## Testing habits
 
