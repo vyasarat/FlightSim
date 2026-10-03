@@ -1227,6 +1227,30 @@ const TUNE = {
     reticleR: 13, reticleRate: 2.4, // the pulsing target on both faces of the wall, as the demolition's
     clearAhead: 80, clearSpeed: 40, // anything sitting still on the rail this far ahead is stepped aside, west, this fast
   },
+  // ---- The fireworks barge (js/fireworksbarge.js): a barge of mortar racks on
+  // the great lake, just west of the motorway. Point at it and every rack goes.
+  fireworksBarge: {
+    x: 130, z: 1800,                // on the lake's east water, 7 m deep, inside the target boats' orbit and clear of it
+    hullL: 46, hullW: 16, hullH: 3.2, deck: 1.6,   // the hull, and how far its deck stands over the water
+    armR: 1300, innerR: 120, coneDeg: 42,   // he is this close, no closer than innerR, and pointing at it
+    carView: 1150,                  // in the car it arms by his speed: the first shells burst this far ahead
+    count: 3,
+    // the show: [seconds after the first launch, shells] -- a build, then the finale
+    volleys: [[0, 1], [0.5, 1], [1, 1], [1.8, 3], [2.8, 2], [3.6, 4], [4.8, 3], [5.8, 5], [7, 4], [8.2, 8], [8.8, 8], [9.4, 10]],
+    shellSpeed: [62, 72], fuse: [1.9, 2.3],        // up, and how long until it bursts (~105-125 m: in the windscreen)
+    drift: 3,                       // m/s every shell leans WEST, away from the road
+    burstSpeed: [30, 44], willowSpeed: [18, 25],  // the stars' speed out of a burst
+    stars: 110, starLife: [1.6, 2.4], willowLife: [2.8, 3.6],
+    starDrag: 1.1, starGravity: 5,
+    sparks: 4200,                   // one Points draw for every star and trail spark of the show
+    starSize: 9, shellSize: 12,
+    flashes: 10, flashSize: 70, flashLife: 0.35, flashOpacity: 0.7,
+    shellGravity: 9.8, trailEvery: 0.03, shellsMax: 40,
+    drawFog: 1.45,                  // drawn within this many fog-distances
+    rest: 3,                        // after the last star, then armed again
+    hearR: 3000, boomGain: 0.5, soundsPerSec: 14,  // the finale is many bangs: no more than this many a second
+    reticleR: 14, reticleRate: 2.4, reticleY: 34,  // the target over the barge, turning to face him
+  },
   // ---- The lock, and the dock it leads to (js/lock.js).
   //
   // A lock only means anything if the two waters are at DIFFERENT HEIGHTS, and

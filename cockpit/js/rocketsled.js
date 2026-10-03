@@ -511,8 +511,7 @@ function sledBusy() {
 function sledAimed() {
   if (state.exploding || eject.active || sledBusy()) return false;
   // someone else's countdown is on the one numeral, or is about to be: wait for it
-  if (el.bigNum.classList.contains("on")) return false;
-  if (typeof lsite !== "undefined" && lsite.phase === "count") return false;
+  if (spCountBusy("rocketSled")) return false;
   // in the mountain tunnel he cannot see it
   if (typeof hwyBoreCeiling === "function" && hwyBoreCeiling(state.x, state.z) !== null) return false;
   const T = SLED, w = sledWallWorld();
@@ -676,3 +675,4 @@ function sledCovers(x, z, extra) {
 }
 
 sledBuild();
+spCountRegister("rocketSled", () => sled.phase === "count");

@@ -10,6 +10,23 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v135 — a fireworks barge on the great lake
+
+A red barge stacked with racks of coloured mortar tubes, strung with bulbs,
+floats on the great lake just west of the motorway, with a red target ring
+turning over it. Point at it in any vehicle and after 3-2-1 every rack goes:
+single shells first, then bigger and bigger volleys, then a finale of thirty at
+once. Red, gold, green, blue and pink peonies, rings, and gold willows, each
+with a flash and a boom. Then it rests and is ready again. In the car it waits
+until the first bursts will land in his windscreen, and the shells lean away
+from the road; no star ever comes over it. The countdowns of the launch pad,
+the rocket sled and the barge now share one numeral through a small registry
+in `setpieces.js`. None of them starts while another is counting. Each stands
+down for a police pull-over or the picker.
+`scripts/fireworksbarge_checks.js` (14 checks) drives it hands-off both ways
+and flies the plane and the helicopter at it.
+`scripts/fireworksbarge_renders.js` renders it.
+
 ## v134 — a rocket sled and a wall of giant toy bricks
 
 In the desert, just south of the mountain tunnel, a straight rail runs beside
