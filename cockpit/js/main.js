@@ -232,6 +232,7 @@ window.__lp = {
   lsite, LSITE, lsReset, lsForce, lsPuffsLive, lsStackSolid, lsCovers, updateLaunchSite,
   sled, SLED, sledReset, sledForce, sledPuffsLive, sledBricksLive, sledWallWorld, sledSlotError, sledWallSolid, sledCovers, sledToWall, updateRocketSled,
   fbarge, FBARGE, fbReset, fbForce, fbSparksLive, fbToFirstBurst, updateFireworksBarge, spCountBusy,
+  mtruck, MTRUCK, mtReset, mtForce, mtCarsState, mtPuffsLive, mtLanding, mtCovers, mtAt, mtSquash, updateMonsterTruck,
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,
   tcatch, towerCatchInbound, towerCatchReset, towerCatchClear, demoAlarmMuted,
   fire, bucket, FF, bucketPress, bucketCanScoop, bucketCanDrop, fireReset,

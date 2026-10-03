@@ -1028,6 +1028,7 @@ function updateSetpieces(dt) {
   if (typeof updateLaunchSite === "function") updateLaunchSite(dt);
   if (typeof updateRocketSled === "function") updateRocketSled(dt);
   if (typeof updateFireworksBarge === "function") updateFireworksBarge(dt);
+  if (typeof updateMonsterTruck === "function") updateMonsterTruck(dt);
   if (state.vp && state.vp.rocket) updateTowerCatch(dt);
 }
 // Runs at the END of the frame: the deck has to hold him after the flight model

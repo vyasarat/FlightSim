@@ -1251,6 +1251,36 @@ const TUNE = {
     hearR: 3000, boomGain: 0.5, soundsPerSec: 14,  // the finale is many bangs: no more than this many a second
     reticleR: 14, reticleRate: 2.4, reticleY: 34,  // the target over the barge, turning to face him
   },
+  // ---- The monster truck (js/monstertruck.js): a loop of dirt west of the
+  // motorway on the plains. Point at it and the truck roars off, jumps a ramp,
+  // lands on a row of six junk cars and squashes them flat, then drives round
+  // the loop home -- and the cars pop back up.
+  monsterTruck: {
+    n: [228, 880], s: [200, 420],   // the jump leg, north (the start) to south; the return leg runs west of it
+    loopR: 22,                      // the two U-turns' radius: the return leg is 2 x loopR west
+    trackW: 12, dirtY: 0.25,        // the dirt track, and how far it stands over the ground
+    runUp: 110,                     // metres of run-up before the ramp
+    rampLen: 34, rampRise: 9,       // the ramp: a 15 degree lip
+    cars: 6, carGap: 11, carsAt: 214,    // six junk cars, nose to tail, starting this far along
+    carScale: 1.9,                  // the junk cars, over a 4 m car
+    squash: 0.32,                   // a squashed car is this tall
+    truckScale: 2.2,                // the truck, over its 7 m model: 15 m of it, wheels as tall as a house
+    accel: 9, topSpeed: 32,         // m/s^2 and m/s up to the lip
+    gravity: 11,                    // in the air (a touch more than real: it lands sooner, bigger)
+    brake: 8, returnSpeed: 14,      // after the cars, and round the loop home
+    rest: 1.5, popDelay: 0.5, popTime: 0.45,  // stopped at the far end; the cars pop up this far apart, each taking popTime
+    airT: 2.2,                      // seconds in the air, for arming: from the lip to the cars
+    crushReach: 2.6,                // a car under the truck within this x truckScale of its middle is squashed
+    clearAhead: 40, clearSpeed: 30, // anything sitting still on the track this far ahead is stepped off it, this fast
+    armR: 1100, innerR: 90, coneDeg: 42,
+    carView: 620,                   // in the car it arms by his speed: the landing comes this far ahead
+    count: 3,
+    reticleR: 11, reticleRate: 2.4, reticleY: 26,
+    hearR: 2400, roar: 0.22, roarHz: 52,
+    shake: 0.3, shakeR: 900,
+    puffs: 90, selfLight: 0.3,
+    drawFog: 1.45,
+  },
   // ---- The lock, and the dock it leads to (js/lock.js).
   //
   // A lock only means anything if the two waters are at DIFFERENT HEIGHTS, and

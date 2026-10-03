@@ -10,6 +10,21 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v136 — a monster truck that squashes junk cars
+
+A loop of dirt track on the plains, just west of the motorway north of the
+launch pad. On it a giant blue monster truck waits, wheels as tall as a house,
+with a ramp ahead of it and six rusty junk cars parked nose to tail beyond the
+ramp. A red target ring floats over the ramp. Point at it in any vehicle and
+after 3-2-1 the truck revs and roars off. It hits the ramp, flies, lands on the
+junk cars with a boom and squashes all six flat with a crunch each. Then it
+brakes, drives round the loop home, and the cars pop back up one by one. The
+truck has dark windows and nobody in it; the cars are empty wrecks. In the car
+it waits until the landing will be in his windscreen, about 620 m ahead, at
+every speed and both ways. The truck, the ramp and the cars are solid, and a
+squashed car is only as tall as it is squashed.
+`scripts/monstertruck_checks.js` (12 checks), `scripts/monstertruck_renders.js`.
+
 ## v135 — a fireworks barge on the great lake
 
 A red barge stacked with racks of coloured mortar tubes, strung with bulbs,

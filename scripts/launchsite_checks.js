@@ -52,6 +52,10 @@ module.exports = async function launchSiteChecks({ newPage, check }) {
   const run = await page.evaluate(() => {
     const L = window.__lp, st = L.state, S = L.lsite, T = L.TUNE.launchSite;
     L.lsReset();
+    // the drive passes the monster truck first: hold it off, so the numerals read are the pad's
+    const mtView = L.TUNE.monsterTruck ? L.TUNE.monsterTruck.carView : null;
+    if (mtView !== null) { L.mtReset(); L.TUNE.monsterTruck.carView = -1e6; }
+    try {
     L.api.setVehicle("car"); L.api.spawnAt(0, 0);
     for (let i = 0; i < 10; i++) L.update(1 / 60);
     // on the southbound carriageway 2.4 km before the pad, nose down the road
@@ -100,6 +104,7 @@ module.exports = async function launchSiteChecks({ newPage, check }) {
       armedAgain, solidAgain: L.lsStackSolid(), boosters: B, maxLandTilt: Math.max(...(S.lastLandings || [99])),
       landDist: S.lastLandDist || [], jumpM: Math.round(jumpM), jumpDeg: Math.round(jumpDeg * 10) / 10,
     };
+    } finally { if (mtView !== null) L.TUNE.monsterTruck.carView = mtView; }
   });
   check(`launch site: hands-off down the motorway at it, the countdown runs 5-4-3-2-1 in big numerals and it lifts off -- once`,
     run.countdowns === 1 && run.liftoffs === 1 && run.nums === "54321", run);
