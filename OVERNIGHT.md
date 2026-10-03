@@ -74,9 +74,75 @@ drops back. The four new set-pieces are also built so they no longer move
 where the traffic is.
 Renders: none (no visible change).
 
+### v138 — the merge bang's real cause, payoffs you can see from the seat, a real monster truck (`efc1b83`)
+The bang when leaving the giant toy track is found and fixed. The car thought
+it was joining the wrong side of the motorway, so the traffic in the lane he
+was joining never made room for him. That bug is in the live game. From the
+driving seat all four shows now fill at least a quarter of the windscreen's
+height. The monster truck is a real monster: 55 m tall, against junk cars the
+size of buses, off a 30 m ramp on a 48 m high jump.
+Renders: `evidence/payoff/before/` and `evidence/payoff/after/` (driving seat,
+each payoff at its biggest, both directions), `evidence/monstertruck/`.
+
+## Follow-up: the parent's four asks (after the first report)
+
+**1. Bigger payoffs, from the driving seat.** Kept where they are; made bigger.
+`scripts/payoff_size_checks.js` measures, on the portrait iPad from the driving
+seat at cruise, how much of each payoff is on open glass. Parts under a
+button, behind the windscreen pillars or the brow, or behind the 3-D dash,
+wheel or map screen do not count. The target is a quarter of the windscreen
+(131 of 525 px). Results, southbound / northbound:
+
+| | before (v137) | after (v138) |
+|---|---|---|
+| rocket launch | already ~430 / ~450 | 432 / 457 (unchanged) |
+| rocket sled smash | ~80 / ~95 | 136 / 183 |
+| fireworks (the biggest single burst) | ~150 (passed already) | 163 / 160 |
+| monster truck | ~30 / ~25 | 152 / 151 |
+
+The "before" figures for the sled and truck come from the first, more lenient
+version of this measure; the truck's were specks in the renders. The sled's wall
+is now 75 m wide and 48 m tall, with its bricks thrown higher and only away
+from the road. The fireworks burst faster with bigger stars. Render-critic
+compared before/after for each: every "after" is clearer, and every payoff
+reads as big from the seat. Its standing notes: the sled's burst is still cut
+by a pillar edge; the fireworks' burst ball alone is ~100 px (the 131 is
+reached with its rising column and trailing stars); the barge itself cannot be
+seen from the road.
+
+**2. The monster truck reads as a monster now.** It is 63 m long and 55 m
+tall; the junk cars are bus-sized (15 m by 6 m), so the truck is several times
+their size. The ramp is 30 m high, the jump arc about 48 m (it was 7 m). In the
+car it waits until the landing will be in his open windscreen (18° off his
+nose on his left, 12° on his right, where the map screen and buttons are). In
+round 3 the critic answered yes on all three counts: monster-sized, more than
+three times the cars, a much higher jump. Its last two blocked frames were
+camera aim; I re-shot them after its three rounds, and they have not been
+re-judged. The squash now reads close up (`sq-chase_14.2`: the wheel rolling
+over the cars). I did not remove v136.
+
+**3. The toy-track merge bang: yes, it is in the live game.** I swept the same
+exit-lane drive over 60 traffic layouts (`scripts/merge_sweep.js`, which runs
+on any build):
+- live v132 (`cockpit-3d`, what `main` deploys): **4 of 60 bang** (layouts 7,
+  23, 29, 40)
+- v137: 3 of 60
+- v138: **0 of 60**, and 0 of 60 with v137's rule removed too
+
+The real cause: the toy track's road back is the one way onto the motorway
+whose road doesn't say which carriageway it joins. The car read the missing
+value as "+1", but the road joins "-1", so the traffic in the lane he was
+joining never knew he was coming. v137's extra "move over at the merge" rule
+treated a symptom; it is removed again. The toy track's check now drives the
+four layouts that banged on v132, and fails if the fix is reverted (tested).
+
+**4. Full harness, once, at the end:** **763/763**, one uninterrupted run on
+`efc1b83`, nothing else running.
+
 ## Full harness on the final state
 
-**757/757**, one uninterrupted run on `f1e576c`, nothing else running
+**763/763** on `efc1b83` (v138), one uninterrupted run, nothing else running.
+Before that, **757/757**, one uninterrupted run on `f1e576c`, nothing else running
 (`node scripts/headless_test.js`, about 40 minutes).
 
 Along the way:
@@ -84,7 +150,7 @@ Along the way:
 - v136 state: **755/756**, twice. The toy track's exit-lane check touched a
   traffic car at the merge; the second run's diagnostics named it. That led
   to v137.
-- About the v137 fix, honestly: the touch was seen twice in the full run and
+- About the v137 fix, honestly (superseded by v138, see above): the touch was seen twice in the full run and
   twice alone, then not again with nothing in the game changed. Where the
   traffic stands at that moment is not fixed by the seed alone (my guess is
   model-load timing, which I did not prove). So the new check places the traffic
