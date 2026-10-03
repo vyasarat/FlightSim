@@ -5593,6 +5593,7 @@ function check(name, ok, extra) {
   await require("./rocketsled_checks")({ newPage, check });
   await require("./fireworksbarge_checks")({ newPage, check });
   await require("./monstertruck_checks")({ newPage, check });
+  await require("./payoff_size_checks")({ newPage, check });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
   await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
   // the usability test, before every city release: five REAL minutes of a noisy

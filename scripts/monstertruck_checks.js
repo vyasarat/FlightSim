@@ -50,10 +50,11 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
       if (train.has(b)) return;
       if (L.mtCovers(b.x, b.z, 0)) strangers++;
     });
-    return { wet, inRoad, nearRoad: Math.round(nearRoad), strangers, ours, len: Math.round(M.len), phase: M.phase };
+    // ours: every junk car, the ramp and the truck
+    return { cars: M.cars.length, wet, inRoad, nearRoad: Math.round(nearRoad), strangers, ours, len: Math.round(M.len), phase: M.phase };
   });
   check(`monster truck: its loop is dry, out of the road's corridor, nothing else standing on it, and its cars, ramp and truck solid`,
-    site.wet === 0 && site.inRoad === 0 && site.strangers === 0 && site.ours === 8 && site.phase === "armed", site);
+    site.wet === 0 && site.inRoad === 0 && site.strangers === 0 && site.ours === site.cars + 2 && site.phase === "armed", site);
 
   // ---- 2. southbound, hands-off
   const run = await page.evaluate(() => {
@@ -79,15 +80,15 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
       if (d("mtHomes") > 0 && M.phase === "armed" && M.cars.every(c => !c.flat && !(c.pop > 0))) { armedAgain = true; break; }
     }
     const cars = L.mtCarsState();
-    return { countdowns: d("mtCountdowns"), runs: d("mtRuns"), jumps: d("mtJumps"), landings: d("mtLandings"), crushes: d("mtCrushes"),
+    return { cars: M.cars.length, countdowns: d("mtCountdowns"), runs: d("mtRuns"), jumps: d("mtJumps"), landings: d("mtLandings"), crushes: d("mtCrushes"),
              homes: d("mtHomes"), restored: d("mtRestored"), nums: nums.join(""), airMax: Math.round(M.airMax * 10) / 10, flatAll, armedAgain,
              carsBack: cars.every(c => c.sq === 0 && Math.abs(c.y1 - T.carScale * 1.9) < 0.05), secs: Math.round(f / 60),
              crashes: d("carCrashes"), walls: d("wallHits"), touches: d("hwyTrafficHit"), offRoad, puffRoad, puffs };
   });
-  check(`monster truck: southbound hands-off, 3-2-1, it jumps (over 6 m of air) and lands on the junk cars -- once`,
-    run.countdowns === 1 && run.runs === 1 && run.nums === "321" && run.jumps === 1 && run.landings === 1 && run.airMax > 6, run);
-  check(`monster truck: it squashes all six cars flat, drives round the loop home, and every car pops back exactly as it was`,
-    run.crushes === 6 && run.flatAll && run.homes === 1 && run.restored === 1 && run.armedAgain && run.carsBack, run);
+  check(`monster truck: southbound hands-off, 3-2-1, it jumps (over 40 m of air) and lands on the junk cars -- once`,
+    run.countdowns === 1 && run.runs === 1 && run.nums === "321" && run.jumps === 1 && run.landings === 1 && run.airMax > 40, run);
+  check(`monster truck: it squashes every car flat, drives round the loop home, and every car pops back exactly as it was`,
+    run.crushes === run.cars && run.cars >= 5 && run.flatAll && run.homes === 1 && run.restored === 1 && run.armedAgain && run.carsBack, run);
   check(`monster truck: through it the car never bangs, touches anything or leaves the road, and no dust reaches the road`,
     run.crashes === 0 && run.walls === 0 && run.touches === 0 && run.offRoad === 0 && run.puffRoad === 0 && run.puffs > 50, run);
 
@@ -113,7 +114,13 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
         if ((L.flags.mtLandings || 0) > l0) {
           L.camera.updateMatrixWorld();
           const v = new L.camera.position.constructor(M.x, M.y + 4, M.z).project(L.camera);
-          seen = { dir: north ? "N" : "S", step, cam: chase ? "chase" : "seat", d: Math.round(Math.hypot(M.x - st.x, M.z - st.z)), x: Math.round(v.x * 100) / 100, y: Math.round(v.y * 100) / 100, front: v.z < 1 };
+          // the pillars' inner edges, read off the page at the truck's own height on screen
+          const px = (v.x + 1) / 2 * innerWidth, py = (1 - v.y) / 2 * innerHeight;
+          const pl = document.getElementById("pillarL"), pr = document.getElementById("pillarR");
+          const shown = e => e && getComputedStyle(e).display !== "none" && getComputedStyle(e.parentElement).display !== "none";
+          const lEdge = shown(pl) ? pl.getBoundingClientRect().right : 0, rEdge = shown(pr) ? pr.getBoundingClientRect().left : innerWidth;
+          seen = { dir: north ? "N" : "S", step, cam: chase ? "chase" : "seat", d: Math.round(Math.hypot(M.x - st.x, M.z - st.z)), x: Math.round(v.x * 100) / 100, y: Math.round(v.y * 100) / 100, front: v.z < 1,
+                   px: Math.round(px), clear: px > lEdge + 20 && px < rEdge - 20 };
         }
       }
       out.push(seen || { dir: north ? "N" : "S", step, missed: true });
@@ -122,9 +129,9 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
     return out;
   });
   await pp.context().close();
-  check(`monster truck: on the portrait iPad, the landing is in his windscreen, clear of the pillars (|x| < 0.55), both ways, at every speed step, in both cameras`,
-    view.length >= 10 && view.every(o => !o.missed && o.front && Math.abs(o.x) < 0.55 && o.y > -0.3 && o.y < 0.6),
-    view.filter(o => o.missed || !o.front || Math.abs(o.x) >= 0.55 || o.y <= -0.3 || o.y >= 0.6).concat([{ of: view.length }]));
+  check(`monster truck: on the portrait iPad, the landing is in his windscreen, clear of the pillars (20 px inside their inner edges, read off the page), both ways, at every speed step, in both cameras`,
+    view.length >= 10 && view.every(o => !o.missed && o.front && o.clear && o.y > -0.3 && o.y < 0.6),
+    view.filter(o => o.missed || !o.front || !o.clear || o.y <= -0.3 || o.y >= 0.6).concat([{ of: view.length }]));
 
   // ---- 4. away; the plane and the helicopter
   const more = await page.evaluate(() => {
@@ -153,6 +160,17 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
     window.__mtResetAll();
     return out;
   });
+  const farOff = await page.evaluate(() => {
+    const L = window.__lp, st = L.state;
+    window.__mtResetAll();
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    // in New York, kilometres from the truck: driving the motorway there never sets it off
+    const c0 = L.flags.mtCountdowns || 0;
+    for (let f = 0; f < 60 * 40; f++) { L.api.setStick(0, 0); L.update(1 / 60); }
+    window.__mtResetAll();
+    return { countdowns: (L.flags.mtCountdowns || 0) - c0, z: Math.round(st.z) };
+  });
+  check(`monster truck: kilometres away (from the New York end), it never starts`, farOff.countdowns === 0 && farOff.z > 3000, farOff);
   check(`monster truck: driving away from it, inside its range, nothing happens`, more.away.countdowns === 0 && more.away.minD < 600, more.away);
   check(`monster truck: the plane and the helicopter, nose at it, set it off`, more.plane === 1 && more.heli === 1, more);
 
@@ -194,6 +212,7 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
       out.carFlatH = L.mtSquash(0, 1);
       L.mtSquash(0, 0);
       out.ramp = !!M.ramp && M.ramp.kind === "ramp";
+      out.scale = T.truckScale;   // the truck's capsule is 2.2 x this wide: a bang within its reach
       // a helicopter left hovering low on the track ahead of the running truck:
       // stepped off it before the truck arrives, never banged, never carried along
       window.__mtResetAll(); T.armR = 0;
@@ -212,7 +231,7 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
     return out;
   });
   check(`monster truck: the truck (the helicopter at cruise) and a junk car (the plane diving on it) are solid -- a bang, at them`,
-    !!solid.truck && solid.truck.d < 20 && !!solid.car && solid.car.d < 8 && solid.car.overGround > 3.5, solid);
+    !!solid.truck && solid.truck.d < 3 * solid.scale && !!solid.car && solid.car.d < 8 && solid.car.overGround > 3.5, solid);
   check(`monster truck: a helicopter left hovering on the track is stepped off it before the truck arrives, never banged`,
     !!solid.hover && solid.hover.passed && solid.hover.bangs === 0 && solid.hover.sidesteps > 0 && solid.hover.off > 6, solid.hover);
   check(`monster truck: a squashed car's solid is only as tall as it is (${solid.carH && solid.carH.toFixed(1)} m -> ${solid.carFlatH && solid.carFlatH.toFixed(1)} m), and the ramp is a surface`,

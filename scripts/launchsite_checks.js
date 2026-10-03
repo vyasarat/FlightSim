@@ -53,8 +53,9 @@ module.exports = async function launchSiteChecks({ newPage, check }) {
     const L = window.__lp, st = L.state, S = L.lsite, T = L.TUNE.launchSite;
     L.lsReset();
     // the drive passes the monster truck first: hold it off, so the numerals read are the pad's
-    const mtView = L.TUNE.monsterTruck ? L.TUNE.monsterTruck.carView : null;
-    if (mtView !== null) { L.mtReset(); L.TUNE.monsterTruck.carView = -1e6; }
+    // (the car arms the truck by the bearing its landing will have: an unreachable one holds it off)
+    const MTt = L.TUNE.monsterTruck, mtView = MTt ? [MTt.carView, MTt.landBearing, MTt.landBearingR] : null;
+    if (mtView !== null) { L.mtReset(); MTt.carView = -1e6; MTt.landBearing = 999; MTt.landBearingR = 999; }
     try {
     L.api.setVehicle("car"); L.api.spawnAt(0, 0);
     for (let i = 0; i < 10; i++) L.update(1 / 60);
@@ -104,7 +105,7 @@ module.exports = async function launchSiteChecks({ newPage, check }) {
       armedAgain, solidAgain: L.lsStackSolid(), boosters: B, maxLandTilt: Math.max(...(S.lastLandings || [99])),
       landDist: S.lastLandDist || [], jumpM: Math.round(jumpM), jumpDeg: Math.round(jumpDeg * 10) / 10,
     };
-    } finally { if (mtView !== null) L.TUNE.monsterTruck.carView = mtView; }
+    } finally { if (mtView !== null) [MTt.carView, MTt.landBearing, MTt.landBearingR] = mtView; }
   });
   check(`launch site: hands-off down the motorway at it, the countdown runs 5-4-3-2-1 in big numerals and it lifts off -- once`,
     run.countdowns === 1 && run.liftoffs === 1 && run.nums === "54321", run);

@@ -203,7 +203,7 @@ function fbSpark(x, y, z, vx, vy, vz, life, color, drag, grav) {
   }
   p.x = x; p.y = y; p.z = z; p.vx = vx; p.vy = vy; p.vz = vz; p.life = p.max = life;
   p.r = ((color >> 16) & 255) / 255; p.gg = ((color >> 8) & 255) / 255; p.b = (color & 255) / 255;
-  p.drag = drag; p.grav = grav;
+  p.drag = drag; p.grav = grav; p.burst = fbarge.burstId;
 }
 
 function fbLaunch() {
@@ -221,6 +221,7 @@ function fbLaunch() {
 
 function fbBurst(s) {
   const T = FBARGE;
+  fbarge.burstId = (fbarge.burstId || 0) + 1;
   const kind = fbRnd();
   const c1 = FB_COLORS[Math.floor(fbRnd() * FB_COLORS.length)];
   const c2 = fbRnd() < 0.4 ? FB_COLORS[Math.floor(fbRnd() * FB_COLORS.length)] : c1;
@@ -362,7 +363,7 @@ function updateFireworksBarge(dt) {
 
 function fbSparksLive() {
   const out = [];
-  for (const p of fbarge.sp) if (p.life > 0) out.push({ x: p.x, y: p.y, z: p.z });
+  for (const p of fbarge.sp) if (p.life > 0) out.push({ x: p.x, y: p.y, z: p.z, burst: p.burst });
   for (const s of fbarge.shells) out.push({ x: s.x, y: s.y, z: s.z });
   return out;
 }

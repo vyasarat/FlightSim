@@ -316,8 +316,32 @@ function mtAimed() {
   // in the car: by the speed he is going OR heading for (the step he has set), so
   // a car still picking up speed does not arrive before the truck does
   const vCar = typeof CAR !== "undefined" ? Math.max(Math.abs(state.speed), CAR.cruise * spdMul()) : Math.abs(state.speed);
-  const R = typeof vehKind === "function" && vehKind() === "car" ? T.carView + vCar * mtToLanding() : T.armR;
-  if (d > R || dh < T.innerR) return false;
+  if (typeof vehKind === "function" && vehKind() === "car") {
+    // where he will be when it lands, and how far off his nose the landing will
+    // be from there: armed when that is landBearing (it lands in the open glass)
+    // ... where he will be measured ALONG THE MOTORWAY, which curves: a straight
+    // line off his nose would leave the road a kilometre out
+    let fx0 = -Math.sin(state.heading), fz0 = -Math.cos(state.heading), t = mtToLanding();
+    let px = state.x + fx0 * vCar * t, pz = state.z + fz0 * vCar * t;
+    if (typeof hwyNearest === "function") {
+      const n = hwyNearest(state.x, state.z), q0 = hwySampleAt(n.s);
+      const dir = (fx0 * q0.fx + fz0 * q0.fz) >= 0 ? 1 : -1;
+      const q = hwySampleAt(clamp(n.s + dir * vCar * t, 0, highway.length));
+      px = q.x - q.fz * n.lateral; pz = q.z + q.fx * n.lateral; fx0 = q.fx * dir; fz0 = q.fz * dir;
+    }
+    const ax = L.x - px, az = L.z - pz;
+    const along = ax * fx0 + az * fz0, acrossS = ax * fz0 - az * fx0, across = Math.abs(acrossS);
+    // (fx0, fz0) is his forward; (-fz0, fx0) is to his left in the world's x-z,
+    // so a NEGATIVE acrossS is on his right
+    const bear = acrossS < 0 ? T.landBearingR : T.landBearing;
+    // nearer than that, the landing would be further off his nose; further,
+    // nearer the middle but smaller. Armed the first moment it is landBearing.
+    if (along <= T.innerR) return false;
+    // and never from anywhere but near it: a radius, as every point-at set-piece has
+    if (d > T.carArmR) return false;
+    return Math.atan2(across, along) / DEG >= bear;
+  }
+  if (d > T.armR || dh < T.innerR) return false;
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   return (dx * fx + dz * fz) / dh > Math.cos(T.coneDeg * DEG);
 }

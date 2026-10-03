@@ -10,6 +10,32 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v138 — the merge bang's real cause, and payoffs you can see from the driving seat
+
+**The toy track's merge bang, found and fixed.** Swept over 60 traffic layouts,
+the live game (v132) banged at the merge in 4 of 60, and v137's "move over"
+rule only made that 3. The real cause: the track's road back is the one way
+onto the motorway that doesn't say which carriageway it joins, and the car
+read that as the wrong one. So the traffic in the lane he was joining never
+knew he was coming. It now asks the motorway where the road back actually
+ends. 0 of 60 bang. v137's extra rule is taken out again; with the right side
+it isn't needed. The toy track's check now runs the four layouts that banged.
+This bug is in the live game.
+
+**Bigger payoffs.** From the driving seat the four set-pieces were specks. They
+stay where they are, so nothing reaches the road, and are now big enough to
+cover at least a quarter of the windscreen's height at the payoff, both ways.
+That is measured only on open glass, never behind a pillar, the dash, the map
+screen or a button. The sled's brick wall is now 75 m wide and 48 m tall, its
+bricks thrown higher and only away from the road. The fireworks burst faster
+and bigger. The launch already met the target.
+
+**A real monster truck.** It is 63 m long and 55 m tall, against junk cars the
+size of buses. It leaves a 30 m ramp on a 48 m high arc, and in the car it waits
+until the landing will be in his open windscreen, on either side.
+`scripts/payoff_size_checks.js` measures all four; `scripts/merge_sweep.js`
+runs the merge over many traffic layouts on any build.
+
 ## v137 — no bang at the merge, and the new set-pieces leave the traffic alone
 
 No new features; a fix found by the full harness. Leaving the toy track by its

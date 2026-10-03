@@ -266,7 +266,8 @@ module.exports = async function rocketSledChecks({ newPage, check }) {
     return out;
   });
   check(`rocket sled: the wall of bricks is solid -- flown into, a bang, at the wall`,
-    !!solid.wall && Math.abs(solid.wall.dz) < 8 && Math.abs(solid.wall.dx) < 40, solid);
+    // it meets the wall's west end, half the wall's width from its middle
+    !!solid.wall && Math.abs(solid.wall.dz) < 8 && Math.abs(solid.wall.dx) < 50, solid);
   check(`rocket sled: the sled waiting at the start is solid -- flown into, a bang, at the sled`,
     !!solid.sled && Math.abs(solid.sled.dx) < 15 && Math.abs(solid.sled.dz) < 15, solid);
   check(`rocket sled: the sled is solid while it RUNS -- the plane met head-on down the rail, at speed, is a bang at its nose`,

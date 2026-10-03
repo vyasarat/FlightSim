@@ -452,13 +452,7 @@ const TUNE = {
                // over if it can and speeds up, and by yieldMatch it runs faster than he does
                yieldReach: 160, yieldMatch: 45, laneChange: 1.4,
                // a car closer than keepBack behind him drops back, dropBack m/s per metre short
-               keepBack: 25, dropBack: 1.2,
-               // while he MERGES (the last of a way on), a car level with him in the lane he
-               // is joining -- within mergeBeside behind to mergeAhead in front -- moves over,
-               // or if it cannot, drops back to mergeDrop of his speed
-               mergeBeside: 30, mergeAhead: 12, mergeDrop: 0.75,
-               mergeLevel: 4,              // ... and only one no more than this in front of him is slowed: further ahead, it pulls away
-             },
+               keepBack: 25, dropBack: 1.2 },
                                  // above TUNE.car.cruise on purpose: lane-keep with no
                                  // steering must never rear-end its own lane
   },
@@ -1204,9 +1198,9 @@ const TUNE = {
     railY: 10,                      // the rail's top: level, on an embankment over the ground
     bankW: 8,                       // the embankment's width
     wallAt: 400,                    // the wall stands this far down the rail from the start
-    wallCols: 7, wallRows: 7,       // giant toy bricks, ...
-    wallShift: 1.5,                 // ... the wall standing this many bricks WEST of the rail, away from the road
-    brick: [7, 4.2, 3.5],           // ... each this big (w, h, d): a wall 50 m wide and 29 m tall
+    wallCols: 7, wallRows: 8,       // giant toy bricks, ...
+    wallShift: 2.5,                 // ... the wall standing this many bricks WEST of the rail, away from the road
+    brick: [10, 6, 5],              // ... each this big (w, h, d): a wall 75 m wide and 48 m tall
     clearR: 60,                     // no streamed tree or town within this of the rail, the wall or the bricks' field
     armR: 1100, innerR: 100, coneDeg: 42,   // he is this close to the WALL, not closer than innerR, and pointing at it
     carView: 480,                   // ... in the car: the sled outruns him, so it arms when its smash will land
@@ -1220,9 +1214,9 @@ const TUNE = {
     homeSpeed: 40,                  // m/s, back up the rail
     rebuildT: 2.6, rebuildStagger: 0.9,   // the bricks fly back: each takes rebuildT, starting over rebuildStagger
     // the bricks in the air
-    throwFwd: [22, 46], throwUp: [8, 22], throwSide: 16,  // m/s; sideways is biased WEST, away from the road
+    throwFwd: [26, 52], throwUp: [20, 36], throwSide: 20,  // m/s; sideways is biased WEST, away from the road
     westBias: 0.75,                 // ... this share of the sideways throw always goes west
-    eastMax: 0.25,                  // ... and the rest goes east at no more than this share of it
+    eastMax: 0,                     // ... and none of it goes east, towards the road
     brickBounce: 0.35, brickFriction: 3.5, gravity: 22,
     // the show
     roar: 0.26, roarHz: 44, hearR: 2600,
@@ -1245,11 +1239,11 @@ const TUNE = {
     volleys: [[0, 1], [0.5, 1], [1, 1], [1.8, 3], [2.8, 2], [3.6, 4], [4.8, 3], [5.8, 5], [7, 4], [8.2, 8], [8.8, 8], [9.4, 10]],
     shellSpeed: [62, 72], fuse: [1.9, 2.3],        // up, and how long until it bursts (~105-125 m: in the windscreen)
     drift: 3,                       // m/s every shell leans WEST, away from the road
-    burstSpeed: [30, 44], willowSpeed: [18, 25],  // the stars' speed out of a burst
+    burstSpeed: [40, 58], willowSpeed: [24, 33],  // the stars' speed out of a burst
     stars: 110, starLife: [1.6, 2.4], willowLife: [2.8, 3.6],
     starDrag: 1.1, starGravity: 5,
     sparks: 4200,                   // one Points draw for every star and trail spark of the show
-    starSize: 9, shellSize: 12,
+    starSize: 11, shellSize: 14,
     flashes: 10, flashSize: 70, flashLife: 0.35, flashOpacity: 0.7,
     shellGravity: 9.8, trailEvery: 0.03, shellsMax: 40,
     drawFog: 1.45,                  // drawn within this many fog-distances
@@ -1262,26 +1256,29 @@ const TUNE = {
   // lands on a row of six junk cars and squashes them flat, then drives round
   // the loop home -- and the cars pop back up.
   monsterTruck: {
-    n: [228, 880], s: [200, 420],   // the jump leg, north (the start) to south; the return leg runs west of it
-    loopR: 22,                      // the two U-turns' radius: the return leg is 2 x loopR west
-    trackW: 12, dirtY: 0.25,        // the dirt track, and how far it stands over the ground
+    n: [258, 880], s: [230, 420],   // the jump leg, north (the start) to south, ~95 m west of the road; the return leg runs west of it
+    loopR: 40,                      // the two U-turns' radius: the return leg is 2 x loopR west
+    trackW: 32, dirtY: 0.25,        // the dirt track, and how far it stands over the ground
     runUp: 110,                     // metres of run-up before the ramp
-    rampLen: 34, rampRise: 9,       // the ramp: a 15 degree lip
-    cars: 6, carGap: 11, carsAt: 214,    // six junk cars, nose to tail, starting this far along
-    carScale: 1.9,                  // the junk cars, over a 4 m car
+    rampLen: 60, rampRise: 30,      // the ramp: a 27 degree lip, as tall as a ten-storey block
+    cars: 5, carGap: 17, carsAt: 346,    // five junk cars, nose to tail, starting this far along
+    carScale: 3.6,                  // the junk cars, over a 4 m car: 15 m buses' worth -- the truck still a fifth bigger than five of them
     squash: 0.32,                   // a squashed car is this tall
-    truckScale: 2.2,                // the truck, over its 7 m model: 15 m of it, wheels as tall as a house
-    accel: 9, topSpeed: 32,         // m/s^2 and m/s up to the lip
-    gravity: 11,                    // in the air (a touch more than real: it lands sooner, bigger)
-    brake: 8, returnSpeed: 14,      // after the cars, and round the loop home
+    truckScale: 9,                  // the truck, over its 7 m model: 63 m long and 55 m tall -- a tower block on wheels
+    accel: 10, topSpeed: 52,        // m/s^2 and m/s up to the lip
+    gravity: 15,                    // in the air (a cartoon's: a high arc that comes down soon)
+    brake: 22, returnSpeed: 14,     // after the cars, and round the loop home
     rest: 1.5, popDelay: 0.5, popTime: 0.45,  // stopped at the far end; the cars pop up this far apart, each taking popTime
-    airT: 2.2,                      // seconds in the air, for arming: from the lip to the cars
-    crushReach: 2.6,                // a car under the truck within this x truckScale of its middle is squashed
+    airT: 4.0,                      // seconds in the air, for arming: from the lip to the cars
+    crushReach: 2.2,                // a car under the truck within this x truckScale of its middle is squashed
     clearAhead: 40, clearSpeed: 30, // anything sitting still on the track this far ahead is stepped off it, this fast
     armR: 1100, innerR: 90, coneDeg: 42,
-    carView: 620,                   // in the car it arms by his speed: the landing comes this far ahead
+    carView: 310,                   // (unused by the car now: kept so a test holding it off still reads)
+    carArmR: 2000,                  // the car arms only within this of the landing (at the top speed step he covers 1.2 km before it lands)
+    landBearing: 18, landBearingR: 12,   // ... on his RIGHT less: he sits on the left, and the buttons and the map screen are there                // in the car it arms so that, at the landing, the truck is this many
+                                    // degrees off his nose -- in the open windscreen, whichever way he drives
     count: 3,
-    reticleR: 11, reticleRate: 2.4, reticleY: 26,
+    reticleR: 14, reticleRate: 2.4, reticleY: 42,
     hearR: 2400, roar: 0.22, roarHz: 52,
     shake: 0.3, shakeR: 900,
     puffs: 90, selfLight: 0.3,
