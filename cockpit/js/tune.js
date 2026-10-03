@@ -452,7 +452,13 @@ const TUNE = {
                // over if it can and speeds up, and by yieldMatch it runs faster than he does
                yieldReach: 160, yieldMatch: 45, laneChange: 1.4,
                // a car closer than keepBack behind him drops back, dropBack m/s per metre short
-               keepBack: 25, dropBack: 1.2 },
+               keepBack: 25, dropBack: 1.2,
+               // while he MERGES (the last of a way on), a car level with him in the lane he
+               // is joining -- within mergeBeside behind to mergeAhead in front -- moves over,
+               // or if it cannot, drops back to mergeDrop of his speed
+               mergeBeside: 30, mergeAhead: 12, mergeDrop: 0.75,
+               mergeLevel: 4,              // ... and only one no more than this in front of him is slowed: further ahead, it pulls away
+             },
                                  // above TUNE.car.cruise on purpose: lane-keep with no
                                  // steering must never rear-end its own lane
   },

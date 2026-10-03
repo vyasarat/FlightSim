@@ -127,12 +127,20 @@ module.exports = async function trackChecks({ newPage, check }) {
     const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, back = T.back;
     tk.at("deck", 0, 0);
     const c0 = L.flags.carCrashes || 0, l0 = L.flags.trackLeaves || 0;
-    let tookLane = false, left = false, merged = false, f = 0, onBack = false;
+    let tookLane = false, left = false, merged = false, f = 0, onBack = false, bang = null;
+    const h0 = { ...(L.flags.solidHits || {}) }, t0 = L.flags.hwyTrafficHit || 0;
     for (; f < 60 * 90 && !merged; f++) {
       // a full steer right through the deck, then hands-off
       tk.finger(true, T.on && T.seg === "deck" ? 1 : 0);
       L.update(1 / 60);
       if (T.on && T.seg === "exit") tookLane = true;
+      // what it was, if anything went bang: for the log, never for the verdict
+      if (!bang && (L.flags.carCrashes || 0) > c0) {
+        const h = L.flags.solidHits || {}, d = {};
+        for (const k in h) if (h[k] !== (h0[k] || 0)) d[k] = h[k] - (h0[k] || 0);
+        bang = { t: +(f / 60).toFixed(1), x: Math.round(st.x), z: Math.round(st.z), y: Math.round(st.y), v: Math.round(st.speed), onTrack: !!T.on, seg: T.seg,
+                 solid: d, traffic: (L.flags.hwyTrafficHit || 0) - t0, spur: !!L.car.spurRec };
+      }
       if (!T.on && (L.flags.trackLeaves || 0) > l0) left = true;
       if (left && L.car.spurRec === back) onBack = true;
       const n = L.hwyNearest(st.x, st.z);
@@ -141,11 +149,74 @@ module.exports = async function trackChecks({ newPage, check }) {
     }
     tk.finger(false);
     const gantry = !!T.gantry && T.gantry.children.length >= 4;
-    return { tookLane, left, onBack, merged, secs: +(f / 60).toFixed(1), crashes: (L.flags.carCrashes || 0) - c0, gantry,
+    return { tookLane, left, onBack, merged, secs: +(f / 60).toFixed(1), crashes: (L.flags.carCrashes || 0) - c0, gantry, bang,
              forks: { exit: (L.flags.trackForks || {})["deck:stunt"] || 0 } };
   });
   check("track: a full steer held right through the start deck takes the exit lane under its gantry (the motorway's icon), down beside the tower, and the road back merges him on to the motorway going the way he came -- no bang",
     off.tookLane && off.left && off.onBack && off.merged && off.crashes === 0 && off.gantry, JSON.stringify(off));
+  // ---- 2b. THE MERGE, with traffic put around him. Found by the full run (v137):
+  // the exit-lane run above touched a traffic car at the merge, twice in the full
+  // run and twice alone -- and then not again, with nothing in the game changed,
+  // so where the traffic stands at that moment is not fixed by the seed alone.
+  // This places it, the moment he starts merging, instead of leaving it to
+  // chance: a faster car coming up level with him with the other lane free (it
+  // moves over), the same with the other lane taken (it drops back), and one a
+  // few metres AHEAD with the other lane taken (the yield rule's: it pulls away,
+  // never slowed in front of him). It proves the merge rule acts and that nothing
+  // touches him; it does NOT reproduce the original touch, which the existing
+  // keep-back rule may have been enough for on its own.
+  const mergeCases = await page.evaluate(() => {
+    const out = {};
+    for (const kase of ["beside", "besideBlocked", "aheadBlocked"]) {
+      const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, HW = L.HW;
+      tk.board();
+      tk.at("deck", 0, 0);
+      const c0 = L.flags.carCrashes || 0, t0 = L.flags.hwyTrafficHit || 0;
+      let placed = null, f = 0, merged = false, minGapAhead = 1e9, lead = null, laneMoved = false, fellBack = 0;
+      for (; f < 60 * 90 && !merged; f++) {
+        tk.finger(true, T.on && T.seg === "deck" ? 1 : 0);
+        L.update(1 / 60);
+        const n = L.hwyNearest(st.x, st.z);
+        if (!placed && L.car.merging) {
+          const side = L.car.merging, tr = L.highway.traffic, outer = HW.lanes - 1;
+          // EXACTLY level and at his speed: the keep-back rule (a car behind him)
+          // does not act on it, so whatever it does is the merge rule's doing
+          const put = (t, ds, lane, v) => { t.alive = true; t.spin = 0; t.dir = side; t.s = n.s + ds * side; t.lane = lane; t.laneF = lane; t.speed = v; };
+          // the rest parked far behind -- inside the range, so nothing is
+          // respawned and no draw is taken from the random stream
+          let park = n.s - 1500 * side;
+          if (park < 10 || park > L.highway.length - 10) park = n.s + 1500 * side;     // always on the road: off its ends a car is respawned near him
+          for (const t of tr) t.s = park;
+          const v = Math.max(st.speed, 30);
+          if (kase === "beside") put(tr[0], 0, outer, v);
+          if (kase === "besideBlocked") { put(tr[0], 0, outer, v); put(tr[1], 0, 0, v); put(tr[2], 20, 0, v); put(tr[3], -30, 0, v); }
+          if (kase === "aheadBlocked") { put(tr[0], 8, outer, v); put(tr[1], 8, 0, v); put(tr[2], 30, 0, v); put(tr[3], -15, 0, v); }
+          lead = tr[0];
+          placed = { f, s0: n.s, m0: L.flags.hwyMergeMoves || 0, d0: L.flags.hwyMergeDrops || 0 };
+        }
+        if (placed) {
+          const g = (lead.s - n.s) * lead.dir;
+          if (kase === "beside" && lead.lane !== HW.lanes - 1) laneMoved = true;
+          // clear of him: a car's length and more along the road, or in the other lane
+          if (kase !== "aheadBlocked" && f <= placed.f + 60 * 3 && (Math.abs(g) > 8 || lead.laneF < HW.lanes - 1.5)) fellBack = 1;
+          if (kase === "aheadBlocked") minGapAhead = Math.min(minGapAhead, g);
+          if (f > placed.f + 60 * 2 && Math.abs(n.lateral) < L.highway.halfW - 2 && Math.sign(n.lateral) === T.exit.side) merged = true;
+        }
+      }
+      for (let i = 0; i < 60 * 3; i++) { tk.finger(false); L.update(1 / 60); }
+      tk.finger(false);
+      out[kase] = { placed: !!placed, merged, bangs: (L.flags.carCrashes || 0) - c0, touches: (L.flags.hwyTrafficHit || 0) - t0,
+                    moves: placed ? (L.flags.hwyMergeMoves || 0) - placed.m0 : 0, drops: placed ? (L.flags.hwyMergeDrops || 0) - placed.d0 : 0,
+                    laneMoved, clearIn3s: !!fellBack, minGapAhead: kase === "aheadBlocked" ? Math.round(minGapAhead) : null };
+    }
+    return out;
+  });
+  const mc = mergeCases;
+  check(`track: merging off the road back with a car EXACTLY level with him -- other lane free (it moves over) or taken -- it is clear of him within three seconds; one just AHEAD with the other lane taken stays ahead; nothing touches him`,
+    Object.values(mc).every(c => c.placed && c.merged && c.bangs === 0 && c.touches === 0) &&
+    mc.beside.laneMoved && mc.beside.moves > 0 && mc.beside.clearIn3s && mc.besideBlocked.clearIn3s &&
+    mc.aheadBlocked.minGapAhead > 4,
+    JSON.stringify(mc));
   // and back on: board again for what follows
   await page.evaluate(() => window.__tk.board());
 

@@ -765,5 +765,8 @@ function lsCovers(x, z, extra) {
   return false;
 }
 
-lsBuild();
+// three.js draws Math.random for every object it makes; built on the kit's own
+// stream (vkQuiet, 0 draws back), the seeded traffic sees the stream it saw before
+// this set-piece existed.
+vkQuiet(0, () => lsBuild());
 spCountRegister("launchSite", () => lsite.phase === "count");

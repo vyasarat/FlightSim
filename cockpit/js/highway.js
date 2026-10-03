@@ -1104,6 +1104,21 @@ function hwyUpdateTraffic(dt, px, pz) {
         sp = Math.max(sp, lerp(sp, carHere.speed * 1.03, k));
       }
     }
+    // ...and it never sits LEVEL with him as he merges. The two rules above see a
+    // car ahead of him or behind him; one alongside, in the lane his way on
+    // joins, was neither -- and the toy track's road back met one there,
+    // a bang for a hands-off finger at the merge. It moves over if it can;
+    // if it cannot, it drops back and lets him in.
+    // (A car AHEAD of him is the yield rule's: it pulls away. Only one level with
+    // him or behind him is ever slowed -- he is never put behind a slowing car.)
+    if (car.merging && laneGap < HW.laneW * 1.1) {
+      const gap = (t.s - carHere.s) * t.dir;
+      if (gap > -T.mergeBeside && gap < T.mergeAhead) {
+        const want = HW.lanes - 1 - Math.round(t.laneF);
+        if (t.laneF === t.lane && want !== t.lane && hwyLaneClear(t, want)) { t.lane = want; flags.hwyMergeMoves = (flags.hwyMergeMoves || 0) + 1; }
+        else if (gap <= T.mergeLevel) { sp = Math.min(sp, carHere.speed * T.mergeDrop); flags.hwyMergeDrops = (flags.hwyMergeDrops || 0) + 1; }
+      }
+    }
     if (t.laneF !== t.lane) {
       const d = t.lane - t.laneF, step = dt / T.laneChange;
       t.laneF = Math.abs(d) <= step ? t.lane : t.laneF + Math.sign(d) * step;

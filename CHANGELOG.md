@@ -10,6 +10,23 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v137 — no bang at the merge, and the new set-pieces leave the traffic alone
+
+No new features; a fix found by the full harness. Leaving the toy track by its
+exit lane, hands-off, could end in a bang just as the road back joined the
+motorway: a traffic car was driving level with him in the lane he was joining.
+The traffic made room for a car ahead of him or behind him, but not one
+alongside. Now, while he merges, a car level with him in that lane moves over,
+or if it can't, drops back and lets him in; a car ahead of him still pulls
+away, as before. The touch was seen twice in the full harness and twice alone,
+then not again with nothing changed, so it depends on where the traffic happens
+to be at that moment. The new check places the traffic instead of waiting for
+it to be there. three.js uses up random numbers
+for every object it makes, and building them moved the traffic. They are now
+built on their own random numbers (`vkQuiet`, as the traffic's own models
+are), so the traffic is laid out as it was before. The toy track's exit check
+now says what any bang was.
+
 ## v136 — a monster truck that squashes junk cars
 
 A loop of dirt track on the plains, just west of the motorway north of the
