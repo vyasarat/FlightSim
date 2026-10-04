@@ -1195,8 +1195,8 @@ const TUNE = {
   // (landMax*) says what counts as arriving and everything else is a crash.
   // The car's and the boat's crawls are their old crash speeds, unchanged.
   solid: {
-    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1 },
-    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99 },
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99 },   // the monster never bangs at any speed
     reassemble: 1.6,             // seconds a rover or drone stays in pieces
     backOff: 7,                  // metres it comes back from the thing it hit
   },
@@ -1335,6 +1335,29 @@ const TUNE = {
   // motorway on the plains. Point at it and the truck roars off, jumps a ramp,
   // lands on a row of six junk cars and squashes them flat, then drives round
   // the loop home -- and the cars pop back up.
+  // v141: THE MONSTER TRUCK HE DRIVES (monster.js) -- not the set-piece below,
+  // which stays as it is. About three times the SUV. Anywhere, on or off road,
+  // steering freely; it never bangs: what it meets is crushed or knocked flying
+  // and pops back once he has gone, and what is too big to crush stops it.
+  monster: {
+    scale: 1.7,                     // over the 7 m set-piece model: 12 m long, ~9.5 m tall, 3 m wheels
+    cruise: 24, burst: 34, reverse: 7, accel: 9, brake: 7, coast: 2.5,   // m/s and m/s^2
+    turnRate: 70, turnInPlace: 40,  // degrees a second at full steer: rolling, and stopped
+    steerDead: 0.08,                // a hand resting on the glass does not steer
+    gravity: 12,                    // in the air: a cartoon's, a high arc
+    step: 3.2,                      // it rolls up on to anything this much higher than its wheels
+    hullR: 5.5, hullH: 9,           // its body against what it meets: a column this wide and tall
+    crushH: 22,                     // anything up to this tall is crushed; taller stops it (a shove)
+    crushMinV: 1.5,                 // ... at this speed or more; slower it simply pushes against it
+    crushSlow: 0.85,                // its speed after each crush
+    landCrush: 6,                   // landing from a jump at this sink rate crushes what it lands on
+    popR: 140, popAfter: 5,         // what it crushed pops back once he is this far off, after this long
+    debris: 48, debrisLife: 2.4,    // the pieces that fly off a crush (one instanced draw)
+    debrisClear: 10,                // ... and none starts nearer his cab than this
+    cam: { back: 30, up: 13, lag: 4.5, look: 22, eye: 7.2, minPull: 0.12, pullRise: 16 },   // pulled in by a building behind: as near as it must, and up over the cab
+    speedSteps: [0.6, 0.8, 1.0, 1.3, 1.6],
+  },
+
   monsterTruck: {
     n: [258, 880], s: [230, 420],   // the jump leg, north (the start) to south, ~95 m west of the road; the return leg runs west of it
     loopR: 40,                      // the two U-turns' radius: the return leg is 2 x loopR west
@@ -1355,6 +1378,7 @@ const TUNE = {
     armR: 1100, innerR: 90, coneDeg: 42,
     carView: 310,                   // (unused by the car now: kept so a test holding it off still reads)
     carArmR: 2000,                  // the car arms only within this of the landing (at the top speed step he covers 1.2 km before it lands)
+    monsterQuiet: 650,              // v141: in his own monster truck nearer the landing than this, it does not arm (he is in the arena himself)
     landBearing: 18, landBearingR: 12,   // ... on his RIGHT less: he sits on the left, and the buttons and the map screen are there                // in the car it arms so that, at the landing, the truck is this many
                                     // degrees off his nose -- in the open windscreen, whichever way he drives
     count: 3,
@@ -1940,6 +1964,7 @@ const TUNE = {
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
     car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true },  // its own model: TUNE.car
+    monster:          { cruiseSpeed: 24, turnRateDeg: 70, pitchLimitDeg: 40, bankLimitDeg: 8, accel: 9, capped: true, size: 1.0, hasGear: false, monster: true },  // its own model and rules: TUNE.monster
     speedboat:        { cruiseSpeed: 42, turnRateDeg: 46, pitchLimitDeg: 12, bankLimitDeg: 18, accel: 16, capped: true, size: 1.0, hasGear: false, boat: true },  // its own model: TUNE.boat
     // Stage 2. Shelved from TUNE alone, so the card exists and does not render,
     // and the model rig can still inspect the hull before it ships.
@@ -1950,6 +1975,7 @@ const TUNE = {
     prop:             ["#e0483e", "#f2f4f7"],
     helicopter:       ["#20a39e", "#f2f4f7"],
     car:              ["#4a4f55", "#c9ced6"],   // stealth grey; no badge, no wordmark
+    monster:          ["#2b6fd1", "#ffd23e"],   // the set-piece truck's blue and yellow
     rocket:           ["#b8bec9", "#d71920"],
     starship:         ["#c9ced6", "#1f2328"],
     airlinerDelta:    ["#0b4ea2", "#d0342c"],

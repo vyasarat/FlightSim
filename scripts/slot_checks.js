@@ -101,6 +101,8 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       at("fighter airborne", () => { L.api.setVehicle("fighter"); L.api.teleportAirborne(1200, 0, 300, 0); });
       at("airliner airborne", () => { L.api.setVehicle("airlinerDelta"); L.api.teleportAirborne(1200, 0, 300, 0); });
       at("car on the road", () => { L.api.setVehicle("car"); L.api.placeOnRunway(); });
+      at("monster truck at the arena", () => { L.api.setVehicle("monster"); L.api.spawnAt(0, 0); });
+      at("monster truck driving", () => { L.api.setVehicle("monster"); L.api.spawnAt(0, 0); L.api.setStick(0, 0); for (let i = 0; i < 60; i++) L.update(1 / 60); });
       at("car honking", () => {
         L.api.setVehicle("car"); L.api.placeOnRunway();
         for (let i = 0; i < 10; i++) L.update(1 / 60);

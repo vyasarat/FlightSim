@@ -74,6 +74,7 @@ function spdStepsFor(key) {
   const vp = TUNE.vehicles[key];
   if (!vp || vp.rocket) return null;
   if (vp.car) return TUNE.car.speedSteps;
+  if (vp.monster) return TUNE.monster.speedSteps;
   if (vp.bigBoat) return TUNE.yacht.speedSteps;
   if (vp.boat) return TUNE.boat.speedSteps;
   if (vp.heli) return TUNE.heli.speedSteps;
@@ -173,7 +174,7 @@ function spdUpdateButtons() {
     // On a fixed-wing the control still belongs to flight: on the ground he has
     // a throttle to hold and the steps would do nothing he could see.
     const vp = state.vp;
-    const plain = vp && !vp.car && !vp.boat && !vp.heli && !vp.rocket;
+    const plain = vp && !vp.car && !vp.monster && !vp.boat && !vp.heli && !vp.rocket;
     if (plain) {
       const onDeck = typeof carrierOnDeck === "function" && carrierOnDeck();
       show = (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !onDeck;

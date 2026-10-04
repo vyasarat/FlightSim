@@ -10,6 +10,31 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v141 — the monster truck, to drive
+
+**From the playtest:** he wants to DRIVE the monster truck. It is a new card in
+the picker: the blue monster truck, about three times the SUV, with wheels
+taller than a man. It starts at the monster-truck arena, nose at the ramp. It
+drives anywhere (roads, fields, cities, up hills) and steers freely like the
+rover, with no lane keep. Finger down drives, a drag steers, a drag up is a
+burst and a drag down backs up, so it is never stuck. The speed pair works.
+**It never bangs.** A small building, a town house, a parked car or a junk
+car it drives into is crushed, with flying pieces and dust. Motorway and city
+traffic it meets is knocked spinning away. A tower or anything else too big
+to crush simply stops it. A knocked car flies up and off to one side, so he
+can see it go. Everything it crushed pops back once he has driven off, and
+all of it at once when he changes vehicle. Water stops it at the shore; a jump
+that comes down in the lake puts him back on the last dry ground. **Big
+jumps:** it drives up the arena's ramp and flies off the lip, about 24 m over
+it at the middle step, and landing on something small crushes that too.
+Roads: it drives on a road only where it is level with it, so it goes under
+a city flyover, never up on to it. It climbs the motorway's embankment from
+the field beside it. In a city street the chase camera comes in over the cab
+rather than sit inside the building behind. The set-piece's own giant truck
+is unchanged, except that it does not start its show while he is in his own
+monster truck inside the arena; from further off he can still set it off.
+New check module `monster_checks` (25 checks); it is in the slot check too.
+
 ## v140 — the toy track: speed steps, two three-way forks, three jumps
 
 **From the playtest:** the giant toy track was "the biggest hit". **Speed

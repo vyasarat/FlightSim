@@ -116,6 +116,8 @@ const VEHICLE_TONES = [
 
 function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
+  // what the monster truck crushed comes back when he leaves it: nothing is lost
+  if (typeof monRestoreAll === "function") monRestoreAll();
   if (typeof heliReset === "function") heliReset();
   if (typeof trackReset === "function") trackReset();
   state.vehicleKey = key;
@@ -201,6 +203,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.gearAnim = 1;
   state.maxAglSinceLiftoff = 0;
   state.phase = "TAXI";
+  if (state.vp && state.vp.monster && typeof monSpawn === "function") monSpawn();   // the arena, either way
   if (state.vp && state.vp.car) {
     if (typeof carSpawn === "function" && typeof highway !== "undefined" && highway.built) carSpawn(originIdx);
   }
