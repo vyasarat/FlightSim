@@ -121,6 +121,8 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       });
       at("helicopter over the fire with a full bucket", () => {
         L.api.setVehicle("helicopter");
+        L.heliReset();   // no destination carried in from an earlier scenario: its ring is not this one's
+
         st.phase = "AIRBORNE"; st.x = L.FF.rig.x + 400; st.z = L.FF.rig.z + 400;
         st.y = L.TUNE.waterLevel + 20; st.speed = 0;
         for (let i = 0; i < 10; i++) L.update(1 / 60);

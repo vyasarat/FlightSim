@@ -170,9 +170,19 @@ function updateHeliControls() {
   if (heliMarkerPoint.z > 1) { x = -x; y = -y; }
   const off = heliMarkerPoint.z > 1 || Math.abs(x) > .78 || Math.abs(y) > .65;
   el.heliTarget.classList.toggle("offscreen", off);
-  el.heliTarget.style.left = ((clamp(x, -.78, .78) + 1) * 50) + "%";
-  el.heliTarget.style.top = ((1 - clamp(y, -.65, .65)) * 50) + "%";
+  x = clamp(x, -.78, .78); y = clamp(y, -.65, .65);
   el.heliTarget.style.setProperty("--bearing", Math.atan2(x, y) + "rad");
+  // The ring never sits on a button (v142's full run found it over the missile
+  // button in portrait, aimed at the fire rig below): out by the screen's edge,
+  // it steps in toward the middle until it is clear of every one.
+  for (let k = 0; k < 8; k++) {
+    el.heliTarget.style.left = ((x + 1) * 50) + "%";
+    el.heliTarget.style.top = ((1 - y) * 50) + "%";
+    if (Math.abs(x) < 0.35 && Math.abs(y) < 0.3) break;   // the middle of the screen has no buttons
+    const ring = btnDrawnRects(el.heliTarget), ctrls = btnControlRects();
+    if (!ring.some(r => ctrls.some(c => btnHits(r, c)))) break;
+    x *= 0.82; y *= 0.82;
+  }
 }
 
 // ---- WHAT HE CAN LAND ON (v139): anything solid. The floor under the helicopter

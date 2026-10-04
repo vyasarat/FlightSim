@@ -26,7 +26,7 @@ the distance), and 2.5 seconds after they are down the camera swings back to
 him. From there the flight is the rocket's: the core (flown home too), the
 fairing, the second stage, space, the Moon, Mars and the station. Coming home
 he lands on the launch site's pad. Each new stack has its side boosters again.
-A tap on the screen during the watch hands the rocket back at once, and the go button stays away while it watches. New check module `heavy_checks` (13 checks).
+A tap on the screen during the watch hands the rocket back at once, and the go button stays away while it watches. New check module `heavy_checks` (13 checks). Also, found by the full run: the helicopter's target ring could sit over the missile button in portrait (aimed down at the fire rig). It now steps in toward the middle of the screen until it is clear of every button.
 
 ## v141 — the monster truck, to drive
 
