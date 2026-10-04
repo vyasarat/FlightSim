@@ -1034,13 +1034,32 @@ const TUNE = {
       motorAccel: 6.5, motorSpeed: 30,   // his finger: the push, and the speed it pushes toward on the flat
       roll: 0.22, drag: 0.0011,          // rolling and air
       boostAccel: 26, boostMax: 46,      // the spinning rollers
+      // v140: THE SPEED STEPS work here, the car's own pair (speed.js). A step
+      // scales the speed his finger pushes toward; above the middle step it
+      // also pushes harder and the rollers throw him faster, up to stepBoostMax
+      // times. Below it the rollers ease off only to stepBoostMin: they are what
+      // gets him round the loops, and a slow step is not a fall every lap.
+      stepBoostMin: 0.85, stepBoostMax: 1.3,
+      // Every kicker (and the ski-jump) CAPS his speed at its own `capV` as he climbs it -- a
+      // brake in the rollers, speed only -- so the fastest step still lands on
+      // the far side, and never flies past the whole landing.
+      kickerBrake: 30,
       // A loop PUSHES him round and never pulls: he peels off once what it would
       // have to pull with passes `grip` g. It is an assist, and weakens as he learns.
       grip: 0.18,
     },
-    cam: { back: 15, up: 5.5, lag: 5, upLag: 4.5 },   // the chase rides the track behind him; the seat is the car's own
+    cam: { back: 15, up: 5.5, lag: 5, upLag: 4.5,
+           jump: { back: 10, side: 28, up: -1 } },        // off a jump: out to his RIGHT (+side), level with him: him against the sky, the gap under him
+    // v140: the sign before every fork that has somewhere to go -- a blue gantry
+    // over the stem `ahead` metres before the fork's approach, an arrow each way
+    // and the ride that way drawn on it (a loop, a jump, a corkscrew). Big, so
+    // he sees the choice coming from far off.
+    sign: { ahead: 15, h: 9, panel: 9 },   // the chase rides the track behind him; the seat is the car's own
     net: { start: 5, len: 84, w: 48, drop: 7, farH: 17, flight: 3.6, arc: 48 },
-    cars: { count: 3, spacing: 150, speed: 27, hold: 32, touch: 7.5, back: 3 },
+    // v140: a toy car he is closing on, within `yieldR` ahead, OUTRUNS him by
+    // `yieldMatch` -- the motorway's promise (fast is his; a held finger never
+    // bangs). With the speed steps and a longer course he caught them every lap.
+    cars: { count: 3, spacing: 150, speed: 27, hold: 32, touch: 7.5, back: 3, yieldR: 90, yieldMatch: 4 },
     exit: { lead: 130, out: 220, fwd: 90, boardBack: 110 },    // its road: the mouth, the sweep off, the board before it
     props: {
       sofa: { w: 58, d: 24, seat: 7, back: 11, arm: 9 },
@@ -1089,20 +1108,73 @@ const TUNE = {
       ] },
       { id: "B_stunt", from: "main1", merge: "main2", sections: [   // the gap jump
         { type: "sbend", len: 35, shift: -14 },
-        { type: "kicker", len: 14, rise: 3.2, lipSlope: 0.14 },
+        { type: "kicker", len: 14, rise: 3.2, lipSlope: 0.14, capV: 40 },
         { type: "gap", len: 26, dy: -0.8 },
         { type: "landing", len: 70, fall: 8 },
         { type: "straight", len: 30, climb: 5.6 },
         { type: "sbend", len: 35, shift: 14 },
       ] },
-      { id: "main2", from: "B_safe", sections: [
+      { id: "main2", from: "B_safe", fork: { safe: "C_safe", stunt: "C_jump", left: "C_loop", approach: 50 }, sections: [
         { type: "straight", len: 12 },
         { type: "hump", len: 90, height: 16 },                 // over the sofa
         { type: "straight", len: 14 },
         { type: "spiral", turns: 1.25, radius: 26, rise: 24, dir: -1, bank: 16 },   // round the lamp
         { type: "straight", len: 10 },
         { type: "booster", len: 22 },
+        { type: "straight", len: 130 },                        // a long straight: the sign, then fork C, three ways
+      ] },
+      // FORK C (v140). Hands-off: straight on. Held left: a loop. Held right: the
+      // middle-sized jump. Every branch is 220 m along and comes back on the line.
+      { id: "C_safe", from: "main2", merge: "main3", sections: [
+        { type: "straight", len: 220 },
+      ] },
+      { id: "C_loop", from: "main2", merge: "main3", sections: [
+        { type: "sbend", len: 40, shift: 16 },
+        { type: "straight", len: 70 },
+        { type: "booster", len: 16 },
+        { type: "loop", radius: 14, offset: 8 },
+        { type: "straight", len: 54 },
+        { type: "sbend", len: 40, shift: -24 },              // back on the line only at the very end
+      ] },
+      { id: "C_jump", from: "main2", merge: "main3", sections: [
+        { type: "sbend", len: 35, shift: -16 },
+        { type: "booster", len: 16 },
+        { type: "kicker", len: 16, rise: 4.5, lipSlope: 0.3, capV: 34 },
+        { type: "gap", len: 36, dy: -1 },
+        { type: "landing", len: 60, fall: 9.5 },
+        { type: "straight", len: 22, climb: 6 },
+        { type: "sbend", len: 35, shift: 16 },
+      ] },
+      { id: "main3", from: "C_safe", fork: { safe: "D_safe", stunt: "D_jump", left: "D_loop", approach: 50 }, sections: [
         { type: "drop", len: 46, height: 22 },
+        { type: "straight", len: 14 },
+        { type: "booster", len: 20 },
+        { type: "straight", len: 120 },                        // the sign, then fork D
+      ] },
+      // FORK D: the big ones. Held left: a tall loop. Held right: the big jump.
+      { id: "D_safe", from: "main3", merge: "main4", sections: [
+        { type: "straight", len: 300 },
+      ] },
+      { id: "D_loop", from: "main3", merge: "main4", sections: [
+        { type: "sbend", len: 45, shift: 18 },
+        { type: "straight", len: 110 },
+        { type: "booster", len: 20 },
+        { type: "loop", radius: 18, offset: 9 },
+        { type: "straight", len: 80 },
+        { type: "sbend", len: 45, shift: -27 },
+      ] },
+      { id: "D_jump", from: "main3", merge: "main4", sections: [
+        { type: "sbend", len: 40, shift: -18 },
+        { type: "booster", len: 20 },
+        { type: "kicker", len: 20, rise: 7, lipSlope: 0.45, capV: 36 },
+        { type: "gap", len: 52, dy: -2 },
+        { type: "landing", len: 80, fall: 14 },
+        { type: "straight", len: 48, climb: 9 },
+        { type: "sbend", len: 40, shift: 18 },
+      ] },
+      { id: "main4", from: "D_safe", sections: [
+        { type: "straight", len: 10 },
+        { type: "booster", len: 26 },
         { type: "straight", len: 14 },
         { type: "loop", radius: 14, offset: 9 },               // the triple loop
         { type: "straight", len: 6 },
@@ -1110,7 +1182,7 @@ const TUNE = {
         { type: "straight", len: 6 },
         { type: "loop", radius: 12, offset: 9 },
         { type: "straight", len: 26 },
-        { type: "ski", len: 34, rise: 9, lipSlope: 0.75 },     // and into the net
+        { type: "ski", len: 34, rise: 9, lipSlope: 0.75, capV: 31 },   // and into the net
       ] },
     ],
   },

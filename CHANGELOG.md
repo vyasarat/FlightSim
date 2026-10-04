@@ -10,6 +10,33 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v140 — the toy track: speed steps, two three-way forks, three jumps
+
+**From the playtest:** the giant toy track was "the biggest hit". **Speed
+steps:** the speed pair was already on screen there, but the boosters set the
+pace, so a step hardly changed anything. Now a step sets how fast his finger
+pushes, and above the middle step the boosters throw him faster too. A lap
+takes 105 s on the slowest step and 62 s on the fastest. **Two new forks,
+three ways each:** hands-off goes straight on; a full steer held left takes a
+loop; held right takes a jump. Fork C has a loop by the lamp and a
+middle-sized jump; fork D has a tall loop and the big jump. The branches come
+back on the line exactly. A big blue sign over the track before every fork
+that goes somewhere shows the ride each way: an orange loop, a ramp-and-car,
+or a spring for the corkscrew. **Jumps:** with the old gap jump there are
+three, of different sizes (26, 36 and 52 m), each under an amber ring. Each
+has a booster before it. Too slow and he falls, goes bang and comes back at
+that booster, as at the old gap. Each kicker (and the ski-jump) brakes him to
+what its landing can catch, so every speed step lands every jump. **Off a
+jump the camera swings out** to his right, low, so he sees himself flying
+against the sky with the gap under him; from straight behind, a car in the air
+looked like a car on the track. **Toy cars:** a toy car he catches up with now
+outruns him, as the motorway's traffic does, and one he catches anyway (where
+a branch rejoins) is nudged on ahead. Rear-ending one is no longer a bang;
+with the faster steps and the longer course he was rear-ending them every lap.
+`track_checks`: 27 checks (9 new). At every step, hands-off, held right and
+held left, the whole run goes through with no bang; each sign shows each ride
+on its own side.
+
 ## v139 — the helicopter lands anywhere solid
 
 **From the playtest:** "gets the ground warning near land and blows up most

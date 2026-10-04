@@ -32,6 +32,7 @@ entry below.
 | v138 | in the car, slow down or stop by the lake to watch the fireworks finale (he is never asked to) | open |
 | v138 | say the monster truck is "giant" or "huge", and drive up and down past it to make it jump again | open |
 | v139 | land the helicopter on top of something (a tall building, the bridge or the big ship) on purpose, and take off again with no bang | open |
+| v140 | on the toy track, hold left or right on purpose at a sign to choose the loop or the jump, and press the fast button to go faster | open |
 
 ## Entries
 
