@@ -34,6 +34,7 @@ entry below.
 | v139 | land the helicopter on top of something (a tall building, the bridge or the big ship) on purpose, and take off again with no bang | open |
 | v140 | on the toy track, hold left or right on purpose at a sign to choose the loop or the jump, and press the fast button to go faster | open |
 | v141 | pick the monster truck, drive it off the big ramp, and go looking for houses and cars to squash (and say "crush" or make the noise) | open |
+| v142 | pick the booster rocket, hold the throttle, and watch the two side boosters land without being told to look (and want to launch again to see it again) | open |
 
 ## Entries
 

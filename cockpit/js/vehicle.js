@@ -110,8 +110,9 @@ function buildVehicleModel(key) {
     g.traverse(m=>{if(m.isMesh)m.castShadow=!!m.userData.toyCaster;});
     toyMergeFittings(g);
     g.userData.groundOffset = -new THREE.Box3().setFromObject(g).min.y;
-  } else if (key === "rocket") {
+  } else if (key === "rocket" || key === "heavy") {
     buildRocketStack(g, { mA, mB, glassM });
+    if (key === "heavy") heavyAddSides(g);
   } else if (key === "starship") {
     buildStarshipStack(g, { mA, mB, glassM });
   } else if (key === "fighter") {
@@ -210,7 +211,8 @@ function buildVehicleModel(key) {
 
 function updateVehicleModel(dt) {
   if (!vehicleModel) return;
-  const chaseVisible = state.viewChase && !state.exploding;
+  // (while the camera watches the heavy's boosters home, his rocket waits out of the picture)
+  const chaseVisible = state.viewChase && !state.exploding && !(typeof heavyWatching === "function" && heavyWatching());
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
   if (state.vp.car && typeof trk !== "undefined" && trk.on) { trackPoseModel(vehicleModel); return; }

@@ -601,6 +601,20 @@ function updateLaunchSite(dt) {
   const d = Math.hypot(state.x - T.x, state.z - T.z);
   const near = d < TUNE.fogFar * 1.45;
   lsite.g.visible = near;
+  // v142: in the booster rocket he IS this rocket, on this pad: the site's own
+  // stack steps aside and never counts down; it is back when he leaves it
+  if (state.vp && state.vp.heavy) {
+    if (!lsite.heavyHeld) {
+      if (lsite.phase === "count") { countdownClear(); el.bigNum.classList.remove("sky"); }
+      lsReset(); lsite.heavyHeld = true;
+    }
+    lsite.stack.visible = false;
+    for (const b of lsite.pairs.flat()) b.g.visible = false;
+    for (const a of lsite.arms) a.rotation.y = -1.25;   // swung clear: his rocket is smaller than the site's, and climbs past them
+    lsUpdatePuffs(dt);
+    return;
+  }
+  if (lsite.heavyHeld) { lsite.heavyHeld = false; lsReset(); lsite.stack.visible = true; }
 
   // the tower's beacon: a slow blink, hurrying through the countdown
   const rate = lsite.phase === "count" ? 6 : 1.1;

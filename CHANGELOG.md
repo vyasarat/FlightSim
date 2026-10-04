@@ -10,6 +10,24 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v142 — the booster rocket, to fly
+
+**From the playtest:** he wants to FLY the new rocket, and he likes the side
+boosters landing. It is a new card beside the rocket: the launch site's rocket,
+an orange core with two white side boosters. He launches it from the launch
+site's pad beside the motorway; the site's own stack steps aside while he is
+in it, and comes back when he leaves. Holding the throttle is all it takes:
+about 8 seconds up, the two side boosters let go by themselves. **The camera
+gives him that part.** It swings off the rocket and watches the pair from
+along the line of the two landing pads, so in portrait both boosters stay in
+the picture all the way down. They flip engines-first, boom, and land upright
+on their pads, legs out. His rocket waits in the sky meanwhile (it shows in
+the distance), and 2.5 seconds after they are down the camera swings back to
+him. From there the flight is the rocket's: the core (flown home too), the
+fairing, the second stage, space, the Moon, Mars and the station. Coming home
+he lands on the launch site's pad. Each new stack has its side boosters again.
+A tap on the screen during the watch hands the rocket back at once, and the go button stays away while it watches. New check module `heavy_checks` (13 checks).
+
 ## v141 — the monster truck, to drive
 
 **From the playtest:** he wants to DRIVE the monster truck. It is a new card in

@@ -1335,6 +1335,21 @@ const TUNE = {
   // motorway on the plains. Point at it and the truck roars off, jumps a ramp,
   // lands on a row of six junk cars and squashes them flat, then drives round
   // the loop home -- and the cars pop back up.
+  // v142: THE BOOSTER ROCKET HE FLIES (heavy.js): the launch site's rocket, its
+  // two side boosters peeling off by themselves and flown home to the site's
+  // pads while the camera watches them.
+  heavy: {
+    sepAlt: 380,                    // the side boosters let go here: under the core's own first drop (stageAlt[0])
+    sepPush: 16,                    // m/s outward as they part
+    flipT: 2.5, glideT: 10,         // seconds to turn engines-first, and from separation to the top of the landing burn
+    burnH: 110, burnT: 6, legsT: 2.5,   // the landing burn: from this high over the pad, this long; the legs over its end
+    boomAt: 0.55,                   // the sonic boom this far through the glide
+    watchHold: 2.5,                 // the camera stays on the landed pair this long before it goes back to him
+    // the watching camera: no nearer or further than this, this high for its distance, looking from this way
+    // (along the line of the two pads, a little from the road's side), a narrow lens, and how fast it swings there
+    camNear: 90, camFar: 800, camUp: 0.12, camFrom: [-0.3, 1], camFov: 34, camLag: 4.5, camMargin: 1.35, padsBelow: 260,
+  },
+
   // v141: THE MONSTER TRUCK HE DRIVES (monster.js) -- not the set-piece below,
   // which stays as it is. About three times the SUV. Anywhere, on or off road,
   // steering freely; it never bangs: what it meets is crushed or knocked flying
@@ -1960,6 +1975,7 @@ const TUNE = {
     helicopter:       { cruiseSpeed: 90, turnRateDeg: 55, pitchLimitDeg: 22, bankLimitDeg: 26, accel: 10, capped: true, size: 1.05, hasGear: false, heli: true },   // its own model: TUNE.heli
     rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
     starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
+    heavy:            { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.5, hasGear: false, hidden: false, rocket: true, heavy: true },   // v142: the launch site's rocket (heavy.js)
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
@@ -1978,6 +1994,7 @@ const TUNE = {
     monster:          ["#2b6fd1", "#ffd23e"],   // the set-piece truck's blue and yellow
     rocket:           ["#b8bec9", "#d71920"],
     starship:         ["#c9ced6", "#1f2328"],
+    heavy:            ["#f2f4f7", "#e0483e"],
     airlinerDelta:    ["#0b4ea2", "#d0342c"],
     airlinerEmirates: ["#c9a227", "#d71920"],
     fighter:          ["#6b7280", "#e0483e"],

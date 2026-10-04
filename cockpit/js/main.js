@@ -232,6 +232,7 @@ window.__lp = {
   lsite, LSITE, lsReset, lsForce, lsPuffsLive, lsStackSolid, lsCovers, updateLaunchSite,
   sled, SLED, sledReset, sledForce, sledPuffsLive, sledBricksLive, sledWallWorld, sledSlotError, sledWallSolid, sledCovers, sledToWall, updateRocketSled,
   fbarge, FBARGE, fbReset, fbForce, fbSparksLive, fbToFirstBurst, updateFireworksBarge, spCountBusy,
+  heavy, HV, heavySeparate, heavyWatching, heavyPad, heavyBoosterTilt, heavyReset, rocketRestock, rocketCanSkip,
   mon, MON, monGround, monCanCrush, monActive, monSpawn, monDebrisLive, monSnapCamera, monRestoreAll, solidCol, get buildingInst() { return buildingInst; },
   mtruck, MTRUCK, mtReset, mtForce, mtCarsState, mtPuffsLive, mtLanding, mtCovers, mtAt, mtSquash, updateMonsterTruck,
   demo, DEMO, demoTrigger, demoReset, setBigNum, updateSetpieces, __lpIsHidden: isSolidHidden,

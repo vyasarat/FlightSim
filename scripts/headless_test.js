@@ -5595,6 +5595,7 @@ function check(name, ok, extra) {
   await require("./fireworksbarge_checks")({ newPage, check });
   await require("./monstertruck_checks")({ newPage, check });
   await require("./monster_checks")({ newPage, check });
+  await require("./heavy_checks")({ newPage, check });
   await require("./payoff_size_checks")({ newPage, check });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
   await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
