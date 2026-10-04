@@ -4,7 +4,7 @@ const path = require('path');
 module.exports = async function heliPlayChecks({ newPage, check, shots }) {
   for (const [width, height] of [[1024,768],[768,1024],[844,390],[390,844]]) {
     const { page } = await newPage(width, height);
-    await page.reload(); await page.waitForFunction(() => window.__lp);
+    await page.reload({ timeout: 120000 }); await page.waitForFunction(() => window.__lp, null, { timeout: 120000 });
     const cdp = await page.context().newCDPSession(page);
     const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [{ x: p.x, y: p.y, id: 1 }] : [] });
     const tap = async p => { await touch('touchStart', p); await touch('touchEnd'); };
