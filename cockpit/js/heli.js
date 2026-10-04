@@ -175,6 +175,54 @@ function updateHeliControls() {
   el.heliTarget.style.setProperty("--bearing", Math.atan2(x, y) + "rad");
 }
 
+// ---- WHAT HE CAN LAND ON (v139): anything solid. The floor under the helicopter
+// is the highest surface at (x, z) that is not above its skids: the ground, a
+// roof, a pad, a ship's deck, the motorway where it is a bridge, a city street
+// on a flyover, the yacht's helipad. Water is the one floor it never sits on --
+// it hovers over it (`water`), which is what the bucket needs. Before this the
+// floor was the TERRAIN, so a roof was a wall he was shoved about on for as long
+// as he held the button, and a bridge deck was air he sank through.
+// Traffic, a parked car and a capsule (a mast, a dome) are not floors.
+const heliFloorOut = { y: 0, water: false, solid: null };
+function heliFloorAt(x, z, skidY) {
+  const o = heliFloorOut;
+  const yPad = typeof yachtPadUnder === "function" ? yachtPadUnder(x, z) : null;
+  if (yPad) { o.y = yPad.y; o.water = false; o.solid = null; return o; }
+  const t = terrainEff(x, z), sea = seaLevelAt(x, z);
+  o.water = t < sea; o.y = o.water ? sea : t; o.solid = null;
+  const reach = skidY + H.floorTol;
+  if (typeof highway !== "undefined" && highway.built && typeof hwyNearest === "function") {
+    const n = hwyNearest(x, z);
+    if (n && Math.abs(n.lateral) < highway.halfW && n.y > o.y && n.y <= reach) { o.y = n.y; o.water = false; }
+  }
+  if (typeof stSurfaceAt === "function") {
+    const sy = stSurfaceAt(x, z);
+    if (sy !== null && sy > o.y && sy <= reach) { o.y = sy; o.water = false; }
+  }
+  // The carrier's flight deck is not a solid (setpieces.js: a near miss in the
+  // plane is never a bang), but it is a deck: and anything inside its footprint
+  // under it is inside the ship, so it counts from any height.
+  if (typeof carrier !== "undefined" && carrier.g && Math.abs(x - carrier.x) < CV.deckW / 2 &&
+      Math.abs(z - carrier.z) < CV.deckL / 2 && carrier.deck > o.y) { o.y = carrier.deck; o.water = false; }
+  forEachSolid(b => {
+    if (b.y1 <= o.y || b.y1 > reach || b.car !== undefined || b.park || b.cap || isSolidHidden(b)) return;
+    if (b.hw < H.floorMinHalf || b.hd < H.floorMinHalf) return;   // a mast, an antenna: not somewhere to stand
+    // the same footprint the wall law gives him (its box widened by his radius):
+    // half on, half off a roof's edge, it is the roof he rests on -- the lower
+    // floor would sink him on to the edge, and its nearest way out is up
+    const foot = b.o3 || b.ramp ? 0 : vehSolidR();
+    if (Math.abs(x - b.x) > b.hw + foot || Math.abs(z - b.z) > b.hd + foot) return;
+    let top = b.y1;
+    if (b.ramp) {
+      const L = solidRampLocal(b.ramp, x, top, z, solidRampTmp);
+      if (L.a < 0 || L.a > b.ramp.len || Math.abs(L.s) > b.ramp.w / 2) return;
+      top = b.ramp.o[1] + solidRampH(b.ramp, L.a);
+    } else if (b.o3 && !solidTestBox3(b.o3, x, top - 0.3, z, 0.01)) return;   // its bounding box, not the thing
+    if (top > o.y && top <= reach) { o.y = top; o.water = false; o.solid = b; }
+  });
+  return o;
+}
+
 function updateHelicopter(dt) {
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
   // The altitude buttons replace the throttle. The speed control is still here,
@@ -182,17 +230,18 @@ function updateHelicopter(dt) {
   // js/speed.js explains and spdUpdateButtons decides.
   el.rotateArrow.classList.remove("on");
 
-  // The yacht's helipad is GROUND while he is over it -- that one substitution is
-  // the whole of "a moving landing target", because everything below already
-  // knows how to land on ground.
-  const yPad = typeof yachtPadUnder === "function" ? yachtPadUnder(state.x, state.z) : null;
+  // The yacht's helipad is GROUND while he is over it (heliFloorAt) -- that one
+  // substitution is the whole of "a moving landing target", because everything
+  // below already knows how to land on ground.
   if (heli.followPad && typeof yachtPadWorld === "function") {
     const p = yachtPadWorld();
     if (p && heli.target) { heli.target.x = p.x; heli.target.y = p.y; heli.target.z = p.z; }
     else heli.followPad = false;
   }
-  const ground = yPad ? yPad.y : Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
-  const rest = ground + TUNE.gearHeight;
+  const floor = heliFloorAt(state.x, state.z, state.y - TUNE.gearHeight);
+  const overWater = floor.water;
+  const ground = floor.y;
+  const rest = overWater ? ground + H.waterFloor : ground + TUNE.gearHeight;
   const touching = state.touching;
   // a real finger has a place on the screen; the keyboard and the test hooks
   // fall back to the stick values, which mean the same thing on screen
@@ -210,6 +259,23 @@ function updateHelicopter(dt) {
     for (const t of [.5, 1]) {
       const floor = Math.max(terrainEff(state.x + heli.vx * H.terrainLookahead * t, state.z + heli.vz * H.terrainLookahead * t), TUNE.waterLevel);
       heli.altitude = Math.max(heli.altitude, floor + H.terrainClearance);
+    }
+  }
+  // Coming down while still travelling: whatever stands ahead is a floor it will
+  // not sink below until it has slowed (v139). So a descent ends ON the roof he
+  // was heading for, or beside it, never in its side. Level flight is unchanged:
+  // flying into the side of something at speed is still the one bang.
+  // And holding down is a landing: if something too tall to come down on stands
+  // in the way, it slows to a creep rather than meet its side (`heli.landBlock`,
+  // read below where the speed is set).
+  heli.landBlock = false;
+  if (heli.vertical < 0 && !grounded && heli.speed > H.landCreep) {
+    const skid = state.y - TUNE.gearHeight;
+    for (const k of H.landLook) {
+      const px = state.x + heli.vx * k, pz = state.z + heli.vz * k;
+      const f = heliFloorAt(px, pz, skid);
+      if (!f.water) heli.altitude = Math.max(heli.altitude, f.y + TUNE.gearHeight + H.landHold);
+      if (!heli.landBlock && solidQuery(px, state.y, pz, vehSolidR() + H.landMargin, vehSolidClass(), skid)) heli.landBlock = true;
     }
   }
   const wantVy = clamp((heli.altitude - state.y) * H.vGain, -H.maxSink, H.climb);
@@ -249,6 +315,7 @@ function updateHelicopter(dt) {
 
   // ---- horizontal motion: ease into the selected destination
   if (heli.vertical < 0) wantSpeed *= clamp((state.y - rest) / H.landingBrakeH, 0, 1);
+  if (heli.landBlock) wantSpeed = Math.min(wantSpeed, H.landCreep);
   if (grounded) wantSpeed = 0;
   // A helicopter can move sideways: heading follows smoothly without rotating
   // an existing forward velocity or stopping travel for every course correction.
@@ -266,7 +333,10 @@ function updateHelicopter(dt) {
   heli.vy += (wantVy - heli.vy) * Math.min(1, H.vAccel * dt);
   heli.vy = clamp(heli.vy, -H.maxSink, H.climb);
 
-  if (grounded) {
+  if (grounded && state.y > rest + 0.5) {
+    // what it stood on has gone from under it: it lifts and settles on what is there now
+    state.phase = "AIRBORNE"; heli.altitude = rest; state.heliDown = false;
+  } else if (grounded) {
     state.y = rest;
     heli.speed = 0; heli.vx = heli.vz = 0; state.speed = 0;
     heli.turn *= 1 - Math.min(1, 4 * dt);
@@ -301,25 +371,17 @@ function updateHelicopter(dt) {
   }
 
   if (heli.vertical >= 0 && !grounded) {
-    const clearance = (yPad ? yPad.y : Math.max(terrainEff(state.x, state.z), TUNE.waterLevel)) + TUNE.gearHeight;
-    if (state.y < clearance) { state.y = clearance; heli.altitude = Math.max(heli.altitude, clearance); heli.vy = Math.max(0, heli.vy); }
+    if (state.y < rest) { state.y = rest; heli.altitude = Math.max(heli.altitude, rest); heli.vy = Math.max(0, heli.vy); }
   }
-
-  // walls are still walls: fly into a tower and it goes bang, like anything else
-  resolveSolidWalls();
-  if (state.exploding) return;
 
   // ---- the sea is a floor, not a landing place. Sitting on it would end the
-  // flight and take the bucket button away in the one spot he needs it.
-  const overWater = !yPad && terrainEff(state.x, state.z) < TUNE.waterLevel - 0.5;
+  // flight and take the bucket button away in the one spot he needs it. Any
+  // water: the sea, the lake, the lock (`seaLevelAt`), never only the sea's level.
   if (overWater) {
-    const floor = TUNE.waterLevel + H.waterFloor;
-    if (state.y < floor) { state.y = floor; if (heli.vy < 0) heli.vy = 0; }
+    if (state.y < rest) { state.y = rest; if (heli.vy < 0) heli.vy = 0; heli.altitude = Math.max(heli.altitude, rest); }
     state.heliDown = false;
-    return;
-  }
-  // ---- the ground. It can only ever arrive at maxSink, so setting down is soft.
-  if (!grounded && state.y <= rest && heli.vy <= 0) {
+  } else if (!grounded && state.y <= rest && heli.vy <= 0) {
+    // ---- the ground, a roof, a deck. It only ever arrives at maxSink, so setting down is soft.
     state.y = rest;
     heli.vy = 0;
     state.phase = "TAXI";
@@ -328,6 +390,36 @@ function updateHelicopter(dt) {
   } else if (state.y > rest + 1) {
     state.heliDown = false;
   }
+
+  // Walls are still walls: fly into the SIDE of a tower at speed and it goes
+  // bang, like anything else. What is under the skids is a floor, not a wall --
+  // the skids are the base the one law measures from.
+  if (state.phase !== "TAXI") resolveSolidWalls(state.y - TUNE.gearHeight);
+}
+
+
+// Its one warning (flight.js): faster than its crawl, and the wall law would
+// meet something solid along its own travel, at its own height, within
+// crashWarnTime -- what is under the skids is a floor, not a wall, exactly as
+// resolveSolidWalls is asked. Flying level into the side of a tower warns;
+// coming down on to a roof never does.
+function heliWarnAhead() {
+  if (Math.hypot(heli.vx, heli.vz) <= vehCrawl()) return false;
+  // holding down is a landing: anything in the way slows it to a creep first
+  // (`landBlock`), so it is never the bang a warning is for
+  if (heli.vertical < 0) return false;
+  const skid = state.y - TUNE.gearHeight;
+  for (let t = 0.4; t <= TUNE.crashWarnTime; t += 0.4)
+    if (solidQuery(state.x + heli.vx * t, state.y, state.z + heli.vz * t, vehSolidR(), vehSolidClass(), skid)) return true;
+  return false;
+}
+
+// A mid-air is a bang only at speed (v139). A helicopter hovering or creeping --
+// at or under its crawl, the wall law's own number -- is not flying into anything:
+// the kite or the paper planes that drift into it pop, and it stays. The kites
+// fly 28-50 m over the fields, which is exactly where he comes down to land.
+function heliMidairSoft() {
+  return vehKind() === "heli" && Math.abs(state.speed) <= vehCrawl();
 }
 
 // The helicopter against a wall, through the one law (collision.js): over its
@@ -336,6 +428,15 @@ function updateHelicopter(dt) {
 // the part of its drift that was INTO it gone.
 function heliWallHit(push, hit) {
   if (Math.hypot(heli.vx, heli.vz) > vehCrawl()) return false;   // the shared bang
+  // Come down on the tip of a mast and the nearest way out is UP, so it would sit
+  // on the point for ever. A thing too narrow to stand on (heliFloorAt) shoves
+  // him off sideways instead, and he settles beside it.
+  const b = hit && hit.b;
+  if (b && (push.ny || 0) > 0.7 && (b.hw < H.floorMinHalf || b.hd < H.floorMinHalf)) {
+    let dx = state.x - b.x, dz = state.z - b.z, d = Math.hypot(dx, dz);
+    if (d < 1e-3) { dx = Math.sin(state.heading); dz = Math.cos(state.heading); d = 1; }
+    push = { nx: dx / d, ny: 0, nz: dz / d, d: Math.max(0, Math.max(b.hw, b.hd) + H.rotorClear - d) };   // clear of the rotor, not just the body
+  }
   const k = push.d + 0.3;
   state.x += (push.nx || 0) * k; state.z += (push.nz || 0) * k; state.y += (push.ny || 0) * k;
   // under a roof it is held down, over one held up: the climb into it goes

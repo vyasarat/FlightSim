@@ -861,6 +861,7 @@ function carrierCanLaunch() { return carrier.state === "parked"; }
 function carrierTryTrap() {
   if (carrier.state !== "none") return false;
   if (!state.vp || state.vp.rocket) return false;
+  if (vehKind() === "heli") return false;     // it sets down on the deck itself (heliFloorAt), and lifts off with up
   if (state.phase !== "AIRBORNE" || state.exploding) return false;
   const L = carrierLocal(state.x, state.z);
   if (Math.abs(L.s) > CV.deckW / 2 || Math.abs(L.f) > CV.deckL / 2) return false;

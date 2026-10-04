@@ -10,6 +10,33 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v139 — the helicopter lands anywhere solid
+
+**From the playtest:** "gets the ground warning near land and blows up most
+times he tries to land." Two things did it. The alarm was the plane's
+sink-rate alarm, so it went off on every single descent. And the kites and
+paper-plane flocks that fly 28–50 m over the fields counted as a mid-air even
+with the helicopter hovering still among them, which is exactly the height he
+comes down through. Now the helicopter has no ground warning. It still warns, as before, when it is
+flying level at the side of something at speed, the one bang left. A kite or flock
+that drifts into it while it hovers or creeps pops, and the helicopter stays.
+Coming down on to the ground, a roof, a pad, a ship's deck, the carrier's
+flight deck, the motorway where it is a bridge, or a city flyover, it settles
+on top and stays there. Before, a roof was a wall it got shoved about on, and
+a bridge deck was air it sank through. Over the sea, the lake or the lock it
+hovers and never sinks. Holding down while it is still travelling, it holds
+over whatever stands ahead and slows to a creep for anything too tall to come
+down on, so a descent meets a roof, never a side. Up takes it off again. The
+one bang left is flying level into the side of something at speed. The
+carrier's arrester wire no longer catches the helicopter, which used to pin it
+to the deck. The cities' tower crowns (spires, masts, glass caps) are now solid
+where they are drawn: before, a helicopter coming down on a crowned tower
+settled inside one, and a plane flew through them. The generator writes them
+from now on, and the gate fails any crown it cannot name. Point-to-go is
+unchanged.
+New check module `heli_land_checks` (16 checks, about 50 landing attempts). It
+fails 11 of 15 on v138.
+
 ## v138 — the merge bang's real cause, and payoffs you can see from the driving seat
 
 **The toy track's merge bang, found and fixed.** Swept over 60 traffic layouts,

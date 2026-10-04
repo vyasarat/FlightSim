@@ -5565,6 +5565,7 @@ function check(name, ok, extra) {
   }
 
   await require("./heli_play_checks")({ newPage, check, shots: SHOTS });
+  await require("./heli_land_checks")({ newPage, check });
   await require("./eject_framing_checks")({ newPage, check, shots: SHOTS });
   await require("./toyfinish_checks")({ newPage, check, shots: SHOTS });
   await require("./toyworld_checks")({ newPage, check, shots: SHOTS });

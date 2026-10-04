@@ -45,7 +45,7 @@ const MODULES = {
   "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks"],
   "boat.js": ["boat_checks", "sea_checks"], "harbor.js": ["boat_checks", "lock_checks", "sea_checks"],
   "lock.js": ["lock_checks"], "yacht.js": ["yacht_checks"], "seaevents.js": ["sea_checks"],
-  "heli.js": ["heli_control_checks", "heli_play_checks"],
+  "heli.js": ["heli_control_checks", "heli_play_checks", "heli_land_checks"],
   "buttons.js": ["slot_checks"], "speed.js": ["speed_horn_checks"],
   "engines.js": ["engine_sound_checks"], "audio.js": ["engine_sound_checks", "hardening_checks"],
   "eventpool.js": ["event_pool_checks"], "events.js": ["event_pool_checks"],
@@ -145,6 +145,25 @@ const cacheName = src => ((src || "").match(/const CACHE_NAME = "([^"]*)"/) || [
     if (changed.has(b)) warn("baseline", `${b} changed -- regenerate only for a deliberate behaviour change, and say which in the changelog`);
   const lines = read("CLAUDE.md").split("\n").length;
   if (lines > 300) warn("rules", `CLAUDE.md is ${lines} lines -- /retro should turn rules into checks and cut them, not add more`);
+}
+
+// ---------- 6. the generated cities' crowns are solid where they are drawn ----------
+// citydata.js writes each building type's solid TIERS; the crown on top (a
+// spire, a mast, a glass cap) city.js reads from `crown` when the generator
+// wrote one, and otherwise names it by how much taller than its top tier the
+// type is, by build_city.py's rules (v139: a helicopter came down inside them).
+// A height step nobody knows is a crown that would be drawn and be air.
+{
+  try {
+    const ctx = {}; vm.createContext(ctx);
+    vm.runInContext(read("cockpit/js/citydata.js").replace(/^const CITY_DATA\s*=/m, "this.CITY_DATA ="), ctx);
+    const known = [0, 3, 8, 23, 30];
+    for (const [key, c] of Object.entries(ctx.CITY_DATA || {})) for (const T of c.types) {
+      if (T.crown) continue;
+      const top = Math.max(...T.tiers.map(t => t[5])), k = T.height - top;
+      if (!known.some(v => Math.abs(k - v) < 0.5)) fail("city", `${key} type ${T.name} stands ${k.toFixed(1)} m over its top tier with no \`crown\` and no known crown of that height -- it would be drawn and be air (city.js cityCrown)`);
+    }
+  } catch (e) { fail("city", "citydata.js would not load for the crown check: " + e.message); }
 }
 
 // ---------- which modules the change answers to ----------

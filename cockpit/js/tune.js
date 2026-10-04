@@ -979,6 +979,14 @@ const TUNE = {
     levelRate: 2.5, noseDeg: 6,
     waterFloor: 5,                  // it hovers this far over the sea and never sets down on it
                                     // (sitting on the water would end the flight and hide the bucket)
+    // v139: it lands on anything solid (heliFloorAt). A top up to floorTol over the
+    // skids still counts as under them -- one frame's descent, a kerb. Coming down
+    // while still faster than landCreep, it looks landLook seconds ahead and holds
+    // landHold over whatever stands there, so a descent meets a roof, never a side.
+    // Anything in the way it cannot come down on (a sphere landMargin wider than
+    // the wall law's, at a look-ahead point) slows it to landCreep instead.
+    // A top narrower than floorMinHalf each way (a mast, an antenna) is a wall, not a floor.
+    floorMinHalf: 2.5, rotorClear: 6.5, floorTol: 1.0, landCreep: 6, landLook: [0.3, 0.7, 1.2, 1.8], landHold: 2, landMargin: 4,
     pickRange: 3000, pickStep: 30,  // how far it looks for what he touched, and how finely
     // A shallow ray grazes the crest in front of him and dips under the ground for
     // a moment before coming out the other side. Taken at face value that put the
