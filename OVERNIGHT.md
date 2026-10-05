@@ -197,6 +197,47 @@ Standing notes not fixed:
 - The heavy's seat on the pad shows the tower and arms.
 - The jump frames for the toy track show height weakly with no ground shadow.
 
+## v143 — the monster truck, after the parent's notes on v141
+
+Commits `db21b83` and `ed30384`. Renders: `evidence/monster143/`.
+- **Crushing is instant on contact.** It needed 1.5 m/s before; stopped
+  against a house, he only pushed at it. Now the first touch goes through.
+  The check (it fails on v142): parked touching a house, the first push
+  takes it within 6 frames, with at least 15 pieces thrown by that crush.
+- **No countdown reads as a wind-up.** The 5-4-3-2-1 over the crush frames
+  was the launch site's: the arena's ramp points straight at it. In the
+  monster truck, no set-piece starts a countdown while he is inside the
+  arena, or for 4 seconds after a crush. Out on the road he can still point
+  at one and set it off (checked both ways). My first version silenced every
+  set-piece in the truck; the law reviewer blocked that as more than the
+  brief asked.
+- **The crush reads in one frame.** The whole thing crushed vanishes. That
+  includes every tier of a city building, which used to leave its upper
+  parts standing. In its place a cloud of 24 to 70 blocks fills its shape,
+  bursts outward and tumbles down. No dust, nothing starts near the cab, and
+  its pieces go when it pops back. A knocked car is thrown up and ahead,
+  over the bonnet, where he sees it from the seat.
+- **The driving seat.** The eye is 11.5 m up, behind a blue bonnet with yellow
+  racing stripes and a steel scoop, with the tops of both front wheels in the
+  bottom corners and a wider lens. The cab is not drawn from inside it.
+  Traffic sits small below (checked: a car 40 m ahead is under 6% of the
+  picture's height).
+
+Reviewers: law-reviewer PASS (round 2, after the set-piece block above).
+render-critic PASS on a fresh set of frames (round 2, after a block on the
+seat view of the traffic knock; the car now flies over the bonnet).
+Standing notes: the tyre tops from the seat are plain black slabs with no
+hub or tread, and are only weakly wheels; no frame shows a car right
+alongside to prove the bonnet clears its roof.
+
+Full harness: **829/829** on `ed30384`, one uninterrupted run with nothing
+else running. The run before it was 828/829: the new instant-crush check
+saw a small town house burst into 14 live pieces against a threshold of 15.
+The cause was real. The minimum burst was 12, trimmed by the clearance
+around the cab, and the check read a live total that drifts across a long
+run. Now the smallest burst is 24 pieces, and the check counts this crush's
+own pieces.
+
 ## Notes for the parent
 - Branch `overnight-2`, local only: nothing pushed, merged or deployed.
 - PLAYTEST.md has today's entry and the open predictions scored against it
