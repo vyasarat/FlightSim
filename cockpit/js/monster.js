@@ -219,12 +219,13 @@ function monCrush(b) {
   const pal = TUNE.palette, cols = b.park || rec.junk ? [pal.rust, pal.steel, pal.ink]
     : b.idx !== undefined ? [pal.white, pal.red, pal.warning, pal.concrete]
     : [pal.rust, pal.concrete, pal.white, pal.steel, pal.red];
-  const n = Math.round(clamp(H * R / 5, 12, MON.burstMax));
+  const n = Math.round(clamp(H * R / 5, MON.burstMin, MON.burstMax));
   const base = Math.max(y0, terrainEff(cx, cz));
   for (let i = 0; i < n; i++) {
     const px = x0 + rnd() * (x1 - x0), pz = z0 + rnd() * (z1 - z0), py = base + rnd() * H;
     if (Math.hypot(px - state.x, pz - state.z) < MON.debrisClear) continue;
     monDebris(px, py, pz, cols[i % cols.length], cx, cz, R);
+    flags.monPieces = (flags.monPieces || 0) + 1;
   }
   noiseBurst(0.28, 260, 0.45, 0); thunk();
   mon.shake = Math.max(mon.shake, 0.35);

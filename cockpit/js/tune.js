@@ -1368,7 +1368,7 @@ const TUNE = {
     landCrush: 6,                   // landing from a jump at this sink rate crushes what it lands on
     popR: 140, popAfter: 5,         // what it crushed pops back once he is this far off, after this long
     debris: 140, debrisLife: 2.4,   // the pieces that fly off a crush (one instanced draw)
-    burstMax: 70,                   // ... up to this many from one thing crushed, scaled by its size
+    burstMin: 24, burstMax: 70,     // ... this many from one thing crushed, scaled by its size (the smallest still a burst)
     debrisClear: 10,                // ... and none starts nearer his cab than this
     quietAfterCrush: 4,             // no set-piece countdown starts for this long after a crush (v143)
     // the chase; the seat (11.5 m up in the cab, 5 m back, 8 degrees down, a wide lens); and, pulled in by a building

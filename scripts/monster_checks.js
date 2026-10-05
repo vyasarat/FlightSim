@@ -258,10 +258,10 @@ module.exports = async function monsterChecks({ newPage, check }) {
       put(hx + h.hw + L.TUNE.monster.hullR + 0.05, hz, hx, hz);
       h = near(hx, hz, 1, o => o.idx !== undefined) || h;
       S.speed = 0; step(5, null);
-      const d0 = L.monDebrisLive(), c0 = L.flags.monCrushes || 0;
+      const d0 = L.flags.monPieces || 0, c0 = L.flags.monCrushes || 0;
       let frames = 0;
       for (; frames < 60 && !L.__lpIsHidden(h); frames++) step(1, 0, 0);
-      out.instant = { frames, gone: L.__lpIsHidden(h), burst: L.monDebrisLive() - d0, crushes: (L.flags.monCrushes || 0) - c0 };
+      out.instant = { frames, gone: L.__lpIsHidden(h), burst: (L.flags.monPieces || 0) - d0, crushes: (L.flags.monCrushes || 0) - c0 };   // pieces thrown by THIS crush, a delta
       L.api.clearStick();
     }
 
