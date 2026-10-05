@@ -542,7 +542,7 @@ function currentBedName() {
   if (typeof rk !== "undefined" && rk && rk.onBody) return rk.onBody.name === "mars" ? "mars" : "moon";
   if (state.spaceF > 0.55) return "space";
   const k = typeof vehKind === "function" ? vehKind() : "plane";
-  if (k === "car") return "car";
+  if (k === "car" || k === "monster") return "car";
   if (k === "heli") return "heli";
   if (k === "boat" || k === "yacht") return "sea";
   // the keys are airlinerDelta / airlinerEmirates, never "airliner"

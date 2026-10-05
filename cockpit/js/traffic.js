@@ -101,6 +101,7 @@ function updateTraffic(dt, px, py, pz) {
       const dx = t.x - state.x, dy = t.y - state.y, dz = t.z - state.z;
       if (dx * dx + dy * dy + dz * dz < 13 * 13) {
         killTraffic(t, state.x, state.y, state.z);
+        if (heliMidairSoft()) continue;       // it flew into HIM, hovering (heli.js)
         flags.midairs++;
         state.exploding = true;
         state.explodeTimer = TUNE.reassembleDelay;

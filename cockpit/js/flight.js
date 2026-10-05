@@ -212,7 +212,14 @@ function updateCrashWarning(dt) {
   // is the whole point of the place, and the wind-up numerals are its only lead-in.
   const muted = (typeof demoAlarmMuted === "function" && demoAlarmMuted()) ||
                 (typeof carrierAlarmMuted === "function" && carrierAlarmMuted());
-  if (!muted && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding && state.liftoffTimer <= 0) {
+  // The helicopter has no GROUND warning (v139): it lands anywhere solid and
+  // hovers over water, so a descent is never a crash about to happen -- and the
+  // sink-rate alarm on every one of them was the warning he heard each time he
+  // tried to land. Its one bang, the side of something at speed, it still warns
+  // of, measured the way it bangs (heliWarnAhead).
+  const heliOwn = vehKind() === "heli";
+  if (heliOwn) warn = !muted && !state.exploding && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && heliWarnAhead();
+  if (!muted && !heliOwn && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !state.exploding && state.liftoffTimer <= 0) {
     const vx = forward.x * state.speed, vz = forward.z * state.speed, vy = forward.y * state.speed + (state.airVy || 0) - (state.flaring ? TUNE.flareSink : 0);
     // Gear up, lined up with the runway and low: that's a belly landing about
     // to happen -- alarm, no suppression. Touchdown itself explodes.

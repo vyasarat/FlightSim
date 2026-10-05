@@ -10,9 +10,13 @@
 // THE RUN: launch tower and its steep drop -> banked turn -> a full loop ->
 // FORK A (hands-off or held left: an easy S; held right: a double corkscrew)
 // -> a booster -> FORK B (the safe span, or the gap jump under an amber ring)
-// -> over the sofa -> the spiral climb round the lamp -> a second booster ->
-// the triple loop -> the ski-jump into the giant padded net, which bounces him
-// back to the top of the tower. Then again.
+// -> over the sofa -> the spiral climb round the lamp -> a booster -> FORK C
+// (v140, three ways: straight on, held left a loop, held right the middle
+// jump) -> a drop and a booster -> FORK D (straight on, held left a tall loop,
+// held right the big jump) -> a booster -> the triple loop -> the ski-jump
+// into the giant padded net, which bounces him back to the top of the tower.
+// Then again. A sign over the track before every fork that goes somewhere
+// draws the ride each way (a loop, a jump, a corkscrew): he sees it coming.
 //
 // THE RULES, which are the game's rules:
 //   - FINGER DOWN = GO. Finger off = coast: gravity along the track has him,
@@ -20,6 +24,11 @@
 //   - A FORK IS A TURN, and a turn is the city's rule (car.js): a FULL steer
 //     (TUNE.car.fullSteer) HELD through the fork's approach. Anything less --
 //     a wobble, a light touch, hands-off -- goes the safe way. Nothing latches.
+//     A three-way fork (`fork.left`) takes a held LEFT its third way; at a
+//     two-way fork a held left is still the safe way.
+//   - THE SPEED STEPS are the car's own pair (speed.js): they scale his push,
+//     and between stepBoostMin and stepBoostMax the rollers. Every kicker and
+//     the ski-jump cap his speed (`capV`), so every step lands every jump.
 //   - HE CANNOT FALL OFF, except in two places: short of the landing at the gap
 //     jump, or out of a loop he came into too slowly (the track can push him
 //     round a loop, never pull him). Then he peels off, tumbles, goes bang --
@@ -29,8 +38,10 @@
 //     motorway's icon: a full steer held right through the deck takes it, like
 //     every exit; hands-off stays on the track. It runs down beside the tower on
 //     to a road that merges back into the motorway.
-//   - Rear-ending another toy car on the course: both go bang, both come back.
-//     They never run into him: they hold back behind him.
+//   - The other toy cars never meet him: one behind him holds back, and one he
+//     closes on ahead OUTRUNS him (v140; the motorway's promise -- fast is his,
+//     a held finger never bangs). One he catches anyway -- a branch rejoining
+//     just behind it -- is nudged on ahead at his speed. Never a bang.
 //   - The household props (the sofa, the bookshelf, the lamp) are scenery he
 //     weaves through. They are never solid and never hit.
 //
@@ -149,7 +160,7 @@ function tkLay(frame, sections, id) {
     const Lf = new THREE.Vector3().crossVectors(U, F).normalize();       // left
     const W = (a) => new THREE.Vector3().copy(P).addScaledVector(Lf, a[0]).addScaledVector(U, a[1]).addScaledVector(F, a[2]);
     const Wv = (a) => new THREE.Vector3().addScaledVector(Lf, a[0]).addScaledVector(U, a[1]).addScaledVector(F, a[2]).normalize();
-    const world = pts.map(q => ({ p: W(q.p), up: Wv(q.up), sec: si, type: sec.type }));
+    const world = pts.map(q => ({ p: W(q.p), up: Wv(q.up), sec: si, type: sec.type, cap: sec.capV || 0 }));
     if (pts.gap) gaps.push(raw.length);  // the index where the void begins
     for (let i = raw.length ? 1 : 0; i < world.length; i++) raw.push(world[i]);
     // the end frame: the exact tangent, from the section's own curve
@@ -187,7 +198,8 @@ function tkResample(pts, id) {
     while (j < pts.length - 2 && cum[j + 1] < s) j++;
     const t = clamp((s - cum[j]) / ((cum[j + 1] - cum[j]) || 1), 0, 1);
     const p = pts[j].p.clone().lerp(pts[j + 1].p, t), up = pts[j].up.clone().lerp(pts[j + 1].up, t);
-    S.push({ x: p.x, y: p.y, z: p.z, ux: up.x, uy: up.y, uz: up.z, s, type: pts[t < 0.5 ? j : j + 1].type, sec: pts[t < 0.5 ? j : j + 1].sec });
+    const src = pts[t < 0.5 ? j : j + 1];
+    S.push({ x: p.x, y: p.y, z: p.z, ux: up.x, uy: up.y, uz: up.z, s, type: src.type, sec: src.sec, cap: src.cap || 0 });
   }
   // tangents, orthonormal up (N), left (B), curvature toward N
   for (let k = 0; k < n; k++) {
@@ -209,7 +221,7 @@ function tkResample(pts, id) {
 }
 
 // Where he is on a segment: position, T, N, curvature, interpolated.
-const tkAtOut = { x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 1, nx: 0, ny: 1, nz: 0, kn: 0, type: "", sec: 0 };
+const tkAtOut = { x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 1, nx: 0, ny: 1, nz: 0, kn: 0, type: "", sec: 0, cap: 0 };
 function tkAt(seg, s) {
   const S = seg.S, n = S.length, f = clamp(s / seg.len, 0, 1) * (n - 1);
   const i = Math.min(n - 2, Math.floor(f)), t = f - i, a = S[i], b = S[i + 1], o = tkAtOut;
@@ -218,7 +230,7 @@ function tkAt(seg, s) {
   o.nx = a.nx + (b.nx - a.nx) * t; o.ny = a.ny + (b.ny - a.ny) * t; o.nz = a.nz + (b.nz - a.nz) * t;
   const tl = Math.hypot(o.tx, o.ty, o.tz) || 1, nl = Math.hypot(o.nx, o.ny, o.nz) || 1;
   o.tx /= tl; o.ty /= tl; o.tz /= tl; o.nx /= nl; o.ny /= nl; o.nz /= nl;
-  o.kn = a.kn + (b.kn - a.kn) * t; o.type = t < 0.5 ? a.type : b.type; o.sec = t < 0.5 ? a.sec : b.sec;
+  o.kn = a.kn + (b.kn - a.kn) * t; o.type = t < 0.5 ? a.type : b.type; o.sec = t < 0.5 ? a.sec : b.sec; o.cap = t < 0.5 ? a.cap : b.cap;
   return o;
 }
 
@@ -254,7 +266,8 @@ function tkBuild() {
     const last = trk.order.filter(p => p.def === def).pop();
     const kids = TK.segments.filter(d => d.from === def.id);
     if (def.fork) {
-      last.fork = { safe: firstOf(def.fork.safe), stunt: firstOf(def.fork.stunt), approach: def.fork.approach };
+      last.fork = { safe: firstOf(def.fork.safe), stunt: firstOf(def.fork.stunt), approach: def.fork.approach,
+                    left: def.fork.left ? firstOf(def.fork.left) : null };   // v140: a third way, held left
     } else if (def.merge) {      // a branch ends on the stem after the fork
       last.next = firstOf(def.merge);
     } else if (kids.length === 1) {
@@ -365,6 +378,7 @@ function tkBuildMeshes() {
   tkBuildTower(g, orange, blue);
   tkBuildRollers(g);
   tkBuildRing(g);
+  tkBuildSigns(g);
   tkBuildGantry(g);
   tkBuildNet(g, blue);
   tkBuildProps(g);
@@ -442,15 +456,76 @@ function tkPoseRollers() {
 }
 
 // An amber ring standing over the middle of the gap, facing along it.
+// One over EVERY gap (v140: three jumps), bigger over a bigger jump.
 function tkBuildRing(g) {
-  const a = trk.order.find(p => p.gapTo), b = a && trk.segs[a.gapTo];
-  if (!a) return;
-  const p = a.S[a.S.length - 1], q = b.S[0];
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(TK.ringR, 0.7, 10, 30), new THREE.MeshBasicMaterial({ color: 0xffb43a, fog: false }));
-  ring.position.set((p.x + q.x) / 2, Math.max(p.y, q.y) + TK.ringR * 0.9, (p.z + q.z) / 2);
-  ring.rotation.y = Math.atan2(p.tx, p.tz);
-  g.add(ring);
-  trk.ring = ring;
+  trk.rings = [];
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffb43a, fog: false });
+  for (const a of trk.order.filter(p => p.gapTo)) {
+    const b = trk.segs[a.gapTo], p = a.S[a.S.length - 1], q = b.S[0];
+    const R = TK.ringR * clamp(Math.hypot(q.x - p.x, q.z - p.z) / 26, 1, 1.8);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.7 * R / TK.ringR, 10, 30), mat);
+    ring.position.set((p.x + q.x) / 2, Math.max(p.y, q.y) + R * 0.9, (p.z + q.z) / 2);
+    ring.rotation.y = Math.atan2(p.tx, p.tz);
+    g.add(ring);
+    trk.rings.push(ring);
+  }
+  trk.ring = trk.rings[0] || null;
+}
+
+// ---- the signs: a fork he can see coming (v140) ---------------------------------
+// Over the stem, `TK.sign.ahead` metres before each fork's approach: a blue
+// gantry with an arrow each way that goes somewhere, and on each arrow the ride
+// that way -- an orange loop, an orange ramp, an orange spring for a corkscrew.
+// No letters. The straight-on way, hands-off, needs no sign.
+function tkRideOf(id) {
+  const def = TK.segments.find(d => d.id === id);
+  if (!def) return null;
+  const t = def.sections.map(s => s.type);
+  return t.includes("gap") ? "jump" : t.includes("corkscrew") ? "spring" : t.includes("loop") ? "loop" : null;
+}
+function tkBuildSigns(g) {
+  const C = TUNE.palette, S = TK.sign;
+  const blue = new THREE.MeshLambertMaterial({ color: C.blue }), panel = new THREE.MeshLambertMaterial({ color: 0x1c4f9c });
+  const ink = new THREE.MeshBasicMaterial({ color: C.white }), orange = new THREE.MeshBasicMaterial({ color: C.fire });
+  trk.signs = [];
+  for (const seg of trk.order) {
+    if (!seg.fork || seg.def.leave || seg === tkFirst()) continue;
+    const ways = [];
+    if (seg.fork.left) ways.push({ side: -1, ride: tkRideOf(seg.def.fork.left) });
+    ways.push({ side: 1, ride: tkRideOf(seg.def.fork.stunt) });
+    if (!ways.some(w => w.ride)) continue;
+    const at = Math.max(4, seg.len - seg.fork.approach - S.ahead), q = tkAt(seg, at);
+    const W = TK.width / 2 + 2 + S.panel, H = S.h;
+    const gg = new THREE.Group();
+    gg.position.set(q.x, q.y, q.z);
+    gg.rotation.y = Math.atan2(-q.tx, -q.tz);            // its face toward him
+    for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.9, H + S.panel, 0.9), blue); m.position.set(sx * W, (H + S.panel) / 2, 0); gg.add(m); }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(2 * W + 1, 0.9, 0.9), blue); beam.position.y = H; gg.add(beam);
+    const panels = [];
+    for (const w of ways) {
+      if (!w.ride) continue;
+      // the group is turned to face him: in its frame +x is HIS RIGHT
+      const cx = w.side * (S.panel / 2 + 1.5), cy = H + S.panel / 2 + 0.6;
+      const p = new THREE.Mesh(new THREE.BoxGeometry(S.panel, S.panel, 0.5), panel); p.position.set(cx, cy, 0); gg.add(p);
+      panels.push({ side: w.side, ride: w.ride, mesh: p });
+      // the arrow, pointing his way that way
+      const head = new THREE.Mesh(new THREE.ConeGeometry(1.3, 2.2, 3), ink);
+      head.rotation.z = -w.side * Math.PI / 2; head.position.set(cx + w.side * 3.0, cy - S.panel * 0.3, 0.35); gg.add(head);
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.8, 0.2), ink); shaft.position.set(cx + w.side * 0.6, cy - S.panel * 0.3, 0.35); gg.add(shaft);
+      // the ride
+      const ic = new THREE.Group(); ic.position.set(cx, cy + S.panel * 0.12, 0.4); gg.add(ic);
+      if (w.ride === "loop") { const r = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.55, 8, 24), orange); ic.add(r); }
+      else if (w.ride === "spring") { for (let k = 0; k < 3; k++) { const r = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.4, 6, 18), orange); r.position.x = (k - 1) * 1.5; r.rotation.y = 0.5; ic.add(r); } }
+      else {
+        // a ramp rising the way he goes, a gap, the landing falling away, the car over the gap
+        const ramp = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.6, 0.3), orange); ramp.position.set(-w.side * 2.4, -1.6, 0); ramp.rotation.z = w.side * 0.45; ic.add(ramp);
+        const land = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.6, 0.3), orange); land.position.set(w.side * 2.4, -1.8, 0); land.rotation.z = -w.side * 0.35; ic.add(land);
+        const car = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.3), ink); car.position.set(0, 1.4, 0); ic.add(car);
+      }
+    }
+    g.add(gg);
+    trk.signs.push({ g: gg, seg: seg.id, s: at, panels });
+  }
 }
 
 // The net at the end of the ski-jump: a padded catch net from just below the
@@ -807,12 +882,17 @@ function tkTrackHold(dt, touching, bank) {
 function tkRail(dt, touching, bank) {
   const P = TK.physics;
   let q = tkAt(trk.segs[trk.seg], trk.s);
-  const vMax = P.motorSpeed * spdMul();
+  // the speed step (the car's own pair): what his finger pushes toward, and
+  // above the middle step how hard, and how fast the rollers throw him
+  const mul = spdMul(), up = clamp(mul, P.stepBoostMin, P.stepBoostMax);
+  const vMax = P.motorSpeed * mul;
   let a = -P.g * q.ty;
-  if (touching) a += P.motorAccel * clamp(1 - trk.v / vMax, 0, 1.6);
+  if (touching) a += P.motorAccel * Math.max(1, mul) * clamp(1 - trk.v / vMax, 0, 1.6);
   a -= Math.sign(trk.v) * P.roll + P.drag * trk.v * Math.abs(trk.v);
   const boosting = q.type === "booster" && trk.v > -1;
-  if (boosting && trk.v < P.boostMax) a += P.boostAccel;
+  if (boosting && trk.v < P.boostMax * up) a += P.boostAccel;
+  // a kicker brakes him to what its landing can catch
+  if ((q.type === "kicker" || q.type === "ski") && q.cap && trk.v > q.cap) a -= P.kickerBrake;
   trk.v += a * dt;
   // at rest on the level he stays at rest
   if (!touching && Math.abs(trk.v) < 0.4 && Math.abs(q.ty) < 0.04) trk.v = 0;
@@ -830,8 +910,9 @@ function tkRail(dt, touching, bank) {
     else if (trk.holdSide !== trk.forkHeld) trk.forkHeld = 0;
   } else { trk.forkEnter = null; trk.forkHeld = 0; }
   const pick = (sg) => {
-    const took = trk.forkHeld > 0 ? sg.fork.stunt : sg.fork.safe;
-    trk.took[sg.id] = took === sg.fork.stunt ? "stunt" : "safe";
+    const way = trk.forkHeld > 0 ? "stunt" : (trk.forkHeld < 0 && sg.fork.left) ? "left" : "safe";
+    const took = sg.fork[way];
+    trk.took[sg.id] = way;
     flags.trackForks = flags.trackForks || {}; flags.trackForks[sg.id + ":" + trk.took[sg.id]] = (flags.trackForks[sg.id + ":" + trk.took[sg.id]] || 0) + 1;
     trk.forkHeld = 0; trk.forkEnter = null;
     return took;
@@ -848,6 +929,7 @@ function tkRail(dt, touching, bank) {
   // ---- off the lip of the gap, or the ski-jump: into the air
   if (st.off === "gap" || st.off === "end") {
     const sg = trk.segs[trk.seg];
+    if (q.cap && trk.v > q.cap) trk.v = q.cap;
     trk.air = { kind: st.off === "gap" ? "gap" : "ski", x: q.x, y: q.y, z: q.z, vx: q.tx * trk.v, vy: q.ty * trk.v, vz: q.tz * trk.v, t: 0,
                 to: sg.gapTo, retry: tkRetryFor(trk.seg, trk.s), spinRate: 0 };
     whoosh();
@@ -866,15 +948,17 @@ function tkRail(dt, touching, bank) {
       return;
     }
   }
-  // ---- rear-ending a toy car on the course: both go bang
+  // ---- a toy car he has caught on the rail (a branch rejoining just behind it,
+  // say) is never a bang (v140): it is nudged on ahead of him, at his speed, and
+  // carries on -- a held finger never bangs
   for (const c of trk.cars) {
     if (c.gone > 0 || c.seg !== trk.seg) continue;
     const gap = c.s - trk.s;
-    if (gap > 0 && gap < TK.cars.touch && trk.v > c.v + 1) {
-      c.gone = TK.cars.back; c.mesh.visible = false;
-      triggerExplosion(c.mesh.position.x, c.mesh.position.y, c.mesh.position.z, 0.6);
-      flags.trackCarHits = (flags.trackCarHits || 0) + 1;
-      return tkBang(q.x, q.y, q.z, tkRetryFor(trk.seg, trk.s));
+    if (gap > -1 && gap < TK.cars.touch && trk.v > c.v - 1) {
+      const st2 = tkStep(c.seg, trk.s, TK.cars.touch + 0.5, sg => sg.fork.safe);
+      if (st2.off) { c.gone = TK.cars.back; c.mesh.visible = false; continue; }
+      c.seg = st2.seg; c.s = st2.s; c.v = trk.v + TK.cars.yieldMatch;
+      flags.trackCarNudges = (flags.trackCarNudges || 0) + 1;
     }
   }
   tkPoseRail();
@@ -911,6 +995,16 @@ function tkSync(v, boosting) {
 }
 
 // ---- the toy cars ---------------------------------------------------------------------
+// How far ahead of him along the track a toy car is, on his piece or the one
+// he goes on to (the cars always take the straight-on way), or null.
+function tkCarAhead(c) {
+  const seg = trk.segs[trk.seg];
+  if (c.seg === trk.seg) return c.s > trk.s ? c.s - trk.s : null;
+  // on a fork's stem he has not chosen yet: a car on ANY of its ways is ahead
+  const nexts = seg.fork ? [seg.fork.safe, seg.fork.stunt, seg.fork.left] : [seg.next];
+  if (nexts.includes(c.seg)) return seg.len - trk.s + c.s;
+  return null;
+}
 function tkUpdateCars(dt) {
   const hisSeg = trk.on && !trk.lift ? trk.seg : null;
   for (const c of trk.cars) {
@@ -922,9 +1016,14 @@ function tkUpdateCars(dt) {
         c.seg = tkFirst().id; c.s = 0; c.mesh.visible = true;
       } else continue;
     }
-    let v = TK.cars.speed;
+    // they keep his step's pace (never slower than their own): a faster step
+    // must not turn the course into a string of rear-endings
+    let v = TK.cars.speed * (hisSeg ? Math.max(1, spdMul()) : 1);
     // never into him: one closing on him from behind waits
     if (hisSeg && c.seg === hisSeg && trk.s - c.s > 0 && trk.s - c.s < TK.cars.hold) v = 0;
+    // ... and one he is closing on, ahead, gets out of his way: it outruns him
+    const ahead = hisSeg && !trk.air ? tkCarAhead(c) : null;
+    if (ahead !== null && ahead < TK.cars.yieldR && trk.v + TK.cars.yieldMatch > v) v = trk.v + TK.cars.yieldMatch;
     const st = tkStep(c.seg, c.s, v * dt, sg => sg.fork.safe);
     if (st.off === "end" || st.off === "gap" || st.off === "leave") { c.gone = TK.cars.back; c.mesh.visible = false; continue; }
     c.seg = st.seg; c.s = st.s; c.v = v;
@@ -959,15 +1058,23 @@ function trackCamera(dt) {
     // along the curve and up off its deck -- a straight line back from the top
     // of a loop leaves the loop, and looked at the track from underneath.
     if (!trk.air && !trk.bounce && !trk.lift && !trk.bang) {
-      const b = tkStep(trk.seg, trk.s, -TK.cam.back, sg => trk.took[sg.id] === "stunt" ? sg.fork.stunt : sg.fork.safe);
+      const b = tkStep(trk.seg, trk.s, -TK.cam.back, sg => sg.fork[trk.took[sg.id] || "safe"] || sg.fork.safe);
       const q = tkAt(trk.segs[b.seg], b.s);
       camDesired.set(q.x + q.nx * TK.cam.up, q.y + q.ny * TK.cam.up, q.z + q.nz * TK.cam.up);
+    } else if (trk.air && trk.air.kind !== "peel") {
+      // OFF A JUMP (v140): the camera swings out to his RIGHT (the outer side:
+      // every jump branch is the right-hand way) and about level with him, so he
+      // flies against the sky with the gap under him -- from right behind, a car
+      // in the air looks like a car on the track
+      const fl = Math.hypot(T.x, T.z) || 1, fx = T.x / fl, fz = T.z / fl, J = TK.cam.jump;
+      camDesired.set(tkPose.x - fx * J.back - fz * J.side, tkPose.y + J.up, tkPose.z - fz * J.back + fx * J.side);
     } else {
       camDesired.set(tkPose.x - T.x * TK.cam.back + N.x * TK.cam.up, tkPose.y - T.y * TK.cam.back + N.y * TK.cam.up, tkPose.z - T.z * TK.cam.back + N.z * TK.cam.up);
     }
     if (trk.lift || trk.bounce) camDesired.set(tkPose.x - T.x * TK.cam.back * 1.6, tkPose.y + TK.cam.up * 2, tkPose.z - T.z * TK.cam.back * 1.6);
     camera.position.lerp(camDesired, Math.min(1, TK.cam.lag * dt));
-    lookV.set(tkPose.x + T.x * 8 + N.x * 1.5, tkPose.y + T.y * 8 + N.y * 1.5, tkPose.z + T.z * 8 + N.z * 1.5);
+    if (trk.air && trk.air.kind !== "peel") lookV.set(tkPose.x + T.x * 8, tkPose.y + 1, tkPose.z + T.z * 8);   // him against the sky, the gap under him
+    else lookV.set(tkPose.x + T.x * 8 + N.x * 1.5, tkPose.y + T.y * 8 + N.y * 1.5, tkPose.z + T.z * 8 + N.z * 1.5);
     camera.lookAt(lookV);
     carHideCabin();
   } else {

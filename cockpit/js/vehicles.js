@@ -41,6 +41,7 @@ function vehKind() {
   }
   if (vp.bigBoat) return "yacht";       // a yacht is a boat: ask first
   if (vp.boat) return "boat";
+  if (vp.monster) return "monster";      // v141: its own rules, not the car's
   if (vp.car) return "car";
   if (vp.heli) return "heli";
   return "plane";                        // prop, fighter, the airliners
@@ -114,6 +115,17 @@ const VEHICLE_CONTRACT = {
     camera: (dt) => carCamera(dt),
     parked: () => state.speed === 0,
     reassemble: () => carReassemble(),
+  },
+  // v141: the monster truck he drives (monster.js). It meets the registry itself
+  // (monMeet: a column, crushed or shoved), so the shared resolver never runs for
+  // it -- and it never bangs, at any speed.
+  monster: {
+    solidClass: SOLID.CAR,
+    solid: () => false,
+    update: (dt) => updateMonster(dt),
+    camera: (dt) => monCamera(dt),
+    parked: () => state.speed === 0,
+    reassemble: null,
   },
   boat: {
     solidClass: SOLID.BOAT,
