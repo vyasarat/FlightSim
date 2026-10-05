@@ -92,20 +92,23 @@ module.exports = async function trackChecks({ newPage, check }) {
 
   // ---- 1. a held finger, hands-off at the forks
   const held = await page.evaluate(runFrom, [0, 150]);
-  check("track: a finger held from the tower completes the run -- drop, banked turn, loop, corkscrew fork, booster, gap fork, sofa, spiral, booster, triple loop, ski-jump -- lands in the net and is thrown back up to the tower, with no bang",
+  check("track: a finger held from the tower completes the run -- drop, banked turn, loop, corkscrew fork, booster, gap fork, sofa, spiral, the two three-way forks straight on, triple loop, ski-jump -- lands in the net and is thrown back up to the tower, with no bang",
     held.net === 1 && held.runs === 1 && held.crashes === 0 && held.peels === 0 && held.backOnDeck &&
-    held.forks["deck:safe"] === 1 && held.forks["main0:safe"] === 1 && held.forks["main1:safe"] === 1, JSON.stringify(held));
+    held.forks["deck:safe"] === 1 && held.forks["main0:safe"] === 1 && held.forks["main1:safe"] === 1 &&
+    held.forks["main2:safe"] === 1 && held.forks["main3:safe"] === 1, JSON.stringify(held));
 
   // ---- 2. both forks by a held FULL steer; a steer short of full goes safe
   const right = await page.evaluate(runFrom, [1, 150]);
-  check("track: both forks by a FULL steer held right through the approach -- the double corkscrew and the gap jump (landed), and still into the net",
-    right.forks["main0:stunt"] === 1 && right.forks["main1:stunt"] === 1 && right.gaps === 1 && right.net === 1 && right.crashes === 0,
-    JSON.stringify(right));
+  check("track: every fork by a FULL steer held right through the approach -- the double corkscrew and all three jumps (each landed), and still into the net",
+    right.forks["main0:stunt"] === 1 && right.forks["main1:stunt"] === 1 && right.forks["main2:stunt"] === 1 && right.forks["main3:stunt"] === 1 &&
+    right.gaps === 3 && right.net === 1 && right.crashes === 0, JSON.stringify(right));
   const light = await page.evaluate(runFrom, [0.55, 150]);
   const left = await page.evaluate(runFrom, [-1, 150]);
-  check("track: a steer short of full, or held left, is the safe way at both forks (the city's turn rule: only a full steer held is a choice)",
-    light.forks["main0:safe"] === 1 && light.forks["main1:safe"] === 1 && left.forks["main0:safe"] === 1 && left.forks["main1:safe"] === 1 &&
+  check("track: a steer short of full is straight on at every fork, and a held left is the safe way at the two-way forks (the city's turn rule: only a full steer held is a choice)",
+    ["main0", "main1", "main2", "main3"].every(k => light.forks[k + ":safe"] === 1) && left.forks["main0:safe"] === 1 && left.forks["main1:safe"] === 1 &&
     light.net === 1 && left.net === 1, JSON.stringify({ light, left }));
+  check("track: at the three-way forks a FULL steer held LEFT is the loop each time -- the loop by the lamp and the tall loop -- round them with no fall, and into the net",
+    left.forks["main2:left"] === 1 && left.forks["main3:left"] === 1 && left.peels === 0 && left.crashes === 0 && left.net === 1, JSON.stringify(left));
 
   // ---- 2b. THE WAY OFF: the exit lane off the start deck. A full steer held
   // right through the deck takes it, down beside the tower and on to the road
@@ -215,9 +218,9 @@ module.exports = async function trackChecks({ newPage, check }) {
   // ---- 4. too slow into a loop: peels off, bang, back just before it, then makes it
   const peel = await page.evaluate(() => {
     const tk = window.__tk, L = window.__lp, T = L.trk;
-    const s0 = tk.sOf("main2", "loop"), s1 = tk.endOf("main2", "loop", 2);
+    const s0 = tk.sOf("main4", "loop"), s1 = tk.endOf("main4", "loop", 2);
     const f0 = tk.flags();
-    tk.at("main2", s0 + 1, 19);
+    tk.at("main4", s0 + 1, 19);
     tk.finger(false);
     let fell = false, bang = false, back = null;
     for (let i = 0; i < 60 * 10; i++) {
@@ -226,16 +229,16 @@ module.exports = async function trackChecks({ newPage, check }) {
       if (o.bang) bang = true;
       if (bang && !o.bang && back === null) { back = { seg: o.seg, s: +o.s.toFixed(1) }; break; }
     }
-    const boosterS = tk.sOf("main2", "booster", 0);
+    const boosterS = tk.sOf("main4", "booster", 0);
     tk.finger(true, 0);
     let made = false;
-    for (let i = 0; i < 60 * 30 && !made; i++) { const o = tk.frame(); if (o.seg === "main2" && o.s > s1 + 3) made = true; if (o.air && T.air.kind === "ski") made = true; }
+    for (let i = 0; i < 60 * 30 && !made; i++) { const o = tk.frame(); if (o.seg === "main4" && o.s > s1 + 3) made = true; if (o.air && T.air.kind === "ski") made = true; }
     tk.finger(false);
     const f1 = tk.flags();
     return { fell, bang, back, loopAt: +s0.toFixed(1), boosterAt: +boosterS.toFixed(1), made, peels: f1.peels - f0.peels, crashes: f1.crashes - f0.crashes, reass: f1.reass - f0.reass };
   });
   check("track: into the triple loop too slowly he peels off, tumbles and goes bang -- and comes back just before it, at the booster that feeds it, and with the finger down makes it round",
-    peel.fell && peel.bang && peel.peels >= 1 && peel.reass >= 1 && peel.back && peel.back.seg === "main2" &&
+    peel.fell && peel.bang && peel.peels >= 1 && peel.reass >= 1 && peel.back && peel.back.seg === "main4" &&
     peel.back.s <= peel.loopAt && peel.back.s >= peel.boosterAt - 3 && peel.made, JSON.stringify(peel));
 
   // ---- 4b. short at the gap: the other way off -- bang, and back at its booster
@@ -256,6 +259,116 @@ module.exports = async function trackChecks({ newPage, check }) {
   });
   check("track: short of the landing at the gap he falls, goes bang and comes back at the booster that feeds the jump -- the one other way off the track",
     gap.air && gap.bang && gap.landed === 0 && gap.back && gap.back.seg === "main1" && Math.abs(gap.back.s - gap.boosterAt) < 4, JSON.stringify(gap));
+
+  // ---- 4b'. the two new jumps (v140): too slow off each kicker he falls, goes
+  // bang and comes back at the booster just before it -- with the speed to go again
+  const short2 = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, T = L.trk, out = {};
+    for (const id of ["C_jump:0", "D_jump:0"]) {
+      const f0 = tk.flags();
+      tk.at(id, T.segs[id].len - 10, 14);
+      tk.finger(false);
+      let air = false, bang = false, back = null;
+      for (let i = 0; i < 60 * 8; i++) {
+        const o = tk.frame();
+        if (o.air) air = true;
+        if (o.bang) bang = true;
+        if (bang && !o.bang) { back = { seg: o.seg, s: +o.s.toFixed(1) }; break; }
+      }
+      out[id] = { air, bang, back, boosterAt: +tk.sOf(id, "booster").toFixed(1), landed: tk.flags().gaps - f0.gaps };
+      // and from that booster, finger down, he makes it
+      tk.finger(true, 0);
+      let made = false;
+      for (let i = 0; i < 60 * 12 && !made; i++) { tk.frame(); if (tk.flags().gaps > f0.gaps) made = true; }
+      tk.finger(false);
+      out[id].thenMade = made;
+    }
+    return out;
+  });
+  check("track: short of the landing at the middle and the big jump he falls, goes bang and comes back at the booster that feeds each -- and from there, finger down, he lands it",
+    Object.values(short2).every(r => r.air && r.bang && r.landed === 0 && r.back && Math.abs(r.back.s - r.boosterAt) < 4 && r.thenMade) &&
+    short2["C_jump:0"].back.seg === "C_jump:0" && short2["D_jump:0"].back.seg === "D_jump:0", JSON.stringify(short2));
+
+  // ---- 4b''. the speed steps (v140): the car's own pair, in its own slot, on the
+  // track -- and at every step, every way, the whole run with no bang
+  const steps = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, out = { ways: {} };
+    const vis = id => !document.getElementById(id).classList.contains("hidden");
+    tk.at("deck", 0, 0); tk.frame();
+    out.pair = vis("slowBtn") && vis("fastBtn") && L.BUTTONS.slowBtn.slot === "topRight3" && L.BUTTONS.fastBtn.slot === "topRight2";
+    const n = L.spdStepsFor("car").length;
+    for (let k = 0; k < n; k++) for (const steer of [0, 1, -1]) {
+      st.speedStep = k;
+      tk.at("deck", 0, 0);
+      const f0 = tk.flags(), r0 = f0.runs;
+      let f = 0;
+      for (; f < 60 * 200; f++) { tk.finger(true, T.seg === "deck" ? 0 : steer); tk.frame(); if (tk.flags().runs > r0) break; }
+      tk.finger(false);
+      const f1 = tk.flags();
+      out.ways[k + (steer > 0 ? "R" : steer < 0 ? "L" : "0")] = { secs: +(f / 60).toFixed(1), net: f1.net - f0.net, crashes: f1.crashes - f0.crashes, peels: f1.peels - f0.peels, gaps: f1.gaps - f0.gaps };
+    }
+    st.speedStep = L.spdStepsFor("car").indexOf(1);
+    return out;
+  });
+  const sw = steps.ways, ks = Object.keys(sw);
+  check("track: the speed steps are the car's own pair in its own slot on the track, and they change the ride -- the top step's lap at least a quarter quicker than the bottom's",
+    steps.pair && sw["0" + "0"].secs >= sw[(ks.length / 3 - 1) + "0"].secs * 1.33, JSON.stringify({ pair: steps.pair, slow: sw["00"], fast: sw[(ks.length / 3 - 1) + "0"] }));
+  check("track: at EVERY speed step, hands-off, held right and held left, the whole run into the net with no bang and no fall (every jump landed: the kickers cap his speed)",
+    ks.every(k => sw[k].net === 1 && sw[k].crashes === 0 && sw[k].peels === 0 && sw[k].gaps === (k.endsWith("R") ? 3 : 0)), JSON.stringify(sw));
+
+  // ---- 4b'''. the forks he can see coming: a sign over the stem before every
+  // fork that goes somewhere, the ride that way drawn on it; and every branch
+  // comes back exactly on the line it left
+  const signs = await page.evaluate(() => {
+    const L = window.__lp, T = L.trk, TK = L.TK, out = { signs: [], merges: [] };
+    // which ride each way really is, from the table
+    const rideOf = id => { const t = TK.segments.find(d => d.id === id).sections.map(s => s.type); return t.includes("gap") ? "jump" : t.includes("corkscrew") ? "spring" : t.includes("loop") ? "loop" : null; };
+    for (const sg of T.signs) {
+      const seg = T.segs[sg.seg], q = L.tkAt(seg, sg.s);
+      const lx = q.ny * q.tz - q.nz * q.ty, lz = q.nx * q.ty - q.ny * q.tx;     // his left, as the track's frame has it
+      sg.g.updateMatrixWorld(true);
+      const sides = sg.panels.map(p => {
+        const w = new THREE.Vector3(); p.mesh.getWorldPosition(w);
+        const lat = (w.x - q.x) * lx + (w.z - q.z) * lz;             // + = on his left
+        const want = rideOf(p.side < 0 ? seg.def.fork.left : seg.def.fork.stunt);
+        return { side: p.side, onHisLeft: lat > 0, ride: p.ride, want };
+      });
+      out.signs.push({ seg: sg.seg, before: +(seg.len - sg.s).toFixed(0), approach: seg.fork.approach, three: !!seg.fork.left, sides });
+    }
+    for (const def of TK.segments) if (def.merge) {
+      const e = T.order.filter(p => p.def === def).slice(-1)[0].S.slice(-1)[0];
+      const safeId = TK.segments.find(d => d.id === def.merge).from;
+      const se = T.order.filter(p => p.def.id === safeId).slice(-1)[0].S.slice(-1)[0];
+      out.merges.push({ id: def.id, off: +Math.hypot(e.x - se.x, e.y - se.y, e.z - se.z).toFixed(2), dot: +(e.tx * se.tx + e.ty * se.ty + e.tz * se.tz).toFixed(4) });
+    }
+    return out;
+  });
+  check("track: a sign over the track before every fork that goes somewhere (four), well before its approach, and both three-way forks signed",
+    signs.signs.length === 4 && signs.signs.every(s => s.before >= s.approach + 10) && signs.signs.filter(s => s.three).length === 2, JSON.stringify(signs.signs));
+  check("track: every sign shows each ride on the side it is on -- the left panel on his left with the left way's ride, the right with the right's",
+    signs.signs.every(s => s.sides.every(p => p.onHisLeft === (p.side < 0) && p.ride === p.want)), JSON.stringify(signs.signs.map(s => s.sides)));
+
+  // ---- a branch rejoining right behind a toy car, at speed, finger down: the
+  // car is nudged on ahead -- a held finger never bangs (v140)
+  const rejoin = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, T = L.trk, out = {};
+    for (const [br, safe] of [["C_jump:1", "C_safe"], ["D_loop", "D_safe"], ["C_loop", "C_safe"]]) {
+      const c = T.cars[0], f0 = tk.flags(), n0 = L.flags.trackCarNudges || 0;
+      // both a metre from the merge, him half a metre behind it and much faster:
+      // they come out on to the line together (v139's code banged him here)
+      c.seg = safe; c.s = T.segs[safe].len - 1; c.gone = 0; c.mesh.visible = true;
+      tk.at(br, T.segs[br].len - 1.5, 44);
+      let f = 0;
+      for (; f < 60 * 3; f++) { tk.finger(true, 0); tk.frame(); }
+      tk.finger(false);
+      out[br] = { crashes: tk.flags().crashes - f0.crashes, nudges: (L.flags.trackCarNudges || 0) - n0, carAhead: c.seg === T.seg ? +(c.s - T.s).toFixed(1) : c.seg };
+    }
+    return out;
+  });
+  check("track: a branch rejoining right behind a toy car at speed, finger down -- never a bang (it is nudged on ahead, or outruns him)",
+    Object.values(rejoin).every(r => r.crashes === 0 && r.nudges > 0), JSON.stringify(rejoin));
+  check("track: every branch rejoins exactly where the straight-on way does, running the same way",
+    signs.merges.length === 10 && signs.merges.every(m => m.off < 0.1 && m.dot > 0.998), JSON.stringify(signs.merges));
 
   // ---- 4c. its own exit: a full steer held at the orange-loop board takes him
   // off the motorway, down its road to the lift, and up
@@ -306,8 +419,8 @@ module.exports = async function trackChecks({ newPage, check }) {
       return { ms: +ms[12].toFixed(1), calls, tris };
     };
     L.api.setView(true);
-    const loopS = tk.sOf("main2", "loop");
-    tk.at("main2", loopS + 20, 28);
+    const loopS = tk.sOf("main4", "loop");
+    tk.at("main4", loopS + 20, 28);
     for (let i = 0; i < 30; i++) { T.v = 28; tk.frame(); }
     const loop = measure();
     L.trackReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0);
@@ -319,27 +432,29 @@ module.exports = async function trackChecks({ newPage, check }) {
   check("track: the frame at the triple loop costs no more than a plain motorway frame and a handful of draw calls (SwiftShader proxy)",
     perf.loop.calls <= perf.road.calls + 40 && perf.loop.tris <= perf.road.tris * 1.6 + 60000, JSON.stringify(perf));
 
-  // ---- 5. rear-ending a toy car: both bang, both come back; they never hit him
+  // ---- 5. a toy car he closes on gets out of his way (v140: the motorway's
+  // promise -- fast is his, a held finger never bangs), at the top step too;
+  // and they never run into him from behind, they wait
   const rear = await page.evaluate(() => {
-    const tk = window.__tk, L = window.__lp, T = L.trk, c = T.cars[0];
+    const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, c = T.cars[0];
     const f0 = tk.flags();
     const s = tk.sOf("main1", "booster") + 30;
     c.seg = "main1"; c.s = s; c.gone = 0; c.mesh.visible = true;
+    const k0 = st.speedStep; st.speedStep = L.spdStepsFor("car").length - 1;
     tk.at("main1", s - 40, 36);
     tk.finger(true, 0);
-    let hit = false, carGone = false;
-    for (let i = 0; i < 60 * 3; i++) { tk.frame(); if (tk.flags().hits > f0.hits) { hit = true; carGone = c.gone > 0; break; } }
-    tk.finger(false);
-    for (let i = 0; i < 60 * 6; i++) tk.frame();
-    const back = !T.bang && c.gone <= 0 && c.mesh.visible;
+    let hit = false, minAhead = 1e9;
+    for (let i = 0; i < 60 * 6; i++) { tk.frame(); if (tk.flags().hits > f0.hits) hit = true; if (c.seg === T.seg) minAhead = Math.min(minAhead, c.s - T.s); }
+    tk.finger(false); st.speedStep = k0;
+    const carGone = c.gone > 0, back = c.mesh.visible;
     // and they wait behind him: him stopped, one coming up behind
     tk.at("main1", 60, 0); c.seg = "main1"; c.s = 5; c.gone = 0;
     let minGap = 1e9;
     for (let i = 0; i < 60 * 6; i++) { tk.frame(); if (c.seg === "main1") minGap = Math.min(minGap, T.s - c.s); }
-    return { hit, carGone, back, crashes: tk.flags().crashes - f0.crashes, waitGap: +minGap.toFixed(1) };
+    return { hit, carGone, minAhead: +minAhead.toFixed(1), back, crashes: tk.flags().crashes - f0.crashes, waitGap: +minGap.toFixed(1) };
   });
-  check("track: rear-ending a toy car -- both go bang and both come back; and a toy car never runs into him, it waits behind",
-    rear.hit && rear.carGone && rear.back && rear.crashes >= 1 && rear.waitGap > 20, JSON.stringify(rear));
+  check("track: a toy car he closes on at the top step outruns him -- no bang, it stays ahead; and a toy car never runs into him, it waits behind",
+    !rear.carGone && rear.minAhead > 7.5 && rear.crashes === 0 && rear.waitGap > 20, JSON.stringify(rear));
 
   // ---- 6. the noisy finger, by touch events, five simulated minutes
   const noisy = await noisyRun(page, 300, 1);
@@ -388,6 +503,19 @@ module.exports = async function trackChecks({ newPage, check }) {
     self.min >= self.need && self.groundClear > 0.5, JSON.stringify(self));
 
   check("track: no browser or frame errors", errors.length === 0, JSON.stringify(errors.slice(0, 5)));
+
+  // ---- the speed pair on the track in PORTRAIT, the way he holds the iPad
+  {
+    const { page: pp } = await newPage(768, 1024);
+    await pp.evaluate(install);
+    const pr = await pp.evaluate(() => {
+      const tk = window.__tk, L = window.__lp; tk.board(); tk.frame();
+      const vis = id => { const e = document.getElementById(id), r = e.getBoundingClientRect(); return !e.classList.contains("hidden") && r.width > 20 && r.right <= innerWidth && r.bottom <= innerHeight; };
+      return { on: L.trk.on, slow: vis("slowBtn"), fast: vis("fastBtn"), clashes: L.btnSlotClashes().length };
+    });
+    check("track: in portrait too, the speed pair is on screen while he is on the track, and nothing shares its slots", pr.on && pr.slow && pr.fast && pr.clashes === 0, JSON.stringify(pr));
+    await pp.close();
+  }
   await page.context().close();
 };
 
@@ -424,7 +552,8 @@ async function noisyRun(page, seconds, seed, real, leaveAfter) {
       const L = window.__lp, T = L.trk, seg = T.segs[T.seg];
       L.update(1 / 60);
       const toFork = seg.fork ? seg.len - T.s : null;
-      return { seg: T.seg, s: T.s, v: T.v, air: !!T.air, bang: !!T.bang, bounce: !!T.bounce, lift: !!T.lift, on: T.on,
+      const left = {}; for (const p of T.order) if (p.fork) left[p.id] = !!p.fork.left;
+      return { left, seg: T.seg, s: T.s, v: T.v, air: !!T.air, bang: !!T.bang, bounce: !!T.bounce, lift: !!T.lift, on: T.on,
                toFork, approach: seg.fork ? seg.fork.approach : 0, forks: { ...(L.flags.trackForks || {}) }, fe: L.frameErrors || 0 };
     });
     if (o.fe) S.errors = o.fe;
@@ -445,7 +574,7 @@ async function noisyRun(page, seconds, seed, real, leaveAfter) {
       const side = fseg === "deck" ? (S.decided !== undefined ? 1 : (rand() < 0.5 ? 0 : -1))
                                     : rand() < 0.5 ? 0 : (rand() < 0.5 ? 1 : -1);
       S.meaning[fseg] = side; hand.intent = side; S.intentFor = fseg;
-      L("fork ahead", { fork: fseg, means: side === 1 ? (fseg === "deck" ? "hold right (the way off)" : "hold right (stunt)") : side === -1 ? "hold left (safe)" : "straight (safe)" });
+      L("fork ahead", { fork: fseg, means: side === 1 ? (fseg === "deck" ? "hold right (the way off)" : "hold right (stunt)") : side === -1 ? (o.left && o.left[fseg] ? "hold left (the loop)" : "hold left (safe)") : "straight (safe)" });
     }
     if (S.decided !== undefined && !o.on) {
       S.left = simT;
@@ -457,7 +586,7 @@ async function noisyRun(page, seconds, seed, real, leaveAfter) {
       if ((S.forkN[k] || 0) === n) continue;
       S.forkN[k] = n;
       const [fork, way] = k.split(":");
-      const meant = S.meaning[fork] === 1 ? "stunt" : "safe";
+      const meant = S.meaning[fork] === 1 ? "stunt" : (S.meaning[fork] === -1 && o.left[fork]) ? "left" : "safe";
       L("fork", { fork, meant, took: way, verdict: meant === way ? "ok" : "WRONG WAY" });
       if (meant !== way) S.wrong = (S.wrong || 0) + 1;
       delete S.meaning[fork];

@@ -47,6 +47,11 @@ const spCounters = [];
 function spCountRegister(name, counting) { spCounters.push({ name, counting }); }
 function spCountBusy(me) {
   if (el.bigNum.classList.contains("on")) return true;
+  // v143: in the monster truck a 5-4-3-2-1 must never read as a crush's wind-up:
+  // none starts while he is in the arena (he is put there, nose at the launch
+  // site beyond) or for a few seconds after he has crushed something. Out on
+  // the road he can still point at a set-piece and set it off.
+  if (typeof monQuiet === "function" && monQuiet()) return true;
   return spCounters.some(c => c.name !== me && c.counting());
 }
 
@@ -861,6 +866,7 @@ function carrierCanLaunch() { return carrier.state === "parked"; }
 function carrierTryTrap() {
   if (carrier.state !== "none") return false;
   if (!state.vp || state.vp.rocket) return false;
+  if (vehKind() === "heli") return false;     // it sets down on the deck itself (heliFloorAt), and lifts off with up
   if (state.phase !== "AIRBORNE" || state.exploding) return false;
   const L = carrierLocal(state.x, state.z);
   if (Math.abs(L.s) > CV.deckW / 2 || Math.abs(L.f) > CV.deckL / 2) return false;

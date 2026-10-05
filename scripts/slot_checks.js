@@ -101,6 +101,9 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       at("fighter airborne", () => { L.api.setVehicle("fighter"); L.api.teleportAirborne(1200, 0, 300, 0); });
       at("airliner airborne", () => { L.api.setVehicle("airlinerDelta"); L.api.teleportAirborne(1200, 0, 300, 0); });
       at("car on the road", () => { L.api.setVehicle("car"); L.api.placeOnRunway(); });
+      at("monster truck at the arena", () => { L.api.setVehicle("monster"); L.api.spawnAt(0, 0); });
+      at("booster rocket on the launch site's pad", () => { L.api.setVehicle("heavy"); L.api.spawnAt(0, 0); });
+      at("monster truck driving", () => { L.api.setVehicle("monster"); L.api.spawnAt(0, 0); L.api.setStick(0, 0); for (let i = 0; i < 60; i++) L.update(1 / 60); });
       at("car honking", () => {
         L.api.setVehicle("car"); L.api.placeOnRunway();
         for (let i = 0; i < 10; i++) L.update(1 / 60);
@@ -118,6 +121,8 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       });
       at("helicopter over the fire with a full bucket", () => {
         L.api.setVehicle("helicopter");
+        L.heliReset();   // no destination carried in from an earlier scenario: its ring is not this one's
+
         st.phase = "AIRBORNE"; st.x = L.FF.rig.x + 400; st.z = L.FF.rig.z + 400;
         st.y = L.TUNE.waterLevel + 20; st.speed = 0;
         for (let i = 0; i < 10; i++) L.update(1 / 60);

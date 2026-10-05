@@ -95,7 +95,7 @@ function spdShows() {
   const steps = spdStepsFor(spdKey());
   if (!steps || state.exploding || menuOpen()) return false;
   const vp = state.vp;
-  const plain = vp && !vp.car && !vp.boat && !vp.heli && !vp.rocket;
+  const plain = vp && !vp.car && !vp.monster && !vp.boat && !vp.heli && !vp.rocket;
   if (!plain) return true;
   const onDeck = typeof carrierOnDeck === "function" && carrierOnDeck();
   return (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY") && !onDeck;

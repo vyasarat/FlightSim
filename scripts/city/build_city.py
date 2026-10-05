@@ -171,6 +171,15 @@ def tiered(rnd, tiers, wall, name, crown=None, tank=False, rooftop=True, base_wa
         if tank:
             water_tank(g, rnd.choice([-1, 1]) * (w / 2 - 4), rnd.choice([-1, 1]) * (d / 2 - 4), y)
     top = y
+    # the crown's solids, in the tiers' own form, so city.js registers them where
+    # they are drawn (v139: a helicopter settled INSIDE an unregistered crown)
+    crowns = []
+    if crown == "spire":
+        crowns = [(0, 0, 4.5, 4.5, y, y + 7), (0, 0, 3, 3, y + 7, y + 12), (0, 0, 1, 1, y + 12, y + 26)]
+    elif crown == "mast":
+        crowns = [(0, 0, w * 0.25, d * 0.25, y, y + 5), (0, 0, 0.4, 0.4, y + 5, y + 23)]
+    elif crown == "slope":
+        crowns = [(0, 0, w * 0.35, d * 0.35, y, y + 4), (0, 0, w * 0.2, d * 0.2, y + 4, y + 8)]
     if crown == "spire":
         g.box(0, 0, 9, 9, y, y + 7, OFFICE, CONC)
         g.box(0, 0, 6, 6, y + 7, y + 12, OFFICE, CONC)
@@ -188,7 +197,7 @@ def tiered(rnd, tiers, wall, name, crown=None, tank=False, rooftop=True, base_wa
         lo.box(0, 0, w * 0.7, d * 0.7, y, y + 8, GLASS, ROOF)
         top = y + 8
     return {"name": name, "lod0": g, "lod1": lo, "tiers": solids, "height": top,
-            "w": tiers[0][0], "d": tiers[0][1]}
+            "w": tiers[0][0], "d": tiers[0][1], "crown": crowns}
 
 
 def round_tower(rnd, r, floors, name):
@@ -200,7 +209,7 @@ def round_tower(rnd, r, floors, name):
     g.box(0, 0, 3, 3, h + 6, h + 9, CORR, CORR)
     lo.cyl(0, 0, r, PLINTH, h + 6, 8, GLASS, ROOF)
     return {"name": name, "lod0": g, "lod1": lo, "tiers": [(0, 0, r * 0.92, r * 0.92, 0, h + 6)],
-            "height": h + 9, "w": 2 * r, "d": 2 * r}
+            "height": h + 9, "w": 2 * r, "d": 2 * r, "crown": [(0, 0, 1.5, 1.5, h + 6, h + 9)]}
 
 
 def parking(rnd, w, d, floors, name):
@@ -543,6 +552,7 @@ def build(city, cfg, type_fn, seed):
         tris1 += rec["lod1"].tris * count[old]
         out_types.append({"name": rec["name"], "height": round(rec["height"], 2),
                           "tiers": [[round(v, 2) for v in t] for t in rec["tiers"]],
+                          "crown": [[round(v, 2) for v in t] for t in rec.get("crown", [])],
                           "tris": rec["lod0"].tris, "trisLod1": rec["lod1"].tris})
     obs.append(to_blender(ground, "ground", weld=True))
     for p in placed:

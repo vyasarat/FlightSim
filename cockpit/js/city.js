@@ -78,6 +78,29 @@ function cityProxy(c, i) {
   };
 }
 
+// A tower's CROWN, as solids (v139). The generator writes only the tiers as
+// solid; the crown it stands on the top one -- a spire, a mast, a glass cap --
+// was drawn and was air. A helicopter coming down on a crowned tower settled
+// INSIDE it. citydata.js says only how much taller than its top tier the type
+// is, and that number names the crown, by build_city.py's own rules
+// (`tiered`, `round_tower`): +30 a spire, +23 a mast, +8 a glass cap, +3 the
+// round tower's plant box. Same [cx, cz, halfW, halfD, y0, y1] as a tier.
+const CITY_CROWN_CACHE = new Map();
+function cityCrown(T) {
+  if (T.crown) return T.crown;                // written by the generator (build_city.py, from v139 on)
+  if (CITY_CROWN_CACHE.has(T)) return CITY_CROWN_CACHE.get(T);
+  let top = T.tiers[0];
+  for (const t of T.tiers) if (t[5] > top[5]) top = t;
+  const cx = top[0], cz = top[1], y = top[5], hw = top[2], hd = top[3], k = T.height - y, out = [];
+  const near = v => Math.abs(k - v) < 0.5;
+  if (near(30)) out.push([cx, cz, 4.5, 4.5, y, y + 7], [cx, cz, 3, 3, y + 7, y + 12], [cx, cz, 1, 1, y + 12, y + 26]);
+  else if (near(23)) out.push([cx, cz, hw * 0.5, hd * 0.5, y, y + 5], [cx, cz, 0.4, 0.4, y + 5, y + 23]);
+  else if (near(8)) out.push([cx, cz, hw * 0.7, hd * 0.7, y, y + 4], [cx, cz, hw * 0.4, hd * 0.4, y + 4, y + 8]);
+  else if (near(3)) out.push([cx, cz, 1.5, 1.5, y, y + 3]);   // the gate fails a height step it cannot name
+  CITY_CROWN_CACHE.set(T, out);
+  return out;
+}
+
 // Called from buildRouteLandmarks with the landmark's group, BEFORE
 // addRouteLandmark positions it: every building's base, its solids as pending
 // entries (relative to the group, which is how addRouteLandmark reads them).
@@ -102,7 +125,7 @@ function cityRegister(key, g, ax, az) {
     c.base.push(y);
     c.hidden.push(false);
     const proxy = cityProxy(c, i);
-    for (const t of T.tiers) {
+    for (const t of T.tiers.concat(cityCrown(T))) {
       const [cx, cz, thw, thd] = cityTurn(t[0], t[1], t[2], t[3], b[3]);
       g.userData.pending.push({ lx: b[1] + cx - ax, ly0: y + t[4] - gy, lz: b[2] + cz - az,
                                 hw: thw, hd: thd, y1: y + t[5] - gy, mesh: proxy });

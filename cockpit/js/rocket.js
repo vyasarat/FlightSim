@@ -218,6 +218,7 @@ function rocketApplyStages(g) {
     return;
   }
   p.booster.visible = rk.stage === 0;
+  if (p.sides) for (const s of p.sides) s.visible = rk.stage === 0 && !rk.sidesGone;   // the heavy's side boosters (heavy.js)
   p.fairing.forEach(f => { f.visible = rk.stage <= 1; });
   p.stage2.visible = rk.stage <= 2;
   const baseZ = rk.stage === 0 ? p.booster.userData.baseZ : rk.stage <= 2 ? p.stage2.userData.baseZ : p.capsule.userData.baseZ;
@@ -227,6 +228,7 @@ function rocketApplyStages(g) {
 
 function rocketRestock() {
   rk.stage = 0;
+  if (typeof heavyReset === "function") heavyReset();   // a new stack: side boosters on again
   rk.fuel = rocketFullTanks();
   rk.satOut = false;             // a new satellite rides up with every new stack
   rk.refitT = 0;
@@ -259,6 +261,7 @@ function rocketNextDropAlt() {
   return state.vp.starship ? RK.starship.stageAlt[rk.stage] : RK.stageAlt[rk.stage];
 }
 function rocketCanDrop() {
+  if (state.vp && state.vp.heavy && !rk.sidesGone && rk.stage === 0) return false;   // the side boosters go first, by themselves
   return state.phase === "AIRBORNE" && !state.exploding && rk.stage < rocketFinalStage() && !rk.onBody && rocketAlt() >= rocketNextDropAlt();
 }
 
@@ -427,6 +430,9 @@ function updateGoButton() {
   if (el.skipBtn.dataset.target !== tname) el.skipBtn.dataset.target = tname;
 }
 function updateRocket(dt) {
+  // the heavy's side boosters fly home on their own; while the camera watches
+  // them, the rocket holds where it is (heavy.js)
+  const heavyHold = typeof heavyFrame === "function" && heavyFrame(dt);
   const grounded = state.phase === "TAXI" || state.phase === "ROLL";
   const halfLen = rocketHalfLen();
   updateChuteVisual(dt);
@@ -535,6 +541,7 @@ function updateRocket(dt) {
   }
 
   // ---- in flight
+  if (heavyHold) { setRocketEngine(1, state.spaceF); setEngine(0); state.airVy = null; return; }
   const burning = state.throttleHeld && rk.fuel[rocketTank()] > 0;
   if (burning) rk.fuel[rocketTank()] -= dt;
   const thrust = burning ? (state.vp.starship ? RK.starship.thrust[Math.min(rk.stage, 1)] : RK.thrust[Math.min(rk.stage, 3)]) : 0;
@@ -673,6 +680,7 @@ function rocketSkipTarget() {
   return null;   // Earth: the pad he took off from (also after a planet visit -- the way home)
 }
 function rocketCanSkip() {
+  if (typeof heavyWatching === "function" && heavyWatching()) return false;   // the camera is on the heavy's boosters
   if (state.phase !== "AIRBORNE" || state.exploding || rk.chute > 0) return false;   // under a chute the chute is the landing
   const body = rocketSkipTarget();
   if (body) return Math.hypot(body.x - state.x, body.y - state.y, body.z - state.z) - body.r > body.r * RK.assistRange;
@@ -750,16 +758,19 @@ function rocketArrival(nx, ny, nz) {
 }
 function rocketLandingSite() {
   const pad = rocketPad(state.originIdx), ap = AIRPORTS[state.originIdx];
+  // home is the pad he left from: the airport's, or the launch site's for the heavy
+  const hx = state.vp && state.vp.heavy ? pad.x : 0, hz = state.vp && state.vp.heavy ? pad.z : ap.cz;
   for (let tries = 0; tries < 40; tries++) {
     const a = rnd() * Math.PI * 2, r = 500 + rnd() * 700;
-    const x = Math.cos(a) * r, z = ap.cz + Math.sin(a) * r;
+    const x = hx + Math.cos(a) * r, z = hz + Math.sin(a) * r;
+    if (state.vp && state.vp.heavy && typeof hwyInCorridor === "function" && hwyInCorridor(x, z, 60)) continue;   // never on the motorway
     if (Math.abs(x) < TUNE.runwayWidth / 2 + 120 && Math.abs(z - ap.cz) < TUNE.runwayLength / 2 + 300) continue;   // the runway strip
     if (Math.hypot(x - pad.x, z - pad.z) < 160) continue;
     let clear = true;
     forEachSolid(b => { if (Math.abs(x - b.x) < b.hw + 30 && Math.abs(z - b.z) < b.hd + 30) clear = false; });
     if (clear) return { x, z };
   }
-  return { x: pad.x + 400, z: pad.z };
+  return state.vp && state.vp.heavy ? { x: pad.x + 700, z: pad.z } : { x: pad.x + 400, z: pad.z };   // the heavy's: east, away from the road
 }
 function rocketLandOn(body) {
   rk.onBody = body;
@@ -846,6 +857,7 @@ function rocketRefit() {
 const camUp = new THREE.Vector3(0, 1, 0);
 const camQ = new THREE.Quaternion(), camQi = new THREE.Quaternion();
 function rocketCamera(dt) {
+  if (typeof heavyWatching === "function" && heavyWatching() && !state.exploding) { heavyCamera(dt); return; }   // the boosters coming home
   const pr = state.pitch * DEG, hr = state.heading, cp = Math.cos(pr);
   rkAxis.set(-Math.sin(hr) * cp, Math.sin(pr), -Math.cos(hr) * cp);
   const sh = shakeAmp + rumble;

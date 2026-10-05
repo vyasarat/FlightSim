@@ -169,11 +169,11 @@ a deliberate, stated behaviour change.
   rule (a full steer held through the approach, with the car's lift and relatch allowances).
   The way off is the exit lane off the start deck (a gantry with the motorway's icon), taken
   like every exit: a full steer held through the deck; hands-off stays on the track.
-  He falls off in two places only: short at the gap, or out of a loop he came into too slowly.
+  He falls off in two ways only: short at a jump, or out of a loop he came into too slowly.
   Either way he comes back at the drop or booster that feeds it, so he has the speed to go
   again. The track is data: a graph of segments made of typed sections, each laid in the
-  frame the last one ended in. Lengthen it by adding sections; a fork's two branches must
-  end in the same place.
+  frame the last one ended in. Lengthen it by adding sections; a fork's branches (a held left
+  is a third way) must end in the same place.
 - **The speed steps are one control he learns once** (`speed.js`): same pair, same slot,
   every vehicle but the rocket — the helicopter has three of its four slots spent, so it
   gets one cycling stepper. `TUNE.<vehicle>.speedSteps` scales what the model AIMS for and

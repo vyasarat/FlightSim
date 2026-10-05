@@ -342,6 +342,10 @@ function mtAimed() {
     return Math.atan2(across, along) / DEG >= bear;
   }
   if (d > T.armR || dh < T.innerR) return false;
+  // v141: in his OWN monster truck inside the arena he is playing in it -- the
+  // giant truck's show would run through him (and it would start the moment he
+  // was put there, nose at the ramp). From further off he can still set it off.
+  if (typeof vehKind === "function" && vehKind() === "monster" && d < T.monsterQuiet) return false;
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   return (dx * fx + dz * fz) / dh > Math.cos(T.coneDeg * DEG);
 }
@@ -508,6 +512,9 @@ function updateMonsterTruck(dt) {
 function mtClearPath(dt) {
   if (Math.abs(mtruck.v) < 1 || state.exploding) return;
   if (typeof vehCrawl === "function" && Math.abs(state.speed) > vehCrawl()) return;
+  // v141: his own monster truck never bangs (its crawl is "never"), so it would be
+  // shoved at the show's pace at any speed -- only one sitting still is stepped off
+  if (typeof vehKind === "function" && vehKind() === "monster" && Math.abs(state.speed) > 2) return;
   const T = MTRUCK, S = T.truckScale;
   const fx = Math.sin(mtruck.heading), fz = Math.cos(mtruck.heading);
   const rx = state.x - mtruck.x, rz = state.z - mtruck.z;

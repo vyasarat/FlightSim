@@ -68,6 +68,14 @@ function buildVehicleModel(key) {
     vehicleModel = vehTagPlayer(g);
     return;
   }
+  if (key === "monster") {
+    const g = buildMonsterModel();
+    g.visible = state.viewChase;
+    castsShadow(g);
+    scene.add(g);
+    vehicleModel = vehTagPlayer(g);
+    return;
+  }
   if (key === "car") {
     const g = buildCarModel();
     g.visible = state.viewChase;
@@ -102,8 +110,9 @@ function buildVehicleModel(key) {
     g.traverse(m=>{if(m.isMesh)m.castShadow=!!m.userData.toyCaster;});
     toyMergeFittings(g);
     g.userData.groundOffset = -new THREE.Box3().setFromObject(g).min.y;
-  } else if (key === "rocket") {
+  } else if (key === "rocket" || key === "heavy") {
     buildRocketStack(g, { mA, mB, glassM });
+    if (key === "heavy") heavyAddSides(g);
   } else if (key === "starship") {
     buildStarshipStack(g, { mA, mB, glassM });
   } else if (key === "fighter") {
@@ -202,10 +211,14 @@ function buildVehicleModel(key) {
 
 function updateVehicleModel(dt) {
   if (!vehicleModel) return;
-  const chaseVisible = state.viewChase && !state.exploding;
+  // (while the camera watches the heavy's boosters home, his rocket waits out of the picture)
+  const chaseVisible = state.viewChase && !state.exploding && !(typeof heavyWatching === "function" && heavyWatching());
+  // the monster truck is drawn from its own seat too: he sits over its bonnet and wheels (v143)
+  if (state.vp.monster && !state.exploding) { vehicleModel.visible = true; monPoseModel(vehicleModel); return; }
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
   if (state.vp.car && typeof trk !== "undefined" && trk.on) { trackPoseModel(vehicleModel); return; }
+  if (state.vp.monster) { monPoseModel(vehicleModel); return; }
   const wheelDrop = state.vp.heli ? vehicleModel.userData.groundOffset * (state.vp.size || 1) : state.vp.hasGear ? 1.9 * (state.vp.size || 1) : 0.6;
   if (state.vp.boat) {   // a hull rolls with its bank; it does not pitch about the world axis
     vehicleModel.position.set(state.x, state.y - TUNE.gearHeight + wheelDrop, state.z);

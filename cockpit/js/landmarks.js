@@ -1166,6 +1166,8 @@ function updateTargets(dt) {
       const dx = t.x - state.x, dy = t.y - state.y, dz = t.z - state.z;
       if (dx * dx + dy * dy + dz * dz < (t.r + 3) * (t.r + 3)) {
         killTarget(t, (t.x + state.x) / 2, (t.y + state.y) / 2, (t.z + state.z) / 2, true);
+        // a kite drifting into a helicopter hovering among them pops; he does not (heli.js)
+        if (heliMidairSoft()) continue;
         flags.midairs++;
         state.exploding = true;
         state.explodeTimer = TUNE.reassembleDelay;

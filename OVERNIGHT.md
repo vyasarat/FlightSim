@@ -1,209 +1,249 @@
-# Overnight — building out the world
+# Overnight 2: what he asked for
 
-Branch `overnight-world`, from `cockpit-3d` with `origin/claude/self-improvement-loop`
-merged in. Nothing pushed, nothing merged into `main` or `cockpit-3d`, no deploy, no ssh.
+Branch `overnight-2`, from `cockpit-3d` (`c178fe7`). Local only: nothing pushed,
+nothing merged, no deploy. The previous night's report is in git history
+(`git show cockpit-3d:OVERNIGHT.md`).
 
-All four builds use the loop he already knows from the demolition block. There
-is a giant obvious thing with a pulsing red target ring. He points at it (car,
-plane or helicopter), big numerals count down in the sky, there is a huge
-payoff, and it puts itself back for next time. There is nothing to press,
-nothing to miss and nothing taken away. No control, flight feel or stick
-meaning changed. No new button, no permanent HUD, nothing persists or counts,
-and no dependency was added.
+## The brief (the parent's, 2026-10-03, verbatim in substance)
 
-## What was built
+Playtest on v138, from his dad (now in PLAYTEST.md): he loved the new
+set-pieces, and the giant toy track was the biggest hit. He wants to FLY the
+new rocket (he likes the side boosters landing) and to DRIVE the monster
+truck. In the helicopter he gets the ground warning near land, and it blows up
+most times he tries to land.
 
-### v133 — a rocket launch beside the motorway (`b8f42bf`)
-A rocket as tall as a skyscraper stands on a pad right beside the motorway on
-the plains. When he points at it, big numbers count 5-4-3-2-1 and it blasts
-off in a cloud of smoke, and its two side boosters fly home and land upright on
-their own pads with a double sonic boom. A fresh rocket then rises out of the
-pad, ready to go again.
-Renders: `evidence/launchsite/`
+Build four things, in this order, one release each. The parent approved the
+control changes these need ahead of time:
 
-### v134 — a rocket sled and a wall of giant toy bricks (`77a773e`)
-In the desert just past the mountain tunnel, a red rocket sled waits on a rail
-beside the road, under a tower of traffic-light lamps. When he points at the
-brick wall down the rail, the lamps go red, amber, green with 3-2-1. The sled
-rockets off at 120 m/s and smashes straight through a house-sized wall of
-coloured toy bricks, pops three parachutes and stops. When it rolls home, every
-brick flies back into the wall.
-Renders: `evidence/rocketsled/`
+1. **The helicopter lands anywhere solid.** Coming down on to ground, a
+   rooftop, a deck, a bridge or a pad, it settles gently, every time. No ground
+   warning for the helicopter. It only bangs flying into the SIDE of something
+   at speed. Over water it hovers; it never sinks or bangs. Taking off again is
+   the same up button. Point-to-go does not change.
+2. **The toy track:** the speed steps work on it (the same pair, in the same
+   slot). Jumps: several, of different sizes; too slow means he falls and comes
+   back at the booster before it. More forks: left/right choices he can see
+   coming from far off, each branch a different ride (one with a jump, one with
+   a loop). The branches rejoin, and hands-off still goes straight.
+3. **The monster truck as a vehicle** in the picker. He drives it anywhere, on
+   or off road, steering freely like the rover. It never bangs: whatever it
+   drives into gets crushed or knocked flying, and everything pops back after
+   he has gone. Machines and structures only. Big jumps off the existing ramp.
+   Keep the set-piece truck as it is.
+4. **The booster rocket as a vehicle** in the rocket picker: the v133 rocket with
+   its two side boosters, launched from that pad. The boosters peel off and he
+   SEES them fly home and land. Then the flight carries on like the other
+   rockets.
 
-### v135 — a fireworks barge on the great lake (`0f69d06`)
-A red barge stacked with coloured firework tubes floats on the lake next to the
-motorway. When he points at it, after 3-2-1 it fires a ten-second show that
-builds from single shells to a finale of thirty at once: coloured bursts,
-rings and gold willows, each with a boom. It then rests and is ready to go
-again.
-Renders: `evidence/fireworks/`
+If one of the four cannot be done well tonight, the brief says to write that
+here and move on rather than ship a weak version.
 
-### v136 — a monster truck that squashes junk cars (`20113e9`)
-On a dirt loop beside the motorway, a giant blue monster truck with wheels as
-tall as a house waits behind a ramp, with six old junk cars parked beyond it.
-When he points at it, after 3-2-1 the truck roars off, flies off the ramp, lands
-on the cars and squashes all six flat. It drives round the loop home, and the
-cars pop back up one by one. The truck has dark windows and nobody inside; the
-cars are empty wrecks.
-Renders: `evidence/monstertruck/`
 
-Each has its own check module (`scripts/<name>_checks.js`: 21, 22, 14 and 12
-checks), wired into the gate and the full harness, and a render script
-(`scripts/<name>_renders.js`). Every check drives the car **hands-off** past it
-and asserts zero bangs, touches and off-road time. Each also asserts that
-nothing it throws (cloud, bricks, stars, dust) reaches the road, that the
-payoff lands in his **portrait** windscreen at every speed step, that pointing
-away does nothing, and that it is solid where it stands.
+## What was built: all four, one release each
 
-Two shared pieces came out of it:
-- **One countdown at a time.** The four share the existing big numeral through a
-  small registry in `setpieces.js` (`spCountRegister` / `spCountBusy`). None
-  starts while another is counting, and each stands down for a police pull-over
-  or the picker. The sled's check found a same-frame race here, where two
-  countdowns could start on the same frame, and it is closed both ways.
-- **The car arms by his speed.** In the car, each one starts when its payoff will
-  land a fixed distance ahead at the speed he has set. That puts it in the
-  windscreen at every speed step, both ways.
+| release | commit | new check module | its checks |
+|---|---|---|---|
+| v139 the helicopter lands anywhere solid | `9b4abfd` | `heli_land_checks` | 16 (fails 11/15 on v138) |
+| v140 the toy track: speed steps, forks, jumps | `a8aa20c` | `track_checks` grew | 27 (9 new) |
+| v141 the monster truck to drive | `4f68770` | `monster_checks` | 25 |
+| v142 the booster rocket to fly | `3e777c0` | `heavy_checks` | 13 |
 
-### v137 — no bang at the merge, and the new set-pieces leave the traffic alone (`f1e576c`)
-A fix, nothing new to see. Leaving the giant toy track by its exit lane could
-end in a bang just as the road back joined the motorway. A traffic car was
-driving level with him in the lane he was joining, and the traffic only made
-room for cars ahead of or behind him. Now a car level with him moves over or
-drops back. The four new set-pieces are also built so they no longer move
-where the traffic is.
-Renders: none (no visible change).
+Each release passed the gate, ran its touched modules green, and had both
+reviewers (`law-reviewer`, `render-critic`). Renders are in `evidence/`
+(`heliland/`, `track/v140/`, `monster/`, `heavy/`).
 
-### v138 — the merge bang's real cause, payoffs you can see from the seat, a real monster truck (`efc1b83`)
-The bang when leaving the giant toy track is found and fixed. The car thought
-it was joining the wrong side of the motorway, so the traffic in the lane he
-was joining never made room for him. That bug is in the live game. From the
-driving seat all four shows now fill at least a quarter of the windscreen's
-height. The monster truck is a real monster: 55 m tall, against junk cars the
-size of buses, off a 30 m ramp on a 48 m high jump.
-Renders: `evidence/payoff/before/` and `evidence/payoff/after/` (driving seat,
-each payoff at its biggest, both directions), `evidence/monstertruck/`.
+### v139 — the helicopter lands anywhere solid
+**What did it.** The "ground warning" was the plane's sink-rate alarm. It went
+off on every descent. The bangs were mostly the kites and paper-plane flocks
+that fly 28-50 m over the fields: they counted as a mid-air even with the
+helicopter hovering still. And a roof was never a floor. Coming down on one,
+it got shoved about for as long as he held the button, and it sank straight
+through bridge decks.
 
-## Follow-up: the parent's four asks (after the first report)
+**What it does now.**
+- No ground warning. It still warns before its one bang, flying level into the
+  side of something at speed.
+- A kite, flock or airliner that drifts into it while it hovers pops. The
+  helicopter is not hurt.
+- It settles on top of whatever it comes down on: ground, roofs, pads, ship
+  decks, the carrier's flight deck, motorway bridges, city flyovers. The up
+  button takes it off again.
+- Over the sea, the lake or the lock it hovers and never sinks.
+- Holding down while still travelling, it holds above whatever is ahead and
+  creeps near anything too tall to come down on.
 
-**1. Bigger payoffs, from the driving seat.** Kept where they are; made bigger.
-`scripts/payoff_size_checks.js` measures, on the portrait iPad from the driving
-seat at cruise, how much of each payoff is on open glass. Parts under a
-button, behind the windscreen pillars or the brow, or behind the 3-D dash,
-wheel or map screen do not count. The target is a quarter of the windscreen
-(131 of 525 px). Results, southbound / northbound:
+**Also changed.**
+- The carrier's arrester wire no longer catches the helicopter. It used to
+  pin it to the deck so the up button could not take it off.
+- City tower crowns (spires, masts, glass caps) are now solid where they are
+  drawn. A helicopter used to settle inside them, and planes flew through them.
+  The city generator now writes these crowns, and the gate fails any crown it
+  cannot name.
 
-| | before (v137) | after (v138) |
-|---|---|---|
-| rocket launch | already ~430 / ~450 | 432 / 457 (unchanged) |
-| rocket sled smash | ~80 / ~95 | 136 / 183 |
-| fireworks (the biggest single burst) | ~150 (passed already) | 163 / 160 |
-| monster truck | ~30 / ~25 | 152 / 151 |
+Point-to-go is unchanged. Noisy-finger city drive (city code changed), seeds 3
+and 11: 5/5 turns meant and made each, 0 unintended, 0 missed, 0 bangs,
+0 touches, 0 off-road (`evidence/noisy/`).
 
-The "before" figures for the sled and truck come from the first, more lenient
-version of this measure; the truck's were specks in the renders. The sled's wall
-is now 75 m wide and 48 m tall, with its bricks thrown higher and only away
-from the road. The fireworks burst faster with bigger stars. Render-critic
-compared before/after for each: every "after" is clearer, and every payoff
-reads as big from the seat. Its standing notes: the sled's burst is still cut
-by a pillar edge; the fireworks' burst ball alone is ~100 px (the 131 is
-reached with its rising column and trailing stars); the barge itself cannot be
-seen from the road.
+### v140 — the toy track
+- **Speed steps.** The speed pair was already on screen, but the boosters set
+  the pace, so a step hardly changed anything. Now a step sets how hard his
+  finger pushes, and above the middle step the boosters throw him faster too.
+  A lap takes 105 s on the slowest step and 62 s on the fastest.
+- **Forks C and D.** Each is three ways: hands-off goes straight on, a full
+  steer held left takes a loop, held right takes a jump. All branches rejoin
+  exactly.
+- **Signs.** A big blue sign over the track before every fork shows the ride
+  each way: an orange loop, a ramp-and-car, or a spring for the corkscrew.
+- **Jumps.** There are now three, of 26, 36 and 52 m, each under an amber ring
+  with a booster before it. Too slow and he falls and comes back at that
+  booster. Each kicker and the ski-jump brake him to what the landing can
+  catch, so every speed step lands every jump.
+- **Jump camera.** Off a jump the chase camera swings out to his right, so he
+  sees himself fly.
+- **Toy cars.** The faster steps had him rear-ending the toy cars every lap. A
+  toy car now outruns him, or is nudged ahead where a branch rejoins.
 
-**2. The monster truck reads as a monster now.** It is 63 m long and 55 m
-tall; the junk cars are bus-sized (15 m by 6 m), so the truck is several times
-their size. The ramp is 30 m high, the jump arc about 48 m (it was 7 m). In the
-car it waits until the landing will be in his open windscreen (18° off his
-nose on his left, 12° on his right, where the map screen and buttons are). In
-round 3 the critic answered yes on all three counts: monster-sized, more than
-three times the cars, a much higher jump. Its last two blocked frames were
-camera aim; I re-shot them after its three rounds, and they have not been
-re-judged. The squash now reads close up (`sq-chase_14.2`: the wheel rolling
-over the cars). I did not remove v136.
+### v141 — the monster truck
+- **The vehicle.** A new card in the picker: the blue truck, about three times
+  the SUV. It starts at the arena, nose at the ramp. It drives anywhere and
+  steers freely like the rover.
+- **It never bangs.** Buildings, town houses, parked cars and junk cars are
+  crushed into flying pieces. Traffic is thrown spinning off to the side.
+  Anything too big (a tower, a pier, a ship) simply stops it.
+- **Nothing is lost.** Everything crushed pops back once he has driven off, and
+  all at once when he changes vehicle.
+- **Water.** The shore stops it. A jump that lands in the lake puts it back on
+  the last dry ground.
+- **Jumps.** Off the arena's ramp it flies about 24 m over the lip.
+- **Roads.** It drives on a road only where it is level with it: under a city
+  flyover or a motorway bridge, it stays on the ground.
+- **The set-piece.** The giant set-piece truck is unchanged, except that it does
+  not start its show while he is in the arena in his own truck.
 
-**3. The toy-track merge bang: yes, it is in the live game.** I swept the same
-exit-lane drive over 60 traffic layouts (`scripts/merge_sweep.js`, which runs
-on any build):
-- live v132 (`cockpit-3d`, what `main` deploys): **4 of 60 bang** (layouts 7,
-  23, 29, 40)
-- v137: 3 of 60
-- v138: **0 of 60**, and 0 of 60 with v137's rule removed too
+### v142 — the booster rocket
+- **The vehicle.** A card beside the rocket: the launch site's rocket, an
+  orange core with two white side boosters. It launches from the launch site's
+  pad by the motorway. The site's own stack steps aside, and is back when he
+  leaves.
+- **The boosters.** Holding the throttle is enough: about 8 seconds up, the two
+  boosters let go by themselves.
+- **The camera gives him that part.** It leaves the rocket and watches the pair
+  from along the line of the two landing pads, so in portrait both stay in the
+  picture. They flip, boom and land upright on their pads. While it watches,
+  his rocket, the space race-rocket and the gate rings are hidden, so the
+  boosters are the only rockets in the sky. 2.5 s after they land the camera
+  swings back to him, and a tap on the screen brings it back at once.
+- **The rest of the flight** is the rocket's, landing at home on the launch
+  site's pad.
 
-The real cause: the toy track's road back is the one way onto the motorway
-whose road doesn't say which carriageway it joins. The car read the missing
-value as "+1", but the road joins "-1", so the traffic in the lane he was
-joining never knew he was coming. v137's extra "move over at the merge" rule
-treated a symptom; it is removed again. The toy track's check now drives the
-four layouts that banged on v132, and fails if the fix is reverted (tested).
+## Full harness
 
-**4. Full harness, once, at the end:** **763/763**, one uninterrupted run on
-`efc1b83`, nothing else running.
+**826/826** on `08ba2ac` (the final state). It was one uninterrupted run with
+nothing else running. On the way there:
+- **Run 1 stalled at 295 checks.** It hung booting `heli_play_checks`'s portrait
+  page after a reload that had no timeout of its own; the module passes alone
+  in 85 s. The reload and its wait now time out at 2 minutes, so a slow boot
+  fails loudly instead of stalling the run. The same run also found the two
+  vehicle-count checks still expecting 10 cards; they now expect 12. I
+  re-checked that edit on its own before the next run.
+- **Run 2: 823/826.** The 3 failures were one layout case in all three portrait
+  viewports: the helicopter's target ring over the missile button, while
+  aiming at the fire rig. It fails the same way standalone on v138, so the
+  overlap is old; v138's own full run must have passed only because of state
+  carried over from earlier checks. Fixed in the game: the ring now steps in
+  toward the middle of the screen until it is clear of every button. The slot
+  check passes in all six viewports.
+- **Run 3: 826/826.**
 
-## Full harness on the final state
+## Judgement calls the parent should look at
+- **The booster rocket is rocket-sized, not set-piece-sized.** The launch
+  site's tower was built for a 125 m stack. His rocket is the game's usual
+  rocket (about 18 m) with side boosters, so it looks small beside the tower.
+  Making it the set-piece's size would change every rocket envelope (landing,
+  camera, staging), and the brief said the rest of the flight works like the
+  other rockets. From the seat on the pad the view is tower and arms (the
+  render critic's note).
+- **During the booster watch (about 18 s) his controls do nothing** except a tap,
+  which ends the watch. The rocket waits in the sky with its engine lit. The
+  law reviewer flagged this; I kept it because the brief was "make sure the
+  camera gives it to him".
+- **The monster truck crushes city buildings up to 22 m tall.** Taller ones stop
+  it. Everything comes back.
+- **Monster truck dust is gone.** A dust puff from the driving seat was a
+  translucent wall across the windscreen, so only the flying pieces remain.
+- **Toy-track rear-ending is no longer a bang** (toy cars outrun him). This
+  follows "a held finger never bangs" at the faster steps.
+- **The carrier's arrester wire no longer takes the helicopter.**
 
-**763/763** on `efc1b83` (v138), one uninterrupted run, nothing else running.
-Before that, **757/757**, one uninterrupted run on `f1e576c`, nothing else running
-(`node scripts/headless_test.js`, about 40 minutes).
+## Reviewers
+Law reviewer: PASS on all four. Render critic: PASS on v139, v140 and v142;
+**a standing BLOCK on v141** after its three rounds (reported, not argued
+down). Rounds (law / render):
+- v139: 2 / 2.
+- v140: 2 / 2.
+- v141: 3 / 3. The render critic's third round blocked three frames for
+  missing their moment: crush-chase and house-chase with no pieces in the
+  air, and traffic-seat with the knocked car out of shot. In the game the
+  pieces and the car do fly (the frames were taken a beat early or late, and
+  `monster_checks` measures the thrown car in the air). I re-shot all three
+  after that round, and they have not been re-judged: **look at
+  `evidence/monster/` before merging v141.** Its standing note: the
+  city traffic's own knock puff (in `streets.js`, not this work) ghosts a car
+  in `tower-chase`.
+- v142: 1 (PASS, notes fixed) / 3.
 
-Along the way:
-- v134 state (snapshot run): **730/730**.
-- v136 state: **755/756**, twice. The toy track's exit-lane check touched a
-  traffic car at the merge; the second run's diagnostics named it. That led
-  to v137.
-- About the v137 fix, honestly (superseded by v138, see above): the touch was seen twice in the full run and
-  twice alone, then not again with nothing in the game changed. Where the
-  traffic stands at that moment is not fixed by the seed alone (my guess is
-  model-load timing, which I did not prove). So the new check places the traffic
-  instead. It proves the move-over half of the rule (it fails with the rule
-  off). It does not separately prove the drop-back half, because on that road
-  a level car clears him anyway as he slows.
-- Noisy-finger drive (the city habit, since `highway.js` changed), seeds 3 and
-  11: 5/5 turns meant and made, 0 unintended, 0 missed, 0 bangs, 0 touches,
-  0 off-road, way in, way out and merged on both.
+Standing notes not fixed:
+- The monster's seat view against a tower shows only a wall.
+- The heavy's seat on the pad shows the tower and arms.
+- The jump frames for the toy track show height weakly with no ground shadow.
 
-## What the reviewers still object to
+## v143 — the monster truck, after the parent's notes on v141
 
-Every release ended with PASS from both `law-reviewer` and `render-critic`
-(v133: 2 rounds each; v134: law 2, render 3; v135: 1 each; v136: 2 each;
-v137: law 3, no render). None blocks. Their standing notes, not fixed:
+Commits `db21b83` and `ed30384`. Renders: `evidence/monster143/`.
+- **Crushing is instant on contact.** It needed 1.5 m/s before; stopped
+  against a house, he only pushed at it. Now the first touch goes through.
+  The check (it fails on v142): parked touching a house, the first push
+  takes it within 6 frames, with at least 15 pieces thrown by that crush.
+- **No countdown reads as a wind-up.** The 5-4-3-2-1 over the crush frames
+  was the launch site's: the arena's ramp points straight at it. In the
+  monster truck, no set-piece starts a countdown while he is inside the
+  arena, or for 4 seconds after a crush. Out on the road he can still point
+  at one and set it off (checked both ways). My first version silenced every
+  set-piece in the truck; the law reviewer blocked that as more than the
+  brief asked.
+- **The crush reads in one frame.** The whole thing crushed vanishes. That
+  includes every tier of a city building, which used to leave its upper
+  parts standing. In its place a cloud of 24 to 70 blocks fills its shape,
+  bursts outward and tumbles down. No dust, nothing starts near the cab, and
+  its pieces go when it pops back. A knocked car is thrown up and ahead,
+  over the bonnet, where he sees it from the seat.
+- **The driving seat.** The eye is 11.5 m up, behind a blue bonnet with yellow
+  racing stripes and a steel scoop, with the tops of both front wheels in the
+  bottom corners and a wider lens. The cab is not drawn from inside it.
+  Traffic sits small below (checked: a car 40 m ahead is under 6% of the
+  picture's height).
 
-- **From the car, the payoffs are small.** The pad, rail, barge and truck stand
-  110–190 m off the road, so from the driving seat each show is a few dozen
-  pixels at the edge of the windscreen. The helicopter and plane views are
-  where they are big. Bringing them closer would put debris and cloud into the
-  road's corridor, which the checks forbid.
-- **The target rings are small from the car** (about 30–50 px at 500–900 m), and
-  in places an existing yellow gate ring nearer the road competes for the eye.
-- **The rocket sled's three parachutes** stack edge-on from some side views:
-  two domes and a red hoop rather than three equal chutes.
-- **The monster truck has no shadow** under it in the air, so its height over the
-  cars is ambiguous at a glance.
-- **`launchsite_checks` holds the monster truck off** during its hands-off drive,
-  so its numerals are the pad's. No check drives the real sequence with both
-  live: the truck's show, then the pad's.
-- **v137's drop-back branch is unproven** (see above), and no check notices if
-  the set-pieces' `vkQuiet(0, …)` wraps stop protecting the traffic's random
-  stream; only a full run would show it, as it did tonight.
-- **Existing, not this work:** the speedometer numerals on the dash are numerals
-  that show state, outside the "numerals only on a wind-up counter" rule. Both
-  critics flagged them every round. They predate tonight and are left for you
-  to rule on.
+Reviewers: law-reviewer PASS (round 2, after the set-piece block above).
+render-critic PASS on a fresh set of frames (round 2, after a block on the
+seat view of the traffic knock; the car now flies over the bonnet).
+Standing notes: the tyre tops from the seat are plain black slabs with no
+hub or tread, and are only weakly wheels; no frame shows a car right
+alongside to prove the bonnet clears its roof.
+
+Full harness: **829/829** on `ed30384`, one uninterrupted run with nothing
+else running. The run before it was 828/829: the new instant-crush check
+saw a small town house burst into 14 live pieces against a threshold of 15.
+The cause was real. The minimum burst was 12, trimmed by the clearance
+around the cab, and the check read a live total that drifts across a long
+run. Now the smallest burst is 24 pieces, and the check counts this crush's
+own pieces.
 
 ## Notes for the parent
-
-- The two reviewer agents arrived with the self-improvement-loop merge,
-  mid-session, so Claude Code had not registered them as agent types. Each
-  review was run as a fresh general-purpose agent told to read and follow its
-  `.claude/agents/*.md` file exactly: same instructions, same read-only rules,
-  fresh context.
-- The "white-out" frames a reviewer caught in the monster truck renders were the
-  existing red-light camera flash (`lights.js`). The hands-off drive runs a red
-  at a junction, and the flash is taken down by a 110 ms wall-clock timeout
-  that the render rig's compressed time never reaches. In the game it is a
-  blink. The render takes it down; the game is unchanged.
-- PLAYTEST.md has a prediction row for each release, ready for `/retro`.
-- Before merging, worth a look on the iPad: the four shows from the **driving
-  seat**. That's where the reviewers found them smallest.
-- None of these has been seen on an iPad. All frame-cost numbers are SwiftShader
-  draw-call counts: 21/31 (standing/through the show) for the launch site,
-  18/25 for the sled, 10/21 for the barge, and about 33 for the truck.
+- Branch `overnight-2`, local only: nothing pushed, merged or deployed.
+- PLAYTEST.md has today's entry and the open predictions scored against it
+  (only three had any evidence). It also has one prediction row for each of
+  v139-v142.
+- Worth trying on the iPad first: the helicopter coming down on a skyscraper's
+  roof, the toy track's new signs and jumps at the fast step, and the booster
+  rocket's watch in portrait.
+- All frame costs are SwiftShader proxies, not the iPad.

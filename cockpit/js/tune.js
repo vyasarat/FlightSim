@@ -979,6 +979,14 @@ const TUNE = {
     levelRate: 2.5, noseDeg: 6,
     waterFloor: 5,                  // it hovers this far over the sea and never sets down on it
                                     // (sitting on the water would end the flight and hide the bucket)
+    // v139: it lands on anything solid (heliFloorAt). A top up to floorTol over the
+    // skids still counts as under them -- one frame's descent, a kerb. Coming down
+    // while still faster than landCreep, it looks landLook seconds ahead and holds
+    // landHold over whatever stands there, so a descent meets a roof, never a side.
+    // Anything in the way it cannot come down on (a sphere landMargin wider than
+    // the wall law's, at a look-ahead point) slows it to landCreep instead.
+    // A top narrower than floorMinHalf each way (a mast, an antenna) is a wall, not a floor.
+    floorMinHalf: 2.5, rotorClear: 6.5, floorTol: 1.0, landCreep: 6, landLook: [0.3, 0.7, 1.2, 1.8], landHold: 2, landMargin: 4,
     pickRange: 3000, pickStep: 30,  // how far it looks for what he touched, and how finely
     // A shallow ray grazes the crest in front of him and dips under the ground for
     // a moment before coming out the other side. Taken at face value that put the
@@ -1026,13 +1034,32 @@ const TUNE = {
       motorAccel: 6.5, motorSpeed: 30,   // his finger: the push, and the speed it pushes toward on the flat
       roll: 0.22, drag: 0.0011,          // rolling and air
       boostAccel: 26, boostMax: 46,      // the spinning rollers
+      // v140: THE SPEED STEPS work here, the car's own pair (speed.js). A step
+      // scales the speed his finger pushes toward; above the middle step it
+      // also pushes harder and the rollers throw him faster, up to stepBoostMax
+      // times. Below it the rollers ease off only to stepBoostMin: they are what
+      // gets him round the loops, and a slow step is not a fall every lap.
+      stepBoostMin: 0.85, stepBoostMax: 1.3,
+      // Every kicker (and the ski-jump) CAPS his speed at its own `capV` as he climbs it -- a
+      // brake in the rollers, speed only -- so the fastest step still lands on
+      // the far side, and never flies past the whole landing.
+      kickerBrake: 30,
       // A loop PUSHES him round and never pulls: he peels off once what it would
       // have to pull with passes `grip` g. It is an assist, and weakens as he learns.
       grip: 0.18,
     },
-    cam: { back: 15, up: 5.5, lag: 5, upLag: 4.5 },   // the chase rides the track behind him; the seat is the car's own
+    cam: { back: 15, up: 5.5, lag: 5, upLag: 4.5,
+           jump: { back: 10, side: 28, up: -1 } },        // off a jump: out to his RIGHT (+side), level with him: him against the sky, the gap under him
+    // v140: the sign before every fork that has somewhere to go -- a blue gantry
+    // over the stem `ahead` metres before the fork's approach, an arrow each way
+    // and the ride that way drawn on it (a loop, a jump, a corkscrew). Big, so
+    // he sees the choice coming from far off.
+    sign: { ahead: 15, h: 9, panel: 9 },   // the chase rides the track behind him; the seat is the car's own
     net: { start: 5, len: 84, w: 48, drop: 7, farH: 17, flight: 3.6, arc: 48 },
-    cars: { count: 3, spacing: 150, speed: 27, hold: 32, touch: 7.5, back: 3 },
+    // v140: a toy car he is closing on, within `yieldR` ahead, OUTRUNS him by
+    // `yieldMatch` -- the motorway's promise (fast is his; a held finger never
+    // bangs). With the speed steps and a longer course he caught them every lap.
+    cars: { count: 3, spacing: 150, speed: 27, hold: 32, touch: 7.5, back: 3, yieldR: 90, yieldMatch: 4 },
     exit: { lead: 130, out: 220, fwd: 90, boardBack: 110 },    // its road: the mouth, the sweep off, the board before it
     props: {
       sofa: { w: 58, d: 24, seat: 7, back: 11, arm: 9 },
@@ -1081,20 +1108,73 @@ const TUNE = {
       ] },
       { id: "B_stunt", from: "main1", merge: "main2", sections: [   // the gap jump
         { type: "sbend", len: 35, shift: -14 },
-        { type: "kicker", len: 14, rise: 3.2, lipSlope: 0.14 },
+        { type: "kicker", len: 14, rise: 3.2, lipSlope: 0.14, capV: 40 },
         { type: "gap", len: 26, dy: -0.8 },
         { type: "landing", len: 70, fall: 8 },
         { type: "straight", len: 30, climb: 5.6 },
         { type: "sbend", len: 35, shift: 14 },
       ] },
-      { id: "main2", from: "B_safe", sections: [
+      { id: "main2", from: "B_safe", fork: { safe: "C_safe", stunt: "C_jump", left: "C_loop", approach: 50 }, sections: [
         { type: "straight", len: 12 },
         { type: "hump", len: 90, height: 16 },                 // over the sofa
         { type: "straight", len: 14 },
         { type: "spiral", turns: 1.25, radius: 26, rise: 24, dir: -1, bank: 16 },   // round the lamp
         { type: "straight", len: 10 },
         { type: "booster", len: 22 },
+        { type: "straight", len: 130 },                        // a long straight: the sign, then fork C, three ways
+      ] },
+      // FORK C (v140). Hands-off: straight on. Held left: a loop. Held right: the
+      // middle-sized jump. Every branch is 220 m along and comes back on the line.
+      { id: "C_safe", from: "main2", merge: "main3", sections: [
+        { type: "straight", len: 220 },
+      ] },
+      { id: "C_loop", from: "main2", merge: "main3", sections: [
+        { type: "sbend", len: 40, shift: 16 },
+        { type: "straight", len: 70 },
+        { type: "booster", len: 16 },
+        { type: "loop", radius: 14, offset: 8 },
+        { type: "straight", len: 54 },
+        { type: "sbend", len: 40, shift: -24 },              // back on the line only at the very end
+      ] },
+      { id: "C_jump", from: "main2", merge: "main3", sections: [
+        { type: "sbend", len: 35, shift: -16 },
+        { type: "booster", len: 16 },
+        { type: "kicker", len: 16, rise: 4.5, lipSlope: 0.3, capV: 34 },
+        { type: "gap", len: 36, dy: -1 },
+        { type: "landing", len: 60, fall: 9.5 },
+        { type: "straight", len: 22, climb: 6 },
+        { type: "sbend", len: 35, shift: 16 },
+      ] },
+      { id: "main3", from: "C_safe", fork: { safe: "D_safe", stunt: "D_jump", left: "D_loop", approach: 50 }, sections: [
         { type: "drop", len: 46, height: 22 },
+        { type: "straight", len: 14 },
+        { type: "booster", len: 20 },
+        { type: "straight", len: 120 },                        // the sign, then fork D
+      ] },
+      // FORK D: the big ones. Held left: a tall loop. Held right: the big jump.
+      { id: "D_safe", from: "main3", merge: "main4", sections: [
+        { type: "straight", len: 300 },
+      ] },
+      { id: "D_loop", from: "main3", merge: "main4", sections: [
+        { type: "sbend", len: 45, shift: 18 },
+        { type: "straight", len: 110 },
+        { type: "booster", len: 20 },
+        { type: "loop", radius: 18, offset: 9 },
+        { type: "straight", len: 80 },
+        { type: "sbend", len: 45, shift: -27 },
+      ] },
+      { id: "D_jump", from: "main3", merge: "main4", sections: [
+        { type: "sbend", len: 40, shift: -18 },
+        { type: "booster", len: 20 },
+        { type: "kicker", len: 20, rise: 7, lipSlope: 0.45, capV: 36 },
+        { type: "gap", len: 52, dy: -2 },
+        { type: "landing", len: 80, fall: 14 },
+        { type: "straight", len: 48, climb: 9 },
+        { type: "sbend", len: 40, shift: 18 },
+      ] },
+      { id: "main4", from: "D_safe", sections: [
+        { type: "straight", len: 10 },
+        { type: "booster", len: 26 },
         { type: "straight", len: 14 },
         { type: "loop", radius: 14, offset: 9 },               // the triple loop
         { type: "straight", len: 6 },
@@ -1102,7 +1182,7 @@ const TUNE = {
         { type: "straight", len: 6 },
         { type: "loop", radius: 12, offset: 9 },
         { type: "straight", len: 26 },
-        { type: "ski", len: 34, rise: 9, lipSlope: 0.75 },     // and into the net
+        { type: "ski", len: 34, rise: 9, lipSlope: 0.75, capV: 31 },   // and into the net
       ] },
     ],
   },
@@ -1115,8 +1195,8 @@ const TUNE = {
   // (landMax*) says what counts as arriving and everything else is a crash.
   // The car's and the boat's crawls are their old crash speeds, unchanged.
   solid: {
-    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1 },
-    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99 },
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99 },   // the monster never bangs at any speed
     reassemble: 1.6,             // seconds a rover or drone stays in pieces
     backOff: 7,                  // metres it comes back from the thing it hit
   },
@@ -1255,6 +1335,48 @@ const TUNE = {
   // motorway on the plains. Point at it and the truck roars off, jumps a ramp,
   // lands on a row of six junk cars and squashes them flat, then drives round
   // the loop home -- and the cars pop back up.
+  // v142: THE BOOSTER ROCKET HE FLIES (heavy.js): the launch site's rocket, its
+  // two side boosters peeling off by themselves and flown home to the site's
+  // pads while the camera watches them.
+  heavy: {
+    sepAlt: 380,                    // the side boosters let go here: under the core's own first drop (stageAlt[0])
+    sepPush: 16,                    // m/s outward as they part
+    flipT: 2.5, glideT: 10,         // seconds to turn engines-first, and from separation to the top of the landing burn
+    burnH: 110, burnT: 6, legsT: 2.5,   // the landing burn: from this high over the pad, this long; the legs over its end
+    boomAt: 0.55,                   // the sonic boom this far through the glide
+    watchHold: 2.5,                 // the camera stays on the landed pair this long before it goes back to him
+    // the watching camera: no nearer or further than this, this high for its distance, looking from this way
+    // (along the line of the two pads, a little from the road's side), a narrow lens, and how fast it swings there
+    camNear: 90, camFar: 800, camUp: 0.12, camFrom: [-0.3, 1], camFov: 34, camLag: 4.5, camMargin: 1.35, padsBelow: 260,
+  },
+
+  // v141: THE MONSTER TRUCK HE DRIVES (monster.js) -- not the set-piece below,
+  // which stays as it is. About three times the SUV. Anywhere, on or off road,
+  // steering freely; it never bangs: what it meets is crushed or knocked flying
+  // and pops back once he has gone, and what is too big to crush stops it.
+  monster: {
+    scale: 1.7,                     // over the 7 m set-piece model: 12 m long, ~9.5 m tall, 3 m wheels
+    cruise: 24, burst: 34, reverse: 7, accel: 9, brake: 7, coast: 2.5,   // m/s and m/s^2
+    turnRate: 70, turnInPlace: 40,  // degrees a second at full steer: rolling, and stopped
+    steerDead: 0.08,                // a hand resting on the glass does not steer
+    gravity: 12,                    // in the air: a cartoon's, a high arc
+    step: 3.2,                      // it rolls up on to anything this much higher than its wheels
+    hullR: 5.5, hullH: 9,           // its body against what it meets: a column this wide and tall
+    crushH: 22,                     // anything up to this tall is crushed; taller stops it (a shove)
+    crushMinV: 0,                   // ... at ANY speed (v143): instant on contact -- stopped against a house, the first push goes through it
+    crushSlow: 0.85,                // its speed after each crush
+    landCrush: 6,                   // landing from a jump at this sink rate crushes what it lands on
+    popR: 140, popAfter: 5,         // what it crushed pops back once he is this far off, after this long
+    debris: 140, debrisLife: 2.4,   // the pieces that fly off a crush (one instanced draw)
+    burstMin: 24, burstMax: 70,     // ... this many from one thing crushed, scaled by its size (the smallest still a burst)
+    debrisClear: 10,                // ... and none starts nearer his cab than this
+    quietAfterCrush: 4,             // no set-piece countdown starts for this long after a crush (v143)
+    // the chase; the seat (11.5 m up in the cab, 5 m back, 8 degrees down, a wide lens); and, pulled in by a building
+    // behind it, the chase as near as it must come and up over the cab
+    cam: { back: 30, up: 13, lag: 4.5, look: 22, eye: 11.5, seatBack: 5, seatPitch: 8, seatFov: 84, minPull: 0.12, pullRise: 16 },
+    speedSteps: [0.6, 0.8, 1.0, 1.3, 1.6],
+  },
+
   monsterTruck: {
     n: [258, 880], s: [230, 420],   // the jump leg, north (the start) to south, ~95 m west of the road; the return leg runs west of it
     loopR: 40,                      // the two U-turns' radius: the return leg is 2 x loopR west
@@ -1275,6 +1397,7 @@ const TUNE = {
     armR: 1100, innerR: 90, coneDeg: 42,
     carView: 310,                   // (unused by the car now: kept so a test holding it off still reads)
     carArmR: 2000,                  // the car arms only within this of the landing (at the top speed step he covers 1.2 km before it lands)
+    monsterQuiet: 650,              // v141: in his own monster truck nearer the landing than this, it does not arm (he is in the arena himself)
     landBearing: 18, landBearingR: 12,   // ... on his RIGHT less: he sits on the left, and the buttons and the map screen are there                // in the car it arms so that, at the landing, the truck is this many
                                     // degrees off his nose -- in the open windscreen, whichever way he drives
     count: 3,
@@ -1856,10 +1979,12 @@ const TUNE = {
     helicopter:       { cruiseSpeed: 90, turnRateDeg: 55, pitchLimitDeg: 22, bankLimitDeg: 26, accel: 10, capped: true, size: 1.05, hasGear: false, heli: true },   // its own model: TUNE.heli
     rocket:           { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.1, hasGear: false, hidden: false, rocket: true },
     starship:         { cruiseSpeed: 112, turnRateDeg: 7, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.25, hasGear: false, hidden: false, rocket: true, starship: true },
+    heavy:            { cruiseSpeed: 112, turnRateDeg: 8, pitchLimitDeg: 90, bankLimitDeg: 40, accel: 26, capped: false, size: 1.5, hasGear: false, hidden: false, rocket: true, heavy: true },   // v142: the launch site's rocket (heavy.js)
     airlinerDelta:    { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
     car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true },  // its own model: TUNE.car
+    monster:          { cruiseSpeed: 24, turnRateDeg: 70, pitchLimitDeg: 40, bankLimitDeg: 8, accel: 9, capped: true, size: 1.0, hasGear: false, monster: true },  // its own model and rules: TUNE.monster
     speedboat:        { cruiseSpeed: 42, turnRateDeg: 46, pitchLimitDeg: 12, bankLimitDeg: 18, accel: 16, capped: true, size: 1.0, hasGear: false, boat: true },  // its own model: TUNE.boat
     // Stage 2. Shelved from TUNE alone, so the card exists and does not render,
     // and the model rig can still inspect the hull before it ships.
@@ -1870,8 +1995,10 @@ const TUNE = {
     prop:             ["#e0483e", "#f2f4f7"],
     helicopter:       ["#20a39e", "#f2f4f7"],
     car:              ["#4a4f55", "#c9ced6"],   // stealth grey; no badge, no wordmark
+    monster:          ["#2b6fd1", "#ffd23e"],   // the set-piece truck's blue and yellow
     rocket:           ["#b8bec9", "#d71920"],
     starship:         ["#c9ced6", "#1f2328"],
+    heavy:            ["#f2f4f7", "#e0483e"],
     airlinerDelta:    ["#0b4ea2", "#d0342c"],
     airlinerEmirates: ["#c9a227", "#d71920"],
     fighter:          ["#6b7280", "#e0483e"],

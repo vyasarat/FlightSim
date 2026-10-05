@@ -116,6 +116,10 @@ const VEHICLE_TONES = [
 
 function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
+  // what the monster truck crushed comes back when he leaves it: nothing is lost
+  if (typeof monRestoreAll === "function") monRestoreAll();
+  // and the heavy's side boosters do not outlive it
+  if (typeof heavyReset === "function" && !(TUNE.vehicles[key] && TUNE.vehicles[key].heavy)) heavyReset();
   if (typeof heliReset === "function") heliReset();
   if (typeof trackReset === "function") trackReset();
   state.vehicleKey = key;
@@ -160,6 +164,8 @@ function applyVehicle(key) {
 // The rocket's launch pad: on the side of the runway away from the terminal,
 // standing on the launch mount (solid top, so it can land back on it).
 function rocketPad(idx) {
+  // the booster rocket stands on the launch site's pad, beside the motorway (heavy.js)
+  if (state.vp && state.vp.heavy && typeof heavyPad === "function") { const hp = heavyPad(); if (hp) return hp; }
   const ap = AIRPORTS[idx], P = TUNE.rocketTune.pad;
   const m = idx === 0 ? 1 : -1;
   return { x: -m * P.dx, z: ap.cz + P.dz, ground: ap.elev + P.mountH };
@@ -201,6 +207,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.gearAnim = 1;
   state.maxAglSinceLiftoff = 0;
   state.phase = "TAXI";
+  if (state.vp && state.vp.monster && typeof monSpawn === "function") monSpawn();   // the arena, either way
   if (state.vp && state.vp.car) {
     if (typeof carSpawn === "function" && typeof highway !== "undefined" && highway.built) carSpawn(originIdx);
   }
