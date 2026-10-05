@@ -10,6 +10,29 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v143 — the monster truck: instant crush, a real burst, the seat up high
+
+**The parent's notes after v141.**
+- **Crushing is instant on contact.** It used to need 1.5 m/s first, so
+  stopped against a house he only pushed at it; now the first touch goes
+  through.
+- **No countdowns while he crushes.** The 5-4-3-2-1 seen in the crush
+  frames was the launch site's countdown: pointing the truck at the arena's
+  ramp also pointed it at the launch site beyond. In the monster truck, no
+  set-piece starts a countdown while he is inside the arena, or for 4 seconds
+  after a crush. Out on the road he can still point at one and set it off.
+- **The crush reads in one frame.** The whole building (every part of a city
+  building) vanishes, and in its place a cloud of up to 70 blocks fills its
+  shape, bursting outward and tumbling down. No dust, nothing starts near the
+  cab, and nothing flies back at it. Its pieces go when it pops back. A
+  knocked car is thrown up and ahead, over the bonnet, where he sees it go.
+- **The driving seat sits high.** The eye is 11.5 m up, behind a bonnet with
+  yellow racing stripes and a steel scoop, with the tops of both front wheels
+  at the windscreen's corners and a wider lens. The cab is not drawn from
+  inside it, and traffic on the road below looks small.
+
+`monster_checks`: 28 (4 new; the seat, the instant crush and the arena quiet all fail on v142).
+
 ## v142 — the booster rocket, to fly
 
 **From the playtest:** he wants to FLY the new rocket, and he likes the side

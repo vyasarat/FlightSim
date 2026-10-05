@@ -46,18 +46,31 @@ async function render(root, views) {
         const ny = L.cities.ny; put(ny.ax + 300, ny.az + 300, ny.ax, ny.az); for (let i = 0; i < 60; i++) L.update(1 / 60);
         // the same building for "before", "crush" and "popped": chosen once
         if (!window.__crushB) {
-          const b0 = near(ny.ax, ny.az, 1500, b => b.mesh && b.mesh.isCityProxy && !L.__lpIsHidden(b) && L.monCanCrush(b) && b.hw > 6 &&
-            [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !L.solidCol(b.x + dx * (b.hw + 14), b.z + dz * (b.hd + 14), b.y0 + 3, b.y0 + 9, 5.5, L.SOLID.CAR, o => o === b)));
-          const d0 = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => !L.solidCol(b0.x + dx * (b0.hw + 14), b0.z + dz * (b0.hd + 14), b0.y0 + 3, b0.y0 + 9, 5.5, L.SOLID.CAR, o => o === b0));
-          window.__crushB = { b: b0, d: d0 };
+          // a building with a CLEAR run at its face: nothing he cannot crush on the 30 m in, nor at its sides
+          const clearRun = (b, dx, dz) => {
+            for (let k = 4; k <= 32; k += 2) {
+              const px = b.x + dx * (b.hw + k), pz = b.z + dz * (b.hd + k);
+              if (L.solidCol(px, pz, b.y0 + 3, b.y0 + 9, 6.5, L.SOLID.CAR, o => o === b || o.mesh === b.mesh || L.monCanCrush(o))) return false;
+            }
+            return true;
+          };
+          let pick = null;
+          L.forEachSolid(b => {
+            if (pick || !(b.mesh && b.mesh.isCityProxy && !L.__lpIsHidden(b) && L.monCanCrush(b) && b.hw > 6 && b.y1 - b.y0 > 12)) return;
+            if (Math.hypot(b.x - ny.ax, b.z - ny.az) > 1500) return;
+            const d = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dz]) => clearRun(b, dx, dz));
+            if (d) pick = { b, d };
+          });
+          window.__crushB = pick;
         }
         const b = window.__crushB.b, d = window.__crushB.d;
         const vx = b.x + d[0] * (b.hw + 30), vz = b.z + d[1] * (b.hd + 30);
         put(vx, vz, b.x, b.z);
         if (what === "before") { note.hidden = L.__lpIsHidden(b); return { what, ...note }; }
-        const c0 = L.flags.monCrushes || 0;
-        for (let i = 0; i < 400 && (L.flags.monCrushes || 0) === c0; i++) drive(1);
-        drive(what === "crush" ? (seat === "seat" ? 22 : 5) : 60 * 2);
+        // the moment THIS building goes (not a parked car at the kerb on the way)
+        for (let i = 0; i < 400 && !L.__lpIsHidden(b); i++) drive(1);
+        note.crushedIt = L.__lpIsHidden(b); note.hits = Object.entries(L.flags.solidHits || {}).filter(([k]) => k.startsWith("monster")); note.dist = +Math.hypot(S.x - b.x, S.z - b.z).toFixed(1); note.bsize = [b.hw, b.hd, +(b.y1 - b.y0).toFixed(0)];
+        drive(what === "crush" ? 9 : 60 * 2);
         if (what === "popped") {
           // away (out of its popR), long enough, and back to the very spot the
           // "before" frame was taken from, facing it
@@ -65,6 +78,7 @@ async function render(root, views) {
           for (let i = 0; i < 60 * (MON.popAfter + 1); i++) L.update(1 / 60);
           note.back = !L.__lpIsHidden(b);
           put(vx, vz, b.x, b.z);
+          for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);   // whatever he nudged arriving back has settled
         }
       } else if (what === "tower") {
         const ny = L.cities.ny; put(ny.ax + 300, ny.az + 300, ny.ax, ny.az);
@@ -82,7 +96,7 @@ async function render(root, views) {
         b = near(bx, bz, 1, o => o.idx !== undefined) || b;
         const c0 = L.flags.monCrushes || 0;
         for (let i = 0; i < 400 && (L.flags.monCrushes || 0) === c0; i++) drive(1);
-        drive(seat === "seat" ? 22 : 4);
+        drive(seat === "seat" ? 9 : 9);
       } else if (what === "traffic") {
         const atGrade = s => { const q = L.hwySampleAt(s); return Math.abs(q.y - L.terrainEff(q.x, q.z)) < 1.5; };
         // a flat stretch well away from the arena: go there, and let the traffic come round him
@@ -97,7 +111,7 @@ async function render(root, views) {
         const k0 = L.flags.monKnocks || 0;
         for (let i = 0; i < 480 && (L.flags.monKnocks || 0) === k0; i++) { if (t.alive) S.heading = Math.atan2(-(t.wx - S.x), -(t.wz - S.z)); drive(1); }
         // a beat after the knock: the car is spinning away, still in shot
-        L.api.clearStick(); for (let i = 0; i < (seat === "seat" ? 6 : 24); i++) L.update(1 / 60);
+        L.api.clearStick(); for (let i = 0; i < (seat === "seat" ? 30 : 24); i++) L.update(1 / 60);
       } else if (what === "shore") {
         const F = L.TUNE.fireworksBarge; let sx = F.x + 400, sz = F.z;
         for (let d = 0; d < 1500 && L.terrainEff(sx, sz) < L.seaLevelAt(sx, sz) + 1; d += 20) sx += 20;

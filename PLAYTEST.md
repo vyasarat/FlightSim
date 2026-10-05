@@ -35,6 +35,7 @@ entry below.
 | v140 | on the toy track, hold left or right on purpose at a sign to choose the loop or the jump, and press the fast button to go faster | open |
 | v141 | pick the monster truck, drive it off the big ramp, and go looking for houses and cars to squash (and say "crush" or make the noise) | open |
 | v142 | pick the booster rocket, hold the throttle, and watch the two side boosters land without being told to look (and want to launch again to see it again) | open |
+| v143 | drive the monster truck straight through houses from the driving seat on purpose, one after another, and laugh at the pieces |  open |
 
 ## Entries
 

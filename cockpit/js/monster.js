@@ -38,6 +38,13 @@ const mon = {
 const monTmp = new THREE.Vector3(), monM = new THREE.Matrix4(), monQ = new THREE.Quaternion(), monS = new THREE.Vector3();
 
 function monActive() { return !!(state.vp && state.vp.monster); }
+// No set-piece countdown now (setpieces.js spCountBusy): in the arena, or just after a crush.
+function monQuiet() {
+  if (!monActive()) return false;
+  if ((mon.lastCrushT || 0) > 0) return true;
+  if (typeof mtLanding === "function") { const L = mtLanding(); if (Math.hypot(state.x - L.x, state.z - L.z) < TUNE.monsterTruck.monsterQuiet) return true; }
+  return false;
+}
 
 // ---- the model: the set-piece truck's shapes, its own copy (monstertruck.js
 // keeps its truck's parts in globals of its own) -------------------------------
@@ -46,9 +53,16 @@ function buildMonsterModel() {
   const outer = new THREE.Group(), g = new THREE.Group();
   const k = lsKit();
   k.add(P.blue, new THREE.BoxGeometry(3.4, 1.6, 6.6), 0, 3.6, 0);
-  k.add(P.blue, new THREE.BoxGeometry(3.0, 1.4, 3.0), 0, 5.0, -0.6);
-  k.add(P.ink, new THREE.BoxGeometry(3.05, 0.9, 2.2), 0, 5.15, -0.3);          // dark glass, nobody to see
+  // the cab is its own part: from the driving seat it is where he sits, so it is not drawn
+  const cab = new THREE.Group(), ck = lsKit();
+  ck.add(P.blue, new THREE.BoxGeometry(3.0, 1.4, 3.0), 0, 5.0, -0.6);
+  ck.add(P.ink, new THREE.BoxGeometry(3.05, 0.9, 2.2), 0, 5.15, -0.3);         // dark glass, nobody to see
+  ck.build(cab, sledPaint);
+  g.add(cab);
   k.add(P.warning, new THREE.BoxGeometry(3.5, 0.35, 4.2), 0, 3.9, 1.2);
+  // the bonnet, as he sees it from the cab: two yellow racing stripes and a steel scoop
+  for (const x of [-0.75, 0.75]) k.add(P.warning, new THREE.BoxGeometry(0.45, 0.06, 3.9), x, 4.43, 1.4);
+  k.add(P.steel, new THREE.BoxGeometry(1.1, 0.45, 1.3), 0, 4.62, 1.9);
   k.add(P.ink, new THREE.BoxGeometry(2.6, 0.5, 6.0), 0, 2.4, 0);
   k.add(P.steel, new THREE.BoxGeometry(3.6, 0.4, 0.5), 0, 3.1, 3.5);
   k.add(P.steel, new THREE.BoxGeometry(3.6, 0.4, 0.5), 0, 3.1, -3.5);
@@ -71,6 +85,7 @@ function buildMonsterModel() {
   g.scale.setScalar(MON.scale);
   outer.add(g);
   outer.userData.wheels = wheels;
+  outer.userData.cab = cab;
   outer.userData.height = 5.8 * MON.scale;
   outer.rotation.order = "YXZ";
   return outer;
@@ -192,22 +207,29 @@ function monCrush(b) {
     buildingInst.instanceMatrix.needsUpdate = true;
   }
   mon.crushed.push(rec);
-  // the crunch, the pieces, the dust
-  const h = Math.min(MON.crushH, b.y1 - b.y0), cy = b.y0 + h * 0.5;
-  const pal = TUNE.palette, cols = [pal.concrete, pal.rust, pal.steel, pal.white, pal.warning];
-  // (pieces only: a dust puff is a flat sheet, and from the driving seat it was
-  // a wall across the windscreen -- readability beats realism)
-  // from its far side, up and away -- in view through the windscreen, never in
-  // front of it (a piece's SIZE near the eye is what hides the road)
-  const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading), far = Math.max(b.hw, b.hd) * 0.6;
-  for (let i = 0; i < 14; i++) {
-    const px = b.x + fx * far + (rnd() - 0.5) * b.hw, pz = b.z + fz * far + (rnd() - 0.5) * b.hd;
+  // THE CRUSH READS IN ONE FRAME (v143): the frame he touches it, the thing
+  // is gone and in its place stands a cloud of blocks filling its WHOLE shape
+  // -- a building-sized heap of pieces -- that bursts outward and tumbles
+  // down. Never a single block over a building still standing: the whole of
+  // a city building (all its tiers, one stand-in mesh) is what bursts. None
+  // starts near his cab (debrisClear), and they fly away from him.
+  let x0 = b.x - b.hw, x1 = b.x + b.hw, z0 = b.z - b.hd, z1 = b.z + b.hd, y0 = b.y0, y1 = b.y1;
+  if (b.mesh) forEachSolid(o => { if (o.mesh === b.mesh) { x0 = Math.min(x0, o.x - o.hw); x1 = Math.max(x1, o.x + o.hw); z0 = Math.min(z0, o.z - o.hd); z1 = Math.max(z1, o.z + o.hd); y0 = Math.min(y0, o.y0); y1 = Math.max(y1, o.y1); } });
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, R = Math.max(x1 - x0, z1 - z0) / 2, H = Math.max(2, y1 - Math.max(y0, terrainEff(cx, cz)));
+  const pal = TUNE.palette, cols = b.park || rec.junk ? [pal.rust, pal.steel, pal.ink]
+    : b.idx !== undefined ? [pal.white, pal.red, pal.warning, pal.concrete]
+    : [pal.rust, pal.concrete, pal.white, pal.steel, pal.red];
+  const n = Math.round(clamp(H * R / 5, 12, MON.burstMax));
+  const base = Math.max(y0, terrainEff(cx, cz));
+  for (let i = 0; i < n; i++) {
+    const px = x0 + rnd() * (x1 - x0), pz = z0 + rnd() * (z1 - z0), py = base + rnd() * H;
     if (Math.hypot(px - state.x, pz - state.z) < MON.debrisClear) continue;
-    monDebris(px, cy + rnd() * h * 0.4, pz, cols[i % cols.length]);
+    monDebris(px, py, pz, cols[i % cols.length], cx, cz, R);
   }
   noiseBurst(0.28, 260, 0.45, 0); thunk();
   mon.shake = Math.max(mon.shake, 0.35);
   flags.monCrushes = (flags.monCrushes || 0) + 1;
+  mon.lastCrushT = MON.quietAfterCrush;
   flags.monCrushedKinds = flags.monCrushedKinds || {};
   flags.monCrushedKinds[rec.kind] = (flags.monCrushedKinds[rec.kind] || 0) + 1;
 }
@@ -215,6 +237,7 @@ function monCrush(b) {
 // Back as it was. False only for a junk car while the set-piece's show is
 // running: the show squashes and stands its own cars, so it waits for that.
 function monRestore(rec) {
+  monClearDebrisNear(rec.x, rec.z, 60);   // it comes back whole: its own pieces go with that
   if (rec.mesh) rec.mesh.visible = true;
   else if (rec.junk) {
     if (typeof mtCarSet !== "function") return true;
@@ -244,15 +267,21 @@ function monDebrisInit() {
   for (let i = 0; i < MON.debris; i++) { mon.debris.push({ life: 0, x: 0, y: -1e4, z: 0, vx: 0, vy: 0, vz: 0, s: 1, r: 0 }); m.setColorAt(i, new THREE.Color(0xffffff)); }
   mon.debrisMesh = m; scene.add(m);
 }
-function monDebris(x, y, z, color) {
+function monDebris(x, y, z, color, cx, cz, R) {
   monDebrisInit();
   const i = mon.cursor = (mon.cursor + 1) % MON.debris, p = mon.debris[i];
-  // thrown AHEAD of him and out to the sides, never back into the cab
-  const a = state.heading + Math.PI + (rnd() - 0.5) * 2.4, sp = 7 + rnd() * 10;
+  // burst OUT of what was crushed, from where each piece was in it: away from
+  // its middle, up, and carried on the way he is going -- never back at the cab
+  const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
+  let ox = x - (cx === undefined ? x : cx), oz = z - (cz === undefined ? z : cz);
+  const ol = Math.hypot(ox, oz) || 1; ox /= ol; oz /= ol;
+  if (ox * fx + oz * fz < -0.2) { ox += fx * 0.8; oz += fz * 0.8; }   // the side facing him goes sideways, not at him
+  const sp = 4 + rnd() * 9;
   p.life = MON.debrisLife; p.x = x; p.y = y; p.z = z;
-  p.vx = -Math.sin(a) * sp * -1 + (-Math.sin(state.heading)) * Math.max(4, state.speed) * 0.6;
-  p.vz = -Math.cos(a) * sp * -1 + (-Math.cos(state.heading)) * Math.max(4, state.speed) * 0.6;
-  p.vy = 8 + rnd() * 10; p.s = 1.0 + rnd() * 1.4; p.r = rnd() * 6;
+  p.vx = ox * sp + fx * Math.max(4, Math.abs(state.speed)) * 0.5;
+  p.vz = oz * sp + fz * Math.max(4, Math.abs(state.speed)) * 0.5;
+  // a burst, then the heap falls: up a little, and gravity has the rest
+  p.vy = 2 + rnd() * 9; p.s = clamp((R || 8) * 0.22, 1, 3.8) * (0.6 + rnd() * 0.8); p.r = rnd() * 6;
   mon.debrisMesh.setColorAt(i, new THREE.Color(color));
   mon.debrisMesh.instanceColor.needsUpdate = true;
 }
@@ -274,7 +303,9 @@ function monUpdateDebris(dt) {
   mon.debrisMesh.instanceMatrix.needsUpdate = live || mon.debrisWasLive;
   mon.debrisWasLive = live;
 }
+function monClearDebrisNear(x, z, r) { for (const p of mon.debris) if (p.life > 0 && Math.hypot(p.x - x, p.z - z) < r) p.life = 0; }
 function monDebrisLive() { return mon.debris.filter(p => p.life > 0).length; }
+
 
 // ---- a car knocked FLYING: the motorway's traffic and a parked car simply
 // vanish when they are hit (they come back later); from the monster they are
@@ -299,8 +330,9 @@ function monFling(x, y, z) {
   const f = mon.flyers[mon.flyerAt = (mon.flyerAt + 1) % mon.flyers.length];
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading), side = rnd() < 0.5 ? -1 : 1;
   f.x = x + fz * side * 5; f.y = y + 2; f.z = z - fx * side * 5; f.life = 3.2;   // already out to the side of the cab
-  // up, and off to one side -- out from behind the cab, where he can see it go
-  f.vx = fx * (Math.abs(state.speed) * 0.5 + 5) + fz * side * 15; f.vz = fz * (Math.abs(state.speed) * 0.5 + 5) - fx * side * 15; f.vy = 16 + rnd() * 5;
+  // up and AHEAD, a little to one side: over the bonnet where he sees it from
+  // the seat, and out from behind the cab in the chase view (v143)
+  f.vx = fx * (Math.abs(state.speed) + 10) + fz * side * 7; f.vz = fz * (Math.abs(state.speed) + 10) - fx * side * 7; f.vy = 15 + rnd() * 4;
   f.rx = (rnd() - 0.5) * 9; f.rz = side * (5 + rnd() * 4);
   f.g.visible = true; f.g.position.set(f.x, f.y, f.z); f.g.rotation.set(0, state.heading, 0);
   flags.monFlings = (flags.monFlings || 0) + 1;
@@ -328,6 +360,7 @@ function updateMonster(dt) {
   monUpdateDebris(dt);
   monUpdateFlyers(dt);
   monUpdatePops(dt);
+  if (mon.lastCrushT > 0) mon.lastCrushT -= dt;
   if (state.exploding) return;
   const touching = state.touching && !menuOpen();
   const range = (TUNE.dragRangeX * Math.min(window.innerWidth, window.innerHeight)) / (TUNE.car.dragRangeX * window.innerWidth);
@@ -520,11 +553,19 @@ function monCamera(dt) {
     lookV.set(state.x + fx * C.look * (1 - near * 0.8), state.y + 4 - near * 3, state.z + fz * C.look * (1 - near * 0.8));
     camera.lookAt(lookV);
   } else {
-    camera.position.set(state.x + fx * 1.5, state.y + C.eye + mon.bounce, state.z + fz * 1.5);
-    camera.rotation.set(-0.12 + state.pitch * DEG * 0.6, state.heading, -state.bank * DEG * 0.3, "YXZ");
+    // THE SEAT (v143): high in the cab, a little back, looking down over the
+    // blue bonnet with the tops of the two front wheels at the corners -- he is
+    // up there, and the traffic is small below him
+    camera.position.set(state.x - fx * C.seatBack, state.y + C.eye + mon.bounce, state.z - fz * C.seatBack);
+    camera.rotation.set(-C.seatPitch * DEG + state.pitch * DEG * 0.6, state.heading, -state.bank * DEG * 0.3, "YXZ");
+    // a wider lens in the cab, so both front wheels are at the windscreen's corners
+    // (on top of the shared feel's speed-widening and punch, not instead of them)
+    const want = C.seatFov + (feel.fov - TUNE.fov);
+    if (Math.abs(camera.fov - want) > 0.02) { camera.fov = want; camera.updateProjectionMatrix(); }
   }
 }
 function monPoseModel(m) {
+  if (m.userData.cab) m.userData.cab.visible = state.viewChase;
   m.position.set(state.x, state.y + mon.bounce, state.z);
   m.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG);
   for (const w of m.userData.wheels || []) w.rotation.x = -mon.wheelSpin;

@@ -228,12 +228,62 @@ module.exports = async function monsterChecks({ newPage, check }) {
       out.picker = { crushed: mm.hidden, drawn: !!again && pos.y > -100, solid: !!again && !L.__lpIsHidden(again) };
     }
 
-    // ---- 11. from the driving seat: the camera rides high in the cab
+    // ---- 11. from the driving seat (v143): high up, the bonnet and the tops of
+    // both front wheels in the picture, and a car on the road small beneath him
     {
       L.api.setView(false);
-      put(900, 600, 900, 0); step(60 * 2, 0, 0);
-      out.seat = { up: +(L.camera.position.y - S.y).toFixed(1), near: +Math.hypot(L.camera.position.x - S.x, L.camera.position.z - S.z).toFixed(1) };
-      L.api.setView(true);
+      put(900, 600, 900, 0); step(60 * 2, null);
+      L.camera.updateMatrixWorld(); L.camera.updateProjectionMatrix();
+      const m = L.vehicleModel; m.updateMatrixWorld(true);
+      const v = new THREE.Vector3(), onScreen = p => { v.copy(p).project(L.camera); return v.z < 1 && Math.abs(v.x) < 0.98 && v.y > -0.98 && v.y < 0.98; };
+      const fx = -Math.sin(S.heading), fz = -Math.cos(S.heading);
+      const wheels = m.userData.wheels.map(w => { const wp = new THREE.Vector3(); w.getWorldPosition(wp); return wp; })
+        .filter(wp => (wp.x - S.x) * fx + (wp.z - S.z) * fz > 0);   // the front pair
+      const fronts = wheels.map(wp => onScreen(new THREE.Vector3(wp.x, wp.y + 1.75 * L.TUNE.monster.scale * 0.9, wp.z)));
+      const bonnet = onScreen(new THREE.Vector3(S.x + fx * 5, S.y + 7.6, S.z + fz * 5));
+      // a car (1.6 m tall) 40 m ahead on the ground: its share of the picture's height
+      const a = new THREE.Vector3(S.x + fx * 40, S.y, S.z + fz * 40).project(L.camera).y, b2 = new THREE.Vector3(S.x + fx * 40, S.y + 1.6, S.z + fz * 40).project(L.camera).y;
+      out.seat = { eyeUp: +(L.camera.position.y - S.y).toFixed(1), fronts, bonnet, carFrac: +((b2 - a) / 2).toFixed(3), cabHidden: !!m.userData.cab && !m.userData.cab.visible, modelShown: m.visible };
+      L.api.setView(true); step(2, null);
+    }
+
+    // ---- 11b. CRUSHING IS INSTANT (v143): stopped dead against a house, the
+    // first push of his finger goes straight through it -- and in that frame it
+    // is gone and a burst of many pieces fills its place
+    {
+      put(600, -1500, 600, -2000); L.updateScenery(S.x, S.z, true); step(60, null);
+      let h = near(S.x, S.z, 3000, o => o.idx !== undefined && !L.__lpIsHidden(o) && L.monCanCrush(o) && o.y1 - o.y0 > 8);
+      const hx = h.x, hz = h.z;
+      // stand him a hand's width off its face, still, then the one push that touches it
+      put(hx + h.hw + L.TUNE.monster.hullR + 0.05, hz, hx, hz);
+      h = near(hx, hz, 1, o => o.idx !== undefined) || h;
+      S.speed = 0; step(5, null);
+      const d0 = L.monDebrisLive(), c0 = L.flags.monCrushes || 0;
+      let frames = 0;
+      for (; frames < 60 && !L.__lpIsHidden(h); frames++) step(1, 0, 0);
+      out.instant = { frames, gone: L.__lpIsHidden(h), burst: L.monDebrisLive() - d0, crushes: (L.flags.monCrushes || 0) - c0 };
+      L.api.clearStick();
+    }
+
+    // ---- 11c. in the monster truck nothing counts down: at the arena, nose at
+    // the ramp (and the launch site beyond it), eight seconds of nothing
+    {
+      L.TUNE.monsterTruck.armR = armR0;
+      L.lsReset(); document.getElementById("bigNum").classList.remove("on", "sky");
+      L.api.setVehicle("monster"); L.api.spawnAt(0, 0); step(10, null);
+      let counted = 0;
+      for (let i = 0; i < 60 * 8; i++) { step(1, null); if (document.getElementById("bigNum").classList.contains("on")) counted++; }
+      out.noCount = { counted, ls: L.lsite.phase, mt: L.mtruck.phase };
+      // out of the arena, 600 m from the pad, nose on it: it counts down -- unless he has just crushed something
+      const LS = L.TUNE.launchSite;
+      L.lsReset();
+      L.mon.lastCrushT = 3; put(LS.x - 600, LS.z, LS.x, LS.z); step(30, null);
+      const quiet = L.lsite.phase === "armed";
+      L.mon.lastCrushT = 0;
+      for (let i = 0; i < 60 * 8 && L.lsite.phase === "armed"; i++) step(1, null);
+      out.lsOut = { quietAfterCrush: quiet, started: L.lsite.phase !== "armed" };
+      L.lsReset(); document.getElementById("bigNum").classList.remove("on", "sky");
+      L.TUNE.monsterTruck.armR = 0;
     }
 
     // ---- 12. landing a jump on a junk car squashes it
@@ -358,7 +408,10 @@ module.exports = async function monsterChecks({ newPage, check }) {
   check("monster: a jump that comes down in the lake -- back on the last dry ground, and it drives on (never stuck)", r.lake.dry && r.lake.moved > 10 && r.lake.landings >= 1, J(r.lake));
   check("monster: a building it crushed is back the moment he leaves the monster", r.switchBack.crushed && r.switchBack.back, J(r.switchBack));
   check("monster: a town house it crushed is back -- drawn and solid together -- even after the picker was opened", r.picker.crushed && r.picker.drawn && r.picker.solid, J(r.picker));
-  check("monster: from the driving seat the camera rides high in its cab", r.seat.up > 5 && r.seat.near < 4, J(r.seat));
+  check("monster: from the driving seat he sits high -- over the bonnet, the tops of both front wheels in the picture, a car on the road below small", r.seat.eyeUp > 10 && r.seat.fronts.length === 2 && r.seat.fronts.every(f => f) && r.seat.bonnet && r.seat.cabHidden && r.seat.modelShown && r.seat.carFrac < 0.06, J(r.seat));
+  check("monster: crushing is instant -- stopped against a house, the first push goes through it within a few frames, and in that frame a burst of many pieces", r.instant.gone && r.instant.frames <= 8 && r.instant.burst >= 15, J(r.instant));
+  check("monster: in the monster truck in the arena nothing counts down, even nose-on to the launch site beyond it", r.noCount.counted === 0 && r.noCount.ls === "armed" && r.noCount.mt === "armed", J(r.noCount));
+  check("monster: out of the arena, pointed at the launch site, he still sets it off (and not within seconds of a crush)", r.lsOut.started && r.lsOut.quietAfterCrush, J(r.lsOut));
   check("monster: landing a jump on a junk car squashes it -- never a bang", r.landCrush.squashed && r.landCrush.bangs === 0, J(r.landCrush));
   check("monster: a city car it drives at is knocked spinning, never a bang", r.city.found && r.city.knocks >= 1 && r.city.bangs === 0, J(r.city));
   check("monster: under the low end of a motorway bridge, from the field, it drives under the deck -- never lifted on to it", r.underBridge.found && r.underBridge.under > 10 && r.underBridge.worst < 2 && r.underBridge.bangs === 0, J(r.underBridge));

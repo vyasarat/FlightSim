@@ -213,6 +213,8 @@ function updateVehicleModel(dt) {
   if (!vehicleModel) return;
   // (while the camera watches the heavy's boosters home, his rocket waits out of the picture)
   const chaseVisible = state.viewChase && !state.exploding && !(typeof heavyWatching === "function" && heavyWatching());
+  // the monster truck is drawn from its own seat too: he sits over its bonnet and wheels (v143)
+  if (state.vp.monster && !state.exploding) { vehicleModel.visible = true; monPoseModel(vehicleModel); return; }
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
   if (state.vp.car && typeof trk !== "undefined" && trk.on) { trackPoseModel(vehicleModel); return; }
