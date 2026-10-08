@@ -1195,8 +1195,12 @@ const TUNE = {
   // (landMax*) says what counts as arriving and everything else is a crash.
   // The car's and the boat's crawls are their old crash speeds, unchanged.
   solid: {
-    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5 },
-    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99 },   // the monster never bangs at any speed
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99 },   // the monster never bangs at any speed
+    // v144: the rocket sled he rides (sledride.js) is rail-locked and not solid (its contract's solid() is
+    // false): nothing can stand on the rail in front of him. Its radius is the sled's half-width, and its
+    // crawl is the monster's "never a bang, at any speed". The set-piece's own sidestep (sledClearPath)
+    // never reads it while he rides -- he IS that sled.
     reassemble: 1.6,             // seconds a rover or drone stays in pieces
     backOff: 7,                  // metres it comes back from the thing it hit
   },
@@ -1348,6 +1352,40 @@ const TUNE = {
     // the watching camera: no nearer or further than this, this high for its distance, looking from this way
     // (along the line of the two pads, a little from the road's side), a narrow lens, and how fast it swings there
     camNear: 90, camFar: 800, camUp: 0.12, camFrom: [-0.3, 1], camFov: 34, camLag: 4.5, camMargin: 1.35, padsBelow: 260,
+  },
+
+  // v144: THE ROCKET SLED HE RIDES (sledride.js): the set-piece's own sled
+  // (TUNE.rocketSled), run for him from the start tower by his go. Its rail, its
+  // speed, its smash and its chutes are all the set-piece's numbers; these are
+  // only his two cameras and the burst, which is a show and never changes the run.
+  sledRide: {
+    // the seat: on top of the nose, this far ahead of the sled's middle and this high
+    // over its rail shoes, looking down the rail a little nose-down; one kick of the
+    // field of view as the run starts, and one as the nose goes through the wall --
+    // there the bricks fill the screen, and the wider view shows them as a burst
+    // (cameraPunch, the catapult's own: once each, never a shake)
+    seat: { fwd: 12, up: 10.5, pitch: 4, launchPunch: 1, smashPunch: 1 },
+    // the chase: behind and HIGH (v144 render round 1: from 42 m up the middle chute --
+    // a 10 m disc 26 m up, 57 m behind the sled -- hung between the camera and the
+    // sled). From here the line to the sled's back clears that canopy's top by ~7 m
+    // even trailing at speed (the lag is quick so it never trails far), and it looks
+    // down over the chutes' fan and the smoke at the red sled, the wall in the picture
+    // above it; it looks at a point this far down the rail and this low under it
+    // (low enough that a burst's flame stays clear of the dashboard).
+    // Once the chutes are out it eases out to the EAST side -- the road's side, away
+    // from where the bricks fly -- `side` m across, `sideBack` m behind the sled and
+    // `sideUp` m up, looking at a point `sideLookBack` m behind the sled and
+    // `sideLookUp` m up: the sled in profile with its canopies streaming behind it,
+    // nothing between him and it. It eases back behind as they pack, at `sideRate`.
+    chase: { back: 120, up: 90, look: 150, lookUp: -30, lag: 8,
+             side: 90, sideBack: 30, sideUp: 35, sideLookBack: 30, sideLookUp: 10, sideRate: 2 },
+    // the burst: a drag up past `pitch` during the run -- the flame this much longer
+    // and fatter, eased in at `rate`, and a roar of its own. It ends only when the drag
+    // falls back under `release`, so a wobbling finger is one burst, one whoosh.
+    // (From the seat the flame is behind him: there the burst is its sound.)
+    // (its voice: a sawtooth at `hz`, rising by `hzRise` of itself as the flame grows, and a whoosh as it lights)
+    burst: { pitch: 0.35, release: 0.2, flame: 1.8, wide: 1.3, rate: 8, roar: 0.22, hz: 66, hzRise: 0.3,
+             whoosh: { dur: 0.5, freq: 380, peak: 0.35 } },
   },
 
   // v141: THE MONSTER TRUCK HE DRIVES (monster.js) -- not the set-piece below,
@@ -1985,6 +2023,7 @@ const TUNE = {
     fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
     car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true },  // its own model: TUNE.car
     monster:          { cruiseSpeed: 24, turnRateDeg: 70, pitchLimitDeg: 40, bankLimitDeg: 8, accel: 9, capped: true, size: 1.0, hasGear: false, monster: true },  // its own model and rules: TUNE.monster
+    sled:             { cruiseSpeed: 120, turnRateDeg: 0, pitchLimitDeg: 0, bankLimitDeg: 0, accel: 40, capped: true, size: 1.0, hasGear: false, sledRide: true },  // v144: the set-piece's rail and run (sledride.js, TUNE.sledRide)
     speedboat:        { cruiseSpeed: 42, turnRateDeg: 46, pitchLimitDeg: 12, bankLimitDeg: 18, accel: 16, capped: true, size: 1.0, hasGear: false, boat: true },  // its own model: TUNE.boat
     // Stage 2. Shelved from TUNE alone, so the card exists and does not render,
     // and the model rig can still inspect the hull before it ships.
@@ -1996,6 +2035,7 @@ const TUNE = {
     helicopter:       ["#20a39e", "#f2f4f7"],
     car:              ["#4a4f55", "#c9ced6"],   // stealth grey; no badge, no wordmark
     monster:          ["#2b6fd1", "#ffd23e"],   // the set-piece truck's blue and yellow
+    sled:             ["#e0483e", "#ffd23e"],   // the set-piece sled's red and yellow
     rocket:           ["#b8bec9", "#d71920"],
     starship:         ["#c9ced6", "#1f2328"],
     heavy:            ["#f2f4f7", "#e0483e"],

@@ -23,7 +23,8 @@ function ejectFamily() {
 }
 function updateEjectControl() {
   // The station astronaut is already outside a vehicle. Never eject a person.
-  const supported = !astroActive();
+  // The rocket sled he rides (v144) has no seat to leave: it is a run on a rail.
+  const supported = !astroActive() && !(typeof srActive === "function" && srActive());
   el.ejectBtn.classList.toggle('hidden', !eject.active && (!supported || menuOpen() || state.exploding));
   el.ejectBtn.dataset.mode = eject.active && ['transit','float','land','return','rejoin'].includes(eject.phase) ? 'return' : 'eject';
   el.ejectBtn.setAttribute('aria-label', el.ejectBtn.dataset.mode === 'return' ? 'Return to vehicle' : 'Eject');

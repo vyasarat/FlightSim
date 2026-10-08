@@ -76,6 +76,14 @@ function buildVehicleModel(key) {
     vehicleModel = vehTagPlayer(g);
     return;
   }
+  if (key === "sled") {
+    // v144: a copy of the set-piece's own sled, posed to match it (sledride.js)
+    const g = srBuildModel();
+    castsShadow(g);
+    scene.add(g);
+    vehicleModel = vehTagPlayer(g);
+    return;
+  }
   if (key === "car") {
     const g = buildCarModel();
     g.visible = state.viewChase;
@@ -215,6 +223,8 @@ function updateVehicleModel(dt) {
   const chaseVisible = state.viewChase && !state.exploding && !(typeof heavyWatching === "function" && heavyWatching());
   // the monster truck is drawn from its own seat too: he sits over its bonnet and wheels (v143)
   if (state.vp.monster && !state.exploding) { vehicleModel.visible = true; monPoseModel(vehicleModel); return; }
+  // the rocket sled too (v144): from the seat on its nose he looks down the white cone at the wall
+  if (state.vp.sledRide && !state.exploding) { vehicleModel.visible = true; srPoseModel(vehicleModel); return; }
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
   if (state.vp.car && typeof trk !== "undefined" && trk.on) { trackPoseModel(vehicleModel); return; }

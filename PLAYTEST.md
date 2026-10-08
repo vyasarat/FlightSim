@@ -36,6 +36,7 @@ entry below.
 | v141 | pick the monster truck, drive it off the big ramp, and go looking for houses and cars to squash (and say "crush" or make the noise) | open |
 | v142 | pick the booster rocket, hold the throttle, and watch the two side boosters land without being told to look (and want to launch again to see it again) | open |
 | v143 | drive the monster truck straight through houses from the driving seat on purpose, one after another, and laugh at the pieces |  open |
+| v144 | pick the rocket sled, count "3-2-1" out loud with the lamps, and ride it through the brick wall again and again (more than three runs in a row without changing vehicle) | open |
 
 ## Entries
 

@@ -545,6 +545,7 @@ function currentBedName() {
   if (k === "car" || k === "monster") return "car";
   if (k === "heli") return "heli";
   if (k === "boat" || k === "yacht") return "sea";
+  if (k === "sled") return "wind";     // v144: on the rocket sled it is the air rushing past, never the apron
   // the keys are airlinerDelta / airlinerEmirates, never "airliner"
   if (state.vehicleKey && state.vehicleKey.indexOf("airliner") === 0) return "airliner";
   if (state.phase === "TAXI" || state.phase === "ROLL") return "ground";

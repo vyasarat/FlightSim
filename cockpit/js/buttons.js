@@ -125,6 +125,7 @@ function btnThrottleShows() {
   if (btnWash()) return false;
   const k = vehKind();
   if (k === "plane") return state.phase === "TAXI" || state.phase === "ROLL";
+  if (k === "sled") return srCanGo();   // v144: only at home, where it starts the next run
   return k === "rocket" || k === "rover" || k === "astro";
 }
 

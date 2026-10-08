@@ -52,6 +52,8 @@ function spCountBusy(me) {
   // site beyond) or for a few seconds after he has crushed something. Out on
   // the road he can still point at a set-piece and set it off.
   if (typeof monQuiet === "function" && monQuiet()) return true;
+  // v144: riding the rocket sled, the one countdown on the screen is his own
+  if (typeof srQuiet === "function" && srQuiet(me)) return true;
   return spCounters.some(c => c.name !== me && c.counting());
 }
 

@@ -112,6 +112,7 @@ const VEHICLE_TONES = [
   ["carTyre", "triangle", 90],
   ["yachtHull", "triangle", 55],
   ["rover", "sawtooth", 55],
+  ["srBurst", "sawtooth", TUNE.sledRide.burst.hz],   // v144: the rocket sled's burst (sledride.js)
 ];
 
 function applyVehicle(key) {
@@ -142,7 +143,7 @@ function applyVehicle(key) {
   }
   // Watch the rocket, see the helicopter's tool/load, and see the boat's hull and
   // its wake, in chase view; the view button still toggles.
-  if ((state.vp.rocket || state.vp.heli || state.vp.boat) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
+  if ((state.vp.rocket || state.vp.heli || state.vp.boat || state.vp.sledRide) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
   // The cannon lives on the boat alone. Left up, it sits in the helicopter
   // bucket's slot and eats the tap that means "scoop".
   if (!state.vp.boat) {
@@ -208,6 +209,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.maxAglSinceLiftoff = 0;
   state.phase = "TAXI";
   if (state.vp && state.vp.monster && typeof monSpawn === "function") monSpawn();   // the arena, either way
+  if (state.vp && state.vp.sledRide && typeof srSpawn === "function") srSpawn();   // v144: on the sled at the start tower, either way
   if (state.vp && state.vp.car) {
     if (typeof carSpawn === "function" && typeof highway !== "undefined" && highway.built) carSpawn(originIdx);
   }
