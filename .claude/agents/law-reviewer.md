@@ -31,7 +31,9 @@ Ask these, in this order, and stop at the first one that blocks:
    make the thing happen and measure it, or only see that an object exists? Does
    it read a delta, or a total an earlier check could have left behind? Does it
    reset the state it depends on (random stream, event clocks, flags, speed
-   step)? Does it run in the states he is really in (portrait, both camera
+   step)? Does it assert the state it tests was really reached (mid-run,
+   landed, in the lock), or would it pass vacuously on the tree before the
+   change (v144's leave-mid-run check did)? Does it run in the states he is really in (portrait, both camera
    views)? Was an expected value edited to match — and if so, is the reason
    stated and true? A changed behaviour with no check is a finding.
 4. **The dinner test.** In one sentence: what would he tell his parents about at
