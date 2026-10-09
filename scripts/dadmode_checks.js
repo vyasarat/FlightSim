@@ -13,7 +13,7 @@
 //   c. inside: none of his flight buttons (speed, go, missile, menu, eject) exist,
 //      dad's are up without a slot clash or overlap, his crash alarm stays off
 //      flying at a wall, the jet's G is limited, its tuning is its own;
-//   d. the radar: above 100 ft for more than a moment locks and launches; under it,
+//   d. the radar: above 200 ft for more than a moment locks and launches; under it,
 //      nothing; a flare decoys the missile and it never reaches him;
 //   e. the bombs: through the vent's three metres they count (hatch, then plant),
 //      four metres off they do not; damage ends it ("shot down"), the ground ends it
@@ -208,12 +208,12 @@ module.exports = async function dadChecks({ newPage, check }) {
     let lowLock = 0, maxAgl = 0;
     for (let i = 0; i < 60 * 6; i++) { P.step(1 / 60); if (L.dad.m.locked) lowLock++; maxAgl = Math.max(maxAgl, L.dadAgl()); }
     out.low = { launched: L.dad.m.samsLaunched - s0, lockFrames: lowLock, maxFt: Math.round(maxAgl * 3.281), over: L.dad.m.over };
-    // high: climb to ~60 m (200 ft) and hold it: a lock, then a launch
+    // high: climb to ~91 m (300 ft) and hold it: a lock, then a launch
     L.dadStart();
     const s1 = L.dad.m.samsLaunched;
     let lockAt = -1, launchAt = -1;
     for (let i = 0; i < 60 * 8 && launchAt < 0; i++) {
-      const ax = S.x - 360, az = L.vlCenterZ(ax), want = L.terrainEff(S.x, S.z) + 60;
+      const ax = S.x - 360, az = L.vlCenterZ(ax), want = L.terrainEff(S.x, S.z) + 91.4;
       const dh = Math.atan2(-(ax - S.x), -(az - S.z)) - S.heading;
       const eh = Math.atan2(Math.sin(dh), Math.cos(dh));
       const q = Math.max(-1, Math.min(1, ((want - S.y) * 0.08 - S.pitch * 0.15)));
@@ -237,9 +237,9 @@ module.exports = async function dadChecks({ newPage, check }) {
     out.flare = { flared, distAtFlare, target: sam && sam.target, alive: sam && sam.alive, hitHim: L.dad.m.health < h0 - 40, decoys: L.dad.m.decoys, flaresLeft: L.dad.m.flares };
     return out;
   });
-  check("dad/radar: under 100 ft along the valley there is no lock and no launch",
-    !d.err && d.low.launched === 0 && d.low.lockFrames === 0 && d.low.maxFt < 100 && !d.low.over, J(d.low || d));
-  check("dad/radar: above 100 ft for more than a moment -- RADAR LOCK, then a missile launched, chasing him",
+  check("dad/radar: under 200 ft along the valley there is no lock and no launch",
+    !d.err && d.low.launched === 0 && d.low.lockFrames === 0 && d.low.maxFt < 200 && !d.low.over, J(d.low || d));
+  check("dad/radar: above 200 ft (flown at 300) for more than a moment -- RADAR LOCK, then a missile launched, chasing him",
     !d.err && d.high.lockAt > 0.3 && d.high.launchAt > d.high.lockAt && d.high.launched === 1 && /RADAR LOCK|MISSILE/.test(d.high.warn) && d.chasing, J(d.high || d));
   check("dad/radar: a flare decoys it -- once it is in reach a flare takes it, and it never reaches him",
     !d.err && d.flare.flared && d.flare.target === "flare" && !d.flare.hitHim && d.flare.decoys >= 1, J(d.flare || d));
@@ -298,6 +298,54 @@ module.exports = async function dadChecks({ newPage, check }) {
   });
   check("dad/damage: flown exposed with no flares, the damage ends it -- 'shot down', the jet in pieces, the failure card with RETRY and EXIT",
     !dmg.err && dmg.over && dmg.result === "fail" && dmg.why === "shot down" && dmg.health === 0 && dmg.exploding && dmg.card && /Mission failed/.test(dmg.cardText) && /RETRY/.test(dmg.cardText) && /EXIT/.test(dmg.cardText), J(dmg));
+  // v149: under the radar's ceiling (200 ft) he is HIDDEN -- the guns fire round him and never
+  // hit; at 300 ft the same guns do. The HUD says which. And 40 ft over the floor is flyable:
+  // dad's jet crashes only when it touches. The same valley, flown three ways by one hand.
+  const hid = await run(page, () => {
+    const L = window.__lp, S = L.state, W = L.dad.world, m = () => L.dad.m;
+    const cue = () => { const e = document.querySelector("#dadHud .dadExpo"); return e ? (e.textContent + (e.classList.contains("exposed") ? "*" : "")) : null; };
+    const ceilFt = L.TUNE.dad.radar.agl * 3.281;
+    // hold `ft` over the ground along the valley's centreline for `secs`, flares kept up so no
+    // SAM gets in (the guns alone); the higher of the ground under him and ahead, so he clears it
+    const fly = (ft, secs) => {
+      L.dadStart();
+      const want = ft / 3.281;
+      const out = { ft, frames: 0, sightedFrames: 0, overCeil: 0, maxFt: 0, minFt: 1e9, cues: {}, x0: Math.round(S.x) };
+      for (let i = 0; i < 60 * secs && !m().over; i++) {
+        const ax = S.x - 300, az = L.vlCenterZ(ax), wy = Math.max(L.terrainEff(ax, az), L.terrainEff(S.x, S.z)) + want;
+        const dh = Math.atan2(-(ax - S.x), -(az - S.z)) - S.heading, eh = Math.atan2(Math.sin(dh), Math.cos(dh));
+        const q = Math.max(-1, Math.min(1, ((wy - S.y) * 0.1 - S.pitch * 0.2)));
+        L.api.setStick(Math.max(-1, Math.min(1, -eh * 4.5)), Math.sign(q) * Math.pow(Math.abs(q), 1 / 2.6));
+        m().flares = 8;
+        if (W.sams.some(s => s.alive && s.target === "jet")) L.dadFlare();
+        L.update(1 / 60);
+        out.frames++;
+        const a = L.dadAgl() * 3.281;
+        if (i > 120) { out.maxFt = Math.max(out.maxFt, a); out.minFt = Math.min(out.minFt, a); if (a > ceilFt) out.overCeil++; }
+        if (W.guns.some(g => g.alive && g.fireT > 0 && g.blind === false)) out.sightedFrames++;
+        const c = cue(); out.cues[c] = (out.cues[c] || 0) + 1;
+      }
+      L.api.clearStick();
+      const M = m();
+      return Object.assign(out, { secs: +(out.frames / 60).toFixed(1), x1: Math.round(S.x), health: M.health, damage: M.damageTaken, gunHits: M.gunHits, flakHits: M.flakHits,
+        flak: M.flak, near: M.nearMisses, over: M.over, why: M.why, maxFt: Math.round(out.maxFt), minFt: Math.round(out.minFt) });
+    };
+    const lo = fly(150, 48), hi = fly(300, 48), skim = fly(40, 48);
+    // and the control: the same jet put on the snow does crash
+    L.dadStart(); S.y = Math.max(L.terrainEff(S.x, S.z), L.TUNE.waterLevel) + L.TUNE.dad.jet.touchAgl * 0.5; L.update(1 / 60);
+    const touch = { over: m().over, why: m().why };
+    return { ceilFt: Math.round(ceilFt), lo, hi, skim, touch, touchAgl: L.TUNE.dad.jet.touchAgl, hisClearance: L.TUNE.terrainClearance };
+  });
+  check("dad/damage: hidden at 150 ft -- the valley flown under the 200 ft ceiling takes no damage at all (no gun or flak hit) while the guns have him in sight, fire and burst flak round him; the HUD reads HIDDEN",
+    !hid.err && hid.ceilFt === 200 && hid.lo.secs > 40 && !hid.lo.over && hid.lo.maxFt < 200 && hid.lo.minFt > 100 && hid.lo.overCeil === 0 && hid.lo.damage === 0 && hid.lo.health === 100
+      && hid.lo.gunHits === 0 && hid.lo.flakHits === 0 && hid.lo.sightedFrames > 120 && hid.lo.flak > 20 && hid.lo.near > 0
+      && !hid.lo.cues["EXPOSED*"] && hid.lo.cues["HIDDEN"] > hid.lo.frames * 0.95, J(hid.err ? hid : { ceilFt: hid.ceilFt, lo: hid.lo }));
+  check("dad/damage: exposed at 300 ft -- the same valley flown over the ceiling (SAMs decoyed, the guns alone) takes real damage from the guns; the HUD reads EXPOSED",
+    !hid.err && hid.hi.secs > 15 && hid.hi.overCeil > (hid.hi.frames - 120) * 0.9 && hid.hi.gunHits + hid.hi.flakHits >= 3 && hid.hi.damage >= 15
+      && hid.hi.cues["EXPOSED*"] > hid.hi.frames * 0.8, J(hid.hi || hid));
+  check("dad/crash: 40 ft over the floor does not crash -- the valley flown at 40 ft stays whole the whole way; dad's jet crashes only when it touches (touchAgl, its own number; his game's terrainClearance untouched), and set on the snow it does",
+    !hid.err && hid.skim.secs > 40 && !hid.skim.over && hid.skim.minFt > 20 && hid.skim.maxFt < 70 && hid.touchAgl <= 1.5 && hid.hisClearance === 8 && hid.touch.over && hid.touch.why === "crashed",
+    J(hid.err ? hid : { skim: hid.skim, touch: hid.touch, touchAgl: hid.touchAgl, hisClearance: hid.hisClearance }));
   const clk = await run(page, () => {
     const L = window.__lp; L.dadStart(); L.dad.m.clock = 1;
     const P = window.__dadPilot; P.phase = "valley";
@@ -425,7 +473,7 @@ module.exports = async function dadChecks({ newPage, check }) {
     L.dadStart(); P.phase = "valley"; P.t = 0; P.dropped = 0; P.log = []; P.lastDropT = -9; P.highAt = 0;
     return P.fly(200);
   });
-  check("dad/full: a whole sortie flown through the stick succeeds -- the valley under 100 ft, the pop-up, two bombs through the vent, the climb out with flares, 'success' inside the clock",
+  check("dad/full: a whole sortie flown through the stick succeeds -- the valley under 200 ft, the pop-up, two bombs through the vent, the climb out with flares, 'success' inside the clock",
     !full.err && full.result === "success" && full.hits === 2 && full.plant && full.clock > 0 && full.sams > 0 && full.flaresUsed > 0, J(full));
   const card = await run(page, () => {
     const L = window.__lp;
@@ -585,7 +633,8 @@ module.exports = async function dadChecks({ newPage, check }) {
 
   // the key in HIS portrait picker covers no card, scrolled to the top or the bottom:
   // a tap on a card is always the card
-  for (const [w, h] of [[768, 1024], [390, 844]]) {
+  for (const [w, h] of [[768, 1024], [390, 844], [1180, 820], [844, 390]]) {
+    const portrait = h > w;
     const kp = await newPage(w, h);
     const cov = await kp.page.evaluate(() => {
       const sv = document.getElementById("screenVehicle"); sv.classList.remove("hiddenS");
@@ -603,8 +652,27 @@ module.exports = async function dadChecks({ newPage, check }) {
       }
       return out;
     }).catch(e => [String(e.message).slice(0, 200)]);
+    // v149: the altitude block in dad mode, on the same screen, clear of every button and readout
+    // and on the glass, with the bomb button up (near the bunker)
+    const alt = await kp.page.evaluate(() => {
+      const L = window.__lp, S = L.state, v = L.vl.vent;
+      L.dadEnter(); for (let i = 0; i < 10; i++) L.update(1 / 60);
+      S.x = v.x + 1200; S.z = v.z; S.y = v.y + 450; S.heading = Math.PI / 2; S.pitch = -20; L.update(1 / 60);
+      const box = e => e.getBoundingClientRect(), R = box(document.querySelector("#dadHud .dadR")), bad = [];
+      for (const e of document.querySelectorAll("button, .roundBtn, #dadExitBtn, #dadHud .dadL, #dadHud .dadWarn, #dadHud .dadClock")) {
+        const cs = getComputedStyle(e); if (cs.display === "none" || cs.visibility === "hidden") continue;
+        const b = box(e); if (!b.width) continue;
+        if (b.left < R.right && b.right > R.left && b.top < R.bottom && b.bottom > R.top) bad.push(e.id || e.className);
+      }
+      const out = { bomb: getComputedStyle(document.getElementById("dadBombBtn")).display !== "none", bad,
+        onGlass: R.left >= 0 && R.right <= innerWidth && R.top >= 0 && R.bottom <= innerHeight, alt: document.querySelector("#dadHud .dadAltNum").textContent };
+      L.dadExit();
+      return out;
+    }).catch(e => ({ err: String(e.message).slice(0, 200) }));
     await kp.ctx.close();
-    check("dad/key: in his portrait picker (" + w + "x" + h + ") the dim key covers no vehicle card, scrolled to the top or the bottom", cov.length === 0, J(cov));
+    check("dad/hud: in dad mode at " + w + "x" + h + " the altitude block (one big radar altitude, its tape and the HIDDEN/EXPOSED tag) is on the glass and covers no button or readout, the bomb button up",
+      !alt.err && alt.bomb && alt.onGlass && alt.bad.length === 0 && /^\d+$/.test(alt.alt), J(alt));
+    if (portrait) check("dad/key: in his portrait picker (" + w + "x" + h + ") the dim key covers no vehicle card, scrolled to the top or the bottom", cov.length === 0, J(cov));
   }
 
   check("dad: no page errors through all of it", errors.length === 0, J(errors.slice(0, 5)));

@@ -2156,21 +2156,23 @@ const TUNE = {
       turnMul: 2.1,                                                  // turn rate = turnMul * g tan(bank) / v
       gMax: 9.5, gGrey: 6.5, gBlack: 10.5,                           // the pull is limited to gMax; grey-out from gGrey
       ceiling: 820, size: 1.25,
+      touchAgl: 1.2,               // dad's crash height: the jet's belly ON the ground (his game's is terrainClearance, 8 m, never used here)
     },
     clock: 150,                  // seconds to the target
     health: 100,
-    radar: { agl: 30.48, arm: 0.7, lock: 2.2, cool: 3.5, alertMul: 0.5 },   // 100 ft; seconds above it to a lock, then to a launch
+    // the hidden ceiling (v149: 200 ft, was 100): under it the radar never locks and the guns never hit
+    radar: { agl: 60.96, arm: 0.7, lock: 2.2, cool: 3.5, alertMul: 0.5 },   // 200 ft; seconds above it to a lock, then to a launch
     sam: { speed: 290, turnDeg: 34, life: 11, fuse: 14, damage: 55, launchGap: 0.6 },
     flares: { count: 8, decoyRange: 1400, life: 3.2, cooldown: 0.5 },
     // v148: being shot at is unmissable. `scale` sizes the mounts so they read on a ridge;
     // a gun opens up inside `fireRange` (it can only hit inside `range`), and with no line
     // of sight it fires blind, its stream into the sky across his nose (`ahead`: the share
     // of a sighted stream led across the nose, not at him). Flak within `nearMiss` shakes;
-    // a blind gun bursts its flak over him.
+    // a blind gun bursts its flak over him. Under the radar's ceiling, 200 ft (`radar.agl`), he is
+    // HIDDEN: tracers and flak still fly round and above him, and nothing hits.
     guns: { count: 9, range: 950, fireRange: 1500, burst: 1.6, gap: 2.2, rof: 14, tracer: 620, spread: 0.035, hitChance: 0.035, damage: 6,
             flakEvery: 0.45, flakSpread: 26, flakHit: 10, nearMiss: 45, exposedAgl: 70, scale: 3.2, ahead: 0.7,
-            wallAt: 0.55,     // dug into the wall face this far up its run, in sight of the floor
-            lowExpo: 0.08 },  // under the radar's 100 ft he is a hard shot: v147's damage in the valley, with the guns now in sight
+            wallAt: 0.55 },   // dug into the wall face this far up its run, in sight of the floor
     siteScale: 2.2,
     missiles: { count: 4, speed: 260, turnDeg: 60, life: 6, lockCone: 0.42, range: 2200, cooldown: 0.8 },
     bombs: { count: 4, range: 2600, armAgl: 60, steer: 34, life: 20, holdRateDeg: 7 },
