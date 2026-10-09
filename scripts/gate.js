@@ -42,14 +42,14 @@ const MODULES = {
   "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks"],
   "vehiclekit.js": ["road_checks", "city_checks"],
   "solids.js": ["solidity_checks"], "collision.js": ["solidity_checks"],
-  "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks"],
+  "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks"], "crane.js": ["crane_checks", "slot_checks", "solidity_checks", "vehicle_contract_checks", "state_semantics_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks"],
   "boat.js": ["boat_checks", "sea_checks"], "harbor.js": ["boat_checks", "lock_checks", "sea_checks"],
   "lock.js": ["lock_checks"], "yacht.js": ["yacht_checks"], "seaevents.js": ["sea_checks"],
   "heli.js": ["heli_control_checks", "heli_play_checks", "heli_land_checks"],
   "buttons.js": ["slot_checks"], "speed.js": ["speed_horn_checks"],
   "engines.js": ["engine_sound_checks"], "audio.js": ["engine_sound_checks", "hardening_checks"],
   "eventpool.js": ["event_pool_checks"], "events.js": ["event_pool_checks"],
-  "vehicles.js": ["vehicle_contract_checks", "state_semantics_checks"],
+  "vehicles.js": ["vehicle_contract_checks", "state_semantics_checks", "solidity_checks"],
   "state.js": ["state_semantics_checks", "vehicle_contract_checks"],
   "vehicle.js": ["aircraft_orientation_checks"], "models.js": ["aircraft_orientation_checks"],
   "eject.js": ["eject_framing_checks"], "toyfinish.js": ["toyfinish_checks"],
@@ -164,6 +164,67 @@ const cacheName = src => ((src || "").match(/const CACHE_NAME = "([^"]*)"/) || [
       if (!known.some(v => Math.abs(k - v) < 0.5)) fail("city", `${key} type ${T.name} stands ${k.toFixed(1)} m over its top tier with no \`crown\` and no known crown of that height -- it would be drawn and be air (city.js cityCrown)`);
     }
   } catch (e) { fail("city", "citydata.js would not load for the crown check: " + e.message); }
+}
+
+// ---------- 7. every vehicle in the contract has a solid radius and a crawl ----------
+// vehSolidR()/vehCrawl() fall back quietly for a kind TUNE.solid does not name,
+// so a new row in VEHICLE_CONTRACT without its TUNE.solid r/crawl is only found by
+// solidity_checks, if anything maps to it (v144: the sled, caught by the reviewer).
+{
+  try {
+    const kinds = [...(/^const VEHICLE_CONTRACT = \{([^]*?)^\};/m.exec(read("cockpit/js/vehicles.js")) || [, ""])[1].matchAll(/^  ([a-zA-Z]+): \{/gm)].map(m => m[1]);
+    if (!kinds.length) fail("contract", "no rows found in VEHICLE_CONTRACT (vehicles.js) -- the gate's reader needs updating");
+    const ctx = { Math }; vm.createContext(ctx);
+    vm.runInContext(read("cockpit/js/tune.js") + ";this.TUNE = TUNE;", ctx);
+    for (const k of kinds) for (const f of ["r", "crawl"])
+      if (typeof (ctx.TUNE.solid[f] || {})[k] !== "number") fail("contract", `VEHICLE_CONTRACT has "${k}" but TUNE.solid.${f} has no ${k} -- give it its radius and crawl (solids.js's one law)`);
+  } catch (e) { fail("contract", "tune.js or vehicles.js would not read for the TUNE.solid check: " + e.message); }
+}
+
+// ---------- 8. every check() in a harness script can fail ----------
+// check(label, condition, detail) takes three: a stray comma in the condition
+// pushes the rest into the detail slot, or past it, and the harness never
+// enforces it (v144: sledride_checks' rings-home, found two review rounds late).
+function gateCheckCalls(src) {
+  const out = [], re = /(^|[^.\w$])check\s*\(/g; let m;
+  while ((m = re.exec(src))) {
+    if (/function\s*$/.test(src.slice(Math.max(0, m.index - 12), m.index + m[1].length))) continue;
+    let depth = 0, args = [], cur = "", prev = "(";
+    for (let i = m.index + m[0].length; i < src.length; i++) {
+      const c = src[i], n = src[i + 1];
+      if (c === "/" && n === "/") { const e = src.indexOf("\n", i); i = e < 0 ? src.length : e; continue; }
+      if (c === "/" && n === "*") { i = src.indexOf("*/", i + 2) + 1; continue; }
+      if (c === '"' || c === "'" || c === "`" || (c === "/" && /[(,=:[!&|?{};+\-*%<>~^]/.test(prev))) {
+        let j = i + 1, cls = false;
+        for (; j < src.length; j++) {
+          const d = src[j];
+          if (d === "\\") { j++; continue; }
+          if (c === "/" && d === "[") cls = true; else if (c === "/" && d === "]") cls = false;
+          else if (d === c && !cls) break;
+          else if (c === "`" && d === "$" && src[j + 1] === "{") { let k = 1; j += 2; for (; j < src.length && k; j++) { if (src[j] === "{") k++; else if (src[j] === "}") k--; } j--; }
+        }
+        cur += src.slice(i, j + 1); i = j; prev = "a"; continue;
+      }
+      if ("([{".includes(c)) depth++;
+      if (")]}".includes(c)) { if (depth === 0) { args.push(cur); break; } depth--; }
+      if (c === "," && depth === 0) { args.push(cur); cur = ""; prev = ","; continue; }
+      cur += c; if (!/\s/.test(c)) prev = c;
+    }
+    out.push({ line: src.slice(0, m.index + m[1].length).split("\n").length, args: args.map(a => a.trim()).filter((a, k, all) => a || k < all.length - 1) });
+  }
+  return out;
+}
+function gateCheckShape(a) {
+  if (a.length > 3) return `check() has ${a.length} arguments -- everything after the third is dropped, so a condition there is never enforced`;
+  if (a.length >= 2 && /^(["'`])[^]*\1$/.test(a[1])) return "check()'s condition is a string literal -- it always passes";
+  // the detail's top level: strings blanked, everything inside brackets dropped
+  let top = a.length === 3 ? a[2].replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, '""').replace(/=>/g, "") : "";
+  for (let k = 0; k < 20; k++) top = top.replace(/\([^()[\]{}]*\)|\[[^()[\]{}]*\]|\{[^()[\]{}]*\}/g, "_");
+  if (/^[^?]*(<|>|===|!==|&&)[^?]*$/.test(top)) return "check()'s detail argument is a condition -- a comma where an && belongs, so it is never enforced";
+  return null;
+}
+for (const f of fs.readdirSync(path.join(ROOT, "scripts")).filter(f => f.endsWith(".js"))) {
+  for (const c of gateCheckCalls(read("scripts/" + f))) { const w = gateCheckShape(c.args); if (w) fail("checks", `scripts/${f}:${c.line}: ${w}`); }
 }
 
 // ---------- which modules the change answers to ----------

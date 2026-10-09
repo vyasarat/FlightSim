@@ -10,6 +10,82 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v145 — the wrecking-ball crane
+
+**What he gets:** a new card in the picker, the giant yellow crane. Picked, he
+sits in its cab on a lot of its own out in the open country west of the
+motorway, near the demolition block (but well clear of it, of the road and of
+every airport). Over him is a long lattice boom with a HUGE black ball on its
+cable, and in front of him are three blocks of empty towers, fanned out at
+three different angles, each a row of five tall slabs. **A drag left or right
+turns the crane.** This is a new control, for the crane only (the owner said
+yes on 2026-10-08); a drag on everything else does exactly what it did. It is
+forgiving: let go and it settles by itself on the nearest block, and it never
+turns away from the towers. A red ring pulses on the block he is pointing at.
+Then he presses go: 3-2-1, and the ball swings by itself. It is drawn back
+slowly, then comes forward faster and faster and hits the first tower with a
+clang and a boom. The whole row folds over like dominoes, one after another,
+away from him, with dust and pieces flying. A few seconds later they all
+stand back up, the last one first, exactly where they were, and he can turn
+to another block and go again. One press is the whole show: there is nothing
+to time, and a press or a drag during it does nothing. The crane never moves
+and never bangs. The towers are only there while he is in the crane, so for
+every other vehicle the world is the same as before (the demolition block
+included). **Two views**, switched by the usual view button: the cab, looking
+along the boom at the towers, and the chase, behind and to the right and
+above, with the crane, the ball and the block all in the picture (it starts
+in the chase). **Buttons:** go and the picker only while it waits; the view,
+the photo and the menu as everywhere. There are no speed steps (it does not
+drive), no eject and no horn. While he is in the crane no other set-piece
+starts a countdown.
+New check module `crane_checks`. It covers the card, the drag (by real
+pointer events) and the magnet, the monster truck and car drags pinned to
+v144, a whole go in each view, the placement off airports, the road and the
+demolition block, the demolition pinned to v144 frame for frame, leaving
+mid-fall through the menu, and the relaunch. The slot check has two new
+scenes (the crane aiming and mid-fall). The picker count goes from 13 to 14,
+deliberately.
+
+## v144 — ride the rocket sled
+
+**What he asked for:** to DO the rocket sled he watches from the motorway. It is
+a new card in the picker: the red rocket sled. Picked, he sits on the set-piece's
+own sled at the start tower, nose down the rail at the giant wall of toy bricks.
+He presses go (the go button, or a finger anywhere on the screen) and the start
+tower's lamps go red, amber, green under 3-2-1. Then he is blasted down the rail
+to 120 m/s, smashes through the wall, the three parachutes pop, he stops, and he
+rolls home while the wall flies back together behind him. Then a new press of go
+is the next run. One press is enough: the run goes through to the end whether
+he keeps holding or not, so there is nothing to time and nothing to miss. He is
+on a rail, so steering does nothing and nothing can go bang. While he rides, the
+wall's red target stands on the rail's line, where his nose will hit (the wall
+itself stands west of the rail, away from the road, as before). **A drag up
+during the run is the burst**: a longer, fatter flame from the nozzles and a roar
+of its own. A wobbling finger is one burst, not many. It is only a show: the
+run's speed, the smash and the chutes are the set-piece's, the same every time,
+and from the driving seat, where the flame is behind him, it is only the roar.
+**Two views**, switched by the usual view button: the seat, on the white nose
+cone looking down the rail at the wall, with the picture widening for a moment
+at the launch and at the smash (never a shake); and the chase, behind and high
+over the sled with the wall ahead in the picture, which swings out to the road's
+side once the chutes are out so he sees the sled with its three canopies
+streaming behind it (it starts in the chase). From the seat the countdown is
+the numerals; the lamp tower stands beside him, out of view. **Buttons:** go
+only while the sled is home and ready, the picker only at home, and the view,
+the photo and the menu as everywhere. No speed steps (the run is always the
+set-piece's speed) and no eject (the sled has no seat to leave). While he
+rides, no other set-piece starts a countdown, and what he hears under the roar
+is rushing air. The set-piece's own sled is hidden while he rides (his is a copy
+of it), and the moment he leaves, mid-run or not, it is back home at the tower,
+armed and whole, its target back in its place, and it goes off for the car
+exactly as before.
+New check module `sledride_checks` (44 checks: a full ride in each view, the
+cameras, the burst and that it never changes the run, a wobbling finger, the
+seat's two kicks measured on the camera, the steer, no other countdown while he
+rides, leaving mid-run through the menu button, the relaunch); on v143 only its
+two invariants pass. The slot check has two new scenes (the sled at the tower
+and mid-run), and the picker count goes from 12 to 13.
+
 ## v143 — the monster truck: instant crush, a real burst, the seat up high
 
 **The parent's notes after v141.**

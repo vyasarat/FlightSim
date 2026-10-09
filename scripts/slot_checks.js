@@ -103,6 +103,25 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       at("car on the road", () => { L.api.setVehicle("car"); L.api.placeOnRunway(); });
       at("monster truck at the arena", () => { L.api.setVehicle("monster"); L.api.spawnAt(0, 0); });
       at("booster rocket on the launch site's pad", () => { L.api.setVehicle("heavy"); L.api.spawnAt(0, 0); });
+      // v144: the rocket sled he rides -- at the start tower (go, the picker), and
+      // mid-run (go gone: nothing to press but the burst, which is a drag)
+      at("rocket sled at the start tower", () => { L.api.setThrottle(false); L.api.setVehicle("sled"); L.api.spawnAt(0, 0); });
+      at("rocket sled mid-run", () => {
+        L.api.setThrottle(false); L.api.setVehicle("sled"); L.api.spawnAt(0, 0);
+        L.api.setThrottle(true);
+        for (let i = 0; i < 60 * 6 && L.sled.phase !== "run"; i++) L.update(1 / 60);
+        L.api.setThrottle(false);
+      });
+      // v145: the crane -- aiming (go, the picker), and mid-domino (nothing to press:
+      // the go button and the picker gone, the view, the photo and the menu as ever)
+      at("crane aiming", () => { L.api.setThrottle(false); L.api.clearStick(); L.api.setVehicle("crane"); L.api.spawnAt(0, 0); });
+      at("crane mid-domino", () => {
+        L.api.setThrottle(false); L.api.clearStick(); L.api.setVehicle("crane"); L.api.spawnAt(0, 0);
+        L.api.setThrottle(true); L.update(1 / 60); L.api.setThrottle(false);
+        for (let i = 0; i < 60 * 15 && !L.crTowers().some(t => t.i === 2 && t.phiDeg > 20); i++) L.update(1 / 60);
+        // never got there: the scene fails, rather than passing on the aiming buttons
+        if (!L.crTowers().some(t => t.i === 2 && t.phiDeg > 20)) out.push({ name: "crane mid-domino", bad: ["the domino was never reached (phase " + L.cr.phase + ")"] });
+      });
       at("monster truck driving", () => { L.api.setVehicle("monster"); L.api.spawnAt(0, 0); L.api.setStick(0, 0); for (let i = 0; i < 60; i++) L.update(1 / 60); });
       at("car honking", () => {
         L.api.setVehicle("car"); L.api.placeOnRunway();

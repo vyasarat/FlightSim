@@ -42,6 +42,8 @@ function vehKind() {
   if (vp.bigBoat) return "yacht";       // a yacht is a boat: ask first
   if (vp.boat) return "boat";
   if (vp.monster) return "monster";      // v141: its own rules, not the car's
+  if (vp.sledRide) return "sled";        // v144: the set-piece's rail, ridden (sledride.js)
+  if (vp.crane) return "crane";          // v145: the wrecking-ball crane, parked for good (crane.js)
   if (vp.car) return "car";
   if (vp.heli) return "heli";
   return "plane";                        // prop, fighter, the airliners
@@ -125,6 +127,32 @@ const VEHICLE_CONTRACT = {
     update: (dt) => updateMonster(dt),
     camera: (dt) => monCamera(dt),
     parked: () => state.speed === 0,
+    reassemble: null,
+  },
+  // v144: the rocket sled he rides (sledride.js). He IS the set-piece's sled, on
+  // its rail: rocketsled.js moves it and he is read off it every frame. Nothing
+  // can stand on the rail in front of him -- the rail, the wall (smashed as the
+  // nose reaches it), the tower and the sled's own capsule are the run's own
+  // solids -- so he is not solid against the registry, and never bangs. Parked
+  // only at home in the start tower, where the next go starts the next run.
+  sled: {
+    solidClass: SOLID.CAR,
+    solid: () => false,
+    update: (dt) => srUpdate(dt),
+    camera: (dt) => srCamera(dt),
+    parked: () => srParked(),
+    reassemble: () => srPlace(),
+  },
+  // v145: the wrecking-ball crane (crane.js). Parked on its lot for good: its drag
+  // turns it about its tracks and nothing ever moves it, so it can drive into
+  // nothing and is not solid; what falls is its own show, not the registry's.
+  // Parked only while it waits, where the next go starts the next swing.
+  crane: {
+    solidClass: SOLID.CAR,
+    solid: () => false,
+    update: (dt) => crUpdate(dt),
+    camera: (dt) => crCamera(dt),
+    parked: () => crParked(),
     reassemble: null,
   },
   boat: {

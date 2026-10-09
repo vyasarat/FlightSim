@@ -218,6 +218,7 @@ function rebuildTrees(px, pz) {
         if (typeof lsCovers === "function" && lsCovers(wx, wz, 4)) continue;   // launchsite.js: the pad is bare
         if (typeof sledCovers === "function" && sledCovers(wx, wz, 4)) continue;   // rocketsled.js: the rail and the bricks' field
         if (typeof mtCovers === "function" && mtCovers(wx, wz, 4)) continue;
+        if (typeof crCovers === "function" && crCovers(wx, wz, 4)) continue;   // crane.js: only while he is in the crane
         // a city street's outer half runs past the edge of its blocks (streets.js)
         if (typeof stNearStreet === "function" && stNearStreet(wx, wz, 4)) continue;
         const gy = terrainEff(wx, wz);
@@ -287,6 +288,7 @@ function rebuildBuildings(px, pz) {
         if (typeof lsCovers === "function" && lsCovers(wx, wz, 16)) continue;
         if (typeof sledCovers === "function" && sledCovers(wx, wz, 16)) continue;
         if (typeof mtCovers === "function" && mtCovers(wx, wz, 16)) continue;
+        if (typeof crCovers === "function" && crCovers(wx, wz, 16)) continue;   // crane.js: only while he is in the crane
         if (Math.abs(wx - TRAIN_X) < 14) continue;   // nothing stands on the freight line either
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.8) continue;

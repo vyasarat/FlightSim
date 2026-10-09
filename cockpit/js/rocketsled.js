@@ -40,6 +40,15 @@
 //     while any other countdown is showing, and stands down for a police
 //     pull-over or the picker.
 //   * Its own random stream, its own puff pool, the bricks one instanced draw.
+//   * v144: he can RIDE it (sledride.js, the sled card). While he does, it is
+//     the same set-piece run for him: his go starts it instead of his pointing
+//     (`sled.ridden`), its own sled is not drawn (his vehicle is a copy of it),
+//     and it steps nobody aside. The wall stands west of the rail (wallShift),
+//     so its target is not where his nose hits: while he rides, the two rings
+//     stand on the rail's line instead, on what he is about to smash. Getting
+//     on and getting off are both a fresh sledReset with the rings put where
+//     they belong (sledSetRidden), so with nobody riding it is exactly the
+//     set-piece it was.
 // ---------------------------------------------------------------------------
 const SLED = TUNE.rocketSled;
 
@@ -274,6 +283,7 @@ function sledBuild() {
     ret.add(dot);
     ret.position.set(w.x - sled.dirX * side * (T.brick[2] / 2 + 1.2), T.railY + T.wallRows * T.brick[1] * 0.55, w.z - sled.dirZ * side * (T.brick[2] / 2 + 1.2));
     ret.rotation.y = yaw;
+    ret.userData.home = ret.position.clone();     // v144: where it stands for everyone but a rider
     scene.add(ret);
     sled.reticles.push(ret);
   }
@@ -490,6 +500,19 @@ function sledReset() {
   sled.counting = false;
 }
 
+// v144: on or off the sled (sledride.js). A fresh start at home either way, and
+// the target where it belongs: on the rail's line while he rides it -- where his
+// nose hits the wall -- and exactly back where it was built when he leaves.
+function sledSetRidden(on) {
+  sled.ridden = on;
+  sledReset();
+  const w = sledWallWorld();
+  for (const r of sled.reticles) {
+    r.position.copy(r.userData.home);
+    if (on) { r.position.x += w.rx - w.x; r.position.z += w.rz - w.z; }
+  }
+}
+
 function sledLamps(k) {
   // -1 all dark; 0 red; 1 red+amber; 2 green only
   sled.lamps.forEach((L, i) => {
@@ -540,9 +563,12 @@ function updateRocketSled(dt) {
   if (!sled.sledG) return;
   const T = SLED;
   sled.clock += dt;
+  // v144: he has just got on it (sledride.js), or just got off: either way a fresh start at home
+  const ridden = typeof srActive === "function" && srActive();
+  if (ridden !== !!sled.ridden) sledSetRidden(ridden);
   const near = Math.hypot(state.x - sled.x, state.z - sled.z) < TUNE.fogFar * 1.45;
   sled.g.visible = near;
-  sled.sledG.visible = near;
+  sled.sledG.visible = near && !sled.ridden;      // riding it, the sled drawn is his own
   sled.brickMesh.visible = near;
   for (const r of sled.reticles) {
     r.visible = near && !sled.smashed && !sled.rebuilding;
@@ -551,7 +577,7 @@ function updateRocketSled(dt) {
   const ph = sled.phase;
 
   if (ph === "armed") {
-    if (sledAimed()) sledStart();
+    if (sled.ridden ? srGo() : sledAimed()) sledStart();   // riding it, only his go starts it
   } else if (ph === "count") {
     if (sledBusy()) {
       countdownClear(); el.bigNum.classList.remove("sky"); sled.counting = false;
@@ -651,7 +677,7 @@ function updateRocketSled(dt) {
 // there -- not bulldozed down the rail by the capsule's nose into the wall. At
 // speed it is his to fly into, and the capsule is a bang like any other solid.
 function sledClearPath(dt) {
-  if (Math.abs(sled.v) < 1 || state.exploding) return;
+  if (sled.ridden || Math.abs(sled.v) < 1 || state.exploding) return;   // riding it, he is the sled
   if (typeof vehCrawl === "function" && Math.abs(state.speed) > vehCrawl()) return;
   const T = SLED, S = T.size;
   const rx = state.x - sled.x, rz = state.z - sled.z;
