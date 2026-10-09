@@ -161,7 +161,7 @@ function dadMenuOpen() {
   const ul = dadEl("ul", {}, card);
   for (const t of [
     "2:30 to target. Above 200 ft for more than a moment: radar lock, then a launch.",
-    "Guns on the ridges. Your missiles take them out.",
+    "Guns on the ridges: hold GUN to strafe them (about a kilometre). Six missiles, for the SAM sites and the radar.",
     "Dive on the vent, keep the nose on it, drop. First bomb opens the hatch, second kills the plant.",
     "Pull hard out of the bowl. Flares decoy the missiles.",
     "Drag to fly: up/down is pitch rate (the nose holds when you let go), left/right is bank.",
@@ -419,7 +419,10 @@ function dadBuildWorld() {
   W.smoke = dadParticles(14000, false);
   W.fire = dadParticles(4000, true);
   W.tracer = dadStreaks(2400);
-  dadAdd(W.smoke.pts); dadAdd(W.fire.pts); dadAdd(W.tracer.pts);
+  // v151: his cannon's rounds, their own pool: a white-hot core in a warm edge, thicker, so
+  // his stream is never the enemy's orange, and laid over (not added to) the snow, so it holds there
+  W.cannon = dadStreaks(400, { core: 0xffffff, edge: 0xff9a2a, world: 1.1, wMin: 2.4, wMax: 6, len: 40 });
+  dadAdd(W.smoke.pts); dadAdd(W.fire.pts); dadAdd(W.tracer.pts); dadAdd(W.cannon.pts);
 }
 
 // ---------------------------------------------------------------------------
@@ -445,7 +448,8 @@ function dadSmokeTexture() {
 // THE TRACERS: each round a thin streak, a quad stretched along its flight on the
 // screen -- a hot core fading back to orange down its length, never thinner than a
 // couple of pixels however far off, so a stream reads as lines and not as blobs.
-function dadStreaks(n) {
+function dadStreaks(n, o) {
+  o = o || {};
   const geo = new THREE.BufferGeometry();
   const head = new Float32Array(n * 12), tail = new Float32Array(n * 12), corner = new Float32Array(n * 8), alpha = new Float32Array(n * 4);
   const idx = new Uint32Array(n * 6);
@@ -459,11 +463,13 @@ function dadStreaks(n) {
   geo.setAttribute("aAlpha", new THREE.BufferAttribute(alpha, 1));
   geo.setIndex(new THREE.BufferAttribute(idx, 1));
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uPx: { value: 0.004 }, uAspect: { value: 1 }, uWorld: { value: 0.75 }, uScale: { value: 400 } },
+    uniforms: { uPx: { value: 0.004 }, uAspect: { value: 1 }, uWorld: { value: o.world || 0.75 }, uScale: { value: 400 },
+                uEdge: { value: new THREE.Color(o.edge === undefined ? 0xff6b1a : o.edge) }, uCore: { value: new THREE.Color(o.core === undefined ? 0xffed9e : o.core) },
+                uMin: { value: o.wMin || 1.6 }, uMax: { value: o.wMax || 4.5 } },
     vertexShader: `#include <common>
       #include <logdepthbuf_pars_vertex>
       attribute vec3 aTail; attribute vec2 aCorner; attribute float aAlpha;
-      uniform float uPx; uniform float uAspect; uniform float uWorld; uniform float uScale;
+      uniform float uPx; uniform float uAspect; uniform float uWorld; uniform float uScale; uniform float uMin; uniform float uMax;
       varying float vA; varying vec2 vC;
       void main() {
         vec4 h = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -473,27 +479,30 @@ function dadStreaks(n) {
         vec2 d = (h.xy / max(h.w, 1.0) - t.xy / max(t.w, 1.0)) * vec2(uAspect, 1.0);
         d = length(d) > 1e-5 ? normalize(d) : vec2(1.0, 0.0);
         vec2 nrm = vec2(-d.y, d.x) / vec2(uAspect, 1.0);
-        float px = clamp(uWorld * uScale / max(p.w, 1.0), 1.6, 4.5);   // a half-width, in pixels
+        float px = clamp(uWorld * uScale / max(p.w, 1.0), uMin, uMax);   // a half-width, in pixels
         p.xy += nrm * aCorner.x * px * uPx * p.w;
         gl_Position = vA > 0.0 ? p : vec4(0.0, 0.0, -2.0, 1.0);
         #include <logdepthbuf_vertex>
       }`,
     fragmentShader: `#include <logdepthbuf_pars_fragment>
+      uniform vec3 uEdge; uniform vec3 uCore;
       varying float vA; varying vec2 vC;
       void main() {
         #include <logdepthbuf_fragment>
         float core = 1.0 - abs(vC.x), a = vA * (1.0 - vC.y * 0.85) * smoothstep(0.0, 0.5, core);
         if (a < 0.01) discard;
-        gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0.1), vec3(1.0, 0.93, 0.62), core * (1.0 - vC.y)), a); }`,
+        gl_FragColor = vec4(mix(uEdge, uCore, core * (1.0 - vC.y)), a); }`,
     transparent: true, depthWrite: false, side: THREE.DoubleSide,   // a streak's winding flips with its heading on the screen
+    blending: o.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.frustumCulled = false; mesh.renderOrder = 4;
-  return { n, mesh, pts: mesh, geo, mat, head, tail, alpha, next: 0, pos: new Float32Array(n * 3), v: new Float32Array(n * 3), life: new Float32Array(n), len: 34 };
+  return { n, mesh, pts: mesh, geo, mat, head, tail, alpha, next: 0, pos: new Float32Array(n * 3), org: new Float32Array(n * 3), v: new Float32Array(n * 3), life: new Float32Array(n), len: o.len || 34 };
 }
 function dadShoot(P, x, y, z, vx, vy, vz, life) {
   const i = P.next; P.next = (P.next + 1) % P.n;
   P.pos[i * 3] = x; P.pos[i * 3 + 1] = y; P.pos[i * 3 + 2] = z;
+  P.org[i * 3] = x; P.org[i * 3 + 1] = y; P.org[i * 3 + 2] = z;
   P.v[i * 3] = vx; P.v[i * 3 + 1] = vy; P.v[i * 3 + 2] = vz; P.life[i] = life;
 }
 function dadStepStreaks(P, dt) {
@@ -502,7 +511,8 @@ function dadStepStreaks(P, dt) {
     if (P.life[i] <= 0) { if (P.alpha[i * 4]) P.alpha.fill(0, i * 4, i * 4 + 4); continue; }
     P.life[i] -= dt;
     P.pos[o] += P.v[o] * dt; P.pos[o + 1] += P.v[o + 1] * dt; P.pos[o + 2] += P.v[o + 2] * dt;
-    const sp = Math.hypot(P.v[o], P.v[o + 1], P.v[o + 2]) || 1, k = P.len / sp;
+    // the tail never reaches back past where the round left the muzzle
+    const sp = Math.hypot(P.v[o], P.v[o + 1], P.v[o + 2]) || 1, k = Math.min(P.len, Math.hypot(P.pos[o] - P.org[o], P.pos[o + 1] - P.org[o + 1], P.pos[o + 2] - P.org[o + 2])) / sp;
     for (let c = 0; c < 4; c++) {
       P.head[i * 12 + c * 3] = P.pos[o]; P.head[i * 12 + c * 3 + 1] = P.pos[o + 1]; P.head[i * 12 + c * 3 + 2] = P.pos[o + 2];
       P.tail[i * 12 + c * 3] = P.pos[o] - P.v[o] * k; P.tail[i * 12 + c * 3 + 1] = P.pos[o + 1] - P.v[o + 1] * k; P.tail[i * 12 + c * 3 + 2] = P.pos[o + 2] - P.v[o + 2] * k;
@@ -640,7 +650,7 @@ function dadBoom(size, dist) {
 }
 function dadSoundsOff() {
   if (typeof setTone !== "function") return;
-  for (const n of ["dadLock", "dadMsl", "dadPull", "dadGun"]) setTone(n, "square", 440, 0);
+  for (const n of ["dadLock", "dadMsl", "dadPull", "dadGun", "dadCannon"]) setTone(n, "square", 440, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -656,13 +666,14 @@ function dadStart() {
     samsLaunched: 0, decoys: 0, gunsKilled: 0, g: 1, gSmooth: 1, grey: 0, shake: 0, q: 0, spot: null, spotHeld: false,
     flareCool: 0, mslCool: 0, pullUp: false, cmNext: D.cruiseMissiles.delay, cmLeft: D.cruiseMissiles.count,
     damageTaken: 0, gunHits: 0, flak: 0, flakHits: 0, nearMisses: 0, column: 0, bursts: null, surge: null, msg: "", msgT: 0, alert: 0, lastFwd: null,
+    gunHeld: false, cannonFiring: false, cannonShotT: 0, cannonRounds: 0, cannonOnT: 0, cannonHit: null,
   };
   // the world back as it was: every gun and site standing, the bunker whole
-  for (const g of W.guns) { g.alive = true; g.turret.visible = true; g.ruin.visible = false; g.fireT = 0; g.gapT = dadR(0, D.guns.gap); g.flakT = 0; g.shotT = 0; }
-  for (const s of W.sites) { s.alive = true; s.left = 4; s.frame.visible = true; s.ruin.visible = false; for (const r of s.rails) r.visible = true; }
+  for (const g of W.guns) { g.alive = true; g.turret.visible = true; g.ruin.visible = false; g.fireT = 0; g.gapT = dadR(0, D.guns.gap); g.flakT = 0; g.shotT = 0; g.cannonT = 0; }
+  for (const s of W.sites) { s.alive = true; s.left = 4; s.cannonT = 0; s.frame.visible = true; s.ruin.visible = false; for (const r of s.rails) r.visible = true; }
   W.radar.alive = true; W.radar.g.children.forEach(c => { c.visible = c !== W.radar.ruin; });
   for (const list of [W.cms, W.sams, W.flares, W.aims, W.bombs]) { for (const o of list) if (o.mesh) { scene.remove(o.mesh); const i = dad.objs.indexOf(o.mesh); if (i >= 0) dad.objs.splice(i, 1); } list.length = 0; }
-  for (const P of [W.smoke, W.fire, W.tracer]) { P.life.fill(0); }
+  for (const P of [W.smoke, W.fire, W.tracer, W.cannon]) { P.life.fill(0); }
   W.hatch.visible = false; W.hole.visible = false; W.rubble.visible = false;
   W.debris.mesh.visible = false; for (const p of W.debris.parts) p.on = false;
   vl.bunker.visible = true; vl.ventGroup.visible = true;
@@ -838,6 +849,7 @@ function dadMission(dt) {
   dadGuns(dt, jetAlive && !m.over);
   dadSams(dt, jetAlive);
   dadFlaresStep(dt);
+  dadCannon(dt);
   dadAims(dt);
   dadBombsStep(dt);
   dadColumn(dt);
@@ -845,6 +857,7 @@ function dadMission(dt) {
   dadStepParticles(W.smoke, dt);
   dadStepParticles(W.fire, dt);
   dadStepStreaks(W.tracer, dt);
+  dadStepStreaks(W.cannon, dt);
   // the G meter's grey-out: a held pull fades the edges in, a quick one does not
   m.gSmooth += (Math.abs(m.g) - m.gSmooth) * Math.min(1, 2.2 * dt);
   const J = D.jet;
@@ -892,7 +905,7 @@ function dadCruiseMissiles(dt) {
     if (Math.hypot(R.x - c.x, R.y - c.y, R.z - c.z) < 14 || c.y < terrainEff(c.x, c.z)) {
       c.alive = false; c.mesh.visible = false;
       dadBlast(c.x, Math.max(c.y, terrainEff(c.x, c.z)), c.z, 1.8, true);
-      if (R.alive) { R.alive = false; R.g.children.forEach(o => { o.visible = o === R.ruin; }); m.column = Math.max(m.column, 0); R.burnT = 30; }
+      if (R.alive) dadRadarDown();
     }
   }
   // the radar burns once it is hit: a column of smoke he flies past later
@@ -1157,13 +1170,14 @@ function dadAimTarget() {
   const W = dad.world, A = TUNE.dad.missiles;
   const f = dadFwd(dadTmpF);
   let best = null, bs = -Infinity;
-  for (const o of W.guns.concat(W.sites)) {
+  // kept for the SAM sites and the radar: a gun (the cannon's work) only when nothing else is in the cone
+  for (const o of W.sites.concat([W.radar], W.guns)) {
     if (!o.alive) continue;
     const dx = o.x - state.x, dy = o.y - state.y, dz = o.z - state.z, d = Math.hypot(dx, dy, dz);
     if (d > A.range) continue;
     const c = (dx * f.x + dy * f.y + dz * f.z) / d;
     if (c < Math.cos(A.lockCone)) continue;
-    const score = c * 2 - d / A.range + (W.guns.includes(o) ? 0.5 : 0);
+    const score = c * 2 - d / A.range - (o.turret ? 3 : 0);
     if (score > bs) { bs = score; best = o; }
   }
   return best;
@@ -1192,11 +1206,84 @@ function dadAims(dt) {
     if (a.t > A.life || a.y < terrainEff(a.x, a.z)) { a.alive = false; a.mesh.visible = false; dadBlast(a.x, Math.max(a.y, terrainEff(a.x, a.z)), a.z, 0.8, true); }
   }
 }
+function dadRadarDown() {
+  const R = dad.world.radar;
+  R.alive = false; R.g.children.forEach(o => { o.visible = o === R.ruin; }); R.burnT = 30;
+}
+
+// ---- his cannon (v151): held, unlimited, about a kilometre. A bright stream off the nose;
+// sparks and dust where it lands. Fire on a gun or a SAM site adds up to its kill time;
+// the bunker only sparks, and anything else is just the ridge.
+const dadCanRay = new THREE.Ray(), dadCanHitV = new THREE.Vector3();
+let dadBunkerBox = null;
+function dadCannonAim(f) {
+  const C = TUNE.dad.cannon, W = dad.world;
+  const ox = state.x + f.x * 8, oy = state.y + f.y * 8 - 0.6, oz = state.z + f.z * 8;
+  // the ground first: where the stream lands, inside its range
+  let ground = C.range;
+  for (let t = 10; t <= C.range; t += 10) {
+    if (oy + f.y * t < terrainEff(ox + f.x * t, oz + f.z * t)) { ground = t - 5; break; }
+  }
+  let hit = null, best = ground;
+  for (const o of W.guns.concat(W.sites)) {
+    if (!o.alive) continue;
+    const dx = o.x - ox, dy = o.y - oy, dz = o.z - oz, along = dx * f.x + dy * f.y + dz * f.z;
+    if (along <= 0 || along > best + 12) continue;
+    const miss = Math.hypot(dx - f.x * along, dy - f.y * along, dz - f.z * along);
+    if (miss < (o.turret ? C.hitR.gun : C.hitR.site)) { hit = o; best = Math.min(best, along); }
+  }
+  // the bunker: rounds spark off it and do nothing
+  if (!dadBunkerBox) dadBunkerBox = new THREE.Box3().setFromObject(vl.bunker);
+  dadCanRay.origin.set(ox, oy, oz); dadCanRay.direction.set(f.x, f.y, f.z);
+  const bb = vl.bunker.visible && dadCanRay.intersectBox(dadBunkerBox, dadCanHitV);
+  const tb = bb ? dadCanHitV.distanceTo(dadCanRay.origin) : Infinity;
+  if (tb < best) return { o: null, bunker: true, t: tb, ox, oy, oz };
+  // on a target the rounds land on its near face, where they can be seen
+  if (hit) return { o: hit, t: Math.max(10, best - (hit.turret ? C.hitR.gun : C.hitR.site) * 0.6), ox, oy, oz };
+  return { o: null, t: ground < C.range ? ground : null, ox, oy, oz };
+}
+function dadCannon(dt) {
+  const m = dad.m, W = dad.world, C = TUNE.dad.cannon;
+  m.cannonFiring = m.gunHeld && dadFlying() && !state.exploding;
+  if (!m.cannonFiring) { m.cannonHit = null; return; }
+  const f = dadFwd(dadTmpF);
+  const a = dadCannonAim(f);
+  // the stream: from the gun on the left shoulder (C.muzzle), converging on where the nose
+  // points (the aim point, or `range` out), so from the seat it crosses the windscreen
+  const sx = Math.cos(state.heading), sz = -Math.sin(state.heading);
+  const mx = a.ox - sx * C.muzzle[0], my = a.oy - C.muzzle[1], mz = a.oz - sz * C.muzzle[0];
+  const conv = a.t || C.range, cx = a.ox + f.x * conv, cy = a.oy + f.y * conv, cz = a.oz + f.z * conv;
+  const qx = cx - mx, qy = cy - my, qz = cz - mz, ql = Math.hypot(qx, qy, qz) || 1;
+  m.cannonShotT -= dt;
+  while (m.cannonShotT <= 0) {
+    m.cannonShotT += 1 / C.rof;
+    m.cannonRounds++;
+    const ux = qx / ql + dadR(-C.spread, C.spread), uy = qy / ql + dadR(-C.spread, C.spread), uz = qz / ql + dadR(-C.spread, C.spread);
+    const life = ql / C.speed + 0.02;
+    dadShoot(W.cannon, mx, my, mz, ux * C.speed + f.x * state.speed, uy * C.speed + f.y * state.speed, uz * C.speed + f.z * state.speed, life);
+  }
+  dadEmit(W.fire, mx, my, mz, 0, 0, 0, 0.05, dadR(3, 4.5), 2, 1, 0xfff0b0, 0, 0);
+  m.cannonHit = a.o ? (a.o.turret ? "gun" : "site") : a.bunker ? "bunker" : a.t ? "ground" : null;
+  if (!a.t) return;
+  // where it lands: sparks, and a kick of dust or snow
+  const hx = a.ox + f.x * a.t, hy = a.oy + f.y * a.t, hz = a.oz + f.z * a.t;
+  // sized to read from the seat at the cannon's range: a spark is metres across, the kick of snow tens
+  for (let i = 0; i < 4; i++) dadEmit(W.fire, hx, hy, hz, dadR(-22, 22), dadR(6, 28), dadR(-22, 22), dadR(0.15, 0.35), dadR(3, 6), 0.8, 1, i ? 0xffd070 : 0xfff0b0, 2, -12);
+  if (dadRand() < 0.6) dadEmit(W.smoke, hx + dadR(-3, 3), hy, hz + dadR(-3, 3), dadR(-5, 5), dadR(4, 11), dadR(-5, 5), dadR(1.4, 2.4), 6, dadR(16, 26), 0.8, a.o || a.bunker ? 0x5a616c : 0xe8ecf1, 0.6, 1);
+  // on a target or the bunker, a flash bigger than the aim ring every few frames
+  if ((a.o || a.bunker) && dadRand() < 0.35) dadEmit(W.fire, hx, hy, hz, 0, dadR(2, 6), 0, 0.12, dadR(10, 16), 4, 1, 0xfff0b0, 0, 0);
+  if (a.o) {
+    m.cannonOnT += dt;
+    a.o.cannonT = (a.o.cannonT || 0) + dt;
+    if (a.o.cannonT >= (a.o.turret ? C.kill.gun : C.kill.site)) { dadKill(a.o); dadBlast(a.o.x, a.o.y, a.o.z, 2.2, true); }
+  }
+}
 function dadKill(o) {
   const m = dad.m, W = dad.world;
   if (!o.alive) return;
   o.alive = false;
   if (o.turret) { o.turret.visible = false; o.ruin.visible = true; m.gunsKilled++; dadSay("GUN DOWN", 1.6); }
+  else if (o === W.radar) { dadRadarDown(); dadSay("RADAR DOWN", 1.6); }
   else { o.frame.visible = false; o.ruin.visible = true; dadSay("SITE DOWN", 1.6); }
 }
 
@@ -1563,8 +1650,9 @@ function dadHudUpdate() {
   h.right.classList.toggle("high", !hidden && !m.plant);
   const expoTxt = m.over ? "" : hidden ? "HIDDEN" : "EXPOSED";
   if (h.expo.textContent !== expoTxt) { h.expo.textContent = expoTxt; h.expo.classList.toggle("exposed", !hidden); h.expo.style.display = expoTxt ? "block" : "none"; }
-  h.weap.innerHTML = "BOMB " + m.bombs + "&nbsp;&nbsp;FLR " + m.flares + "&nbsp;&nbsp;MSL " + m.missiles;
+  h.weap.innerHTML = "GUN &infin;&nbsp;&nbsp;BOMB " + m.bombs + "&nbsp;&nbsp;FLR " + m.flares + "&nbsp;&nbsp;MSL " + m.missiles;
   h.healthBar.style.width = m.health + "%";
+  const gb = el.dadGunBtn; if (gb) gb.classList.toggle("firing", !!m.cannonFiring);
   h.health.classList.toggle("hurt", m.health < 50);
   const warns = [];
   const chasing = dad.world.sams.some(s => s.alive && s.target === "jet");
@@ -1603,6 +1691,7 @@ function dadSoundsStep() {
   setTone("dadLock", "square", beat ? 880 : 660, !chasing && !m.over && m.locked ? 0.04 : 0);
   setTone("dadPull", "sawtooth", 420, !m.over && m.pullUp && Math.floor(m.t * 5) % 2 === 0 ? 0.035 : 0);
   setTone("dadGun", "square", 58, !m.over && m.gunsFiring ? 0.02 : 0);
+  setTone("dadCannon", "sawtooth", 92, !m.over && m.cannonFiring ? 0.05 : 0);
 }
 
 function dadShowCard() {
@@ -1637,6 +1726,17 @@ function dadWire() {
   const k = document.getElementById("dadKey");
   if (k) dadTap(k, dadKeyTap);
   const map = { dadBombBtn: dadDropBomb, dadFlareBtn: dadFlare, dadMslBtn: dadFireMissile, dadExitBtn: dadExit };
+  // the cannon is HELD: down fires, the lift stops it (a touch is captured by the button, so
+  // sliding off does not; a mouse leaving it does)
+  const gb = document.getElementById("dadGunBtn");
+  if (gb) {
+    let pid = null;
+    const stop = e => { if (pid !== null && (!e || e.pointerId === pid)) { pid = null; if (dad.m) dad.m.gunHeld = false; } };
+    gb.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); if (typeof unlockAudio === "function") unlockAudio();
+      if (typeof pressFlash === "function") pressFlash(gb); pid = e.pointerId; if (dad.m) dad.m.gunHeld = true; });
+    for (const ev of ["pointerup", "pointercancel"]) window.addEventListener(ev, stop);
+    gb.addEventListener("pointerleave", stop);
+  }
   for (const id in map) {
     const b = document.getElementById(id);
     if (!b) continue;
@@ -1647,6 +1747,9 @@ function dadWire() {
     if (e.code === "KeyC") dadDropBomb();
     else if (e.code === "KeyX") dadFlare();
     else if (e.code === "KeyF") dadFireMissile();
+    else if (e.code === "KeyG" && dad.m) dad.m.gunHeld = true;
   });
+  window.addEventListener("keyup", e => { if (dad.on && e.code === "KeyG" && dad.m) dad.m.gunHeld = false; });
+  window.addEventListener("blur", () => { if (dad.m) dad.m.gunHeld = false; });   // a lost keyup never leaves it firing
 }
 dadWire();

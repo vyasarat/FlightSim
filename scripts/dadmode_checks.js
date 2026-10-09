@@ -61,7 +61,7 @@ module.exports = async function dadChecks({ newPage, check }) {
   const g0 = await run(page, () => {
     const L = window.__lp, H = window.__dadH, V = L.TUNE.valley;
     const out = { text: H.text(), key: !!document.getElementById("dadKey"), keyWords: [...document.querySelectorAll("#dadKey, #dadKey *")].filter(e => ["aria-label", "title", "alt"].some(a => e.hasAttribute(a))).length };
-    out.dadButtonsUp = ["dadBombBtn", "dadFlareBtn", "dadMslBtn", "dadExitBtn"].filter(H.vis);
+    out.dadButtonsUp = ["dadBombBtn", "dadFlareBtn", "dadMslBtn", "dadGunBtn", "dadExitBtn"].filter(H.vis);
     out.dadObjs = L.dad.objs.length; out.dadDom = H.dadDom();
     // the valley: floor well under its walls all the way, snow-white
     let worst = Infinity;
@@ -151,7 +151,7 @@ module.exports = async function dadChecks({ newPage, check }) {
     const L = window.__lp, H = window.__dadH, S = L.state, out = {};
     L.update(1 / 60);
     out.his = ["fastBtn", "slowBtn", "speedBtn", "skipBtn", "missileBtn", "menuBtn", "ejectBtn", "gearBtn", "throttleBtn", "vehBtn"].filter(H.vis);
-    out.dads = ["dadFlareBtn", "dadMslBtn", "dadExitBtn"].filter(H.vis);
+    out.dads = ["dadFlareBtn", "dadMslBtn", "dadGunBtn", "dadExitBtn"].filter(H.vis);
     out.bomb = H.vis("dadBombBtn");   // far from the bunker: not yet
     out.clash = L.btnSlotClashes(); out.obstruct = L.btnObstructions();
     // overlap by elementFromPoint, as the slot check measures it
@@ -179,8 +179,8 @@ module.exports = async function dadChecks({ newPage, check }) {
     out.controlFrames = ctrl;
     return out;
   });
-  check("dad/inside: none of his flight buttons exist (speed, go, missile, menu, eject, gear, throttle, picker); flare, missile and exit do, the bomb not yet; no slot clash, overlap or obstruction",
-    !c.err && c.his.length === 0 && c.dads.length === 3 && !c.bomb && c.clash.length === 0 && c.overlap.length === 0 && c.obstruct.length === 0, J(c));
+  check("dad/inside: none of his flight buttons exist (speed, go, missile, menu, eject, gear, throttle, picker); flare, missile, gun and exit do, the bomb not yet; no slot clash, overlap or obstruction",
+    !c.err && c.his.length === 0 && c.dads.length === 4 && !c.bomb && c.clash.length === 0 && c.overlap.length === 0 && c.obstruct.length === 0, J(c));
   check("dad/inside: his crash alarm is muted -- flown hands-off into the first wall it never comes on (the same flight unmuted turns it on); dad's own PULL UP does; the wall ends the sortie, 'crashed'",
     !c.err && c.alarmFrames === 0 && c.controlFrames > 10 && c.pullFrames > 10 && c.over && c.crashed === "crashed", J({ alarm: c.alarmFrames, control: c.controlFrames, pull: c.pullFrames, why: c.crashed }));
   check("dad/inside: the jet flies its own profile -- state.vp is a dad profile, never his fighter's row",
@@ -346,6 +346,112 @@ module.exports = async function dadChecks({ newPage, check }) {
   check("dad/crash: 40 ft over the floor does not crash -- the valley flown at 40 ft stays whole the whole way; dad's jet crashes only when it touches (touchAgl, its own number; his game's terrainClearance untouched), and set on the snow it does",
     !hid.err && hid.skim.secs > 40 && !hid.skim.over && hid.skim.minFt > 20 && hid.skim.maxFt < 70 && hid.touchAgl <= 1.5 && hid.hisClearance === 8 && hid.touch.over && hid.touch.why === "crashed",
     J(hid.err ? hid : { skim: hid.skim, touch: hid.touch, touchAgl: hid.touchAgl, hisClearance: hid.hisClearance }));
+  // v151: the cannon. Held from a fixed vantage (the jet put back each frame, nose on the
+  // aim point), so what is measured is the cannon alone: seconds of fire to a kill.
+  const can = await run(page, () => {
+    const L = window.__lp, S = L.state, W = L.dad.world, m = () => L.dad.m, C = L.TUNE.dad.cannon;
+    const hold = (P, aim, secs, until) => {
+      const dx = aim.x - P.x, dy = aim.y - P.y, dz = aim.z - P.z, d = Math.hypot(dx, dy, dz);
+      const h = Math.atan2(-dx, -dz), p = Math.asin(dy / d) * 180 / Math.PI;
+      const out = { frames: 0, at: null, kinds: {} };
+      m().gunHeld = true;
+      for (let i = 0; i < 60 * secs; i++) {
+        S.x = P.x; S.y = P.y; S.z = P.z; S.heading = h; S.pitch = p; S.bank = 0; S.speed = 150; m().lastFwd = null;
+        m().flares = 8; if (W.sams.some(q => q.alive && q.target === "jet")) L.dadFlare();   // no SAM gets in: the cannon alone
+        L.api.clearStick(); L.update(1 / 60); out.frames++;
+        const k = m().cannonHit; out.kinds[k] = (out.kinds[k] || 0) + 1;
+        if (out.at === null && until && until()) out.at = +((i + 1) / 60).toFixed(2);
+      }
+      m().gunHeld = false; L.update(1 / 60);
+      return out;
+    };
+    // a vantage on a target: 600 m back along the valley toward the mouth, up a little, in sight of it
+    const vantage = (o) => {
+      for (const back of [600, 500, 700, 400]) for (const up of [80, 140, 40, 220]) for (const side of [0, -1, 1]) {
+        const x = o.x + back, z = L.vlCenterZ(x) * (side === 0 ? 1 : 0) + (side === 0 ? 0 : o.z + side * 120);
+        const P = { x, y: Math.max(o.y + up, L.terrainEff(x, z) + 40), z };
+        if (Math.hypot(P.x - o.x, P.y - o.y, P.z - o.z) < C.range * 0.85 && window.dadLos(o.x, o.y, o.z, P.x, P.y, P.z)) return P;
+      }
+      return null;
+    };
+    const out = {};
+    // 1. a held burst on a gun destroys it, in about a second
+    L.dadStart();
+    const gun = W.guns.map(g => ({ g, P: vantage(g) })).find(c => c.P);
+    if (gun) {
+      const h = hold(gun.P, gun.g, 3, () => !gun.g.alive);
+      out.gun = { at: h.at, alive: gun.g.alive, kinds: h.kinds, killed: m().gunsKilled, rounds: m().cannonRounds, ruin: gun.g.ruin.visible, msg: m().msg };
+    }
+    // 2. a SAM site takes longer
+    L.dadStart();
+    const site = W.sites.map(s => ({ s, P: vantage(s) })).find(c => c.P);
+    if (site) {
+      const h = hold(site.P, site.s, 6, () => !site.s.alive);
+      out.site = { at: h.at, alive: site.s.alive, kinds: h.kinds, ruin: site.s.ruin.visible };
+    }
+    // 3. at nothing: the open sky, then the snow of the valley floor far from every gun and site
+    L.dadStart();
+    const x0 = S.x - 300, P0 = { x: x0, y: L.terrainEff(x0, L.vlCenterZ(x0)) + 400, z: L.vlCenterZ(x0) };
+    const sky = hold(P0, { x: P0.x - 1000, y: P0.y + 400, z: P0.z }, 4);
+    const fx = P0.x - 500, floor = { x: fx, y: L.terrainEff(fx, L.vlCenterZ(fx)), z: L.vlCenterZ(fx) };
+    const clearOfAll = W.guns.concat(W.sites).every(o => Math.hypot(o.x - floor.x, o.z - floor.z) > 60);
+    const snow = hold({ x: P0.x, y: floor.y + 250, z: P0.z }, floor, 4);
+    out.nothing = { sky: sky.kinds, snow: snow.kinds, clearOfAll, rounds: m().cannonRounds, onT: +m().cannonOnT.toFixed(2), killed: m().gunsKilled,
+      allUp: W.guns.every(g => g.alive) && W.sites.every(s => s.alive) };
+    // 4. the bunker: five seconds of fire on it, and nothing happens to it but sparks
+    L.dadStart();
+    const v = L.vl.vent;
+    const bP = { x: v.x + 450, y: v.y + 260, z: v.z + 60 };
+    const b = hold(bP, { x: v.x, y: v.y - 1, z: v.z }, 5);
+    out.bunker = { kinds: b.kinds, hits: m().hits, hatch: m().hatch, plant: m().plant, visible: L.vl.bunker.visible, vent: L.vl.ventGroup.visible, over: m().over, why: m().why };
+    out.hud = document.querySelector("#dadHud .dadWeap").textContent;
+    out.missiles = m().missiles;
+    return out;
+  });
+  check("dad/cannon: a held burst on a ridge gun destroys it in about a second (" + "rounds on it all the way)",
+    !can.err && can.gun && !can.gun.alive && can.gun.ruin && can.gun.at >= 0.9 && can.gun.at <= 1.3 && can.gun.killed === 1 && can.gun.kinds.gun >= 50, J(can.gun || can));
+  check("dad/cannon: a SAM site takes longer -- held on it, it goes, after more than twice a gun's time",
+    !can.err && can.site && !can.site.alive && can.site.ruin && can.site.at > 2 * (can.gun ? can.gun.at : 1) && can.site.at <= 3.2, J(can.site || can));
+  check("dad/cannon: firing at nothing destroys nothing -- four seconds at the open sky, four at bare snow far from every gun and site: every gun and site still up",
+    !can.err && can.nothing.clearOfAll && can.nothing.rounds > 300 && can.nothing.onT === 0 && can.nothing.killed === 0 && can.nothing.allUp
+      && !can.nothing.sky.gun && !can.nothing.sky.site && can.nothing.snow.ground > 200, J(can.nothing || can));
+  check("dad/cannon: the cannon cannot hurt the bunker -- five seconds of fire on it spark off it; no hit counted, the hatch shut, the plant standing, the bunker whole",
+    !can.err && can.bunker.kinds.bunker > 200 && can.bunker.hits === 0 && !can.bunker.hatch && !can.bunker.plant && can.bunker.visible && can.bunker.vent && !can.bunker.over, J(can.bunker || can));
+  check("dad/cannon: the HUD reads GUN \u221e beside bombs, flares and missiles, and he has six missiles",
+    !can.err && /^GUN \u221e\s+BOMB \d+\s+FLR \d+\s+MSL 6$/.test(can.hud) && can.missiles === 6, J({ hud: can.hud, missiles: can.missiles }));
+  // the button itself: pressed it fires and shows it, lifted it stops; and the seeker keeps
+  // the missiles for the SAM sites and the radar
+  const btn = await run(page, () => {
+    const L = window.__lp, S = L.state, W = L.dad.world, m = () => L.dad.m;
+    L.dadStart(); S.y = L.terrainEff(S.x, S.z) + 300; L.update(1 / 60);
+    const b = document.getElementById("dadGunBtn"), out = {};
+    b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 7 }));
+    const r0 = m().cannonRounds;
+    for (let i = 0; i < 30; i++) L.update(1 / 60);
+    out.down = { firing: m().cannonFiring, rounds: m().cannonRounds - r0, shown: b.classList.contains("firing") };
+    window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7 }));
+    const r1 = m().cannonRounds;
+    for (let i = 0; i < 30; i++) L.update(1 / 60);
+    out.up = { firing: m().cannonFiring, rounds: m().cannonRounds - r1, shown: b.classList.contains("firing") };
+    // the seeker: a gun close on the nose and a SAM site farther on it -- the site; the radar
+    // the same; a gun alone -- the gun
+    const f = L.dadFwd(new THREE.Vector3()), at = d => ({ x: S.x + f.x * d, y: S.y + f.y * d, z: S.z + f.z * d });
+    const g = W.guns[0], st = W.sites[0], R = W.radar, keep = [g, st, R].map(o => ({ o, x: o.x, y: o.y, z: o.z }));
+    try {
+      Object.assign(g, at(300)); Object.assign(st, at(900));
+      R.alive = false;
+      out.siteOverGun = window.dadAimTarget() === st;
+      st.alive = false; R.alive = true; Object.assign(R, at(1200));
+      out.radarOverGun = window.dadAimTarget() === R;
+      R.alive = false;
+      out.gunAlone = window.dadAimTarget() === g;
+    } finally { for (const k of keep) Object.assign(k.o, { x: k.x, y: k.y, z: k.z }); L.dadStart(); }
+    return out;
+  });
+  check("dad/cannon: the GUN button held fires (and glows while it does); lifted, it stops",
+    !btn.err && btn.down.firing && btn.down.rounds > 15 && btn.down.shown && !btn.up.firing && btn.up.rounds === 0 && !btn.up.shown, J(btn));
+  check("dad/missiles: kept for the SAM sites and the radar -- with a gun nearer on the nose the seeker takes the site, or the radar; a gun only when nothing else is in its cone",
+    !btn.err && btn.siteOverGun && btn.radarOverGun && btn.gunAlone, J(btn));
   const clk = await run(page, () => {
     const L = window.__lp; L.dadStart(); L.dad.m.clock = 1;
     const P = window.__dadPilot; P.phase = "valley";
@@ -494,7 +600,7 @@ module.exports = async function dadChecks({ newPage, check }) {
     const out = { on: L.dadActive(), objs: L.dad.objs.length, inScene: objs.filter(o => !!o.parent).length, had: objs.length, dom: H.dadDom(),
       picker: !document.getElementById("screenVehicle").classList.contains("hiddenS"), dirHidden: document.getElementById("screenDir").classList.contains("hiddenS"),
       kind: L.vehKind(), key: S.vehicleKey, vpRow: S.vp === L.TUNE.vehicles[S.vehicleKey], bunker: L.vl.bunker.visible && L.vl.ventGroup.visible,
-      dadBtns: ["dadBombBtn", "dadFlareBtn", "dadMslBtn", "dadExitBtn"].filter(H.vis), bodyDad: document.body.classList.contains("dad"),
+      dadBtns: ["dadBombBtn", "dadFlareBtn", "dadMslBtn", "dadGunBtn", "dadExitBtn"].filter(H.vis), bodyDad: document.body.classList.contains("dad"),
       text: H.text(), ls: H.ls(), exploding: S.exploding, camOrder: L.camera.rotation.order };
     return out;
   });
