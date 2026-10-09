@@ -697,6 +697,26 @@
   #dadHud .dadL { left: calc(var(--edge) + var(--btn) + 18px); }
   #dadHud .dadR { right: calc(var(--edge) + var(--btn) + 18px); text-align: right; }
   #dadHud .dadR.high { color: #ffd23e; }
+  #dadHud .dadR { top: 28%; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  #dadHud .dadAltRow { display: flex; align-items: stretch; gap: 10px; padding: 6px 10px 6px 40px; background: rgba(8, 14, 20, .55); }
+  #dadHud .dadAltCol { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; }
+  #dadHud .dadAltLab { font-size: 13px; letter-spacing: .1em; opacity: .85; }
+  #dadHud .dadAltNum { font-size: 44px; line-height: 1; font-weight: 700; min-width: 3ch; text-align: right; }
+  #dadHud .dadTape { position: relative; width: 10px; height: 110px; border: 2px solid currentColor; }
+  #dadHud .dadTapeFill { position: absolute; left: 0; right: 0; bottom: 0; background: currentColor; opacity: .7; }
+  #dadHud .dadTapeCeil { position: absolute; left: -9px; width: 24px; height: 0; border-top: 3px solid #7dff9a; }
+  #dadHud .dadTapeCeilNum { position: absolute; right: 28px; top: -9px; font-size: 12px; color: #7dff9a; }
+  @media (max-width: 560px) {   /* a phone held upright: compact, up by the clock, clear of the buttons */
+    #dadHud .dadR { top: 25%; right: calc(var(--edge) + env(safe-area-inset-right)); gap: 4px; }
+    #dadHud .dadAltRow { padding: 4px 8px 4px 34px; gap: 6px; }
+    #dadHud .dadAltNum { font-size: 30px; }
+    #dadHud .dadAltLab { font-size: 11px; }
+    #dadHud .dadTape { height: 64px; }
+  }
+  #dadHud .dadExpo { padding: 2px 8px;
+    border: 2px solid #7dff9a; background: rgba(8, 14, 20, .55); font-size: 14px; letter-spacing: .08em; display: none; }
+  #dadHud .dadExpo.exposed { color: #ffd23e; border-color: #ffd23e; animation: dadExpoPulse 1s steps(1) infinite; }
+  @keyframes dadExpoPulse { 50% { opacity: .65; } }
   #dadHud .dadWarn { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: 22px; color: #ff5040;
     white-space: pre; display: none; }
   #dadHud .dadWarn.on { display: block; animation: dadBlink .5s steps(1) infinite; }

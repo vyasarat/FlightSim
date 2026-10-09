@@ -26,7 +26,7 @@
 //
 // THE MISSION, from the film's last act: start low at the valley's mouth, cruise
 // missiles streaking overhead to a radar on the ridge; two and a half minutes to
-// the target; stay under 100 ft or the radar locks and a missile comes; guns on
+// the target; stay under 200 ft or the radar locks and a missile comes; guns on
 // the ridges; dive on the bunker and put a laser-guided bomb through a vent three
 // metres wide -- the first blows the hatch, the second the plant; then a hard pull
 // out of the bowl with missiles chasing and flares to decoy them. A results card,
@@ -156,11 +156,11 @@ function dadMenuOpen() {
   dadEl("div", { class: "dadKicker", text: "DAD MODE  ·  MISSION 1" }, card);
   dadEl("h1", { text: "Canyon Strike" }, card);
   dadEl("p", { text: "An enrichment plant is buried under a bowl of snow at the end of a mountain valley. " +
-    "Fly the valley under 100 ft so the radar never sees you, put two laser-guided bombs through a vent three metres wide, " +
+    "Fly the valley under 200 ft so the radar never sees you, put two laser-guided bombs through a vent three metres wide, " +
     "and get out over the peaks with missiles on your tail." }, card);
   const ul = dadEl("ul", {}, card);
   for (const t of [
-    "2:30 to target. Above 100 ft for more than a moment: radar lock, then a launch.",
+    "2:30 to target. Above 200 ft for more than a moment: radar lock, then a launch.",
     "Guns on the ridges. Your missiles take them out.",
     "Dive on the vent, keep the nose on it, drop. First bomb opens the hatch, second kills the plant.",
     "Pull hard out of the bowl. Flares decoy the missiles.",
@@ -658,7 +658,7 @@ function dadStart() {
     damageTaken: 0, gunHits: 0, flak: 0, flakHits: 0, nearMisses: 0, column: 0, bursts: null, surge: null, msg: "", msgT: 0, alert: 0, lastFwd: null,
   };
   // the world back as it was: every gun and site standing, the bunker whole
-  for (const g of W.guns) { g.alive = true; g.turret.visible = true; g.ruin.visible = false; g.fireT = 0; g.gapT = dadR(0, D.guns.gap); }
+  for (const g of W.guns) { g.alive = true; g.turret.visible = true; g.ruin.visible = false; g.fireT = 0; g.gapT = dadR(0, D.guns.gap); g.flakT = 0; g.shotT = 0; }
   for (const s of W.sites) { s.alive = true; s.left = 4; s.frame.visible = true; s.ruin.visible = false; for (const r of s.rails) r.visible = true; }
   W.radar.alive = true; W.radar.g.children.forEach(c => { c.visible = c !== W.radar.ruin; });
   for (const list of [W.cms, W.sams, W.flares, W.aims, W.bombs]) { for (const o of list) if (o.mesh) { scene.remove(o.mesh); const i = dad.objs.indexOf(o.mesh); if (i >= 0) dad.objs.splice(i, 1); } list.length = 0; }
@@ -749,7 +749,7 @@ function dadFly(dt) {
   if (auto) return;
   // the ground, and anything solid: a crash, and the end of the sortie
   const ground = Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
-  if (state.y - ground < 1.2) { dadCrash(Math.max(ground + 1, state.y)); return; }
+  if (state.y - ground < J.touchAgl) { dadCrash(Math.max(ground + 1, state.y)); return; }
   const hit = solidQuery(state.x, state.y, state.z, TUNE.solid.r.dad, SOLID.AIR, undefined, null, false);
   if (hit) dadCrash(state.y);
 }
@@ -798,7 +798,7 @@ function dadMission(dt) {
       m.clock = Math.max(0, m.clock - dt);
       if (m.clock <= 0) dadEnd("fail", "clock ran out", false);
     }
-    // ---- the radar: above 100 ft for more than a moment is a lock, then a launch
+    // ---- the radar: above its ceiling (200 ft) for more than a moment is a lock, then a launch
     const R = D.radar, agl = dadAgl();
     const arm = R.arm * (m.plant ? R.alertMul : 1);
     m.lockCool = Math.max(0, m.lockCool - dt);
@@ -1083,7 +1083,8 @@ function dadGuns(dt, firing) {
     const al = Math.hypot(ax, ay, az) || 1;
     const agl = dadAgl();
     const expo = agl > G.exposedAgl ? 1.25 : (agl > TUNE.dad.radar.agl ? 0.9 : 0.4);
-    const hitExpo = agl > TUNE.dad.radar.agl ? expo : G.lowExpo;
+    // under the radar's ceiling (200 ft) he is HIDDEN: the guns fire round him for the drama and never hit
+    const hidden = agl <= TUNE.dad.radar.agl;
     // the muzzle: a flash at the barrels every frame it fires, big enough to see on a ridge
     const mx = g.x + ax / al * g.muzzle, my = g.y + ay / al * g.muzzle, mz = g.z + az / al * g.muzzle;
     dadEmit(W.fire, mx, my, mz, 0, 0, 0, 0.06, dadR(24, 34), 12, 1, dadRand() < 0.5 ? 0xfff0b0 : 0xffd070, 0, 0);
@@ -1103,7 +1104,7 @@ function dadGuns(dt, firing) {
       // a tracer is a streak: a hot head and a fading tail, carried on past him
       const life = Math.min(2.8, (ql + 700) / G.tracer);
       dadShoot(W.tracer, mx, my, mz, ux * G.tracer, uy * G.tracer, uz * G.tracer, life);
-      if (!g.blind && dadRand() < G.hitChance * hitExpo * Math.max(0, 1 - d / G.range) * 1.4) {
+      if (!g.blind && !hidden && dadRand() < G.hitChance * expo * Math.max(0, 1 - d / G.range) * 1.4) {
         m.gunHits++;
         dadDamage(G.damage, "gun");
         dadEmit(W.fire, state.x, state.y, state.z, dadR(-20, 20), dadR(-5, 15), dadR(-20, 20), 0.3, 4, 1, 1, 0xfff0b0, 2, 0);
@@ -1118,11 +1119,13 @@ function dadGuns(dt, firing) {
       const lead = dadR(0.25, 0.8);
       const bx = state.x + f.x * state.speed * lead + dadR(-spread, spread), bz = state.z + f.z * state.speed * lead + dadR(-spread, spread);
       // in the air round him, never on the snow: no lower than he is, nor 15 m off the ground
-      const by = Math.max(state.y - 4, terrainEff(bx, bz) + 15) + (g.blind ? dadR(6, 28) : Math.abs(dadR(-spread, spread)) * 0.5);
+      // hidden, it bursts above him and clear of the hit radius
+      const by = Math.max(state.y - 4, terrainEff(bx, bz) + 15) + (g.blind ? dadR(6, 28) : Math.abs(dadR(-spread, spread)) * 0.5)
+        + (hidden ? G.flakHit + dadR(4, 16) : 0);
       dadFlakBurst(bx, by, bz);
       m.flak++;
       const miss = Math.hypot(bx - state.x, by - state.y, bz - state.z);
-      if (miss < G.flakHit) { m.flakHits++; dadDamage(5, "flak"); }
+      if (miss < G.flakHit && !hidden) { m.flakHits++; dadDamage(5, "flak"); }
       else if (miss < G.nearMiss) { m.nearMisses++; m.shake = Math.max(m.shake, 0.35 * (1 - miss / G.nearMiss) + 0.1); dadNoise(0.22, 700, 0.18); }
       dadNoise(0.3, 220, 0.16 * clamp(1 - miss / 600, 0.1, 1));
     }
@@ -1494,6 +1497,7 @@ function dadPoseModel(g) {
 // ---------------------------------------------------------------------------
 // HUD, the grey-out and the results card (text is fine in here)
 // ---------------------------------------------------------------------------
+const DAD_TAPE_FT = 600;   // the altitude tape's height, in feet
 function dadBuildHud() {
   const hud = dadEl("div", { id: "dadHud" });
   dad.dom.push(hud);
@@ -1501,7 +1505,19 @@ function dadBuildHud() {
   dad.hud = {
     clock: mk("dadClock"), left: mk("dadL"), right: mk("dadR"), warn: mk("dadWarn"), msg: mk("dadMsg"),
     weap: mk("dadWeap"), health: mk("dadHealth"), box: mk("dadBox"), boxErr: null, fpm: mk("dadFpm"),
+    expo: null,
   };
+  // the altitude: ONE big number, radar altitude (over the ground under him), and beside it
+  // a tape with the hidden ceiling drawn across it; the HIDDEN / EXPOSED tag under them
+  const R = dad.hud.right, row = mk("dadAltRow", R), tape = mk("dadTape", row), col = mk("dadAltCol", row);
+  dad.hud.tapeFill = mk("dadTapeFill", tape);
+  const ceil = mk("dadTapeCeil", tape);
+  ceil.style.bottom = (TUNE.dad.radar.agl * 3.281 / DAD_TAPE_FT * 100).toFixed(1) + "%";
+  mk("dadTapeCeilNum", ceil).textContent = String(Math.round(TUNE.dad.radar.agl * 3.281));
+  mk("dadAltLab", col).textContent = "RALT";
+  dad.hud.alt = mk("dadAltNum", col);
+  mk("dadAltLab", col).textContent = "FT";
+  dad.hud.expo = mk("dadExpo", R);
   dad.hud.boxErr = mk("dadBoxErr", dad.hud.box);
   dad.hud.healthBar = mk("bar", dad.hud.health);
   const grey = dadEl("div", { id: "dadGrey" });
@@ -1540,8 +1556,13 @@ function dadHudUpdate() {
   h.clock.classList.toggle("low", m.clock < 30 && !m.plant);
   const ft = Math.round(dadAgl() * 3.281);
   h.left.innerHTML = "SPD " + Math.round(state.speed * 1.944) + " KT<br>G " + m.g.toFixed(1);
-  h.right.innerHTML = "RALT " + Math.max(0, ft) + " FT<br>ALT " + Math.round(state.y * 3.281) + " FT";
-  h.right.classList.toggle("high", ft > 100 && !m.plant);
+  // exposed or hidden: above the radar's ceiling the guns can hit him, under it they cannot
+  const hidden = dadAgl() <= TUNE.dad.radar.agl;
+  h.alt.textContent = String(Math.max(0, ft));
+  h.tapeFill.style.height = (clamp(ft / DAD_TAPE_FT, 0, 1) * 100).toFixed(1) + "%";
+  h.right.classList.toggle("high", !hidden && !m.plant);
+  const expoTxt = m.over ? "" : hidden ? "HIDDEN" : "EXPOSED";
+  if (h.expo.textContent !== expoTxt) { h.expo.textContent = expoTxt; h.expo.classList.toggle("exposed", !hidden); h.expo.style.display = expoTxt ? "block" : "none"; }
   h.weap.innerHTML = "BOMB " + m.bombs + "&nbsp;&nbsp;FLR " + m.flares + "&nbsp;&nbsp;MSL " + m.missiles;
   h.healthBar.style.width = m.health + "%";
   h.health.classList.toggle("hurt", m.health < 50);

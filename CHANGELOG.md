@@ -10,6 +10,25 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v149 — dad mode: hidden under 200 ft, one altitude, and flyable down low
+
+The parent's rules, three of them. **Hidden is under 200 ft radar altitude** (`TUNE.dad.radar.agl`,
+was 100 ft). Under it the radar never locks, and the guns cannot hit at all. They still
+fire for the drama: tracers stream across the nose, and flak bursts round him and above
+him, clear of its hit radius, with near misses that still shake the view. Over 200 ft,
+hits land as they did in v148, and v148's small hit chance down low (`guns.lowExpo`) is
+gone. **One altitude on the HUD**: a big radar-altitude number (height over the ground
+under the jet), beside a 0–600 ft tape with a line drawn at the 200 ft ceiling.
+Sea-level ALT is gone. Under the number, a tag reads HIDDEN in green or EXPOSED in
+amber. **Down low is flyable**: dad's jet crashes only when its belly touches the ground
+(`TUNE.dad.jet.touchAgl`, 1.2 m, the height it already used, now named and checked), or
+when it hits something solid. His game's `terrainClearance` (8 m) is untouched, and it
+never ran in dad mode: the dad jet is its own vehicle row. The briefing says 200 ft.
+`dadmode_checks.js` flies the valley three ways by one hand, 48 s each. At 150 ft he takes
+no damage, with the guns in sight and firing. At 300 ft, with the SAMs decoyed, the guns
+do real damage. At 40 ft he stays whole. Set on the snow, the jet crashes. Each run checks
+the tag, and every gun's flak and shot timers now reset with the sortie.
+
 ## v148 — dad mode: being shot at, the big one, the trails, the canopy
 
 Dad mode only; his game is unchanged. Being shot at is now unmissable. The ridge guns and SAM sites are built three and two
