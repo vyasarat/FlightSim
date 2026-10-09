@@ -10,6 +10,30 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v150 — the city's queue never builds a wall
+
+This fixes New York's one traffic touch: the hands-off loop at the slowest step met a bus at 59.6 s. It failed the same way on
+v146, and had been there since the cities were built.
+
+Five cars yielding ahead of him took the same corner together, but a car on a corner path never queued behind another on that
+path, so all five came out stacked on one spot just past the corner. The queue law measured centre to centre, so once they
+were inside each other it stopped every one of them dead. That left a wall on the street his hands-off route was about to be
+forced into.
+
+What changed in the queue:
+- It is measured bumper to bumper (`TUNE.city.traffic.bumperStop`). Car behind car, the thresholds are exactly what they were.
+- It starts from as far back as the car needs to brake to its leader's speed. A car hurried to 25 m/s used to begin queueing
+  9 m short.
+- A car on a corner queues behind whatever is ahead of it round that corner, or just out of it.
+- Two cars exactly level, one of them yields the place to the other.
+- A car already inside its leader follows it at half its speed instead of stopping, so a pile always drives off and comes apart.
+
+New in city_checks: two of the city's own cars, driven by its own code. A car left inside a bus as the bus pulls away moves
+off with it inside half a second; before this fix it froze for 0.78 s. The stacking on a corner happens only to cars yielding
+to him, so the hands-off loop check is its witness. That check failed on v146, v147 and v149 (v148's run passed it by chance), and passes now.
+A car hurried ahead of him queues like any other. Where its leader is slower and in his way, the in-his-way net still forces
+it on, faster than he is; a car on a corner slows behind the one ahead but never stands in the junction box.
+
 ## v149 — dad mode: hidden under 200 ft, one altitude, and flyable down low
 
 The parent's rules, three of them. **Hidden is under 200 ft radar altitude** (`TUNE.dad.radar.agl`,
