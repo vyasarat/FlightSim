@@ -1923,6 +1923,21 @@ function stUpdateTraffic(dt) {
   stTraffic.meshes.forEach((m, k) => vkCommit(m, idx[k]));
 }
 
+// One car behind another in its lane, `g` metres centre to centre along it. Measured
+// bumper to bumper: a bus is fourteen metres long, and a centre gap a car's length
+// short of a car let one close up INSIDE the one ahead. And from as far back as it
+// needs to brake to the leader's speed: hurried along to outrun him at 25 m/s, a
+// car that only began to queue 9 m short drove into the one in front and stayed
+// there. Inside it already, it goes at half the leader's speed rather than
+// stopping dead, so a pile always drives off, comes apart, and never freezes.
+function stQueueBehind(v, o, g, sp) {
+  const bump = g - ST_TYPES[o.type].hl - ST_TYPES[v.type].hl, osp = o.sp || 0;
+  const need = STT.queueGap + Math.max(0, (v.sp * v.sp - osp * osp) / (2 * STT.brake));
+  if (bump >= need) return sp;
+  if (bump < 0) return Math.min(sp, osp * 0.5);
+  return Math.min(sp, bump < STT.bumperStop ? 0 : osp);
+}
+
 function stDriveVehicle(v, dt, him) {
   const T = ST_TYPES[v.type];
   if (v.spin) { v.spin += dt * 6; v.respawn -= dt; if (v.respawn <= 0) { v.alive = false; v.respawn = STT.respawn; v.spin = 0; } return; }
@@ -1967,6 +1982,22 @@ function stDriveVehicle(v, dt, him) {
     const toNode = P.inLen - v.ps;
     v.hold = null;
     if (!yieldMode && toNode > 0) sp = stStopFor(v, P.node, v.road, toNode, sp, true, him);
+    // and behind whatever is ahead of it round the same corner, or just out of it on
+    // the street it turns into: five that took one corner together, none queueing,
+    // came out stacked on one spot past it -- a wall where he was turning next
+    const pLen = P.pts[P.pts.length - 1].s, out = P.arm.road, outDir = stArmDir(P.arm);
+    for (const o of stTraffic.list) {
+      if (o === v || !o.alive || o.spin) continue;
+      let g = null;
+      if (o.path === P && (o.ps > v.ps || (o.ps === v.ps && o.slot < v.slot))) g = o.ps - v.ps;
+      else if (!o.path && o.road === out && o.dir === outDir) { const along = outDir > 0 ? o.s : out.len - o.s; if (along < 40) g = pLen - v.ps + along; }
+      if (g === null) continue;
+      // still short of the corner's way out it is in the junction box, where a car that
+      // stops is a wall across somebody else's road: there it may slow to the one
+      // ahead, never stand
+      const q = stQueueBehind(v, o, g, sp);
+      sp = v.ps < P.exitS ? Math.max(q, Math.min(sp, (o.sp || 0) * 0.5, STT.turnSpeed * 0.5)) : q;
+    }
     v.sp += clamp(sp - v.sp, -dec, acc);
     let move = v.sp * dt;
     if (v.hold !== null) { move = Math.min(move, Math.max(0, v.hold)); if (v.hold <= 0.05) v.sp = 0; }
@@ -2021,7 +2052,12 @@ function stDriveVehicle(v, dt, him) {
   if (!inBox) for (const o of stTraffic.list) {
     if (o === v || !o.alive || o.spin || o.road !== r || o.dir !== v.dir) continue;
     const g = o.path ? toGo : (o.s - v.s) * v.dir;
-    if (g > 0 && g < STT.queueGap + ST_TYPES[o.type].hl + T.hl) sp = Math.min(sp, (o.sp || 0) * (g < STT.queueGap ? 0 : 1));
+    // bumper to bumper, not centre to centre: a bus is fourteen metres long, and a
+    // centre gap a car's length short of a car let one close up INSIDE the one
+    // ahead -- then neither could pull away when he came round the corner
+    // exactly level (twins off one corner) one of them must be behind, or neither
+    // ever queues and they travel as one car for ever
+    if (g > 0 || (g === 0 && o.slot < v.slot)) sp = stQueueBehind(v, o, g, sp);
   }
   // slow for a corner it is about to take
   if (!yieldMode && J && J.turn) sp = Math.min(sp, Math.sqrt(STT.turnSpeed * STT.turnSpeed + 2 * STT.brake * Math.max(0, toGo - J.inLen + J.t1S)));

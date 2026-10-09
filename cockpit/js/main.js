@@ -207,7 +207,7 @@ window.__lp = {
   hwyInCorridor, hwyCorridorDist, inCorridor, hwyBoreCut, hwyBoreCeiling, hwyBores,
   car, CAR, carActive, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
   streets, ST, stPlan, stTraffic, stTrail, stProject, stPointAt, stRoadsNear, stCarNear, stCarTarget,
-  stCityNear, stTouching, stSurfaceAt, stTrailPoint, stReassembleAt, stJunctionPath, stChoices, stArmDir,
+  stCityNear, stTouching, stSurfaceAt, stTrailPoint, stReassembleAt, stJunctionPath, stChoices, stArmDir, stDriveVehicle, ST_TYPES,
   stRoadY, stHwyAt, stArmAllowed, carRejoinTarget,
   stArrivalArm, stStraight, stHim, stSignalAspect, get trunkInst() { return trunkInst; }, updateScenery,
   ringsGroup, guideGroup,

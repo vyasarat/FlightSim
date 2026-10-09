@@ -541,7 +541,7 @@ const TUNE = {
     ny: { manholes: 9, steamEvery: 0.45, steamRange: 260 },
     traffic: {
       count: 64, range: 620, keepOut: 110, speed: [11, 17], accel: 5, brake: 11,
-      turnSpeed: 6.5, decide: 45, straightP: 0.6, stopGap: 2.5, lineBack: 0.6, queueGap: 9,
+      turnSpeed: 6.5, decide: 45, straightP: 0.6, stopGap: 2.5, lineBack: 0.6, queueGap: 9, bumperStop: 1.4,
       boxR: 12, yieldT: 3.2, resHold: 2.6, respawn: 2.5, parkedBack: 6,
       spawnClear: 26,            // a car is placed at least this far from either end of its street
       // the three promises (streets.js): ahead of him in his lane it outruns him

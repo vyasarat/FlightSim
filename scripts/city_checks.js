@@ -145,6 +145,47 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     check(`city ${tag}: hands-off from each of each city's ways in he loops through the streets and back out on to the motorway -- ${loops.length} loops, ${loops.map(r => `${r.city}${r.way === "CityInFar" ? " far" : ""} x${r.mul} ${r.secs}s ${r.streets} streets`).join(", ")} -- with no crash, no wall and no touch of any traffic`,
       loops.length >= 2 && badLoops.length === 0, JSON.stringify(badLoops.length ? badLoops : loops));
 
+    // ---- 1b. THE QUEUE NEVER BUILDS A WALL (v150). New York, the slowest step, a bus
+    // at 59.6 s, since v125: five cars yielding ahead of him took one corner together,
+    // none queueing on its path, came out stacked on one spot past it, and the queue law
+    // -- centre to centre -- froze them inside each other: a wall on the street he was
+    // turning into next. Only cars yielding to HIM skip the line's holds, so the stacking
+    // itself is made only with him there: the loop check above is its witness (it failed
+    // on v146-v148). What is checked here, with two of the city's own cars driven by its
+    // own code, every other car out of the way and him nowhere near, is the freeze: a car
+    // left inside a bus as the bus pulls away moves off with it, never frozen behind it.
+    if (vi === 0) {
+      const q = await page.evaluate(() => {
+        const L = window.__lp, T = L.stTraffic, C = L.streets.cities.ny, R = Math.random;
+        let seed = 7; Math.random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+        // every car as it was, put back whole after: the layout the next check meets
+        const saved = T.list.map(v => ({ v, copy: Object.assign({}, v) }));
+        try {
+          T.list.forEach(v => { v.alive = false; });
+          const A = T.list.find(v => v.type === 2), B = T.list.find(v => v.type === 0);
+          const HL = L.ST_TYPES.map(t => t.hl), bumpOf = (lead, back) => Math.abs(lead.s - back.s) - HL[lead.type] - HL[back.type];
+          const reset = (v, sp) => Object.assign(v, { alive: true, spin: 0, sp, speed: 12, hold: null, next: null, path: null, ps: 0, crossing: false });
+          const road = C.roads.find(r => r.kind === "grid" && r.len >= 60);
+          if (!road) return { err: "no street" };
+          // (b) a car inside a bus, both standing, the bus pulls away
+          const r2 = road;
+          reset(A, 0); reset(B, 0);
+          A.road = B.road = r2; A.dir = B.dir = 1; A.s = 40; B.s = 34;   // the car's nose 4 m inside the bus
+          let frozen = 0, worst = 0;
+          for (let k = 0; k < 60 * 4; k++) {
+            L.stDriveVehicle(A, 1 / 60, null); L.stDriveVehicle(B, 1 / 60, null);
+            if (B.sp < 0.5 && A.sp > 2) { frozen++; worst = Math.max(worst, frozen); } else frozen = 0;
+          }
+          return { b: { frozenSecs: +(worst / 60).toFixed(2), moved: +(B.s - 34).toFixed(1) } };
+        } finally {
+          Math.random = R;
+          for (const o of saved) Object.assign(o.v, o.copy);
+        }
+      }).catch(e => ({ err: String(e.message || e).slice(0, 200) }));
+      check("city: the queue never builds a wall -- a car left inside a bus as the bus pulls away moves off with it inside half a second, never frozen behind it",
+        !q.err && q.b.frozenSecs <= 0.5 && q.b.moved > 5, JSON.stringify(q));
+    }
+
     // ---- 1a. THE RAMPS CLEAR EACH OTHER. Each flyover used to be solved
     // against the motorway and the ground roads only, so two of them could meet
     // at grade (v129's roadCrossings found New York's far way in and its way
