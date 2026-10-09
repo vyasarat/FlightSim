@@ -73,9 +73,19 @@ async function render(root) {
   await paintView(false);
   await shot(page, out, "06-valley-cockpit", { ...i, note: "deep in the valley, the pilot's view, HUD (t113)" });
   await page.evaluate(() => window.__lp.api.setView(true));
-  i = await advance("m.gunsFiring && P.t > 26", 30);
+  // the moment a stream crosses his nose: tracer heads inside 25 degrees of it
+  await page.evaluate(() => { window.__ahead = () => { const L = window.__lp, S = L.state, T = L.dad.world.tracer, f = L.dadFwd(new THREE.Vector3()); let n = 0;
+    for (let k = 0; k < T.n; k++) { if (T.life[k] <= 0) continue; const rx = T.pos[k * 3] - S.x, ry = T.pos[k * 3 + 1] - S.y, rz = T.pos[k * 3 + 2] - S.z, a = rx * f.x + ry * f.y + rz * f.z;
+      if (a > 40 && a < 700 && Math.hypot(rx - f.x * a, ry - f.y * a, rz - f.z * a) < a * 0.45) n++; } return n; }; });
+  i = await advance("m.gunsFiring && P.t > 26 && window.__ahead() > 5", 30);
   await paintView(true);
-  await shot(page, out, "07-guns", { ...i, note: "a gun on the ridge firing tracer and flak at him" });
+  await shot(page, out, "07-guns-chase", { ...i, note: "v148: the guns opening up -- tracer streams across his nose, black flak round him, chase" });
+  await paintView(false);
+  await shot(page, out, "07b-guns-cockpit", { ...i, note: "v148: the same from the seat, through the canopy and the HUD glass" });
+  await page.evaluate(() => window.__lp.api.setView(true));
+  await vantage(`const g = L.dad.world.guns.filter(g => g.alive).sort((a, b) => Math.hypot(a.x - S.x, a.z - S.z) - Math.hypot(b.x - S.x, b.z - S.z))[0], cz = L.vlCenterZ(g.x), side = Math.sign(cz - g.z) || 1; cam.up.set(0,1,0);
+    const px = g.x + 40, pz = g.z + side * 110; cam.position.set(px, Math.max(g.y + 30, L.terrainEff(px, pz) + 15), pz); cam.lookAt(g.x, g.y + 3, g.z);`);
+  await shot(page, out, "07d-gun-close", { ...i, note: "v148: a gun close, from across the valley -- the mount on its ledge, its barrels, the muzzle flash and its stream" });
   i = await advance("P.phase === 'popup'", 40);
   i = await advance("P.phase === 'dive' && m.spotErr !== undefined && m.spotErr < 30", 30);
   await paintView(true);
@@ -87,17 +97,30 @@ async function render(root) {
   i = await advance("m.hatch", 15);
   i = await advance("m.plant", 5);
   const plantT = i.t;
+  i = await advance("P.t > " + (plantT + 1.0), 5);
+  await vantage(`const v = L.vl.vent; cam.up.set(0,1,0);
+    cam.position.set(v.x + 430, v.y + 150, v.z + 150); cam.lookAt(v.x, v.y + 70, v.z);`);
+  await shot(page, out, "10a-explosion-1s", { ...i, note: "v148: 1 s after the second hit -- the stacked bursts going up, wreckage thrown out (t368)" });
   i = await advance("P.t > " + (plantT + 2.5), 5);
   await vantage(`const v = L.vl.vent; cam.up.set(0,1,0);
     cam.position.set(v.x + 430, v.y + 150, v.z + 150); cam.lookAt(v.x, v.y + 90, v.z);`);
   await shot(page, out, "10-explosion", { ...i, note: "2.5 s after the second hit, from the bowl's east rim: the column and the snow thrown out across the bowl (t368)" });
   i = await advance("P.t > " + (plantT + 3.5), 5);
+  const behind = i;
   await vantage(`const v = L.vl.vent; const f = L.dadFwd(new THREE.Vector3()); cam.up.set(0,1,0);
     cam.position.set(S.x - f.x * 3, S.y + 3.5, S.z - f.z * 3); cam.lookAt(v.x, v.y + 80, v.z);`);
-  await shot(page, out, "11-explosion-behind", { ...i, note: "3 s after, from the jet looking back down at it (t476, t448)" });
-  i = await advance("L.dad.world.sams.filter(s => s.alive && s.target === 'jet').length >= 2 || L.dad.world.flares.some(f => f.alive)", 12);
-  await paintView(true);
-  await shot(page, out, "12-climbout-chase", { ...i, note: "the climb out: missiles chasing, flares (t384, t420)" });
+  await shot(page, out, "11-explosion-behind", { ...behind, note: "3 s after, from the jet looking back down at it (t476, t448)" });
+  // a missile on his tail, close enough that the chase camera has it in the frame
+  i = await advance("m.plantT > 3.5 && L.dad.world.sams.some(s => s.alive && s.t > 1.5 && Math.hypot(s.x - S.x, s.y - S.y, s.z - S.z) < 1500)", 15);
+  // on the line from the missile through the jet, past the jet: the jet big in front,
+  // the missile and its rope coming up behind it
+  await vantage(`const f = L.dadFwd(new THREE.Vector3()); cam.up.set(0,1,0);
+    const m = L.dad.world.sams.filter(s => s.alive && s.t > 1.5).sort((a, b) => Math.hypot(a.x - S.x, a.z - S.z) - Math.hypot(b.x - S.x, b.z - S.z))[0] || { x: S.x - f.x * 300, y: S.y - 30, z: S.z - f.z * 300 };
+    const dx = S.x - m.x, dy = S.y - m.y, dz = S.z - m.z, dl = Math.hypot(dx, dy, dz) || 1, ux = dx / dl, uy = dy / dl, uz = dz / dl;
+    let px = -uz, pz = ux; const pl = Math.hypot(px, pz) || 1; px /= pl; pz /= pl;
+    cam.position.set(S.x + ux * 38 + px * 12, S.y + uy * 38 + 7, S.z + uz * 38 + pz * 12);
+    cam.lookAt(S.x - ux * dl * 0.3, S.y - uy * dl * 0.3, S.z - uz * dl * 0.3);`);
+  await shot(page, out, "12-climbout-chase", { ...i, note: "v148: the climb out from ahead of the jet looking back -- a missile on his tail, its trail and motor (t384, t420)" });
   i = await advance("L.dad.world.flares.some(f => f.alive && f.t > 0.5) && L.dad.world.sams.some(s => s.alive && s.t > 2)", 15);
   await vantage(`const f = L.dadFwd(new THREE.Vector3()); cam.up.set(0,1,0);
     const sx = Math.cos(S.heading), sz = -Math.sin(S.heading);
@@ -105,6 +128,16 @@ async function render(root) {
     let mx = S.x, my = S.y, mz = S.z; for (const s of live) { mx += s.x; my += s.y; mz += s.z; } mx /= live.length + 1; my /= live.length + 1; mz /= live.length + 1;
     cam.position.set(mx + sx * 520, my - 160, mz + sz * 520); cam.lookAt(mx, my, mz);`);
   await shot(page, out, "13-flares", { ...i, note: "flares off the jet, the missiles' white trails curling after them (t432, t444, t482)" });
+  i = await advance("L.dad.world.sams.some(s => s.alive && s.t > 2.6)", 10);
+  await vantage(`const s = L.dad.world.sams.filter(s => s.alive && s.t > 2.6)[0] || L.dad.world.sams[0];
+    const v = Math.hypot(s.vx, s.vy, s.vz) || 1, ux = s.vx / v, uy = s.vy / v, uz = s.vz / v;
+    let px = -uz, pz = ux; const pl = Math.hypot(px, pz) || 1; px /= pl; pz /= pl;
+    cam.up.set(0,1,0); cam.position.set(s.x + ux * 20 + px * 38, s.y + uy * 20 + 8, s.z + uz * 20 + pz * 38); cam.lookAt(s.x - ux * 45, s.y - uy * 45, s.z - uz * 45);`);
+  await shot(page, out, "13b-missile-close", { ...i, note: "v148: beside a SAM in flight -- the white-hot motor, the thick corkscrewing trail (t384, t432)" });
+  i = await advance("P.t > " + (plantT + 8) + " || m.over", 6);
+  await vantage(`const v = L.vl.vent; cam.up.set(0,1,0);
+    cam.position.set(S.x + (S.x - v.x) * 0.15, S.y + 60, S.z + (S.z - v.z) * 0.15); cam.lookAt(v.x, v.y + 300, v.z);`);
+  await shot(page, out, "10c-column-8s", { ...i, note: "v148: 8 s after, from behind the climbing jet looking back -- the column over the peaks, the snow cloud across the bowl floor" });
   i = await advance("m.card", 40);
   for (let k = 0; k < 2; k++) await page.evaluate(() => window.__paint());
   await shot(page, out, "14-results", { ...i, note: "the results card" });
@@ -129,7 +162,7 @@ async function render(root) {
     for (let k = 0; k < 150; k++) { L.api.clearStick(); L.update(1 / 60); }
     for (let k = 0; k < 2; k++) window.__paint();
     return { kind: L.vehKind(), dad: L.dadActive(), x: Math.round(S.x), agl: Math.round(S.y - L.terrainEff(S.x, S.z)), exploding: S.exploding,
-             dadDom: document.querySelectorAll("#dadHud,#dadGrey,#dadCard,#dadPad,#dadMenu").length };
+             dadDom: document.querySelectorAll("#dadHud,#dadGrey,#dadCanopy,#dadCard,#dadPad,#dadMenu").length };
   }, [veh, x, agl, back, chase]);
   let k = await kidAt("fighter", -3500, 70, 0, true);
   await shot(kp, out, "21-his-valley", { ...k, note: "his fighter in the valley, his own HUD, nothing of dad mode" });

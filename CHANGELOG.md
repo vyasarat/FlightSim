@@ -10,6 +10,18 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v148 — dad mode: being shot at, the big one, the trails, the canopy
+
+Dad mode only; his game is unchanged. Being shot at is now unmissable. The ridge guns and SAM sites are built three and two
+times bigger, the guns inside a sandbag ring. A firing gun flashes at its muzzle every frame. Each tracer round is a thin
+screen-space streak, mostly led across the jet's nose, so the stream crosses the sky in front of him. A gun out of sight fires blind
+into the sky over the valley ahead; blind fire never hits. Flak is a flash and a knot of black smoke close round the jet.
+A near miss shakes the view, and a hit jolts it with a metal crack and a thud. The plant now goes in four stacked bursts.
+Its charcoal column climbs far above the bowl's peaks for thirty seconds, and 28 slabs of wreckage are thrown out trailing
+smoke. A snow cloud rolls out across the bowl floor. Missile trails are a thick, corkscrewing rope laid along the whole
+distance flown each frame, with a white-hot motor in an orange glow at the head. In the cockpit view, a fixed overlay shows the HUD's two posts,
+tinted glass, projector and coaming, shaped on the film's dive shot.
+
 ## v147 — dad mode: Canyon Strike, and the valley
 
 **What he gets:** a new place in his world, and nothing else. West of the

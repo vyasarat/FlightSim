@@ -52,7 +52,7 @@ module.exports = async function dadChecks({ newPage, check }) {
     H.padKey = k => { const b = document.querySelector('#dadPad .dadPadKey[data-k="' + k + '"]'); if (!b) return false;
       b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true })); return true; };
     H.code = s => { for (const k of s) if (!H.padKey(k)) return false; return true; };
-    H.dadDom = () => document.querySelectorAll("#dadHud,#dadGrey,#dadCard,#dadPad,#dadMenu").length;
+    H.dadDom = () => document.querySelectorAll("#dadHud,#dadGrey,#dadCanopy,#dadCard,#dadPad,#dadMenu").length;
     H.solids = () => { let n = 0; L.forEachSolid(() => n++); return n; };
     H.press = id => { const e = document.getElementById(id); e.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true })); };
   });
@@ -317,6 +317,107 @@ module.exports = async function dadChecks({ newPage, check }) {
   });
   check("dad/retry: RETRY starts the sortie over -- full clock, health, bombs and flares, every gun standing, the bunker whole, low at the mouth",
     !retry.err && !retry.noCard && !retry.card && !retry.over && retry.clock === 150 && retry.health === 100 && retry.bombs === 4 && retry.flares === 8 && retry.guns && retry.bunker && !retry.exploding && retry.agl < 30, J(retry));
+
+  // ---- v148: being shot at, the big explosion, the trails, the canopy
+  const guns = await run(page, () => {
+    const L = window.__lp, P = window.__dadPilot, S = L.state, W = L.dad.world, G = L.TUNE.dad.guns;
+    L.dadStart(); P.phase = "valley"; P.t = 0; P.dropped = 0; P.log = []; P.lastDropT = -9; P.highAt = 0;
+    const f = new THREE.Vector3(), Fp = W.fire, Tp = W.tracer;
+    let firingFrames = 0, bestAhead = 0, flashes = 0;
+    const sightedSet = new Set();
+    for (let i = 0; i < 60 * 45 && !L.dad.m.over; i++) {
+      P.step(1 / 60);
+      if (!L.dad.m.gunsFiring) continue;
+      firingFrames++;
+      for (const g of W.guns) if (g.fireT > 0 && g.blind === false) sightedSet.add(g.i);
+      L.dadFwd(f);
+      let ahead = 0;
+      for (let k = 0; k < Tp.n; k++) {
+        if (Tp.life[k] <= 0) continue;
+        const rx = Tp.pos[k * 3] - S.x, ry = Tp.pos[k * 3 + 1] - S.y, rz = Tp.pos[k * 3 + 2] - S.z;
+        const along = rx * f.x + ry * f.y + rz * f.z;
+        if (along < 20 || along > 900) continue;
+        const px = rx - f.x * along, py = ry - f.y * along, pz = rz - f.z * along;
+        // a round in flight (one streak each), inside a 35 degree cone off the nose: three
+        // at once is a stream across his view -- v147's guns never put one there
+        if (Math.hypot(px, py, pz) < along * 0.7) ahead++;
+      }
+      bestAhead = Math.max(bestAhead, ahead);
+      for (const g of W.guns) if (g.alive && g.fireT > 0) for (let k = 0; k < Fp.n; k++)
+        if (Fp.life[k] > 0 && Fp.max[k] < 0.07 && Math.hypot(Fp.pos[k * 3] - g.x, Fp.pos[k * 3 + 1] - g.y, Fp.pos[k * 3 + 2] - g.z) < g.muzzle + 2) { flashes++; break; }
+    }
+    const mm = L.dad.m, flak = { bursts: mm.flak, near: mm.nearMisses, hits: mm.flakHits };
+    W.guns[0].g.updateMatrixWorld(true); W.sites[0].g.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(W.guns[0].turret), site = new THREE.Box3().setFromObject(W.sites[0].frame);
+    const v = new THREE.Vector3(), wide = b => { b.getSize(v); return +Math.max(v.x, v.z).toFixed(1); };
+    L.dadStart();
+    const m = L.dad.m; m.shake = 0;
+    L.dadDamage(5, "flak");
+    const sighted = sightedSet.size;
+    return { firingFrames, bestAhead, flashes, sighted, flak, gunW: wide(box), siteW: wide(site), hitShake: +m.shake.toFixed(2), scale: G.scale };
+  });
+  check("dad/v148: being shot at is unmissable -- the guns stand > 8 m and the SAM frames > 14 m across; in the valley run at least three have him in sight, a firing gun flashes at its muzzle, its tracer streams cross the sky inside 35 degrees of his nose, and flak bursts close enough to shake him; a hit jolts the view",
+    !guns.err && guns.gunW > 8 && guns.siteW > 14 && guns.firingFrames > 60 && guns.bestAhead >= 3 && guns.flashes > guns.firingFrames * 0.5 && guns.sighted >= 3 && guns.flak.bursts > 20 && guns.flak.near + guns.flak.hits > 0 && guns.hitShake >= 0.5, J(guns));
+  const boom = await run(page, () => {
+    const L = window.__lp, S = L.state, W = L.dad.world, V = L.TUNE.valley, vt = L.vl.vent, Sm = W.smoke;
+    L.dadStart();
+    L.dadPlantGoes();
+    let top = 0, surge = 0;
+    for (let i = 0; i < 60 * 14; i++) {
+      L.api.clearStick(); L.update(1 / 60);
+      for (let k = 0; k < Sm.n; k++) {
+        if (Sm.life[k] <= 0) continue;
+        const x = Sm.pos[k * 3], y = Sm.pos[k * 3 + 1], z = Sm.pos[k * 3 + 2], d = Math.hypot(x - vt.x, z - vt.z);
+        if (d < 160 && Sm.col[k * 3] < 0.3) top = Math.max(top, y - vt.y);
+        if (i === 60 * 6 && d > 250 && Sm.col[k * 3] > 0.85 && Sm.col[k * 3 + 2] > 0.88 && y - L.terrainEff(x, z) < 30) surge++;
+      }
+    }
+    let peak = 0;
+    for (let a = 0; a < 72; a++) for (let r = V.bowlR; r <= V.bowlRim + 200; r += 40)
+      peak = Math.max(peak, L.terrainEff(vt.x + Math.cos(a / 72 * 6.283) * r, vt.z + Math.sin(a / 72 * 6.283) * r) - vt.y);
+    const parts = W.debris.parts, far = parts.filter(p => p.on && p.vy === 0 && Math.hypot(p.x - vt.x, p.z - vt.z) > 60).length;
+    const out = { bursts: L.dad.m.bursts.filter(b => b.done).length, top: Math.round(top), peak: Math.round(peak), surge, debris: parts.length, far, shown: W.debris.mesh.visible };
+    L.dadStart();
+    out.after = { debris: W.debris.mesh.visible, bunker: L.vl.bunker.visible };
+    return out;
+  });
+  check("dad/v148: the target goes big -- four stacked bursts, a dark column climbing > 150 m over the bowl's highest peak, the wreckage thrown out (half of it lands > 60 m off), a snow cloud rolling > 250 m across the bowl floor; RETRY puts it all away",
+    !boom.err && boom.bursts === 4 && boom.top > boom.peak + 150 && boom.far >= boom.debris / 2 && boom.shown && boom.surge >= 40 && !boom.after.debris && boom.after.bunker, J(boom));
+  const trail = await run(page, () => {
+    const L = window.__lp, S = L.state, W = L.dad.world, Sm = W.smoke, Fp = W.fire;
+    L.dadStart();
+    L.dadLaunchSam();
+    const s = W.sams[W.sams.length - 1], path = [];
+    for (let i = 0; i < 60 * 3; i++) { L.api.clearStick(); L.update(1 / 60); path.push([s.x, s.y, s.z]); }
+    const last = path.slice(-60);
+    let len = 0; for (let i = 1; i < last.length; i++) len += Math.hypot(last[i][0] - last[i - 1][0], last[i][1] - last[i - 1][1], last[i][2] - last[i - 1][2]);
+    // each puff placed by its arc length along the path: the rope's widest gap, and how big it grows
+    const arc = [0]; for (let i = 1; i < last.length; i++) arc.push(arc[i - 1] + Math.hypot(last[i][0] - last[i - 1][0], last[i][1] - last[i - 1][1], last[i][2] - last[i - 1][2]));
+    let puffs = 0, s1 = 0; const at = [];
+    for (let k = 0; k < Sm.n; k++) {
+      if (Sm.life[k] <= 0) continue;
+      const x = Sm.pos[k * 3], y = Sm.pos[k * 3 + 1], z = Sm.pos[k * 3 + 2];
+      let bd = 25, bi = -1; last.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - y, p[2] - z); if (d < bd) { bd = d; bi = i; } });
+      if (bi >= 0) { puffs++; s1 += Sm.s1[k]; at.push(arc[bi]); }
+    }
+    at.sort((a, b) => a - b);
+    let gap = 0; for (let i = 1; i < at.length; i++) gap = Math.max(gap, at[i] - at[i - 1]);
+    let motor = false;
+    for (let k = 0; k < Fp.n; k++) if (Fp.life[k] > 0 && Fp.col[k * 3 + 2] > 0.99 && Math.hypot(Fp.pos[k * 3] - s.x, Fp.pos[k * 3 + 1] - s.y, Fp.pos[k * 3 + 2] - s.z) < 8) { motor = true; break; }
+    return { alive: s.alive, len: Math.round(len), per100: +(puffs / len * 100).toFixed(1), gap: +gap.toFixed(1), grows: Math.round(s1 / Math.max(1, puffs)), motor };
+  });
+  check("dad/v148: a missile's trail is a rope -- over its last second of flight > 40 smoke puffs per 100 m along its path with no gap over 6 m, growing past 35 m across on average (v147 grew to about 31), and a white-hot motor at its tail",
+    !trail.err && trail.alive && trail.len > 100 && trail.per100 > 40 && trail.gap < 6 && trail.grows > 35 && trail.motor, J(trail));
+  const canopy = await run(page, () => {
+    const L = window.__lp, el = document.getElementById("dadCanopy");
+    L.dadStart();
+    const shown = v => { L.api.setView(v); L.update(1 / 60); return !!el && getComputedStyle(el).display !== "none"; };
+    const out = { exists: !!el, seat: shown(false), chase: shown(true), text: el ? el.textContent.trim() : null };
+    L.dadStart();
+    return out;
+  });
+  check("dad/v148: the canopy frame and HUD glass are drawn in the pilot's view and not in the chase view, with no words in them",
+    !canopy.err && canopy.exists && canopy.seat && !canopy.chase && canopy.text === "", J(canopy));
 
   // a whole sortie, flown by the pilot through the stick and the buttons' own functions
   const full = await run(page, () => {
