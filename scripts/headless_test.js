@@ -409,8 +409,8 @@ function check(name, ok, extra) {
       const visible = [...sv.querySelectorAll(".card:not(.hiddenS)")];
       const hidden = [...sv.querySelectorAll(".card.hiddenS")];
       // Thirteen since v144: the rocket sled's card joined the picker (sledride.js); fourteen since v145,
-      // the wrecking-ball crane's (crane.js) -- deliberate counts, not drift.
-      if (visible.length !== 14) return { ok: false, why: "visible=" + visible.length };
+      // the wrecking-ball crane's (crane.js); fifteen since v146, the Cybertruck's -- deliberate counts, not drift.
+      if (visible.length !== 15) return { ok: false, why: "visible=" + visible.length };
       const sized = visible.every(c => {
         const r = c.getBoundingClientRect();
         return r.width >= 100 && r.height >= 100;
@@ -420,9 +420,9 @@ function check(name, ok, extra) {
       const fromTune = hidden.every(c => window.__lp.TUNE.vehicles[c.dataset.v].hidden === true);
       // nothing is shelved any more: the helicopter came back off the shelf to fight
       // the rig fire. The TUNE.hidden mechanism itself is still exercised below.
-      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter") && keys.includes("car") && keys.includes("speedboat") && keys.includes("yacht") && keys.includes("monster") && keys.includes("heavy") && keys.includes("sled") && keys.includes("crane"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
+      return { ok: sized && hidden.length === 0 && hiddenGone && fromTune && keys.includes("fighter") && keys.includes("rocket") && keys.includes("helicopter") && keys.includes("car") && keys.includes("speedboat") && keys.includes("yacht") && keys.includes("monster") && keys.includes("heavy") && keys.includes("sled") && keys.includes("crane") && keys.includes("cybertruck"), why: keys.join(",") + (hiddenGone ? "" : " HIDDEN CARDS STILL RENDER") };
     });
-    check("vehicles: picker shows all 14 incl the car, monster truck (v141), speedboat, yacht, helicopter, fighter, rocket, booster rocket (v142), rocket sled (v144), crane (v145) and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
+    check("vehicles: picker shows all 15 incl the car, the Cybertruck (v146), monster truck (v141), speedboat, yacht, helicopter, fighter, rocket, booster rocket (v142), rocket sled (v144), crane (v145) and starship; a TUNE.hidden card would not render at all", bootOk.ok, bootOk.why);
 
     const combos = await page.evaluate(() => {
       const vs = Object.values(window.__lp.TUNE.vehicles).filter(v => !v.hidden);
@@ -433,9 +433,10 @@ function check(name, ok, extra) {
     // so its row's numbers are its own (no steering, the run's 120 m/s). The two
     // airliners share one set of flight numbers, and the booster rocket flies on
     // the rocket's own, so eleven distinct combinations; fourteen and twelve with the
-    // crane (v145), deliberately -- parked for good, its row is its own.
-    check("vehicles: fourteen available, car / monster / speedboat / yacht / fighter / rocket / starship / rocket sled / crane distinct, the airliners share stats and the booster rocket flies as the rocket",
-      combos.n === 14 && combos.uniq === 12, `n=${combos.n} uniq=${combos.uniq}`);
+    // crane (v145), deliberately -- parked for good, its row is its own. Fifteen with
+    // the Cybertruck (v146) and still twelve: it drives on the car's own numbers.
+    check("vehicles: fifteen available, the Cybertruck on the car's numbers, car / monster / speedboat / yacht / fighter / rocket / starship / rocket sled / crane distinct, the airliners share stats and the booster rocket flies as the rocket",
+      combos.n === 15 && combos.uniq === 12, `n=${combos.n} uniq=${combos.uniq}`);
 
     await page.evaluate(() => {
       document.getElementById("screenDir").classList.add("hiddenS");
@@ -5606,6 +5607,7 @@ function check(name, ok, extra) {
   await require("./sledride_checks")({ newPage, check });
   // v145: the wrecking-ball crane -- portrait, a whole go in each camera view, the drag that turns it
   await require("./crane_checks")({ newPage, check });
+  await require("./cybertruck_checks")({ newPage, check });   // v146: the Cybertruck, a second body on the car
   await require("./payoff_size_checks")({ newPage, check });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
   await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });

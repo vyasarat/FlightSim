@@ -316,7 +316,7 @@ function mtAimed() {
   // in the car: by the speed he is going OR heading for (the step he has set), so
   // a car still picking up speed does not arrive before the truck does
   const vCar = typeof CAR !== "undefined" ? Math.max(Math.abs(state.speed), CAR.cruise * spdMul()) : Math.abs(state.speed);
-  if (typeof vehKind === "function" && vehKind() === "car") {
+  if (typeof vehIsCar === "function" && vehIsCar()) {
     // where he will be when it lands, and how far off his nose the landing will
     // be from there: armed when that is landBearing (it lands in the open glass)
     // ... where he will be measured ALONG THE MOTORWAY, which curves: a straight

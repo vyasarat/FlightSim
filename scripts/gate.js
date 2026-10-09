@@ -35,11 +35,11 @@ const git = (...a) => { try { return execFileSync("git", a, { cwd: ROOT, stdio: 
 // the full harness -- which is the honest default for the plane, the rocket and
 // anything shared (tune, terrain, scene, flight, main).
 const MODULES = {
-  "car.js": ["road_checks", "car_feel_checks", "city_checks"],
+  "car.js": ["road_checks", "car_feel_checks", "city_checks", "cybertruck_checks"],
   "highway.js": ["road_checks", "car_feel_checks"],
   "streets.js": ["city_checks", "road_checks", "solidity_checks"],
   "city.js": ["city_checks"], "citydata.js": ["city_checks", "solidity_checks"],
-  "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks"],
+  "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks", "cybertruck_checks"],
   "vehiclekit.js": ["road_checks", "city_checks"],
   "solids.js": ["solidity_checks"], "collision.js": ["solidity_checks"],
   "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks"], "crane.js": ["crane_checks", "slot_checks", "solidity_checks", "vehicle_contract_checks", "state_semantics_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks"],
@@ -49,9 +49,9 @@ const MODULES = {
   "buttons.js": ["slot_checks"], "speed.js": ["speed_horn_checks"],
   "engines.js": ["engine_sound_checks"], "audio.js": ["engine_sound_checks", "hardening_checks"],
   "eventpool.js": ["event_pool_checks"], "events.js": ["event_pool_checks"],
-  "vehicles.js": ["vehicle_contract_checks", "state_semantics_checks", "solidity_checks"],
+  "vehicles.js": ["vehicle_contract_checks", "state_semantics_checks", "solidity_checks", "cybertruck_checks"],
   "state.js": ["state_semantics_checks", "vehicle_contract_checks"],
-  "vehicle.js": ["aircraft_orientation_checks"], "models.js": ["aircraft_orientation_checks"],
+  "vehicle.js": ["aircraft_orientation_checks", "cybertruck_checks"], "models.js": ["aircraft_orientation_checks", "cybertruck_checks"],
   "eject.js": ["eject_framing_checks"], "toyfinish.js": ["toyfinish_checks"],
   "toyworld.js": ["toyworld_checks"], "workshop.js": ["workshop_checks", "workshop_play_checks"],
   "marsbase.js": ["robot_checks", "robot_play_checks"], "rover.js": ["robot_play_checks"],

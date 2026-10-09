@@ -542,7 +542,7 @@ function currentBedName() {
   if (typeof rk !== "undefined" && rk && rk.onBody) return rk.onBody.name === "mars" ? "mars" : "moon";
   if (state.spaceF > 0.55) return "space";
   const k = typeof vehKind === "function" ? vehKind() : "plane";
-  if (k === "car" || k === "monster") return "car";
+  if ((typeof vehIsCar === "function" && vehIsCar()) || k === "monster") return "car";   // the SUV, the Cybertruck (v146), the monster truck
   if (k === "heli") return "heli";
   if (k === "boat" || k === "yacht") return "sea";
   if (k === "sled") return "wind";     // v144: on the rocket sled it is the air rushing past, never the apron

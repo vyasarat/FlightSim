@@ -267,8 +267,8 @@ module.exports = async function craneChecks({ newPage, check }) {
     if (was) sv.classList.add("hiddenS");
     return out;
   });
-  check("crane: a card in the picker, an icon only (no text, no label words), and the picker now has 14 cards",
-    card.exists && card.visible && card.text === "" && card.words.length === 0 && card.svgText === 0 && card.icon && card.cards === 14, J(card));
+  check("crane: a card in the picker, an icon only (no text, no label words), and the picker now has 15 cards (v146: the Cybertruck's joined it -- a deliberate count)",
+    card.exists && card.visible && card.text === "" && card.words.length === 0 && card.svgText === 0 && card.icon && card.cards === 15, J(card));
 
   // ---- a. picked through the real picker: the menu button, the crane's card, a direction
   let picked = null;

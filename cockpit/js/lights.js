@@ -472,7 +472,7 @@ function ltAhead() {
 
 let ltLastTo = null, ltLastJ = null;
 function ltWatchCar(dt) {
-  const isCar = typeof vehKind === "function" && vehKind() === "car";
+  const isCar = typeof vehIsCar === "function" && vehIsCar();
   if (!isCar || state.exploding) { ltLastTo = null; ltLastJ = null; return; }
   const a = ltAhead();
   const half = a ? (a.main ? (a.j.mainHalf || HW.spurW) : (a.j.crossHalf || LT.crossW)) : 0;
