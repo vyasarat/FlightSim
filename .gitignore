@@ -28,3 +28,4 @@ qa-screenshots/
 models-src/
 *.blend
 cockpit/models/*.src.glb
+reference/

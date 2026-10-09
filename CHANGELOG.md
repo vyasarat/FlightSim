@@ -10,6 +10,40 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v147 — dad mode: Canyon Strike, and the valley
+
+**What he gets:** a new place in his world, and nothing else. West of the
+motorway the mountain range now has a winding snow valley cut through it, with
+dark rock on its steepest faces and pine forest on its lower slopes. At its far
+end is a snow bowl ringed by needles of rock, with a squat concrete bunker in
+the middle. He can fly down it in anything. The bunker is solid like any
+building (a bang and a free reassembly) and nothing breaks it. The valley is
+kilometres from every road, the railway, both cities and both airports. In the
+picker's bottom-left corner there is a small, dim star. For him it opens a
+number pad that does nothing.
+
+**What the parent gets:** that star, the code (`TUNE.dad.code`), and dad mode.
+A wrong code closes the pad; three lock it for a minute. Inside is one mission
+from the end of *Top Gun: Maverick*, "Canyon Strike", flown in his F-35 model on
+its own handling (faster, steeper, harder turning; his fighter's numbers are
+untouched). Start low at the valley's mouth as cruise missiles streak overhead
+to a radar on the ridge. You have two and a half minutes. Above 100 ft for more
+than a moment the radar locks and a missile comes. Guns on the ridges fire
+tracer and flak, and your missiles take them out. Dive on the bunker and hold
+the nose on a vent three metres wide: the first laser-guided bomb blows the
+hatch, the second the plant. Then pull 9 G out of the bowl with missiles on your
+tail and flares to decoy them. A results card follows, with RETRY and EXIT.
+None of it is saved, and a reload always opens his game. The kid rules do not
+apply inside it by the parent's decision. Outside it, his game does not change.
+
+**How:** the valley is shaped in `terrain.js` (raise the massif, then cut the
+valley and the bowl back through it) and furnished by `valley.js`. Dad mode is
+`dadmode.js`, its own contract row and flight model, with nothing of it built
+until it is entered and all of it removed on exit. A new check module proves the
+lockout, the radar, the decoy, the vent's three metres, failure, a whole sortie
+flown through the stick, that his fighter flies the identical path afterwards,
+and that the seeded random stream does not move.
+
 ## v146 — the Cybertruck
 
 **What he gets:** a new card in the picker, right next to the car: the

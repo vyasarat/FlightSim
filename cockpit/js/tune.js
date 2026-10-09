@@ -1201,8 +1201,11 @@ const TUNE = {
   // (landMax*) says what counts as arriving and everything else is a crash.
   // The car's and the boat's crawls are their old crash speeds, unchanged.
   solid: {
-    r:     { plane: 3, heli: 3, rocket: 3, car: 3, cybertruck: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12 },
-    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, cybertruck: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99 },   // the monster never bangs at any speed
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, cybertruck: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12, dad: 4 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, cybertruck: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99, dad: -1 },   // the monster never bangs at any speed
+    // v147: the parent's jet in dad mode (dadmode.js). Its own rules: anything solid at
+    // any speed is a crash that ENDS the mission (crawl -1) -- dad mode is exempt from
+    // the free reassembly, and nothing of it exists outside dad mode.
     // v145: the wrecking-ball crane (crane.js) never moves: parked on its lot for good, it
     // is not solid (its contract's solid() is false) and nothing can drive into it. Its
     // radius is its tracks' half-length, and its crawl is "never a bang, at any speed".
@@ -2100,6 +2103,74 @@ const TUNE = {
       // life raft, which the seat has always carried.
       speedboat: { opening: 1, hatch: 'panel', seat: 'spring', front: 0.5, roof: 3.6, color: 0xe0483e }
     }
+  },
+
+  // ---- v147: THE VALLEY (terrain.js shapes it, valley.js furnishes it). A winding
+  // snow valley cut west through the mountain range, ending in a snow bowl between
+  // jagged peaks with a concrete bunker in it. It is part of HIS world: he can fly
+  // it, and the bunker is solid and never breaks. Everything here sits west of
+  // x = -1650, kilometres clear of the motorway, its tunnel, the railway and both
+  // cities (valley.js's vlClearOfEverything says how far, and the harness asserts it).
+  // Sized off the film's stills: a floor ten-odd wingspans wide, walls twenty-plus
+  // high, and the jets a wingspan or two off the snow.
+  valley: {
+    x0: -2600,                   // the mouth: the valley opens to the east here
+    xb: -10900,                  // the bowl's centre (west end)
+    zc: -1500,                   // the range's spine (terrain.js mountainGauss)
+    // the centreline winds: z = zc + sum of a * sin(2 pi (x0 - x) / L + p)
+    wind: [[300, 3300, 0.0], [110, 1300, 1.9]],
+    floorHalf: 85,               // half-width of the snow floor, metres
+    floorVary: 30,               // ... give or take, along the valley
+    wallRun: 210,                // horizontal run of a wall, floor to crest (~55 degrees at its steepest)
+    wallWobble: 45,              // the walls snake a little either side of the floor
+    floorY: [26, 70],            // floor height at the mouth and at the bowl
+    ridge: 290,                  // crest height over the floor
+    jag: 120,                    // and jagged peaks on top of that
+    halfZ: 1150,                 // how far north and south of the spine the massif reaches
+    rampX: 900,                  // metres over which it rises out of the range, at both ends
+    westPad: 1400,               // how far the massif runs on past the bowl before it ramps down
+    bowlR: 230,                  // the bowl's flat snow floor
+    bowlRim: 470,                // ... rising to the needles at this radius
+    needles: 11, needleH: 170, needleR: 70,   // the rock spires around the rim
+    // colours, all from the palette: snow, rock, the pines (grassMid, darkened)
+    rockSlope: 1.9,              // rise over run past which the snow cannot hold: rock
+    pineBelow: 190,              // pines only this far above the floor
+    pineCell: 26, pineChance: 0.55, pineMax: 6000, pineSegs: 10,
+    pineShade: 0.42,             // grassMid times this: the film's dark blue-green
+    // the bunker: a squat concrete block in the bowl, its vent hatch tilted up on top.
+    // `vent` is the hatch's centre over the block, in the block's own frame.
+    bunker: { w: 16, d: 12, h: 4.2, ventW: 3.2, ventL: 5.0, ventH: 2.2, ventTilt: 0.42 },
+  },
+
+  // ---- v147: DAD MODE (dadmode.js). The parent's, behind a code; the kid rules do
+  // not apply inside it and nothing of it may appear outside it. One mission, "Canyon
+  // Strike". None of these numbers is read anywhere else, and the kid's fighter row
+  // below is never touched: the dad jet flies on its own profile, built from `jet`.
+  dad: {
+    code: "1986",
+    wrongMax: 3, lockout: 60,    // three wrong tries lock the pad for this many seconds
+    jet: {
+      cruise: 150, min: 95, max: 235, accel: 0.55, gravity: 0.75,   // m/s; how hard it drives to cruise, how much a climb or dive trades
+      bankLimitDeg: 82, rollRate: 5.5,                               // attitude in roll: release levels the wings
+      pitchRateDeg: 38, pitchExpo: 2.6,                              // rate in pitch: release HOLDS the nose (fine aim near the middle)
+      turnMul: 2.1,                                                  // turn rate = turnMul * g tan(bank) / v
+      gMax: 9.5, gGrey: 6.5, gBlack: 10.5,                           // the pull is limited to gMax; grey-out from gGrey
+      ceiling: 820, size: 1.25,
+    },
+    clock: 150,                  // seconds to the target
+    health: 100,
+    radar: { agl: 30.48, arm: 0.7, lock: 2.2, cool: 3.5, alertMul: 0.5 },   // 100 ft; seconds above it to a lock, then to a launch
+    sam: { speed: 290, turnDeg: 34, life: 11, fuse: 14, damage: 55, launchGap: 0.6 },
+    flares: { count: 8, decoyRange: 1400, life: 3.2, cooldown: 0.5 },
+    guns: { count: 9, range: 950, burst: 1.6, gap: 2.2, rof: 14, tracer: 620, spread: 0.035, hitChance: 0.035, damage: 6,
+            flakEvery: 0.45, flakSpread: 26, exposedAgl: 70 },
+    missiles: { count: 4, speed: 260, turnDeg: 60, life: 6, lockCone: 0.42, range: 2200, cooldown: 0.8 },
+    bombs: { count: 4, range: 2600, armAgl: 60, steer: 34, life: 20, holdRateDeg: 7 },
+    ventR: 1.5,                  // the vent's hit radius: "a target three metres wide"
+    cruiseMissiles: { count: 5, speed: 280, alt: 420, delay: 1.2, gap: 0.5, at: 0.4 },   // `at`: their target, this fraction of the way up the valley
+    start: { back: 160, agl: 22 },
+    escape: 12,                  // seconds he must live after the plant goes, with nothing close behind, to be out
+    results: { hold: 2.5 },      // seconds of the aftermath before the card
   },
 
   vehicles: {

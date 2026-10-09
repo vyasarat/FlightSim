@@ -33,6 +33,7 @@
 function vehKind() {
   const vp = state.vp;
   if (!vp) return "plane";
+  if (vp.dadJet) return "dad";           // v147: the parent's jet in dad mode (dadmode.js), its own everything
   if (vp.rocket) {
     if (typeof marsDroneActive === "function" && marsDroneActive()) return "drone";
     if (typeof roverActive === "function" && roverActive()) return "rover";
@@ -174,6 +175,19 @@ const VEHICLE_CONTRACT = {
     update: (dt) => crUpdate(dt),
     camera: (dt) => crCamera(dt),
     parked: () => crParked(),
+    reassemble: null,
+  },
+  // v147: DAD MODE's jet (dadmode.js) -- the parent's, behind a code, and exempt from
+  // the kid rules by the parent's decision. It flies on its own profile and its own
+  // flight model, never his fighter's. It meets the registry itself: anything solid,
+  // at any speed, ENDS the sortie (no reassembly), so the shared resolver never runs
+  // for it. Never parked: dad mode's way out is its own EXIT, not the picker.
+  dad: {
+    solidClass: SOLID.AIR,
+    solid: () => false,
+    update: (dt) => dadFly(dt),
+    camera: (dt) => dadCamera(dt),
+    parked: () => false,
     reassemble: null,
   },
   boat: {

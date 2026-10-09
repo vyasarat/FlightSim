@@ -51,6 +51,8 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
   ramp, the boulevard, the carriageway — or, off every road, the spot itself, backed off the
   wall. Never some other road because it was the nearest.
 - **Readability beats realism** — an effect that hides something he needs to see goes.
+- **Dad mode is the parent's** (`dadmode.js`; its valley, `valley.js`, is his too): behind a code, exempt from
+  every kid rule inside it by the parent's decision, and **nothing of it may appear outside it**.
 
 ## The vehicle contract
 

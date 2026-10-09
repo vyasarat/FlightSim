@@ -211,7 +211,8 @@ function updateCrashWarning(dt) {
   // Over the demolition block the alarm stays quiet: flying straight at those towers
   // is the whole point of the place, and the wind-up numerals are its only lead-in.
   const muted = (typeof demoAlarmMuted === "function" && demoAlarmMuted()) ||
-                (typeof carrierAlarmMuted === "function" && carrierAlarmMuted());
+                (typeof carrierAlarmMuted === "function" && carrierAlarmMuted()) ||
+                (typeof dadAlarmMuted === "function" && dadAlarmMuted());   // v147: dad mode has its own warnings
   // The helicopter has no GROUND warning (v139): it lands anywhere solid and
   // hovers over water, so a descent is never a crash about to happen -- and the
   // sink-rate alarm on every one of them was the warning he heard each time he
@@ -362,6 +363,8 @@ function updateFlightTones() {
 
 function update(dt) {
   frameCount++;
+  // v147: dad mode's pad lockout and, inside dad mode, its sortie (dadmode.js)
+  if (typeof dadTick === "function") dadTick(dt);
   updateEjectControl();
   // The horn is silenced here too: carHornCan() is false while he is under the
   // canopy, and without this call the tones would keep sounding for the whole

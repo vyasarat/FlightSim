@@ -47,14 +47,14 @@ const btnWash = () => typeof toyWorld !== "undefined" && !!toyWorld.wash;
 const BUTTONS = {
   // ---- the two corners that are always there
   viewBtn:   { slot: "topRight1", when: () => true },
-  menuBtn:   { slot: "dashLeft",  when: () => !menuOpen() && !eject.active },
+  menuBtn:   { slot: "dashLeft",  when: () => !menuOpen() && !eject.active && !btnDad() },
   ejectBtn:  { slot: "dashRight", when: null },          // eject.js owns its own, and its modes
   hornBtn:   { slot: "dashRight2", when: () => carHornCan() },
 
   // ---- the speed control: js/speed.js decides WHICH of the three, this says when
-  fastBtn:   { slot: "topRight2", when: () => spdShows() && !spdUsesCycle() },
-  slowBtn:   { slot: "topRight3", when: () => spdShows() && !spdUsesCycle() },
-  speedBtn:  { slot: "topRight2", when: () => spdShows() && spdUsesCycle() },
+  fastBtn:   { slot: "topRight2", when: () => spdShows() && !spdUsesCycle() && !btnDad() },
+  slowBtn:   { slot: "topRight3", when: () => spdShows() && !spdUsesCycle() && !btnDad() },
+  speedBtn:  { slot: "topRight2", when: () => spdShows() && spdUsesCycle() && !btnDad() },
 
   // ---- the picker, and the go button, which share the top-left corner
   vehBtn:    { slot: "topLeft1", when: () => pickerCanOpen() && !btnWash() },
@@ -83,11 +83,21 @@ const BUTTONS = {
   cannonBtn:  { slot: "lowLeft",  when: () => boatCannonCan() },
   garageBtn:  { slot: "lowLeft",  when: () => !!state.vp.boat && yachtGarageCan() },
   lockBtn:    { slot: "lowLeft",  when: () => lockCanCycle() },
+
+  // ---- v147: DAD MODE's own (dadmode.js). False everywhere outside it, so nothing
+  // of dad mode ever shows in his game; inside it they take the slots his own
+  // buttons leave empty there (no throttle, no gear, no missile, no menu).
+  dadBombBtn:  { slot: "lowRight",  when: () => btnDad() && dadBombCan() },
+  dadFlareBtn: { slot: "lowLeft",   when: () => btnDad() && dadFlying() },
+  dadMslBtn:   { slot: "highLeft",  when: () => btnDad() && dadFlying() },
+  dadExitBtn:  { slot: "dashLeft",  when: () => btnDad() },
 };
 
 // ---- the predicates that were inline, kept verbatim ------------------------
 
 function btnRocket() { return !!(state.vp && state.vp.rocket) && !state.exploding; }
+// v147: in dad mode? Then none of his own flight buttons exist (speed, go, missile, menu).
+function btnDad() { return typeof dadActive === "function" && dadActive(); }
 
 // The speed pair's own test, lifted out of spdUpdateButtons so the table can
 // ask it without that function having to touch the DOM.
@@ -105,7 +115,7 @@ function spdShows() {
 // capsule); on everything else it is the "take me home" arrow, and it stays
 // away until he is properly en route.
 function btnSkipShows() {
-  if (state.exploding) return false;
+  if (state.exploding || btnDad()) return false;
   // `out`: floating about the station, where the go button means "back to the
   // capsule seat" rather than a destination. updateGoButton still owns the icon.
   if (state.vp.rocket) {
@@ -131,7 +141,7 @@ function btnThrottleShows() {
 }
 
 function btnMissileShows() {
-  if (btnWash()) return false;
+  if (btnWash() || btnDad()) return false;
   if (state.vp.rocket) return btnRocket() && typeof eventsWantMissile === "function" && eventsWantMissile();
   if (state.vp.bigBoat || state.vp.boat) return false;
   const onDeck = typeof carrierOnDeck === "function" && carrierOnDeck();
@@ -178,7 +188,7 @@ function btnUpdateAll() {
 // is looking at. `btnObstructions` is the geometric half that the declared half
 // cannot do.
 const BTN_HUD_OVERLAY = ["homeArrow", "rotateArrow", "glideGuide", "aimMarker",
-                         "heliTarget", "alarm", "wingman", "bigNum"];
+                         "heliTarget", "alarm", "wingman", "bigNum", "dadHud"];
 
 function btnVisibleRect(e) {
   const rs = btnDrawnRects(e);

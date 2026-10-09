@@ -574,7 +574,26 @@ const terrainMat = artPaint(new THREE.MeshPhongMaterial({
 // rule -- a lid painted by a second, similar-looking set of numbers would read
 // as a patch sewn onto the mountain the moment the snow line moved.
 const TER_HSPAN = TUNE.colorHighHeight - TUNE.colorLowHeight;
-function terrainColorAt(hy, wx, wz, out) {
+// v147: the valley's ground, from the palette: snow, and rock (slate) on any face
+// steeper than TUNE.valley.rockSlope -- the film's dark faces streaked with snow.
+const cVlRock = new THREE.Color(TUNE.palette.slate);
+const tmpVlColor = new THREE.Color();
+function vlSlopeAt(wx, wz) {
+  const h = terrainEff(wx, wz);
+  return Math.hypot(terrainEff(wx + 6, wz) - h, terrainEff(wx, wz + 6) - h) / 6;
+}
+// `slope` when the caller already knows it (buildChunk takes it off its own grid of
+// heights); otherwise it is measured, at three more samples of the ground
+function vlGroundColor(wx, wz, out, slope) {
+  const s = slope === undefined ? vlSlopeAt(wx, wz) : slope;
+  out.copy(cSnow);
+  // rock where it is steepest, in bands and outcrops (two noises), snow holding on the rest
+  const n = (valueNoise(wx / 55 + 3, wz / 55 + 5) - 0.5) * 1.1 + (valueNoise(wx / 160 + 9, wz / 23 + 1) - 0.5) * 0.9;
+  const rock = smoothstep(TUNE.valley.rockSlope * 0.8, TUNE.valley.rockSlope * 1.2, s + n);
+  if (rock > 0) out.lerp(cVlRock, rock * 0.72);   // dark grey, not black: readability over realism
+  return out;
+}
+function terrainColorAt(hy, wx, wz, out, slope) {
   const shoreLo = TUNE.waterLevel - 1.2, shoreHi = TUNE.waterLevel + 1.4;
   if (hy < shoreHi) {
     out.copy(cSand).multiplyScalar(hy < shoreLo ? 0.78 : lerp(0.85, 1.02, smoothstep(shoreLo, shoreHi, hy)));
@@ -584,6 +603,9 @@ function terrainColorAt(hy, wx, wz, out) {
     else out.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
   }
   if (mountainGauss(wz) > 0.3 && hy > 46) out.lerp(cSnow, smoothstep(46, 66, hy));
+  // v147: the valley (terrain.js) is snow with dark rock where it is too steep to hold any
+  const vw = vlWeight(wx, wz);
+  if (vw > 0) out.lerp(vlGroundColor(wx, wz, tmpVlColor, slope), vw);
   const ct = canyonT(wz);
   if (ct > 0.1) out.lerp(cRock, Math.min(0.9, ct * 1.6));
   const fm = farmMask(wz);
@@ -611,6 +633,26 @@ function buildChunk(cx, cz) {
     pos.setY(i, terrainEff(pos.getX(i) + ox, pos.getZ(i) + oz));
   }
 
+  // v147: in the valley the colour is taken at each grid CORNER, its slope off this
+  // chunk's own heights -- by the face, the 13 m grid cut a row of teeth into the foot
+  // of every wall, and sampling the ground again for each corner's slope made a valley
+  // chunk eighteen times the cost of any other. Nowhere else changes.
+  let vlCol = null, vlIdx = null, vlW = null;
+  if (vlCovers(ox, oz, cs)) {
+    const N = TUNE.chunkSegments + 1;
+    vlCol = new Float32Array(pos.count * 3);
+    vlW = new Float32Array(pos.count);
+    vlIdx = geo.index.array.slice();
+    for (let i = 0; i < pos.count; i++) {
+      const ix = i % N, iz = (i - ix) / N;
+      const a = ix > 0 ? i - 1 : i, b = ix < N - 1 ? i + 1 : i, c = iz > 0 ? i - N : i, d = iz < N - 1 ? i + N : i;
+      const sx = (pos.getY(b) - pos.getY(a)) / ((pos.getX(b) - pos.getX(a)) || 1);
+      const sz = (pos.getY(d) - pos.getY(c)) / ((pos.getZ(d) - pos.getZ(c)) || 1);
+      terrainColorAt(pos.getY(i), pos.getX(i) + ox, pos.getZ(i) + oz, tmpColor, Math.hypot(sx, sz));
+      vlW[i] = vlWeight(pos.getX(i) + ox, pos.getZ(i) + oz);
+      vlCol[i * 3] = tmpColor.r; vlCol[i * 3 + 1] = tmpColor.g; vlCol[i * 3 + 2] = tmpColor.b;
+    }
+  }
   const flat = geo.toNonIndexed();
   geo.dispose();
   const fp = flat.attributes.position;
@@ -619,10 +661,14 @@ function buildChunk(cx, cz) {
   for (let f = 0; f < fp.count; f += 3) {
     const hy = (fp.getY(f) + fp.getY(f + 1) + fp.getY(f + 2)) / 3;
     const wx = ox + fp.getX(f), wz = oz + fp.getZ(f);
-    terrainColorAt(hy, wx, wz, tmpColor);
-    layers[f] = layers[f + 1] = layers[f + 2] = artTerrainLayer(hy, wx, wz);
+    // the valley's weight at this face, off its corners when the chunk is the valley's
+    const fw = vlCol !== null ? (vlW[vlIdx[f]] + vlW[vlIdx[f + 1]] + vlW[vlIdx[f + 2]]) / 3 : 0;
+    if (fw <= 0) terrainColorAt(hy, wx, wz, tmpColor);
+    layers[f] = layers[f + 1] = layers[f + 2] = artTerrainLayer(hy, wx, wz, fw);
     const j = 1 + (hash2(Math.round(fp.getX(f)), Math.round(fp.getZ(f))) - 0.5) * 2 * TUNE.colorJitter;
+    const vlFace = fw > 0;
     for (let v = 0; v < 3; v++) {
+      if (vlFace) { const k = vlIdx[f + v] * 3; tmpColor.setRGB(vlCol[k], vlCol[k + 1], vlCol[k + 2]); }
       colors[(f + v) * 3] = tmpColor.r * j;
       colors[(f + v) * 3 + 1] = tmpColor.g * j;
       colors[(f + v) * 3 + 2] = tmpColor.b * j;
