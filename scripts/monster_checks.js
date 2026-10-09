@@ -295,17 +295,35 @@ module.exports = async function monsterChecks({ newPage, check }) {
       out.landCrush = { squashed: c.sq > 0.5, bangs: out.bangs - b0 };
     }
 
-    // ---- 13. a city car he drives at: knocked spinning
+    // ---- 13. a city car he drives at: knocked spinning. Deterministic (v151): it used to
+    // chase whichever car the stream left nearest, which drove off or stood behind a
+    // building often enough to fail one full run in three. Now: the random stream and the
+    // traffic set as they are for this check alone, ONE car standing (target speed 0) 25 m short of the far end
+    // of the longest straight New York street (108 m) with every other car off, and the truck 45 m behind it
+    // on the street's own line, which a street keeps clear of every solid. The city's cars
+    // are put back whole after, and the stream too.
     {
-      const k0 = L.flags.monKnocks || 0, b0 = out.bangs;
-      const ny = L.cities.ny; put(ny.ax + 200, ny.az + 200, ny.ax, ny.az); step(120, null);
-      const v = L.stTraffic.list.find(v => v.alive && !v.spin && v.wx !== undefined && Math.hypot(v.wx - S.x, v.wz - S.z) < 900 &&
-        Math.abs((L.stSurfaceAt(v.wx, v.wz) ?? 1e9) - L.terrainEff(v.wx, v.wz)) < 1.5);
-      if (v) {
-        put(v.wx + 30, v.wz + 30, v.wx, v.wz);
-        for (let i = 0; i < 60 * 6 && !v.spin; i++) { S.heading = Math.atan2(-(v.wx - S.x), -(v.wz - S.z)); step(1, 0, 0); }
+      const k0 = L.flags.monKnocks || 0, b0 = out.bangs, T = L.stTraffic, Rnd = Math.random;
+      let seed = 13; Math.random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+      const saved = T.list.map(v => ({ v, copy: Object.assign({}, v) }));
+      try {
+        const ny = L.cities.ny; put(ny.ax + 200, ny.az + 200, ny.ax, ny.az); step(30, null);
+        const road = L.streets.cities.ny.roads.filter(r => r.kind === "grid" && r.len >= 100).sort((a, b) => b.len - a.len)[0];
+        const v = road && T.list.find(q => q.type === 0);
+        if (v) {
+          T.list.forEach(q => { if (q !== v) { q.alive = false; q.respawn = 1e9; } });
+          Object.assign(v, { alive: true, city: "ny", spin: 0, sp: 0, speed: 0, hold: null, next: null, path: null, ps: 0, crossing: false,
+                             road, dir: 1, s: road.len - 25, respawn: 0 });
+          L.stDriveVehicle(v, 1e-6, null);
+          const tx = v.wx, tz = v.wz;
+          put(tx - v.hx * 45, tz - v.hz * 45, tx, tz);
+          for (let i = 0; i < 60 * 6 && !v.spin; i++) { S.heading = Math.atan2(-(tx - S.x), -(tz - S.z)); step(1, 0, 0); }
+          out.city = { found: true, road: road.id, len: Math.round(road.len), knocks: (L.flags.monKnocks || 0) - k0, bangs: out.bangs - b0, carMoved: +Math.hypot(v.wx - tx, v.wz - tz).toFixed(1) };
+        } else out.city = { found: false };
+      } finally {
+        Math.random = Rnd;
+        for (const o of saved) Object.assign(o.v, o.copy);
       }
-      out.city = { found: !!v, knocks: (L.flags.monKnocks || 0) - k0, bangs: out.bangs - b0 };
     }
 
     // ---- 14. under the low end of a motorway BRIDGE, from the field: it drives
@@ -413,7 +431,7 @@ module.exports = async function monsterChecks({ newPage, check }) {
   check("monster: in the monster truck in the arena nothing counts down, even nose-on to the launch site beyond it", r.noCount.counted === 0 && r.noCount.ls === "armed" && r.noCount.mt === "armed", J(r.noCount));
   check("monster: out of the arena, pointed at the launch site, he still sets it off (and not within seconds of a crush)", r.lsOut.started && r.lsOut.quietAfterCrush, J(r.lsOut));
   check("monster: landing a jump on a junk car squashes it -- never a bang", r.landCrush.squashed && r.landCrush.bangs === 0, J(r.landCrush));
-  check("monster: a city car it drives at is knocked spinning, never a bang", r.city.found && r.city.knocks >= 1 && r.city.bangs === 0, J(r.city));
+  check("monster: a city car standing in its path on a straight New York street is knocked spinning, never a bang", r.city.found && r.city.knocks >= 1 && r.city.bangs === 0, J(r.city));
   check("monster: under the low end of a motorway bridge, from the field, it drives under the deck -- never lifted on to it", r.underBridge.found && r.underBridge.under > 10 && r.underBridge.worst < 2 && r.underBridge.bangs === 0, J(r.underBridge));
   check("monster: a junk car flattened while the set-piece's show runs, then a vehicle change -- the show stands it back up", r.showJunk.flatNow && r.showJunk.phase === "armed" && r.showJunk.sq < 0.05, J(r.showJunk));
   check("monster: in a city street with a building behind him, the chase camera is never inside it -- it comes in over the cab", r.camPull && !r.camPull.inside && r.camPull.up > 8, J(r.camPull));

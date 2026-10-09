@@ -10,6 +10,30 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v151 — dad mode: the cannon, and six missiles
+
+Dad mode only; his game is unchanged. The F-35 has its cannon. A GUN button sits on the
+right, above the bomb's place, and the cannon fires while it is held (G on a keyboard).
+It has unlimited rounds and reaches about a kilometre. A bright stream of tracer leaves
+the nose, and where it lands it throws sparks and a kick of snow. Fire on a ridge gun
+adds up, and the gun goes after about a second of it; a SAM site takes two and a half
+seconds (`TUNE.dad.cannon`). The cannon hurts nothing else. On the bunker it only sparks:
+the bombs are still the only way in. There are now six missiles, kept for the SAM sites
+and the radar. The seeker takes a site, or the radar if it still stands, before a gun,
+and a gun only when nothing else is in its cone. A missile can now bring the radar down
+itself. The HUD reads `GUN ∞  BOMB  FLR  MSL`, and the briefing says what the gun is for.
+`dadmode_checks.js` proves it from a fixed vantage. A held burst brings a gun down in
+1.0 s and a SAM site in 2.5 s. Four seconds at the open sky and four at bare snow bring
+nothing down. Five seconds on the bunker spark off it and leave the hatch, the plant and
+the bunker as they were.
+
+Also a check fixed: `monster_checks.js`'s city car. It chased whichever car the random
+stream left nearest, and that car drove off, or stood behind a building. Over 16 streams
+the truck reached it only 6 or 7 times, on v149 and v150 alike, and it failed v150's full run. Now it resets the
+stream and the traffic, stands one car 25 m short of the end of New York's longest
+straight street with every other car off, and drives the truck at it from 45 m back
+along the street's own line. The car is knocked and nothing bangs, the same every run.
+
 ## v150 — the city's queue never builds a wall
 
 This fixes New York's one traffic touch: the hands-off loop at the slowest step met a bus at 59.6 s. It failed the same way on

@@ -90,6 +90,7 @@ const BUTTONS = {
   dadBombBtn:  { slot: "lowRight",  when: () => btnDad() && dadBombCan() },
   dadFlareBtn: { slot: "lowLeft",   when: () => btnDad() && dadFlying() },
   dadMslBtn:   { slot: "highLeft",  when: () => btnDad() && dadFlying() },
+  dadGunBtn:   { slot: "highRight", when: () => btnDad() && dadFlying() },   // v151: the cannon, held
   dadExitBtn:  { slot: "dashLeft",  when: () => btnDad() },
 };
 

@@ -2174,7 +2174,13 @@ const TUNE = {
             flakEvery: 0.45, flakSpread: 26, flakHit: 10, nearMiss: 45, exposedAgl: 70, scale: 3.2, ahead: 0.7,
             wallAt: 0.55 },   // dug into the wall face this far up its run, in sight of the floor
     siteScale: 2.2,
-    missiles: { count: 4, speed: 260, turnDeg: 60, life: 6, lockCone: 0.42, range: 2200, cooldown: 0.8 },
+    // his missiles: six, kept for the SAM sites and the radar (a gun only when nothing else is in the cone)
+    missiles: { count: 6, speed: 260, turnDeg: 60, life: 6, lockCone: 0.42, range: 2200, cooldown: 0.8 },
+    // v151: the F-35's cannon. Held, unlimited, short range. Rounds on a target add up: a gun
+    // goes after `kill.gun` seconds of fire on it, a SAM site after `kill.site`. It hurts
+    // nothing else -- the bunker only sparks (the bombs are the only way in).
+    cannon: { range: 1000, rof: 45, speed: 1100, spread: 0.005, muzzle: [2.4, 1.4],   // muzzle: metres left of and under the nose line
+               hitR: { gun: 9, site: 12 }, kill: { gun: 1.0, site: 2.5 } },
     bombs: { count: 4, range: 2600, armAgl: 60, steer: 34, life: 20, holdRateDeg: 7 },
     ventR: 1.5,                  // the vent's hit radius: "a target three metres wide"
     cruiseMissiles: { count: 5, speed: 280, alt: 420, delay: 1.2, gap: 0.5, at: 0.4 },   // `at`: their target, this fraction of the way up the valley

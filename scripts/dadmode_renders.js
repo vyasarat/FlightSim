@@ -141,6 +141,42 @@ async function render(root) {
   i = await advance("m.card", 40);
   for (let k = 0; k < 2; k++) await page.evaluate(() => window.__paint());
   await shot(page, out, "14-results", { ...i, note: "the results card" });
+  // v151: strafing a ridge gun with the cannon -- a fresh sortie, the jet put 750 m off a gun
+  // with its nose on it, flown at it with the trigger held; from the seat, from behind, and the kill
+  const strafe = (secs) => page.evaluate((secs) => {
+    const L = window.__lp, S = L.state, W = L.dad.world, m = L.dad.m, g = window.__strafeGun;
+    for (let k = 0; k < 60 * secs; k++) {
+      const dx = g.x - S.x, dy = g.y + 2 - S.y, dz = g.z - S.z, d = Math.hypot(dx, dy, dz);
+      S.heading = Math.atan2(-dx, -dz); S.pitch = Math.asin(dy / d) * 180 / Math.PI; S.bank = 0; m.lastFwd = null;
+      m.gunHeld = true; m.flares = 8; L.api.clearStick(); L.update(1 / 60);
+    }
+    return { alive: g.alive, cannonT: +(g.cannonT || 0).toFixed(2), hit: m.cannonHit, d: Math.round(Math.hypot(g.x - S.x, g.y - S.y, g.z - S.z)), rounds: m.cannonRounds };
+  }, secs);
+  await page.evaluate(() => {
+    const L = window.__lp, S = L.state, W = L.dad.world;
+    L.dadStart();
+    for (const g of W.guns) {
+      for (const up of [50, 80, 120]) {
+        const x = g.x + 430, z = (L.vlCenterZ(x) + g.z) / 2, y = Math.max(g.y + up, L.terrainEff(x, z) + 40);
+        if (Math.hypot(x - g.x, y - g.y, z - g.z) < 560 && window.dadLos(g.x, g.y, g.z, x, y, z)) { window.__strafeGun = g; S.x = x; S.y = y; S.z = z; S.speed = 150; return; }
+      }
+    }
+  });
+  let st = await strafe(0.55);
+  await paintView(false);
+  await shot(page, out, "16-strafe-cockpit", { ...st, note: "v151: strafing a ridge gun from 430 m, from the seat -- the cannon's stream off the nose, sparks and snow kicked up on the gun" });
+  await paintView(true);
+  await shot(page, out, "16b-strafe-chase", { ...st, note: "v151: the same pass from behind" });
+  st = await strafe(0.2);
+  await vantage(`const g = window.__strafeGun, dx = S.x - g.x, dz = S.z - g.z, dl = Math.hypot(dx, dz) || 1; cam.up.set(0,1,0);
+    const px = g.x + dx / dl * 55 - dz / dl * 35, pz = g.z + dz / dl * 55 + dx / dl * 35;
+    cam.position.set(px, Math.max(g.y + 18, L.terrainEff(px, pz) + 6), pz); cam.lookAt(g.x, g.y + 2, g.z);`);
+  await shot(page, out, "16d-strafe-impact", { ...st, note: "v151: the impact up close, 0.75 s in -- his white-hot rounds landing on the gun, sparks and the flash" });
+  st = await strafe(0.4);
+  await page.evaluate(() => { const L = window.__lp; L.dad.m.gunHeld = false; for (let k = 0; k < 8; k++) L.update(1 / 60); });
+  await paintView(true);
+  await shot(page, out, "16c-strafe-kill", { ...st, note: "v151: the gun goes -- a second of fire on it, its blast and its ruin" });
+  await page.evaluate(() => { window.__lp.dad.m.gunHeld = false; });
   // a failure card, too: a fresh sortie flown into the first wall hands-off
   await page.evaluate(() => { const L = window.__lp; L.dadStart(); L.api.clearStick(); for (let k = 0; k < 60 * 8 && !L.dad.m.card; k++) L.update(1 / 60); for (let k = 0; k < 2; k++) window.__paint(); });
   await shot(page, out, "15-results-fail", { note: "a crash: the failure card" });
