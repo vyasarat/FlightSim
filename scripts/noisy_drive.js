@@ -26,7 +26,7 @@
 // time he leaves the road. The verdict is the log: an unintended turn, a
 // missed turn, a bang.
 //
-//   node scripts/noisy_drive.js [seconds=300] [seed=1] [root]
+//   [NOISY_VEH=cybertruck] node scripts/noisy_drive.js [seconds=300] [seed=1] [root]
 // or, from the harness: require("./noisy_drive")({ newPage, check }).
 const fs = require("fs"), path = require("path");
 
@@ -44,7 +44,7 @@ function install() {
   L.noRender = true;
   window.__nd = {
     setup(where) {
-      L.api.skipScreens(); L.api.setVehicle("car"); L.api.spawnAt(0, 0);
+      L.api.skipScreens(); L.api.setVehicle(window.__ndVeh || "car"); L.api.spawnAt(0, 0);   // NOISY_VEH=cybertruck (v146) drives it in the Cybertruck
       for (let i = 0; i < 10; i++) L.update(1 / 60);
       L.spdReset(); L.api.setView(false);
       const rec = L.streets.cities.ny.ramps.inFar, g = rec.gantry, c = g.c;
@@ -179,6 +179,7 @@ function makeHand(rand, geo) {
 }
 
 async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
+  await page.evaluate((v) => { window.__ndVeh = v; }, process.env.NOISY_VEH || "car");
   await page.evaluate(install);
   const cdp = await page.context().newCDPSession(page);
   const geo = await page.evaluate(() => window.__nd.setup(800));

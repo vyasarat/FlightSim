@@ -281,6 +281,12 @@ const TUNE = {
   // out pointing the wrong way.
   models: {
     car:     { file: "models/car.glb",     length: 9.2,  yaw: Math.PI, lift: 0, smooth: true },   // tail-first; `smooth`: rebuild normals after decimation
+    // v146: the Cybertruck. At the Model Y's own scale (its 5.68 m against the Y's
+    // 4.75 m), so it is the bigger of the two the way it is on a real road. Not
+    // `smooth`: it is faceted by design, and rebuilt normals would round its creases.
+    // `cabinLift`: the driving seat's cabin rises with the eye, which is eyeFrac of the
+    // body's measured height -- 3.65 m against the Y's 3.18, so 0.72 * 0.47 = 0.34 m.
+    cybertruck: { file: "models/cybertruck.glb", length: 11.0, yaw: Math.PI, lift: 0, cabinLift: 0.34 },   // nose-at-+Z in the source
     fighter: { file: "models/fighter.glb", length: 16.0, yaw: Math.PI, lift: 0, burner: true },   // tail-first; `burner`: find the nozzle and light it
     // The two hulls (scripts/build_boats.js). `lift` sits the waterline where
     // the game's waterline is: an imported hull stands on its keel, and the game
@@ -1195,8 +1201,8 @@ const TUNE = {
   // (landMax*) says what counts as arriving and everything else is a crash.
   // The car's and the boat's crawls are their old crash speeds, unchanged.
   solid: {
-    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12 },
-    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99 },   // the monster never bangs at any speed
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, cybertruck: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, cybertruck: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99 },   // the monster never bangs at any speed
     // v145: the wrecking-ball crane (crane.js) never moves: parked on its lot for good, it
     // is not solid (its contract's solid() is false) and nothing can drive into it. Its
     // radius is its tracks' half-length, and its crawl is "never a bang, at any speed".
@@ -2083,6 +2089,9 @@ const TUNE = {
       // glass at 5.9. Without an entry here ejectStart simply returned false and
       // the button did nothing at all.
       car: { opening: 1, hatch: 'panel', seat: 'rocket', front: 0.4, roof: 5.9, color: 0xe0483e },
+      // v146: the Cybertruck ejects as the car does, through its own taller roof:
+      // 2.6 m of origin under the road, the body's measured 3.66 m, and the same clearance.
+      cybertruck: { opening: 1, hatch: 'panel', seat: 'rocket', front: 0.4, roof: 6.4, color: 0xe0483e },
       // And the boat, for the same reason the car needed an entry: without one
       // `ejectStart` returns false and the button sits there doing nothing.
       // `roof` is measured from the MODEL's origin, which for a boat sits a
@@ -2103,6 +2112,7 @@ const TUNE = {
     airlinerEmirates: { cruiseSpeed: 54, turnRateDeg: 9, pitchLimitDeg: 25, bankLimitDeg: 38, accel: 12, capped: true, size: 1.85, hasGear: true },
     fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
     car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true },  // its own model: TUNE.car
+    cybertruck:       { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true, cybertruck: true },  // v146: drives AS the car (car.js, TUNE.car); only its body is its own
     monster:          { cruiseSpeed: 24, turnRateDeg: 70, pitchLimitDeg: 40, bankLimitDeg: 8, accel: 9, capped: true, size: 1.0, hasGear: false, monster: true },  // its own model and rules: TUNE.monster
     sled:             { cruiseSpeed: 120, turnRateDeg: 0, pitchLimitDeg: 0, bankLimitDeg: 0, accel: 40, capped: true, size: 1.0, hasGear: false, sledRide: true },  // v144: the set-piece's rail and run (sledride.js, TUNE.sledRide)
     crane:            { cruiseSpeed: 1, turnRateDeg: 34, pitchLimitDeg: 0, bankLimitDeg: 0, accel: 0, capped: true, size: 1.0, hasGear: false, crane: true },  // v145: parked for good; its own rules (crane.js, TUNE.crane); cruiseSpeed is nominal, it never moves
@@ -2116,6 +2126,7 @@ const TUNE = {
     prop:             ["#e0483e", "#f2f4f7"],
     helicopter:       ["#20a39e", "#f2f4f7"],
     car:              ["#4a4f55", "#c9ced6"],   // stealth grey; no badge, no wordmark
+    cybertruck:       ["#8a93a0", "#c9ced6"],   // v146: brushed steel; no badge, no wordmark
     monster:          ["#2b6fd1", "#ffd23e"],   // the set-piece truck's blue and yellow
     sled:             ["#e0483e", "#ffd23e"],   // the set-piece sled's red and yellow
     crane:            ["#ffd23e", "#1f2328"],   // the crane's yellow and its ball's black

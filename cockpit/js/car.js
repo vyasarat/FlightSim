@@ -1137,7 +1137,14 @@ function carCamera(dt) {
     camera.rotation.set(-0.05, state.heading, -state.bank * DEG * 0.25);
     const cab = carBuildCabin();
     cab.visible = true;
-    cab.position.set(state.x, state.y, state.z);
+    // The cabin rises with the eye on a taller body (v146: the Cybertruck), so he
+    // sits in it exactly as he sits in the SUV -- the eye is a fraction of the
+    // body's height, and the dash, pillars and roof are written in metres. Only
+    // once its own body has arrived: until then he is in the SUV's built stand-in,
+    // and his eye is at the SUV's height.
+    const ownBody = vehicleModel && vehicleModel.userData.imported === state.vehicleKey;
+    const lift = (ownBody && TUNE.models[state.vehicleKey] && TUNE.models[state.vehicleKey].cabinLift) || 0;
+    cab.position.set(state.x, state.y + lift, state.z);
     cab.rotation.y = state.heading;
     // the wheel shows him what his finger just did
     if (car.cabinWheel) car.cabinWheel.rotation.z = -(car.steer / CAR.steerRate) * CAR.wheelLock * DEG * K.wheelTurn;

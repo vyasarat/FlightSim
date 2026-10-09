@@ -92,7 +92,7 @@ function buildVehicleModel(key) {
     vehicleModel = vehTagPlayer(g);
     return;
   }
-  if (key === "car") {
+  if (TUNE.vehicles[key] && TUNE.vehicles[key].car) {   // the SUV, and the Cybertruck (v146) until its own body arrives
     const g = buildCarModel();
     g.visible = state.viewChase;
     castsShadow(g);

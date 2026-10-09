@@ -44,6 +44,7 @@ function vehKind() {
   if (vp.monster) return "monster";      // v141: its own rules, not the car's
   if (vp.sledRide) return "sled";        // v144: the set-piece's rail, ridden (sledride.js)
   if (vp.crane) return "crane";          // v145: the wrecking-ball crane, parked for good (crane.js)
+  if (vp.cybertruck) return "cybertruck";   // v146: a car (vp.car is true): ask first
   if (vp.car) return "car";
   if (vp.heli) return "heli";
   return "plane";                        // prop, fighter, the airliners
@@ -76,6 +77,11 @@ function vehKind() {
 //                   writes `safePos`, which only the AEROPLANE reads, so a car
 //                   doing its own is the difference between coming back on the
 //                   road and coming back wherever the last aeroplane crashed.
+//
+//   carLike         he is driving a car: car.js runs it, and every promise the
+//                   road makes the car -- the police, the signals, a set-piece
+//                   seen from the road -- it makes this one. Asked by vehIsCar(),
+//                   never by comparing vehKind() with "car".
 //
 //   solidClass      which SOLID class he is (solids.js): what may block him. His
 //                   radius and his crawl speed are TUNE.solid.r / .crawl, by kind.
@@ -110,6 +116,21 @@ const VEHICLE_CONTRACT = {
     reassemble: null,
   },
   car: {
+    carLike: true,
+    solidClass: SOLID.CAR,
+    solid: () => true,
+    wallHit: (push) => carWallHit(push),
+    update: (dt) => updateCar(dt),
+    camera: (dt) => carCamera(dt),
+    parked: () => state.speed === 0,
+    reassemble: () => carReassemble(),
+  },
+  // v146: the Cybertruck. A second body on the car, not a second car: car.js
+  // drives it -- lane-keep, the turn rule, speed steps, the roads and both
+  // cities -- and every slot here is the car's own function. Only the model
+  // (TUNE.models.cybertruck) and its eject seat are its own.
+  cybertruck: {
+    carLike: true,
     solidClass: SOLID.CAR,
     solid: () => true,
     wallHit: (push) => carWallHit(push),
@@ -253,6 +274,10 @@ function vehWallHit(push, hit) {
   const fn = vehSlot("wallHit");
   return fn ? !!fn(push, hit) : false;
 }
+
+// Is he driving a car -- the SUV or the Cybertruck? The honest form of
+// `vehKind() === "car"`, which a second car would silently fail.
+function vehIsCar() { return !!vehSlot("carLike"); }
 
 // The three numbers the one wall law reads (solids.js, collision.js).
 function vehSolidClass() { return vehSlot("solidClass") || SOLID.AIR; }

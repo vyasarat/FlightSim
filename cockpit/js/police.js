@@ -133,10 +133,10 @@ function plPaint(key) {
 // free on the road, and they are behind him again with the sirens still going.
 // Only climbing out of the car ends it that way.
 function policeCan() {
-  return typeof vehKind === "function" && vehKind() === "car" && !state.exploding;
+  return typeof vehIsCar === "function" && vehIsCar() && !state.exploding;
 }
 function policeHolds() {
-  return typeof vehKind === "function" && vehKind() === "car";
+  return typeof vehIsCar === "function" && vehIsCar();
 }
 
 function policeStart(fromJunction) {

@@ -155,7 +155,7 @@ function engTryLoad(key) {
 const ENG_KEY = {
   prop: "prop", fighter: "jet",
   airlinerDelta: "airliner", airlinerEmirates: "airliner",
-  helicopter: "heli", car: "car", monster: "car", speedboat: "boat", yacht: "yacht",
+  helicopter: "heli", car: "car", cybertruck: "car", monster: "car", speedboat: "boat", yacht: "yacht",
 };
 function engKeyFor() {
   // The rocket's modes are not engines with a throttle curve: the rover, the

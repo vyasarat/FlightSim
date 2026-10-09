@@ -5,7 +5,7 @@
 // one full ride in EACH camera view. Every scenario counts bangs frame by frame
 // (state.exploding transitions) and reads every flag as a DELTA.
 //
-//   a. the card: there, visible, no text; the picker has 14 cards (13 in v144; the crane's joined it in v145);
+//   a. the card: there, visible, no text; the picker has 15 cards (13 in v144; the crane's joined it in v145, the Cybertruck's in v146);
 //   b. picked, he is on the sled at the start tower, the set-piece's own sled hidden,
 //      and the set-piece does NOT arm off his pointing (only his go starts it);
 //   c. go: the lamps and 3-2-1, then the run -- ~120 m/s, on the rail;
@@ -53,8 +53,8 @@ module.exports = async function sledRideChecks({ newPage, check }) {
     if (was) sv.classList.add("hiddenS");
     return out;
   });
-  check("sled ride: a card in the picker, an icon only (no text, no label words), and the picker now has 14 cards (v145: the crane's card joined it -- a deliberate count)",
-    card.exists && card.visible && card.text === "" && card.words.length === 0 && card.svgText === 0 && card.icon && card.cards === 14, J(card));
+  check("sled ride: a card in the picker, an icon only (no text, no label words), and the picker now has 15 cards (v145: the crane's card joined it; v146: the Cybertruck's -- deliberate counts)",
+    card.exists && card.visible && card.text === "" && card.words.length === 0 && card.svgText === 0 && card.icon && card.cards === 15, J(card));
 
   // ---- b-f, h, i. one full ride per view
   // burstAt: seconds into the run to drag up (both rides burst: the chase early, the seat

@@ -10,6 +10,30 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v146 — the Cybertruck
+
+**What he gets:** a new card in the picker, right next to the car: the
+Cybertruck, a steel wedge with a light bar across its nose. It drives exactly
+like the car, because it *is* the car underneath: the same finger, the same
+lane-keep coast to coast, the same speed steps, the same turns in both cities,
+the same police and traffic lights, the same horn and the same eject. Only the
+body is new. It is bigger than the SUV, as it is on a real road, and from the
+driving seat he sits higher; the dashboard, wheel and screen are where they
+always are.
+
+**How:** a row in the vehicle contract that calls the car's own functions, not
+a copy of `car.js`. The places that asked "is he in the car?" by comparing the
+vehicle's name now ask `vehIsCar()`, so the police, the signals and the
+set-pieces seen from the road treat both the same. The model is a CC BY 4.0
+Sketchfab download (credited below), built by `scripts/build_models.js` to
+6,038 triangles and 80 KB (the SUV is 1.4 MB). Its materials had no names, so
+each was identified from a render and mapped by hand. It has no lettering, badge
+or logo: the file has no textures, and its smallest pieces are door handles,
+lamps and rim spokes. The bed cover was dark glass and made the truck a black
+box from the chase camera, so it is steel. A new check module drives the car
+and the Cybertruck through the same inputs on two fresh pages and gets the same
+path to the millimetre.
+
 ## v145 — the wrecking-ball crane
 
 **What he gets:** a new card in the picker, the giant yellow crane. Picked, he
@@ -1781,6 +1805,9 @@ processed as described above:
 - "Emirates Boeing 777-200" by OUTPISTON (sketchfab.com/outpiston),
   CC BY-NC-SA 4.0, via Sketchfab —
   https://sketchfab.com/3d-models/emirates-boeing-777-200-2ec71115e5d94f48ba5ac1933d54ec8d
+- "Tesla Cybertruck" by Lexyc16 (sketchfab.com/Lexyc16), CC BY 4.0, via
+  Sketchfab (v146) —
+  https://sketchfab.com/3d-models/tesla-cybertruck-f12e67159f75486bb21213e573520612
 
 Three of the four are **CC BY-NC 4.0** — attribution *and* non-commercial — which is what the
 `asset.extras` block inside each GLB records, not the plain CC BY they were taken

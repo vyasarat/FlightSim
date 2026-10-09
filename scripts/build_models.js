@@ -57,9 +57,20 @@ function classify(name, mat) {
   return "body";
 }
 
+// The Cybertruck's own paint. Brushed stainless is LIGHT and nearly flat: the
+// Model Y's metalness rule holds (no environment map), and the base sits well
+// above the stealth grey so the two cars are told apart from the chase camera.
+// Its glass is OPAQUE: the source has no cabin behind it, and a see-through pane
+// over an empty shell reads as a hole. Its rims are aero covers, a mid grey.
+const CYBER_PALETTE = {
+  body: { base: [0.600, 0.615, 0.635, 1], metallic: 0.10, roughness: 0.50 },
+  tint: { base: [0.070, 0.082, 0.100, 1], metallic: 0.0, roughness: 0.12 },
+  rim:  { base: [0.300, 0.315, 0.335, 1], metallic: 0.10, roughness: 0.55 },
+};
+
 async function build(name, targetTris, opts = {}) {
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
-  const inPath = path.join(SRC, `${name}.src.glb`);
+  const inPath = path.join(SRC, opts.src || `${name}.src.glb`);
   const outPath = path.join(OUT, `${name}.glb`);
   const doc = await io.read(inPath);
   const root = doc.getRoot();
@@ -75,16 +86,60 @@ async function build(name, targetTris, opts = {}) {
   const before = { tris: countTris(), bytes: fs.statSync(inPath).size,
                    mats: root.listMaterials().length, tex: root.listTextures().length };
 
+  // ---- 0. regions: triangles of one source material that belong in another
+  // bucket, picked by where they sit (source world space, centroid). Split off
+  // into a material of their own, which `opts.materials` then maps.
+  for (const rule of opts.regions || []) {
+    const moved = doc.createMaterial(rule.name);
+    let n = 0;
+    for (const node of root.listNodes()) {
+      const mesh = node.getMesh(); if (!mesh) continue;
+      const M = node.getWorldMatrix();
+      for (const prim of mesh.listPrimitives()) {
+        const mat = prim.getMaterial(); if (!mat || mat.getName() !== rule.from) continue;
+        const pos = prim.getAttribute("POSITION"), idx = prim.getIndices(); if (!idx) continue;
+        const keep = [], take = [], v = [0, 0, 0], c = [0, 0, 0];
+        for (let t = 0; t < idx.getCount(); t += 3) {
+          c[0] = c[1] = c[2] = 0;
+          for (let j = 0; j < 3; j++) {
+            pos.getElement(idx.getScalar(t + j), v);
+            for (let r = 0; r < 3; r++) c[r] += (M[r] * v[0] + M[4 + r] * v[1] + M[8 + r] * v[2] + M[12 + r]) / 3;
+          }
+          (rule.test(c[0], c[1], c[2]) ? take : keep).push(idx.getScalar(t), idx.getScalar(t + 1), idx.getScalar(t + 2));
+        }
+        if (!take.length) continue;
+        n += take.length / 3;
+        const mk = (a) => doc.createAccessor().setType("SCALAR").setArray(new Uint32Array(a)).setBuffer(idx.getBuffer());
+        prim.setIndices(mk(keep));
+        const twin = prim.clone().setIndices(mk(take)).setMaterial(moved);
+        mesh.addPrimitive(twin);
+      }
+    }
+    console.log(`  region ${rule.name}: ${n} triangles out of ${rule.from}`);
+    if (!n) throw new Error(`${name}: region ${rule.name} matched nothing`);
+  }
+
   // ---- 1. bake every material down to the small palette, BEFORE simplifying:
   // fewer materials means fewer primitives, which means `join` can merge them
   // and the simplifier gets whole surfaces instead of islands.
+  //
+  // `opts.materials` names the bucket for each source material outright, for a
+  // model whose materials are called "Material.004" and so tell `classify`
+  // nothing; one it does not name is an error, never quietly body.
+  const kindOf = (mat) => {
+    if (!opts.materials) return classify(mat && mat.getName(), mat);
+    const k = mat && opts.materials[mat.getName()];
+    if (!k) throw new Error(`${name}: source material "${mat && mat.getName()}" is not in its map`);
+    return k;
+  };
+  const pal = { ...PALETTE, ...(opts.palette || {}) };
   const buckets = new Map();
   const report = {};
   for (const mat of root.listMaterials()) {
-    const kind = classify(mat.getName(), mat);
+    const kind = kindOf(mat);
     report[kind] = (report[kind] || 0) + 1;
     if (!buckets.has(kind)) {
-      const spec = PALETTE[kind];
+      const spec = pal[kind];
       const nm = doc.createMaterial(kind)
         .setBaseColorFactor(spec.base)
         .setMetallicFactor(spec.metallic)
@@ -97,7 +152,7 @@ async function build(name, targetTris, opts = {}) {
   }
   for (const m of root.listMeshes()) for (const p of m.listPrimitives()) {
     const old = p.getMaterial();
-    p.setMaterial(buckets.get(classify(old && old.getName(), old)) || buckets.get("body"));
+    p.setMaterial(buckets.get(kindOf(old)) || buckets.get("body"));
   }
   // every original material, and every texture with it, is now unreferenced
   for (const mat of root.listMaterials()) if (![...buckets.values()].includes(mat)) mat.dispose();
@@ -247,6 +302,27 @@ async function buildLivery(srcFile, outName, targetTris, opts = {}) {
   const carError = +(process.env.CAR_ERROR || 0.001);
   if (!only || only === "car") await build("car", carTris, { error: carError });
   if (!only || only === "fighter") await build("fighter", 22000, { stripAttrs: true, weld: 0.001 });
+  // v146: the Cybertruck. A 7.4k-triangle source, and 5.8k of that is tyre
+  // tread; the body is 251 flat facets the simplifier must leave alone. So the
+  // fighter's path -- normals stripped, faceted is the whole look -- with a tight
+  // error bound that takes the tread down and cannot move a crease. Its eight
+  // materials are named "Material".."Material.007", so they are mapped by hand
+  // from a render with each one painted its own colour. NO LETTERING: the file
+  // has no textures, and none of its pieces is a word -- the smallest are the
+  // door handles, the charge-port door, rim spokes and lamps (rendered close).
+  if (!only || only === "cybertruck") await build("cybertruck", 4500, {
+    src: "tesla_cybertruck.glb", stripAttrs: true, weld: 0.0005, error: 0.002, palette: CYBER_PALETTE,
+    // The bed's cover is in the same dark gloss as the glass, and from the chase
+    // camera -- behind and above, where he sees it most -- that turned the whole
+    // truck into a black box. Readability beats realism: the cover is steel, and
+    // its dark rails (Material.003) still edge it. It is the one piece of
+    // Material.002 behind the cabin (z < 0.2) and above the tail (y > 1.0).
+    regions: [{ name: "cover", from: "Material.002", test: (x, y, z) => z < 0.2 && y > 1.0 }],
+    materials: {
+      "cover": "body", "Material": "body", "Material.001": "tint", "Material.002": "tint", "Material.003": "trim",
+      "Material.004": "lamp", "Material.005": "tail", "Material.006": "tyre", "Material.007": "rim",
+    },
+  });
   // The two airliners: livery kept, hierarchy kept, textures paid for.
   if (!only || only === "airlinerDelta")
     await buildLivery("delta_airlines_airbus_a350-900.glb", "airliner-delta", 20000, { tex: 1024 });

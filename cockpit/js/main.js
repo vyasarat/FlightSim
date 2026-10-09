@@ -214,7 +214,7 @@ window.__lp = {
   lights, LT, ltBuild, ltUpdate, ltAhead, ltNearest, ltJunctionCount, ltStateOf, ltForce, ltAspect, ltHighwayStop,
   police, PL, updatePolice, policeStart, policeStop, policeState, policeCan, policeHolds,
   carHornCan, carHornPress, carHornRelease, carUpdateHorn, carHornVoices, setCarHorn, carCrash,
-  vehKind, vehSlot, vehUpdate, vehCamera, vehParked, vehReassemble, vehSolid, vehWallHit, VEHICLE_CONTRACT,
+  vehKind, vehIsCar, vehSlot, vehUpdate, vehCamera, vehParked, vehReassemble, vehSolid, vehWallHit, VEHICLE_CONTRACT,
   BUTTONS, btnUpdateAll, btnSlotClashes, btnObstructions,
   spdKey, spdStepsFor, spdIndex, spdMul, spdNudge, spdCycle, spdUsesCycle, spdReset, spdUpdateButtons,
   openPicker, openPickerAnywhere, pickerCanOpen, menuOpen,

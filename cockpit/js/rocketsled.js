@@ -542,7 +542,7 @@ function sledAimed() {
   // and where the payoff lands
   const dx = w.x - state.x, dz = w.z - state.z, dy = w.y - state.y;
   const d = Math.hypot(dx, dy, dz), dh = Math.hypot(dx, dz);
-  const R = typeof vehKind === "function" && vehKind() === "car" ? T.carView + Math.abs(state.speed) * sledToWall() : T.armR;
+  const R = typeof vehIsCar === "function" && vehIsCar() ? T.carView + Math.abs(state.speed) * sledToWall() : T.armR;
   if (d > R || dh < T.innerR) return false;
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   return (dx * fx + dz * fz) / dh > Math.cos(T.coneDeg * DEG);
