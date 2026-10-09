@@ -132,6 +132,7 @@ function placeLandmark(cellX, cellZ) {
   if (typeof lsCovers === "function" && lsCovers(lx, lz, 220)) return null;
   if (typeof sledCovers === "function" && sledCovers(lx, lz, 220)) return null;
   if (typeof mtCovers === "function" && mtCovers(lx, lz, 220)) return null;
+  if (typeof vlCovers === "function" && vlCovers(lx, lz, 220)) return null;   // valley.js (v147): no mast or bridge in the valley
   if (flattenMask(lx - 190, lz) > 0 || flattenMask(lx + 190, lz) > 0 || flattenMask(lx, lz - 190) > 0 || flattenMask(lx, lz + 190) > 0) return null;   // never across an airport pad
   const proto = isTower ? towerProto : bridgeProto;
   const inst = proto.clone();
@@ -219,6 +220,7 @@ function rebuildTrees(px, pz) {
         if (typeof sledCovers === "function" && sledCovers(wx, wz, 4)) continue;   // rocketsled.js: the rail and the bricks' field
         if (typeof mtCovers === "function" && mtCovers(wx, wz, 4)) continue;
         if (typeof crCovers === "function" && crCovers(wx, wz, 4)) continue;   // crane.js: only while he is in the crane
+        if (typeof vlCovers === "function" && vlCovers(wx, wz, 4)) continue;   // valley.js (v147): its own pines, on snow
         // a city street's outer half runs past the edge of its blocks (streets.js)
         if (typeof stNearStreet === "function" && stNearStreet(wx, wz, 4)) continue;
         const gy = terrainEff(wx, wz);
@@ -276,6 +278,7 @@ function rebuildBuildings(px, pz) {
       if (typeof lsCovers === "function" && lsCovers(tcx, tcz, 60)) continue;
       if (typeof sledCovers === "function" && sledCovers(tcx, tcz, 60)) continue;
       if (typeof mtCovers === "function" && mtCovers(tcx, tcz, 60)) continue;
+      if (typeof vlCovers === "function" && vlCovers(tcx, tcz, 60)) continue;   // valley.js (v147)
       const n = TUNE.townBuildingsMin + Math.floor(hashSalt(cx, cz, 64) * (TUNE.townBuildingsMax - TUNE.townBuildingsMin + 1));
       for (let k = 0; k < n; k++) {
         if (bi >= TUNE.buildingMaxInstances) break;
@@ -289,6 +292,7 @@ function rebuildBuildings(px, pz) {
         if (typeof sledCovers === "function" && sledCovers(wx, wz, 16)) continue;
         if (typeof mtCovers === "function" && mtCovers(wx, wz, 16)) continue;
         if (typeof crCovers === "function" && crCovers(wx, wz, 16)) continue;   // crane.js: only while he is in the crane
+        if (typeof vlCovers === "function" && vlCovers(wx, wz, 16)) continue;   // valley.js (v147): no town in the mountains
         if (Math.abs(wx - TRAIN_X) < 14) continue;   // nothing stands on the freight line either
         const gy = terrainEff(wx, wz);
         if (gy < TUNE.waterLevel + 1.8) continue;

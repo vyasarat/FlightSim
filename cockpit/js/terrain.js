@@ -150,6 +150,113 @@ function harborHeight(x, z, h) {
   return h;
 }
 
+// ---------------------------------------------------------------------------
+// v147: THE VALLEY. A winding snow valley cut west through the mountain range,
+// ending in a bowl between needles of rock (TUNE.valley; valley.js furnishes it,
+// dadmode.js flies a mission down it). Part of the ground for everyone, so it is
+// shaped HERE, inside shapedTerrain, and every reader of the ground agrees.
+//
+// Two passes, in order, for the same reason as the harbour's: RAISE the massif out
+// of the range, THEN cut the valley and the bowl back down through it. The cut
+// reaches a little further east than the massif so the mouth is a notch through
+// the old spine rather than a wall across it. All of it lies west of x = -1650:
+// the motorway crosses the range at x = 240 and the railway at 460.
+function vlCenterZ(x) {
+  const V = TUNE.valley;
+  let z = V.zc;
+  for (const w of V.wind) z += w[0] * Math.sin(2 * Math.PI * (V.x0 - x) / w[1] + w[2]);
+  return z;
+}
+// dz/dx of the centreline: the valley's bearing at x
+function vlCenterSlope(x) {
+  const V = TUNE.valley;
+  let s = 0;
+  for (const w of V.wind) s -= w[0] * (2 * Math.PI / w[1]) * Math.cos(2 * Math.PI * (V.x0 - x) / w[1] + w[2]);
+  return s;
+}
+function vlFloorY(x) {
+  const V = TUNE.valley;
+  return lerp(V.floorY[0], V.floorY[1], clamp((V.x0 - x) / (V.x0 - V.xb), 0, 1));
+}
+let vlBowlAt = null;   // the bowl never moves: worked out once
+function vlBowlCentre() { if (!vlBowlAt) vlBowlAt = { x: TUNE.valley.xb, z: vlCenterZ(TUNE.valley.xb) }; return vlBowlAt; }
+// The massif's own weight: up out of the range east of x0, down again past the bowl,
+// and fading out north and south of the spine.
+function vlMassifW(x, z) {
+  const V = TUNE.valley;
+  const wE = smoothstep(V.x0 + 200, V.x0 - V.rampX + 200, x);
+  const xw = V.xb - V.westPad;
+  const wW = 1 - smoothstep(xw, xw - V.rampX, x);
+  const wZ = 1 - smoothstep(V.halfZ * 0.9, V.halfZ * 1.05, Math.abs(z - V.zc));
+  return wE * wW * wZ;
+}
+// 0 on the valley's floor (and the bowl's), 1 past the top of its walls
+function vlCutProfile(x, z) {
+  const V = TUNE.valley;
+  let c = 1;
+  if (x > V.xb) {
+    const d = (z - vlCenterZ(x)) / Math.sqrt(1 + Math.pow(vlCenterSlope(x), 2));
+    const wob = V.wallWobble * (valueNoise(x / 230 + 5.3, z / 230 + 9.1) * 2 - 1);
+    const half = V.floorHalf + V.floorVary * (valueNoise(x / 640 + 2.2, 17.5) * 2 - 1);
+    c = smoothstep(half, half + V.wallRun, Math.abs(d) + wob);
+  }
+  const b = vlBowlCentre();
+  const r = Math.hypot(x - b.x, z - b.z);
+  return Math.min(c, smoothstep(V.bowlR, V.bowlRim, r));
+}
+// Ridged noise: sharp crests and peaks along the tops of the walls
+function vlJag(x, z) {
+  const n = valueNoise(x / 240 + 11.7, z / 240 + 3.3);
+  const r = 1 - Math.abs(2 * n - 1);
+  return r * r * 0.85 + valueNoise(x / 95 + 41.1, z / 95 + 7.7) * 0.15;
+}
+// The needles: rock spires standing round the bowl's rim, with a gap to the east
+// where the valley comes in.
+function vlNeedles(x, z) {
+  const V = TUNE.valley, b = vlBowlCentre();
+  let h = 0;
+  if (Math.abs(x - b.x) > V.bowlRim + 400 || Math.abs(z - b.z) > V.bowlRim + 400) return 0;   // nowhere near the bowl
+  for (let i = 0; i < V.needles; i++) {
+    const a = Math.PI * 0.32 + (Math.PI * 2 - Math.PI * 0.64) * (i + 0.5) / V.needles + (hash2(i, 77) - 0.5) * 0.18;
+    const rr = V.bowlRim + 30 + hash2(i, 78) * 120;
+    const nx = b.x - Math.cos(a) * rr, nz = b.z + Math.sin(a) * rr;   // a = 0 is due east, the way in
+    const d = Math.hypot(x - nx, z - nz) / (V.needleR * (0.7 + hash2(i, 79) * 0.6));
+    if (d < 1) h = Math.max(h, V.needleH * (0.65 + hash2(i, 80) * 0.6) * Math.pow(1 - d, 1.25));
+  }
+  return h;
+}
+function vlInBox(x, z) {
+  const V = TUNE.valley;
+  return x < -1650 && x > V.xb - V.westPad - V.rampX - 50 && Math.abs(z - V.zc) < V.halfZ * 1.1;
+}
+function vlShape(x, z, h) {
+  if (!vlInBox(x, z)) return h;
+  const V = TUNE.valley;
+  const F = vlFloorY(x);
+  // 1. raise the massif: a crest `ridge` over the floor, jagged, falling away north and south
+  const wM = vlMassifW(x, z);
+  if (wM > 0) {
+    const crestFall = 1 - smoothstep(V.halfZ * 0.45, V.halfZ * 0.95, Math.abs(z - V.zc));
+    const top = F + (V.ridge + V.jag * vlJag(x, z)) * crestFall + vlNeedles(x, z) * wM;
+    h = lerp(h, Math.max(h, top), wM);
+  }
+  // 2. cut the valley and the bowl back down to the floor
+  const wC = smoothstep(V.x0 + 900, V.x0 + 300, x);
+  if (wC > 0) {
+    const c = vlCutProfile(x, z);
+    const floor = F + valueNoise(x / 90 + 3.1, z / 90 + 8.4) * 4;
+    if (h > floor) h = lerp(h, floor + (h - floor) * c, wC);
+  }
+  return h;
+}
+// How much of this point is the valley's: snow and rock, not grass (scene.js, art.js).
+function vlWeight(x, z) {
+  if (!vlInBox(x, z)) return 0;
+  const V = TUNE.valley;
+  const wC = smoothstep(V.x0 + 900, V.x0 + 300, x) * (1 - vlCutProfile(x, z));
+  return Math.max(vlMassifW(x, z), wC);
+}
+
 function shapedTerrain(x, z) {
   let h = rawHeight(x, z);
   h *= 1 - desertMask(z) * 0.62;
@@ -164,6 +271,7 @@ function shapedTerrain(x, z) {
   const lk = lakeShape(x, z);
   if (lk > 0) h -= lk * 26;
   h -= coastDrop(z);
+  h = vlShape(x, z, h);   // v147: the valley, far west of everything (see above)
   const harborZ = ROUTE_HALF() - 1420 * ROUTE_SCALE();  // under the NY bridges, clear of the airport
   if (Math.abs(x) < 2400 && Math.abs(z - harborZ) < 320) {
     const hd = Math.max(0, 1 - Math.abs(Math.abs(z - harborZ) - 60) / 130);

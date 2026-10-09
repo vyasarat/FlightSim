@@ -5608,6 +5608,7 @@ function check(name, ok, extra) {
   // v145: the wrecking-ball crane -- portrait, a whole go in each camera view, the drag that turns it
   await require("./crane_checks")({ newPage, check });
   await require("./cybertruck_checks")({ newPage, check });   // v146: the Cybertruck, a second body on the car
+  await require("./dadmode_checks")({ newPage, check });      // v147: dad mode (the parent's, behind a code) and the valley
   await require("./payoff_size_checks")({ newPage, check });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
   await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });

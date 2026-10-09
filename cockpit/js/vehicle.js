@@ -227,6 +227,8 @@ function buildVehicleModel(key) {
 
 function updateVehicleModel(dt) {
   if (!vehicleModel) return;
+  // v147: the dad jet poses itself (dadmode.js): yaw-pitch-roll at any attitude
+  if (state.vp.dadJet) { dadPoseModel(vehicleModel); return; }
   // (while the camera watches the heavy's boosters home, his rocket waits out of the picture)
   const chaseVisible = state.viewChase && !state.exploding && !(typeof heavyWatching === "function" && heavyWatching());
   // the monster truck is drawn from its own seat too: he sits over its bonnet and wheels (v143)

@@ -651,6 +651,77 @@
   #bigNum.sky { top: 22%; }    /* the point-at set-pieces (launchsite.js, rocketsled.js, ...): up in the sky, off the thing it is counting down */
   #bigNum.beat { animation: numBeat .5s ease-out; }
   @keyframes numBeat { from { transform: translate(-50%,-50%) scale(1.5); } to { transform: translate(-50%,-50%) scale(1); } }
+  /* ---- v147: DAD MODE (dadmode.js). The key on the picker is small and dim; every
+     other dad element is made on entry and removed on exit. */
+  #dadKey { position: fixed; left: env(safe-area-inset-left); bottom: env(safe-area-inset-bottom);
+    width: 44px; height: 44px; padding: 12px; border: 0; background: transparent; color: #8a93a0; opacity: .22;
+    z-index: 31; touch-action: manipulation; }
+  #dadKey svg { width: 20px; height: 20px; pointer-events: none; }
+  #dadKey.locked { opacity: .08; }
+  #dadKey.shake { animation: dadShake .3s; }
+  @keyframes dadShake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  .dadOverlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+    background: rgba(8,10,14,.82); padding: 16px; touch-action: manipulation; overflow-y: auto; }
+  .dadPadBox { background: #161a1f; border: 2px solid #3c4350; border-radius: 18px; padding: 18px; }
+  .dadDots { display: flex; justify-content: center; gap: 14px; margin: 4px 0 16px; }
+  .dadDots span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #8a93a0; }
+  .dadDots span.on { background: #c9ced6; border-color: #c9ced6; }
+  .dadGrid { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; }
+  .dadPadKey { width: 72px; height: 64px; border-radius: 12px; border: 0; background: #2b3038; color: #f2f4f7;
+    font: 600 26px system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; }
+  .dadPadKey svg { width: 26px; height: 26px; }
+  .dadPadKey:active { background: #3c4350; }
+  .dadCard { max-width: 560px; width: 100%; background: #12161b; color: #dfe4ea; border: 1px solid #3c4350;
+    border-radius: 16px; padding: 22px 22px 18px; font: 15px/1.45 system-ui, -apple-system, sans-serif; }
+  .dadCard h1 { margin: 2px 0 10px; font-size: 28px; letter-spacing: .02em; color: #f2f4f7; }
+  .dadCard.win h1 { color: #36c46a; } .dadCard.lose h1 { color: #e0483e; }
+  .dadCard p { margin: 0 0 10px; } .dadCard ul { margin: 0 0 14px; padding-left: 18px; color: #b9c1cb; }
+  .dadCard li { margin: 3px 0; }
+  .dadKicker { font-size: 12px; letter-spacing: .14em; color: #8a93a0; }
+  .dadWhy { color: #ffb43a; font-weight: 600; }
+  .dadCard dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 6px 0 16px; }
+  .dadCard dt { color: #8a93a0; } .dadCard dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .dadRow { display: flex; gap: 12px; }
+  .dadBtn { flex: 1; height: 54px; border-radius: 12px; border: 2px solid #3c4350; background: #1f2328; color: #f2f4f7;
+    font: 700 18px system-ui, -apple-system, sans-serif; letter-spacing: .08em; }
+  .dadBtn.go { background: #2b4fb0; border-color: #2b4fb0; }
+  /* in dad mode his cockpit furniture and route aids step aside for the HUD */
+  body.dad #dash, body.dad #pillarL, body.dad #pillarR, body.dad #brow, body.dad #progressStrip, body.dad #homeArrow,
+  body.dad #glideGuide, body.dad #aimMarker, body.dad #wingman, body.dad #rotateArrow, body.dad #alarm { display: none !important; }
+  #dadHud { position: fixed; inset: 0; z-index: 9; pointer-events: none; color: #7dff9a;
+    font: 600 15px/1.25 ui-monospace, "SF Mono", Menlo, monospace; text-shadow: 0 0 4px rgba(0,0,0,.8); }
+  #dadHud .dadClock { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    font-size: 30px; letter-spacing: .04em; }
+  #dadHud .dadClock.low { color: #ffd23e; }
+  #dadHud .dadL, #dadHud .dadR { position: absolute; top: 34%; }
+  #dadHud .dadL { left: calc(var(--edge) + var(--btn) + 18px); }
+  #dadHud .dadR { right: calc(var(--edge) + var(--btn) + 18px); text-align: right; }
+  #dadHud .dadR.high { color: #ffd23e; }
+  #dadHud .dadWarn { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: 22px; color: #ff5040;
+    white-space: pre; display: none; }
+  #dadHud .dadWarn.on { display: block; animation: dadBlink .5s steps(1) infinite; }
+  @keyframes dadBlink { 50% { opacity: .25; } }
+  #dadHud .dadMsg { position: absolute; top: 27%; left: 50%; transform: translateX(-50%); font-size: 18px; white-space: nowrap; }
+  #dadHud .dadWeap { position: absolute; bottom: calc(14px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    white-space: nowrap; }
+  #dadHud .dadHealth { position: absolute; bottom: calc(40px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    width: 160px; height: 8px; border: 1px solid #7dff9a; }
+  #dadHud .dadHealth .bar { height: 100%; background: #7dff9a; }
+  #dadHud .dadHealth.hurt { border-color: #ff5040; } #dadHud .dadHealth.hurt .bar { background: #ff5040; }
+  #dadHud .dadBox { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border: 2px solid #7dff9a; display: none; }
+  #dadHud .dadBox.on { border-color: #ffd23e; }
+  #dadHud .dadBoxErr { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 13px; }
+  #dadHud .dadFpm { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border: 2px solid #7dff9a; border-radius: 50%; display: none; }
+  #dadGrey { position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(20,20,20,0) 30%, rgba(30,30,30,.75) 70%, rgba(10,10,10,1) 100%); }
+  #dadBombBtn { right: calc(var(--edge) + 4px + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    width: var(--thr); height: var(--thr); z-index: 10; border-color: #e0483e; }
+  #dadFlareBtn { left: calc(var(--edge) + env(safe-area-inset-left)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); z-index: 10; border-color: #ffb43a; }
+  #dadMslBtn { left: calc(var(--edge) + env(safe-area-inset-left)); bottom: calc(var(--stack-bottom) + var(--btn) + 12px + env(safe-area-inset-bottom)); z-index: 10; border-color: #c9ced6; }
+  #dadExitBtn { position: fixed; left: calc(8px + env(safe-area-inset-left)); bottom: calc(2px + env(safe-area-inset-bottom)); width: 56px; height: 56px;
+    padding: 13px; border: 0; background: transparent; color: #bfeaff; z-index: 35; touch-action: none; }
+  #dadExitBtn svg { width: 30px; height: 30px; pointer-events: none; }
+  #dadBombBtn.hidden, #dadFlareBtn.hidden, #dadMslBtn.hidden, #dadExitBtn.hidden { display: none; }
   .screen {
     position: fixed; inset: 0; z-index: 30;
     background: radial-gradient(circle at 50% 30%, rgba(36,44,56,.97), rgba(14,17,22,.98));
@@ -934,6 +1005,11 @@
     <path d="M38 36 v-20 M30 24 l8 -10 l8 10" fill="none" stroke="#5ff1ff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-90 38 26)"/>
   </svg>
 </button>
+<!-- v147: dad mode's own buttons (dadmode.js, declared in buttons.js): hidden everywhere outside it -->
+<button id="dadBombBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M50 14c11 0 17 10 17 26v26c0 10-7 18-17 18s-17-8-17-18V40c0-16 6-26 17-26z" fill="#c9ced6" stroke="#1f2328" stroke-width="4"/><path d="M38 84l-10 10h44l-10-10" fill="#8a93a0" stroke="#1f2328" stroke-width="4" stroke-linejoin="round"/><circle cx="50" cy="40" r="7" fill="#e0483e"/></svg></button>
+<button id="dadFlareBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><g stroke="#ffb43a" stroke-width="7" stroke-linecap="round"><path d="M50 50L50 12M50 50L83 31M50 50L83 69M50 50L50 88M50 50L17 69M50 50L17 31"/></g><circle cx="50" cy="50" r="13" fill="#fff0b0"/></svg></button>
+<button id="dadMslBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M18 50h56l12-7v14l-12-7" fill="#c9ced6" stroke="#c9ced6" stroke-width="10" stroke-linejoin="round"/><path d="M22 50l-8-14h10l10 14-10 14H14z" fill="#8a93a0"/><path d="M8 50h8" stroke="#ffb43a" stroke-width="8" stroke-linecap="round"/></svg></button>
+<button id="dadExitBtn" class="hidden" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5H6v22h7M20 10l6 6-6 6M26 16H12"/></svg></button>
 <button id="lockBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><rect x="10" y="18" width="12" height="64" fill="#b8bec8"/><rect x="78" y="18" width="12" height="64" fill="#b8bec8"/><path d="M22 36h24v28H22z" fill="#5ff1ff"/><path d="M54 36h24v28H54z" fill="#5ff1ff"/><path d="M22 70h56" stroke="#2b4fb0" stroke-width="7" fill="none"/><path d="M50 12v14m-7-7 7-7 7 7" stroke="#ffd23e" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <button id="cannonBtn" class="roundBtn hidden" aria-hidden="true">
   <svg viewBox="0 0 100 100">
@@ -1044,6 +1120,8 @@
 </div>
 <canvas id="fx"></canvas>
 <div id="screenVehicle" class="screen">
+  <!-- v147: the way into dad mode, for the parent: small, dim, a corner, no words -->
+  <button id="dadKey" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M16 4l3 9h9l-7 5 3 9-8-6-8 6 3-9-7-5h9z"/></svg></button>
   <button class="card vehCard" data-v="car">
     <svg viewBox="0 0 200 120">
       <!-- a crossover silhouette in stealth grey: no badge, no wordmark -->
@@ -1319,6 +1397,8 @@
 <script src="js/heavy.js"></script>
 <script src="js/sledride.js"></script>
 <script src="js/crane.js"></script>
+<script src="js/valley.js"></script>
+<script src="js/dadmode.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
