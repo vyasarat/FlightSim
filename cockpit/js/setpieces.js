@@ -54,6 +54,8 @@ function spCountBusy(me) {
   if (typeof monQuiet === "function" && monQuiet()) return true;
   // v144: riding the rocket sled, the one countdown on the screen is his own
   if (typeof srQuiet === "function" && srQuiet(me)) return true;
+  // v145: in the crane, the one countdown on the screen is its swing's
+  if (typeof crQuiet === "function" && crQuiet(me)) return true;
   return spCounters.some(c => c.name !== me && c.counting());
 }
 

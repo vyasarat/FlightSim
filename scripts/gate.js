@@ -42,7 +42,7 @@ const MODULES = {
   "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks"],
   "vehiclekit.js": ["road_checks", "city_checks"],
   "solids.js": ["solidity_checks"], "collision.js": ["solidity_checks"],
-  "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks"],
+  "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks"], "crane.js": ["crane_checks", "slot_checks", "solidity_checks", "vehicle_contract_checks", "state_semantics_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks"],
   "boat.js": ["boat_checks", "sea_checks"], "harbor.js": ["boat_checks", "lock_checks", "sea_checks"],
   "lock.js": ["lock_checks"], "yacht.js": ["yacht_checks"], "seaevents.js": ["sea_checks"],
   "heli.js": ["heli_control_checks", "heli_play_checks", "heli_land_checks"],

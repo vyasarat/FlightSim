@@ -84,6 +84,14 @@ function buildVehicleModel(key) {
     vehicleModel = vehTagPlayer(g);
     return;
   }
+  if (key === "crane") {
+    // v145: the wrecking-ball crane (crane.js), posed every frame on its lot
+    const g = crBuildModel();
+    castsShadow(g);
+    scene.add(g);
+    vehicleModel = vehTagPlayer(g);
+    return;
+  }
   if (key === "car") {
     const g = buildCarModel();
     g.visible = state.viewChase;
@@ -225,6 +233,8 @@ function updateVehicleModel(dt) {
   if (state.vp.monster && !state.exploding) { vehicleModel.visible = true; monPoseModel(vehicleModel); return; }
   // the rocket sled too (v144): from the seat on its nose he looks down the white cone at the wall
   if (state.vp.sledRide && !state.exploding) { vehicleModel.visible = true; srPoseModel(vehicleModel); return; }
+  // and the crane (v145): from the cab he looks along its boom; its cab is not drawn there
+  if (state.vp.crane && !state.exploding) { vehicleModel.visible = true; crPoseModel(vehicleModel); return; }
   vehicleModel.visible = chaseVisible;
   if (!chaseVisible) return;
   if (state.vp.car && typeof trk !== "undefined" && trk.on) { trackPoseModel(vehicleModel); return; }

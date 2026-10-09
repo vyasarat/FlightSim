@@ -119,6 +119,8 @@ function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
   // what the monster truck crushed comes back when he leaves it: nothing is lost
   if (typeof monRestoreAll === "function") monRestoreAll();
+  // ... and the crane's towers stand back up and go away (v145): its lot is drawn only while he is in it
+  if (typeof crLeave === "function") crLeave();
   // and the heavy's side boosters do not outlive it
   if (typeof heavyReset === "function" && !(TUNE.vehicles[key] && TUNE.vehicles[key].heavy)) heavyReset();
   if (typeof heliReset === "function") heliReset();
@@ -143,7 +145,7 @@ function applyVehicle(key) {
   }
   // Watch the rocket, see the helicopter's tool/load, and see the boat's hull and
   // its wake, in chase view; the view button still toggles.
-  if ((state.vp.rocket || state.vp.heli || state.vp.boat || state.vp.sledRide) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
+  if ((state.vp.rocket || state.vp.heli || state.vp.boat || state.vp.sledRide || state.vp.crane) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
   // The cannon lives on the boat alone. Left up, it sits in the helicopter
   // bucket's slot and eats the tap that means "scoop".
   if (!state.vp.boat) {
@@ -210,6 +212,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   state.phase = "TAXI";
   if (state.vp && state.vp.monster && typeof monSpawn === "function") monSpawn();   // the arena, either way
   if (state.vp && state.vp.sledRide && typeof srSpawn === "function") srSpawn();   // v144: on the sled at the start tower, either way
+  if (state.vp && state.vp.crane && typeof crSpawn === "function") crSpawn();   // v145: in the crane on its lot, either way
   if (state.vp && state.vp.car) {
     if (typeof carSpawn === "function" && typeof highway !== "undefined" && highway.built) carSpawn(originIdx);
   }
@@ -228,7 +231,8 @@ function spawnForTakeoff(originIdx, dirIdx) {
     rk.groundHere = pad.ground;
     state.y = pad.ground + rocketHalfLen();
   }
-  if (typeof apronVehiclesTo === "function") apronVehiclesTo(originIdx, true);
+  // (not to the crane, v145: its lot is out in the country, not on an apron -- they stay at their airport)
+  if (typeof apronVehiclesTo === "function" && !(state.vp && state.vp.crane)) apronVehiclesTo(originIdx, true);
   placeRings();
   // last flight's event goes away and a new one is drawn for this stack
   if (typeof eventsSpawn === "function") eventsSpawn();

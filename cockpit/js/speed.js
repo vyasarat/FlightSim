@@ -74,6 +74,7 @@ function spdStepsFor(key) {
   const vp = TUNE.vehicles[key];
   if (!vp || vp.rocket) return null;
   if (vp.sledRide) return null;    // v144: the rocket sled runs at the set-piece's speed, the same every time
+  if (vp.crane) return null;       // v145: the crane does not drive: nothing to go faster
   if (vp.car) return TUNE.car.speedSteps;
   if (vp.monster) return TUNE.monster.speedSteps;
   if (vp.bigBoat) return TUNE.yacht.speedSteps;

@@ -43,6 +43,7 @@ function vehKind() {
   if (vp.boat) return "boat";
   if (vp.monster) return "monster";      // v141: its own rules, not the car's
   if (vp.sledRide) return "sled";        // v144: the set-piece's rail, ridden (sledride.js)
+  if (vp.crane) return "crane";          // v145: the wrecking-ball crane, parked for good (crane.js)
   if (vp.car) return "car";
   if (vp.heli) return "heli";
   return "plane";                        // prop, fighter, the airliners
@@ -141,6 +142,18 @@ const VEHICLE_CONTRACT = {
     camera: (dt) => srCamera(dt),
     parked: () => srParked(),
     reassemble: () => srPlace(),
+  },
+  // v145: the wrecking-ball crane (crane.js). Parked on its lot for good: its drag
+  // turns it about its tracks and nothing ever moves it, so it can drive into
+  // nothing and is not solid; what falls is its own show, not the registry's.
+  // Parked only while it waits, where the next go starts the next swing.
+  crane: {
+    solidClass: SOLID.CAR,
+    solid: () => false,
+    update: (dt) => crUpdate(dt),
+    camera: (dt) => crCamera(dt),
+    parked: () => crParked(),
+    reassemble: null,
   },
   boat: {
     solidClass: SOLID.BOAT,

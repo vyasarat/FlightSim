@@ -233,6 +233,7 @@ window.__lp = {
   sled, SLED, sledReset, sledForce, sledPuffsLive, sledBricksLive, sledWallWorld, sledSlotError, sledWallSolid, sledCovers, sledToWall, updateRocketSled, sledSetRidden,
   fbarge, FBARGE, fbReset, fbForce, fbSparksLive, fbToFirstBurst, updateFireworksBarge, spCountBusy,
   sr, SR, srActive, srSpawn, srFlameEnds, srGo, srCanGo, srParked, srPlace,
+  cr, CR, crActive, crSpawn, crCanGo, crParked, crAimed, crGroups, crTowers, crBall, crCrane, crHomeError, crLeave, crCovers,
   heavy, HV, heavySeparate, heavyWatching, heavyPad, heavyBoosterTilt, heavyReset, rocketRestock, rocketCanSkip,
   mon, MON, monGround, monCanCrush, monActive, monSpawn, monDebrisLive, monSnapCamera, monRestoreAll, solidCol, get buildingInst() { return buildingInst; },
   mtruck, MTRUCK, mtReset, mtForce, mtCarsState, mtPuffsLive, mtLanding, mtCovers, mtAt, mtSquash, updateMonsterTruck,

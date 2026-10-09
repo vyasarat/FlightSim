@@ -37,6 +37,7 @@ entry below.
 | v142 | pick the booster rocket, hold the throttle, and watch the two side boosters land without being told to look (and want to launch again to see it again) | open |
 | v143 | drive the monster truck straight through houses from the driving seat on purpose, one after another, and laugh at the pieces |  open |
 | v144 | pick the rocket sled, count "3-2-1" out loud with the lamps, and ride it through the brick wall again and again (more than three runs in a row without changing vehicle) | open |
+| v145 | pick the crane, turn it to a different block of towers before each go (all three blocks within one sitting), and knock them down three or more times in a row without changing vehicle, making a "boom" or "crash" noise as they fall | open |
 
 ## Entries
 

@@ -1195,8 +1195,11 @@ const TUNE = {
   // (landMax*) says what counts as arriving and everything else is a crash.
   // The car's and the boat's crawls are their old crash speeds, unchanged.
   solid: {
-    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5 },
-    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99 },   // the monster never bangs at any speed
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99 },   // the monster never bangs at any speed
+    // v145: the wrecking-ball crane (crane.js) never moves: parked on its lot for good, it
+    // is not solid (its contract's solid() is false) and nothing can drive into it. Its
+    // radius is its tracks' half-length, and its crawl is "never a bang, at any speed".
     // v144: the rocket sled he rides (sledride.js) is rail-locked and not solid (its contract's solid() is
     // false): nothing can stand on the rail in front of him. Its radius is the sled's half-width, and its
     // crawl is the monster's "never a bang, at any speed". The set-piece's own sidestep (sledClearPath)
@@ -1386,6 +1389,84 @@ const TUNE = {
     // (its voice: a sawtooth at `hz`, rising by `hzRise` of itself as the flame grows, and a whoosh as it lights)
     burst: { pitch: 0.35, release: 0.2, flame: 1.8, wide: 1.3, rate: 8, roar: 0.22, hz: 66, hzRise: 0.3,
              whoosh: { dur: 0.5, freq: 380, peak: 0.35 } },
+  },
+
+  // v145: THE WRECKING-BALL CRANE (crane.js): a giant yellow crawler crane parked on its
+  // own lot beside the demolition district, three blocks of empty towers in a fan in
+  // front of it. A drag turns it (the crane's own control, approved 2026-10-08), go is
+  // a 3-2-1, then the ball swings by itself and the aimed block folds like dominoes,
+  // away from the crane, and stands back up. Nothing here is solid or counted.
+  crane: {
+    // THE LOT. Beside the demolition block (TUNE.demolition), not inside it: everything
+    // -- the crane, every tower fallen flat, the ball's arc, every piece -- stays more
+    // than blockR + hitR + 60 m from the block's middle, more than clearHalf + clearMaxExtra
+    // from every carriageway, spur and ramp, and off every airport's pad, approach and
+    // runway line (crane_checks samples all of it). `baseDeg` is the way the tracks face
+    // and the middle block's bearing (a heading: forward is (-sin, -cos)).
+    // West of the motorway, 470 m from the block's middle, facing west-north-west away
+    // from the road: the probe that chose it found every point of the fan (the crane, the
+    // rows out to 280 m, 15 m either side) 360+ m from the road's corridor, off the
+    // airports, dry, and within 3.3 m of level.
+    at: [-200, 2710], baseDeg: 112.5,
+    groups: [-50, 0, 50],           // the three blocks' bearings off baseDeg, degrees (turning means something)
+    perGroup: 5,                    // towers in each block's domino row
+    spacing: 28,                    // middle to middle along the row
+    towerW: 12, towerD: 22,         // a slab: this thick along the row, this wide across it
+    towerH: [52, 66],               // heights, each its own
+    sink: 1,                        // each stands this far into the ground
+    restDeg: 62,                    // a fallen tower lies at this, on the next one (over 60 by the check): two
+                                    // at the same lean touch at acos(towerW / spacing), 64.6 -- any further is through
+                                    // it (62 keeps a metre clear as the last one swings past); crLeanCap holds
+                                    // every frame of the fall and the rise to its top on the next one's face
+    lastDeg: 86,                    // ... and the last one flat on the ground
+    fallT: 2.4,                     // seconds for a tower to go from standing to its rest (accelerating)
+    // THE CRANE (metres; its own frame, forward -z). The boom pivots on the upper works
+    // at (0, pivotY, -pivotF) and stands at boomDeg; the ball hangs `cable` under its tip.
+    pivotY: 7, pivotF: 4, boomLen: 80, boomDeg: 58, boomW: 2.8, cable: 50, ballR: 6,
+    // THE SWING, by itself, after go: the 3-2-1 (count), the ball drawn back `backDeg`
+    // slowly over `windT`, a held breath (`holdT`), then the swing forward over
+    // `swingT`, faster and faster (`swingPow`), to `hitDeg` -- where its face meets the
+    // aimed block's first tower (the first tower stands exactly there). After the hit it
+    // swings back and settles (`settleT`, `settleHz`).
+    // backDeg stays under the boom: the cable hangs 90 - boomDeg = 32 degrees off the boom's
+    // line, so drawn back 40 the ball went through it (crane_checks measures the sphere clear).
+    count: 3, backDeg: 22, windT: 3.0, holdT: 0.3, swingT: 1.6, swingPow: 1.8, hitDeg: 45,
+    settleT: 0.9, settleHz: 0.35,
+    riseSettle: 3,                  // ... and while they stand back up, what swing is left dies at this (per second)
+    // THE HOIST: after the hit the cable reels in to `hoistCable` (from `hoistDelay` s, over
+    // `hoistT`), so from the cab the ball rides up above the falling row instead of standing
+    // in front of it; it pays back out over `payT` while they stand up. Never shorter than
+    // keeps the ball `boomClear` m off the boom's lattice (crCableMin).
+    hoistCable: 16, hoistDelay: 0.3, hoistT: 1.2, payT: 2.6, boomClear: 0.4,
+    downT: 2.6,                     // all down: this long, dust settling, before they stand up
+    riseT: 2.2, riseGap: 0.22,      // standing back up: each takes riseT, the last first, riseGap apart
+    // THE AIM: a drag across `slewDeg` per second at a full drag, nothing under `slewDead`;
+    // let go, the magnet eases it on to the nearest block at `magnet` (per second); it
+    // turns no further than `slewMarginDeg` past the outer blocks; and once go is pressed
+    // it settles on the aimed block at `lockRate` while it counts.
+    slewDeg: 34, slewDead: 0.1, magnet: 3, slewMarginDeg: 25, lockRate: 6,
+    reticleR: 8, reticleRate: 2.4,  // the pulsing ring on the aimed block, where the ball will hit
+    reticlePulse: 0.14,             // ... swelling and shrinking by this much of its size
+    // THE PIECES: from the monster truck's debris pool (TUNE.monster.debris, its cap).
+    // hitPieces at the ball's hit, landPieces where each tower lands; speeds in m/s.
+    hitPieces: 40, landPieces: 14, pieceSpeed: [5, 13], pieceUp: [3, 10], pieceSize: [1.4, 3.4],
+    pieceSpread: 5,                 // m/s sideways, at most, for the pieces off the ball's hit
+    // ... which are bigger than a landing's and bright, so they read against a grey tower
+    // (TUNE.palette: warning, fire, white, sand), from across the ball's face out to hitRim x ballR
+    hitPieceSize: [2.4, 4.8], hitColours: [0xffd23e, 0xff7a1a, 0xf2f4f7, 0xd9c27e], hitRim: 1.3,
+    dust: 6, dustSize: 4.5, dustRise: 4, dustLife: 3,
+    rumble: 0.2, rumbleHz: 46,      // the wind-up's growl (a tone), and the slew's hum
+    hum: 0.06, humHz: 70,
+    // THE CAMERAS. The seat: a toy's high cab, left of the boom and behind the slew ring,
+    // ABOVE the line from the resting ball to the ring (from 10.5 m up the ball stood
+    // in front of the ring: crane_checks measures the two discs apart, aiming and
+    // counting), `pitch` degrees down and turned `yaw` degrees toward the boom, so the
+    // ring sits mid-windscreen with the ball under it and the falling row clear of it.
+    // The chase: behind, out to the right and above,
+    // looking at a point down the aimed row (`look` m out, `lookUp` m up), easing at `lag`.
+    seat: { side: -10, up: 42, fwd: -6, pitch: -4, yaw: -6 },
+    chase: { back: 95, side: 70, up: 62, look: 140, lookUp: 26, lag: 3 },
+    selfLight: 0.3,
   },
 
   // v141: THE MONSTER TRUCK HE DRIVES (monster.js) -- not the set-piece below,
@@ -2024,6 +2105,7 @@ const TUNE = {
     car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true },  // its own model: TUNE.car
     monster:          { cruiseSpeed: 24, turnRateDeg: 70, pitchLimitDeg: 40, bankLimitDeg: 8, accel: 9, capped: true, size: 1.0, hasGear: false, monster: true },  // its own model and rules: TUNE.monster
     sled:             { cruiseSpeed: 120, turnRateDeg: 0, pitchLimitDeg: 0, bankLimitDeg: 0, accel: 40, capped: true, size: 1.0, hasGear: false, sledRide: true },  // v144: the set-piece's rail and run (sledride.js, TUNE.sledRide)
+    crane:            { cruiseSpeed: 1, turnRateDeg: 34, pitchLimitDeg: 0, bankLimitDeg: 0, accel: 0, capped: true, size: 1.0, hasGear: false, crane: true },  // v145: parked for good; its own rules (crane.js, TUNE.crane); cruiseSpeed is nominal, it never moves
     speedboat:        { cruiseSpeed: 42, turnRateDeg: 46, pitchLimitDeg: 12, bankLimitDeg: 18, accel: 16, capped: true, size: 1.0, hasGear: false, boat: true },  // its own model: TUNE.boat
     // Stage 2. Shelved from TUNE alone, so the card exists and does not render,
     // and the model rig can still inspect the hull before it ships.
@@ -2036,6 +2118,7 @@ const TUNE = {
     car:              ["#4a4f55", "#c9ced6"],   // stealth grey; no badge, no wordmark
     monster:          ["#2b6fd1", "#ffd23e"],   // the set-piece truck's blue and yellow
     sled:             ["#e0483e", "#ffd23e"],   // the set-piece sled's red and yellow
+    crane:            ["#ffd23e", "#1f2328"],   // the crane's yellow and its ball's black
     rocket:           ["#b8bec9", "#d71920"],
     starship:         ["#c9ced6", "#1f2328"],
     heavy:            ["#f2f4f7", "#e0483e"],
