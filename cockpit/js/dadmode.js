@@ -295,24 +295,36 @@ function dadBuildWorld() {
   const wreck = new THREE.MeshLambertMaterial({ color: TUNE.palette.ink, flatShading: true });
   W.mats = { dark, ink, steel, white, wreck };
   const len = V.x0 - V.xb;
-  // ---- the guns: twin-barrelled mounts on the rims, alternating sides
+  // ---- the guns: twin-barrelled mounts dug into the valley's walls, alternating sides,
+  // built big (D.guns.scale) on a concrete pad inside a ring of sandbags, so they read
+  // from the floor and have him in sight (on the crest the wall's shoulder hid them)
+  const GS = D.guns.scale, SS = D.siteScale;
   for (let i = 0; i < D.guns.count; i++) {
     const x = V.x0 - len * (0.1 + 0.8 * i / (D.guns.count - 1));
-    const p0 = dadBeside(x, i % 2 ? 1 : -1, V.floorHalf + V.wallRun + 30);
-    const c = dadCrest(p0.x, p0.z, 60);
+    const p0 = dadBeside(x, i % 2 ? 1 : -1, V.floorHalf + V.wallRun * D.guns.wallAt);
+    // a ledge cut into the slope: the pad's top level with the ground at its middle, its
+    // back buried in the rock, its front a wall down to the ground below it
+    let lo = Infinity;
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) lo = Math.min(lo, terrainEff(p0.x + a * 2.2 * GS, p0.z + b * 2.2 * GS));
+    const mid = terrainEff(p0.x, p0.z), hi = mid + 1;
+    const c = { x: p0.x, y: hi + 0.5, z: p0.z };
     const g = new THREE.Group();
     g.position.set(c.x, c.y - 0.5, c.z);
+    const padH = (hi - lo) / GS + 1.5;
+    g.add(dadAt(new THREE.Mesh(new THREE.BoxGeometry(7.5, padH, 7.5), dark), 0, -padH / 2 + 0.2, 0));
     const base = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.2, 1.6, 8), dark); base.position.y = 0.8; g.add(base);
     const turret = new THREE.Group(); turret.position.y = 2.2; g.add(turret);
-    turret.add(new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 2.8), dark));
+    turret.add(new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 2.8), steel));
     const tilt = new THREE.Group(); tilt.position.set(0, 0.4, -0.6); turret.add(tilt);
     for (const sx of [-0.55, 0.55]) {
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 4.4, 6), ink);
-      b.rotation.x = Math.PI / 2; b.position.set(sx, 0, -2.4); tilt.add(b);
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.36, 7.5, 6), ink);
+      b.rotation.x = Math.PI / 2; b.position.set(sx, 0, -3.9); tilt.add(b);
     }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.6, 5, 14), ink); ring.rotation.x = Math.PI / 2; ring.position.y = 0.4; g.add(ring);
     const ruin = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.0, 3.2), wreck); ruin.position.y = 1.4; ruin.rotation.set(0.3, 0.6, 0.2); ruin.visible = false; g.add(ruin);
+    g.scale.setScalar(GS);
     dadAdd(g);
-    W.guns.push({ i, g, turret, tilt, ruin, x: c.x, y: c.y + 2.6, z: c.z, alive: true, fireT: 0, gapT: dadR(0, D.guns.gap), flakT: 0, shotT: 0 });
+    W.guns.push({ i, g, turret, tilt, ruin, x: c.x, y: c.y - 0.5 + 2.6 * GS, z: c.z, muzzle: 7.8 * GS, alive: true, fireT: 0, gapT: dadR(0, D.guns.gap), flakT: 0, shotT: 0 });
   }
   // ---- the SAM sites: a lattice frame on a peak with four missiles bristling up (t077)
   const sitesAt = [];
@@ -340,8 +352,9 @@ function dadBuildWorld() {
       frame.add(m); rails.push(m);
     }
     const ruin = new THREE.Mesh(new THREE.BoxGeometry(8, 1.6, 7), wreck); ruin.position.y = 1.5; ruin.rotation.set(0.2, 0.4, 0.15); ruin.visible = false; g.add(ruin);
+    g.scale.setScalar(SS);
     dadAdd(g);
-    W.sites.push({ g, frame, rails, ruin, x: c.x, y: c.y + 6, z: c.z, alive: true, left: 4 });
+    W.sites.push({ g, frame, rails, ruin, x: c.x, y: c.y - 0.5 + 6.5 * SS, z: c.z, alive: true, left: 4 });
   }
   // ---- the radar the cruise missiles hit: a dome and a dish on the north crest
   {
@@ -389,13 +402,24 @@ function dadBuildWorld() {
     dadAdd(spot);
     W.spot = spot;
   }
+  {
+    const n = TUNE.dad.plant.debris;
+    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), wreck, n);
+    mesh.visible = false; mesh.frustumCulled = false;
+    dadAdd(mesh);
+    W.debris = { mesh, parts: [], m4: new THREE.Matrix4(), q: new THREE.Quaternion(), e: new THREE.Euler(), v3: new THREE.Vector3(), s3: new THREE.Vector3() };
+    for (let k = 0; k < n; k++) W.debris.parts.push({ on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, wx: 0, wy: 0, s: dadR(1.6, 4.5), t: 0 });
+  }
   W.bodyGeo = new THREE.CylinderGeometry(0.22, 0.22, 3.2, 6).rotateX(Math.PI / 2);
   W.bombGeo = new THREE.CylinderGeometry(0.3, 0.3, 3.0, 8).rotateX(Math.PI / 2);
   W.flareMat = new THREE.MeshBasicMaterial({ color: 0xfff0b0, fog: false });
   // ---- the particles: one Points draw for the smoke, one for the fire
-  W.smoke = dadParticles(4200, false);
-  W.fire = dadParticles(1600, true);
-  dadAdd(W.smoke.pts); dadAdd(W.fire.pts);
+  // the tracers: their own pool, hot colour laid OVER the sky and the snow (additive
+  // light vanishes against both)
+  W.smoke = dadParticles(14000, false);
+  W.fire = dadParticles(4000, true);
+  W.tracer = dadStreaks(2400);
+  dadAdd(W.smoke.pts); dadAdd(W.fire.pts); dadAdd(W.tracer.pts);
 }
 
 // ---------------------------------------------------------------------------
@@ -418,7 +442,78 @@ function dadSmokeTexture() {
   dadSmokeTex = new THREE.CanvasTexture(c);
   return dadSmokeTex;
 }
-function dadParticles(n, additive) {
+// THE TRACERS: each round a thin streak, a quad stretched along its flight on the
+// screen -- a hot core fading back to orange down its length, never thinner than a
+// couple of pixels however far off, so a stream reads as lines and not as blobs.
+function dadStreaks(n) {
+  const geo = new THREE.BufferGeometry();
+  const head = new Float32Array(n * 12), tail = new Float32Array(n * 12), corner = new Float32Array(n * 8), alpha = new Float32Array(n * 4);
+  const idx = new Uint32Array(n * 6);
+  for (let i = 0; i < n; i++) {
+    corner.set([-1, 0, 1, 0, -1, 1, 1, 1], i * 8);
+    idx.set([i * 4, i * 4 + 2, i * 4 + 1, i * 4 + 1, i * 4 + 2, i * 4 + 3], i * 6);
+  }
+  geo.setAttribute("position", new THREE.BufferAttribute(head, 3));
+  geo.setAttribute("aTail", new THREE.BufferAttribute(tail, 3));
+  geo.setAttribute("aCorner", new THREE.BufferAttribute(corner, 2));
+  geo.setAttribute("aAlpha", new THREE.BufferAttribute(alpha, 1));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uPx: { value: 0.004 }, uAspect: { value: 1 }, uWorld: { value: 0.75 }, uScale: { value: 400 } },
+    vertexShader: `#include <common>
+      #include <logdepthbuf_pars_vertex>
+      attribute vec3 aTail; attribute vec2 aCorner; attribute float aAlpha;
+      uniform float uPx; uniform float uAspect; uniform float uWorld; uniform float uScale;
+      varying float vA; varying vec2 vC;
+      void main() {
+        vec4 h = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec4 t = projectionMatrix * modelViewMatrix * vec4(aTail, 1.0);
+        vA = (h.w > 1.0 && t.w > 1.0) ? aAlpha : 0.0; vC = aCorner;
+        vec4 p = aCorner.y < 0.5 ? h : t;
+        vec2 d = (h.xy / max(h.w, 1.0) - t.xy / max(t.w, 1.0)) * vec2(uAspect, 1.0);
+        d = length(d) > 1e-5 ? normalize(d) : vec2(1.0, 0.0);
+        vec2 nrm = vec2(-d.y, d.x) / vec2(uAspect, 1.0);
+        float px = clamp(uWorld * uScale / max(p.w, 1.0), 1.6, 4.5);   // a half-width, in pixels
+        p.xy += nrm * aCorner.x * px * uPx * p.w;
+        gl_Position = vA > 0.0 ? p : vec4(0.0, 0.0, -2.0, 1.0);
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: `#include <logdepthbuf_pars_fragment>
+      varying float vA; varying vec2 vC;
+      void main() {
+        #include <logdepthbuf_fragment>
+        float core = 1.0 - abs(vC.x), a = vA * (1.0 - vC.y * 0.85) * smoothstep(0.0, 0.5, core);
+        if (a < 0.01) discard;
+        gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0.1), vec3(1.0, 0.93, 0.62), core * (1.0 - vC.y)), a); }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,   // a streak's winding flips with its heading on the screen
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.frustumCulled = false; mesh.renderOrder = 4;
+  return { n, mesh, pts: mesh, geo, mat, head, tail, alpha, next: 0, pos: new Float32Array(n * 3), v: new Float32Array(n * 3), life: new Float32Array(n), len: 34 };
+}
+function dadShoot(P, x, y, z, vx, vy, vz, life) {
+  const i = P.next; P.next = (P.next + 1) % P.n;
+  P.pos[i * 3] = x; P.pos[i * 3 + 1] = y; P.pos[i * 3 + 2] = z;
+  P.v[i * 3] = vx; P.v[i * 3 + 1] = vy; P.v[i * 3 + 2] = vz; P.life[i] = life;
+}
+function dadStepStreaks(P, dt) {
+  for (let i = 0; i < P.n; i++) {
+    const o = i * 3;
+    if (P.life[i] <= 0) { if (P.alpha[i * 4]) P.alpha.fill(0, i * 4, i * 4 + 4); continue; }
+    P.life[i] -= dt;
+    P.pos[o] += P.v[o] * dt; P.pos[o + 1] += P.v[o + 1] * dt; P.pos[o + 2] += P.v[o + 2] * dt;
+    const sp = Math.hypot(P.v[o], P.v[o + 1], P.v[o + 2]) || 1, k = P.len / sp;
+    for (let c = 0; c < 4; c++) {
+      P.head[i * 12 + c * 3] = P.pos[o]; P.head[i * 12 + c * 3 + 1] = P.pos[o + 1]; P.head[i * 12 + c * 3 + 2] = P.pos[o + 2];
+      P.tail[i * 12 + c * 3] = P.pos[o] - P.v[o] * k; P.tail[i * 12 + c * 3 + 1] = P.pos[o + 1] - P.v[o + 1] * k; P.tail[i * 12 + c * 3 + 2] = P.pos[o + 2] - P.v[o + 2] * k;
+      P.alpha[i * 4 + c] = Math.min(1, P.life[i] * 3);
+    }
+  }
+  P.geo.attributes.position.needsUpdate = true; P.geo.attributes.aTail.needsUpdate = true; P.geo.attributes.aAlpha.needsUpdate = true;
+  const u = P.mat.uniforms, H = renderer.domElement.height, Wd = renderer.domElement.width;
+  u.uPx.value = 2 / H; u.uAspect.value = Wd / H; u.uScale.value = H / (2 * Math.tan(camera.fov * DEG / 2));
+}
+function dadParticles(n, additive, tex) {
   const geo = new THREE.BufferGeometry();
   const pos = new Float32Array(n * 3), size = new Float32Array(n), alpha = new Float32Array(n), col = new Float32Array(n * 3);
   geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
@@ -426,7 +521,7 @@ function dadParticles(n, additive) {
   geo.setAttribute("aAlpha", new THREE.BufferAttribute(alpha, 1));
   geo.setAttribute("aCol", new THREE.BufferAttribute(col, 3));
   const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: additive ? glowTex : dadSmokeTexture() }, uScale: { value: 400 },
+    uniforms: { map: { value: tex || (additive ? glowTex : dadSmokeTexture()) }, uScale: { value: 400 }, uFogK: { value: tex ? 0.35 : 1 },
                 fogColor: { value: new THREE.Color() }, fogNear: { value: 1000 }, fogFar: { value: 2000 } },
     // the game draws with a logarithmic depth buffer: a shader of its own has to
     // write its depth the same way, or every point fails the depth test unseen
@@ -439,12 +534,12 @@ function dadParticles(n, additive) {
         #include <logdepthbuf_vertex>
       }`,
     fragmentShader: `#include <logdepthbuf_pars_fragment>
-      uniform sampler2D map; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar;
+      uniform sampler2D map; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar; uniform float uFogK;
       varying float vA; varying vec3 vC; varying float vD;
       void main() {
         #include <logdepthbuf_fragment>
         // fogged far off, and faded out close up: smoke in his face must never white out the screen
-        vec4 t = texture2D(map, gl_PointCoord); float f = smoothstep(fogNear, fogFar, vD);
+        vec4 t = texture2D(map, gl_PointCoord); float f = smoothstep(fogNear, fogFar, vD) * uFogK;
         float a = t.a * vA * smoothstep(6.0, 45.0, vD);
         if (a < 0.004) discard;
         ${additive ? "gl_FragColor = vec4(vC * a * (1.0 - f), 1.0);" : "gl_FragColor = vec4(mix(vC, fogColor, f), a);"} }`,
@@ -560,15 +655,16 @@ function dadStart() {
     over: false, result: null, why: "", overT: 0, card: false, highT: 0, lockT: 0, lockCool: 0, locked: false,
     samsLaunched: 0, decoys: 0, gunsKilled: 0, g: 1, gSmooth: 1, grey: 0, shake: 0, q: 0, spot: null, spotHeld: false,
     flareCool: 0, mslCool: 0, pullUp: false, cmNext: D.cruiseMissiles.delay, cmLeft: D.cruiseMissiles.count,
-    damageTaken: 0, gunHits: 0, flak: 0, column: 0, msg: "", msgT: 0, alert: 0, lastFwd: null,
+    damageTaken: 0, gunHits: 0, flak: 0, flakHits: 0, nearMisses: 0, column: 0, bursts: null, surge: null, msg: "", msgT: 0, alert: 0, lastFwd: null,
   };
   // the world back as it was: every gun and site standing, the bunker whole
   for (const g of W.guns) { g.alive = true; g.turret.visible = true; g.ruin.visible = false; g.fireT = 0; g.gapT = dadR(0, D.guns.gap); }
   for (const s of W.sites) { s.alive = true; s.left = 4; s.frame.visible = true; s.ruin.visible = false; for (const r of s.rails) r.visible = true; }
   W.radar.alive = true; W.radar.g.children.forEach(c => { c.visible = c !== W.radar.ruin; });
   for (const list of [W.cms, W.sams, W.flares, W.aims, W.bombs]) { for (const o of list) if (o.mesh) { scene.remove(o.mesh); const i = dad.objs.indexOf(o.mesh); if (i >= 0) dad.objs.splice(i, 1); } list.length = 0; }
-  for (const P of [W.smoke, W.fire]) { P.life.fill(0); }
+  for (const P of [W.smoke, W.fire, W.tracer]) { P.life.fill(0); }
   W.hatch.visible = false; W.hole.visible = false; W.rubble.visible = false;
+  W.debris.mesh.visible = false; for (const p of W.debris.parts) p.on = false;
   vl.bunker.visible = true; vl.ventGroup.visible = true;
   // the jet: low at the valley's mouth, heading up it
   const x = V.x0 + D.start.back;
@@ -748,6 +844,7 @@ function dadMission(dt) {
   // the jet's own trail of heat in the fire pool, and the particles
   dadStepParticles(W.smoke, dt);
   dadStepParticles(W.fire, dt);
+  dadStepStreaks(W.tracer, dt);
   // the G meter's grey-out: a held pull fades the edges in, a quick one does not
   m.gSmooth += (Math.abs(m.g) - m.gSmooth) * Math.min(1, 2.2 * dt);
   const J = D.jet;
@@ -790,8 +887,8 @@ function dadCruiseMissiles(dt) {
     c.x += c.vx * dt; c.y += c.vy * dt; c.z += c.vz * dt;
     c.mesh.position.set(c.x, c.y, c.z);
     c.mesh.lookAt(c.x + c.vx, c.y + c.vy, c.z + c.vz);
-    dadEmit(W.fire, c.x - c.vx * 0.012, c.y - c.vy * 0.012, c.z - c.vz * 0.012, 0, 0, 0, 0.12, 3, 1.5, 1, 0xffb43a, 0, 0);
-    dadEmit(W.smoke, c.x, c.y, c.z, dadR(-1, 1), dadR(-1, 1), dadR(-1, 1), 2.8, 2.5, 13, 0.5, 0x9aa1ab, 0.2, 0.5);
+    c.t = (c.t || 0) + dt;
+    dadTrail(c, dt, 0.5, 0x9aa1ab, 3);
     if (Math.hypot(R.x - c.x, R.y - c.y, R.z - c.z) < 14 || c.y < terrainEff(c.x, c.z)) {
       c.alive = false; c.mesh.visible = false;
       dadBlast(c.x, Math.max(c.y, terrainEff(c.x, c.z)), c.z, 1.8, true);
@@ -824,8 +921,30 @@ function dadLaunchSam() {
   mesh.scale.set(1.3, 1.3, 1.6);
   W.sams.push({ mesh, x: best.x, y: best.y + 3, z: best.z, vx: 0, vy: 40, vz: 0, speed: 40, t: 0, alive: true, target: "jet", flare: null });
   m.samsLaunched++;
-  dadSay("MISSILE LAUNCH", 2);
+  if (!(m.msg === "TARGET DESTROYED" && m.msgT > 1)) dadSay("MISSILE LAUNCH", 2);
   return true;
+}
+// A missile's motor and its trail (t384, t432, t482): a white-hot core in an orange
+// glow at the tail, and a thick rope of smoke laid along the whole distance flown this
+// frame, each puff thrown out on a slow corkscrew round the line so the trail curls and
+// billows as it lingers. `k` sizes it: 1 for a SAM, less for his own and the cruise darts.
+function dadTrail(o, dt, k, col, life) {
+  const W = dad.world;
+  const sp = Math.hypot(o.vx, o.vy, o.vz) || 1, ux = o.vx / sp, uy = o.vy / sp, uz = o.vz / sp;
+  const tx = o.x - ux * 2.2 * k, ty = o.y - uy * 2.2 * k, tz = o.z - uz * 2.2 * k;
+  dadEmit(W.fire, tx, ty, tz, 0, 0, 0, 0.06, 7 * k, 5 * k, 1, 0xffffff, 0, 0);
+  dadEmit(W.fire, tx - ux * 2 * k, ty - uy * 2 * k, tz - uz * 2 * k, 0, 0, 0, 0.09, 17 * k, 9 * k, 0.85, dadRand() < 0.5 ? 0xffb43a : 0xff8a2a, 0, 0);
+  // two axes square to the line, for the corkscrew
+  let px = -uz, py = 0, pz = ux; const pl = Math.hypot(px, pz) || 1; px /= pl; pz /= pl;
+  const qx = uy * pz - uz * py, qy = uz * px - ux * pz, qz = ux * py - uy * px;
+  const len = sp * dt, n = Math.max(2, Math.min(6, Math.round(len / (3.5 * k))));
+  for (let i = 0; i < n; i++) {
+    const b = 2.5 * k + len * i / n, a = (o.t || 0) * 5.5 + i * 0.9 + dadR(-0.4, 0.4), r = dadR(2.5, 6) * k;
+    const cx = Math.cos(a) * r, cy = Math.sin(a) * r;
+    dadEmit(W.smoke, tx - ux * b, ty - uy * b, tz - uz * b,
+      px * cx + qx * cy + 1.5, py * cx + qy * cy + 0.3, pz * cx + qz * cy + 0.8,
+      dadR(0.8, 1.15) * life, 4.5 * k, dadR(30, 50) * k, 0.72, col === undefined ? (dadRand() < 0.5 ? 0xc9ced6 : 0xaab1bb) : col, 0.35, 0.8);
+  }
 }
 function dadSams(dt, jetAlive) {
   const W = dad.world, m = dad.m, S = TUNE.dad.sam;
@@ -855,14 +974,9 @@ function dadSams(dt, jetAlive) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt;
     s.mesh.position.set(s.x, s.y, s.z);
     s.mesh.lookAt(s.x + s.vx, s.y + s.vy, s.z + s.vz);
-    // the motor and the thick white trail that curls and lingers (t384, t432)
-    dadEmit(W.fire, s.x - s.vx * 0.01, s.y - s.vy * 0.01, s.z - s.vz * 0.01, 0, 0, 0, 0.1, 5, 2.5, 1, 0xfff0b0, 0, 0);
-    // grey-white, so it reads against the sky AND the snow, thick and lingering (t384, t482):
-    // two puffs a frame, so at 290 m/s it is a rope and not a row of dots
-    for (let k = 0; k < 2; k++) {
-      const b = 0.012 + k * 0.009;
-      dadEmit(W.smoke, s.x - s.vx * b, s.y - s.vy * b, s.z - s.vz * b, dadR(-1.5, 1.5), dadR(-1, 1.5), dadR(-1.5, 1.5), dadR(4, 5.5), 4, dadR(24, 38), 0.7, s.t < 1.5 ? 0x8a93a0 : (dadRand() < 0.5 ? 0xb9bec6 : 0x9aa1ab), 0.3, 0.9);
-    }
+    // the motor and the thick grey-white trail that curls and lingers (t384, t432):
+    // grey-white so it reads against the sky AND the snow; darker off the rail
+    dadTrail(s, dt, 1, s.t < 1.5 ? 0x8a93a0 : undefined, 7);
     const hitDist = s.target === "flare" ? 10 : S.fuse;
     if (s.target !== "none" && dist < hitDist) {
       s.alive = false; s.mesh.visible = false;
@@ -881,7 +995,11 @@ function dadDamage(n, why) {
   if (m.over) return;
   m.health = Math.max(0, m.health - n);
   m.damageTaken += n;
-  m.shake = Math.max(m.shake, Math.min(1, n / 40));
+  // a hit is felt and heard: a jolt, a metal crack and a thud
+  m.shake = Math.max(m.shake, Math.min(1, 0.5 + n / 60));
+  dadNoise(0.12, 3200, 0.3);
+  dadNoise(0.35, 420, 0.32);
+  if (typeof synthBlip === "function") synthBlip("square", 190, 70, 0.18, 0.12);
   dadSay(why === "missile" ? "HIT -- MISSILE" : "HIT", 1.2);
   if (m.health <= 0) dadDown();
 }
@@ -940,17 +1058,21 @@ function dadGuns(dt, firing) {
   const W = dad.world, m = dad.m, G = TUNE.dad.guns;
   let anyFiring = false;
   const f = dadFwd(dadTmpF);
+  const sx0 = Math.cos(state.heading), sz0 = -Math.sin(state.heading);   // his right, level
   for (const g of W.guns) {
     if (!g.alive) continue;
     const dx = state.x - g.x, dy = state.y - g.y, dz = state.z - g.z, d = Math.hypot(dx, dy, dz);
     // the turret follows him whether or not it is firing
     g.turret.rotation.y = Math.atan2(-dx, -dz);
-    g.tilt.rotation.x = Math.atan2(dy, Math.hypot(dx, dz));
-    if (!firing || d > G.range) { g.fireT = 0; continue; }
+    // the barrels show no more than 12 degrees down, so they stand out over the ledge
+    // and are never buried in it (the stream leaves along the true aim)
+    g.tilt.rotation.x = Math.max(-0.21, Math.atan2(dy, Math.hypot(dx, dz)));
+    if (!firing || d > G.fireRange) { g.fireT = 0; continue; }
     if (g.fireT <= 0) {
       g.gapT -= dt;
       if (g.gapT > 0) continue;
-      if (!dadLos(g.x, g.y, g.z, state.x, state.y, state.z)) { g.gapT = 0.4; continue; }
+      // with no line of sight it fires anyway, blind: into the sky across his nose
+      g.blind = d > G.range || !dadLos(g.x, g.y, g.z, state.x, state.y, state.z);
       g.fireT = G.burst; g.gapT = G.gap * dadR(0.7, 1.3);
     }
     g.fireT -= dt;
@@ -961,32 +1083,59 @@ function dadGuns(dt, firing) {
     const al = Math.hypot(ax, ay, az) || 1;
     const agl = dadAgl();
     const expo = agl > G.exposedAgl ? 1.25 : (agl > TUNE.dad.radar.agl ? 0.9 : 0.4);
+    const hitExpo = agl > TUNE.dad.radar.agl ? expo : G.lowExpo;
+    // the muzzle: a flash at the barrels every frame it fires, big enough to see on a ridge
+    const mx = g.x + ax / al * g.muzzle, my = g.y + ay / al * g.muzzle, mz = g.z + az / al * g.muzzle;
+    dadEmit(W.fire, mx, my, mz, 0, 0, 0, 0.06, dadR(24, 34), 12, 1, dadRand() < 0.5 ? 0xfff0b0 : 0xffd070, 0, 0);
+    // and its smoke, a grey drift off the mount that marks where the firing is from
+    if (dadRand() < 0.35) dadEmit(W.smoke, mx, my, mz, ax / al * 6 + dadR(-2, 2), dadR(1, 4), az / al * 6 + dadR(-2, 2), dadR(1.5, 2.5), 6, dadR(18, 26), 0.6, 0x8a93a0, 0.8, 1);
     while (g.shotT <= 0) {
       g.shotT += 1 / G.rof;
-      const sx = ax / al + dadR(-G.spread, G.spread), sy = ay / al + dadR(-G.spread, G.spread), sz = az / al + dadR(-G.spread, G.spread);
-      // a tracer: a bright head and a dimmer tail behind it, so it reads as a streak
-      const life = Math.min(2.2, tof * 1.3);
-      dadEmit(W.fire, g.x, g.y, g.z, sx * G.tracer, sy * G.tracer, sz * G.tracer, life, 4.5, 3.5, 1, 0xffd070, 0, 0);
-      dadEmit(W.fire, g.x - sx * 9, g.y - sy * 9, g.z - sz * 9, sx * G.tracer, sy * G.tracer, sz * G.tracer, life, 3.5, 2.5, 0.6, 0xff8a2a, 0, 0);
-      if (dadRand() < G.hitChance * expo * (1 - d / G.range) * 1.4) {
+      // where this round's tracer goes: most led ACROSS his nose, so the stream crosses
+      // the sky in front of him; the rest at him; blind, all of it over the valley ahead
+      let px, py, pz;
+      if (g.blind || dadRand() < G.ahead) {
+        const lead = tof + dadR(0.3, 1.0), side = dadR(-45, 45), up = g.blind ? dadR(40, 140) : dadR(-6, 30);
+        px = state.x + f.x * state.speed * lead + sx0 * side; py = state.y + f.y * state.speed * lead + up; pz = state.z + f.z * state.speed * lead + sz0 * side;
+      } else { px = g.x + ax; py = g.y + ay; pz = g.z + az; }
+      const qx = px - mx, qy = py - my, qz = pz - mz, ql = Math.hypot(qx, qy, qz) || 1;
+      const ux = qx / ql + dadR(-G.spread, G.spread), uy = qy / ql + dadR(-G.spread, G.spread), uz = qz / ql + dadR(-G.spread, G.spread);
+      // a tracer is a streak: a hot head and a fading tail, carried on past him
+      const life = Math.min(2.8, (ql + 700) / G.tracer);
+      dadShoot(W.tracer, mx, my, mz, ux * G.tracer, uy * G.tracer, uz * G.tracer, life);
+      if (!g.blind && dadRand() < G.hitChance * hitExpo * Math.max(0, 1 - d / G.range) * 1.4) {
         m.gunHits++;
         dadDamage(G.damage, "gun");
         dadEmit(W.fire, state.x, state.y, state.z, dadR(-20, 20), dadR(-5, 15), dadR(-20, 20), 0.3, 4, 1, 1, 0xfff0b0, 2, 0);
       }
     }
+    // flak: black bursts close round him, ahead where he will see them; a blind gun's
+    // burst over him, at the height it guesses
     g.flakT -= dt;
     if (g.flakT <= 0) {
       g.flakT = G.flakEvery * dadR(0.6, 1.4);
       const spread = G.flakSpread * (0.4 + d / G.range) / expo;
-      const bx = state.x + f.x * state.speed * dadR(0.1, 0.6) + dadR(-spread, spread), by = state.y + dadR(-spread, spread) * 0.6 + 6, bz = state.z + f.z * state.speed * dadR(0.1, 0.6) + dadR(-spread, spread);
-      dadEmit(W.fire, bx, by, bz, 0, 0, 0, 0.18, 14, 6, 1, 0xffd070, 0, 0);
-      for (let i = 0; i < 4; i++) dadEmit(W.smoke, bx + dadR(-2, 2), by + dadR(-2, 2), bz + dadR(-2, 2), dadR(-3, 3), dadR(-1, 3), dadR(-3, 3), dadR(2.5, 4), 4, dadR(9, 14), 0.8, 0x1f2328, 0.8, 0.2);
+      const lead = dadR(0.25, 0.8);
+      const bx = state.x + f.x * state.speed * lead + dadR(-spread, spread), bz = state.z + f.z * state.speed * lead + dadR(-spread, spread);
+      // in the air round him, never on the snow: no lower than he is, nor 15 m off the ground
+      const by = Math.max(state.y - 4, terrainEff(bx, bz) + 15) + (g.blind ? dadR(6, 28) : Math.abs(dadR(-spread, spread)) * 0.5);
+      dadFlakBurst(bx, by, bz);
       m.flak++;
-      if (Math.hypot(bx - state.x, by - state.y, bz - state.z) < 10) dadDamage(5, "flak");
-      dadNoise(0.18, 300, 0.12 * clamp(1 - Math.hypot(bx - state.x, by - state.y, bz - state.z) / 600, 0.1, 1));
+      const miss = Math.hypot(bx - state.x, by - state.y, bz - state.z);
+      if (miss < G.flakHit) { m.flakHits++; dadDamage(5, "flak"); }
+      else if (miss < G.nearMiss) { m.nearMisses++; m.shake = Math.max(m.shake, 0.35 * (1 - miss / G.nearMiss) + 0.1); dadNoise(0.22, 700, 0.18); }
+      dadNoise(0.3, 220, 0.16 * clamp(1 - miss / 600, 0.1, 1));
     }
   }
   m.gunsFiring = anyFiring;
+}
+// one flak burst: a flash, then a knot of black smoke that hangs
+function dadFlakBurst(x, y, z) {
+  const W = dad.world;
+  dadEmit(W.fire, x, y, z, 0, 0, 0, 0.16, 22, 10, 1, 0xffd070, 0, 0);
+  for (let i = 0; i < 4; i++) dadEmit(W.fire, x, y, z, dadR(-25, 25), dadR(-25, 25), dadR(-25, 25), 0.25, 4, 1, 1, 0xff8a2a, 3, 0);
+  for (let i = 0; i < 8; i++) dadEmit(W.smoke, x + dadR(-3, 3), y + dadR(-3, 3), z + dadR(-3, 3), dadR(-5, 5), dadR(-2, 4), dadR(-5, 5),
+    dadR(3.5, 5.5), 8, dadR(20, 30), 0.92, i % 2 ? 0x15171a : 0x24272c, 1.0, 0.3);
 }
 
 // ---- his missiles: off the rail at the nearest gun or site in the cone ahead
@@ -1036,8 +1185,7 @@ function dadAims(dt) {
     a.x += a.vx * dt; a.y += a.vy * dt; a.z += a.vz * dt;
     a.mesh.position.set(a.x, a.y, a.z);
     a.mesh.lookAt(a.x + a.vx, a.y + a.vy, a.z + a.vz);
-    dadEmit(W.fire, a.x, a.y, a.z, 0, 0, 0, 0.08, 3.5, 2, 1, 0xfff0b0, 0, 0);
-    dadEmit(W.smoke, a.x, a.y, a.z, 0, 0, 0, 2.2, 1.5, 8, 0.45, 0xd8dce2, 0.2, 0.5);
+    dadTrail(a, dt, 0.6, 0xd8dce2, 4);
     if (a.t > A.life || a.y < terrainEff(a.x, a.z)) { a.alive = false; a.mesh.visible = false; dadBlast(a.x, Math.max(a.y, terrainEff(a.x, a.z)), a.z, 0.8, true); }
   }
 }
@@ -1171,39 +1319,70 @@ function dadHatchBlows() {
   W.hatch.position.set(vt.x, vt.y, vt.z);
   W.hatchV = { x: dadR(-8, 8), y: 38, z: dadR(-8, 8), r: dadR(3, 6) };
 }
-// the plant goes: the bunker gone in a column of black smoke over a skirt of snow
+// the plant goes (t368): a first blast, then bursts stacked up over it, a charcoal
+// column that climbs far above the bowl's peaks, wreckage thrown out trailing smoke,
+// and the snow blown off the floor rolling out across the bowl in a white wall
 function dadPlantGoes() {
-  const m = dad.m, W = dad.world, vt = vl.vent;
+  const m = dad.m, W = dad.world, vt = vl.vent, P = TUNE.dad.plant;
   m.plant = true; m.plantT = 0;
   vl.bunker.visible = false;
   W.hatch.visible = false; W.hole.visible = false;
   W.rubble.visible = true;
   dadBlast(vt.x, vt.y, vt.z, 5, true);
-  // the burst that fills the bowl (t368): charcoal billows thrown up and out, and the
-  // snow blown off the floor in a white wall round it
   for (let i = 0; i < 90; i++) {
     const a = dadR(0, 6.283), up = dadR(35, 110), out = dadR(10, 70);
     dadEmit(W.smoke, vt.x + dadR(-25, 25), vt.y + dadR(0, 30), vt.z + dadR(-25, 25), Math.cos(a) * out, up, Math.sin(a) * out,
       dadR(9, 15), dadR(60, 100), dadR(170, 280), 0.9, [0x1f2328, 0x2a2c30, 0x3c4350][i % 3], 0.55, 1.5);
   }
-  for (let i = 0; i < 70; i++) {
-    const a = dadR(0, 6.283), out = dadR(60, 140);
-    dadEmit(W.smoke, vt.x, vt.y + 3, vt.z, Math.cos(a) * out, dadR(4, 26), Math.sin(a) * out,
-      dadR(6, 10), dadR(40, 70), dadR(130, 220), 0.95, 0xf2f4f7, 0.55, 0.6);
-  }
   for (let i = 0; i < 40; i++) {
     const a = dadR(0, 6.283), up = dadR(20, 60), out = dadR(5, 30);
     dadEmit(W.fire, vt.x, vt.y + dadR(0, 25), vt.z, Math.cos(a) * out, up, Math.sin(a) * out, dadR(1.2, 2.4), dadR(30, 50), dadR(70, 120), 1, [0xffd070, 0xff8a2a, 0xff7a1a][i % 3], 1.0, 4);
   }
-  m.column = 22;
+  // the wreckage: slabs of the bunker thrown out and up, each trailing smoke
+  const D = W.debris;
+  D.mesh.visible = true;
+  for (const p of D.parts) {
+    const a = dadR(0, 6.283), out = dadR(25, 95);
+    Object.assign(p, { on: true, t: 0, x: vt.x + dadR(-6, 6), y: vt.y + dadR(0, 4), z: vt.z + dadR(-6, 6),
+      vx: Math.cos(a) * out, vy: dadR(30, 75), vz: Math.sin(a) * out, rx: dadR(0, 6), ry: dadR(0, 6), wx: dadR(-6, 6), wy: dadR(-6, 6) });
+  }
+  m.bursts = P.bursts.map(b => ({ t: b[0], y: b[1], s: b[2] }));
+  m.surge = { r: 25, t: 0 };
+  m.column = P.columnFor;
   m.shake = 1;
   dadSay("TARGET DESTROYED", 4);
   // every site still standing within reach launches, one after another
   m.alertLeft = Math.min(4, W.sites.filter(s => s.alive && Math.hypot(s.x - vt.x, s.z - vt.z) < 4500).length);
   m.alert = 1.2;
 }
+function dadDebrisStep(dt) {
+  const D = dad.world.debris, W = dad.world;
+  if (!D.mesh.visible) return;
+  let i = 0;
+  for (const p of D.parts) {
+    if (p.on) {
+      p.t += dt;
+      const gy = terrainEff(p.x, p.z);
+      if (p.y > gy + p.s * 0.3) {
+        p.vy -= 9.81 * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        p.rx += p.wx * dt; p.ry += p.wy * dt;
+        // a smoke trail while it flies, burning for its first second and a half
+        if (p.t < 3.5 && dadRand() < 0.6) dadEmit(W.smoke, p.x, p.y, p.z, dadR(-1, 1), dadR(0, 2), dadR(-1, 1), dadR(1.5, 2.5), p.s * 1.5, p.s * 6, 0.8 * (1 - p.t / 3.5), 0x1f2328, 0.5, 1);
+        if (p.t < 1.5) dadEmit(W.fire, p.x, p.y, p.z, 0, 0, 0, 0.12, p.s * 2.5, p.s, 1, 0xff8a2a, 0, 0);
+      } else if (p.vy !== 0) {
+        p.y = gy + p.s * 0.3; p.vx = p.vy = p.vz = p.wx = p.wy = 0;
+        dadEmit(W.smoke, p.x, p.y, p.z, 0, 3, 0, 2.5, p.s * 2, p.s * 7, 0.85, 0xf2f4f7, 0.8, 0.4);
+      }
+    }
+    D.e.set(p.rx, p.ry, 0); D.q.setFromEuler(D.e);
+    D.m4.compose(D.v3.set(p.x, p.y, p.z), D.q, D.s3.set(p.s, p.s * 0.45, p.s * 0.8));
+    D.mesh.setMatrixAt(i++, D.m4);
+  }
+  D.mesh.instanceMatrix.needsUpdate = true;
+}
 function dadColumn(dt) {
-  const m = dad.m, W = dad.world, vt = vl.vent;
+  const m = dad.m, W = dad.world, vt = vl.vent, P = TUNE.dad.plant;
   if (W.hatch.visible && W.hatchV) {
     const h = W.hatchV;
     h.y -= 9.81 * dt;
@@ -1211,15 +1390,40 @@ function dadColumn(dt) {
     W.hatch.rotation.x += h.r * dt; W.hatch.rotation.z += h.r * 0.6 * dt;
     if (W.hatch.position.y < terrainEff(W.hatch.position.x, W.hatch.position.z)) { W.hatch.position.y = terrainEff(W.hatch.position.x, W.hatch.position.z) + 0.2; h.x = h.z = h.r = 0; h.y = 0; }
   }
+  dadDebrisStep(dt);
   if (m.column <= 0) return;
+  const t = P.columnFor - m.column;
   m.column -= dt;
-  const k = clamp(m.column / 22, 0, 1);
-  // the charcoal column (t368): rising billows, broad at the top
-  for (let i = 0; i < 3; i++) dadEmit(W.smoke, vt.x + dadR(-14, 14), vt.y + dadR(0, 12), vt.z + dadR(-14, 14), dadR(-6, 6), dadR(18, 36) * (0.5 + k), dadR(-6, 6), dadR(8, 13), 30, dadR(90, 150), 0.85, [0x1f2328, 0x2a2c30, 0x3c4350][i], 0.12, 3);
+  // the bursts stacked up over the first: each higher than the last
+  if (m.bursts) for (const b of m.bursts) if (!b.done && t >= b.t) {
+    b.done = true;
+    dadBlast(vt.x + dadR(-10, 10), vt.y + b.y, vt.z + dadR(-10, 10), b.s, false);
+    for (let i = 0; i < 26; i++) {
+      const a = dadR(0, 6.283), out = dadR(15, 55);
+      dadEmit(W.smoke, vt.x + dadR(-15, 15), vt.y + b.y + dadR(-10, 10), vt.z + dadR(-15, 15), Math.cos(a) * out, dadR(20, 60), Math.sin(a) * out,
+        dadR(10, 16), dadR(50, 80), dadR(150, 240), 0.9, [0x15171a, 0x1f2328, 0x2a2c30][i % 3], 0.4, 2);
+    }
+  }
+  const k = clamp(m.column / P.columnFor, 0, 1);
+  // the charcoal column (t368): billows that keep climbing on their own heat, so its head
+  // stands far over the peaks, broad at the top
+  // soft at its edges (puffs thrown wide fade lighter) and leaning off on the wind
+  for (let i = 0; i < 3; i++) { const w = dadR(0, 1);
+    dadEmit(W.smoke, vt.x + dadR(-16, 16), vt.y + dadR(0, 15), vt.z + dadR(-16, 16), dadR(-14, 14) * w + 7, dadR(35, 60) * (0.4 + k), dadR(-14, 14) * w + 3,
+      dadR(16, 22), 35, dadR(140, 260), 0.85 - 0.35 * w, [0x15171a, 0x1f2328, 0x3c4350][i], 0.05, 5.6 * (0.3 + k)); }
   // fire in its root for the first seconds (t476)
-  if (m.column > 16) for (let i = 0; i < 3; i++) dadEmit(W.fire, vt.x + dadR(-8, 8), vt.y + dadR(0, 20), vt.z + dadR(-8, 8), dadR(-6, 6), dadR(10, 30), dadR(-6, 6), dadR(0.8, 1.4), 16, 38, 1, [0xffd070, 0xff8a2a, 0xff7a1a][i], 1, 6);
-  // and the snow thrown out across the bowl
-  if (m.column > 18) for (let i = 0; i < 3; i++) { const a = dadR(0, 6.283), sp = dadR(30, 60); dadEmit(W.smoke, vt.x, vt.y + 2, vt.z, Math.cos(a) * sp, dadR(2, 8), Math.sin(a) * sp, dadR(4, 7), 14, dadR(40, 70), 0.85, 0xf2f4f7, 0.7, 0.8); }
+  if (t < 7) for (let i = 0; i < 3; i++) dadEmit(W.fire, vt.x + dadR(-9, 9), vt.y + dadR(0, 25), vt.z + dadR(-9, 9), dadR(-6, 6), dadR(12, 34), dadR(-6, 6), dadR(0.8, 1.5), 18, 44, 1, [0xffd070, 0xff8a2a, 0xff7a1a][i], 1, 6);
+  // the snow cloud: a white wall laid at the foot of a ring that rolls out over the bowl floor
+  const S = m.surge;
+  if (S && S.t < P.surgeFor) {
+    S.t += dt;
+    S.r += P.surge * (1 - 0.6 * S.t / P.surgeFor) * dt;
+    for (let i = 0; i < 9; i++) {
+      const a = dadR(0, 6.283), r = S.r + dadR(-20, 10), x = vt.x + Math.cos(a) * r, z = vt.z + Math.sin(a) * r;
+      dadEmit(W.smoke, x, terrainEff(x, z) + dadR(2, 12), z, Math.cos(a) * dadR(12, 28), dadR(2, 9), Math.sin(a) * dadR(12, 28),
+        dadR(6, 9), dadR(30, 45), dadR(90, 150), 0.9, dadRand() < 0.5 ? 0xf2f4f7 : 0xe2e7ee, 0.35, 0.6);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1261,6 +1465,8 @@ function dadCamera(dt) {
     camera.position.x += (dadRand() - 0.5) * 1.6 * sh;
     camera.position.y += (dadRand() - 0.5) * 1.2 * sh;
     camera.position.z += (dadRand() - 0.5) * 1.6 * sh;
+    camera.rotateX((dadRand() - 0.5) * 0.05 * sh);
+    camera.rotateZ((dadRand() - 0.5) * 0.04 * sh);
   }
 }
 // The jet's pose and its burner, here rather than in the shared pose so nothing
@@ -1301,6 +1507,24 @@ function dadBuildHud() {
   const grey = dadEl("div", { id: "dadGrey" });
   dad.dom.push(grey);
   dad.hud.grey = grey;
+  // the cockpit (t344): the HUD's two dark posts rising to the canopy bow, the tinted
+  // glass between them, the projector and the coaming below; drawn over the world in
+  // the pilot's view only, under the HUD's own figures
+  const cp = dadEl("div", { id: "dadCanopy" });
+  cp.innerHTML = `<svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice">
+    <defs><linearGradient id="dadGlass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bfffe0" stop-opacity=".20"/><stop offset=".45" stop-color="#9effc0" stop-opacity=".10"/>
+      <stop offset=".55" stop-color="#ffffff" stop-opacity=".16"/><stop offset="1" stop-color="#9effc0" stop-opacity=".12"/></linearGradient></defs>
+    <g stroke="#2a2f36" stroke-width="5" fill="none"><path d="M470 225L395 0M1130 225L1205 0"/><path d="M500 225L470 0M1100 225L1130 0" stroke-width="3"/></g>
+    <path d="M478 228H1122L1066 900H534Z" fill="url(#dadGlass)" stroke="#c9ffe0" stroke-opacity=".5" stroke-width="3"/>
+    <g fill="#1d2126" stroke="#3a4048" stroke-width="3">
+      <path d="M448 210l36 -6l58 758h-46z"/><path d="M1152 210l-36 -6l-58 758h46z"/>
+      <path d="M0 1000V905Q800 820 1600 905V1000Z"/>
+      <path d="M735 1000V860q0-38 65-38t65 38V1000Z" fill="#2a2f36"/></g>
+    <g stroke="#7dff9a" stroke-width="3" fill="none" opacity=".75"><path d="M770 470h18l12 12 12-12h18"/></g>
+  </svg>`;
+  dad.dom.push(cp);
+  dad.hud.canopy = cp;
 }
 const dadProj = new THREE.Vector3();
 function dadScreen(x, y, z) {
@@ -1346,6 +1570,8 @@ function dadHudUpdate() {
   h.fpm.style.display = fp ? "block" : "none";
   if (fp) h.fpm.style.transform = "translate(" + Math.round(fp.x) + "px," + Math.round(fp.y) + "px)";
   h.grey.style.opacity = (m.grey * 0.92).toFixed(3);
+  const inSeat = !state.viewChase && !state.exploding;
+  if (h.canopyOn !== inSeat) { h.canopyOn = inSeat; h.canopy.style.display = inSeat ? "block" : "none"; }
 }
 function dadSoundsStep() {
   if (typeof setTone !== "function") return;

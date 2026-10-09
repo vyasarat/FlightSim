@@ -236,7 +236,7 @@ window.__lp = {
   cr, CR, crActive, crSpawn, crCanGo, crParked, crAimed, crGroups, crTowers, crBall, crCrane, crHomeError, crLeave, crCovers,
   vl, vlCovers, vlBunkerAt, vlCenterZ, vlCenterSlope, vlFloorY, vlBowlCentre, vlWeight,
   dad, dadActive, dadEnter, dadExit, dadStart, dadTick, dadKeyTap, dadPadPress, dadFlare, dadDropBomb, dadFireMissile, dadBombCan,
-  dadFlying, dadLaunchSam, dadCruiseMissiles, dadNosePoint, dadAgl, dadFwd, dadKill, dadAimTarget, get dadSeedNow() { return dadSeedNow; },
+  dadFlying, dadLaunchSam, dadCruiseMissiles, dadNosePoint, dadAgl, dadFwd, dadKill, dadAimTarget, dadPlantGoes, dadDamage, get dadSeedNow() { return dadSeedNow; },
   heavy, HV, heavySeparate, heavyWatching, heavyPad, heavyBoosterTilt, heavyReset, rocketRestock, rocketCanSkip,
   mon, MON, monGround, monCanCrush, monActive, monSpawn, monDebrisLive, monSnapCamera, monRestoreAll, solidCol, get buildingInst() { return buildingInst; },
   mtruck, MTRUCK, mtReset, mtForce, mtCarsState, mtPuffsLive, mtLanding, mtCovers, mtAt, mtSquash, updateMonsterTruck,

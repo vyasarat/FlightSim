@@ -2162,13 +2162,25 @@ const TUNE = {
     radar: { agl: 30.48, arm: 0.7, lock: 2.2, cool: 3.5, alertMul: 0.5 },   // 100 ft; seconds above it to a lock, then to a launch
     sam: { speed: 290, turnDeg: 34, life: 11, fuse: 14, damage: 55, launchGap: 0.6 },
     flares: { count: 8, decoyRange: 1400, life: 3.2, cooldown: 0.5 },
-    guns: { count: 9, range: 950, burst: 1.6, gap: 2.2, rof: 14, tracer: 620, spread: 0.035, hitChance: 0.035, damage: 6,
-            flakEvery: 0.45, flakSpread: 26, exposedAgl: 70 },
+    // v148: being shot at is unmissable. `scale` sizes the mounts so they read on a ridge;
+    // a gun opens up inside `fireRange` (it can only hit inside `range`), and with no line
+    // of sight it fires blind, its stream into the sky across his nose (`ahead`: the share
+    // of a sighted stream led across the nose, not at him). Flak within `nearMiss` shakes;
+    // a blind gun bursts its flak over him.
+    guns: { count: 9, range: 950, fireRange: 1500, burst: 1.6, gap: 2.2, rof: 14, tracer: 620, spread: 0.035, hitChance: 0.035, damage: 6,
+            flakEvery: 0.45, flakSpread: 26, flakHit: 10, nearMiss: 45, exposedAgl: 70, scale: 3.2, ahead: 0.7,
+            wallAt: 0.55,     // dug into the wall face this far up its run, in sight of the floor
+            lowExpo: 0.08 },  // under the radar's 100 ft he is a hard shot: v147's damage in the valley, with the guns now in sight
+    siteScale: 2.2,
     missiles: { count: 4, speed: 260, turnDeg: 60, life: 6, lockCone: 0.42, range: 2200, cooldown: 0.8 },
     bombs: { count: 4, range: 2600, armAgl: 60, steer: 34, life: 20, holdRateDeg: 7 },
     ventR: 1.5,                  // the vent's hit radius: "a target three metres wide"
     cruiseMissiles: { count: 5, speed: 280, alt: 420, delay: 1.2, gap: 0.5, at: 0.4 },   // `at`: their target, this fraction of the way up the valley
     start: { back: 160, agl: 22 },
+    // v148: the plant goes in stacked bursts (seconds after the hit, height over the vent,
+    // size), a column that climbs `columnFor` seconds, `debris` thrown out, and a snow
+    // cloud rolling out across the bowl floor at `surge` m/s for `surgeFor` seconds.
+    plant: { bursts: [[0.35, 18, 4], [0.8, 40, 4.5], [1.3, 70, 5], [1.9, 105, 4]], columnFor: 30, debris: 28, surge: 55, surgeFor: 9 },
     escape: 12,                  // seconds he must live after the plant goes, with nothing close behind, to be out
     results: { hold: 2.5 },      // seconds of the aftermath before the card
   },
