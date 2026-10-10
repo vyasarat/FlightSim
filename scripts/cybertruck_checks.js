@@ -173,6 +173,13 @@ module.exports.twinRun = function (key) {
   L.stPointAt(r, dir > 0 ? r.len - 60 : 60, dir, r.lo, q);
   S.x = q.x; S.z = q.z; S.y = L.stSurfaceAt(q.x, q.z); S.heading = Math.atan2(-q.fx, -q.fz); S.speed = 0;
   L.spdReset(); L.api.clearStick();
+  // deterministic from here (v153): the two pages are fresh, and what the city's traffic drew
+  // while each one loaded is a race between them -- so the city's cars are taken off and the
+  // stream is set, the same on both, for the streets and the bang. (It passed alone every time
+  // and failed one full run in a few, 0.5 m apart in New York.)
+  const Rnd = Math.random; let seed = 29; Math.random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  try {
+  if (L.stTraffic && L.stTraffic.list) L.stTraffic.list.forEach(v => { v.alive = false; v.respawn = 1e9; });
   for (let i = 0; i < 10; i++) L.update(1 / 60);
   step(60 * 6, 0);
   const h0 = S.heading, street0 = L.car.onStreet && L.stPlan.road ? L.stPlan.road.id : null;
@@ -212,6 +219,7 @@ module.exports.twinRun = function (key) {
     crash.hit = Object.entries(L.flags.solidHits || {}).filter(([k, v]) => v > (hits0[k] || 0)).map(([k]) => k.split(":").slice(1).join(":"));   // "<vehicle>:<kind>:crash", the vehicle dropped so the two compare
   }
   return { kind: L.vehKind(), path, bangs, turned, crash };
+  } finally { Math.random = Rnd; }
 };
 
 // Runs in the page. For the SUV and the Cybertruck: the body, how it sits, both views.

@@ -2187,6 +2187,12 @@ const TUNE = {
     // slantMax] and the dive between diveMin and diveMax degrees; the pull-up cue under `pullSlant`
     // in the dive, or once the last bomb he means to drop is away
     attack: { markR: 4000, slantMin: 450, slantMax: 1000, diveMin: 20, diveMax: 60, pullSlant: 430 },
+    // v153: the four-ship. Pair 1 (#1 drops, #2 lases) pushes ahead inside `pushR` of the vent at
+    // `pushRate` m/s over his speed until it is `lead` metres further on, pops up at `popAt` (and once he is inside
+    // `popYou`, so its bomb lands as he rolls in and the bowl comes into his view) to
+    // `popH` over the vent, rolls in at `rollIn` degrees, drops at `dropAt` slant and goes `hold` s later
+    pair1: { pushR: 7300, pushRate: 150, lead: 600, popYou: 2800, popAt: 1900, popH: 380, rollIn: 28, dropAt: 1100, hold: 1.0, speed: 165 },
+    hatchColumn: 5,              // v153: seconds the open hatch stands a column of smoke over the rim (seen from the valley)
     ventR: 1.5,                  // the vent's hit radius: "a target three metres wide"
     cruiseMissiles: { count: 5, speed: 280, alt: 420, delay: 1.2, gap: 0.5, at: 0.4 },   // `at`: their target, this fraction of the way up the valley
     start: { back: 160, agl: 22 },

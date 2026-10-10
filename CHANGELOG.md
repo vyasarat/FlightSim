@@ -10,6 +10,36 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v153 — dad mode: two pairs, like the film
+
+Dad mode only; his game is unchanged. Four F-35s now fly the valley: you and three AI jets
+in formation. They hold your height over the floor and your line (your offset from the
+centreline). Pair 1 (#1 and #2) flies ahead, you and #4 behind. Early in the valley pair 1
+pushes 600 m further ahead (`TUNE.dad.pair1`). It pops up once you are inside 2.8 km, so its
+bomb lands just as you pop up yourself. #1 rolls in and drops while #2 lases the vent (a red
+beam from its belly), and their bomb blows the hatch open in a bigger burst, with a column
+of smoke that climbs over the rim in front of you. The bowl is out of sight from the valley
+floor until about 1 km, so that column is what you see from the seat. Pair 2 is you and #4. #4's laser holds the vent for you, so
+your LASER LOCK reads "· #4" and your bomb, the kill shot through the open vent, rides #4's
+laser. That laser never fails. If #4 is lost, your own laser takes over (the v152 nose
+laser), and the HUD says so. The AI jets are hit only over the 200 ft hidden ceiling, as
+you are: the same guns, round for round, and never under it. One shot down trails smoke and
+fire and goes into the snow, and the sortie goes on. If pair 1 is lost before its bomb is
+away, both hits are yours. The results card adds "Hatch opened by" and "Jets home: N of 4".
+`dadmode_checks.js` proves it. In the full sortie pair 1's bomb opens the hatch before your
+first is away and yours is the kill (all four home). With your nose 40 m off the vent and
+#4 lasing, both your bombs go through. With #4 shot down the laser is your own: 40 m off
+misses and on the vent hits. With pair 1 shot down at the start you make both hits. Flown
+at 150 ft the three AI jets stay under the ceiling and take no damage; at 300 ft they are
+over it with you and the guns hit them. The renders show the four-ship in the valley and
+pair 1's hit from your seat.
+
+Also a check fixed: `cybertruck_checks.js`'s "drives AS the car". It compares two fresh pages,
+and what the city's traffic drew while each page loaded is a race between them. It passed
+on its own every time but failed one full run, with the two paths 0.5 m apart in New York.
+Now, from the New York streets on, the city's cars are taken off and the random stream is
+set the same on both pages. It passed five runs on its own.
+
 ## v152 — dad mode: the attack cues
 
 Dad mode only; his game is unchanged. From your own flight: you reached the bomb site and

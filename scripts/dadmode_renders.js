@@ -59,6 +59,14 @@ async function render(root) {
   await vantage(`const f = L.dadFwd(new THREE.Vector3()); cam.up.set(0,1,0);
     cam.position.set(S.x - f.x * 30, S.y + 5, S.z - f.z * 30); cam.lookAt(S.x + f.x * 320, S.y + 150, S.z + f.z * 320);`);
   await shot(page, out, "02-cruise-missiles", { ...i, note: "3 s in: the cruise missiles streaking overhead, low in the mouth of the valley (t014, t122)" });
+  // v153: the four-ship early in the valley, before pair 1 pushes: from ahead, over the centreline, and from behind and above
+  i = await advance("P.t > 4", 10);
+  await vantage(`const x = S.x - 430, z = L.vlCenterZ(x); cam.up.set(0,1,0);
+    cam.position.set(x, S.y + 40, z); cam.lookAt(S.x - 110, S.y, S.z);`);
+  await shot(page, out, "26-four-ship-front", { ...i, note: "v153: four F-35s low in the valley -- pair 1 ahead, him and #4 behind, all under the ceiling" });
+  await vantage(`const f = L.dadFwd(new THREE.Vector3()); cam.up.set(0,1,0);
+    cam.position.set(S.x - f.x * 95, S.y + 32, S.z - f.z * 95); cam.lookAt(S.x + f.x * 170, S.y, S.z + f.z * 170);`);
+  await shot(page, out, "26b-four-ship-behind", { ...i, note: "v153: the four-ship from behind and above" });
   i = await advance("P.t > 6.5", 10);
   await paintView(true);
   await shot(page, out, "03-valley-low-chase", { ...i, note: "early in the valley, chase (t122, t248)" });
@@ -72,6 +80,7 @@ async function render(root) {
   await shot(page, out, "05-valley-chase", { ...i, note: "deep in the valley, chase, HUD (t122)" });
   await paintView(false);
   await shot(page, out, "06-valley-cockpit", { ...i, note: "deep in the valley, the pilot's view, HUD (t113)" });
+
   await page.evaluate(() => window.__lp.api.setView(true));
   // the moment a stream crosses his nose: tracer heads inside 25 degrees of it
   await page.evaluate(() => { window.__ahead = () => { const L = window.__lp, S = L.state, T = L.dad.world.tracer, f = L.dadFwd(new THREE.Vector3()); let n = 0;
@@ -97,6 +106,13 @@ async function render(root) {
   await shot(page, out, "17-approach-marker-cockpit", { ...i, note: "v152: the pop-up -- the target's diamond (or its edge arrow) and its distance, ARMED, from the seat" });
   await paintView(true);
   await shot(page, out, "17b-approach-marker-chase", { ...i, note: "v152: the same from behind" });
+  // v153: pair 1's bomb blows the hatch, seen from his seat
+  await page.evaluate(() => window.__lp.api.setView(false));   // the seat's own camera decides where the box is
+  i = await advance("m.hatchBy === 'pair1' && m.p1HitT !== null && m.cues && m.cues.box", 40);
+  await paintView(false);
+  await shot(page, out, "27-pair1-hit-cockpit", { ...i, note: "v153: pair 1's bomb through the vent -- the hatch blown, from his seat on the way in" });
+  await paintView(true);
+  await shot(page, out, "27b-pair1-hit-chase", { ...i, note: "v153: the same from behind" });
   i = await advance("P.phase === 'dive' && m.spotErr !== undefined && m.spotErr < 30", 30);
   await paintView(true);
   await shot(page, out, "08-dive-chase", { ...i, note: "rolled in: the bowl, the needles, the bunker under the box (t324, t344)" });
