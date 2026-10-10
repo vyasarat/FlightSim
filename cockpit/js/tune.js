@@ -2181,7 +2181,12 @@ const TUNE = {
     // nothing else -- the bunker only sparks (the bombs are the only way in).
     cannon: { range: 1000, rof: 45, speed: 1100, spread: 0.005, muzzle: [2.4, 1.4],   // muzzle: metres left of and under the nose line
                hitR: { gun: 9, site: 12 }, kill: { gun: 1.0, site: 2.5 } },
-    bombs: { count: 4, range: 2600, armAgl: 60, steer: 34, life: 20, holdRateDeg: 7 },
+    bombs: { count: 4, range: 3000, armAgl: 60, steer: 34, life: 20, holdRateDeg: 7 },   // v152: armed inside 3 km (was 2.6)
+    // v152: the attack's cues. The target marker from `markR` out (the whole pop-up, the valley's
+    // exit and the bowl); RELEASE while the laser is locked, the slant range inside [slantMin,
+    // slantMax] and the dive between diveMin and diveMax degrees; the pull-up cue under `pullSlant`
+    // in the dive, or once the last bomb he means to drop is away
+    attack: { markR: 4000, slantMin: 450, slantMax: 1000, diveMin: 20, diveMax: 60, pullSlant: 430 },
     ventR: 1.5,                  // the vent's hit radius: "a target three metres wide"
     cruiseMissiles: { count: 5, speed: 280, alt: 420, delay: 1.2, gap: 0.5, at: 0.4 },   // `at`: their target, this fraction of the way up the valley
     start: { back: 160, agl: 22 },

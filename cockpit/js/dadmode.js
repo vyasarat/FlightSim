@@ -229,6 +229,7 @@ function dadTeardown() {
   dad.dom.length = 0;
   for (const id of ["dadPad", "dadMenu", "dadCard"]) { const e = document.getElementById(id); if (e) e.remove(); }
   dadSoundsOff();
+  if (el.dadBombBtn) el.dadBombBtn.classList.remove("armed");   // his game's button carries nothing of dad mode out
   if (vl.bunker) vl.bunker.visible = true;
   if (vl.ventGroup) vl.ventGroup.visible = true;
   dad.world = null;
@@ -650,7 +651,7 @@ function dadBoom(size, dist) {
 }
 function dadSoundsOff() {
   if (typeof setTone !== "function") return;
-  for (const n of ["dadLock", "dadMsl", "dadPull", "dadGun", "dadCannon"]) setTone(n, "square", 440, 0);
+  for (const n of ["dadLock", "dadMsl", "dadPull", "dadGun", "dadCannon", "dadLase"]) setTone(n, "square", 440, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -693,7 +694,7 @@ function dadStart() {
   state.viewChase = true; el.hud.classList.add("chase");
   state.touching = false; state.ctrlBank = 0; state.ctrlPitch = 0;
   dad.m.lastFwd = dadFwd(new THREE.Vector3());
-  dad.cam = null;
+  dad.cam = null; dad.atk = 0;
   const card = document.getElementById("dadCard");
   if (card) card.remove();
 }
@@ -1534,12 +1535,17 @@ function dadCamera(dt) {
     // behind and above along his own flight path, so a dive looks DOWN the dive
     const pr = state.pitch * DEG;
     const ux = Math.sin(state.heading) * Math.sin(pr), uy = Math.cos(pr), uz = Math.cos(state.heading) * Math.sin(pr);
-    dadCamPos.set(state.x - f.x * 34 + ux * 8, state.y - f.y * 34 + uy * 8, state.z - f.z * 34 + uz * 8);
+    // v152: in the attack (a dive on the vent, inside the bomb's range) the camera rises over the
+    // jet and looks at the vent, so the jet sits under the target and its cues instead of on them
+    const atk = dadAttackView(dt);
+    const up = 8 + 14 * atk;
+    dadCamPos.set(state.x - f.x * 34 + ux * up, state.y - f.y * 34 + uy * up, state.z - f.z * 34 + uz * up);
     if (!dad.cam) { camera.position.copy(dadCamPos); dad.cam = true; }
     camera.position.lerp(dadCamPos, 1 - Math.exp(-22 * dt));   // stiff: a 9 G pull must not leave it under the jet
     const gy = terrainEff(camera.position.x, camera.position.z) + 2;
     if (camera.position.y < gy) camera.position.y = gy;
     dadCamLook.set(state.x + f.x * 60, state.y + f.y * 60 + 2, state.z + f.z * 60);
+    if (atk > 0) { const vt = vl.vent; dadCamLook.lerp(dadTmpV.set(vt.x, vt.y, vt.z), atk); }
     dadCamUp.set(ux, uy, uz);
     camera.up.copy(dadCamUp);
     camera.lookAt(dadCamLook);
@@ -1558,6 +1564,19 @@ function dadCamera(dt) {
     camera.rotateX((dadRand() - 0.5) * 0.05 * sh);
     camera.rotateZ((dadRand() - 0.5) * 0.04 * sh);
   }
+}
+// how far into the attack view the chase camera is: eased in over a second while he dives on the
+// vent inside the bomb's range with the plant standing, and eased out when he pulls off it
+function dadAttackView(dt) {
+  const m = dad.m;
+  let want = 0;
+  if (m && !m.over && !m.plant && dad.world) {
+    const vt = vl.vent, dx = vt.x - state.x, dy = vt.y - state.y, dz = vt.z - state.z, d = Math.hypot(dx, dy, dz) || 1;
+    const f = dadFwd(dadTmpW), along = (dx * f.x + dy * f.y + dz * f.z) / d;
+    if (dadBombRange() < TUNE.dad.bombs.range && state.pitch < -10 && along > 0.94) want = 1;
+  }
+  dad.atk = (dad.atk || 0) + (want - (dad.atk || 0)) * Math.min(1, 2.5 * dt);
+  return dad.atk;
 }
 // The jet's pose and its burner, here rather than in the shared pose so nothing
 // in dad mode draws on Math.random.
@@ -1606,6 +1625,16 @@ function dadBuildHud() {
   mk("dadAltLab", col).textContent = "FT";
   dad.hud.expo = mk("dadExpo", R);
   dad.hud.boxErr = mk("dadBoxErr", dad.hud.box);
+  // v152: the attack cues -- the target's diamond (or an arrow at the edge of the screen),
+  // ARMED, the lock on the designator box, RELEASE / PULL UP, the bomb's seconds to impact
+  dad.hud.boxLock = mk("dadBoxLock", dad.hud.box);
+  dad.hud.tti = mk("dadTti");   // under the cues, not in the box: the vent leaves the screen in the pull
+  dad.hud.tgt = mk("dadTgt"); mk("dadTgtGem", dad.hud.tgt); dad.hud.tgtD = mk("dadTgtD", dad.hud.tgt);
+  dad.hud.tgtArrow = mk("dadTgtArrow"); dad.hud.tgtArrowHead = mk("dadTgtArrowHead", dad.hud.tgtArrow);
+  dad.hud.tgtArrowHead.innerHTML = '<svg viewBox="0 0 40 40"><path d="M39 20L22 7V15H3V25H22V33Z" fill="#ff5ad2"/></svg>';   // an arrow with a shaft, pointing +x (a bare triangle turned 60 degrees reads backwards)
+  dad.hud.tgtArrowD = mk("dadTgtArrowD", dad.hud.tgtArrow);
+  dad.hud.armed = mk("dadArmed"); dad.hud.armed.textContent = "ARMED";
+  dad.hud.cue = mk("dadCue");
   dad.hud.healthBar = mk("bar", dad.hud.health);
   const grey = dadEl("div", { id: "dadGrey" });
   dad.dom.push(grey);
@@ -1636,6 +1665,54 @@ function dadScreen(x, y, z) {
   return { x: (dadProj.x + 1) / 2 * innerWidth, y: (1 - dadProj.y) / 2 * innerHeight };
 }
 function dadFmtClock(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+// ---- the attack's cues (v152): one place decides them; the HUD draws them and the checks
+// read them (dad.m.cues). `mark` is the target marker: on the screen, or the edge arrow.
+const dadCueV = new THREE.Vector3();
+function dadAttackCues() {
+  const m = dad.m, W = dad.world, D = TUNE.dad, A = D.attack, vt = vl.vent;
+  const c = { mark: null, armed: false, box: false, lock: false, cue: null, tti: null, slant: 0, dive: 0 };
+  m.cues = c;
+  if (m.over || m.plant || state.exploding) return c;
+  const range = dadBombRange();
+  c.slant = Math.hypot(state.x - vt.x, state.y - vt.y, state.z - vt.z);
+  c.dive = -state.pitch;
+  if (range < A.markR) {
+    camera.updateMatrixWorld();   // the camera as it was last placed: its inverse is otherwise only refreshed by a draw
+    dadCueV.set(vt.x, vt.y + 3, vt.z).applyMatrix4(camera.matrixWorldInverse);
+    const behind = dadCueV.z > 0, cx = dadCueV.x, cy = dadCueV.y;
+    dadCueV.set(vt.x, vt.y + 3, vt.z).project(camera);
+    const Wd = innerWidth, Ht = innerHeight;
+    if (!behind && Math.abs(dadCueV.x) < 0.9 && Math.abs(dadCueV.y) < 0.86) {
+      c.mark = { on: true, x: (dadCueV.x + 1) / 2 * Wd, y: (1 - dadCueV.y) / 2 * Ht, d: c.slant };
+    } else {
+      // the direction to it, in the camera's own right/up, laid on a box inset from the edge
+      const l = Math.hypot(cx, cy) || 1, dx = cx / l, dy = -cy / l, inset = 80;
+      const k = Math.min((Wd / 2 - inset) / Math.max(1e-3, Math.abs(dx)), (Ht / 2 - inset) / Math.max(1e-3, Math.abs(dy)));
+      c.mark = { on: false, x: Wd / 2 + dx * k, y: Ht / 2 + dy * k, ang: Math.atan2(dy, dx), d: c.slant };
+    }
+  }
+  c.armed = dadBombCan();
+  // the designator box takes over from the diamond once it is up, and only while the vent is
+  // on the screen (half off the edge it is clutter beside the arrow)
+  c.box = (W.bombs.length > 0 || (range < D.bombs.range * 1.2 && !!m.spot)) && !!c.mark && c.mark.on;
+  c.lock = !!m.spot && m.spotErr < D.ventR;
+  // a bomb in the air: its seconds to impact, at the speed it has, to where the laser holds
+  const b = W.bombs[0];
+  if (b && m.spot) c.tti = Math.hypot(m.spot.x - b.x, m.spot.y - b.y, m.spot.z - b.z) / Math.max(60, Math.hypot(b.vx, b.vy, b.vz));
+  // the release window, then the pull: in the dive, the laser on it, in range and at the angle
+  const inDive = c.dive > 10;
+  // pull: inside the pull range, or once the pass's bombs are away (two in the air, or the
+  // kill shot with the hatch already open)
+  if (inDive && (c.slant < A.pullSlant || W.bombs.length >= 2 || (m.hatch && b))) c.cue = "pull";
+  else if (c.armed && inDive) {
+    if (!c.lock) c.cue = "LASE THE VENT";
+    else if (c.slant > A.slantMax) c.cue = "CLOSING " + (c.slant / 1000).toFixed(1) + " km";
+    else if (c.dive < A.diveMin) c.cue = "STEEPER";
+    else if (c.dive > A.diveMax) c.cue = "SHALLOWER";
+    else if (c.slant >= A.slantMin) c.cue = "release";
+  }
+  return c;
+}
 function dadHudUpdate() {
   const h = dad.hud, m = dad.m;
   if (!h || !m) return;
@@ -1664,15 +1741,38 @@ function dadHudUpdate() {
   h.warn.textContent = warns.join("   ");
   h.warn.classList.toggle("on", warns.length > 0);
   h.msg.textContent = m.msgT > 0 ? m.msg : "";
-  // the target box on the vent, and how far the laser is from it
-  const near = !m.over && !m.plant && dadBombRange() < TUNE.dad.bombs.range * 1.2;
-  const sp = near ? dadScreen(vl.vent.x, vl.vent.y, vl.vent.z) : null;
+  // the attack (v152): what the cues say, worked out once (dadAttackCues), then drawn
+  const c = dadAttackCues();
+  // the designator box on the vent: LASER LOCK, or amber NO LOCK, the miss, and once a bomb
+  // is away its seconds to impact -- the box stays on the vent while it falls
+  const sp = c.box ? dadScreen(vl.vent.x, vl.vent.y, vl.vent.z) : null;
   h.box.style.display = sp ? "block" : "none";
   if (sp) {
     h.box.style.transform = "translate(" + Math.round(sp.x) + "px," + Math.round(sp.y) + "px)";
-    h.boxErr.textContent = m.spot ? (m.spotErr < TUNE.dad.ventR ? "ON  " : "") + m.spotErr.toFixed(1) + " m" + (m.spotHeld ? " HOLD" : "") : "";
-    h.box.classList.toggle("on", !!m.spot && m.spotErr < TUNE.dad.ventR);
+    h.boxLock.textContent = c.lock ? "LASER LOCK" : "NO LOCK";
+    h.boxErr.textContent = (c.slant / 1000).toFixed(1) + " km" + (m.spot ? "  \u00B7  MISS " + m.spotErr.toFixed(1) + " m" + (m.spotHeld ? " HOLD" : "") : "");
+    h.box.classList.toggle("on", c.lock);
   }
+  // the target: a diamond on the bunker with its distance; off the screen or behind, an arrow
+  // at the edge pointing to it
+  h.tgt.style.display = c.mark && c.mark.on && !c.box ? "block" : "none";
+  h.tgtArrow.style.display = c.mark && !c.mark.on ? "block" : "none";
+  if (c.mark) {
+    const dTxt = (c.mark.d / 1000).toFixed(1) + " km";
+    if (c.mark.on) { h.tgt.style.transform = "translate(" + Math.round(c.mark.x) + "px," + Math.round(c.mark.y) + "px)"; h.tgtD.textContent = dTxt; }
+    else {
+      h.tgtArrow.style.transform = "translate(" + Math.round(c.mark.x) + "px," + Math.round(c.mark.y) + "px)";
+      h.tgtArrowHead.style.transform = "rotate(" + c.mark.ang.toFixed(3) + "rad)";
+      h.tgtArrowD.textContent = dTxt;
+    }
+  }
+  // a bomb in the air: its seconds to impact, on the screen while it falls, whatever the nose does
+  const ttiTxt = c.tti !== null ? "IMPACT " + c.tti.toFixed(1) + " s" : "";
+  if (h.tti.textContent !== ttiTxt) h.tti.textContent = ttiTxt;
+  h.armed.style.display = c.armed ? "block" : "none";
+  if (el.dadBombBtn) el.dadBombBtn.classList.toggle("armed", c.armed);
+  h.cue.textContent = c.cue === "release" ? "RELEASE" : c.cue === "pull" ? "\u25B2 PULL UP \u25B2" : c.cue || "";
+  h.cue.className = "dadCue" + (c.cue ? " on " + (c.cue === "release" || c.cue === "pull" ? c.cue : "hint") : "");
   // the flight-path marker: where he is going
   const f = dadFwd(dadTmpF);
   const fp = !state.exploding ? dadScreen(state.x + f.x * 400, state.y + f.y * 400, state.z + f.z * 400) : null;
@@ -1692,6 +1792,7 @@ function dadSoundsStep() {
   setTone("dadPull", "sawtooth", 420, !m.over && m.pullUp && Math.floor(m.t * 5) % 2 === 0 ? 0.035 : 0);
   setTone("dadGun", "square", 58, !m.over && m.gunsFiring ? 0.02 : 0);
   setTone("dadCannon", "sawtooth", 92, !m.over && m.cannonFiring ? 0.05 : 0);
+  setTone("dadLase", "sine", 1320, !m.over && m.cues && m.cues.lock ? 0.03 : 0);   // v152: the lock tone
 }
 
 function dadShowCard() {

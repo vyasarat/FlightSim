@@ -452,6 +452,63 @@ module.exports = async function dadChecks({ newPage, check }) {
     !btn.err && btn.down.firing && btn.down.rounds > 15 && btn.down.shown && !btn.up.firing && btn.up.rounds === 0 && !btn.up.shown, J(btn));
   check("dad/missiles: kept for the SAM sites and the radar -- with a gun nearer on the nose the seeker takes the site, or the radar; a gun only when nothing else is in its cone",
     !btn.err && btn.siteOverGun && btn.radarOverGun && btn.gunAlone, J(btn));
+  // v152: the attack's cues, read off the screen through a whole sortie flown by the pilot:
+  // from the marker's range in, the target is always marked (its diamond, or the edge arrow);
+  // ARMED with the bomb button pulsing, LASER LOCK on the box, RELEASE before the first bomb,
+  // the seconds to impact while one falls (the box still on the vent), PULL UP after
+  const cue = await run(page, () => {
+    const L = window.__lp, P = window.__dadPilot, S = L.state, W = L.dad.world, A = L.TUNE.dad.attack, vt = L.vl.vent;
+    L.dadStart(); P.phase = "valley"; P.t = 0; P.dropped = 0; P.log = []; P.lastDropT = -9; P.highAt = 0;
+    const q = sel => document.querySelector("#dadHud " + sel), shown = e => !!e && getComputedStyle(e).display !== "none";
+    const out = { inRange: 0, marked: 0, diamond: 0, arrow: 0, unmarked: [], armed: 0, armedPulse: 0, lock: 0, noLock: 0, release: 0, releaseBeforeDrop: false,
+                  pull: 0, tti: 0, ttiFirst: null, falling: 0, ventOnScreen: 0, boxWhileFalling: 0, hints: {}, armedEarly: 0, armedLate: 0 };
+    let dropped = 0;
+    for (let i = 0; i < 60 * 80 && !L.dad.m.over; i++) {
+      P.step(1 / 60);
+      const m = L.dad.m;
+      if (m.plant || m.over) break;
+      const range = Math.hypot(S.x - vt.x, S.z - vt.z);
+      if (range < A.markR - 40) {   // a frame's travel inside: the HUD drew it a step before this position
+        out.inRange++;
+        const d = shown(q(".dadTgt")), a = shown(q(".dadTgtArrow")), bx = shown(q(".dadBox")) && / km/.test(q(".dadBoxErr").textContent);
+        if (d || a || bx) out.marked++; else if (out.unmarked.length < 5) out.unmarked.push(+P.t.toFixed(2));
+        if (d) out.diamond++;
+        if (a) {
+          out.arrow++;
+          // the arrow points at the bunker: its angle against the bunker's direction in the camera's own right/down
+          const v = new THREE.Vector3(vt.x, vt.y + 3, vt.z).applyMatrix4(L.camera.matrixWorldInverse), want = Math.atan2(-v.y, v.x);
+          const ang = L.dad.m.cues.mark.ang, err = Math.abs(Math.atan2(Math.sin(ang - want), Math.cos(ang - want)));
+          out.arrowErrMax = Math.max(out.arrowErrMax || 0, +err.toFixed(3));
+        }
+      }
+      const r3 = Math.hypot(S.x - vt.x, S.z - vt.z);
+      if (r3 > 3060 && r3 < 3300 && shown(q(".dadArmed"))) out.armedEarly++;
+      if (r3 < 2940 && r3 > 2700 && L.dadAgl() > 60 && !shown(q(".dadArmed"))) out.armedLate++;
+      if (shown(q(".dadArmed")) && /ARMED/.test(q(".dadArmed").textContent)) { out.armed++; if (document.getElementById("dadBombBtn").classList.contains("armed")) out.armedPulse++; }
+      const box = q(".dadBox"), lockTxt = shown(box) ? q(".dadBoxLock").textContent : "";
+      if (lockTxt === "LASER LOCK") out.lock++; if (lockTxt === "NO LOCK") out.noLock++;
+      const c = q(".dadCue"), ct = shown(c) ? c.textContent : "";
+      if (ct === "RELEASE") { out.release++; if (P.dropped === 0) out.releaseBeforeDrop = true; }
+      else if (/PULL UP/.test(ct)) out.pull++;
+      else if (ct) out.hints[ct.replace(/[\d.]+ km/, "N km")] = (out.hints[ct.replace(/[\d.]+ km/, "N km")] || 0) + 1;
+      if (W.bombs.length) {
+        out.falling++;
+        // the box stays on the vent wherever the vent is on the screen (in the pull it goes under the nose)
+        const v = new THREE.Vector3(vt.x, vt.y + 3, vt.z).project(L.camera);
+        if (v.z < 1 && Math.abs(v.x) < 0.88 && Math.abs(v.y) < 0.84) { out.ventOnScreen++; if (shown(box)) out.boxWhileFalling++; }
+        const t = shown(q(".dadTti")) ? q(".dadTti").textContent : "";
+        if (/^IMPACT [\d.]+ s$/.test(t)) { out.tti++; if (out.ttiFirst === null) out.ttiFirst = t; }
+      }
+    }
+    out.hits = L.dad.m.hits; out.plant = L.dad.m.plant; out.drops = P.log;
+    return out;
+  });
+  check("dad/v152: the target is marked all the way in -- from " + "4 km every frame shows its diamond (the designator box once it is up) or, off the screen, the edge arrow pointing at it (inside 9 degrees), each with its distance",
+    !cue.err && cue.inRange > 300 && cue.marked === cue.inRange && cue.diamond > 60 && cue.arrow > 30 && cue.arrowErrMax < 0.15, J(cue));
+  check("dad/v152: inside 3 km ARMED shows and the bomb button pulses (not at 3.1 km, always by 2.9); on the vent the box reads LASER LOCK (amber NO LOCK off it)",
+    !cue.err && cue.armed > 60 && cue.armedPulse === cue.armed && cue.armedEarly === 0 && cue.armedLate === 0 && cue.lock > 20 && cue.noLock > 0, J(cue));
+  check("dad/v152: RELEASE shows in the dive before the first bomb; once a bomb is away its seconds to impact count down with the box on the vent; PULL UP after",
+    !cue.err && cue.releaseBeforeDrop && cue.release > 3 && cue.falling > 30 && cue.tti === cue.falling && cue.ventOnScreen > 20 && cue.boxWhileFalling === cue.ventOnScreen && cue.pull > 10 && cue.hits === 2, J(cue));
   const clk = await run(page, () => {
     const L = window.__lp; L.dadStart(); L.dad.m.clock = 1;
     const P = window.__dadPilot; P.phase = "valley";
