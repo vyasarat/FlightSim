@@ -424,6 +424,7 @@ function dadBuildWorld() {
   // his stream is never the enemy's orange, and laid over (not added to) the snow, so it holds there
   W.cannon = dadStreaks(400, { core: 0xffffff, edge: 0xff9a2a, world: 1.1, wMin: 2.4, wMax: 6, len: 40 });
   dadAdd(W.smoke.pts); dadAdd(W.fire.pts); dadAdd(W.tracer.pts); dadAdd(W.cannon.pts);
+  dadBuildWing(W);   // v153: the four-ship
 }
 
 // ---------------------------------------------------------------------------
@@ -695,6 +696,7 @@ function dadStart() {
   state.touching = false; state.ctrlBank = 0; state.ctrlPitch = 0;
   dad.m.lastFwd = dadFwd(new THREE.Vector3());
   dad.cam = null; dad.atk = 0;
+  dadWingReset();
   const card = document.getElementById("dadCard");
   if (card) card.remove();
 }
@@ -848,6 +850,7 @@ function dadMission(dt) {
   }
   dadCruiseMissiles(dt);
   dadGuns(dt, jetAlive && !m.over);
+  dadWingStep(dt);
   dadSams(dt, jetAlive);
   dadFlaresStep(dt);
   dadCannon(dt);
@@ -1104,8 +1107,10 @@ function dadGuns(dt, firing) {
     dadEmit(W.fire, mx, my, mz, 0, 0, 0, 0.06, dadR(24, 34), 12, 1, dadRand() < 0.5 ? 0xfff0b0 : 0xffd070, 0, 0);
     // and its smoke, a grey drift off the mount that marks where the firing is from
     if (dadRand() < 0.35) dadEmit(W.smoke, mx, my, mz, ax / al * 6 + dadR(-2, 2), dadR(1, 4), az / al * 6 + dadR(-2, 2), dadR(1.5, 2.5), 6, dadR(18, 26), 0.6, 0x8a93a0, 0.8, 1);
+    let rounds = 0;
     while (g.shotT <= 0) {
       g.shotT += 1 / G.rof;
+      rounds++;
       // where this round's tracer goes: most led ACROSS his nose, so the stream crosses
       // the sky in front of him; the rest at him; blind, all of it over the valley ahead
       let px, py, pz;
@@ -1124,6 +1129,7 @@ function dadGuns(dt, firing) {
         dadEmit(W.fire, state.x, state.y, state.z, dadR(-20, 20), dadR(-5, 15), dadR(-20, 20), 0.3, 4, 1, 1, 0xfff0b0, 2, 0);
       }
     }
+    if (!g.blind && rounds) dadWingGunRounds(g, G, expo, rounds);   // v153: the AI jets, over the ceiling only
     // flak: black bursts close round him, ahead where he will see them; a blind gun's
     // burst over him, at the height it guesses
     g.flakT -= dt;
@@ -1288,6 +1294,234 @@ function dadKill(o) {
   else { o.frame.visible = false; o.ruin.visible = true; dadSay("SITE DOWN", 1.6); }
 }
 
+// ---------------------------------------------------------------------------
+// THE FOUR-SHIP (v153), like the film. Three AI jets fly the valley with him, at HIS height
+// and on HIS line (their place is set off his own: how far he is from the centreline, how
+// high he is over the floor). Pair 1 (#1 and #2, both AI) goes in first: it pushes ahead
+// `pushR` out, pops up at the bowl, #1 drops and #2 lases, and their bomb blows the hatch.
+// Pair 2 is him and #4: #4's laser holds the vent for his bomb -- the laser never fails --
+// and if #4 is lost his own laser takes over. An AI jet can be hit only over the hidden
+// ceiling, like him; one shot down trails smoke and goes in, and the mission goes on. If
+// pair 1 is lost before its bomb is away, both hits are his.
+// ---------------------------------------------------------------------------
+const DAD_WING = [
+  { n: 1, pair: 1, role: "drop", side: -40, ahead: 230 },
+  { n: 2, pair: 1, role: "lase", side: 40, ahead: 200 },
+  { n: 4, pair: 2, role: "partner", side: 44, ahead: -45 },
+];
+function dadBuildWing(W) {
+  W.wing = [];
+  const s = vehicleModel ? vehicleModel.scale.x : 1;
+  const beamMat = new THREE.LineBasicMaterial({ color: 0xff3020, transparent: true, opacity: 0.75, fog: false });
+  for (const d of DAD_WING) {
+    let g = modelInstance("fighter");
+    if (!g) {
+      // the GLB not in yet: a plain dark dart, so the four-ship is never short a jet
+      g = new THREE.Group();
+      g.add(dadAt(new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 15), W.mats.dark), 0, 0, 0));
+      g.add(dadAt(new THREE.Mesh(new THREE.BoxGeometry(11, 0.25, 4), W.mats.dark), 0, 0, 2));
+    }
+    g.rotation.order = "YXZ";
+    g.scale.setScalar(s);
+    const b = g.userData.burner;
+    if (b) { b.root.visible = true; b.root.scale.set(1, 1, 0.75); }
+    dadAdd(g);
+    const geo = new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
+    const beam = new THREE.Line(geo, beamMat);
+    beam.frustumCulled = false; beam.visible = false; beam.renderOrder = 9;
+    dadAdd(beam);
+    W.wing.push(Object.assign({ g, beam }, d));
+  }
+}
+// everyone back in his place for a new sortie
+function dadWingReset() {
+  const W = dad.world, m = dad.m, h = state.heading;
+  const fx = -Math.sin(h), fz = -Math.cos(h), rx = Math.cos(h), rz = -Math.sin(h);
+  for (const j of W.wing) {
+    j.x = state.x + rx * j.side + fx * j.ahead; j.z = state.z + rz * j.side + fz * j.ahead;
+    j.y = terrainEff(j.x, j.z) + TUNE.dad.start.agl;
+    j.heading = h; j.pitch = 0; j.bank = 0; j.speed = state.speed; j.vx = fx * j.speed; j.vy = 0; j.vz = fz * j.speed;
+    j.px = undefined; j.py = undefined; j.pz = undefined; j.hRate = 0;   // no slot motion carried over from the last sortie
+    j.health = 100; j.alive = true; j.down = false; j.gone = false; j.downT = 0; j.dropped = false; j.lasing = false;
+    j.g.visible = true; j.beam.visible = false;
+  }
+  m.p1 = { phase: "form", extra: 0, t: 0, dropT: -1, lost: false };
+  m.hatchBy = null; m.laserBy = null; m.aiHits = 0; m.wingLost = 0; m.p1HitT = null;
+}
+function dadWingJet(n) { const W = dad.world; return W && W.wing ? W.wing.find(j => j.n === n) : null; }
+function dadPartner() { const j = dadWingJet(4); return j && j.alive ? j : null; }
+function dadJetsHome() {
+  const W = dad.world;
+  return (state.exploding ? 0 : 1) + (W && W.wing ? W.wing.filter(j => j.alive).length : 0);
+}
+// a jet is hit: over the ceiling only (the caller asks); at nothing it trails smoke and goes in
+function dadWingHit(j, n) {
+  if (!j.alive) return;
+  j.health = Math.max(0, j.health - n);
+  if (j.health <= 0) dadWingDown(j);
+}
+function dadWingDown(j) {
+  const m = dad.m;
+  if (!j.alive) return;
+  j.alive = false; j.down = true; j.downT = 0; j.lasing = false; j.beam.visible = false;
+  m.wingLost++;
+  if (j.n === 4) dadSay("#4 DOWN -- YOUR OWN LASER", 2.5);
+  else if (!dadWingJet(1).alive && !dadWingJet(2).alive && !m.hatch && m.p1.dropT < 0) { m.p1.lost = true; dadSay("PAIR 1 LOST -- BOTH HITS ARE YOURS", 3); }
+  else dadSay("#" + j.n + " DOWN", 2);
+}
+// The kinematic follow: the jet's velocity is its place's velocity plus a pull onto it, so
+// it holds the slot through the valley's bends without overshooting; its attitude is read
+// off the velocity, the bank off how fast the heading turns.
+function dadWingFollow(j, px, py, pz, dt) {
+  const k = 1.6;
+  if (j.px === undefined || dt <= 0) { j.px = px; j.py = py; j.pz = pz; }
+  const pvx = (px - j.px) / Math.max(dt, 1e-3), pvy = (py - j.py) / Math.max(dt, 1e-3), pvz = (pz - j.pz) / Math.max(dt, 1e-3);
+  j.px = px; j.py = py; j.pz = pz;
+  let vx = pvx + (px - j.x) * k, vy = pvy + (py - j.y) * k, vz = pvz + (pz - j.z) * k;
+  const sp = Math.hypot(vx, vy, vz), cap = 300;
+  if (sp > cap) { vx *= cap / sp; vy *= cap / sp; vz *= cap / sp; }
+  j.vx += (vx - j.vx) * Math.min(1, 6 * dt); j.vy += (vy - j.vy) * Math.min(1, 6 * dt); j.vz += (vz - j.vz) * Math.min(1, 6 * dt);
+  dadWingMove(j, dt);
+}
+// Steered: turn the velocity toward a point at a rate, at a speed (the attack and the way out)
+function dadWingSteer(j, tx, ty, tz, speed, turnDeg, dt) {
+  const dx = tx - j.x, dy = ty - j.y, dz = tz - j.z, dl = Math.hypot(dx, dy, dz) || 1;
+  const cur = Math.hypot(j.vx, j.vy, j.vz) || 1;
+  let ux = j.vx / cur, uy = j.vy / cur, uz = j.vz / cur;
+  const ang = Math.acos(clamp(ux * dx / dl + uy * dy / dl + uz * dz / dl, -1, 1));
+  const kk = ang > 1e-4 ? Math.min(1, turnDeg * DEG * dt / ang) : 1;
+  ux += (dx / dl - ux) * kk; uy += (dy / dl - uy) * kk; uz += (dz / dl - uz) * kk;
+  const ul = Math.hypot(ux, uy, uz) || 1, sp = cur + clamp(speed - cur, -40 * dt, 40 * dt);
+  j.vx = ux / ul * sp; j.vy = uy / ul * sp; j.vz = uz / ul * sp;
+  dadWingMove(j, dt);
+}
+function dadWingMove(j, dt) {
+  j.x += j.vx * dt; j.y += j.vy * dt; j.z += j.vz * dt;
+  if (!j.down) j.y = Math.max(j.y, terrainEff(j.x, j.z) + 6);   // an AI jet never flies into the snow: only a hit brings one down
+  const hs = Math.hypot(j.vx, j.vz);
+  const h = Math.atan2(-j.vx, -j.vz);
+  let dh = h - j.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+  j.heading = h;
+  j.speed = Math.hypot(j.vx, j.vy, j.vz);
+  j.pitch = Math.atan2(j.vy, hs) / DEG;
+  // the bank of a coordinated turn at this rate, the rate smoothed (the slot's pull is noisy frame to frame)
+  j.hRate = (j.hRate || 0) + ((dh / Math.max(dt, 1e-3)) - (j.hRate || 0)) * Math.min(1, 3 * dt);
+  const want = clamp(Math.atan(-j.hRate * j.speed / 9.81) / DEG, -60, 60);
+  j.bank += (want - j.bank) * Math.min(1, 3 * dt);
+}
+// his place in the valley, set off his own: along it by `ahead`, across by `side`, his
+// offset from the centreline and his height over the floor
+function dadWingSlot(j, ahead) {
+  const V = TUNE.valley;
+  const x = state.x - ahead, cz = vlCenterZ(x);
+  const off = clamp(state.z - vlCenterZ(state.x) - j.side, -(V.floorHalf - 25), V.floorHalf - 25);
+  const z = cz + off;
+  const agl = clamp(state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel), 12, 900);
+  return { x, y: terrainEff(x, z) + agl, z };
+}
+function dadWingStep(dt) {
+  const W = dad.world, m = dad.m, D = TUNE.dad, P1 = D.pair1, vt = vl.vent, V = TUNE.valley;
+  if (!W.wing) return;
+  const inValley = state.x > V.xb + V.bowlRim + 400 && !m.plant;
+  const range = dadBombRange();
+  // ---- pair 1: in its place, then the push, the pop, the dive, the drop, and away
+  const p1 = m.p1;
+  p1.t += dt;
+  const lead = W.wing.filter(j => j.pair === 1 && j.alive);
+  if (p1.phase === "form" && !m.over && range < P1.pushR && lead.length) { p1.phase = "push"; dadSay("PAIR 1 -- PUSHING", 2); }
+  if (p1.phase === "push") p1.extra = Math.min(P1.lead, p1.extra + P1.pushRate * dt);
+  const drop = lead.find(j => j.role === "drop") || lead[0], laser = lead.find(j => j !== drop);
+  if ((p1.phase === "form" || p1.phase === "push") && drop && Math.hypot(drop.x - vt.x, drop.z - vt.z) < P1.popAt && range < P1.popYou && !m.hatch) { p1.phase = "pop"; p1.t = 0; dadSay("PAIR 1 IN", 2); }
+  for (const j of W.wing) {
+    if (j.gone) continue;
+    if (j.down) {
+      // shot down: nose over, a rope of smoke and fire, and into the ground
+      j.downT += dt;
+      dadWingSteer(j, j.x + j.vx, j.y - 120, j.z + j.vz, Math.max(110, j.speed), 22, dt);
+      j.bank += 160 * dt;
+      dadEmit(W.smoke, j.x, j.y, j.z, dadR(-2, 2), dadR(1, 4), dadR(-2, 2), dadR(3, 5), 6, dadR(26, 40), 0.85, 0x1f2328, 0.4, 1);
+      dadEmit(W.fire, j.x, j.y, j.z, 0, 0, 0, 0.12, 9, 4, 1, 0xff8a2a, 0, 0);
+      if (j.y < terrainEff(j.x, j.z) + 2 || j.downT > 14) { j.gone = true; j.g.visible = false; dadBlast(j.x, Math.max(j.y, terrainEff(j.x, j.z)), j.z, 1.6, true); }
+      dadWingPose(j);
+      continue;
+    }
+    if (j.pair === 1 && (p1.phase === "pop" || p1.phase === "dive" || p1.phase === "off")) {
+      const isDrop = j === drop, aimOff = isDrop ? 0 : 1;
+      // the laser jet trails its leader by a few hundred metres, off to the side, its nose on the vent too
+      const ox = aimOff * 90, oz = aimOff * 70;
+      if (p1.phase === "pop") {
+        // up the valley's line to `popH` over the vent, then level until it sits `rollIn` below
+        const high = j.y >= vt.y + P1.popH;
+        dadWingSteer(j, vt.x + ox, high ? j.y : j.y + 400, vt.z + oz, P1.speed, 30, dt);
+        if (isDrop) {
+          const dep = Math.atan2(j.y - vt.y, Math.hypot(j.x - vt.x, j.z - vt.z)) / DEG;
+          if (dep >= P1.rollIn) { p1.phase = "dive"; p1.t = 0; }
+        }
+      } else if (p1.phase === "dive") {
+        dadWingSteer(j, vt.x + ox * 0.2, vt.y, vt.z + oz * 0.2, P1.speed, 40, dt);
+        const slant = Math.hypot(j.x - vt.x, j.y - vt.y, j.z - vt.z);
+        // his bomb has the hatch open already: the kill is his, so pair 1 holds its bomb and goes
+        if (isDrop && !j.dropped && m.hatch) { p1.phase = "off"; p1.t = 0; }
+        else if (isDrop && !j.dropped && slant < P1.dropAt) dadWingDrop(j);
+        if (isDrop && (j.dropped && p1.t > p1.dropT + P1.hold || slant < 450)) { p1.phase = "off"; p1.t = 0; }
+      } else {
+        // off the target: a hard pull and away over the far rim, climbing
+        const bc = vlBowlCentre();
+        dadWingSteer(j, bc.x - 4000, vt.y + 900, bc.z + (j.n === 1 ? -600 : 600), 200, 45, dt);
+      }
+      // #2 lases the vent from the pop until its leader's bomb is down
+      j.lasing = !isDrop && W.bombs.some(b => b.by === "pair1");
+      dadWingBeam(j, j.lasing ? vt : null);
+      dadWingPose(j);
+      continue;
+    }
+    // in his place: the valley's own frame while he is in it; out of it, off his own nose
+    let p;
+    if (inValley) p = dadWingSlot(j, j.ahead + (j.pair === 1 ? p1.extra : 0));
+    else {
+      const f = dadFwd(dadTmpF), h = state.heading, rx = Math.cos(h), rz = -Math.sin(h);
+      p = { x: state.x + rx * j.side + f.x * j.ahead, y: state.y + f.y * j.ahead + (j.ahead < 0 ? 6 : 0), z: state.z + rz * j.side + f.z * j.ahead };
+    }
+    dadWingFollow(j, p.x, p.y, p.z, dt);
+    // #4's laser on the vent while he is in reach and the plant stands
+    j.lasing = j.n === 4 && !m.plant && !m.over && range < D.bombs.range * 1.2;
+    dadWingBeam(j, j.lasing ? vt : null);
+    dadWingPose(j);
+  }
+}
+function dadWingBeam(j, t) {
+  j.beam.visible = !!t;
+  if (!t) return;
+  const a = j.beam.geometry.attributes.position;
+  a.setXYZ(0, j.x, j.y - 1, j.z); a.setXYZ(1, t.x, t.y, t.z); a.needsUpdate = true;
+}
+function dadWingPose(j) {
+  j.g.position.set(j.x, j.y, j.z);
+  j.g.rotation.set(j.pitch * DEG, j.heading, -j.bank * DEG, "YXZ");
+}
+// pair 1's bomb: guided on #2's laser, which sits on the vent (the laser never fails)
+function dadWingDrop(j) {
+  const W = dad.world, m = dad.m, vt = vl.vent;
+  j.dropped = true; m.p1.dropT = m.p1.t;
+  const mesh = dadMesh(W.bombGeo, W.mats.steel);
+  W.bombs.push({ mesh, x: j.x, y: j.y - 2, z: j.z, vx: j.vx, vy: j.vy, vz: j.vz, t: 0, alive: true, by: "pair1", spot: { x: vt.x, y: vt.y, z: vt.z } });
+  dadSay("#1 BOMB AWAY", 1.6);
+}
+// the guns on the wing: a gun that has a jet over the ceiling, in range and in sight, may hit
+// it, round by round, as it may hit him -- and never one under the ceiling
+function dadWingGunRounds(g, G, expo, rounds) {
+  const W = dad.world;
+  if (!W.wing) return;
+  for (const j of W.wing) {
+    if (!j.alive) continue;
+    const agl = j.y - Math.max(terrainEff(j.x, j.z), TUNE.waterLevel);
+    if (agl <= TUNE.dad.radar.agl) continue;
+    const d = Math.hypot(j.x - g.x, j.y - g.y, j.z - g.z);
+    if (d > G.range || !dadLos(g.x, g.y, g.z, j.x, j.y, j.z)) continue;
+    for (let r = 0; r < rounds; r++) if (dadRand() < G.hitChance * expo * Math.max(0, 1 - d / G.range) * 1.4) dadWingHit(j, G.damage);
+  }
+}
+
 // ---- the laser: where the nose points, held while he pulls
 function dadNosePoint(f) {
   const vt = vl.vent, B = TUNE.valley.bunker;
@@ -1316,10 +1550,20 @@ function dadBombRange() {
 function dadUpdateSpot(dt) {
   const m = dad.m, W = dad.world, B = TUNE.dad.bombs;
   const near = dadBombRange() < B.range * 1.2;
-  if (!near) { m.spot = null; W.spot.visible = false; return; }
+  if (!near) { m.spot = null; W.spot.visible = false; m.laserBy = null; return; }
+  // v153: #4, his partner, lases the vent for him -- the laser never fails; with #4 lost, his own
+  if (dadPartner() && !m.plant) {
+    const vt = vl.vent;
+    m.spot = { x: vt.x, y: vt.y, z: vt.z, d: Math.hypot(vt.x - state.x, vt.y - state.y, vt.z - state.z) };
+    m.spotHeld = false; m.spotErr = 0; m.laserBy = "partner";
+    W.spot.visible = true; W.spot.position.set(vt.x, vt.y + 0.15, vt.z);
+    W.spot.scale.setScalar(clamp(m.spot.d / 400, 0.6, 4));
+    return;
+  }
+  m.laserBy = "own";
   // it follows the nose -- except while a bomb is falling and he is pulling hard:
   // then it holds where it was, and the bomb goes where he was pointing
-  const steady = W.bombs.length === 0 || Math.abs(m.q) < B.holdRateDeg;
+  const steady = !W.bombs.some(b => !b.by) || Math.abs(m.q) < B.holdRateDeg;
   if (steady || !m.spot) {
     const p = dadNosePoint(dadFwd(dadTmpF));
     if (p) { m.spot = p; m.spotHeld = false; }
@@ -1358,8 +1602,9 @@ function dadBombsStep(dt) {
     // with a spot to ride, its fins carry it and steer it, `steer` m/s/s at most;
     // without one it falls like a stone
     let ax = 0, ay = -9.81, az = 0;
-    if (m.spot) {
-      const dx = m.spot.x - b.x, dy = m.spot.y - b.y, dz = m.spot.z - b.z, dl = Math.hypot(dx, dy, dz) || 1;
+    const spot = b.spot || m.spot;   // pair 1's bomb rides #2's laser; his, the laser he has
+    if (spot) {
+      const dx = spot.x - b.x, dy = spot.y - b.y, dz = spot.z - b.z, dl = Math.hypot(dx, dy, dz) || 1;
       const sp = Math.max(60, Math.hypot(b.vx, b.vy, b.vz));
       ax = (dx / dl * sp - b.vx) * 2.4; ay = (dy / dl * sp - b.vy) * 2.4; az = (dz / dl * sp - b.vz) * 2.4;
       const al = Math.hypot(ax, ay, az);
@@ -1385,20 +1630,26 @@ function dadBombsStep(dt) {
     if (!done) continue;
     b.alive = false; b.mesh.visible = false;
     W.bombs.splice(i, 1);
-    m.lastBomb = { onVent, err: +at.err.toFixed(2) };
+    if (!b.by) m.lastBomb = { onVent, err: +at.err.toFixed(2) };
+    // pair 1's bomb landing on a hatch he already opened only bursts there: the kill shot is always his
+    if (onVent && b.by && m.hatch) { dadBlast(at.x, at.y, at.z, 1.3, true); continue; }
     if (onVent && !m.plant) {
-      m.hits++;
+      if (b.by) { m.aiHits++; if (!m.hatch) m.p1HitT = m.t; } else m.hits++;
       if (!m.hatch) {
         m.hatch = true;
-        dadBlast(vt.x, vt.y + 1, vt.z, 1.2, true);
+        m.hatchBy = b.by || "you";
+        dadBlast(vt.x, vt.y + 1, vt.z, 2.6, true);
+        // v153: a flash, then a tall thin column off the open hatch for a few seconds, standing over the rim
+        for (let k = 0; k < 14; k++) dadEmit(dad.world.fire, vt.x, vt.y + dadR(2, 20), vt.z, dadR(-12, 12), dadR(10, 40), dadR(-12, 12), dadR(0.3, 0.6), dadR(40, 70), dadR(90, 140), 1, [0xfff0b0, 0xffd070, 0xff8a2a][k % 3], 2, 0);
+        m.hatchCol = TUNE.dad.hatchColumn;
         dadHatchBlows();
-        dadSay("DIRECT HIT -- HATCH OPEN", 3);
+        dadSay(b.by ? "PAIR 1 -- HATCH OPEN, YOUR SHOT" : "DIRECT HIT -- HATCH OPEN", b.by ? 5 : 3);
       } else {
         dadPlantGoes();
       }
     } else {
       dadBlast(at.x, at.y, at.z, 1.3, true);
-      dadSay("MISS  " + at.err.toFixed(1) + " m", 2.5);
+      if (!m.plant) dadSay((b.by ? "PAIR 1 MISS  " : "MISS  ") + at.err.toFixed(1) + " m", 2.5);
     }
   }
 }
@@ -1482,6 +1733,12 @@ function dadColumn(dt) {
     if (W.hatch.position.y < terrainEff(W.hatch.position.x, W.hatch.position.z)) { W.hatch.position.y = terrainEff(W.hatch.position.x, W.hatch.position.z) + 0.2; h.x = h.z = h.r = 0; h.y = 0; }
   }
   dadDebrisStep(dt);
+  if (m.hatchCol > 0 && !m.plant) {
+    m.hatchCol -= dt;
+    for (let i = 0; i < 3; i++) dadEmit(W.smoke, vt.x + dadR(-4, 4), vt.y + dadR(0, 10), vt.z + dadR(-4, 4), dadR(-3, 3) + 3, dadR(55, 85), dadR(-3, 3) + 1,
+      dadR(6, 9), dadR(14, 20), dadR(50, 80), 0.85, [0x15171a, 0x1f2328, 0x2a2c30][i], 0.15, 3);
+    if (dadRand() < 0.6) dadEmit(W.fire, vt.x + dadR(-3, 3), vt.y + 2, vt.z + dadR(-3, 3), 0, dadR(15, 30), 0, 0.5, 10, 18, 1, 0xff8a2a, 0.5, 2);
+  }
   if (m.column <= 0) return;
   const t = P.columnFor - m.column;
   m.column -= dt;
@@ -1668,6 +1925,7 @@ function dadFmtClock(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 6
 // ---- the attack's cues (v152): one place decides them; the HUD draws them and the checks
 // read them (dad.m.cues). `mark` is the target marker: on the screen, or the edge arrow.
 const dadCueV = new THREE.Vector3();
+const DAD_HUD_FOOT = 170;   // v153: the bottom band the target marks keep out of
 function dadAttackCues() {
   const m = dad.m, W = dad.world, D = TUNE.dad, A = D.attack, vt = vl.vent;
   const c = { mark: null, armed: false, box: false, lock: false, cue: null, tti: null, slant: 0, dive: 0 };
@@ -1682,28 +1940,35 @@ function dadAttackCues() {
     const behind = dadCueV.z > 0, cx = dadCueV.x, cy = dadCueV.y;
     dadCueV.set(vt.x, vt.y + 3, vt.z).project(camera);
     const Wd = innerWidth, Ht = innerHeight;
-    if (!behind && Math.abs(dadCueV.x) < 0.9 && Math.abs(dadCueV.y) < 0.86) {
-      c.mark = { on: true, x: (dadCueV.x + 1) / 2 * Wd, y: (1 - dadCueV.y) / 2 * Ht, d: c.slant };
+    // the field the marks may use: clear of the edges, and of the bottom band (ARMED, the
+    // weapons strip, the health bar), which nothing of the target is ever drawn over
+    const top = 80, bot = Ht - DAD_HUD_FOOT, side = 80;
+    const sx = (dadCueV.x + 1) / 2 * Wd, sy = (1 - dadCueV.y) / 2 * Ht;
+    if (!behind && dadCueV.z < 1 && sx > side && sx < Wd - side && sy > top && sy < bot) {
+      c.mark = { on: true, x: sx, y: sy, d: c.slant };
     } else {
-      // the direction to it, in the camera's own right/up, laid on a box inset from the edge
-      const l = Math.hypot(cx, cy) || 1, dx = cx / l, dy = -cy / l, inset = 80;
-      const k = Math.min((Wd / 2 - inset) / Math.max(1e-3, Math.abs(dx)), (Ht / 2 - inset) / Math.max(1e-3, Math.abs(dy)));
-      c.mark = { on: false, x: Wd / 2 + dx * k, y: Ht / 2 + dy * k, ang: Math.atan2(dy, dx), d: c.slant };
+      // the direction to it, in the camera's own right/up, laid on that field's edge
+      const l = Math.hypot(cx, cy) || 1, dx = cx / l, dy = -cy / l, mx = Wd / 2, my = (top + bot) / 2, hw = Wd / 2 - side, hh = (bot - top) / 2;
+      const k = Math.min(hw / Math.max(1e-3, Math.abs(dx)), hh / Math.max(1e-3, Math.abs(dy)));
+      c.mark = { on: false, x: mx + dx * k, y: my + dy * k, ang: Math.atan2(dy, dx), d: c.slant };
+      // on the screen but down in the bottom band: the arrow stands beside the target, not on it
+      if (!behind && dadCueV.z < 1 && sx > side && sx < Wd - side && sy >= bot && Math.abs(c.mark.x - sx) < 90) c.mark.x = sx + (sx > Wd / 2 ? -90 : 90);
     }
   }
   c.armed = dadBombCan();
   // the designator box takes over from the diamond once it is up, and only while the vent is
   // on the screen (half off the edge it is clutter beside the arrow)
-  c.box = (W.bombs.length > 0 || (range < D.bombs.range * 1.2 && !!m.spot)) && !!c.mark && c.mark.on;
+  const mine = W.bombs.filter(b => !b.by);   // v153: his own bombs; pair 1's are not his cues
+  c.box = (mine.length > 0 || (range < D.bombs.range * 1.2 && !!m.spot)) && !!c.mark && c.mark.on;
   c.lock = !!m.spot && m.spotErr < D.ventR;
   // a bomb in the air: its seconds to impact, at the speed it has, to where the laser holds
-  const b = W.bombs[0];
+  const b = mine[0];
   if (b && m.spot) c.tti = Math.hypot(m.spot.x - b.x, m.spot.y - b.y, m.spot.z - b.z) / Math.max(60, Math.hypot(b.vx, b.vy, b.vz));
   // the release window, then the pull: in the dive, the laser on it, in range and at the angle
   const inDive = c.dive > 10;
   // pull: inside the pull range, or once the pass's bombs are away (two in the air, or the
   // kill shot with the hatch already open)
-  if (inDive && (c.slant < A.pullSlant || W.bombs.length >= 2 || (m.hatch && b))) c.cue = "pull";
+  if (inDive && (c.slant < A.pullSlant || mine.length >= 2 || (m.hatch && b))) c.cue = "pull";
   else if (c.armed && inDive) {
     if (!c.lock) c.cue = "LASE THE VENT";
     else if (c.slant > A.slantMax) c.cue = "CLOSING " + (c.slant / 1000).toFixed(1) + " km";
@@ -1749,7 +2014,7 @@ function dadHudUpdate() {
   h.box.style.display = sp ? "block" : "none";
   if (sp) {
     h.box.style.transform = "translate(" + Math.round(sp.x) + "px," + Math.round(sp.y) + "px)";
-    h.boxLock.textContent = c.lock ? "LASER LOCK" : "NO LOCK";
+    h.boxLock.textContent = c.lock ? (m.laserBy === "partner" ? "LASER LOCK \u00B7 #4" : "LASER LOCK") : "NO LOCK";
     h.boxErr.textContent = (c.slant / 1000).toFixed(1) + " km" + (m.spot ? "  \u00B7  MISS " + m.spotErr.toFixed(1) + " m" + (m.spotHeld ? " HOLD" : "") : "");
     h.box.classList.toggle("on", c.lock);
   }
@@ -1773,6 +2038,11 @@ function dadHudUpdate() {
   if (el.dadBombBtn) el.dadBombBtn.classList.toggle("armed", c.armed);
   h.cue.textContent = c.cue === "release" ? "RELEASE" : c.cue === "pull" ? "\u25B2 PULL UP \u25B2" : c.cue || "";
   h.cue.className = "dadCue" + (c.cue ? " on " + (c.cue === "release" || c.cue === "pull" ? c.cue : "hint") : "");
+  // the cue and the seconds to impact stand clear of the box: under it, or over it when it sits low
+  let cueY = innerHeight * 0.72;
+  if (sp && sp.y + 44 > cueY - 24) cueY = sp.y + 44 + 56 + 50 < innerHeight - DAD_HUD_FOOT + 60 ? sp.y + 44 : sp.y - 150;
+  const cueTop = Math.round(cueY) + "px";
+  if (h.cue.style.top !== cueTop) { h.cue.style.top = cueTop; h.tti.style.top = Math.round(cueY + 56) + "px"; }
   // the flight-path marker: where he is going
   const f = dadFwd(dadTmpF);
   const fp = !state.exploding ? dadScreen(state.x + f.x * 400, state.y + f.y * 400, state.z + f.z * 400) : null;
@@ -1810,7 +2080,9 @@ function dadShowCard() {
                         ["Damage", Math.round(TUNE.dad.health - m.health) + "%"],
                         ["Bombs used", m.bombsUsed + " (" + m.hits + " on the vent)"],
                         ["Flares used", String(m.flaresUsed)],
-                        ["Guns destroyed", String(m.gunsKilled)]]) {
+                        ["Guns destroyed", String(m.gunsKilled)],
+                        ["Hatch opened by", m.hatchBy === "pair1" ? "pair 1" : m.hatchBy === "you" ? "you" : "--"],
+                        ["Jets home", dadJetsHome() + " of 4"]]) {
     dadEl("dt", { text: k }, tbl); dadEl("dd", { text: v }, tbl);
   }
   const row = dadEl("div", { class: "dadRow" }, card);

@@ -68,11 +68,13 @@ module.exports = function installDadPilot() {
       const a = aim(vent.x, vent.y, vent.z, 5.0, 3.0);
       st = a;
       const err = m.spotErr === undefined ? 99 : m.spotErr;
-      if (a.slant < P.opts.dropAt && P.dropped < P.opts.bombs && err < P.opts.dropErr && P.t - P.lastDropT > P.opts.gap && L.dadBombCan()) {
+      // v153: as many of his own as it still takes -- one once pair 1 has the hatch open
+      const mine = L.dad.world.bombs.filter(b => !b.by).length, need = Math.max(0, (m.hatch ? 1 : 2) - mine), done = m.plant || need === 0;
+      if (a.slant < P.opts.dropAt && need > 0 && P.dropped < P.opts.bombs && err < P.opts.dropErr && P.t - P.lastDropT > P.opts.gap && L.dadBombCan()) {
         if (L.dadDropBomb()) { P.dropped++; P.lastDropT = P.t; P.log.push({ drop: P.dropped, slant: +a.slant.toFixed(0), err: +err.toFixed(2), t: +P.t.toFixed(2), pitch: +S.pitch.toFixed(1) }); }
       }
       // pull at `pullH` over the vent (the rim under him is no guide), or the ground close anyway
-      if (S.y - vent.y < P.opts.pullH || L.dadAgl() < 70 || (P.dropped >= P.opts.bombs && P.t - P.lastDropT > P.opts.hold)) P.phase = "pull";
+      if (S.y - vent.y < P.opts.pullH || L.dadAgl() < 70 || (P.dropped > 0 && done && P.t - P.lastDropT > P.opts.hold)) P.phase = "pull";
     } else if (P.phase === "pull") {
       // a hard pull, wings level: as hard as the jet will give (9.5 G)
       st = { bank: 0, pitch: 1 };

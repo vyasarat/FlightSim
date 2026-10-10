@@ -245,9 +245,13 @@ module.exports = async function dadChecks({ newPage, check }) {
     !d.err && d.flare.flared && d.flare.target === "flare" && !d.flare.hitHim && d.flare.decoys >= 1, J(d.flare || d));
 
   // ---- e. the bombs, set up exactly: nose on the vent (or 4 m off it), steady, from 800 m
-  const bombAt = (off) => page.evaluate((off) => {
+  // `who`: "alone" -- the AI jets out of it (his own laser); "partner" -- #4 with him, pair 1 out;
+  // "lost" -- #4 shot down before the drop (his own laser takes over)
+  const bombAt = (off, who) => page.evaluate(([off, who]) => {
     const L = window.__lp, S = L.state, v = L.vl.vent;
     L.dadStart();
+    for (const j of L.dad.world.wing) if (j.pair === 1 || who === "alone") { j.alive = false; j.gone = true; j.g.visible = false; }
+    if (who === "lost") L.dadWingDown(L.dadWingJet(4));
     const tx = v.x + off, ty = v.y, tz = v.z;
     // 40 degrees down, from the east, 800 m out along the line to the (offset) aim point
     const pitch = -40, h = Math.atan2(1, 0.15);
@@ -269,14 +273,23 @@ module.exports = async function dadChecks({ newPage, check }) {
     }
     L.api.clearStick();
     const m = L.dad.m;
-    return { err0: +err0.toFixed(2), can, dropped, hits: m.hits, hatch: m.hatch, plant: m.plant, used: m.bombsUsed, last: m.lastBomb, bunker: L.vl.bunker.visible, over: m.over, why: m.why };
-  }, off).catch(e => ({ err: String(e.message).slice(0, 300) }));
+    return { err0: +err0.toFixed(2), can, dropped, hits: m.hits, hatch: m.hatch, plant: m.plant, used: m.bombsUsed, last: m.lastBomb, bunker: L.vl.bunker.visible, over: m.over, why: m.why,
+             laserBy: m.laserBy, hatchBy: m.hatchBy, partner: !!L.dadPartner() };
+  }, [off, who || "alone"]).catch(e => ({ err: String(e.message).slice(0, 300) }));
   const on = await bombAt(0);
   check("dad/bombs: through the vent's three metres they count -- nose on it, two dropped, the first blows the hatch and the second the plant (the bunker gone)",
     !on.err && on.can && on.dropped.every(Boolean) && on.err0 < 1 && on.hits === 2 && on.hatch && on.plant && !on.bunker, J(on));
   const off = await bombAt(4);
   check("dad/bombs: four metres off the vent they do not -- two dropped, no hit, the hatch shut and the plant standing",
     !off.err && off.dropped.every(Boolean) && off.err0 > 3 && off.hits === 0 && !off.hatch && !off.plant && off.bunker && off.last && !off.last.onVent, J(off));
+  // v153: pair 2 -- #4 lases for him: his nose 40 m off the vent, and the bombs still go through it on #4's laser
+  const buddy = await bombAt(40, "partner");
+  check("dad/v153: my partner's laser guides my bomb -- nose 40 m off the vent, #4 lasing: LASER LOCK from #4, both bombs through the vent (hatch, then plant)",
+    !buddy.err && buddy.partner && buddy.laserBy === "partner" && buddy.dropped.every(Boolean) && buddy.hits === 2 && buddy.hatch && buddy.plant && buddy.hatchBy === "you", J(buddy));
+  const lostOff = await bombAt(40, "lost"), lostOn = await bombAt(0, "lost");
+  check("dad/v153: with my partner lost, my own laser takes over -- #4 shot down: the laser is his own, 40 m off the vent misses, on the vent both go through",
+    !lostOff.err && !lostOn.err && !lostOff.partner && lostOff.laserBy === "own" && lostOff.hits === 0 && !lostOff.hatch
+      && lostOn.laserBy === "own" && lostOn.hits === 2 && lostOn.plant, J({ lostOff, lostOn }));
 
   // damage ends it: high over the valley with no flares, the guns and the missiles have him
   const dmg = await run(page, () => {
@@ -310,7 +323,7 @@ module.exports = async function dadChecks({ newPage, check }) {
     const fly = (ft, secs) => {
       L.dadStart();
       const want = ft / 3.281;
-      const out = { ft, frames: 0, sightedFrames: 0, overCeil: 0, maxFt: 0, minFt: 1e9, cues: {}, x0: Math.round(S.x) };
+      const out = { ft, frames: 0, sightedFrames: 0, overCeil: 0, maxFt: 0, minFt: 1e9, cues: {}, x0: Math.round(S.x), aiOverCeil: 0, aiMaxFt: 0 };
       for (let i = 0; i < 60 * secs && !m().over; i++) {
         const ax = S.x - 300, az = L.vlCenterZ(ax), wy = Math.max(L.terrainEff(ax, az), L.terrainEff(S.x, S.z)) + want;
         const dh = Math.atan2(-(ax - S.x), -(az - S.z)) - S.heading, eh = Math.atan2(Math.sin(dh), Math.cos(dh));
@@ -324,11 +337,14 @@ module.exports = async function dadChecks({ newPage, check }) {
         if (i > 120) { out.maxFt = Math.max(out.maxFt, a); out.minFt = Math.min(out.minFt, a); if (a > ceilFt) out.overCeil++; }
         if (W.guns.some(g => g.alive && g.fireT > 0 && g.blind === false)) out.sightedFrames++;
         const c = cue(); out.cues[c] = (out.cues[c] || 0) + 1;
+        // in formation (pair 1's own attack at the bowl goes high on purpose)
+        if (i > 120) for (const j of W.wing) if (j.alive && !(j.pair === 1 && /pop|dive|off/.test(m().p1.phase))) { const ja = (j.y - L.terrainEff(j.x, j.z)) * 3.281; out.aiMaxFt = Math.max(out.aiMaxFt, Math.round(ja)); if (ja > ceilFt) out.aiOverCeil++; }
       }
       L.api.clearStick();
       const M = m();
       return Object.assign(out, { secs: +(out.frames / 60).toFixed(1), x1: Math.round(S.x), health: M.health, damage: M.damageTaken, gunHits: M.gunHits, flakHits: M.flakHits,
-        flak: M.flak, near: M.nearMisses, over: M.over, why: M.why, maxFt: Math.round(out.maxFt), minFt: Math.round(out.minFt) });
+        flak: M.flak, near: M.nearMisses, over: M.over, why: M.why, maxFt: Math.round(out.maxFt), minFt: Math.round(out.minFt),
+        aiDamage: W.wing.reduce((a, j) => a + (100 - j.health), 0), aiAlive: W.wing.filter(j => j.alive).length });
     };
     const lo = fly(150, 48), hi = fly(300, 48), skim = fly(40, 48);
     // and the control: the same jet put on the snow does crash
@@ -343,6 +359,24 @@ module.exports = async function dadChecks({ newPage, check }) {
   check("dad/damage: exposed at 300 ft -- the same valley flown over the ceiling (SAMs decoyed, the guns alone) takes real damage from the guns; the HUD reads EXPOSED",
     !hid.err && hid.hi.secs > 15 && hid.hi.overCeil > (hid.hi.frames - 120) * 0.9 && hid.hi.gunHits + hid.hi.flakHits >= 3 && hid.hi.damage >= 15
       && hid.hi.cues["EXPOSED*"] > hid.hi.frames * 0.8, J(hid.hi || hid));
+  check("dad/v153: the AI jets fly at my height and take no damage under the ceiling -- at 150 ft all three hold under 200 ft and come through untouched; at 300 ft they are over it with me and the guns hit them",
+    !hid.err && hid.lo.aiDamage === 0 && hid.lo.aiAlive === 3 && hid.lo.aiOverCeil === 0 && hid.lo.aiMaxFt > 100 && hid.hi.aiOverCeil > 1000 && hid.hi.aiDamage > 0,
+    J(hid.err ? hid : { lo: { aiDamage: hid.lo.aiDamage, aiAlive: hid.lo.aiAlive, aiOverCeil: hid.lo.aiOverCeil, aiMaxFt: hid.lo.aiMaxFt }, hi: { aiDamage: hid.hi.aiDamage, aiAlive: hid.hi.aiAlive, aiOverCeil: hid.hi.aiOverCeil } }));
+  // one shot down: it trails smoke and fire, goes into the snow, and the sortie goes on
+  const shot = await run(page, () => {
+    const L = window.__lp, P = window.__dadPilot, W = L.dad.world;
+    L.dadStart(); P.phase = "valley"; P.t = 0; P.dropped = 0; P.log = []; P.lastDropT = -9; P.highAt = 0;
+    for (let i = 0; i < 60 * 3; i++) P.step(1 / 60);
+    const j = L.dadWingJet(2), y0 = j.y;
+    L.dadWingHit(j, 100);
+    let smoke = 0, minY = y0;
+    for (let i = 0; i < 60 * 16 && !j.gone; i++) { const live0 = W.smoke.live || 0; P.step(1 / 60); minY = Math.min(minY, j.y); if (j.down && !j.gone) smoke++; }
+    for (let i = 0; i < 60 * 3; i++) P.step(1 / 60);
+    const m = L.dad.m;
+    return { down: j.down, gone: j.gone, alive: j.alive, fell: Math.round(y0 - minY), smokeFrames: smoke, over: m.over, home: L.dadJetsHome(), msg: m.msg, lost: m.wingLost };
+  });
+  check("dad/v153: an AI jet shot down trails smoke and goes into the snow, and the sortie goes on -- three of four left to come home",
+    !shot.err && shot.down && shot.gone && !shot.alive && shot.smokeFrames > 30 && !shot.over && shot.home === 3 && shot.lost === 1, J(shot));
   check("dad/crash: 40 ft over the floor does not crash -- the valley flown at 40 ft stays whole the whole way; dad's jet crashes only when it touches (touchAgl, its own number; his game's terrainClearance untouched), and set on the snow it does",
     !hid.err && hid.skim.secs > 40 && !hid.skim.over && hid.skim.minFt > 20 && hid.skim.maxFt < 70 && hid.touchAgl <= 1.5 && hid.hisClearance === 8 && hid.touch.over && hid.touch.why === "crashed",
     J(hid.err ? hid : { skim: hid.skim, touch: hid.touch, touchAgl: hid.touchAgl, hisClearance: hid.hisClearance }));
@@ -459,6 +493,9 @@ module.exports = async function dadChecks({ newPage, check }) {
   const cue = await run(page, () => {
     const L = window.__lp, P = window.__dadPilot, S = L.state, W = L.dad.world, A = L.TUNE.dad.attack, vt = L.vl.vent;
     L.dadStart(); P.phase = "valley"; P.t = 0; P.dropped = 0; P.log = []; P.lastDropT = -9; P.highAt = 0;
+    // v153: the AI jets out of it (#4 lost, pair 1 lost), so the laser is his own and both hits his --
+    // NO LOCK and LASER LOCK both his to make
+    for (const n of [1, 2, 4]) L.dadWingDown(L.dadWingJet(n));
     const q = sel => document.querySelector("#dadHud " + sel), shown = e => !!e && getComputedStyle(e).display !== "none";
     const out = { inRange: 0, marked: 0, diamond: 0, arrow: 0, unmarked: [], armed: 0, armedPulse: 0, lock: 0, noLock: 0, release: 0, releaseBeforeDrop: false,
                   pull: 0, tti: 0, ttiFirst: null, falling: 0, ventOnScreen: 0, boxWhileFalling: 0, hints: {}, armedEarly: 0, armedLate: 0 };
@@ -486,16 +523,17 @@ module.exports = async function dadChecks({ newPage, check }) {
       if (r3 < 2940 && r3 > 2700 && L.dadAgl() > 60 && !shown(q(".dadArmed"))) out.armedLate++;
       if (shown(q(".dadArmed")) && /ARMED/.test(q(".dadArmed").textContent)) { out.armed++; if (document.getElementById("dadBombBtn").classList.contains("armed")) out.armedPulse++; }
       const box = q(".dadBox"), lockTxt = shown(box) ? q(".dadBoxLock").textContent : "";
-      if (lockTxt === "LASER LOCK") out.lock++; if (lockTxt === "NO LOCK") out.noLock++;
+      if (/^LASER LOCK/.test(lockTxt)) out.lock++; if (lockTxt === "NO LOCK") out.noLock++;
       const c = q(".dadCue"), ct = shown(c) ? c.textContent : "";
       if (ct === "RELEASE") { out.release++; if (P.dropped === 0) out.releaseBeforeDrop = true; }
       else if (/PULL UP/.test(ct)) out.pull++;
       else if (ct) out.hints[ct.replace(/[\d.]+ km/, "N km")] = (out.hints[ct.replace(/[\d.]+ km/, "N km")] || 0) + 1;
-      if (W.bombs.length) {
+      if (W.bombs.some(b => !b.by)) {
         out.falling++;
         // the box stays on the vent wherever the vent is on the screen (in the pull it goes under the nose)
         const v = new THREE.Vector3(vt.x, vt.y + 3, vt.z).project(L.camera);
-        if (v.z < 1 && Math.abs(v.x) < 0.88 && Math.abs(v.y) < 0.84) { out.ventOnScreen++; if (shown(box)) out.boxWhileFalling++; }
+        const px = (v.x + 1) / 2 * innerWidth, py = (1 - v.y) / 2 * innerHeight;   // the HUD's own field: clear of the edges and the bottom band
+        if (v.z < 1 && px > 82 && px < innerWidth - 82 && py > 82 && py < innerHeight - 172) { out.ventOnScreen++; if (shown(box)) out.boxWhileFalling++; }
         const t = shown(q(".dadTti")) ? q(".dadTti").textContent : "";
         if (/^IMPACT [\d.]+ s$/.test(t)) { out.tti++; if (out.ttiFirst === null) out.ttiFirst = t; }
       }
@@ -634,18 +672,33 @@ module.exports = async function dadChecks({ newPage, check }) {
   const full = await run(page, () => {
     const L = window.__lp, P = window.__dadPilot;
     L.dadStart(); P.phase = "valley"; P.t = 0; P.dropped = 0; P.log = []; P.lastDropT = -9; P.highAt = 0;
-    return P.fly(200);
+    const r = P.fly(200), m = L.dad.m;
+    return Object.assign(r, { hatchBy: m.hatchBy, p1HitT: m.p1HitT === null ? null : +m.p1HitT.toFixed(2), aiHits: m.aiHits, jetsHome: L.dadJetsHome(), laserBy: m.laserBy });
   });
-  check("dad/full: a whole sortie flown through the stick succeeds -- the valley under 200 ft, the pop-up, two bombs through the vent, the climb out with flares, 'success' inside the clock",
-    !full.err && full.result === "success" && full.hits === 2 && full.plant && full.clock > 0 && full.sams > 0 && full.flaresUsed > 0, J(full));
+  check("dad/full: a whole sortie flown through the stick succeeds -- the valley under 200 ft, the pop-up, pair 1's bomb opens the hatch and his goes through the vent, the climb out with flares, 'success' inside the clock",
+    !full.err && full.result === "success" && full.hits === 1 && full.plant && full.clock > 0 && full.sams > 0 && full.flaresUsed > 0, J(full));
+  check("dad/v153: pair 1 opens the hatch when it reaches the bowl -- its bomb through the vent before his first is away; his is the kill shot; all four jets home",
+    !full.err && full.hatchBy === "pair1" && full.aiHits === 1 && full.p1HitT !== null && full.log.length >= 1 && full.p1HitT < full.log[0].t && full.hits === 1 && full.jetsHome === 4, J(full));
+  // pair 1 lost before the bowl: both hits are his
+  const solo = await run(page, () => {
+    const L = window.__lp, P = window.__dadPilot;
+    L.dadStart(); P.phase = "valley"; P.t = 0; P.dropped = 0; P.log = []; P.lastDropT = -9; P.highAt = 0;
+    L.dadWingDown(L.dadWingJet(1)); L.dadWingDown(L.dadWingJet(2));
+    const r = P.fly(200), m = L.dad.m;
+    return Object.assign(r, { hatchBy: m.hatchBy, aiHits: m.aiHits, lost: m.p1.lost, jetsHome: L.dadJetsHome() });
+  });
+  check("dad/v153: pair 1 lost before the bowl -- he makes both hits himself (the hatch, then the plant), on #4's laser",
+    !solo.err && solo.result === "success" && solo.lost && solo.aiHits === 0 && solo.hatchBy === "you" && solo.hits === 2 && solo.jetsHome === 2, J(solo));
+  // and the card, after the four-ship sortie: run it again so the card is the full one's
+  await run(page, () => { const L = window.__lp, P = window.__dadPilot; L.dadStart(); P.phase = "valley"; P.t = 0; P.dropped = 0; P.log = []; P.lastDropT = -9; P.highAt = 0; return P.fly(200); });
   const card = await run(page, () => {
     const L = window.__lp;
     for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
     const c = document.getElementById("dadCard");
     return { card: !!c, text: c ? c.textContent : "" };
   });
-  check("dad/full: the results card -- success, the time, the damage, the bombs and flares used, RETRY and EXIT",
-    !card.err && card.card && /Mission success/.test(card.text) && /Time/.test(card.text) && /Damage/.test(card.text) && /Bombs used/.test(card.text) && /Flares used/.test(card.text) && /RETRY/.test(card.text) && /EXIT/.test(card.text), J(card));
+  check("dad/full: the results card -- success, the time, the damage, the bombs and flares used, jets home 4 of 4, RETRY and EXIT",
+    !card.err && card.card && /Mission success/.test(card.text) && /Time/.test(card.text) && /Damage/.test(card.text) && /Bombs used/.test(card.text) && /Flares used/.test(card.text) && /Hatch opened bypair 1/.test(card.text) && /Jets home4 of 4/.test(card.text) && /RETRY/.test(card.text) && /EXIT/.test(card.text), J(card));
 
   // ---- f. out
   const f = await run(page, () => {
