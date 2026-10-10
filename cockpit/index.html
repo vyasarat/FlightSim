@@ -718,9 +718,14 @@
   #dadHud .dadExpo.exposed { color: #ffd23e; border-color: #ffd23e; animation: dadExpoPulse 1s steps(1) infinite; }
   @keyframes dadExpoPulse { 50% { opacity: .65; } }
   #dadHud .dadWarn { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: 22px; color: #ff5040;
-    white-space: pre; display: none; }
+    white-space: pre; display: none; background: rgba(8, 14, 20, .55); padding: 1px 10px; }
   #dadHud .dadWarn.on { display: block; animation: dadBlink .5s steps(1) infinite; }
   @keyframes dadBlink { 50% { opacity: .55; } }
+  @keyframes dadCueBlink { 50% { opacity: .85; } }
+  /* v152: the free figures get a dark plate, so they read over snow */
+  #dadHud .dadL { background: rgba(8, 14, 20, .5); padding: 2px 6px; }
+  #dadHud .dadMsg { background: rgba(8, 14, 20, .5); padding: 1px 8px; }
+  #dadHud .dadMsg:empty { display: none; }
   #dadHud .dadMsg { position: absolute; top: 27%; left: 50%; transform: translateX(-50%); font-size: 18px; white-space: nowrap; }
   #dadHud .dadWeap { position: absolute; bottom: calc(14px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
     white-space: nowrap; padding: 2px 10px; background: rgba(8, 14, 20, .55); }
@@ -732,6 +737,37 @@
   #dadHud .dadBox.on { border-color: #ffd23e; }
   #dadHud .dadBoxErr { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 13px; }
   #dadHud .dadFpm { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border: 2px solid #7dff9a; border-radius: 50%; display: none; }
+  /* v152: the attack cues */
+  #dadHud .dadBox { left: -32px; top: -32px; width: 64px; height: 64px; border-width: 3px; }
+  #dadHud .dadBox:not(.on) { border-color: #ffd23e; }
+  #dadHud .dadBox.on { border-color: #7dff9a; box-shadow: 0 0 0 2px rgba(8, 14, 20, .5); }
+  #dadHud .dadBoxLock { position: absolute; bottom: 72px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 18px; font-weight: 700;
+    color: #ffd23e; background: rgba(8, 14, 20, .6); padding: 1px 8px; }
+  #dadHud .dadBox.on .dadBoxLock { color: #7dff9a; }
+  #dadHud .dadBoxErr { top: 70px; font-size: 14px; background: rgba(8, 14, 20, .55); padding: 0 6px; }
+  #dadHud .dadTti { position: absolute; top: calc(72% + 56px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 20px; font-weight: 700;
+    color: #fff; background: rgba(8, 14, 20, .6); padding: 1px 8px; }
+  #dadHud .dadTti:empty { display: none; }
+  #dadHud .dadTgt { position: absolute; left: 0; top: 0; display: none; }
+  #dadHud .dadTgtGem { position: absolute; left: -15px; top: -15px; width: 26px; height: 26px; border: 3px solid #ff5ad2; transform: rotate(45deg);
+    box-shadow: 0 0 6px rgba(0,0,0,.7); }
+  #dadHud .dadTgtD, #dadHud .dadTgtArrowD { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 15px; font-weight: 700;
+    color: #ff5ad2; background: rgba(8, 14, 20, .55); padding: 0 6px; }
+  #dadHud .dadTgtArrow { position: absolute; left: 0; top: 0; display: none; }
+  #dadHud .dadTgtArrowHead { position: absolute; left: -32px; top: -32px; width: 64px; height: 64px; border-radius: 50%; background: rgba(8, 14, 20, .6); }
+  #dadHud .dadTgtArrowHead svg { width: 64px; height: 64px; display: block; filter: drop-shadow(0 0 3px #000); }
+  #dadHud .dadTgtArrowD { top: 36px; font-size: 17px; }
+  #dadHud .dadArmed { position: absolute; bottom: calc(58px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: none;
+    font-size: 18px; font-weight: 700; letter-spacing: .12em; color: #ff5040; border: 2px solid #ff5040; padding: 1px 10px; background: rgba(8, 14, 20, .6); }
+  #dadHud .dadCue { position: absolute; top: 72%; left: 50%; transform: translateX(-50%); white-space: nowrap; display: none; }
+  #dadHud .dadCue.on { display: block; }
+  #dadHud .dadCue.release { font-size: 34px; font-weight: 800; color: #7dff9a; background: rgba(8, 14, 20, .6); padding: 2px 16px; border: 3px solid #7dff9a;
+    animation: dadCueBlink .35s steps(1) infinite; }
+  #dadHud .dadCue.pull { font-size: 34px; font-weight: 800; color: #ffd23e; background: rgba(8, 14, 20, .6); padding: 2px 16px; border: 3px solid #ffd23e;
+    animation: dadCueBlink .35s steps(1) infinite; }
+  #dadHud .dadCue.hint { font-size: 18px; font-weight: 700; color: #ffd23e; background: rgba(8, 14, 20, .55); padding: 1px 10px; }
+  #dadBombBtn.armed { animation: dadArmPulse .9s ease-in-out infinite; }
+  @keyframes dadArmPulse { 50% { box-shadow: 0 0 26px 10px rgba(255, 80, 64, .8); transform: scale(1.07); } }
   #dadCanopy { position: fixed; inset: 0; z-index: 7; pointer-events: none; display: none; }
   #dadCanopy svg { width: 100%; height: 100%; display: block; }
   #dadGrey { position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;

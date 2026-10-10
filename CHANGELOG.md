@@ -10,6 +10,31 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v152 — dad mode: the attack cues
+
+Dad mode only; his game is unchanged. From your own flight: you reached the bomb site and
+saw no lock and no clear cue to attack. On v151 a few cues were there but too small to
+notice: a thin box on the vent with the laser's miss in small text, which turned yellow
+when the laser was on. The rest were missing: no marker on the target, no ARMED, no
+RELEASE, no pull-up cue, and nothing once a bomb was away. Now, from 4 km out, a magenta
+diamond sits on the bunker with its distance. When the bunker is behind or off to the
+side, an arrow at the edge of the screen points to it. Inside 3 km (`TUNE.dad.bombs.range`,
+was 2.6) ARMED shows and the bomb button pulses red. Once the laser is up, a bigger
+designator box replaces the diamond on the vent. It reads LASER LOCK in green with a high
+tone when the laser is on the vent, or NO LOCK in amber when it isn't, with the distance
+and the miss under it. In the dive a cue below the centre tells you what is missing: LASE
+THE VENT, CLOSING, STEEPER or SHALLOWER. When everything is right it shows a flashing
+RELEASE (laser locked, 450–1000 m slant, a 20–60° dive; `TUNE.dad.attack`). Once a bomb is
+away, IMPACT counts down its seconds under the cue and the box stays on the vent. PULL UP
+flashes once you are inside 430 m or your bombs are gone. `dadmode_checks.js` flies a
+whole sortie and reads the screen frame by frame. Every frame from 4 km in shows the
+diamond, the box or the arrow. ARMED and the pulse are always shown together. LASER LOCK
+and NO LOCK both appear. RELEASE comes before the first bomb. IMPACT shows on every frame
+a bomb is falling, and the box is on the vent whenever the vent is on the screen. In the chase view
+the camera now rises over the jet in a dive on the vent and looks at the target, so the jet
+sits under the vent instead of on top of it. The speed, warnings and messages have dark
+backing so they read over the snow.
+
 ## v151 — dad mode: the cannon, and six missiles
 
 Dad mode only; his game is unchanged. The F-35 has its cannon. A GUN button sits on the
