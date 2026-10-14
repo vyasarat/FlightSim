@@ -22,6 +22,9 @@
 //         to 500 ft over the boulders; by hand to the clear ground, down gently, is the Eagle
 //         landed; too hard, left alone, run dry or on a boulder fails; the switch takes over;
 //         out, his sky and his stream are his
+//   hudson: the climb-out into the birds at 2,818 ft and both engines gone; a 17:1 glide; a
+//         final down the river flared to a floating ditching; fast and steep, a wing down,
+//         land or a tower fail; out, his stream is his
 //
 // Alone: node scripts/run_module.js dadmissions_checks
 // ---------------------------------------------------------------------------
@@ -520,6 +523,135 @@ module.exports = async function dadMissionChecks({ newPage, check }) {
   check("dad/apollo: EXIT takes the Moon, the boulders and the lander away, the switch with them; his sky comes back from black and the far plane in; his picker on the vehicles; his random stream does not move",
     !aOut.err && !aOut.on && aOut.objs === 0 && aOut.had > 3 && aOut.inScene === 0 && aOut.dom === 0 && aOut.sf < 0.1 && aOut.far === 6000 && aOut.picker && aOut.kind !== "dad" && !aOut.up
       && aOut.io === aOut.plain && aOut.dadDraws === 0, J(aOut));
+
+  // ---- Miracle on the Hudson: in, the climb-out and the strike
+  const hin = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state, A = L.TUNE.dad.air.a320, U = L.TUNE.dad.hudson;
+    const ok = H.fly("hudson");
+    const m = L.dad.m, out = { ok, mis: L.dad.mis && L.dad.mis.id, kind: L.vehKind(), body: !!L.dad.world.body, heading: S.heading, kt0: Math.round(S.speed * 1.944), flockSeen: false };
+    // hold the climb by hand until the birds
+    for (let i = 0; i < 60 * 120 && !m.struck; i++) { const q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (10 - S.pitch) * 1.5)); L.api.setStick(0, H.pitchStick(A, q)); L.update(1 / 60); if (L.dad.world.flock.visible) out.flockSeen = true; }
+    out.strikeFt = m.strikeAt && m.strikeAt.ft; out.msg = m.msg; out.thrust = m.thrust;
+    // then, hands-off at best glide on her glide angle, the ratio she flies over 20 s
+    // on a 17:1 path at best-glide speed her drag must exactly balance gravity along it: the
+    // speed holds. (Set on that path, the distance over height is 17 whatever the drag; it is the
+    // speed that tests the drag -- at 15:1 she would lose about 3 kt in these 20 s.)
+    S.speed = A.vbg; S.pitch = -Math.asin(1 / 17) * 180 / Math.PI; S.bank = 0; L.api.clearStick();
+    const kt0 = S.speed * 1.944;
+    for (let i = 0; i < 60 * 20; i++) L.update(1 / 60);
+    out.ktDrift = +(S.speed * 1.944 - kt0).toFixed(2); out.thrustAfter = m.thrust; out.over = m.over;
+    out.cells = [...document.querySelectorAll("#dadHud .dadDamCell")].map(c => c.textContent);
+    L.api.clearStick();
+    return out;
+  });
+  check("dad/hudson: FLY on its card climbs the airliner out north off his New York airport; the flock crosses the nose at 2,818 ft and both engines go (no thrust, 'BIRDS -- BOTH ENGINES'); on a 17:1 path at best-glide speed (204 kt) her speed holds -- she glides 17 to 1 -- the GLIDE box saying how far",
+    !hin.err && hin.ok && hin.mis === "hudson" && hin.kind === "dad" && hin.body && Math.abs(hin.heading - Math.PI) < 0.01 && hin.flockSeen && Math.abs(hin.strikeFt - 2818) < 20
+      && /BIRDS/.test(hin.msg) && hin.thrustAfter === 0 && Math.abs(hin.ktDrift) < 1 && !hin.over && hin.cells.some(c => /GLIDE[\d.]+ MI/.test(c)), J(hin));
+
+  // the river can be reached: from the strike, flown (no setting down anywhere) at best glide round
+  // and back to a gate on the river's line 2.5 km east of its clear stretch, with height in hand
+  const reach = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state, A = L.TUNE.dad.air.a320, U = L.TUNE.dad.hudson;
+    L.dadRestart(); const m = L.dad.m;
+    for (let i = 0; i < 60 * 120 && !m.struck; i++) { const q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (10 - S.pitch) * 1.5)); L.api.setStick(0, H.pitchStick(A, q)); L.update(1 / 60); }
+    const E = { x: U.river.x + 2500, z: U.river.z }; let best = 1e9, at = null, flapsFt = null;
+    for (let i = 0; i < 60 * 240 && !m.over; i++) {
+      const want = Math.atan2(-(E.x - S.x), -(E.z - S.z)), bank = Math.max(-1, Math.min(1, -H.wrap(want - S.heading) * 2));
+      const q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (S.speed - A.vbg) * 0.12 - (S.pitch + 3.4) * 0.5));
+      L.api.setStick(bank, H.pitchStick(A, q)); L.update(1 / 60);
+      if (m.flaps && flapsFt === null) flapsFt = Math.round(L.dadHuAgl() * 3.281);
+      const d = Math.hypot(E.x - S.x, E.z - S.z); if (d < best) { best = d; at = { d: Math.round(d), ft: Math.round(L.dadHuAgl() * 3.281), t: Math.round(m.t - m.strikeT) }; }
+      if (d < 300) break;
+    }
+    for (let i = 0; i < 60 * 90 && !m.over && L.dadHuAgl() * 3.281 > 450; i++) {
+      const q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (S.speed - A.vbg) * 0.12 - (S.pitch + 3.4) * 0.5));
+      L.api.setStick(0, H.pitchStick(A, q)); L.update(1 / 60);
+      if (m.flaps && flapsFt === null) flapsFt = Math.round(L.dadHuAgl() * 3.281);
+    }
+    L.api.clearStick();
+    return { strikeFt: m.strikeAt && m.strikeAt.ft, at, over: m.over, flapsFt, flaps: m.flaps };
+  });
+  check("dad/hudson: the river can be reached -- flown from the strike at 2,818 ft round and back to the river's line at best glide, she arrives with height in hand (over 300 ft); on down, the flaps come out by themselves under 600 ft",
+    !reach.err && reach.at && reach.at.d < 300 && reach.at.ft > 300 && reach.flaps && reach.flapsFt !== null && reach.flapsFt <= 600 && reach.flapsFt > 560, J(reach));
+  // a final by hand: struck, flaps out, put `back` metres east of the river's point at `ft` and
+  // `kt`, heading west down the channel; the stick flies a path to the touchdown and flares at
+  // 45 ft -- unless `how` says otherwise ("dive": hold -6 degrees, "wing": a 15 degree bank, "land":
+  // the final laid over the airport instead)
+  await page.evaluate(() => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    H.huFinal = (how, opts) => {
+      opts = opts || {};
+      const A = L.TUNE.dad.air.a320, U = L.TUNE.dad.hudson, W = L.dad.world;
+      L.dadRestart();
+      const m = L.dad.m;
+      m.struck = true; m.strikeT = m.t; m.strikeAt = { x: S.x, z: S.z, ft: 2818 }; m.flaps = true;
+      const R = how === "land" ? { x: 0, z: 5600 } : U.river;
+      S.x = R.x + (opts.back || 1800); S.z = R.z; S.heading = Math.PI / 2; S.bank = 0; S.speed = (opts.kt || 140) / 1.944;
+      S.y = Math.max(L.terrainEff(S.x, S.z), L.seaLevelAt(S.x, S.z)) + (opts.ft || 400) / 3.281; S.pitch = -3; L.dad.cam = null;
+      for (let i = 0; i < 60 * 90 && !m.over; i++) {
+        const agl = L.dadHuAgl(), ft = agl * 3.281;
+        let g;
+        if (how === "dive") g = -6;
+        else { const d = Math.max(60, S.x - (R.x - 100)); g = Math.max(-8, Math.min(-1.5, -Math.atan2(Math.max(0, agl - 2), d) * 180 / Math.PI)); if (ft < 45) g = -1.0; }
+        const wantH = Math.PI / 2 - (S.z - R.z) * 0.003, eh = H.wrap(wantH - S.heading);
+        const q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (g - S.pitch) * 1.2));
+        L.api.setStick(how === "wing" && ft < 40 ? 15 / A.bankLimitDeg : Math.max(-1, Math.min(1, -eh * 2)), H.pitchStick(A, q));
+        L.update(1 / 60);
+      }
+      L.api.clearStick();
+      for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+      const c = document.getElementById("dadCard");
+      return { over: m.over, result: m.result, why: m.why, ditch: m.ditch, card: c ? c.textContent : "" };
+    };
+  });
+  const ditch = await run(page, () => window.__misH.huFinal("good"));
+  check("dad/hudson: a final flown by hand down the river, flared at 45 ft -- on the water, wings level, the nose up, slow, sinking gently: 'she floats', the card with the ditching set beside the real one",
+    !ditch.err && ditch.result === "success" && ditch.ditch.water && Math.abs(ditch.ditch.bank) <= 8 && ditch.ditch.pitch >= 4 && ditch.ditch.pitch <= 13 && ditch.ditch.kt <= 150 && ditch.ditch.sink <= 1000
+      && /She floats/.test(ditch.card) && /125 kt, nose 9.5/.test(ditch.card) && /RETRY/.test(ditch.card), J(ditch));
+  const hDive = await run(page, () => window.__misH.huFinal("dive", { kt: 190, ft: 300, back: 800 }));
+  const hWing = await run(page, () => window.__misH.huFinal("wing"));
+  const hLand = await run(page, () => window.__misH.huFinal("land"));
+  check("dad/hudson: and it fails as a ditching fails -- driven in fast and steep she breaks up; a wing down catches the water; set down on land is a crash",
+    !hDive.err && !hWing.err && !hLand.err && hDive.result === "fail" && /fast|too low|sinking/.test(hDive.why) && hDive.ditch.water
+      && hWing.result === "fail" && /wing/.test(hWing.why) && hLand.result === "fail" && /land/.test(hLand.why), J({ dive: [hDive.why, hDive.ditch], wing: [hWing.why, hWing.ditch], land: [hLand.why, hLand.ditch] }));
+  const hSeat = await run(page, () => {
+    const L = window.__lp; L.dadRestart(); L.api.setView(true); L.update(1 / 60); const chase = L.dad.world.body.visible;
+    L.api.setView(false); L.update(1 / 60); const seat = L.dad.world.body.visible; L.api.setView(true); L.update(1 / 60);
+    return { chase, seat, back: L.dad.world.body.visible };
+  });
+  check("dad/missions: from the seat the aircraft's own body is not drawn -- visible exactly false (undefined is drawn: the airliner's glazing sat across the windscreen); back in the chase it is",
+    !hSeat.err && hSeat.chase === true && hSeat.seat === false && hSeat.back === true, J({ chase: String(hSeat.chase), seat: String(hSeat.seat), back: String(hSeat.back) }));
+  const hSolid = await run(page, () => {
+    const L = window.__lp, S = L.state; L.dadRestart(); const m = L.dad.m;
+    // level and south at 300 ft straight at the city past the river, the stick left alone
+    S.x = -260; S.z = 4700; S.y = L.TUNE.waterLevel + 91; S.heading = 0; S.pitch = 0; S.bank = 0; S.speed = 80;
+    for (let i = 0; i < 60 * 25 && !m.over; i++) { L.api.clearStick(); L.update(1 / 60); }
+    // the bang is where a building is: the registry finds one at the point she went up
+    const there = L.solidQuery(S.x, S.y, S.z, L.TUNE.solid.r.dad + 1, L.SOLID.AIR, undefined, null, false);
+    return { over: m.over, result: m.result, why: m.why, at: [Math.round(S.x), Math.round(S.y), Math.round(S.z)], there: there ? there.kind : null, hit: m.ditch && m.ditch.hitKind };
+  });
+  check("dad/hudson: his solids are solid to her -- flown level at 300 ft south across the river toward the city (the bridge's tower stands in the way), 'flew into something solid', and the bang is where that thing stands (a bridge's tower or a building, the registry says which)",
+    !hSolid.err && hSolid.over && hSolid.result === "fail" && /solid/.test(hSolid.why) && /^(building|bridge)$/.test(hSolid.hit) && hSolid.there === hSolid.hit, J(hSolid));
+  const hOut = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    const objs = L.dad.objs.slice();
+    L.dadExit(); for (let i = 0; i < 3; i++) L.update(1 / 60);
+    const out = { on: L.dadActive(), objs: L.dad.objs.length, inScene: objs.filter(o => !!o.parent).length, had: objs.length, dom: H.dadDom(), picker: !document.getElementById("screenVehicle").classList.contains("hiddenS"), kind: L.vehKind() };
+    const R = Math.random; let n = 0, dadDraws = 0;
+    Math.random = () => { n++; if (/\/js\/dad[^/]*\.js/.test(new Error().stack)) dadDraws++; return R(); };
+    try {
+      L.api.skipScreens();
+      const k = S.vehicleKey, o = S.originIdx, d = S.dirIdx;
+      const plainSw = () => { L.api.setVehicle("fighter"); L.api.setVehicle(k); L.api.spawnAt(o, d); };
+      plainSw(); n = 0; plainSw(); out.plain = n;
+      n = 0; L.dadEnter("hudson"); L.dadExit(); L.api.skipScreens(); out.io = n;
+      L.dadEnter("hudson"); dadDraws = 0; for (let i = 0; i < 60 * 70; i++) { L.api.setStick(0, 0.4); L.update(1 / 60); }
+      out.struck = L.dad.m.struck; out.dadDraws = dadDraws; L.dadExit(); L.api.skipScreens();
+    } finally { Math.random = R; }
+    return out;
+  });
+  check("dad/hudson: EXIT takes the airliner and the flock away, his picker on the vehicles; his random stream does not move -- in and out draws what a plain switch draws, and climbed into the birds nothing in a dad file draws it",
+    !hOut.err && !hOut.on && hOut.objs === 0 && hOut.had >= 2 && hOut.inScene === 0 && hOut.dom === 0 && hOut.picker && hOut.kind !== "dad" && hOut.io === hOut.plain && hOut.struck && hOut.dadDraws === 0, J(hOut));
   check("dad/missions: no page errors through all of it", errors.length === 0, J(errors.slice(0, 5)));
   await page.context().close();
 };

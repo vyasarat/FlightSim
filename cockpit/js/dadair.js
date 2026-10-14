@@ -89,7 +89,9 @@ function dadAirCamera(dt, o) {
 function dadAirPose(body, o) {
   if (vehicleModel) vehicleModel.visible = false;
   if (!body) return;
-  body.visible = (state.viewChase || (o && o.alwaysShown)) && !state.exploding;
+  // a boolean, always: three.js skips only `visible === false`, and `undefined` (no options, the
+  // seat view) was drawn -- v157: the airliner's glazing across the windscreen
+  body.visible = !!((state.viewChase || (o && o.alwaysShown)) && !state.exploding);
   body.position.set(state.x, state.y, state.z);
   body.rotation.set(state.pitch * DEG, state.heading, -state.bank * DEG, "YXZ");
   const props = body.userData.props;

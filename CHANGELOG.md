@@ -10,6 +10,40 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v157 — dad mode: Miracle on the Hudson
+
+Dad mode only; his game is unchanged. Mission 5 on the list is US Airways Flight 1549, 15
+January 2009. You fly a twin-engine airliner in an A320's shape, white with no airline
+livery: the game's airliner models carry real liveries, so they are not used. You start
+climbing out north off his New York airport. At 2,818 ft a flock of geese crosses the nose,
+both engines go, their sound stops, and there is only the wind. She glides. The panels give
+airspeed against best glide, altitude with the sink rate and the nose's attitude, how far
+this height carries her at the speed and sink she has right now, and the time since the
+strike. The river is the channel south of the airport, marked with a diamond: turn back,
+line up along it, and ditch with the wings level, the nose 4 to 13 degrees up, under 150 kt
+and sinking under 1,000 ft a minute, and she floats. The card sets your ditching beside the
+real one: 125 kt, the nose 9.5 degrees up, 750 ft a minute, less than four minutes after the
+strike. Fast and steep, a wing down or the nose too low and she breaks up; land is a crash,
+and so is any of his world that is solid, the city's towers and the bridges included. Her
+nose rides above her path by the angle of attack, which grows as she slows, so slowing down
+is what brings the nose up for the ditching. The source is the Wikipedia article on US
+Airways Flight 1549.
+
+Fixed in all the historical missions: from the seat, an aircraft's own body was still drawn.
+Its visibility was set to `undefined` rather than `false`, and three.js only skips
+`false`. In the airliner its glazing sat across the windscreen; in the others the body was
+behind the seat and unseen. A check now requires exactly `false`; with the fix taken out, it
+fails. `dadmissions_checks.js` gains the Hudson checks: the climb into the birds at 2,818 ft
+with both engines gone; the settled glide; a final flown by hand down the river to a
+floating ditching; fast, a wing down, land and a tower each failing; and EXIT and the random
+stream. One flies from the strike, with no teleport, back to the river's line and arrives with
+494 ft in hand, the flaps coming out at 600 ft. Another holds her on a 17:1 path at best glide
+and requires her speed to hold, which a 15:1 airframe fails. Also fixed in all the historical
+missions: dad mode's sounds are silenced by name prefix on the way out, so none can be missed.
+The airliner's engine tone had been missing from the hand-kept list and would have droned on
+under his game after an EXIT during the climb. The gate now requires every dad tone to be
+named "dad...". Harness 1027/1027.
+
 ## v156 — dad mode: Apollo 11
 
 Dad mode only; his game is unchanged. Mission 4 on the list is Apollo 11's landing, 20 July
