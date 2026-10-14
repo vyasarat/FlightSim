@@ -2205,6 +2205,9 @@ const TUNE = {
     air: {
       lancaster: { vbg: 75, ld: 12, thrust: 1.57, vStall: 48, vMax: 135, pitchRateDeg: 7, pitchExpo: 2.2, bankLimitDeg: 45, rollRate: 1.6, turnMul: 1, gMax: 2.5, touchAgl: 1.5 },
       // v155: the twin-engine medium bomber: full power holds about 236 mph level, the clean stall about 94 mph
+      // v157: the airliner: best glide about 204 kt at 17 to 1, the clean stall about 120 kt; its nose
+      // rides `aoa0` above its path at best glide, more as it slows (dad_hudson.js)
+      a320: { vbg: 105, ld: 17, thrust: 1.75, vStall: 62, vMax: 180, pitchRateDeg: 6, pitchExpo: 2, bankLimitDeg: 35, rollRate: 1.4, turnMul: 1, gMax: 2.5, touchAgl: 2, aoa0: 3.5, aoaMax: 16 },
       b25: { vbg: 72, ld: 13, thrust: 1.62, vStall: 42, vMax: 128, pitchRateDeg: 10, pitchExpo: 2, bankLimitDeg: 50, rollRate: 2, turnMul: 1, gMax: 3, touchAgl: 1.5 },
     },
     // v155: THE DOOLITTLE RAID (dad_doolittle.js). The carrier `farOut` north of his coast
@@ -2258,6 +2261,15 @@ const TUNE = {
       fuel: 280, probe: 1.7, legR: 4.2, dustAgl: 35, dust: { n: 14, v: [40, 80] }, slopeSpan: 2.5, belowR: 25,
       alarms: [{ ft: 6000, code: 1202 }, { ft: 3000, code: 1201 }, { ft: 2000, code: 1202 }], alarmFor: 6, goAfter: 2.5,
       land: { crashFps: 10, vDownFps: 3, vSideFps: 4, tiltMax: 12, slopeMax: 12 },
+    },
+    // v157: MIRACLE ON THE HUDSON (dad_hudson.js). Climbing out north off his New York airport
+    // (`start` from its centre); the birds at `strikeFt`; flaps out under `flapsAtFt`; the river is
+    // the channel south of the airport (its clear stretch at `river`). `ditch` is what floats.
+    hudson: {
+      airport: 0, start: { dx: 0, dz: 1600, agl: 457, heading: Math.PI, pitch: 10, kt: 160 },
+      strikeFt: 2818, climbPower: 1, flapsAtFt: 600, flapK: 0.85, flapLd: 0.8, smokeFor: 12,
+      river: { x: -1100, z: 4590 },
+      ditch: { bankMax: 8, pitchMin: 4, pitchMax: 13, ktMax: 150, sinkMax: 1000 },
     },
     escape: 12,                  // seconds he must live after the plant goes, with nothing close behind, to be out
     results: { hold: 2.5 },      // seconds of the aftermath before the card

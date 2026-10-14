@@ -183,6 +183,41 @@ async function render(root, only) {
     await paint(); await shot(page, out, "25-ap-card", { ...i, note: "the card: The Eagle has landed" });
     await page.evaluate(() => window.__lp.dadExit());
   }
+  // ---------------- miracle on the hudson ----------------
+  if (!only.length || only.includes("hudson")) {
+    await enter("hudson");
+    const climb = `(L, S, m) => { const A = L.TUNE.dad.air.a320, q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (10 - S.pitch) * 1.5));
+      return { bank: 0, pitch: Math.sign(q) * Math.pow(Math.min(1, Math.abs(q) / A.pitchRateDeg), 1 / A.pitchExpo) }; }`;
+    let i = await fly(climb, "m.t > 1", 2);
+    // from ahead and above, looking back past her at the field she has just left
+    await vantage(`cam.up.set(0,1,0); cam.position.set(S.x - 45, S.y + 22, S.z + 120); cam.lookAt(S.x, S.y - 160, S.z - 900);`);
+    await shot(page, out, "30-hu-climb-out", { ...i, note: "climbing out north off his New York airport, engines at climb power, the field behind" });
+    i = await fly(climb, "L.dad.world.flock.visible && L.dadHuAgl() * 3.281 > 2790", 90);
+    await view(false); await shot(page, out, "31-hu-geese-seat", { ...i, note: "from the cockpit: the flock across the nose, a second before" });
+    i = await fly(climb, "m.struck && m.t - m.strikeT > 1.5", 10);
+    await view(true); await shot(page, out, "32-hu-strike", { ...i, note: "both engines gone: smoke from both, BIRDS -- BOTH ENGINES, the glide numbers" });
+    // the final, lined up as the checks do: 1.8 km east of the river's clear stretch at 400 ft, flaps out
+    await page.evaluate(() => { const L = window.__lp, S = L.state, U = L.TUNE.dad.hudson, m = L.dad.m;
+      m.flaps = true; S.x = U.river.x + 1800; S.z = U.river.z; S.heading = Math.PI / 2; S.bank = 0; S.speed = 140 / 1.944; S.pitch = -3;
+      S.y = Math.max(L.terrainEff(S.x, S.z), L.seaLevelAt(S.x, S.z)) + 400 / 3.281; L.dad.cam = null; });
+    const fin = `(L, S, m) => { const A = L.TUNE.dad.air.a320, U = L.TUNE.dad.hudson, agl = L.dadHuAgl(), ft = agl * 3.281;
+      const d = Math.max(60, S.x - (U.river.x - 100)); let g = Math.max(-8, Math.min(-1.5, -Math.atan2(Math.max(0, agl - 2), d) * 180 / Math.PI)); if (ft < 45) g = -1.0;
+      const a = Math.PI / 2 - (S.z - U.river.z) * 0.003 - S.heading, eh = Math.atan2(Math.sin(a), Math.cos(a));
+      const q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (g - S.pitch) * 1.2));
+      return { bank: Math.max(-1, Math.min(1, -eh * 2)), pitch: Math.sign(q) * Math.pow(Math.min(1, Math.abs(q) / A.pitchRateDeg), 1 / A.pitchExpo) }; }`;
+    i = await fly(fin, "L.dadHuAgl() * 3.281 < 250", 30);
+    await view(false); await shot(page, out, "33-hu-final-seat", { ...i, note: "on the final from the cockpit: the river ahead between the banks, the city beyond" });
+    i = await fly(fin, "L.dadHuAgl() * 3.281 < 25", 30);
+    await vantage(`cam.up.set(0,1,0); cam.position.set(S.x - 60, S.y + 6, S.z + 70); cam.lookAt(S.x, S.y - 3, S.z);`);
+    await shot(page, out, "34-hu-flare", { ...i, note: "the flare over the water: wings level, nose up, flaps out" });
+    i = await fly(fin, "m.over", 20);
+    i = await fly(fin, "m.overT > 1", 3);
+    await vantage(`cam.up.set(0,1,0); cam.position.set(S.x - 70, S.y + 18, S.z + 60); cam.lookAt(S.x, S.y, S.z);`);
+    await shot(page, out, "35-hu-floating", { ...i, note: "she floats: on the river, spray settling" });
+    i = await fly(fin, "m.card", 6);
+    await paint(); await shot(page, out, "36-hu-card", { ...i, note: "the card: she floats, set beside the real one" });
+    await page.evaluate(() => window.__lp.dadExit());
+  }
   console.log("errors: " + JSON.stringify(errors.slice(0, 5)));
   await browser.close(); srv.close();
 }

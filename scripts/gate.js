@@ -236,6 +236,14 @@ for (const f of fs.readdirSync(path.join(ROOT, "scripts")).filter(f => f.endsWit
   src.split("\n").forEach((l, i) => { if (/require\(\s*["']\.\/\w+["']\s*\)\s*\(/.test(l)) fail("harness", `scripts/headless_test.js:${i + 1}: a module called directly -- run it through runModule, which closes the pages it leaves open`); });
 }
 
+// ---------- 10. every tone a dad file makes is named "dad..." ----------
+// dadSoundsOff silences tones by that prefix on the way out; one named otherwise would drone on
+// under his game (v157: the airliner's tone was missing from a hand-kept list).
+for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => /^dad.*\.js$/.test(f))) {
+  const src = read("cockpit/js/" + f), re = /setTone\(\s*(["'`])([^"'`]*)\1/g; let m;
+  while ((m = re.exec(src))) if (!m[2].startsWith("dad")) fail("dad", `cockpit/js/${f}: setTone("${m[2]}") -- a dad tone is named "dad..." so dadSoundsOff can find it`);
+}
+
 // ---------- which modules the change answers to ----------
 const mods = new Set(); let full = false;
 for (const f of changedList) {

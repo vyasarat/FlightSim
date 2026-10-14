@@ -726,9 +726,11 @@ function dadBoom(size, dist) {
   dadNoise(0.25, 900, 0.12 * k);
   if (typeof synthBlip === "function") synthBlip("sine", 70, 28, 0.9 + size * 0.3, 0.3 * k);
 }
+// Every dad tone off: each is named "dad..." (the gate holds dad files to it), so none can be
+// missed here and drone on under his game (v157: the airliner's "dadJet" was).
 function dadSoundsOff() {
-  if (typeof setTone !== "function") return;
-  for (const n of ["dadLock", "dadMsl", "dadPull", "dadGun", "dadCannon", "dadLase", "dadProp", "dadProp2", "dadWind", "dadRocket", "dadAlarm"]) setTone(n, "square", 440, 0);
+  if (typeof setTone !== "function" || typeof tones === "undefined") return;
+  for (const n in tones) if (n.startsWith("dad")) setTone(n, "square", 440, 0);
 }
 
 // ---------------------------------------------------------------------------
