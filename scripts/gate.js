@@ -227,6 +227,15 @@ for (const f of fs.readdirSync(path.join(ROOT, "scripts")).filter(f => f.endsWit
   for (const c of gateCheckCalls(read("scripts/" + f))) { const w = gateCheckShape(c.args); if (w) fail("checks", `scripts/${f}:${c.line}: ${w}`); }
 }
 
+// ---------- 9. every harness module runs through runModule ----------
+// runModule closes the pages a module leaves open. Called around it, a module's
+// open page kept its queued GPU frames, the next page's boot waited 129 s behind
+// them, and the full run stalled (v154, on main as well).
+{
+  const src = read("scripts/headless_test.js");
+  src.split("\n").forEach((l, i) => { if (/require\(\s*["']\.\/\w+["']\s*\)\s*\(/.test(l)) fail("harness", `scripts/headless_test.js:${i + 1}: a module called directly -- run it through runModule, which closes the pages it leaves open`); });
+}
+
 // ---------- which modules the change answers to ----------
 const mods = new Set(); let full = false;
 for (const f of changedList) {

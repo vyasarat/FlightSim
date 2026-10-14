@@ -99,6 +99,59 @@ async function render(root, only) {
       const c = document.querySelector('#dadMenu .dadCard[data-mission="dam"]'); c.scrollIntoView(); for (let i = 0; i < 2; i++) window.__paint(); });
     await shot(page, out, "08-list-record", { note: "the list after a sortie: the Dambusters card's session record" });
   }
+  // ---------------- the doolittle raid ----------------
+  if (!only.length || only.includes("doolittle")) {
+    await enter("doolittle");
+    // the hand: hold the deck, ease up off the bow, then on to target 0 at 1,500 ft, drop on the ring
+    const dl = `(L, S, m) => { const P = L.TUNE.dad.air.b25, wl = L.TUNE.waterLevel, W = L.dad.world;
+      if (m.phase !== "air") return null;
+      const vs = L.dadDlStall(), t = W.targets.find(x => !x.hit) || W.targets[0];
+      const early = m.t - m.offBow.t < 12;
+      const wantP = early ? (S.speed > vs * 1.3 ? 7 : 2) : null;
+      let q;
+      if (wantP !== null) q = (wantP - S.pitch) * 2;
+      else { const near = Math.hypot(t.x - S.x, t.z - S.z) < 5000; const wantY = wl + (near ? 457 : 45); q = (wantY - S.y) * 0.4 - S.pitch * 2; }
+      q = Math.max(-P.pitchRateDeg, Math.min(P.pitchRateDeg, q));
+      const ax = t.x, az = Math.min(S.z - 600, t.z + 2500 > S.z ? S.z - 600 : t.z + 2500);
+      const eh = Math.atan2(Math.sin(Math.atan2(-(ax - S.x), -(az - S.z)) - S.heading), Math.cos(Math.atan2(-(ax - S.x), -(az - S.z)) - S.heading));
+      if (L.dadBombCan() && L.dadDlOnTarget()) L.dadDropBomb();
+      return { bank: early ? 0 : Math.max(-1, Math.min(1, -eh * 3)), pitch: Math.sign(q) * Math.pow(Math.min(1, Math.abs(q) / P.pitchRateDeg), 1 / P.pitchExpo) }; }`;
+    let i = await fly(dl, "m.t > 1.5", 3);
+    await view(true); await shot(page, out, "10-dl-deck-chase", { ...i, note: "on the deck: the bomber on its line, the island to starboard, the flagman winding his flag, the squadron packed aft" });
+    await vantage(`const C = L.dad.world.carrier; cam.up.set(0,1,0); cam.position.set(C.x - 120, C.y + 45, C.z - 200); cam.lookAt(C.x, C.y, C.z + 20);`);
+    await shot(page, out, "10b-dl-carrier", { ...i, note: "the carrier from ahead and to port: sixteen bombers on a deck never meant for them" });
+    i = await fly(dl, "m.phase === 'air'", 30);
+    i = await fly(dl, "m.offBow && m.t - m.offBow.t > 1.2", 3);
+    await vantage(`const C = L.dad.world.carrier; cam.up.set(0,1,0); cam.position.set(S.x - 70, S.y + 4, S.z + 10); cam.lookAt(S.x, S.y - 3, S.z - 20);`);
+    await shot(page, out, "11-dl-off-the-bow", { ...i, note: "off the bow: she sinks toward the sea before she climbs, the carrier behind" });
+    i = await fly(dl, "m.t - m.offBow.t > 20", 25);
+    await view(true); await shot(page, out, "12-dl-wave-top", { ...i, note: "wave-top over the sea toward the coast" });
+    // the bomb run, lined up as the checks do: 4.5 km north of the docks at 1,500 ft, then down the line by stick
+    const line = (i) => page.evaluate((i) => { const L = window.__lp, S = L.state, m = L.dad.m, W = L.dad.world, t = W.targets[i];
+      m.flaps = false; W.body.userData.gear.visible = false; S.x = t.x; S.z = t.z + 4500; S.y = L.TUNE.waterLevel + 457; S.heading = 0; S.pitch = 0; S.bank = 0; S.speed = 105; L.dad.cam = null; }, i);
+    const run = `(L, S, m) => { const P = L.TUNE.dad.air.b25, wl = L.TUNE.waterLevel, W = L.dad.world, t = W.targets.find(x => !x.hit);
+      const ax = t ? t.x : S.x, az = S.z - 600, a = Math.atan2(-(ax - S.x), -(az - S.z)) - S.heading, eh = Math.atan2(Math.sin(a), Math.cos(a));
+      const q = Math.max(-P.pitchRateDeg, Math.min(P.pitchRateDeg, (wl + 457 - S.y) * 0.5 - S.pitch * 2));
+      if (L.dadBombCan() && L.dadDlOnTarget() && m.bombsUsed <= m.hits && !L.dad.world.bombsLive.length) L.dadDropBomb();
+      return { bank: Math.max(-1, Math.min(1, -eh * 3)), pitch: Math.sign(q) * Math.pow(Math.min(1, Math.abs(q) / P.pitchRateDeg), 1 / P.pitchExpo) }; }`;
+    await line(0);
+    i = await fly(run, "m.pip && L.dad.world.pip.visible && Math.hypot(m.pip.x - L.dad.world.targets[0].x, m.pip.z - L.dad.world.targets[0].z) < 260", 60);
+    await view(false); await shot(page, out, "13-dl-bomb-run-seat", { ...i, note: "from the bombardier's seat at 1,500 ft: the green ring sliding up to the docks, flak" });
+    await view(true); await shot(page, out, "13b-dl-bomb-run-chase", { ...i, note: "the same from behind" });
+    i = await fly(run, "m.hits >= 1 && L.dad.world.bombsLive.length === 0", 40);
+    i = await fly(run, "false", 0.8);
+    await vantage(`const t = L.dad.world.targets.find(x => x.hit); cam.up.set(0,1,0); cam.position.set(t.x + 170, t.y + 80, t.z + 230); cam.lookAt(t.x, t.y + 15, t.z);`);
+    await shot(page, out, "14-dl-target-hit", { ...i, note: "the docks hit: rubble and fire, smoke climbing" });
+    // the second target the same way, then on west to the end
+    await line(1);
+    i = await fly(run, "m.hits >= 2 && L.dad.world.bombsLive.length === 0", 60);
+    const west = `(L, S, m) => { const P = L.TUNE.dad.air.b25, wl = L.TUNE.waterLevel, a = Math.PI / 2 - S.heading, eh = Math.atan2(Math.sin(a), Math.cos(a));
+      const q = Math.max(-P.pitchRateDeg, Math.min(P.pitchRateDeg, (wl + 457 - S.y) * 0.5 - S.pitch * 2));
+      return { bank: Math.max(-1, Math.min(1, -eh * 3)), pitch: Math.sign(q) * Math.pow(Math.min(1, Math.abs(q) / P.pitchRateDeg), 1 / P.pitchExpo) }; }`;
+    i = await fly(west, "m.card", 120);
+    await paint(); await shot(page, out, "15-dl-card", { ...i, note: "the results card" });
+    await page.evaluate(() => window.__lp.dadExit());
+  }
   console.log("errors: " + JSON.stringify(errors.slice(0, 5)));
   await browser.close(); srv.close();
 }
