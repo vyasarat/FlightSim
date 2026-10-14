@@ -94,6 +94,7 @@ const BUTTONS = {
   dadExitBtn:  { slot: "dashLeft",  when: () => btnDad() },
   dadRodUpBtn: { slot: "highRight", when: () => btnDad() && dadFlying() && dadMisHas("rod") },   // v156: Apollo's rate-of-descent switch
   dadRodDnBtn: { slot: "lowRight",  when: () => btnDad() && dadFlying() && dadMisHas("rod") },
+  dadChamberBtn: { slot: "lowRight", when: () => btnDad() && dadFlying() && dadMisHas("chamber") && typeof dadX1ChamberCan === "function" && dadX1ChamberCan() },   // v158: the X-1's chambers, after the drop (the bomb button, DROP, is gone by then)
 };
 
 // ---- the predicates that were inline, kept verbatim ------------------------

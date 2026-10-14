@@ -236,7 +236,7 @@ window.__lp = {
   cr, CR, crActive, crSpawn, crCanGo, crParked, crAimed, crGroups, crTowers, crBall, crCrane, crHomeError, crLeave, crCovers,
   vl, vlCovers, vlBunkerAt, vlCenterZ, vlCenterSlope, vlFloorY, vlBowlCentre, vlWeight,
   dad, dadActive, dadEnter, dadExit, dadStart, dadTick, dadKeyTap, dadPadPress, dadFlare, dadDropBomb, dadFireMissile, dadBombCan,
-  dadRestart, dadMis, DAD_MISSIONS, dadDamLineZ, dadDlStall, dadDlOnTarget, dadDlOutX, dadDlCoastZ, dadDlLandmarkNear, dadApRod, dadApAgl, dadApMoonH, dadAp, dadHuNose, dadHuAgl, dadAirLevel, dadWingDown, dadWingHit, dadWingJet, dadPartner, dadJetsHome, dadFlying, dadLaunchSam, dadCruiseMissiles, dadNosePoint, dadAgl, dadFwd, dadKill, dadAimTarget, dadPlantGoes, dadDamage, get dadSeedNow() { return dadSeedNow; },
+  dadRestart, dadMis, DAD_MISSIONS, dadDamLineZ, dadDlStall, dadDlOnTarget, dadDlOutX, dadDlCoastZ, dadDlLandmarkNear, dadApRod, dadApAgl, dadApMoonH, dadAp, dadHuNose, dadHuAgl, dadX1Drop, dadX1Chamber, dadX1ChamberCan, dadX1Mach, dadEnv, dadAirLevel, dadWingDown, dadWingHit, dadWingJet, dadPartner, dadJetsHome, dadFlying, dadLaunchSam, dadCruiseMissiles, dadNosePoint, dadAgl, dadFwd, dadKill, dadAimTarget, dadPlantGoes, dadDamage, get dadSeedNow() { return dadSeedNow; },
   heavy, HV, heavySeparate, heavyWatching, heavyPad, heavyBoosterTilt, heavyReset, rocketRestock, rocketCanSkip,
   mon, MON, monGround, monCanCrush, monActive, monSpawn, monDebrisLive, monSnapCamera, monRestoreAll, solidCol, get buildingInst() { return buildingInst; },
   mtruck, MTRUCK, mtReset, mtForce, mtCarsState, mtPuffsLive, mtLanding, mtCovers, mtAt, mtSquash, updateMonsterTruck,

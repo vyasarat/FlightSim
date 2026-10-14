@@ -25,6 +25,9 @@
 //   hudson: the climb-out into the birds at 2,818 ft and both engines gone; a 17:1 glide; a
 //         final down the river flared to a floating ditching; fast and steep, a wing down,
 //         land or a tower fail; out, his stream is his
+//   x1:   hung in the mothership's bay, dropped, four chambers, Mach 1 at about 42,000 ft under a
+//         day sky; the glide home over the lake; a final on to the bed; off the bed, too hard
+//         and no Mach 1 fail; out, his sky and stream are his
 //
 // Alone: node scripts/run_module.js dadmissions_checks
 // ---------------------------------------------------------------------------
@@ -188,7 +191,7 @@ module.exports = async function dadMissionChecks({ newPage, check }) {
     // his toys, and every set-piece's aim reticle (the red ring), each one's visibility
     const rets = []; L.scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "TorusGeometry" && o.material && o.material.isMeshBasicMaterial && o.material.color.getHex() === 0xff3b30) rets.push(o); });
     const seen = o => { for (let p = o; p; p = p.parent) if (!p.visible) return 0; return 1; };
-    const snap = () => { const a = []; for (const t of targets) a.push(t.mesh.visible ? 1 : 0); for (const q of spots) a.push(q.mesh.visible ? 1 : 0, q.beam.visible ? 1 : 0); for (const g of gates) a.push(g.mesh.visible ? 1 : 0); for (const r of rets) a.push(seen(r)); return a.join(""); };
+    const snap = () => { const a = []; for (const t of targets) a.push(t.mesh.visible ? 1 : 0); for (const q of spots) a.push(q.mesh.visible ? 1 : 0, q.beam.visible ? 1 : 0); for (const g of gates) a.push(g.mesh.visible ? 1 : 0); for (const r of rets) a.push(seen(r)); a.push(ringsGroup.visible ? 1 : 0); for (const bd of BODIES) if (bd.mesh) a.push(bd.mesh.visible ? 1 : 0); return a.join(""); };
     const store = () => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return JSON.stringify(o); };
     const sp = spots.find(q => Math.hypot(q.x + 350, q.z - 1800) < 250);
     if (!sp) return { err: "no lake spot" };
@@ -199,6 +202,7 @@ module.exports = async function dadMissionChecks({ newPage, check }) {
     for (const q of spots) if (q.mesh.visible || q.beam.visible) shown++;
     for (const g of gates) if (g.mesh.visible) shown++;
     for (const r of rets) shown += seen(r);
+    if (ringsGroup.visible) shown++; for (const bd of BODIES) if (bd.mesh && bd.mesh.visible) shown++;
     // put the bomber 250 m east of the spot at its height, heading west through it
     S.x = sp.x + 250; S.z = sp.z; S.y = sp.y; S.heading = Math.PI / 2; S.pitch = 0; S.bank = 0; S.speed = 103;
     let closest = 1e9;
@@ -211,7 +215,7 @@ module.exports = async function dadMissionChecks({ newPage, check }) {
     L.dadExit(); L.api.skipScreens();
     return { closest: +closest.toFixed(1), wasLit, lit, spotsFlag: [fl0, fl1], shown, shownC, sameStore: store() === ls0, sameVis, sameVisC: snap() === vis0, n: vis0.length, rets: rets.length };
   });
-  check("dad/dam: his world is scenery -- the bomber flown straight through the lake's sparkle spot does not light it (nothing is saved); his targets, spots, gates and set-piece reticles are out of the picture in here (and in Canyon Strike) and each comes back on EXIT exactly as it was",
+  check("dad/dam: his world is scenery -- the bomber flown straight through the lake's sparkle spot does not light it (nothing is saved); his targets, spots, gates, rings, set-piece reticles and the rocket's Moon and Mars are out of the picture in here (and in Canyon Strike) and each comes back on EXIT exactly as it was",
     !his.err && his.closest < 4 && his.lit === his.wasLit && his.spotsFlag[0] === his.spotsFlag[1] && his.shown === 0 && his.shownC === 0 && his.sameStore && his.sameVis && his.sameVisC && his.n > 20 && his.rets >= 3, J(his));
   const stream = await run(page, () => {
     const L = window.__lp, S = L.state;
@@ -652,6 +656,135 @@ module.exports = async function dadMissionChecks({ newPage, check }) {
   });
   check("dad/hudson: EXIT takes the airliner and the flock away, his picker on the vehicles; his random stream does not move -- in and out draws what a plain switch draws, and climbed into the birds nothing in a dad file draws it",
     !hOut.err && !hOut.on && hOut.objs === 0 && hOut.had >= 2 && hOut.inScene === 0 && hOut.dom === 0 && hOut.picker && hOut.kind !== "dad" && hOut.io === hOut.plain && hOut.struck && hOut.dadDraws === 0, J(hOut));
+
+  // ---- Breaking the Sound Barrier: in, the drop, the chambers, Mach 1 high up
+  await page.evaluate(() => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    // the hand after the drop: light the four one by one, climb at 18 degrees to 41,000 ft, level
+    // at 42,000 and let it run; with the fuel gone, home to the lake at a fast glide, round it
+    H.x1Run = (opts) => {
+      opts = opts || {};
+      const A = L.TUNE.dad.air.x1, X = L.TUNE.dad.x1, m = () => L.dad.m;
+      L.dadRestart();
+      const out = { hungMoved: null, dropped: false, lit: [], sf: 0, farMax: 0, flamesMax: 0, cone: 0 };
+      let mode = "climb", x0 = null;
+      for (let i = 0; i < 60 * (opts.secs || 700) && !m().over; i++) {
+        const M = m(), ft = S.y * 3.281, agl = (S.y - L.terrainEff(S.x, S.z)) * 3.281;
+        if (M.phase === "hung") { if (x0 === null) x0 = S.x; if (M.t > 2) { out.hungMoved = Math.round(S.x - x0); /* carried east */ out.dropped = L.dadDropBomb(); } L.api.clearStick(); L.update(1 / 60); continue; }
+        if (M.lit < 4 && M.fuel > 0 && (M.t - M.dropT) > M.lit * 0.6 + 0.5) { L.dadX1Chamber(); out.lit.push(+(M.t - M.dropT).toFixed(1)); }
+        if (M.fuel <= 0 && mode !== "home") mode = "home";
+        const rho = Math.max(0.12, Math.exp(-S.y / X.scaleH)), vbg = A.vbg / Math.sqrt(rho);
+        let bank = 0, q;
+        if (mode !== "home") { if (ft > 41000) mode = "cruise"; q = ((mode === "climb" ? 18 : ((42000 - ft) / 3.281) * 0.02) - S.pitch) * 1.2; }
+        else {
+          const dx = X.lake.x - S.x, dz = X.lake.z - S.z, d = Math.hypot(dx, dz);
+          bank = Math.max(-1, Math.min(1, -H.wrap(Math.atan2(-dx, -dz) - S.heading) * 2)); if (d < 2500) bank = 0.7;
+          q = (S.speed - vbg * 1.25) * 0.08 - (S.pitch + 9) * 0.3;
+          if (opts.homeTo && d < 2500 && !out.home) out.home = { d: Math.round(d), ft: Math.round(ft), t: Math.round(M.t) };
+          if (out.home && opts.homeTo) break;
+        }
+        L.api.setStick(bank, H.pitchStick(A, Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, q)))); L.update(1 / 60);
+        out.sf = Math.max(out.sf, S.spaceF); out.farMax = Math.max(out.farMax, L.camera.far);
+        out.flamesMax = Math.max(out.flamesMax, L.dad.world.body.userData.flames.filter(f => f.visible).length);
+        if (/OFF SCALE/.test((document.querySelector("#dadHud .dadDamCell") || {}).textContent || "")) out.offScale = true;
+        if (opts.stopAtBoom && M.boom && M.t - M.boomT > 3) break;
+      }
+      L.api.clearStick();
+      const M = m();
+      return Object.assign(out, { boom: M.boom, boomAt: M.boomAt, maxMach: +M.maxMach.toFixed(3), maxFt: Math.round(M.maxFt), fuel: M.fuel, over: M.over, msgs: M.msg,
+        hud: [...document.querySelectorAll("#dadHud .dadDamCell")].map(c => c.textContent) });
+    };
+  });
+  const xin = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    const ok = H.fly("x1");
+    const shown = id => !document.getElementById(id).classList.contains("hidden");
+    L.update(1 / 60);
+    const W = L.dad.world, B = W.mother.userData;
+    return { ok, mis: L.dad.mis && L.dad.mis.id, kind: L.vehKind(), ft: Math.round(S.y * 3.281), mph: Math.round(S.speed * 2.237), under: Math.round(B.y - S.y), heading: +S.heading.toFixed(3),
+      lake: !!W.lake && W.lake.parent === L.scene, drop: shown("dadBombBtn"), chamber: shown("dadChamberBtn"), phase: L.dad.m.phase };
+  });
+  check("dad/x1: FLY on its card hangs the rocket plane in the mothership's bay at 20,000 ft and 250 mph, heading east over his desert, the dry lake laid behind; DROP offered, the chambers not yet",
+    !xin.err && xin.ok && xin.mis === "x1" && xin.kind === "dad" && Math.abs(xin.ft - 20000) < 200 && Math.abs(xin.mph - 250) < 3 && xin.under > 0 && xin.under < 10 && Math.abs(xin.heading + Math.PI / 2) < 0.01
+      && xin.lake && xin.drop && !xin.chamber && xin.phase === "hung", J(xin));
+  const xrun = await run(page, () => window.__misH.x1Run({ stopAtBoom: true }));
+  check("dad/x1: carried, dropped, the four chambers lit one press at a time (four flames), climbed to about 42,000 ft and let run -- it passes Mach 1 there (the Mach box off the scale, the boom); the sky stays day high up (no space) and the far plane goes out with the height",
+    !xrun.err && xrun.hungMoved > 0 && xrun.dropped && xrun.lit.length === 4 && xrun.flamesMax === 4 && xrun.boom && xrun.boomAt.ft > 38000 && xrun.boomAt.ft < 46000
+      && xrun.boomAt.mph > 600 && xrun.boomAt.mph < 720 && xrun.offScale && xrun.sf < 0.05 && xrun.farMax > 30000, J(xrun));
+  // the flame button, through the button itself: DROP while hung; after the drop the chambers, a
+  // tap each, gone once all four are lit; and no speed streaks in the seat at Mach 1
+  const xbtn = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state; L.dadRestart();
+    const shown = id => !document.getElementById(id).classList.contains("hidden"), up = () => ({ drop: shown("dadBombBtn"), flame: shown("dadChamberBtn") });
+    L.update(1 / 60); const hung = up();
+    H.tapEl(document.getElementById("dadBombBtn")); L.update(1 / 60); const free = up();
+    const lit = []; for (let k = 0; k < 4; k++) { H.tapEl(document.getElementById("dadChamberBtn")); L.update(1 / 60); lit.push(L.dad.m.lit); }
+    const four = up();
+    L.api.setView(false); S.speed = 300; S.y = 12800; for (let i = 0; i < 60; i++) L.update(1 / 60);
+    const lines = L.speedLines.visible ? +L.speedLines.material.opacity.toFixed(3) : 0; L.api.setView(true);
+    return { hung, free, lit, four, lines, clash: L.btnSlotClashes() };
+  });
+  check("dad/x1: the buttons -- DROP while she hangs; after the drop the flame button, and each tap lights one more chamber; with all four lit it goes; never two in one slot; and no speed streaks across the seat at Mach 1",
+    !xbtn.err && xbtn.hung.drop && !xbtn.hung.flame && !xbtn.free.drop && xbtn.free.flame && xbtn.lit.join() === "1,2,3,4" && !xbtn.four.flame && xbtn.lines === 0 && xbtn.clash.length === 0, J(xbtn));
+  const xhome = await run(page, () => window.__misH.x1Run({ homeTo: true }));
+  check("dad/x1: with the fuel burnt out (about two and a half minutes on all four) she glides home: flown back from the run she is over the lake with height to spare",
+    !xhome.err && xhome.boom && xhome.fuel === 0 && xhome.maxMach >= 1 && xhome.maxMach < 1.15 && xhome.home && xhome.home.ft > 5000 && !xhome.over, J(xhome));
+  // a final on to the lake bed by hand: set 6 km east of the lake at `ft`, gliding west, the stick
+  // flying a path to the bed and a flare; `noMach` leaves Mach 1 unreached, `steep` drives her in
+  await page.evaluate(() => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    H.x1Final = (how, opts) => {
+      opts = opts || {};
+      const A = L.TUNE.dad.air.x1, X = L.TUNE.dad.x1, m = L.dad.m;
+      L.dadRestart(); L.dadX1Drop();
+      const M = L.dad.m; M.fuel = 0; M.lit = 0;
+      if (how !== "noMach") { M.boom = true; M.maxMach = 1.06; M.boomT = -10; M.boomAt = { ft: 42000, mph: 690 }; }
+      const tx = X.lake.x + (opts.offX || 0), tz = X.lake.z + (opts.offZ || 0);
+      S.x = tx + 6000; S.z = tz; S.heading = Math.PI / 2; S.bank = 0; S.speed = 120; S.pitch = -4;
+      S.y = L.terrainEff(S.x, S.z) + (opts.ft || 2500) / 3.281; L.dad.cam = null;
+      for (let i = 0; i < 60 * 200 && !M.over; i++) {
+        const agl = S.y - L.terrainEff(S.x, S.z), d = S.x - (tx - 200);
+        let g = how === "steep" ? -14 : (agl < 12 ? -0.8 : Math.max(-10, -Math.atan2(agl, Math.max(150, d)) * 180 / Math.PI));
+        const wantH = Math.PI / 2 - (S.z - tz) * 0.002, bank = Math.max(-1, Math.min(1, -H.wrap(wantH - S.heading) * 2));
+        L.api.setStick(bank, H.pitchStick(A, Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (g - S.pitch) * 1.2)))); L.update(1 / 60);
+      }
+      L.api.clearStick();
+      for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+      const c = document.getElementById("dadCard");
+      return { over: M.over, result: M.result, why: M.why, land: M.land, gear: L.dad.world.body.userData.gear.visible, card: c ? c.textContent : "", restAgl: +(S.y - L.terrainEff(S.x, S.z)).toFixed(1) };
+    };
+  });
+  const xland = await run(page, () => window.__misH.x1Final("good"));
+  check("dad/x1: a final flown by hand on to the dry lake, flared -- gear down, on the bed, gently, and there she stays (four seconds on, still on the bed, not through it): 'supersonic, and down on the lake', the card with Mach and the landing beside the real one",
+    !xland.err && xland.result === "success" && xland.land.onLake && xland.land.vs <= 10 && xland.gear && xland.restAgl > 0.5 && xland.restAgl < 3 && /Top Mach/.test(xland.card) && /Mach 1.05-1.06/.test(xland.card) && /RETRY/.test(xland.card), J(xland));
+  const xOff = await run(page, () => window.__misH.x1Final("good", { offX: -1500 }));
+  const xSteep = await run(page, () => window.__misH.x1Final("steep"));
+  const xNoM = await run(page, () => window.__misH.x1Final("noMach"));
+  check("dad/x1: and it fails as a landing fails -- set down off the bed, driven in steep it comes down too hard, and down on the lake without Mach 1 is not the mission",
+    !xOff.err && !xSteep.err && !xNoM.err && xOff.result === "fail" && /off the lake/.test(xOff.why) && xSteep.result === "fail" && /too hard/.test(xSteep.why)
+      && xNoM.result === "fail" && /Mach 1 was never reached/.test(xNoM.why) && xNoM.land.onLake, J({ off: [xOff.why, xOff.land], steep: [xSteep.why, xSteep.land], noMach: [xNoM.why, xNoM.land] }));
+  const xOut = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    const objs = L.dad.objs.slice();
+    L.dadExit(); for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+    const out = { on: L.dadActive(), objs: L.dad.objs.length, inScene: objs.filter(o => !!o.parent).length, had: objs.length, dom: H.dadDom(), env: L.dadEnv(), far: L.camera.far,
+      picker: !document.getElementById("screenVehicle").classList.contains("hiddenS"), kind: L.vehKind(), chamber: !document.getElementById("dadChamberBtn").classList.contains("hidden") };
+    const R = Math.random; let n = 0, dadDraws = 0;
+    Math.random = () => { n++; if (/\/js\/dad[^/]*\.js/.test(new Error().stack)) dadDraws++; return R(); };
+    try {
+      L.api.skipScreens();
+      const k = S.vehicleKey, o = S.originIdx, d = S.dirIdx;
+      const plainSw = () => { L.api.setVehicle("fighter"); L.api.setVehicle(k); L.api.spawnAt(o, d); };
+      plainSw(); n = 0; plainSw(); out.plain = n;
+      n = 0; L.dadEnter("x1"); L.dadExit(); L.api.skipScreens(); out.io = n;
+      L.dadEnter("x1"); dadDraws = 0; for (let i = 0; i < 60 * 3; i++) L.update(1 / 60); L.dadX1Drop(); for (let k2 = 0; k2 < 4; k2++) L.dadX1Chamber(); for (let i = 0; i < 60 * 20; i++) L.update(1 / 60);
+      out.dadDraws = dadDraws; L.dadExit(); L.api.skipScreens();
+    } finally { Math.random = R; }
+    return out;
+  });
+  check("dad/x1: EXIT takes the rocket plane, the mothership, the lake and the floor away, the chamber button with them; his sky back (no dad sky, the far plane in); his random stream does not move",
+    !xOut.err && !xOut.on && xOut.objs === 0 && xOut.had > 5 && xOut.inScene === 0 && xOut.dom === 0 && xOut.env === null && xOut.far <= 18000 && xOut.picker && xOut.kind !== "dad" && !xOut.chamber
+      && xOut.io === xOut.plain && xOut.dadDraws === 0, J(xOut));
   check("dad/missions: no page errors through all of it", errors.length === 0, J(errors.slice(0, 5)));
   await page.context().close();
 };

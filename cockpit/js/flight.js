@@ -285,6 +285,8 @@ function updateSky(dt) {
   let fogNear = mood.fogNear ? lerp(TUNE.fogNear, mood.fogNear, w) : TUNE.fogNear;
   let fogFar = mood.fogFar ? lerp(TUNE.fogFar, mood.fogFar, w) : TUNE.fogFar;
   if (sf > 0.001) { top.lerp(SPACE_TOP, sf); hor.lerp(SPACE_HOR, sf); fogNear = lerp(fogNear, 4000, sf); fogFar = lerp(fogFar, 16000, sf); }
+  const dEnv = typeof dadEnv === "function" ? dadEnv() : null;   // v158: a dad mission's own sky (null in his game)
+  if (dEnv) { fogNear = dEnv.fogNear; fogFar = dEnv.fogFar; }
   scene.fog.color.copy(hor);
   scene.fog.near = fogNear;
   scene.fog.far = fogFar;
@@ -293,7 +295,7 @@ function updateSky(dt) {
   // edge. Eased, so arriving and leaving is never a cut.
   applyBodyHaze(dt);
   // deep space needs a far plane that reaches the Moon and Mars
-  const wantFar = sf > 0.3 ? 18000 : 6000;
+  const wantFar = dEnv ? dEnv.far : sf > 0.3 ? 18000 : 6000;
   if (camera.far !== wantFar) { camera.far = wantFar; camera.updateProjectionMatrix(); }
   updateLightMood(dt, w, mood);
   // snow: the ground and roofs whiten (emissive lift on the vertex-coloured terrain)
@@ -665,6 +667,8 @@ function update(dt) {
   } else if (state.vp.rocket && rk.onBody) {
     spaceTarget = 1;   // sitting on the Moon or Mars
   }
+  const dEnvS = typeof dadEnv === "function" ? dadEnv() : null;   // v158: a dad mission may keep the day sky high up
+  if (dEnvS && dEnvS.space !== undefined) spaceTarget = dEnvS.space;
   state.spaceF += (spaceTarget - state.spaceF) * Math.min(1, 1.4 * dt);
   if (state.vp.capped && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY")) {
     if (state.y > TUNE.otherVehicleCeiling) {

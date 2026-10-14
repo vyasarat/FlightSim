@@ -2208,6 +2208,8 @@ const TUNE = {
       // v157: the airliner: best glide about 204 kt at 17 to 1, the clean stall about 120 kt; its nose
       // rides `aoa0` above its path at best glide, more as it slows (dad_hudson.js)
       a320: { vbg: 105, ld: 17, thrust: 1.75, vStall: 62, vMax: 180, pitchRateDeg: 6, pitchExpo: 2, bankLimitDeg: 35, rollRate: 1.4, turnMul: 1, gMax: 2.5, touchAgl: 2, aoa0: 3.5, aoaMax: 16 },
+      // v158: the rocket plane at sea-level density (dad_x1.js scales its speeds with the air)
+      x1: { vbg: 95, ld: 9, thrust: 0, vStall: 52, vMax: 420, pitchRateDeg: 9, pitchExpo: 2, bankLimitDeg: 55, rollRate: 2.2, turnMul: 1, gMax: 4, touchAgl: 1.3 },
       b25: { vbg: 72, ld: 13, thrust: 1.62, vStall: 42, vMax: 128, pitchRateDeg: 10, pitchExpo: 2, bankLimitDeg: 50, rollRate: 2, turnMul: 1, gMax: 3, touchAgl: 1.5 },
     },
     // v155: THE DOOLITTLE RAID (dad_doolittle.js). The carrier `farOut` north of his coast
@@ -2270,6 +2272,15 @@ const TUNE = {
       strikeFt: 2818, climbPower: 1, flapsAtFt: 600, flapK: 0.85, flapLd: 0.8, smokeFor: 12,
       river: { x: -1100, z: 4590 },
       ditch: { bankMax: 8, pitchMin: 4, pitchMax: 13, ktMax: 150, sinkMax: 1000 },
+    },
+    // v158: BREAKING THE SOUND BARRIER (dad_x1.js). The mothership `start.west` of the dry lake
+    // (dad mode's own bed on his desert, `rx` x `rz`) at 20,000 ft and 250 mph, heading east; each
+    // chamber pushes `chamber` m/s^2 (more as the fuel burns: `lighter`); `fuel` is chamber-seconds
+    // (four for about 150 s). The air's scale height `scaleH`; the barrier's wave drag `waveDrag`.
+    x1: {
+      lake: { x: -1500, z: -3100, rx: 700, rz: 450 }, start: { west: 9000, ft: 20000, mph: 250 }, hangBelow: 4,
+      fuel: 600, chamber: 1.12, lighter: 0.7, scaleH: 8500, waveDrag: 1.6, gearAgl: 120, floorAbove: 300, floorSwitch: 2000, floorHiY: 130, coneOpacity: 0.12, coneWindow: 0.06, waveWidth: 0.09, motherTurn: 0.05,
+      landing: { vsFps: 10, crashFps: 25, bankMax: 10, mphMax: 260 },
     },
     escape: 12,                  // seconds he must live after the plant goes, with nothing close behind, to be out
     results: { hold: 2.5 },      // seconds of the aftermath before the card

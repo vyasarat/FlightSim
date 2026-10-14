@@ -218,6 +218,51 @@ async function render(root, only) {
     await paint(); await shot(page, out, "36-hu-card", { ...i, note: "the card: she floats, set beside the real one" });
     await page.evaluate(() => window.__lp.dadExit());
   }
+  // ---------------- breaking the sound barrier ----------------
+  if (!only.length || only.includes("x1")) {
+    await enter("x1");
+    const run = `(L, S, m) => { const A = L.TUNE.dad.air.x1, X = L.TUNE.dad.x1, ft = S.y * 3.281;
+      if (m.phase === "hung") return null;
+      if (m.lit < 4 && m.fuel > 0 && (m.t - m.dropT) > m.lit * 0.6 + 0.5) L.dadX1Chamber();
+      let want, bank = 0;
+      if (m.fuel > 0 && !m.boomDone) { m.mode = ft > 41000 || m.mode === "cruise" ? "cruise" : "climb"; want = m.mode === "climb" ? 18 : ((42000 - ft) / 3.281) * 0.02; }
+      else { const dx = X.lake.x - S.x, dz = X.lake.z - S.z, d = Math.hypot(dx, dz), a = Math.atan2(-dx, -dz) - S.heading; bank = Math.max(-1, Math.min(1, -Math.atan2(Math.sin(a), Math.cos(a)) * 2)); if (d < 2500) bank = 0.7;
+        const rho = Math.max(0.12, Math.exp(-S.y / X.scaleH)); want = S.pitch + ((S.speed - A.vbg / Math.sqrt(rho) * 1.25) * 0.08 - (S.pitch + 9) * 0.3) / 1.2; }
+      const q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (want - S.pitch) * 1.2));
+      return { bank, pitch: Math.sign(q) * Math.pow(Math.min(1, Math.abs(q) / A.pitchRateDeg), 1 / A.pitchExpo) }; }`;
+    let i = await fly(run, "m.t > 1.5", 2);
+    await vantage(`const B = L.dad.world.mother; cam.up.set(0,1,0); cam.position.set(S.x + 18, S.y - 9, S.z - 30); cam.lookAt(S.x, S.y + 2, S.z);`);
+    await shot(page, out, "40-x1-in-the-bay", { ...i, note: "hung under the mothership at 20,000 ft and 250 mph, the orange rocket plane in its bay" });
+    await page.evaluate(() => window.__lp.dadDropBomb());
+    i = await fly(run, "m.lit >= 2", 4);
+    await view(true); await shot(page, out, "40b-x1-two-lit", { ...i, note: "dropped, two chambers lit: the flame button (bottom right) lights the next" });
+    i = await fly(run, "m.lit >= 4 && m.t - m.dropT > 3.5", 8);
+    await view(true); await shot(page, out, "41-x1-four-lit", { ...i, note: "dropped and all four chambers lit: four flames, the mothership above and behind" });
+    i = await fly(run, "S.y * 3.281 > 33000", 120);
+    await view(true); await shot(page, out, "42-x1-climb", { ...i, note: "climbing through 33,000 ft: the desert far below, the day sky above (not space)" });
+    i = await fly(run, "m.boom && m.t - m.boomT > 0.3", 200);
+    await view(true); await shot(page, out, "43-x1-mach-one", { ...i, note: "Mach 1 at about 42,000 ft: the shock cone off the nose, the needle off the scale" });
+    i = await fly(run, "m.boom && m.t - m.boomT > 2", 10);
+    await view(false); await shot(page, out, "44-x1-seat", { ...i, note: "from the seat just past Mach 1: the horizon, the Mach box" });
+    i = await fly(run, "m.fuel <= 0 && Math.hypot(L.TUNE.dad.x1.lake.x - S.x, L.TUNE.dad.x1.lake.z - S.z) < 6000", 400);
+    // from behind and above her, looking down past her at the lake bed
+    await vantage(`const X = L.TUNE.dad.x1, dx = X.lake.x - S.x, dz = X.lake.z - S.z, d = Math.hypot(dx, dz); cam.up.set(0,1,0); cam.position.set(S.x - dx / d * 120, S.y + 70, S.z - dz / d * 120); cam.lookAt(X.lake.x, L.terrainEff(X.lake.x, X.lake.z), X.lake.z);`);
+    await shot(page, out, "45-x1-glide-home", { ...i, note: "fuel gone, gliding home: the dry lake below and ahead, the X-1 in the foreground" });
+    // the final, lined up as the checks do: 6 km east of the lake at 2,500 ft, gliding west
+    await page.evaluate(() => { const L = window.__lp, S = L.state, X = L.TUNE.dad.x1;
+      S.x = X.lake.x + 6000; S.z = X.lake.z; S.heading = Math.PI / 2; S.bank = 0; S.speed = 120; S.pitch = -4; S.y = L.terrainEff(S.x, S.z) + 2500 / 3.281; L.dad.cam = null; });
+    const fin = `(L, S, m) => { const A = L.TUNE.dad.air.x1, X = L.TUNE.dad.x1, agl = S.y - L.terrainEff(S.x, S.z), d = S.x - (X.lake.x - 200);
+      const g = agl < 12 ? -0.8 : Math.max(-10, -Math.atan2(agl, Math.max(150, d)) * 180 / Math.PI);
+      const a = Math.PI / 2 - (S.z - X.lake.z) * 0.002 - S.heading, eh = Math.atan2(Math.sin(a), Math.cos(a));
+      const q = Math.max(-A.pitchRateDeg, Math.min(A.pitchRateDeg, (g - S.pitch) * 1.2));
+      return { bank: Math.max(-1, Math.min(1, -eh * 2)), pitch: Math.sign(q) * Math.pow(Math.min(1, Math.abs(q) / A.pitchRateDeg), 1 / A.pitchExpo) }; }`;
+    i = await fly(fin, "S.y - L.terrainEff(S.x, S.z) < 6", 120);
+    await vantage(`cam.up.set(0,1,0); cam.position.set(S.x - 40, S.y + 3, S.z + 32); cam.lookAt(S.x, S.y - 1, S.z);`);
+    await shot(page, out, "46-x1-touchdown", { ...i, note: "on to the dry lake bed: gear down, flared" });
+    i = await fly(fin, "m.card", 10);
+    await paint(); await shot(page, out, "47-x1-card", { ...i, note: "the card: Mach, the landing, the real one" });
+    await page.evaluate(() => window.__lp.dadExit());
+  }
   console.log("errors: " + JSON.stringify(errors.slice(0, 5)));
   await browser.close(); srv.close();
 }
