@@ -294,6 +294,7 @@ function dadMisTick(dt) {
 // Put back everything dad mode touched. `quiet`: the vehicle has already been
 // changed under it, so do not change it again.
 function dadTeardown() {
+  if (dad.mis && dad.mis.exit) dad.mis.exit();   // a mission's own leftovers (v156)
   for (const o of dad.objs) { if (o.parent) o.parent.remove(o); if (o.geometry) o.geometry.dispose(); }
   dad.objs.length = 0;
   for (const e of dad.dom) e.remove();
@@ -2203,7 +2204,8 @@ dadMissionDef({
 function dadWire() {
   const k = document.getElementById("dadKey");
   if (k) dadTap(k, dadKeyTap);
-  const map = { dadBombBtn: dadDropBomb, dadFlareBtn: dadFlare, dadMslBtn: dadFireMissile, dadExitBtn: dadExit };
+  const map = { dadBombBtn: dadDropBomb, dadFlareBtn: dadFlare, dadMslBtn: dadFireMissile, dadExitBtn: dadExit,
+    dadRodUpBtn: () => typeof dadApRod === "function" && dadApRod(1), dadRodDnBtn: () => typeof dadApRod === "function" && dadApRod(-1) };
   // the cannon is HELD: down fires, the lift stops it (a touch is captured by the button, so
   // sliding off does not; a mouse leaving it does)
   const gb = document.getElementById("dadGunBtn");

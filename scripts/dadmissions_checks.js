@@ -18,6 +18,10 @@
 //         is where a bomb lands; two targets hit from 1,500 ft and on west wins; from 300 ft
 //         his own blast catches him; four short is a failure; out, it is all gone and his
 //         random stream has not moved
+//   apollo: high gate over dad mode's own Moon (the sky black); the computer through the alarms
+//         to 500 ft over the boulders; by hand to the clear ground, down gently, is the Eagle
+//         landed; too hard, left alone, run dry or on a boulder fails; the switch takes over;
+//         out, his sky and his stream are his
 //
 // Alone: node scripts/run_module.js dadmissions_checks
 // ---------------------------------------------------------------------------
@@ -403,6 +407,119 @@ module.exports = async function dadMissionChecks({ newPage, check }) {
   check("dad/doolittle: EXIT takes all of it away (the carrier, the squadron, the targets, the bomber), his picker on the vehicles; his random stream does not move -- in and out draws what a plain switch draws, and flown, bombed, nothing in a dad file draws it",
     !dlOut.err && !dlOut.on && dlOut.objs === 0 && dlOut.had > 10 && dlOut.inScene === 0 && dlOut.dom === 0 && dlOut.sky === 0 && dlOut.picker && dlOut.kind !== "dad"
       && dlOut.io === dlOut.plain && dlOut.dropped && dlOut.dadDraws === 0, J(dlOut));
+
+  // ---- Apollo 11: in
+  const ain = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state, A = L.TUNE.dad.apollo;
+    const ok = H.fly("apollo");
+    for (let i = 0; i < 60 * 4; i++) { L.api.clearStick(); L.update(1 / 60); }
+    const shown = id => !document.getElementById(id).classList.contains("hidden");
+    return { ok, mis: L.dad.mis && L.dad.mis.id, kind: L.vehKind(), sf: +S.spaceF.toFixed(2), far: L.camera.far, body: !!L.dad.world.body, rocks: L.dadAp.rocks.length,
+      ft: Math.round(L.dadApAgl() * 3.281), mode: L.dad.m.mode, up: shown("dadRodUpBtn"), dn: shown("dadRodDnBtn"), bomb: shown("dadBombBtn"), gun: shown("dadGunBtn") };
+  });
+  check("dad/apollo: FLY on its card puts him at high gate (about 7,500 ft) over dad mode's own Moon -- the sky black, the far plane out, the boulders laid, the computer flying (P64); the UP/DOWN rate switch offered, not the bomb or the gun",
+    !ain.err && ain.ok && ain.mis === "apollo" && ain.kind === "dad" && ain.sf > 0.9 && ain.far >= 18000 && ain.body && ain.rocks > 300 && ain.ft > 6000 && ain.ft < 7600
+      && ain.mode === "P64" && ain.up && ain.dn && !ain.bomb && !ain.gun, J(ain));
+
+  // the hand: P66 toward `goal` (the clear ground unless given), descending as it closes; `how`
+  // "gentle" sets her down at 2 ft/s, "hard" drives her in at 15, "none" leaves the stick and
+  // the switch alone; `fuel` sets the tanks at takeover
+  await page.evaluate(() => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    H.apFly = (how, opts) => {
+      opts = opts || {};
+      const A = L.TUNE.dad.apollo, m = () => L.dad.m;
+      L.dadRestart();
+      const out = { alarms: [], go: false, p66: null, calls: [], msgs: [] };
+      for (let i = 0; i < 60 * 420 && !m().over; i++) {
+        const M = m(), ft = L.dadApAgl() * 3.281;
+        if (M.alarm && out.alarms.indexOf(M.alarm + "@" + Math.round(ft / 500) * 500) < 0 && !out.alarms.some(a => a.startsWith(M.alarm + "@") && Math.abs(+a.split("@")[1] - ft) < 800)) out.alarms.push(M.alarm + "@" + Math.round(ft / 500) * 500);
+        if (M.alarmGo) out.go = true;
+        if (M.msgT > 0 && out.msgs[out.msgs.length - 1] !== M.msg) out.msgs.push(M.msg);
+        if (M.mode === "P66") {
+          if (!out.p66) { out.p66 = { ft: Math.round(ft), fuel: Math.round(M.fuel), fromSite: Math.round(Math.hypot(S.x - A.site.x, S.z - A.site.z)), rocksUnder: L.dadAp.rocks.filter(r => Math.hypot(r.x - S.x, r.z - S.z) < 60).length }; if (opts.fuel !== undefined) M.fuel = opts.fuel; }
+          if (how === "none") { L.api.clearStick(); }
+          else {
+            const goal = opts.goal || A.clear, dx = goal.x - S.x, dz = goal.z - S.z, d = Math.hypot(dx, dz);
+            const vw = Math.min(12, d * 0.07), wx = d > 0.1 ? dx / d * vw : 0, wz = d > 0.1 ? dz / d * vw : 0;
+            const tx = Math.atan2((wx - M.vx) * 0.6, A.g) * 180 / Math.PI, tz = Math.atan2((wz - M.vz) * 0.6, A.g) * 180 / Math.PI;
+            const fx = -Math.sin(S.heading), fz = -Math.cos(S.heading), rx = Math.cos(S.heading), rz = -Math.sin(S.heading);
+            L.api.setStick(Math.max(-1, Math.min(1, (tx * rx + tz * rz) / A.tiltMax)), Math.max(-1, Math.min(1, (tx * fx + tz * fz) / A.tiltMax)));
+            const over = d < 12 && Math.hypot(M.vx, M.vz) * 3.281 < 2;
+            const want = !over ? Math.round(Math.max(-12, Math.min(4, (Math.min(300, 40 + d * 0.6) - ft) / 5))) : how === "hard" ? -15 : ft > 60 ? -8 : ft > 20 ? -4 : -2;
+            if (M.rod < want) L.dadApRod(1); else if (M.rod > want) L.dadApRod(-1);
+          }
+        } else L.api.clearStick();
+        L.update(1 / 60);
+      }
+      L.api.clearStick();
+      for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+      const M = m(), c = document.getElementById("dadCard");
+      return Object.assign(out, { over: M.over, result: M.result, why: M.why, touch: M.touch, fuel: +M.fuel.toFixed(1), card: c ? c.textContent : "" });
+    };
+  });
+  const apLand = await run(page, () => window.__misH.apFly("gentle"));
+  check("dad/apollo: the computer flies the descent through the 1202 and 1201 alarms (Houston: GO) and hands over at 500 ft over the boulder field; flown by hand past it to the clear ground and set down gently -- 'the Eagle has landed', the card with the touchdown and the fuel left",
+    !apLand.err && apLand.alarms.length >= 2 && apLand.alarms.some(a => /^1202/.test(a)) && apLand.alarms.some(a => /^1201/.test(a)) && apLand.go && apLand.p66 && Math.abs(apLand.p66.ft - 500) < 30
+      && apLand.p66.rocksUnder > 3 && apLand.msgs.some(s => /60 SECONDS/.test(s)) && apLand.result === "success" && apLand.touch.vDown <= 3 && apLand.touch.vSide < 4 && !apLand.touch.rock && apLand.fuel > 0
+      && /The Eagle has landed/.test(apLand.card) && /Touchdown/.test(apLand.card) && /Fuel left/.test(apLand.card), J(apLand));
+  const apHard = await run(page, () => window.__misH.apFly("hard"));
+  const apLeft = await run(page, () => window.__misH.apFly("none"));
+  const apDry = await run(page, () => window.__misH.apFly("gentle", { fuel: 8 }));
+  check("dad/apollo: and it fails as a landing fails -- driven in at 15 ft/s it comes down too hard; left to the computer's rate into the boulders it never lands right; run dry, the engine stops ('OUT OF FUEL') and she falls",
+    !apHard.err && !apLeft.err && !apDry.err && apHard.result === "fail" && /hard|too hard/.test(apHard.why) && apLeft.result === "fail" && /too hard|hard landing|boulder|sliding/.test(apLeft.why) && apDry.result === "fail" && apDry.msgs.some(s => /OUT OF FUEL/.test(s)) && apDry.fuel === 0 && apDry.touch && apDry.touch.vDown > 10,
+    J({ hard: [apHard.why, apHard.touch], left: [apLeft.why, apLeft.touch], dry: [apDry.why, apDry.fuel] }));
+  const apRock = await run(page, () => {
+    const L = window.__lp, A = L.TUNE.dad.apollo, R = L.dadAp.rocks.filter(r => Math.hypot(r.x - A.site.x, r.z - A.site.z) < 100).sort((a, b) => b.r - a.r)[0];
+    return R ? window.__misH.apFly("gentle", { goal: { x: R.x, z: R.z } }) : { err: "no rock near the site" };
+  });
+  check("dad/apollo: set down gently on a boulder, she tips over -- 'landed on a boulder'",
+    !apRock.err && apRock.result === "fail" && /boulder/.test(apRock.why), J([apRock.why, apRock.touch]));
+  const apSlots = [];
+  for (const [w, h] of [[1180, 820], [768, 1024]]) {
+    await page.setViewportSize({ width: w, height: h });
+    apSlots.push(await run(page, ([w, h]) => {
+      const L = window.__lp; L.dadRestart(); const m = L.dad.m, out = { vp: w + "x" + h };
+      for (let i = 0; i < 60 * 25 && !m.alarm; i++) { L.api.clearStick(); L.update(1 / 60); }   // the alarm banner up
+      for (const seat of [true, false]) { L.api.setView(seat); L.update(1 / 60); out[seat ? "chase" : "seat"] = { clash: L.btnSlotClashes(), obs: L.btnObstructions(), prog: getComputedStyle(document.querySelector("#dadHud .dadProg")).display !== "none" }; }
+      L.api.setView(true);
+      return out;
+    }, [w, h]));
+  }
+  await page.setViewportSize({ width: 1180, height: 820 });
+  check("dad/apollo: the rate switch and the alarm banner share no slot with any of his buttons and sit under no HUD figure -- landscape and portrait, in both seats",
+    apSlots.every(r => !r.err && ["chase", "seat"].every(k => r[k].clash.length === 0 && r[k].obs.length === 0 && r[k].prog)), J(apSlots));
+  const apSw = await run(page, () => {
+    const L = window.__lp, H = window.__misH; L.dadRestart(); L.api.clearStick(); L.update(1 / 60);
+    const m = L.dad.m, mode0 = m.mode;
+    H.tapEl(document.getElementById("dadRodDnBtn")); L.update(1 / 60); const r1 = m.rod, mode1 = m.mode;
+    H.tapEl(document.getElementById("dadRodUpBtn")); H.tapEl(document.getElementById("dadRodUpBtn")); L.update(1 / 60);
+    return { mode0, mode1, r1, r2: m.rod };
+  });
+  check("dad/apollo: the switch -- a tap of DOWN in P64 takes it over (P66); then two taps of UP ask two feet a second less down",
+    !apSw.err && apSw.mode0 === "P64" && apSw.mode1 === "P66" && apSw.r2 === apSw.r1 + 2, J(apSw));
+  const aOut = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    const objs = L.dad.objs.slice();
+    L.dadExit(); for (let i = 0; i < 60 * 6; i++) L.update(1 / 60);
+    const out = { on: L.dadActive(), objs: L.dad.objs.length, inScene: objs.filter(o => !!o.parent).length, had: objs.length, dom: H.dadDom(), sf: +S.spaceF.toFixed(2), far: L.camera.far,
+      picker: !document.getElementById("screenVehicle").classList.contains("hiddenS"), kind: L.vehKind(), up: ["dadRodUpBtn", "dadRodDnBtn"].some(id => !document.getElementById(id).classList.contains("hidden")) };
+    const R = Math.random; let n = 0, dadDraws = 0;
+    Math.random = () => { n++; if (/\/js\/dad[^/]*\.js/.test(new Error().stack)) dadDraws++; return R(); };
+    try {
+      L.api.skipScreens();
+      const k = S.vehicleKey, o = S.originIdx, d = S.dirIdx;
+      const plainSw = () => { L.api.setVehicle("fighter"); L.api.setVehicle(k); L.api.spawnAt(o, d); };
+      plainSw(); n = 0; plainSw(); out.plain = n;
+      n = 0; L.dadEnter("apollo"); L.dadExit(); L.api.skipScreens(); out.io = n;
+      L.dadEnter("apollo"); dadDraws = 0; for (let i = 0; i < 60 * 30; i++) L.update(1 / 60); L.dadApRod(-1); for (let i = 0; i < 60 * 10; i++) L.update(1 / 60);
+      out.dadDraws = dadDraws; L.dadExit(); L.api.skipScreens();
+    } finally { Math.random = R; }
+    return out;
+  });
+  check("dad/apollo: EXIT takes the Moon, the boulders and the lander away, the switch with them; his sky comes back from black and the far plane in; his picker on the vehicles; his random stream does not move",
+    !aOut.err && !aOut.on && aOut.objs === 0 && aOut.had > 3 && aOut.inScene === 0 && aOut.dom === 0 && aOut.sf < 0.1 && aOut.far === 6000 && aOut.picker && aOut.kind !== "dad" && !aOut.up
+      && aOut.io === aOut.plain && aOut.dadDraws === 0, J(aOut));
   check("dad/missions: no page errors through all of it", errors.length === 0, J(errors.slice(0, 5)));
   await page.context().close();
 };

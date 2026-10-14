@@ -10,6 +10,33 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v156 — dad mode: Apollo 11
+
+Dad mode only; his game is unchanged. Mission 4 on the list is Apollo 11's landing, 20 July
+1969. You fly a lunar module in its own shape: a gold descent stage on four legs, a grey
+faceted ascent stage, no markings. The Moon is dad mode's own: a grey cratered plain laid out
+30 km up, so the sky goes black and all of his world is past the far plane. It is built when
+you enter and gone when you leave. The descent starts at high gate, about 7,500 ft, because
+the burn before it is skipped, and the briefing says so. The computer (P64) flies it down
+through the 1202 and 1201 program alarms from about 6,000 ft, each followed by Houston's GO,
+toward the planned spot: a boulder field beside a crater about 300 ft across, as Eagle's was
+beside West crater. At 500 ft it hands over (P66), or sooner if you touch the stick or a
+button. Drag tilts the lander and it flies the way it leans; let go and it stands up. Two new
+buttons, UP and DOWN, set the rate of descent a foot a second per press, as the real switch
+did. Fuel is seconds of hover, with calls at 60 and 30 and the engine stopping at none. A
+"contact light" call comes when the probes under the pads touch. Down at under 3 ft/s, under
+4 ft/s sideways, upright, and not on a rock or a crater's wall is "The Eagle has landed".
+Too hard, sliding, tilted, on a boulder or out of fuel each fails its own way. Dust sprays
+out flat from under the engine and drops, as it does with no air. The card gives the
+touchdown, the fuel left and the distance from the planned spot. The source is the Wikipedia
+article on Apollo 11. The two buttons are declared in `buttons.js` and exist only inside this
+mission. `dadmissions_checks.js` gains the mission's checks: high gate under a black sky; the
+computer through the alarms to 500 ft over the boulders; a landing flown by hand to the clear
+ground; too hard, left alone, run dry and on a boulder all failing; the switch taking over;
+and EXIT giving back his sky, his far plane and his random stream. A further check finds no
+slot clash and nothing over the switch or the alarm banner, in landscape and portrait, from
+either seat. Harness 1020/1020.
+
 ## v155 — dad mode: the Doolittle Raid, and the harness stall fixed
 
 Dad mode only; his game is unchanged. Mission 3 on the list is the Doolittle Raid, 18 April

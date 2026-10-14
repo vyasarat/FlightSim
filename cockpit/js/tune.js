@@ -2240,6 +2240,25 @@ const TUNE = {
       flak: { range: 1000, rof: 9, speed: 600, spread: 14, burst: 1.6, gap: 1.1, hit: 0.035, damage: 6 },
       lightR: 22, lightLen: 900, moonR: 120, moonLight: 0.45,
     },
+    // v156: APOLLO 11 (dad_apollo.js). Dad mode's own Moon, a cratered plain `y` metres up (so far
+    // over his world that all of it is past the far plane, and the height turns the sky black).
+    // The planned spot `site` is in a boulder `field` beside West crater (about 300 ft across);
+    // the `clear` ground lies on west past it. High gate is `start`; the computer (P64) flies
+    // toward the site, and under `takeoverFt` -- or at his touch -- it is his (P66): the drag
+    // tilts the lander up to `tiltMax` at `tiltRate`, UP/DOWN set the rate of descent a foot a
+    // second a press. The engine holds that rate within `accMin`..`accMax` (m/s^2); `fuel` is
+    // seconds of hover. `land` is what a landing is; `probe` the probes' reach under the pads.
+    apollo: {
+      y: 30000, g: 1.62,
+      site: { x: 0, z: 0 }, west: { dx: 40, dz: -95, r: 46, depth: 11, rim: 3 },
+      field: { dx: 0, dz: 0, r: 150 }, clear: { x: -330, z: 10, r: 60 }, rocks: 900, craters: 260,
+      start: { dx: 7000, dz: 0, agl: 2286, vx: -80, vy: -25, vz: 0 },
+      p64: { vMax: 80, brake: 0.75, gain: 0.4, tiltMax: 45, tiltRate: 10, descentK: 0.02, vyMin: 1.2, vyMax: 30 },
+      takeoverFt: 500, tiltMax: 20, tiltRate: 14, rodMax: 30, vGain: 1.2, accMin: 0.5, accMax: 4.9,
+      fuel: 280, probe: 1.7, legR: 4.2, dustAgl: 35, dust: { n: 14, v: [40, 80] }, slopeSpan: 2.5, belowR: 25,
+      alarms: [{ ft: 6000, code: 1202 }, { ft: 3000, code: 1201 }, { ft: 2000, code: 1202 }], alarmFor: 6, goAfter: 2.5,
+      land: { crashFps: 10, vDownFps: 3, vSideFps: 4, tiltMax: 12, slopeMax: 12 },
+    },
     escape: 12,                  // seconds he must live after the plant goes, with nothing close behind, to be out
     results: { hold: 2.5 },      // seconds of the aftermath before the card
   },

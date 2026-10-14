@@ -152,6 +152,37 @@ async function render(root, only) {
     await paint(); await shot(page, out, "15-dl-card", { ...i, note: "the results card" });
     await page.evaluate(() => window.__lp.dadExit());
   }
+  // ---------------- apollo 11 ----------------
+  if (!only.length || only.includes("apollo")) {
+    await enter("apollo");
+    // the hand once it is P66: to the clear ground, descending as it closes, then down at 2 ft/s
+    const ap = `(L, S, m) => { const A = L.TUNE.dad.apollo; if (m.mode !== "P66") return null;
+      const ft = L.dadApAgl() * 3.281, dx = A.clear.x - S.x, dz = A.clear.z - S.z, d = Math.hypot(dx, dz);
+      const vw = Math.min(12, d * 0.07), wx = d > 0.1 ? dx / d * vw : 0, wz = d > 0.1 ? dz / d * vw : 0;
+      const tx = Math.atan2((wx - m.vx) * 0.6, A.g) * 180 / Math.PI, tz = Math.atan2((wz - m.vz) * 0.6, A.g) * 180 / Math.PI;
+      const fx = -Math.sin(S.heading), fz = -Math.cos(S.heading), rx = Math.cos(S.heading), rz = -Math.sin(S.heading);
+      const over = d < 12 && Math.hypot(m.vx, m.vz) * 3.281 < 2;
+      const want = !over ? Math.round(Math.max(-12, Math.min(4, (Math.min(300, 40 + d * 0.6) - ft) / 5))) : ft > 60 ? -8 : ft > 20 ? -4 : -2;
+      if (m.rod < want) L.dadApRod(1); else if (m.rod > want) L.dadApRod(-1);
+      return { bank: Math.max(-1, Math.min(1, (tx * rx + tz * rz) / A.tiltMax)), pitch: Math.max(-1, Math.min(1, (tx * fx + tz * fz) / A.tiltMax)) }; }`;
+    let i = await fly(ap, "m.t > 5", 6);
+    await view(true); await shot(page, out, "20-ap-high-gate", { ...i, note: "high gate, about 7,000 ft: the lander pitched back, the Moon's grey plain below, the sky black" });
+    i = await fly(ap, "m.alarm === 1202 && m.alarmT < 5", 60);
+    await view(false); await shot(page, out, "21-ap-alarm-seat", { ...i, note: "from Armstrong's window: PROGRAM ALARM 1202, the plain coming up" });
+    i = await fly(ap, "m.mode === 'P66'", 200);
+    i = await fly(ap, "m.t - 0 > 0 && L.dadApAgl() * 3.281 < 420", 30);
+    await view(false); await shot(page, out, "22-ap-p66-boulders-seat", { ...i, note: "P66 at about 400 ft: the boulder field under him, the crater beside it, the clear ground marked beyond" });
+    await view(true); await shot(page, out, "22b-ap-p66-chase", { ...i, note: "the same from behind: tilted, flying on past the boulders" });
+    i = await fly(ap, "L.dadApAgl() * 3.281 < 40", 120);
+    await vantage(`cam.up.set(0,1,0); cam.position.set(S.x + 30, S.y + 6, S.z + 26); cam.lookAt(S.x, S.y - 6, S.z);`);
+    await shot(page, out, "23-ap-dust", { ...i, note: "the last 40 ft: dust blown off the surface by the engine" });
+    i = await fly(ap, "m.landed || m.over", 60);
+    await vantage(`cam.up.set(0,1,0); cam.position.set(S.x + 22, S.y + 4, S.z + 16); cam.lookAt(S.x, S.y + 2.5, S.z);`);
+    await shot(page, out, "24-ap-landed", { ...i, note: "the Eagle has landed: on the clear ground, the boulders behind" });
+    i = await fly(ap, "m.card", 6);
+    await paint(); await shot(page, out, "25-ap-card", { ...i, note: "the card: The Eagle has landed" });
+    await page.evaluate(() => window.__lp.dadExit());
+  }
   console.log("errors: " + JSON.stringify(errors.slice(0, 5)));
   await browser.close(); srv.close();
 }
