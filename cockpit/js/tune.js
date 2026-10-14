@@ -2204,6 +2204,26 @@ const TUNE = {
     // full-power thrust (m/s^2), the stall, and the stick -- the bomber is heavy in pitch and roll
     air: {
       lancaster: { vbg: 75, ld: 12, thrust: 1.57, vStall: 48, vMax: 135, pitchRateDeg: 7, pitchExpo: 2.2, bankLimitDeg: 45, rollRate: 1.6, turnMul: 1, gMax: 2.5, touchAgl: 1.5 },
+      // v155: the twin-engine medium bomber: full power holds about 236 mph level, the clean stall about 94 mph
+      b25: { vbg: 72, ld: 13, thrust: 1.62, vStall: 42, vMax: 128, pitchRateDeg: 10, pitchExpo: 2, bankLimitDeg: 50, rollRate: 2, turnMul: 1, gMax: 3, touchAgl: 1.5 },
+    },
+    // v155: THE DOOLITTLE RAID (dad_doolittle.js). The carrier `farOut` north of his coast
+    // (deck `deckY` over the water, steaming south at `speed` m/s into `wind`), his bomber
+    // `run` (467 ft) from the bow on the port take-off line; full flaps (`flapK` of the stall)
+    // until `flapsUp` m and `flapsUpV` x her clean stall; off the bow she settles at up to `sink` m/s under 1.3x her stall.
+    // The targets along his coast (`inland` of where its land starts, half-sizes hx/hz);
+    // `need` of them hit and `outWest` on west of the westmost is a success.
+    doolittle: {
+      carrier: { x: -3000, len: 250, beam: 26, deckY: 17, speed: 12, line: -2.5, startBack: 108, run: 142, parked: 15 },
+      wind: 4, flagCount: 4, deckBoost: 1.15, gearH: 2.0, flapK: 0.82, flapsUp: 46, flapsUpV: 1.3, sink: 7, stallDrop: 1.5, farOut: 7000, clearR: 1200, coastScan: [8400, 5600],
+      // where his north coast is clean and the land runs 900 m inland unbroken (surveyed)
+      targets: [
+        { kind: "docks", x: -3500, inland: 30, hx: 70, hz: 34 }, { kind: "factory", x: -3200, inland: 330, hx: 64, hz: 40 },
+        { kind: "docks", x: -2900, inland: 30, hx: 70, hz: 34 }, { kind: "factory", x: -2450, inland: 330, hx: 64, hz: 40 },
+      ],
+      need: 2, bombs: 4, sightR: 1700, outWest: 3000,
+      flak: { range: 1500, every: 0.45, spread: 70, hit: 14, near: 40, damage: 12 },
+      ownBlast: { r: 200, damage: 40 },
     },
     // v154: DAMBUSTERS (dad_dam.js). The dam across the lake's south arm at x, the wall `crest`
     // over the water and `thick`, running `wingWall` on into each bank; two towers `towerOff`

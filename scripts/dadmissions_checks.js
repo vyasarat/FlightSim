@@ -13,6 +13,11 @@
 //         sinks short, too close jumps the crest, and three gone is a failure; the water
 //         is a crash; the towers' guns fire and their lights find him; out, it is all gone
 //         and his sky is his again
+//   doolittle: on the deck the flagman holds him, then 467 ft and off the bow; eased up she
+//         sinks and climbs away, hauled up she stalls in, pushed she goes in; the sight's ring
+//         is where a bomb lands; two targets hit from 1,500 ft and on west wins; from 300 ft
+//         his own blast catches him; four short is a failure; out, it is all gone and his
+//         random stream has not moved
 //
 // Alone: node scripts/run_module.js dadmissions_checks
 // ---------------------------------------------------------------------------
@@ -223,5 +228,181 @@ module.exports = async function dadMissionChecks({ newPage, check }) {
   });
   check("dad/dam: his random stream does not move -- going in and out of the Dambusters draws his Math.random exactly what the same vehicle switch draws, and flown and bombed nothing in a dad file draws it once",
     !stream.err && stream.io === stream.plain && stream.flown > 0 && stream.dadDraws === 0, J(stream));
+
+  // ---- the Doolittle Raid: in
+  const lin = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    const ok = H.fly("doolittle");
+    const W = L.dad.world, C = W.carrier, D = L.TUNE.dad.doolittle;
+    let meshes = 0; C.g.traverse(o => { if (o.isMesh) meshes++; });
+    // the flagman winds up: he does not roll until the flag drops
+    const rel = () => +(S.z - C.z).toFixed(2);
+    L.update(1 / 60); const r0 = rel();
+    for (let i = 0; i < 60 * (D.flagCount - 1); i++) L.update(1 / 60);
+    const r1 = rel(), say = document.querySelector("#dadHud .dadDamLamps").textContent;
+    return { ok, mis: L.dad.mis && L.dad.mis.id, kind: L.vehKind(), carrier: !!C && C.g.parent === L.scene, deckMeshes: meshes, targets: W.targets.length,
+      coastZ: Math.round(W.coastZ), landmarkNear: L.dadDlLandmarkNear(C.x, C.z, D.clearR), seaUnder: L.terrainEff(C.x, C.z) < L.seaLevelAt(C.x, C.z), deckY: +(S.y - L.TUNE.waterLevel).toFixed(1), heading: S.heading,
+      r0, r1, phase: L.dad.m.phase, say, bombs: L.dad.m.bombs, sky: S.sky,
+      tgts: W.targets.map(t => ({ k: t.kind, x: t.x, z: Math.round(t.z), y: +t.y.toFixed(1), dry: L.terrainEff(t.x, t.z) >= L.seaLevelAt(t.x, t.z) })) };
+  });
+  check("dad/doolittle: FLY on its card puts him on a carrier's deck far out at sea north of his coast, heading south: the island, the fifteen others packed aft (baked, a few draw calls), none of his world's masts or bridges in sight of the deck, four targets on dry land along his coast; the flagman winds up and he holds until the flag drops",
+    !lin.err && lin.ok && lin.mis === "doolittle" && lin.kind === "dad" && lin.carrier && !lin.landmarkNear && lin.deckMeshes < 60 && lin.targets === 4 && lin.seaUnder && lin.deckY > 15 && lin.heading === 0
+      && lin.r0 === lin.r1 && lin.phase === "deck" && /FLAGMAN/.test(lin.say) && lin.bombs === 4 && lin.sky === 0 && lin.tgts.every(t => t.dry), J(lin));
+
+  // the take-off by hand: `how` after the bow -- "gentle" eases the nose up, "hard" hauls it
+  // back, "push" pushes it over
+  await page.evaluate(() => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    H.dlTakeoff = (how, secs) => {
+      const P = L.TUNE.dad.air.b25, wl = L.TUNE.waterLevel, D = L.TUNE.dad.doolittle;
+      L.dadRestart();
+      const out = { offBow: null, deckS: 0, maxPitch: -99, minSpeed: 999, flapsUp: null, climbed: 0 };
+      for (let i = 0; i < 60 * secs && !L.dad.m.over; i++) {
+        const m = L.dad.m;
+        if (m.phase === "air") {
+          const vs = L.dadDlStall();
+          let st = 0;
+          if (how === "gentle") { const want = S.y - wl > D.flapsUp ? 2 : S.speed > vs * 1.3 ? 7 : 2; st = H.pitchStick(P, Math.max(-P.pitchRateDeg, Math.min(P.pitchRateDeg, (want - S.pitch) * 2))); }
+          else if (how === "hard") st = 1;
+          else if (how === "push") st = -0.7;
+          L.api.setStick(0, st);
+          out.maxPitch = Math.max(out.maxPitch, S.pitch); out.minSpeed = Math.min(out.minSpeed, S.speed);
+        } else if (how === "early" && m.count <= 0) L.api.setStick(0, 0.6); else L.api.clearStick();
+        L.update(1 / 60);
+        if (!out.offBow && L.dad.m.offBow) out.offBow = { speed: +L.dad.m.offBow.speed.toFixed(1), stall: +L.dadDlStall().toFixed(1), deckS: +L.dad.m.deckS.toFixed(1), t: +L.dad.m.t.toFixed(1) };
+        if (out.flapsUp === null && !L.dad.m.flaps) out.flapsUp = +L.dad.m.t.toFixed(1);
+        out.climbed = Math.max(out.climbed, (S.y - wl) * 3.281);
+      }
+      L.api.clearStick();
+      const m = L.dad.m;
+      return Object.assign(out, { endFt: Math.round((S.y - wl) * 3.281), say: m.msg, over: m.over, result: m.result, why: m.why, sinkMinFt: m.sinkMin === null ? null : Math.round(m.sinkMin * 3.281), climbed: Math.round(out.climbed),
+        maxPitch: +out.maxPitch.toFixed(1), minSpeed: +out.minSpeed.toFixed(1), gear: L.dad.world.body.userData.gear.visible });
+    };
+  });
+  const gentle = await run(page, () => window.__misH.dlTakeoff("gentle", 70));
+  check("dad/doolittle: the deck run -- at the drop of the flag full power, 467 ft (142 m) of deck, and off the bow she is flying (over her full-flap stall); eased up gently she sinks toward the sea, then climbs away; over 150 ft with the nose down a little she builds speed and the flaps and gear come up",
+    !gentle.err && gentle.offBow && Math.abs(gentle.offBow.deckS - 142) < 3 && gentle.offBow.speed > gentle.offBow.stall && gentle.sinkMinFt !== null && gentle.sinkMinFt > 5
+      && gentle.sinkMinFt < 17 * 3.281 && gentle.flapsUp !== null && !gentle.gear && gentle.climbed - gentle.sinkMinFt >= 100 && gentle.endFt >= 140 && !gentle.over, J(gentle));
+  const early = await run(page, () => window.__misH.dlTakeoff("early", 30));
+  check("dad/doolittle: a pull held from the drop of the flag lifts her off the deck before the bow, once she flies ('SHE'S FLYING')",
+    !early.err && early.offBow && early.offBow.deckS < 140 && early.offBow.speed > early.offBow.stall * 1.05, J(early));
+  const hard = await run(page, () => window.__misH.dlTakeoff("hard", 25));
+  const push = await run(page, () => window.__misH.dlTakeoff("push", 25));
+  check("dad/doolittle: off the bow, haul her up and she stalls into the sea; push and the sea has her -- each 'crashed'",
+    !hard.err && !push.err && hard.over && hard.result === "fail" && hard.why === "crashed" && hard.minSpeed < hard.offBow.stall && push.over && push.why === "crashed", J({ hard, push }));
+
+  // a bomb run by hand: put him `back` metres north of target `i` at `ft`, heading south, and
+  // fly the stick down its line holding the height; drop when the ring is on it (or, `early`,
+  // as soon as the ring shows). Returns what the bomb did.
+  await page.evaluate(() => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    H.dlLine = (i, ft, opts) => {
+      opts = opts || {};
+      const P = L.TUNE.dad.air.b25, W = L.dad.world, m = L.dad.m, t = W.targets[i], wl = L.TUNE.waterLevel;
+      m.phase = "air"; m.flaps = false; m.count = 0; m.offBow = m.offBow || { t: -100, speed: 100, y: 0 }; W.body.userData.gear.visible = false;
+      S.x = t.x; S.z = t.z + (opts.back || 4500); S.y = Math.max(L.terrainEff(S.x, S.z), wl) + ft / 3.281; S.heading = 0; S.pitch = 0; S.bank = 0; S.speed = 105;
+      const out = { ring: null, landed: null, flak: m.flak, drop: false };
+      const hitsBefore = m.hits, used = m.bombsUsed;
+      for (let k = 0; k < 60 * 70 && !m.over; k++) {
+        const ax = t.x, az = S.z - 600;
+        const eh = H.wrap(Math.atan2(-(ax - S.x), -(az - S.z)) - S.heading);
+        const want = Math.max(L.terrainEff(S.x, S.z), wl) * 0 + wl + ft / 3.281;
+        const q = Math.max(-P.pitchRateDeg, Math.min(P.pitchRateDeg, (want - S.y) * 0.5 - S.pitch * 2));
+        L.api.setStick(Math.max(-1, Math.min(1, -eh * 3)), H.pitchStick(P, q));
+        L.update(1 / 60);
+        if (!out.drop && L.dadBombCan() && (opts.early ? m.pip && m.pip.z > t.z + 250 : L.dadDlOnTarget())) {
+          out.ring = { x: +m.pip.x.toFixed(1), z: +m.pip.z.toFixed(1) };
+          out.drop = L.dadDropBomb();
+        }
+        if (out.drop && W.bombsLive.length === 0 && !out.landed) { out.landed = m.drops[m.drops.length - 1]; out.k = k; }
+        if (out.landed && k > out.k + 60) break;
+      }
+      L.api.clearStick();
+      return Object.assign(out, { hits: m.hits - hitsBefore, used: m.bombsUsed - used, flak: m.flak - out.flak, health: m.health, over: m.over, result: m.result, why: m.why, msg: m.msg,
+        hit: t.hit, ruin: t.ruin.visible, whole: t.whole.visible });
+    };
+    // where the bomb came down against where the ring was at the drop
+    H.dlRing = () => { L.dadRestart(); const W = L.dad.world, m = L.dad.m, t = W.targets[0];
+      m.phase = "air"; m.flaps = false; m.count = 0; m.offBow = { t: -100 }; S.x = t.x + 300; S.z = t.z + 1600; S.y = L.TUNE.waterLevel + 450; S.heading = 0.3; S.pitch = 0; S.bank = 0; S.speed = 105;
+      L.update(1 / 60); const ring = { x: m.pip.x, z: m.pip.z }; L.dadDropBomb();
+      let at = null; for (let k = 0; k < 60 * 20 && !at; k++) { const b = W.bombsLive[0]; const p = b ? { x: b.x, z: b.z } : null; L.api.clearStick(); L.update(1 / 60); if (!W.bombsLive.length) at = p; }
+      return { miss: at ? +Math.hypot(at.x - ring.x, at.z - ring.z).toFixed(1) : null }; };
+  });
+  const ring = await run(page, () => window.__misH.dlRing());
+  check("dad/doolittle: the sight is honest -- a bomb let go comes down where the green ring was (within 15 m, from 1,500 ft, banked off the line)",
+    !ring.err && ring.miss !== null && ring.miss < 15, J(ring));
+  const raid = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    L.dadRestart();
+    const a = H.dlLine(0, 1500), b = H.dlLine(1, 1500);
+    // then on west by hand, holding the height, until it ends
+    const P = L.TUNE.dad.air.b25, wl = L.TUNE.waterLevel, m = L.dad.m;
+    let k = 0;
+    for (; k < 60 * 120 && !m.over; k++) {
+      const eh = H.wrap(Math.PI / 2 - S.heading);
+      const q = Math.max(-P.pitchRateDeg, Math.min(P.pitchRateDeg, (wl + 457 - S.y) * 0.5 - S.pitch * 2));
+      L.api.setStick(Math.max(-1, Math.min(1, -eh * 3)), H.pitchStick(P, q)); L.update(1 / 60);
+    }
+    L.api.clearStick();
+    for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+    const c = document.getElementById("dadCard");
+    return { a, b, over: m.over, result: m.result, why: m.why, x: Math.round(S.x), outX: Math.round(L.dadDlOutX()), card: c ? c.textContent : "" };
+  });
+  check("dad/doolittle: a raid by hand wins -- at 1,500 ft the ring on the docks, drop: hit, it turns to rubble; the factory the same; flak bursts round him over the coast; then 3 km on west: 'success', the card with the targets, the bombs and each bomb's height",
+    !raid.err && raid.a.hit && raid.a.ruin && !raid.a.whole && raid.a.hits === 1 && raid.b.hits === 1 && raid.a.flak + raid.b.flak > 5 && raid.result === "success" && raid.x < raid.outX
+      && /DOOLITTLE RAID/i.test(raid.card) && /Targets hit/.test(raid.card) && /from 1[45]\d\d ft/.test(raid.card) && /RETRY/.test(raid.card), J(raid));
+  const low = await run(page, () => { const L = window.__lp, H = window.__misH; L.dadRestart(); return H.dlLine(1, 300); });
+  check("dad/doolittle: bombed from 300 ft his own blast catches him -- damage, and the HUD says so",
+    !low.err && low.drop && low.health < 100 && (/OWN BLAST/.test(low.msg) || low.why === "caught in his own blast"), J(low));
+  // flak that finds him costs him, and enough of it brings him down: the bursts made certain to hit
+  const shot = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state, F = L.TUNE.dad.doolittle.flak, hit0 = F.hit, every0 = F.every;
+    L.dadRestart();
+    const m = L.dad.m, t = L.dad.world.targets[0];
+    m.phase = "air"; m.flaps = false; m.count = 0; m.offBow = { t: -100 }; S.x = t.x; S.z = t.z + 600; S.y = L.TUNE.waterLevel + 457; S.heading = 0; S.pitch = 0; S.speed = 105;
+    F.hit = 1e4; F.every = 0.2;
+    const hp = [];
+    try { for (let i = 0; i < 60 * 6 && !m.over; i++) { L.api.clearStick(); L.update(1 / 60); if (i % 30 === 0) hp.push(m.health); } }
+    finally { F.hit = hit0; F.every = every0; }
+    return { hp, flakHits: m.flakHits, over: m.over, result: m.result, why: m.why };
+  });
+  check("dad/doolittle: flak that finds him costs damage each time, and enough brings him down -- 'shot down'",
+    !shot.err && shot.flakHits >= 2 && shot.hp[1] < shot.hp[0] && shot.over && shot.result === "fail" && shot.why === "shot down", J(shot));
+  const miss = await run(page, () => {
+    const L = window.__lp, H = window.__misH; L.dadRestart();
+    const r = [0, 1, 2, 3].map(i => H.dlLine(i, 1500, { early: true }));
+    const m = L.dad.m; for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
+    const c = document.getElementById("dadCard");
+    return { hits: m.hits, bombs: m.bombs, over: m.over, result: m.result, why: m.why, drops: r.map(x => x.drop), card: c ? c.textContent : "" };
+  });
+  check("dad/doolittle: four bombs dropped short miss everything -- 'targets missed', the failure card with RETRY and EXIT",
+    !miss.err && miss.hits === 0 && miss.bombs === 0 && miss.over && miss.result === "fail" && /missed/.test(miss.why) && /Mission failed/.test(miss.card) && /EXIT/.test(miss.card), J(miss));
+  const dlOut = await run(page, () => {
+    const L = window.__lp, H = window.__misH, S = L.state;
+    const objs = L.dad.objs.slice();
+    L.dadExit(); for (let i = 0; i < 3; i++) L.update(1 / 60);
+    const out = { on: L.dadActive(), objs: L.dad.objs.length, inScene: objs.filter(o => !!o.parent).length, had: objs.length, dom: H.dadDom(), sky: S.sky,
+      picker: !document.getElementById("screenVehicle").classList.contains("hiddenS"), kind: L.vehKind() };
+    // and his random stream: in and out draws what the plain switch draws; flown, nothing in a dad file draws
+    const R = Math.random; let n = 0, dadDraws = 0;
+    Math.random = () => { n++; if (/\/js\/dad[^/]*\.js/.test(new Error().stack)) dadDraws++; return R(); };
+    try {
+      L.api.skipScreens();
+      const k = S.vehicleKey, o = S.originIdx, d = S.dirIdx;
+      const plainSw = () => { L.api.setVehicle("fighter"); L.api.setVehicle(k); L.api.spawnAt(o, d); };
+      plainSw(); n = 0; plainSw(); out.plain = n;
+      n = 0; L.dadEnter("doolittle"); L.dadExit(); L.api.skipScreens(); out.io = n;
+      L.dadEnter("doolittle"); dadDraws = 0;
+      for (let i = 0; i < 60 * 22; i++) { L.api.setStick(0, L.dad.m.phase === "air" ? 0.3 : 0); L.update(1 / 60); }
+      const t = L.dad.world.targets[0], m = L.dad.m; S.x = t.x; S.z = t.z + 1200; S.y = L.TUNE.waterLevel + 457; S.heading = 0; S.pitch = 0; m.flaps = false;
+      for (let i = 0; i < 120; i++) { L.api.clearStick(); L.update(1 / 60); } out.dropped = L.dadDropBomb(); for (let i = 0; i < 60 * 12; i++) L.update(1 / 60);
+      out.dadDraws = dadDraws; L.dadExit(); L.api.skipScreens();
+    } finally { Math.random = R; }
+    return out;
+  });
+  check("dad/doolittle: EXIT takes all of it away (the carrier, the squadron, the targets, the bomber), his picker on the vehicles; his random stream does not move -- in and out draws what a plain switch draws, and flown, bombed, nothing in a dad file draws it",
+    !dlOut.err && !dlOut.on && dlOut.objs === 0 && dlOut.had > 10 && dlOut.inScene === 0 && dlOut.dom === 0 && dlOut.sky === 0 && dlOut.picker && dlOut.kind !== "dad"
+      && dlOut.io === dlOut.plain && dlOut.dropped && dlOut.dadDraws === 0, J(dlOut));
   check("dad/missions: no page errors through all of it", errors.length === 0, J(errors.slice(0, 5)));
+  await page.context().close();
 };

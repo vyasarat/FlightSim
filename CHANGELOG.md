@@ -10,6 +10,38 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v155 — dad mode: the Doolittle Raid, and the harness stall fixed
+
+Dad mode only; his game is unchanged. Mission 3 on the list is the Doolittle Raid, 18 April
+1942. You start on a carrier's deck far out at sea north of his coast. The carrier is dad
+mode's own and is gone when you leave. It steams south into the wind with its island on the
+starboard edge and the other fifteen bombers packed aft, as they were. You fly a twin-engine
+medium bomber in the B-25B's shape: olive over grey, no markings. It stands on the port
+take-off line 467 ft from the bow, the deck Doolittle had. The flagman winds his flag, and
+at the drop it is full power. Off the bow she sinks toward the sea under 1.3 times her
+full-flap stall: ease the nose up and she climbs away; haul it up and she stalls in; push
+and the sea has her. Flaps and gear come up at 150 ft. Then low over the sea to the coast,
+where two dock blocks and two factory blocks stand for the sortie: buildings and machines
+only, built when you enter. Climb to about 1,500 ft over them. A green ring shows where a
+bomb let go now comes down, and the bomb lands where the ring was. You have four bombs. Hit
+two targets and fly 3 km on west for a success. Flak bursts round you over the coast, and
+from too low your own blast catches you. The distances are compressed: the carrier is 7 km
+out, not 650 nautical miles, and the briefing says so. The card says what really happened
+to the sixteen aircraft and the 80 men. The source is the Wikipedia article on the
+Doolittle Raid. `dadmissions_checks.js` gains the mission's checks: the deck hold, the
+467 ft run, the sink off the bow (eased up it survives, hauled up or pushed it crashes), the
+ring against where the bomb lands, a raid by hand won, the own-blast hit from 300 ft, four
+short as a failure, and EXIT and the random stream.
+
+The harness stall v154 shipped past is fixed. A module that left its page open after a
+draw-call check kept a couple of hundred frames queued in the SwiftShader GPU process. The
+next page's WebGL setup waited behind them for 129 s, past the 60 s page-load limit, and
+late in the run one boot never came back. That happened on main as well. Every module now
+runs through `runModule`, which closes whatever pages it opened, and the gate fails a module
+called around it.
+Two full runs with the fix alone passed 1003/1003 each, and v155's run passed 1013/1013, with
+no page-load timeouts.
+
 ## v154 — dad mode: the mission list, and the Dambusters
 
 Dad mode only; his game is unchanged. The dad menu is now a list of missions. Each card
