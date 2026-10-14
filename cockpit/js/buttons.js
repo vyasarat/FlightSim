@@ -92,6 +92,8 @@ const BUTTONS = {
   dadMslBtn:   { slot: "highLeft",  when: () => btnDad() && dadFlying() && dadMisHas("msl") },
   dadGunBtn:   { slot: "highRight", when: () => btnDad() && dadFlying() && dadMisHas("gun") },   // v151: the cannon, held
   dadExitBtn:  { slot: "dashLeft",  when: () => btnDad() },
+  dadRodUpBtn: { slot: "highRight", when: () => btnDad() && dadFlying() && dadMisHas("rod") },   // v156: Apollo's rate-of-descent switch
+  dadRodDnBtn: { slot: "lowRight",  when: () => btnDad() && dadFlying() && dadMisHas("rod") },
 };
 
 // ---- the predicates that were inline, kept verbatim ------------------------

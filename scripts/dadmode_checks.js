@@ -61,7 +61,7 @@ module.exports = async function dadChecks({ newPage, check }) {
   const g0 = await run(page, () => {
     const L = window.__lp, H = window.__dadH, V = L.TUNE.valley;
     const out = { text: H.text(), key: !!document.getElementById("dadKey"), keyWords: [...document.querySelectorAll("#dadKey, #dadKey *")].filter(e => ["aria-label", "title", "alt"].some(a => e.hasAttribute(a))).length };
-    out.dadButtonsUp = ["dadBombBtn", "dadFlareBtn", "dadMslBtn", "dadGunBtn", "dadExitBtn"].filter(H.vis);
+    out.dadButtonsUp = ["dadBombBtn", "dadFlareBtn", "dadMslBtn", "dadGunBtn", "dadExitBtn", "dadRodUpBtn", "dadRodDnBtn"].filter(H.vis);
     out.dadObjs = L.dad.objs.length; out.dadDom = H.dadDom();
     // the valley: floor well under its walls all the way, snow-white
     let worst = Infinity;

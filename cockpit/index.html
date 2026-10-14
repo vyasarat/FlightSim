@@ -810,7 +810,13 @@
   #dadExitBtn svg { width: 30px; height: 30px; pointer-events: none; }
   #dadGunBtn { right: calc(var(--edge) + 4px + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + var(--thr) + 12px + env(safe-area-inset-bottom));
     z-index: 10; border-color: #ffd070; touch-action: none; }
-  #dadBombBtn.hidden, #dadFlareBtn.hidden, #dadMslBtn.hidden, #dadGunBtn.hidden, #dadExitBtn.hidden { display: none; }
+  /* v156: Apollo's rate-of-descent switch, UP over DOWN where the gun and the bomb sit */
+  #dadRodUpBtn { right: calc(var(--edge) + 4px + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + var(--thr) + 12px + env(safe-area-inset-bottom)); z-index: 10; border-color: #7dff9a; color: #7dff9a; }
+  #dadRodDnBtn { right: calc(var(--edge) + 4px + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); width: var(--thr); height: var(--thr); z-index: 10; border-color: #ffd23e; color: #ffd23e; }
+  #dadBombBtn.hidden, #dadFlareBtn.hidden, #dadMslBtn.hidden, #dadGunBtn.hidden, #dadExitBtn.hidden, #dadRodUpBtn.hidden, #dadRodDnBtn.hidden { display: none; }
+  #dadHud .dadDamCell.bad { border-color: #e0483e; color: #ff8a80; }
+  #dadHud .dadProg { position: absolute; top: calc(122px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); white-space: nowrap;
+    font-size: 18px; font-weight: 800; color: #ffd23e; background: rgba(8, 14, 20, .7); border: 2px solid #ffd23e; padding: 1px 10px; animation: dadCueBlink .5s steps(1) infinite; }
   #dadGunBtn.firing { box-shadow: 0 0 24px 8px rgba(255, 224, 120, .75); }
   #dadGunBtn.firing svg { filter: brightness(1.5) drop-shadow(0 0 4px #ffd070); }
   #dadExitBtn svg { filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 1px #000); }
@@ -1102,6 +1108,8 @@
 <button id="dadFlareBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><g stroke="#ffb43a" stroke-width="7" stroke-linecap="round"><path d="M50 50L50 12M50 50L83 31M50 50L83 69M50 50L50 88M50 50L17 69M50 50L17 31"/></g><circle cx="50" cy="50" r="13" fill="#fff0b0"/></svg></button>
 <button id="dadMslBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M18 50h56l12-7v14l-12-7" fill="#c9ced6" stroke="#c9ced6" stroke-width="10" stroke-linejoin="round"/><path d="M22 50l-8-14h10l10 14-10 14H14z" fill="#8a93a0"/><path d="M8 50h8" stroke="#ffb43a" stroke-width="8" stroke-linecap="round"/></svg></button>
 <button id="dadGunBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><g fill="#c9ced6"><rect x="16" y="34" width="44" height="7" rx="2"/><rect x="16" y="46" width="48" height="8" rx="2"/><rect x="16" y="59" width="44" height="7" rx="2"/></g><rect x="10" y="30" width="12" height="40" rx="3" fill="#8a93a0"/><g stroke="#ffd070" stroke-width="6" stroke-linecap="round"><path d="M72 50h18M70 38l14-8M70 62l14 8"/></g></svg></button>
+<button id="dadRodUpBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 35V10M12 22l12-12 12 12M10 40h28"/></svg></button>
+<button id="dadRodDnBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 9v25M12 23l12 12 12-12M10 41h28"/></svg></button>
 <button id="dadExitBtn" class="hidden" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5H6v22h7M20 10l6 6-6 6M26 16H12"/></svg></button>
 <button id="lockBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><rect x="10" y="18" width="12" height="64" fill="#b8bec8"/><rect x="78" y="18" width="12" height="64" fill="#b8bec8"/><path d="M22 36h24v28H22z" fill="#5ff1ff"/><path d="M54 36h24v28H54z" fill="#5ff1ff"/><path d="M22 70h56" stroke="#2b4fb0" stroke-width="7" fill="none"/><path d="M50 12v14m-7-7 7-7 7 7" stroke="#ffd23e" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <button id="cannonBtn" class="roundBtn hidden" aria-hidden="true">
@@ -1495,6 +1503,7 @@
 <script src="js/dadair.js"></script>
 <script src="js/dad_dam.js"></script>
 <script src="js/dad_doolittle.js"></script>
+<script src="js/dad_apollo.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
