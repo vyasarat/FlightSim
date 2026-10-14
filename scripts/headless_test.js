@@ -135,6 +135,19 @@ function check(name, ok, extra) {
       }
     }
   }
+  // Every module runs through runModule, which closes whatever pages it left open.
+  // A page left open still holds its GPU work: launchsite's and monstertruck's
+  // draw-call checks queue a couple of hundred SwiftShader frames, and the next
+  // page's WebGL context waited behind them -- 129 s, past goto's 60 s, twice a
+  // run, and late in the run a boot that never came back (v154: the stall after
+  // the chase checks, on main too). Closing the context drops its queue.
+  const liveCtxs = new Set();
+  async function runModule(name, opts) {
+    const before = new Set(liveCtxs);
+    await require(name)(opts);
+    const left = [...liveCtxs].filter(c => !before.has(c));
+    for (const c of left) await c.close().catch(() => {});
+  }
   // Booting a page is retried: a load that times out restarts the server (if it
   // has stopped answering) and tries again, instead of ending the run.
   async function newPage(w, h) {
@@ -150,6 +163,7 @@ function check(name, ok, extra) {
   async function newPageOnce(w, h) {
     await ensureServer();
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+    liveCtxs.add(ctx); ctx.on("close", () => liveCtxs.delete(ctx));
     try { return await bootPage(ctx); }
     catch (e) { await ctx.close().catch(() => {}); throw e; }
   }
@@ -4061,7 +4075,7 @@ function check(name, ok, extra) {
 
   // The old coupled point-and-climb assertions are replaced by the authorized
   // sequential destination/altitude interaction checks, using real touch events.
-  await require("./heli_control_checks")({ newPage, check, shots: SHOTS });
+  await runModule("./heli_control_checks", { newPage, check, shots: SHOTS });
 
   // ---------- T-HELI2 nothing ever needs two fingers ----------
   {
@@ -5571,57 +5585,57 @@ function check(name, ok, extra) {
     await page.close();
   }
 
-  await require("./heli_play_checks")({ newPage, check, shots: SHOTS });
-  await require("./heli_land_checks")({ newPage, check });
-  await require("./eject_framing_checks")({ newPage, check, shots: SHOTS });
-  await require("./toyfinish_checks")({ newPage, check, shots: SHOTS });
-  await require("./toyworld_checks")({ newPage, check, shots: SHOTS });
-  await require("./workshop_checks")({ newPage, check, shots: SHOTS });
-  await require("./workshop_play_checks")({ newPage, check, shots: SHOTS });
-  await require("./garden_play_checks")({ newPage, check, shots: SHOTS });
-  await require("./workshop_play_checks")({ newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
-  await require("./garden_play_checks")({ newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
-  await require("./robot_checks")({ newPage, check, shots: SHOTS });
-  await require("./robot_play_checks")({ newPage, check, shots: SHOTS });
-  await require("./robot_play_checks")({ newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
-  await require("./workshop_offline_check")({ newPage, check, shots: SHOTS });
-  await require("./boat_checks")({ newPage, check, shots: SHOTS });
-  await require("./yacht_checks")({ newPage, check, shots: SHOTS });
-  await require("./sea_checks")({ newPage, check, shots: SHOTS });
-  await require("./speed_horn_checks")({ newPage, check, shots: SHOTS });
-  await require("./lock_checks")({ newPage, check, shots: SHOTS });
-  await require("./vehicle_contract_checks")({ newPage, check });
-  await require("./state_semantics_checks")({ newPage, check });
-  await require("./aircraft_orientation_checks")({ newPage, check });
-  await require("./slot_checks")({ newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] });
-  await require("./road_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
-  await require("./solidity_checks")({ newPage, check });
-  await require("./track_checks")({ newPage, check });
-  await require("./launchsite_checks")({ newPage, check });
-  await require("./rocketsled_checks")({ newPage, check });
-  await require("./fireworksbarge_checks")({ newPage, check });
-  await require("./monstertruck_checks")({ newPage, check });
-  await require("./monster_checks")({ newPage, check });
-  await require("./heavy_checks")({ newPage, check });
+  await runModule("./heli_play_checks", { newPage, check, shots: SHOTS });
+  await runModule("./heli_land_checks", { newPage, check });
+  await runModule("./eject_framing_checks", { newPage, check, shots: SHOTS });
+  await runModule("./toyfinish_checks", { newPage, check, shots: SHOTS });
+  await runModule("./toyworld_checks", { newPage, check, shots: SHOTS });
+  await runModule("./workshop_checks", { newPage, check, shots: SHOTS });
+  await runModule("./workshop_play_checks", { newPage, check, shots: SHOTS });
+  await runModule("./garden_play_checks", { newPage, check, shots: SHOTS });
+  await runModule("./workshop_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
+  await runModule("./garden_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
+  await runModule("./robot_checks", { newPage, check, shots: SHOTS });
+  await runModule("./robot_play_checks", { newPage, check, shots: SHOTS });
+  await runModule("./robot_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
+  await runModule("./workshop_offline_check", { newPage, check, shots: SHOTS });
+  await runModule("./boat_checks", { newPage, check, shots: SHOTS });
+  await runModule("./yacht_checks", { newPage, check, shots: SHOTS });
+  await runModule("./sea_checks", { newPage, check, shots: SHOTS });
+  await runModule("./speed_horn_checks", { newPage, check, shots: SHOTS });
+  await runModule("./lock_checks", { newPage, check, shots: SHOTS });
+  await runModule("./vehicle_contract_checks", { newPage, check });
+  await runModule("./state_semantics_checks", { newPage, check });
+  await runModule("./aircraft_orientation_checks", { newPage, check });
+  await runModule("./slot_checks", { newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] });
+  await runModule("./road_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
+  await runModule("./solidity_checks", { newPage, check });
+  await runModule("./track_checks", { newPage, check });
+  await runModule("./launchsite_checks", { newPage, check });
+  await runModule("./rocketsled_checks", { newPage, check });
+  await runModule("./fireworksbarge_checks", { newPage, check });
+  await runModule("./monstertruck_checks", { newPage, check });
+  await runModule("./monster_checks", { newPage, check });
+  await runModule("./heavy_checks", { newPage, check });
   // v144: the rocket sled, ridden -- portrait, a full ride in each camera view
-  await require("./sledride_checks")({ newPage, check });
+  await runModule("./sledride_checks", { newPage, check });
   // v145: the wrecking-ball crane -- portrait, a whole go in each camera view, the drag that turns it
-  await require("./crane_checks")({ newPage, check });
-  await require("./cybertruck_checks")({ newPage, check });   // v146: the Cybertruck, a second body on the car
-  await require("./dadmode_checks")({ newPage, check });
-  await require("./dadmissions_checks")({ newPage, check });   // v154: dad mode's historical missions      // v147: dad mode (the parent's, behind a code) and the valley
-  await require("./payoff_size_checks")({ newPage, check });
+  await runModule("./crane_checks", { newPage, check });
+  await runModule("./cybertruck_checks", { newPage, check });   // v146: the Cybertruck, a second body on the car
+  await runModule("./dadmode_checks", { newPage, check });
+  await runModule("./dadmissions_checks", { newPage, check });   // v154: dad mode's historical missions      // v147: dad mode (the parent's, behind a code) and the valley
+  await runModule("./payoff_size_checks", { newPage, check });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
-  await require("./city_checks")({ newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
+  await runModule("./city_checks", { newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
   // the usability test, before every city release: five REAL minutes of a noisy
   // four-year-old's finger through New York, by touch, from the driving seat
-  await require("./noisy_drive")({ newPage, check });
-  await require("./event_pool_checks")({ newPage, check, shots: SHOTS });
-  await require("./engine_sound_checks")({ newPage, check, shots: SHOTS });
-  await require("./lights_police_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
-  await require("./car_feel_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[390,844]] });
-  await require("./cleanup_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] });
-  await require("./hardening_checks")({ newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] });
+  await runModule("./noisy_drive", { newPage, check });
+  await runModule("./event_pool_checks", { newPage, check, shots: SHOTS });
+  await runModule("./engine_sound_checks", { newPage, check, shots: SHOTS });
+  await runModule("./lights_police_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
+  await runModule("./car_feel_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[390,844]] });
+  await runModule("./cleanup_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] });
+  await runModule("./hardening_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] });
 
   await browser.close();
   killAll();
