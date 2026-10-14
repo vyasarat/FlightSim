@@ -88,9 +88,9 @@ const BUTTONS = {
   // of dad mode ever shows in his game; inside it they take the slots his own
   // buttons leave empty there (no throttle, no gear, no missile, no menu).
   dadBombBtn:  { slot: "lowRight",  when: () => btnDad() && dadBombCan() },
-  dadFlareBtn: { slot: "lowLeft",   when: () => btnDad() && dadFlying() },
-  dadMslBtn:   { slot: "highLeft",  when: () => btnDad() && dadFlying() },
-  dadGunBtn:   { slot: "highRight", when: () => btnDad() && dadFlying() },   // v151: the cannon, held
+  dadFlareBtn: { slot: "lowLeft",   when: () => btnDad() && dadFlying() && dadMisHas("flare") },
+  dadMslBtn:   { slot: "highLeft",  when: () => btnDad() && dadFlying() && dadMisHas("msl") },
+  dadGunBtn:   { slot: "highRight", when: () => btnDad() && dadFlying() && dadMisHas("gun") },   // v151: the cannon, held
   dadExitBtn:  { slot: "dashLeft",  when: () => btnDad() },
 };
 

@@ -335,18 +335,17 @@ function updateRewards(dt) {
     const k = Math.max(0, guideGroup.userData.pulse / 1.5);
     for (const l of guideGroup.children) l.material.opacity = 0.55 + 0.45 * k;
   }
-  updateRings(dt);
-  updateGates(dt);
-  updateAirports(dt);
-  updateTargets(dt);
-  updateWingman(dt);
+  // v154: nothing of his reacts to dad's aircraft (a ring eaten, a gate, an airport's
+  // flyby, a target popped, a sparkle spot lit -- and spots are remembered)
+  const his = !(typeof dadHere === "function" && dadHere());
+  if (his) { updateRings(dt); updateGates(dt); updateAirports(dt); updateTargets(dt); updateWingman(dt); }
   updateCloudWhoosh(dt);
   updateSmoke(dt);
   updateCraters(dt);
   updateTyrePuffs(dt);
   updateWake(dt);
   updateFlightTones();
-  updateSpots(dt);
+  if (his) updateSpots(dt);
   updateFallingStages(dt);
   updateSatellites(dt);   // satellites keep unfolding / drifting whatever he flies
 }
@@ -372,8 +371,11 @@ function update(dt) {
   if (eject.active) { updateEjection(dt); carUpdateHorn(dt); return; }
   if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
   applyKeyboard(dt);
-  updateEvents(dt);
-  updateSetpieces(dt);
+  // v154: inside dad mode his world is scenery. His events, set-pieces and rewards all
+  // key off `state`, which is dad's aircraft there: on the Dambusters' lake the fireworks
+  // barge armed and counted down. None of them runs while dad mode is on.
+  const dadOn = typeof dadHere === "function" && dadHere();
+  if (!dadOn) { updateEvents(dt); updateSetpieces(dt); }
   // The picker shares the top-left slot with the go button, and sits over it in the
   // DOM -- so it may only appear where the go button cannot: parked at home. Out at
   // the station, on a spacewalk or on the Moon it would eat the tap that means
@@ -718,7 +720,7 @@ function update(dt) {
 
   updateHighway(dt);
   if (typeof trackFrame === "function") trackFrame(dt);
-  updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
+  if (!dadOn) updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
   updateFeel(dt);            // field of view, bob, the nod and the hit-stop -- picture only
   applyCamera(dt);
   updateSunRig();            // the shadow box rides the camera, so it must follow it
