@@ -200,7 +200,8 @@ function updateSpeedLines(dt) {
   const L = TUNE.camera.lines;
   const cru = state.vp && state.vp.cruiseSpeed ? state.vp.cruiseSpeed : 60;
   const sp = clamp((state.speed / cru - L.from) / (1.25 - L.from), 0, 1);
-  const want = state.viewChase ? 0 : sp * L.gain;
+  const noLines = typeof dadHere === "function" && dadHere() && !!dadMis().noSpeedLines;   // v158: a dad mission may have none (the X-1)
+  const want = state.viewChase || noLines ? 0 : sp * L.gain;
   speedLines.material.opacity += (want - speedLines.material.opacity) * Math.min(1, 5 * dt);
   speedLines.visible = speedLines.material.opacity > 0.006;
   if (speedLines.visible) {

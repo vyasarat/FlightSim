@@ -10,6 +10,36 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v158 — dad mode: Breaking the Sound Barrier
+
+Dad mode only; his game is unchanged. Mission 6 on the list, the last of the five asked for,
+is the Bell X-1's flight of 14 October 1947. You fly an orange rocket plane in the X-1's shape,
+a .50-calibre bullet with straight wings, no markings. It hangs in the bomb bay of a
+four-engine mothership at 20,000 ft and 250 mph over his desert, heading east over its low hills. Those are the
+game's numbers; the sources do not give the drop, and the briefing says so. DROP lets you go.
+A new flame button lights one more of the four rocket chambers per press; on all four the fuel
+lasts about two and a half minutes. Climb to about 42,000 ft, level off, and let it run. Mach
+1 comes there at about 660 mph: the Mach box goes off the scale and the boom rolls out. Then,
+with the fuel gone, glide home to the dry lake, dad mode's own pale bed laid on his desert,
+and land on it. Mach 1 and a landing on the bed is a success; landing off it, too hard, or
+without Mach 1 fails. The air thins with height, so drag falls and the wing's speeds rise;
+the glide ratio stays the airframe's. While this mission flies, dad mode keeps the day sky high
+up (his space blend starts 900 m up, for the rocket), pushes the fog and the far plane out
+with the height, and lays a desert floor to the horizon; high up, one sand floor covers the
+streamed ground, which would otherwise show as a hard-edged tile, with the lake drawn flat on it. A hook in `flight.js` asks dad mode
+for that and gets nothing outside it. In every dad mission the rocket's Moon and Mars, which
+hang 7 km up, and his rings are now hidden like his other toys and put back exactly on EXIT,
+and the X-1 gets no speed streaks. The sources are the Wikipedia articles on
+the Bell X-1 (Mach 1.06, about 700 mph) and on Chuck Yeager (Mach 1.05 at 45,000 ft, and the
+two broken ribs); the briefing and the card give both. `dadmissions_checks.js` gains the X-1's
+checks: hung in the bay; dropped, four chambers, Mach 1 at about 42,000 ft under a day sky
+with the far plane out; the glide home over the lake with height to spare; a final on to the
+bed where she stays; off the bed, too hard and no Mach 1 failing; and EXIT giving back his sky,
+his far plane and his random stream. Another check presses the buttons themselves: DROP, then
+the flame button four times, which then goes; there are no speed streaks at Mach 1 (with the X-1's
+switch taken out, that check fails). The speed streaks are switched off for the X-1 alone, so
+the shipped missions are unchanged. Harness 1034/1034.
+
 ## v157 — dad mode: Miracle on the Hudson
 
 Dad mode only; his game is unchanged. Mission 5 on the list is US Airways Flight 1549, 15

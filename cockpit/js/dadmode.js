@@ -61,6 +61,8 @@ const dad = {
 const DAD_MISSIONS = [];
 function dadMissionDef(d) { DAD_MISSIONS.push(d); return d; }
 function dadMis() { return dad.mis || DAD_MISSIONS[0]; }
+// a mission's own sky (v158): null outside dad mode or for a mission that keeps the game's
+function dadEnv() { if (!dad.on) return null; const M = dadMis(); return M && M.env ? M.env() : null; }
 function dadMisHas(b) { const M = dadMis(); return !!(M && M.buttons && M.buttons[b]); }
 let dadSeedNow = 1;
 function dadRand() {
@@ -85,6 +87,10 @@ function dadHideHis() {
   if (typeof targets !== "undefined") for (const t of targets) list.push(t.mesh);
   if (typeof spots !== "undefined") for (const sp of spots) list.push(sp.mesh, sp.beam);
   if (typeof gates !== "undefined") for (const g of gates) list.push(g.mesh);
+  // his rings, and the rocket's Moon and Mars: up there (the X-1 climbs past 40,000 ft) they
+  // hang in the sky, and nothing of his rocket's is dad mode's
+  if (typeof ringsGroup !== "undefined") list.push(ringsGroup);
+  if (typeof BODIES !== "undefined") for (const b of BODIES) if (b.mesh) list.push(b.mesh);
   // and every set-piece's aim reticle (the red ring, with its ticks): with the set-pieces
   // stopped they would hang wherever they last stood. (Called before a mission builds,
   // so none of dad mode's own is in the scene yet.)
@@ -2207,7 +2213,8 @@ function dadWire() {
   const k = document.getElementById("dadKey");
   if (k) dadTap(k, dadKeyTap);
   const map = { dadBombBtn: dadDropBomb, dadFlareBtn: dadFlare, dadMslBtn: dadFireMissile, dadExitBtn: dadExit,
-    dadRodUpBtn: () => typeof dadApRod === "function" && dadApRod(1), dadRodDnBtn: () => typeof dadApRod === "function" && dadApRod(-1) };
+    dadRodUpBtn: () => typeof dadApRod === "function" && dadApRod(1), dadRodDnBtn: () => typeof dadApRod === "function" && dadApRod(-1),
+    dadChamberBtn: () => typeof dadX1Chamber === "function" && dadX1Chamber() };
   // the cannon is HELD: down fires, the lift stops it (a touch is captured by the button, so
   // sliding off does not; a mouse leaving it does)
   const gb = document.getElementById("dadGunBtn");
