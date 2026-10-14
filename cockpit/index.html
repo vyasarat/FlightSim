@@ -768,6 +768,35 @@
   #dadHud .dadCue.hint { font-size: 18px; font-weight: 700; color: #ffd23e; background: rgba(8, 14, 20, .55); padding: 1px 10px; }
   #dadBombBtn.armed { animation: dadArmPulse .9s ease-in-out infinite; }
   @keyframes dadArmPulse { 50% { box-shadow: 0 0 26px 10px rgba(255, 80, 64, .8); transform: scale(1.07); } }
+  /* v154: the mission list */
+  #dadMenu.list { background: #0b0e12; }   /* v154: the list on its own ground: no picker tiles through it */
+  body.dad #bigNum { display: none; }       /* v154: his set-pieces are stopped in dad mode; no countdown digit hangs over it */
+  .dadList { box-sizing: border-box; max-width: 640px; width: 100%; max-height: calc(100vh - 32px); overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 14px; padding: 4px; }
+  .dadList .dadCard { max-width: none; box-sizing: border-box; flex: none; }
+  .dadList .dadHist { color: #c9ced6; font-size: 14px; line-height: 1.4; }
+  .dadList .dadBest { margin: 0 0 12px; font-size: 13px; color: #8a93a0; font-variant-numeric: tabular-nums; }
+  .dadList .dadBest.win { color: #36c46a; } .dadList .dadBest.lose { color: #e0483e; }
+  .dadListHead { color: #8a93a0; font-size: 12px; letter-spacing: .14em; text-align: center; padding: 6px 0 0; }
+  /* v154: the missions' own HUD figures */
+  #dadHud .dadDamPanel { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+  #dadHud .dadDamCell { background: rgba(8, 14, 20, .62); border: 2px solid #ffd23e; color: #ffd23e; padding: 3px 10px; text-align: center; min-width: 92px; }
+  #dadHud .dadDamCell.ok { border-color: #7dff9a; color: #7dff9a; }
+  #dadHud .dadDamLab { font-size: 11px; letter-spacing: .12em; opacity: .85; }
+  #dadHud .dadDamVal { font-size: 22px; font-weight: 800; }
+  #dadHud .dadDamWin { font-size: 11px; opacity: .8; }
+  #dadHud .dadDamLamps { position: absolute; top: calc(92px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 15px; font-weight: 700;
+    color: #ffd23e; background: rgba(8, 14, 20, .55); padding: 1px 8px; }
+  #dadHud .dadDamLamps:empty { display: none; }
+  #dadHud .dadDamGauge { position: absolute; top: calc(122px + env(safe-area-inset-top)); left: 50%; width: 120px; height: 22px; margin-left: -60px;
+    background: rgba(8, 14, 20, .55); border: 1px solid #3c4350; }
+  #dadHud .dadDamGauge::before { content: ""; position: absolute; left: 59px; top: 2px; bottom: 2px; width: 1px; background: #3c4350; }
+  #dadHud .dadDamDot { position: absolute; left: 53px; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: #ffd23e; }
+  #dadHud .dadDamDot.aft { background: #ffd23e; opacity: .6; }
+  #dadHud .dadDamGauge.ok .dadDamDot { background: #7dff9a; opacity: 1; }
+  #dadHud .dadDamLamps.ok { color: #7dff9a; }
+  #dadHud .dadDamBombs { position: absolute; bottom: calc(58px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); white-space: nowrap;
+    font-size: 18px; font-weight: 800; color: #dfe4ea; background: rgba(8, 14, 20, .6); padding: 2px 12px; border: 2px solid #3c4350; }
+  #dadHud .dadDamBombs.go { color: #7dff9a; border-color: #7dff9a; animation: dadCueBlink .35s steps(1) infinite; }
   #dadCanopy { position: fixed; inset: 0; z-index: 7; pointer-events: none; display: none; }
   #dadCanopy svg { width: 100%; height: 100%; display: block; }
   #dadGrey { position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
@@ -1463,6 +1492,8 @@
 <script src="js/crane.js"></script>
 <script src="js/valley.js"></script>
 <script src="js/dadmode.js"></script>
+<script src="js/dadair.js"></script>
+<script src="js/dad_dam.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

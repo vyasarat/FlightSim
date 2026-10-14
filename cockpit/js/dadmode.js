@@ -50,7 +50,18 @@ const dad = {
   world: null,           // guns, sites, the radar, the hatch, the particles
   seed: 1986,
   enters: 0, exits: 0,
+  mis: null,             // v154: the mission being flown (DAD_MISSIONS)
+  best: {},              // v154: this session's best per mission, in memory only
+  prevSky: null,         // v154: his sky mood, put back after a night mission
+  hid: null,             // v154: his toys taken out of the picture, each with the visibility it had
 };
+// v154: the missions. Canyon Strike is the first; each historical mission registers itself
+// from its own file (dad_*.js) with dadMissionDef. `dad.mis` is the one being flown. Its best
+// time and result live in `dad.best` for the session only -- never saved.
+const DAD_MISSIONS = [];
+function dadMissionDef(d) { DAD_MISSIONS.push(d); return d; }
+function dadMis() { return dad.mis || DAD_MISSIONS[0]; }
+function dadMisHas(b) { const M = dadMis(); return !!(M && M.buttons && M.buttons[b]); }
 let dadSeedNow = 1;
 function dadRand() {
   dadSeedNow = (dadSeedNow + 0x6D2B79F5) >>> 0;
@@ -63,6 +74,33 @@ const dadR = (a, b) => a + (b - a) * dadRand();
 
 function dadActive() { return dad.on; }
 function dadAlarmMuted() { return dad.on; }
+// v154: inside dad mode his world is scenery: flight.js runs none of his events, set-pieces
+// or rewards while this is true (they key off `state`, which is dad's aircraft in here)
+function dadHere() { return dad.on; }
+// ... and his toys are out of the picture: the targets (balloons, boats, kites), the
+// sparkle spots and the gates. None is solid, and with his updaters stopped nothing of
+// his rewrites these flags, so each is put back on the way out exactly as it was.
+function dadHideHis() {
+  const list = [];
+  if (typeof targets !== "undefined") for (const t of targets) list.push(t.mesh);
+  if (typeof spots !== "undefined") for (const sp of spots) list.push(sp.mesh, sp.beam);
+  if (typeof gates !== "undefined") for (const g of gates) list.push(g.mesh);
+  // and every set-piece's aim reticle (the red ring, with its ticks): with the set-pieces
+  // stopped they would hang wherever they last stood. (Called before a mission builds,
+  // so none of dad mode's own is in the scene yet.)
+  const red = 0xff3b30;
+  scene.traverse(o => {
+    if (!o.isMesh || !o.geometry || o.geometry.type !== "TorusGeometry" || !o.material || !o.material.isMeshBasicMaterial || o.material.color.getHex() !== red) return;
+    const r = o.parent && o.parent !== scene && o.parent.children.length <= 16 ? o.parent : o;
+    if (!list.includes(r)) list.push(r);
+  });
+  dad.hid = list.map(o => [o, o.visible]);
+  for (const o of list) o.visible = false;
+}
+function dadShowHis() {
+  for (const [o, v] of dad.hid || []) o.visible = v;
+  dad.hid = null;
+}
 function dadFlying() { return dad.on && !!dad.m && !dad.m.over; }
 
 // ---------------------------------------------------------------------------
@@ -151,26 +189,24 @@ function dadKeyDraw() {
 
 function dadMenuOpen() {
   dad.menu = true;
-  const ov = dadEl("div", { id: "dadMenu", class: "dadOverlay" });
-  const card = dadEl("div", { class: "dadCard" }, ov);
-  dadEl("div", { class: "dadKicker", text: "DAD MODE  ·  MISSION 1" }, card);
-  dadEl("h1", { text: "Canyon Strike" }, card);
-  dadEl("p", { text: "An enrichment plant is buried under a bowl of snow at the end of a mountain valley. " +
-    "Fly the valley under 200 ft so the radar never sees you, put two laser-guided bombs through a vent three metres wide, " +
-    "and get out over the peaks with missiles on your tail." }, card);
-  const ul = dadEl("ul", {}, card);
-  for (const t of [
-    "2:30 to target. Above 200 ft for more than a moment: radar lock, then a launch.",
-    "Guns on the ridges: hold GUN to strafe them (about a kilometre). Six missiles, for the SAM sites and the radar.",
-    "Dive on the vent, keep the nose on it, drop. First bomb opens the hatch, second kills the plant.",
-    "Pull hard out of the bowl. Flares decoy the missiles.",
-    "Drag to fly: up/down is pitch rate (the nose holds when you let go), left/right is bank.",
-  ]) dadEl("li", { text: t }, ul);
-  const row = dadEl("div", { class: "dadRow" }, card);
-  const fly = dadEl("button", { class: "dadBtn go", text: "FLY" }, row);
-  const ex = dadEl("button", { class: "dadBtn", text: "EXIT" }, row);
-  dadTap(fly, () => { dadMenuClose(); dadEnter(); });
-  dadTap(ex, () => dadMenuClose());
+  const ov = dadEl("div", { id: "dadMenu", class: "dadOverlay list" });
+  const list = dadEl("div", { class: "dadList" }, ov);
+  dadEl("div", { class: "dadListHead", text: "DAD MODE  \u00B7  MISSIONS" }, list);
+  DAD_MISSIONS.forEach((M, n) => {
+    const card = dadEl("div", { class: "dadCard", "data-mission": M.id }, list);
+    dadEl("div", { class: "dadKicker", text: "MISSION " + (n + 1) + "  \u00B7  " + M.kicker }, card);
+    dadEl("h1", { text: M.title }, card);
+    dadEl("p", { class: "dadHist", text: M.history }, card);
+    const ul = dadEl("ul", {}, card);
+    for (const t of M.how) dadEl("li", { text: t }, ul);
+    const b = dad.best[M.id];
+    dadEl("p", { class: "dadBest" + (b ? (b.win ? " win" : " lose") : ""), text: b ? ("This session: " + (b.win ? "success, best " + dadFmtClock(b.time) : "not yet -- last " + b.last) + "  \u00B7  flown " + b.tries) : "Not flown this session" }, card);
+    const row = dadEl("div", { class: "dadRow" }, card);
+    const fly = dadEl("button", { class: "dadBtn go", text: "FLY" }, row);
+    const ex = dadEl("button", { class: "dadBtn", text: "EXIT" }, row);
+    dadTap(fly, () => { dadMenuClose(); dadEnter(M.id); });
+    dadTap(ex, () => dadMenuClose());
+  });
 }
 function dadMenuClose() {
   dad.menu = false;
@@ -185,7 +221,7 @@ function dadTick(dt) {
   if (!dad.on) return;
   // anything that swapped the vehicle out from under dad mode ends it
   if (state.vp !== dad.vp) { dadTeardown(); return; }
-  dadMission(dt);
+  if (dadMis().id === "canyon") dadMission(dt); else dadMis().step(dt);
 }
 
 // ---------------------------------------------------------------------------
@@ -201,8 +237,10 @@ function dadMakeVp() {
   });
 }
 
-function dadEnter() {
+function dadEnter(id) {
   if (dad.on) return;
+  const M = DAD_MISSIONS.find(x => x.id === id) || DAD_MISSIONS[0];
+  dad.mis = M;
   dad.prev = { key: state.vehicleKey, origin: state.originIdx, dir: state.dirIdx, view: state.viewChase };
   dad.enters++;
   el.screenVehicle.classList.add("hiddenS");
@@ -214,10 +252,43 @@ function dadEnter() {
   dad.vp = dadMakeVp();
   state.vp = dad.vp;              // ... flown on the dad jet's own profile
   dad.on = true;
+  dadHideHis();
   document.body.classList.add("dad");
-  dadQuiet(() => dadBuildWorld());
-  dadBuildHud();
-  dadStart();
+  // a night mission: his sky mood is kept and put back on the way out
+  if (M.night) { dad.prevSky = state.sky; state.sky = 3; state.nightF = 1; }
+  if (M.id === "canyon") {
+    dadQuiet(() => dadBuildWorld());
+    dadBuildHud();
+    dadStart();
+  } else {
+    dadQuiet(() => { dadBuildCommon(); M.build(dad.world); });
+    M.hud();
+    dadRestart();
+  }
+}
+// RETRY, and the start of every mission but Canyon Strike's (dadStart is its own)
+function dadRestart() {
+  const M = dadMis();
+  if (M.id === "canyon") { dadStart(); return; }
+  M.start();
+  dad.m.mid = M.id;
+}
+// the pools every mission draws its smoke, fire and tracer from, and a set of materials
+function dadBuildCommon() {
+  const W = dad.world = { mats: {}, cms: [], sams: [], flares: [], aims: [], bombs: [], guns: [], sites: [] };
+  for (const [k, c] of [["dark", "slate"], ["ink", "ink"], ["steel", "grey"], ["white", "white"], ["wreck", "ink"]]) W.mats[k] = new THREE.MeshLambertMaterial({ color: TUNE.palette[c], flatShading: true });
+  W.smoke = dadParticles(14000, false);
+  W.fire = dadParticles(4000, true);
+  W.tracer = dadStreaks(1600);
+  dadAdd(W.smoke.pts); dadAdd(W.fire.pts); dadAdd(W.tracer.pts);
+}
+// the frame's housekeeping every mission shares: its clock, the shake, the message, the card
+function dadMisTick(dt) {
+  const m = dad.m;
+  m.t += dt;
+  m.shake = Math.max(0, m.shake - dt * 1.4);
+  if (m.msgT > 0) m.msgT -= dt;
+  if (m.over) { m.overT += dt; if (!m.card && m.overT >= TUNE.dad.results.hold) dadShowCard(); }
 }
 
 // Put back everything dad mode touched. `quiet`: the vehicle has already been
@@ -229,14 +300,18 @@ function dadTeardown() {
   dad.dom.length = 0;
   for (const id of ["dadPad", "dadMenu", "dadCard"]) { const e = document.getElementById(id); if (e) e.remove(); }
   dadSoundsOff();
+  // the sky he had
+  if (dad.prevSky !== null) { state.sky = dad.prevSky; state.nightF = state.sky === 3 ? 1 : 0; dad.prevSky = null; }
   if (el.dadBombBtn) el.dadBombBtn.classList.remove("armed");   // his game's button carries nothing of dad mode out
   if (vl.bunker) vl.bunker.visible = true;
   if (vl.ventGroup) vl.ventGroup.visible = true;
   dad.world = null;
   dad.m = null;
   dad.on = false;
+  dadShowHis();
   dad.vp = null;
   dad.menu = false;
+  dad.mis = null;
   document.body.classList.remove("dad");
   dad.exits++;
 }
@@ -652,7 +727,7 @@ function dadBoom(size, dist) {
 }
 function dadSoundsOff() {
   if (typeof setTone !== "function") return;
-  for (const n of ["dadLock", "dadMsl", "dadPull", "dadGun", "dadCannon", "dadLase"]) setTone(n, "square", 440, 0);
+  for (const n of ["dadLock", "dadMsl", "dadPull", "dadGun", "dadCannon", "dadLase", "dadProp", "dadProp2", "dadWind", "dadRocket", "dadAlarm"]) setTone(n, "square", 440, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -711,6 +786,7 @@ const dadTmpF = new THREE.Vector3(), dadTmpV = new THREE.Vector3(), dadTmpW = ne
 // turn off the bank, G limited, speed traded against height. Owns the frame
 // through the contract (vehicles.js "dad").
 function dadFly(dt) {
+  if (dadMis().fly) { dadMis().fly(dt); return; }
   const J = TUNE.dad.jet, m = dad.m;
   if (!m) return;
   state.phase = "AIRBORNE";
@@ -782,7 +858,11 @@ function dadDown() {
 function dadEnd(result, why, gone) {
   const m = dad.m;
   if (m.over) return;
-  m.over = true; m.result = result; m.why = why; m.overT = 0;
+  m.over = true; m.result = result; m.why = why; m.overT = 0; m.endT = m.t;
+  // this session's record, in memory only: the best time of a success, the last result, how many tries
+  const id = dadMis().id, b = dad.best[id] || (dad.best[id] = { win: false, time: null, last: "", tries: 0 });
+  b.tries++; b.last = result === "success" ? "success" : why;
+  if (result === "success") { const tt = id === "canyon" ? TUNE.dad.clock - m.clock : m.t; if (!b.win || tt < b.time) b.time = tt; b.win = true; }
   if (gone) {
     state.exploding = true;
     state.explodeTimer = 1e9;        // never reassembles: the card is the way on
@@ -1578,10 +1658,17 @@ function dadUpdateSpot(dt) {
   }
 }
 function dadBombCan() {
+  const M = dadMis();
+  if (!dad.on || !dad.m) return false;
+  return M.bombCan ? M.bombCan() : M.id === "canyon" && dadCsBombCan();
+}
+function dadCsBombCan() {
   const m = dad.m;
   return dadFlying() && m.bombs > 0 && !m.plant && dadBombRange() < TUNE.dad.bombs.range && dadAgl() > TUNE.dad.bombs.armAgl * 0.5;
 }
 function dadDropBomb() {
+  const M = dadMis();
+  if (M.drop) return dad.on && dad.m ? M.drop() : false;
   const m = dad.m, W = dad.world;
   if (!dadBombCan()) return false;
   m.bombs--; m.bombsUsed++;
@@ -1779,6 +1866,7 @@ function dadColumn(dt) {
 // ---------------------------------------------------------------------------
 const dadCamPos = new THREE.Vector3(), dadCamLook = new THREE.Vector3(), dadCamUp = new THREE.Vector3();
 function dadCamera(dt) {
+  if (dadMis().camera) { dadMis().camera(dt); return; }
   const m = dad.m;
   const f = dadFwd(dadTmpF);
   const sh = m ? m.shake : 0;
@@ -1838,6 +1926,7 @@ function dadAttackView(dt) {
 // The jet's pose and its burner, here rather than in the shared pose so nothing
 // in dad mode draws on Math.random.
 function dadPoseModel(g) {
+  if (dadMis().pose) { dadMis().pose(g); return; }
   g.visible = state.viewChase && !state.exploding;
   if (!g.visible) return;
   g.position.set(state.x, state.y, state.z);
@@ -2071,12 +2160,13 @@ function dadShowCard() {
   const ov = dadEl("div", { id: "dadCard", class: "dadOverlay" });
   dad.dom.push(ov);
   const card = dadEl("div", { class: "dadCard " + (m.result === "success" ? "win" : "lose") }, ov);
-  dadEl("div", { class: "dadKicker", text: "CANYON STRIKE" }, card);
-  dadEl("h1", { text: m.result === "success" ? "Mission success" : "Mission failed" }, card);
+  const M = dadMis();
+  dadEl("div", { class: "dadKicker", text: M.title.toUpperCase() }, card);
+  dadEl("h1", { text: m.result === "success" ? (M.winTitle || "Mission success") : "Mission failed" }, card);
   if (m.result !== "success") dadEl("p", { class: "dadWhy", text: m.why.charAt(0).toUpperCase() + m.why.slice(1) + "." }, card);
   const tbl = dadEl("dl", {}, card);
   const used = TUNE.dad.clock - m.clock;
-  for (const [k, v] of [["Time", dadFmtClock(used) + (m.plant ? "" : " of " + dadFmtClock(TUNE.dad.clock))],
+  for (const [k, v] of M.cardRows ? M.cardRows() : [["Time", dadFmtClock(used) + (m.plant ? "" : " of " + dadFmtClock(TUNE.dad.clock))],
                         ["Damage", Math.round(TUNE.dad.health - m.health) + "%"],
                         ["Bombs used", m.bombsUsed + " (" + m.hits + " on the vent)"],
                         ["Flares used", String(m.flaresUsed)],
@@ -2088,13 +2178,28 @@ function dadShowCard() {
   const row = dadEl("div", { class: "dadRow" }, card);
   const retry = dadEl("button", { class: "dadBtn go", text: "RETRY" }, row);
   const ex = dadEl("button", { class: "dadBtn", text: "EXIT" }, row);
-  dadTap(retry, () => dadStart());
+  dadTap(retry, () => dadRestart());
   dadTap(ex, () => dadExit());
 }
 
 // ---------------------------------------------------------------------------
 // The buttons (declared in buttons.js): bomb, flare, missile, and the way out
 // ---------------------------------------------------------------------------
+dadMissionDef({
+  id: "canyon", title: "Canyon Strike", kicker: "THE FILM  \u00B7  F-35",
+  history: "An enrichment plant is buried under a bowl of snow at the end of a mountain valley. " +
+    "Fly the valley under 200 ft so the radar never sees you, put two laser-guided bombs through a vent three metres wide, " +
+    "and get out over the peaks with missiles on your tail. Four jets: pair 1 opens the hatch, you and #4 make the kill.",
+  how: [
+    "2:30 to target. Above 200 ft for more than a moment: radar lock, then a launch.",
+    "Guns on the ridges: hold GUN to strafe them (about a kilometre). Six missiles, for the SAM sites and the radar.",
+    "Dive on the vent, keep the nose on it, drop. Pair 1's bomb opens the hatch; yours, on #4's laser, kills the plant.",
+    "Pull hard out of the bowl. Flares decoy the missiles.",
+    "Drag to fly: up/down is pitch rate (the nose holds when you let go), left/right is bank.",
+  ],
+  buttons: { bomb: true, flare: true, msl: true, gun: true },
+});
+
 function dadWire() {
   const k = document.getElementById("dadKey");
   if (k) dadTap(k, dadKeyTap);

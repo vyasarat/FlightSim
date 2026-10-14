@@ -2200,6 +2200,26 @@ const TUNE = {
     // size), a column that climbs `columnFor` seconds, `debris` thrown out, and a snow
     // cloud rolling out across the bowl floor at `surge` m/s for `surgeFor` seconds.
     plant: { bursts: [[0.35, 18, 4], [0.8, 40, 4.5], [1.3, 70, 5], [1.9, 105, 4]], columnFor: 30, debris: 28, surge: 55, surgeFor: 9 },
+    // v154: the historical missions' aircraft (dadair.js): best-glide speed and ratio (drag),
+    // full-power thrust (m/s^2), the stall, and the stick -- the bomber is heavy in pitch and roll
+    air: {
+      lancaster: { vbg: 75, ld: 12, thrust: 1.57, vStall: 48, vMax: 135, pitchRateDeg: 7, pitchExpo: 2.2, bankLimitDeg: 45, rollRate: 1.6, turnMul: 1, gMax: 2.5, touchAgl: 1.5 },
+    },
+    // v154: DAMBUSTERS (dad_dam.js). The dam across the lake's south arm at x, the wall `crest`
+    // over the water and `thick`, running `wingWall` on into each bank; two towers `towerOff`
+    // either side of its middle; the release window (the 617 Squadron numbers: 60 ft, 232 mph,
+    // 425-475 yd, given a little either side); the bomb's skips and sink; the defences.
+    dam: {
+      x: -600, zScan: [1330, 1640], crest: 12, thick: 9, wingWall: 70, segs: 14, towerOff: 75, towerH: 14, breachHalf: 24,
+      start: { x: 700, agl: 46, speed: 232 },
+      height: 18.29,               // 60 ft: where the two lamps' spots meet
+      lampFore: [0, -0.9, -7], lampAft: [0, -0.9, 6], meetX: 6, meetZ: -0.5, spotR: 1.2, together: 1.1,   // the fore lamp aims aft, the aft one forward, both to starboard
+      window: { ftMin: 55, ftMax: 65, mphMin: 220, mphMax: 245, ydMin: 400, ydMax: 480 },
+      hops: 5, ratio: 0.62, hopH: 0.09, sink: 2.2, sinkFor: 3.5, breachAfter: 1.6, torrentFor: 40, winAfter: 7,
+      bombs: 3,
+      flak: { range: 1000, rof: 9, speed: 600, spread: 14, burst: 1.6, gap: 1.1, hit: 0.035, damage: 6 },
+      lightR: 22, lightLen: 900, moonR: 120, moonLight: 0.45,
+    },
     escape: 12,                  // seconds he must live after the plant goes, with nothing close behind, to be out
     results: { hold: 2.5 },      // seconds of the aftermath before the card
   },

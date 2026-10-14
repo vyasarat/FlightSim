@@ -10,6 +10,58 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v154 — dad mode: the mission list, and the Dambusters
+
+Dad mode only; his game is unchanged. The dad menu is now a list of missions. Each card
+shows the date and the aircraft, what really happened, how to fly it, this session's record
+(a best time on a success, otherwise the last result and how many tries), and FLY / EXIT.
+The record is kept in memory only and is gone on reload. Canyon Strike is first. The
+Dambusters is second: Operation Chastise, 16–17 May 1943, flown at night. A dam stands
+across the south arm of the great lake, 600 m west of where the arm opens, so the run is
+straight down the water due west (built when you enter, gone when you leave), with
+two towers carrying a light flak gun and a searchlight each. You fly a four-engine bomber
+in a night scheme, with no markings and the drum slung under the belly. Two lamps under
+the aircraft throw two spots that meet on the water at exactly 60 ft. Above that the beams
+cross before the water; below it they have not met yet. Panels show HEIGHT, SPEED and
+RANGE against the release window (55–65 ft, 220–245 mph, 400–480 yd, the 617 Squadron
+numbers with a little either side), and they turn green when you are in it. The bomb skips
+across the water to the wall, sinks against it and goes off at depth. A column of water
+climbs, and a moment later the middle of the wall is gone and a torrent pours out
+downstream. Out of the window it fails in the way the real thing failed: too high or too
+fast it breaks up on the water, too low, slow or far out it sinks short, too close it
+jumps the dam, and off the line it runs into the bank. You have three bombs, and the water
+counts as a crash. The real numbers and the sequence (the fifth bomb breached the Möhne) are
+on the card. The sources are the Wikipedia articles on the bouncing bomb, Operation
+Chastise, the Avro Lancaster and the Möhne Reservoir, the IWM's account of the raid, and
+aerialcombat.co.uk on the spotlight altimeter. `dadmissions_checks.js` is a new harness
+module. It covers the list. The lamps meet at 60 ft, crossed over it and apart under it. A
+run in the window breaches the dam. 90 ft breaks up, 650 yd sinks short and 300 yd jumps
+the dam. Three bombs gone is "dam intact". 4 ft over the lake is a crash. The towers fire
+on every run. EXIT takes every object away and gives back his day sky, and his random
+stream does not move.
+
+Inside dad mode his world is now scenery, for every mission. The Dambusters is the first
+mission flown in the middle of his world, and there his things reacted to dad's aircraft: the
+fireworks barge on the lake armed and counted down, and flying through the lake island's
+sparkle spot would have lit it and saved that. While dad mode is on, `flight.js` runs none of
+his events, set-pieces or rewards (rings, gates, airport flybys, targets, the wingman,
+sparkle spots). His targets, sparkle spots, gates and every set-piece's aim reticle are out
+of the picture, and each comes back on EXIT exactly as it was. Nothing solid is hidden, so
+there is no invisible wall: the barge's hull stays where it is. The bomber also crashes on
+anything solid of his, as the jet does. His game outside dad mode is unchanged. Two checks
+prove it. One flies a whole run and finds no countdown and the barge never armed. The other
+flies the bomber through the spot: it stays unlit, nothing is written to storage, and all 78
+of his toys' flags come back as they were. With the gate taken out, both fail (177 frames of
+countdown digits, and the spot lit and saved).
+
+Harness: 985/985, then a stall. It was shipped past under the parent's rule, because main
+stalls at the same check. The full run passed every check it reached, but after the
+launch-site module (and again after the monster truck) a page load timed out at 60 s, and
+after the chase checks the run hung and the 20-minute watchdog stopped it. Main (v153)
+does exactly the same: the same two timeouts and a stall at the same check, after 971/971
+(v154 adds 14). The page itself loads in about 1 s on both. v155 finds and fixes the hang
+and proves it with two clean full runs.
+
 ## v153 — dad mode: two pairs, like the film
 
 Dad mode only; his game is unchanged. Four F-35s now fly the valley: you and three AI jets
