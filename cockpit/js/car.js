@@ -909,7 +909,8 @@ function updateCar(dt) {
   // THE CORVETTE'S DRAG-UP IS ITS ROCKET BOOSTER (v159, corvette.js), not the burst:
   // held, it burns, and while it burns he is driven at its speed -- well above the
   // top step's on the motorway when he is going straight along it; the top step's
-  // own through a turn he holds, on a way on or off and in the cities (cvStraight). It only raises what he is
+  // own through the end-turn and off his line; his own step's through a turn he holds and on a
+  // way on or off; along a city street a boost shed before every junction (cvTarget, v160). It only raises what he is
   // driven AT: the corner assist's cap, the motorway's end-turn and off-road still
   // bring it down, as they do any speed. (Short of its full speed it pushes at the
   // car's own acceleration: out of the end-turn's U at its 30 m/s^2 he swung off.)
@@ -930,7 +931,7 @@ function updateCar(dt) {
   // (the booster's full speed is for a road he is lined up with and going straight
   // along: not a turn he holds, the motorway's end-turn, a way on or off, a city)
   const cvFull = burning && cvStraight(hold !== 0 || !!(road && (road.holding || road.endTurn)), road);
-  const roadMax = burning ? (cvFull ? cvSpeed() : (road && (road.spur || road.street)) || car.onStreet ? CAR.cruise * step : cvTopStep()) * lerp(1, CAR.offRoadMax, car.offRoad)
+  const roadMax = burning ? (cvFull ? cvSpeed() : cvTarget(road, CAR.cruise * step, hold !== 0)) * lerp(1, CAR.offRoadMax, car.offRoad)
                           : CAR.cruise * step * lerp(1, CAR.offRoadMax, car.offRoad) * boosting;
   let want = touching ? roadMax : 0;
   // THE CORNER ASSIST (streets.js), speed-only: near a junction, with a turn
@@ -940,7 +941,7 @@ function updateCar(dt) {
   const cornering = touching && cap < want;
   if (cornering) want = cap;
   const giveBack = road && road.street && typeof stPlan !== "undefined" && stPlan.giveBack > 0;
-  const up = cvFull ? CORVETTE.booster.accel : giveBack ? Math.max(CAR.accel, TUNE.city.giveBackAccel) : CAR.accel;
+  const up = cvFull ? CORVETTE.booster.accel : burning && road && road.street && want > CAR.cruise * step ? CORVETTE.city.accel : giveBack ? Math.max(CAR.accel, TUNE.city.giveBackAccel) : CAR.accel;
   const down = cornering && state.speed > want
     ? Math.max(CAR.brake, road && !road.spur && !road.street ? HW.endTurn.brake
                : road && road.spur ? TUNE.city.ramp.safeBrake : Math.max(TUNE.city.cornerBrake, road && road.capBrake || 0)) : CAR.brake;

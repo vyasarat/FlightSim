@@ -39,6 +39,7 @@ entry below.
 | v144 | pick the rocket sled, count "3-2-1" out loud with the lamps, and ride it through the brick wall again and again (more than three runs in a row without changing vehicle) | open |
 | v145 | pick the crane, turn it to a different block of towers before each go (all three blocks within one sitting), and knock them down three or more times in a row without changing vehicle, making a "boom" or "crash" noise as they fall | open |
 | v159 | pick the Corvette first, hold the booster down along the motorway for long stretches (more than ten seconds at a time) and look in the mirror or switch to the chase view to see the flames, making a "whoosh" or rocket noise | open |
+| v160 | in New York with the Corvette, hold the booster down along the streets and say it is going fast, without noticing that it slows for every crossing; no more bangs in the city than with the SUV (none) | open |
 
 ## Entries
 

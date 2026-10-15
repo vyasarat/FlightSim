@@ -11,8 +11,9 @@
 //
 // WHAT IT DOES TO THE DRIVE: one thing. While it burns car.js aims him at
 // cvSpeed() -- `over` times the TOP speed step's speed, whatever step he is on --
-// going straight along the motorway, and the top step's own everywhere else: a
-// turn he holds, a way on or off, a city (cvStraight). Everything that slows a car still slows this one: the
+// going straight along the motorway; the top step's own through its end-turn; his
+// own step's through a turn he holds and on a way on or off (cvTarget). In a city, a boost on the straight
+// that is shed before every junction (cvCitySpeed, v160). Everything that slows a car still slows this one: the
 // corner assist's cap, the end of the motorway's turn, off-road. The traffic's
 // promises are made against his speed, whatever it is, so ahead of him it yields
 // and outruns him at this speed too (road_checks and city_checks drive it).
@@ -41,23 +42,53 @@ function cvSpeed() { return TUNE.car.cruise * Math.max(...TUNE.car.speedSteps) *
 // The top speed step's speed: what the booster gives wherever its full speed does not go.
 function cvTopStep() { return TUNE.car.cruise * Math.max(...TUNE.car.speedSteps); }
 // THE BOOSTER'S SPEED IS THE MOTORWAY'S. Going straight along it, the full speed.
-// Elsewhere on it the TOP STEP's speed -- the speed the turn rule, the exits and the
-// end-turn are proven at with a four-year-old's hand (noisy_drive.js) -- still a jump
-// from any other step, still burning:
-//   - a turn he is holding (an exit, a way in) and the end-turn: at 128 m/s that
-//     hand held right for New York's way in and left the motorway, and came out of
-//     the end-turn's U too fast to stay on the road;
-//   - not lined up with the road (`alignTol` off his aim): a lane change, the swing
-//     out of the U.
-// On a way on or off and in the cities it adds NOTHING: his own step's speed, as
-// on any car (car.js), the flames still lit. At 128, and then at the top step's 85,
-// the noisy hand went wide into New York's walls on held corners (two seeds in
-// three at 85, against none for the SUV at its top step), and once ran wide off
-// the far way in's sweep. The cities' promises are the car's, kept as the car's.
+// Elsewhere it is less, still burning (cvTarget):
+//   - the end-turn, and not lined up with the road (`alignTol` off his aim: a lane
+//     change, the swing out of the U): the TOP STEP's speed, the speed the end-turn
+//     is proven at. At 128 m/s he came out of the end-turn's U too fast to stay on
+//     the road.
+//   - a turn he is holding (an exit, a way in) and a way on or off: his own step's,
+//     as on any car. At 128 the noisy hand held right for New York's way in and
+//     left the motorway; at the top step's 85 it still ran wide off the far way
+//     in's first bend, on some runs (v160).
+//   - a city: a boost along each street, shed to his own step's speed before every
+//     junction (cvCitySpeed, v160). Held at 128, and then at 85, the noisy hand
+//     went wide into New York's walls on held corners; at each junction he is now
+//     the car at his step, whose promises are proven.
 function cvStraight(turning, road) {
   if (turning || !road || road.spur || road.street || car.onStreet) return false;
   const err = wrapPi(Math.atan2(-(road.aimX - state.x), -(road.aimZ - state.z)) - state.heading);
   return Math.abs(err) < CORVETTE.booster.alignTol;
+}
+// THE BOOSTER IN A CITY (v160): a real boost along a grid street, shed for every
+// junction. Burning, he is driven at `city.over` times his own step's speed, but
+// never faster than he can come back down to that step's speed, braking at
+// `city.shed`, `city.margin` metres short of the junction ahead -- every
+// junction, the ones he goes straight through too, since a held turn can be
+// found at any of them. So at each junction he is exactly the car at his step:
+// the speed the corner assist, the turn rule and a four-year-old's hand are
+// proven at. Past it the boost comes back at `city.accel`. None on a corner, on a
+// turn he holds, on a curving link, off the street, while the assist hands a
+// corner's speed back, or while the turn he took is still spent (the finger that
+// took it has not let go): there it is his step's, as before.
+function cvCitySpeed(road, base) {
+  const C = CORVETTE.city, st = road && road.street;
+  if (!st || st.kind !== "grid" || !car.onStreet || road.corner || road.curve || road.holding || car.spent ||
+      (typeof stPlan !== "undefined" && stPlan.giveBack > 0)) return base;
+  const room = Math.max(0, road.toNode - C.margin);
+  return Math.min(base * C.over, cvSpeed(), Math.sqrt(base * base + 2 * C.shed * room));
+}
+// What it drives him at short of its full speed (car.js; `base` is his own step's speed):
+//   - along a city street, the boost shed before every junction (cvCitySpeed);
+//   - a turn he holds on the motorway (an exit, a way in), a way on or off, off the
+//     street in a city: his own step's. At the top step's 85 m/s a noisy hand held
+//     right for New York's far way in went wide on the ramp's first bend (v160): so
+//     he meets every exit as the car does, as he meets every city junction;
+//   - the motorway's end-turn, and the motorway off his line: the top step's.
+function cvTarget(road, base, holdingTurn) {
+  if (road && road.street) return cvCitySpeed(road, base);
+  if ((road && (road.spur || road.holding)) || car.onStreet || holdingTurn) return base;
+  return cvTopStep();
 }
 // How far the camera has eased into the burn (0 outside the Corvette).
 function cvCamK() { return vehBooster() ? cv.camK : 0; }

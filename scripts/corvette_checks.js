@@ -309,6 +309,7 @@ module.exports = async function corvetteChecks({ newPage, check }) {
       const L = window.__lp, st = L.state, out = { loops: [] };
       L.noRender = true;
       const fl = () => ({ c: L.flags.carCrashes || 0, w: L.flags.wallHits || 0, t: L.flags.cityTrafficHit || 0, h: L.flags.hwyTrafficHit || 0 });
+      const stepV = L.CAR.cruise * L.spdStepsFor("corvette")[2];
       const frame = (steer, pitch) => {
         L.api.setStick(steer || 0, pitch);
         L.update(1 / 60);
@@ -322,14 +323,19 @@ module.exports = async function corvetteChecks({ newPage, check }) {
         st.x = p.x; st.z = p.z; st.heading = Math.atan2(-p.fx, -p.fz); st.speed = L.CAR.cruise * 0.8;
         st.y = p.y; L.car.yield = 1; L.stPlan.road = null;
         const f0 = fl();
-        let f = 0, home = false, burn = 0, streetMax = 0, cornerOver = 0, corners = 0, wasCorner = false, cornerMax = 0;
+        let f = 0, home = false, burn = 0, streetMax = 0, cornerOver = 0, corners = 0, wasCorner = false, cornerMax = 0, nodeMax = 0, nodes = 0, wasNear = false, fast = 0, onGrid = 0;
         const grid = new Set();
         while (f < 60 * 260) {
           frame(0, 0.8); f++;
           if (L.cv.on) burn++;
           const r = L.stPlan.road, rd = L.car.road;
           if (L.car.onStreet && r && r.kind === "grid") {
-            grid.add(r.id); streetMax = Math.max(streetMax, st.speed);
+            grid.add(r.id); streetMax = Math.max(streetMax, st.speed); onGrid++;
+            if (st.speed > stepV + 1) fast++;
+            // v160: the boost is shed for every junction -- at each, he is the car at his step
+            const near = rd && rd.toNode < 3;
+            if (near) { nodeMax = Math.max(nodeMax, st.speed); if (!wasNear) nodes++; }
+            wasNear = !!near;
             // a corner the assist is easing him through: never over its cap by more than braking can shed
             const capped = rd && rd.cap !== undefined && rd.cap < 60;
             if (capped && rd.corner) { cornerMax = Math.max(cornerMax, st.speed); if (!wasCorner) corners++; }
@@ -342,6 +348,7 @@ module.exports = async function corvetteChecks({ newPage, check }) {
         const b = fl();
         out.loops.push({ city: k, way, home, secs: Math.round(f / 60), streets: grid.size, burnPct: Math.round(100 * burn / Math.max(1, f)),
           streetMax: Math.round(streetMax), corners, cornerMax: Math.round(cornerMax), cornerOver,
+          nodes, nodeMax: +nodeMax.toFixed(1), fastPct: Math.round(100 * fast / Math.max(1, onGrid)),
           crashes: b.c - f0.c, walls: b.w - f0.w, cityTouches: b.t - f0.t, hwyTouches: b.h - f0.h });
       }
       // a full right held through a New York junction, booster burning all the way
@@ -374,12 +381,50 @@ module.exports = async function corvetteChecks({ newPage, check }) {
       out.boost = +L.cvSpeed().toFixed(1); out.stepV = +(L.CAR.cruise * L.spdStepsFor("corvette")[2]).toFixed(1);
       return out;
     });
-    const badL = city.loops.filter(r => !r.home || r.crashes || r.walls || r.cityTouches || r.hwyTouches || r.burnPct < 90 || r.cornerOver > 6 || !r.corners || r.cornerMax > city.boost * 0.5 || r.streetMax > city.stepV + 1);
-    check(`corvette: fast is still safe in the cities -- booster held, hands-off from each city's ways in he loops through the streets and back out (${city.loops.map(r => `${r.city}${r.way === "CityInFar" ? " far" : ""} ${r.secs}s ${r.streets} streets, up to ${r.streetMax} m/s, ${r.corners} corners at most ${r.cornerMax}`).join("; ")}) with no crash, no wall and no touch of any traffic -- burning all the way, the booster adding nothing in a city (never over his step's ${city.stepV} m/s), the corner assist shedding speed for every corner as for the car`,
+    const badL = city.loops.filter(r => !r.home || r.crashes || r.walls || r.cityTouches || r.hwyTouches || r.burnPct < 90 || r.cornerOver > 6 || !r.corners || r.cornerMax > city.boost * 0.5 ||
+                                       r.streetMax < city.stepV * 1.25 || r.fastPct < 15 || !r.nodes || r.nodeMax > city.stepV + 1);
+    check(`corvette: fast is still safe in the cities -- booster held, hands-off from each city's ways in he loops through the streets and back out (${city.loops.map(r => `${r.city}${r.way === "CityInFar" ? " far" : ""} ${r.secs}s ${r.streets} streets, up to ${r.streetMax} m/s, over his step ${r.fastPct}% of the time, ${r.nodes} junctions at most ${r.nodeMax}, ${r.corners} corners at most ${r.cornerMax}`).join("; ")}) with no crash, no wall and no touch of any traffic -- burning all the way, a real boost along the streets (over 1.25 times his step's ${city.stepV} m/s) shed for every junction (never over his step's speed at one), the corner assist shedding speed for every corner as for the car`,
       city.loops.length === 4 && badL.length === 0, J(badL.length ? badL : city.loops));
     const t = city.turn || {};
     check(`corvette: a full right held through a New York junction with the booster burning turns him on to the cross street -- ${t.vAtNode} m/s at the junction against the booster's ${city.boost} -- no bang`,
       t.right && t.newStreet && t.vAtNode !== null && t.vAtNode < city.boost * 0.4 && t.burnPct > 90 && !t.crashes && !t.walls && !t.touches, J(t));
+
+    // ---- h2. (v160) a way in held with the booster burning: at his own step's speed, as the car
+    const wayIn = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, out = [];
+      L.noRender = true;
+      const full = 1 * L.CAR.dragRangeX * innerWidth / (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight));
+      for (const k of [0, 2, 4]) {
+        L.api.setVehicle("corvette"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+        L.spdReset(); st.speedStep = k; if (L.policeStop) L.policeStop(false);
+        const g = L.streets.cities.ny.ramps.inFar.gantry, c = g.c, s0 = g.s - c * 800;
+        const q = L.hwySampleAt(s0), lat = c * (L.HW.medianW / 2 + L.HW.laneW * 0.5);
+        st.x = q.x - q.fz * lat; st.z = q.z + q.fx * lat; st.y = q.y; st.heading = Math.atan2(-q.fx * c, -q.fz * c);
+        st.speed = L.CAR.cruise; st.exploding = false;
+        L.car.yield = 1; L.car.steer = 0; L.car.onSpurRoad = false; L.car.spurRec = null; L.stPlan.road = null; L.stPlan.turn = null;
+        for (const t of L.highway.traffic) if (t.alive && Math.abs(t.s - s0) < 300) { t.alive = false; t.respawn = 3; }
+        const c0 = (L.flags.carCrashes || 0) + (L.flags.wallHits || 0) + (L.flags.hwyTrafficHit || 0);
+        const stepV = L.CAR.cruise * L.spdStepsFor("corvette")[k];
+        let vBefore = 0, vSpur = null, spurMax = 0, off = 0, city = false, f = 0, burn = 0;
+        for (; f < 60 * 40 && !city; f++) {
+          const along = (L.hwyNearest(st.x, st.z).s - g.s) * c, holding = along > -260 && vSpur === null || (vSpur !== null && !L.car.onStreet);
+          L.api.setStick(holding ? full : 0, 0.8); L.update(1 / 60);
+          if (L.cv.on) burn++;
+          if (!holding) vBefore = Math.max(vBefore, st.speed);
+          if (L.car.spurRec && vSpur === null) vSpur = +st.speed.toFixed(1);
+          if (vSpur !== null && !L.car.onStreet) spurMax = Math.max(spurMax, st.speed);
+          if (L.car.offRoad > 0.6) off++;
+          city = !!L.car.onStreet;
+        }
+        out.push({ step: k, stepV: +stepV.toFixed(1), vBefore: Math.round(vBefore), vSpur, spurMax: +spurMax.toFixed(1), city, off, secs: Math.round(f / 60),
+                   burnPct: Math.round(100 * burn / f), bangs: (L.flags.carCrashes || 0) + (L.flags.wallHits || 0) + (L.flags.hwyTrafficHit || 0) - c0 });
+      }
+      L.api.clearStick(); L.spdReset(); L.noRender = false;
+      return out;
+    });
+    const badW = wayIn.filter(r => !r.city || r.off || r.bangs || r.vSpur === null || r.vSpur > r.stepV + 1 || r.spurMax > r.stepV + 1 || r.vBefore < 120 || r.burnPct < 90);
+    check(`corvette: a way in held with the booster burning -- from 128 m/s on the motorway a full right held for New York's far way in brings him on to its ramp at his own step's speed, as the car (${wayIn.map(r => `step ${r.step}: ${r.vBefore} m/s, then ${r.vSpur} on the ramp against ${r.stepV}`).join("; ")}), into the city, never off the road, no bang`,
+      wayIn.length === 3 && badW.length === 0, J(wayIn));
 
     // ---- i. off the road: a building, mid-block, booster burning
     const crash = await page.evaluate(() => {

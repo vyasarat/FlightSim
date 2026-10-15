@@ -707,6 +707,11 @@ const TUNE = {
     // turn he takes drops it to the top step's (corvette.js, cvStraight).
     // `alignTol`: its full speed only within this (radians) of lane-keep's aim -- lined up.
     booster: { pitch: 0.45, release: 0.2, over: 1.5, accel: 30, rate: 6, fade: 2.5, aheadMax: 128, shed: 40, alignTol: 0.12 },
+    // IN A CITY (v160, corvette.js cvCitySpeed): `over` times his own step's speed along a
+    // grid street, brought back down to that step's speed `margin` m short of every
+    // junction braking at `shed` (m/s^2) -- so he meets each one as the car does -- and
+    // given back past it at `accel`.
+    city: { over: 1.6, shed: 35, margin: 30, accel: 22 },
     // The flames, out of the four tail pipes: a white-blue core, a yellow middle and a
     // long orange tail, each [radius, length at a standstill], every length growing by
     // `perV` of itself per m/s up to `grow`; a flicker of `flicker` of the length at

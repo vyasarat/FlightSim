@@ -10,6 +10,55 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v160 — the Corvette's booster boosts in the cities too
+
+**What he gets:** in v159 the booster lit the flames in New York and California but added
+no speed there. Now it is a real boost along a city street too: up to 1.6 times his speed
+step's speed, about 64 m/s against the 46 of the middle step, wherever a block is long
+enough to reach it. It is shed early before every junction, the ones he drives straight
+through too, because a held turn can be found at any of them. So at each junction he is
+going exactly his step's speed, as the car does, and the corner assist, the turn rule and a
+four-year-old's hand are proven at that speed. Past the junction the boost comes back. On a
+corner, on a turn he is holding, on a curving link, off the street and while the assist hands
+a corner's speed back, or until the finger that took his last turn has let go of it, it is
+his step's speed, as before. The Corvette only: no other car changes.
+
+**One change on the motorway too, a slower one:** with the booster lit, a turn he holds on the
+motorway (an exit, a way in) now runs at his own step's speed, as the ways on and off already
+did. In v159 it ran at the top step's 85 m/s. Going straight he still gets 128, and the end-turn still 85. Why:
+with the booster held, a turn he held on the motorway brought him to it at 85 m/s. Started over and over, seed 2 of the noisy
+finger ran wide off the first bend of New York's far way in for a third of a second on 3 runs
+in 4 on v159. It was clean on v159's own runs only by timing. Now a held turn on the motorway
+brings him to it at his own step's speed, as the car does: 0 runs in 6. A new check holds that way in with the booster lit at
+steps 0, 2 and 4 and checks he comes on to the ramp at his step's speed. Put back to v159's
+rule, it fails at 84 m/s.
+
+**How:** `cvCitySpeed` (corvette.js) is the boosted speed along a grid street. It is never
+more than he can brake back from, at `TUNE.corvette.city.shed` (35 m/s²), to his step's speed
+`city.margin` (30 m) short of the junction ahead. The street planner now says how far that
+junction is (`toNode`). `corvette_checks`' city loops now ask for a real boost, over 1.25
+times his step's speed, and that he is never over his step's speed at any junction.
+`noisy_drive.js` reports the mean and top speeds on the city's streets. It also no longer calls
+a turn MISSED when, by the game's own state, the finger that took the last turn never let go
+(both must agree: by the hand's own record since that turn, no lift past `liftGrace` and the
+drag never back under `centreBelow`; and `car.spent` set all through the approach). By the rule that is one hold, no fresh steer, and straight on; the summary
+counts it as `spentHold`, and the harness's own noisy drive (the SUV) still requires 0 of them. On seed 3, traced frame by frame, the hand slid from full left to
+0.32 (in the car's units) and back to full left in 0.12 s, never lifting, and he was at or under
+his step's 46 m/s all through the approach, so the boost played no part. On seeds 5 and 7, traced the same way, the hand re-held the same side 0.02 s and 0.11 s
+after letting go. Seed 5 never went over 46 m/s. Seed 7 reached 51 m/s, and the boost no longer
+comes back there: it now waits until the last turn's finger lets go. The SUV, whose drive this
+release does not touch, does the same on seed 4. In v159's
+runs the same quick re-grab had dipped under 0.3 and turned.
+
+**Noisy finger, five real minutes each, New York's way in to its way out, on the final code:**
+- Booster held throughout, middle step, seeds 1-8: every run made 5 turns. Every run had 0 unintended, 0 missed, 0 bangs, 0 touches and 0 off-road. Seeds 3, 5 and 7 had one turn each held on from the last (`spentHold` 1, re-scored on the final scorer).
+- City speeds at the middle step: up to 64 m/s against 46; city mean 22-30 m/s.
+- Booster held, top step, seeds 1-2: all zeros, up to 90-96 m/s in the city.
+- The SUV on seeds 3-10, for comparison: seed 4 had one held-on turn. Seed 8 had one UNINTENDED turn, the same on v159 (2 runs of 2) as on v160. It is a pre-existing turn-rule bug, not changed here: a turn completed during a lift shorter than `liftGrace` is never marked spent, so the finger that lands again and drags to full takes the next street.
+
+1059/1059
+
+
 ## v159 — the Corvette, with a rocket booster
 
 **What he gets:** a new card in the picker, after the Cybertruck: a low red sports car with a

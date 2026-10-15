@@ -7,6 +7,8 @@
 //   behindOff       the same, the booster out (to tell the flames from the scene)
 //   seat            the driving seat, the booster burning: the mirror
 //   city            the chase view along a New York street, the booster burning
+//   citySeat        the same from the driving seat (v160: the boost in a city)
+//   cityApproach    the chase view coming up to a junction, the boost being shed (v160)
 //   dusk            the chase view on the motorway at dusk (the night sky part-way in), burning
 //   turn            the chase view mid-turn, a full steer held, burning: the flames side-on
 //   side|three      close in, stopped, at wheel height: the body, no lettering, wheels on the road
@@ -38,7 +40,7 @@ async function render(root, views) {
       document.getElementById("screenVehicle").classList.add("hiddenS");
       for (let i = 0; i < 60 * 10 && S.exploding; i++) L.update(1 / 60);
       L.api.setVehicle("corvette"); L.api.spawnAt(0, 0); L.api.skipScreens();
-      L.api.setView(v !== "seat");
+      L.api.setView(v !== "seat" && v !== "citySeat");
       L.api.clearStick(); for (let i = 0; i < 30; i++) L.update(1 / 60);
       const drive = (n, pitch) => { for (let i = 0; i < n; i++) { S.touching = true; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = pitch; L.update(1 / 60); } };
       const note = { kind: L.vehKind(), imported: L.vehicleModel && L.vehicleModel.userData.imported };
@@ -56,10 +58,10 @@ async function render(root, views) {
           cam.up.set(0, 1, 0); cam.lookAt(S.x - fx * 4, S.y + 0.9, S.z - fz * 4);
         };
         window.__hold = () => { S.touching = true; S.ctrlPitch = p; };
-      } else if (v === "city") {
+      } else if (v === "city" || v === "citySeat" || v === "cityApproach") {
         // the longest straight grid street in New York, from its start, the booster lit
         const C = L.streets.cities.ny;
-        const r = C.roads.filter(x => x.kind === "grid").sort((a, b) => b.len - a.len)[0], q = {};
+        const grid = C.roads.filter(x => x.kind === "grid" && x.b).sort((a, b) => b.len - a.len), r = grid[0], q = {};
         L.stPointAt(r, 20, 1, r.lo, q);
         S.x = q.x; S.z = q.z; S.y = L.stSurfaceAt(q.x, q.z); S.heading = Math.atan2(-q.fx, -q.fz); S.speed = L.CAR.cruise;
         L.car.yield = 1; L.car.steer = 0; L.stPlan.road = r; L.stPlan.dir = 1; L.stPlan.turn = null;
@@ -67,6 +69,16 @@ async function render(root, views) {
         L.updateScenery(S.x, S.z, true);
         for (let i = 0; i < 60; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
         drive(80, 0.8);
+        if (v === "cityApproach") {
+          // on through the blocks, booster held, until the boost is being shed for a junction ahead
+          const stepV = L.CAR.cruise * L.spdStepsFor("corvette")[2];
+          for (let i = 0; i < 60 * 20; i++) {
+            drive(1, 0.8);
+            const rd = L.car.road;
+            if (L.cv.on && rd && rd.toNode > 35 && rd.toNode < 55 && S.speed > stepV + 4 && rd.street && rd.street.kind === "grid") break;
+          }
+          note.toNode = L.car.road && Math.round(L.car.road.toNode);
+        }
         note.street = r.id; note.len = Math.round(r.len);
         window.__hold = () => { S.touching = true; S.ctrlPitch = 0.8; };
       } else if (v === "side" || v === "three") {
