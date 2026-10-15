@@ -61,7 +61,8 @@ function install() {
       for (const t of L.highway.traffic) if (t.alive && Math.abs(t.s - s0) < 300) { t.alive = false; t.respawn = 3; }
       window.__nd.prev = null;
       return { width: innerWidth, height: innerHeight, dragPx: L.CAR.dragRangeX * innerWidth,
-               dragYPx: L.TUNE.dragRangeY * Math.min(innerWidth, innerHeight), gantryS: g.s, c, fullSteer: L.CAR.fullSteer };
+               dragYPx: L.TUNE.dragRangeY * Math.min(innerWidth, innerHeight), gantryS: g.s, c, fullSteer: L.CAR.fullSteer,
+               liftGrace: L.CAR.liftGrace, centreBelow: L.CAR.centreBelow };
     },
     // one frame, and what the driver can see: where he is, the junction ahead
     // and its streets, his road, and the counters
@@ -77,7 +78,7 @@ function install() {
         hwyLat: n.lateral, hwyS: n.s, hwyDir: Math.sign(-Math.sin(st.heading) * n.fx + -Math.cos(st.heading) * n.fz),
         crashes: L.flags.carCrashes || 0, walls: L.flags.wallHits || 0,
         ct: L.flags.cityTrafficHit || 0, ht: L.flags.hwyTrafficHit || 0, reds: L.flags.redsRun || 0,
-        burning: !!(L.cv && L.cv.on),
+        burning: !!(L.cv && L.cv.on), spent: L.car.spent || 0, relatch: +(L.car.relatch || 0).toFixed(2),
         onLine: !!P.onLine, holding: !!(L.car.road && L.car.road.holding), plan: P.turn ? (P.turn.held ? "held" : P.turn.forced ? "forced" : "straight") : null,
         steerIn: +(L.car.dbgSteer || 0).toFixed(2), cap: L.car.road && L.car.road.cap < 999 ? +L.car.road.cap.toFixed(1) : null,
       };
@@ -218,6 +219,11 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
     else if (now - due > 50) S.late++;
     t = f / FPS; simT = t;
     for (const e of hand.frame(t, L)) await send(e);
+    // (v160) the hand's own record since the last turn it made: its longest lift, and how near
+    // the middle its drag came while down -- what the turn rule reads as letting go
+    S.hr = S.hr || { lift: 0, maxLift: 0, minDrag: Infinity };
+    if (!hand.down) { S.hr.lift += 1 / FPS; S.hr.maxLift = Math.max(S.hr.maxLift, S.hr.lift); }
+    else { S.hr.lift = 0; S.hr.minDrag = Math.min(S.hr.minDrag, Math.abs(hand.lastDrag || 0)); }
     const o = await page.evaluate(() => window.__nd.step());
     // ---- what the hand means next
     if (S.phase === "motorway") {
@@ -241,10 +247,16 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
         // hand MEANT but never reached is straight on, as the rule says
         const heldShare = meant !== "straight" && S.turn.appr ? +((S.turn.full || 0) / S.turn.appr).toFixed(2) : null;
         if (meant !== "straight" && did !== meant) verdict = heldShare >= 0.8 ? "MISSED TURN" : "not held full (" + Math.round(heldShare * 100) + "% of the approach): straight on, as the rule says";
+        // (v160) the finger that took the LAST turn never let go -- by the HAND's own record since
+        // that turn, no lift past liftGrace and the drag never back under centreBelow -- and the
+        // game agrees (car.spent set the whole approach): one hold, no fresh steer, straight on,
+        // as the rule says. Both must say so: the game alone would hide a spent that stuck.
+        const neverLet = S.hr && S.hr.maxLift <= geo.liftGrace && S.hr.minDrag >= geo.centreBelow;
+        if (verdict === "MISSED TURN" && S.turn && S.turn.spentAll && neverLet) verdict = "spent: the last turn's finger never let go, straight on, as the rule says";
         S.junctions.push({ meant, did, verdict });
         L("junction", { node: o.passed.node, meant, did, angle: a, plan: o.passed.wasPlan, verdict, ...(heldShare !== null ? { heldFull: heldShare } : {}) });
         if (S.turn && S.turn.node === o.passed.node) {
-          if (did === meant) S.turnsDone++;
+          if (did === meant) { S.turnsDone++; S.hr = null; }   // the hand's record starts again from a turn made
           S.lastTurnNode = o.passed.node;
           S.turn.done = t;
         }
@@ -254,6 +266,7 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
       // the grace count as held: the rule does too)
       if (S.turn && S.turn.done === undefined && hand.intent !== 0 && o.jn && o.jn.id === S.turn.node && o.jn.toGo > 10) {
         S.turn.appr = (S.turn.appr || 0) + 1;
+        S.turn.spentAll = (S.turn.spentAll === undefined || S.turn.spentAll) && !!o.spent;
         if (!hand.down || (hand.lastDrag || 0) * hand.intent >= geo.fullSteer) S.turn.full = (S.turn.full || 0) + 1;
       }
       // letting go once the turn is done and he is lined up with the new street
@@ -311,7 +324,10 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
       if (!off && S.offRoad) L("back on the road", {});
       S.offRoad = off;
     }
+    if (process.env.NOISY_TRACE) { const [a, b] = process.env.NOISY_TRACE.split(",").map(Number); if (t >= a && t <= b) L("trace", { v: +o.v.toFixed(1), bank: +(o.bank || 0).toFixed(2), touching: o.touching, spent: o.spent, relatch: o.relatch, jn: o.jn ? Math.round(o.jn.toGo) : null }); }
     S.frames = (S.frames || 0) + 1; if (o.burning) S.burnF = (S.burnF || 0) + 1;
+    // v160: how fast he goes in the city (the Corvette's booster now boosts there)
+    if (o.onStreet && o.kind === "grid") { S.cityF = (S.cityF || 0) + 1; S.cityV = (S.cityV || 0) + o.v; S.cityMax = Math.max(S.cityMax || 0, o.v); }
     S.prev = o;
     S.ring = S.ring || []; S.ring.push({ t: +t.toFixed(2), x: Math.round(o.x), z: Math.round(o.z), v: +(o.v || 0).toFixed(1), plan: o.plan, dbg: o.dbg, bank: +(o.bank || 0).toFixed(2), road: o.road, nearCar: o.nearCar });
     if (S.ring.length > 360) S.ring.shift();
@@ -331,8 +347,10 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
     junctions: J.length, turnsMeant: J.filter(j => j.meant !== "straight").length, turnsMade: S.turnsDone,
     unintended: J.filter(j => j.verdict === "UNINTENDED TURN").length, missed: J.filter(j => j.verdict === "MISSED TURN").length,
     notHeldFull: J.filter(j => j.verdict.startsWith("not held full")).length,
+    spentHold: J.filter(j => j.verdict.startsWith("spent")).length,   // v160: the last turn's finger never let go
     bangs: count("BANG"), touches: count("TOUCH"), offRoad: count("off the road"), lifts: count("lift"), overshoots: count("overshoot"),
     boosting: Math.round(100 * (S.burnF || 0) / Math.max(1, S.frames || 0)) + "%",   // v159: of the frames, the Corvette's booster burning
+    cityMean: +((S.cityV || 0) / Math.max(1, S.cityF || 0)).toFixed(1), cityMax: Math.round(S.cityMax || 0),   // v160: m/s on the city's grid streets
   };
   return { summary, log };
 }
@@ -343,10 +361,10 @@ async function harness({ newPage, check }) {
   const { summary, log } = await drive(page, { seconds: 300, seed: 1 });
   const out = path.resolve(__dirname, "..", "evidence", "noisy");
   try { fs.mkdirSync(out, { recursive: true }); fs.writeFileSync(path.join(out, "harness-seed1.json"), JSON.stringify({ summary, log }, null, 1)); } catch (e) {}
-  const ok = summary.wayIn && summary.wayOut && summary.unintended === 0 && summary.missed === 0 && summary.bangs === 0 &&
+  const ok = summary.wayIn && summary.wayOut && summary.unintended === 0 && summary.missed === 0 && summary.spentHold === 0 && summary.bangs === 0 &&
              summary.turnsMade >= 5 && summary.touches === 0 && summary.offRoad === 0 && errors.length === 0;
   const tail = log.filter(e => !["lift", "overshoot"].includes(e.type)).map(e => `${e.real}s ${e.type}${e.verdict ? " " + e.meant + "->" + e.did + " " + e.verdict : ""}${e.why ? " (" + e.why + ")" : ""}`).join("; ");
-  check(`noisy drive: five real minutes of a four-year-old's hand through New York (touch events at 60 Hz, portrait, driving seat, +-15% wobble, ${summary.lifts} lifts, ${summary.overshoots} overshoots) -- way in, ${summary.turnsMade}/5 held turns made, ${summary.junctions} junctions, ${summary.unintended} unintended turns, ${summary.missed} missed, ${summary.bangs} bangs, ${summary.touches} touches, ${summary.offRoad} times off the road, way out`,
+  check(`noisy drive: five real minutes of a four-year-old's hand through New York (touch events at 60 Hz, portrait, driving seat, +-15% wobble, ${summary.lifts} lifts, ${summary.overshoots} overshoots) -- way in, ${summary.turnsMade}/5 held turns made, ${summary.junctions} junctions, ${summary.unintended} unintended turns, ${summary.missed} missed, ${summary.spentHold} held on from the last turn, ${summary.bangs} bangs, ${summary.touches} touches, ${summary.offRoad} times off the road, way out`,
     ok, JSON.stringify(summary) + " || " + tail.slice(0, 2500));
   await page.context().close();
 }

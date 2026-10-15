@@ -688,7 +688,9 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
   return { lateral: pLat, y, fx: pFx, fz: pFz, s: pS, spur: null, street: road, dir,
            laneOff: road.lo * dir, aimX: stAim.x, aimZ: stAim.z, cap: P.cap,
            holding: P.holding, corner: P.corner, curve: P.curve, turned: P.turned, capBrake: P.capBrake,
-           railHalf: road.railed ? road.halfW : 0, dist: pD };
+           railHalf: road.railed ? road.halfW : 0, dist: pD,
+           // how far to the junction ahead, along his road (the Corvette's booster sheds by it)
+           toNode: node ? toGo : Infinity };
 }
 
 // How far, hands-off, to the next junction where the road ends -- following
