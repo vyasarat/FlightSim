@@ -16,7 +16,7 @@ const fs = require("fs");
 const path = require("path");
 const { NodeIO } = require("@gltf-transform/core");
 const { ALL_EXTENSIONS } = require("@gltf-transform/extensions");
-const { dedup, weld, simplify, prune, flatten, join, textureCompress } = require("@gltf-transform/functions");
+const { dedup, weld, simplify, prune, flatten, join, textureCompress, clearNodeTransform } = require("@gltf-transform/functions");
 const sharp = require("sharp");
 const { MeshoptSimplifier } = require("meshoptimizer");
 
@@ -66,6 +66,18 @@ const CYBER_PALETTE = {
   body: { base: [0.600, 0.615, 0.635, 1], metallic: 0.10, roughness: 0.50 },
   tint: { base: [0.070, 0.082, 0.100, 1], metallic: 0.0, roughness: 0.12 },
   rim:  { base: [0.300, 0.315, 0.335, 1], metallic: 0.10, roughness: 0.55 },
+};
+
+// v159: the Corvette's. Torch red, lifted the way the stealth grey was (one sun
+// and a sky fill deliver less than the daylight the paint is quoted under), low
+// metalness for the same reason. Its glass is opaque (no cabin behind it), its
+// rims carbon-dark, its tail pipes bright steel so the flames have a mouth.
+const CORVETTE_PALETTE = {
+  body: { base: [0.780, 0.060, 0.045, 1], metallic: 0.10, roughness: 0.40 },
+  tint: { base: [0.060, 0.070, 0.085, 1], metallic: 0.0, roughness: 0.12 },
+  trim: { base: [0.055, 0.058, 0.064, 1], metallic: 0.10, roughness: 0.60 },
+  rim:  { base: [0.300, 0.310, 0.330, 1], metallic: 0.10, roughness: 0.50 },
+  pipe: { base: [0.700, 0.715, 0.735, 1], metallic: 0.10, roughness: 0.35 },
 };
 
 async function build(name, targetTris, opts = {}) {
@@ -119,6 +131,55 @@ async function build(name, targetTris, opts = {}) {
     if (!n) throw new Error(`${name}: region ${rule.name} matched nothing`);
   }
 
+  // ---- 0b. islands (v159): in the materials named, every connected piece
+  // smaller than `below` (its box's diagonal, source units) goes. Raised
+  // lettering is a scatter of small separate pieces, one per letter, and baking
+  // to a flat colour keeps its SHAPE -- so a word moulded into the trim is still
+  // a word. Connected by position, not by index: a seam split for normals or UVs
+  // is still one piece.
+  if (opts.islands) {
+    const I = opts.islands, q = (x) => Math.round(x / I.weld);
+    let dropped = 0, pieces = 0;
+    for (const node of root.listNodes()) {
+      const mesh = node.getMesh(); if (!mesh) continue;
+      const M = node.getWorldMatrix();
+      for (const prim of mesh.listPrimitives()) {
+        const mat = prim.getMaterial(); if (!mat || !I.materials.some((s) => mat.getName().includes(s))) continue;
+        const pos = prim.getAttribute("POSITION"), idx = prim.getIndices(); if (!idx) continue;
+        const n = pos.getCount(), w = new Float64Array(n * 3), v = [0, 0, 0];
+        const key = new Map(), root_ = new Int32Array(n);
+        const find = (a) => { while (root_[a] !== a) { root_[a] = root_[root_[a]]; a = root_[a]; } return a; };
+        for (let i = 0; i < n; i++) {
+          pos.getElement(i, v);
+          for (let r = 0; r < 3; r++) w[i * 3 + r] = M[r] * v[0] + M[4 + r] * v[1] + M[8 + r] * v[2] + M[12 + r];
+          const k = q(w[i * 3]) + "," + q(w[i * 3 + 1]) + "," + q(w[i * 3 + 2]);
+          root_[i] = i;
+          if (key.has(k)) root_[i] = find(key.get(k)); else key.set(k, i);
+        }
+        for (let t = 0; t < idx.getCount(); t += 3) {
+          const a = find(idx.getScalar(t)), b = find(idx.getScalar(t + 1)), c = find(idx.getScalar(t + 2));
+          root_[b] = a; root_[find(c)] = a;
+        }
+        const lo = new Map(), hi = new Map();
+        for (let i = 0; i < n; i++) {
+          const r = find(i);
+          if (!lo.has(r)) { lo.set(r, [1e9, 1e9, 1e9]); hi.set(r, [-1e9, -1e9, -1e9]); }
+          const L = lo.get(r), H = hi.get(r);
+          for (let a = 0; a < 3; a++) { L[a] = Math.min(L[a], w[i * 3 + a]); H[a] = Math.max(H[a], w[i * 3 + a]); }
+        }
+        const small = new Set();
+        for (const [r, L] of lo) { const H = hi.get(r); pieces++; if (Math.hypot(H[0] - L[0], H[1] - L[1], H[2] - L[2]) < I.below) small.add(r); }
+        const keep = [];
+        for (let t = 0; t < idx.getCount(); t += 3) {
+          if (small.has(find(idx.getScalar(t)))) { dropped++; continue; }
+          keep.push(idx.getScalar(t), idx.getScalar(t + 1), idx.getScalar(t + 2));
+        }
+        prim.setIndices(doc.createAccessor().setType("SCALAR").setArray(new Uint32Array(keep)).setBuffer(idx.getBuffer()));
+      }
+    }
+    console.log(`  islands: ${dropped} triangles in pieces under ${I.below} dropped (${pieces} pieces looked at)`);
+  }
+
   // ---- 1. bake every material down to the small palette, BEFORE simplifying:
   // fewer materials means fewer primitives, which means `join` can merge them
   // and the simplifier gets whole surfaces instead of islands.
@@ -126,7 +187,16 @@ async function build(name, targetTris, opts = {}) {
   // `opts.materials` names the bucket for each source material outright, for a
   // model whose materials are called "Material.004" and so tell `classify`
   // nothing; one it does not name is an error, never quietly body.
+  // `opts.materialsBy` does the same by PART of the name, first match wins, for a
+  // model whose names are long and carry the part in the middle (v159); and a
+  // part mapped to "drop" is taken out of the model altogether.
   const kindOf = (mat) => {
+    if (opts.materialsBy) {
+      const nm = (mat && mat.getName()) || "";
+      const hit = opts.materialsBy.find(([part]) => nm.includes(part));
+      if (!hit) throw new Error(`${name}: source material "${nm}" is not in its map`);
+      return hit[1];
+    }
     if (!opts.materials) return classify(mat && mat.getName(), mat);
     const k = mat && opts.materials[mat.getName()];
     if (!k) throw new Error(`${name}: source material "${mat && mat.getName()}" is not in its map`);
@@ -138,7 +208,7 @@ async function build(name, targetTris, opts = {}) {
   for (const mat of root.listMaterials()) {
     const kind = kindOf(mat);
     report[kind] = (report[kind] || 0) + 1;
-    if (!buckets.has(kind)) {
+    if (kind !== "drop" && !buckets.has(kind)) {
       const spec = pal[kind];
       const nm = doc.createMaterial(kind)
         .setBaseColorFactor(spec.base)
@@ -152,6 +222,7 @@ async function build(name, targetTris, opts = {}) {
   }
   for (const m of root.listMeshes()) for (const p of m.listPrimitives()) {
     const old = p.getMaterial();
+    if (old && kindOf(old) === "drop") { p.dispose(); continue; }
     p.setMaterial(buckets.get(kindOf(old)) || buckets.get("body"));
   }
   // every original material, and every texture with it, is now unreferenced
@@ -175,6 +246,26 @@ async function build(name, targetTris, opts = {}) {
       pr.setAttribute("TANGENT", null);
       pr.setAttribute("COLOR_0", null);
     }
+  }
+  // `bake` (v159): every node's transform goes INTO its vertices, so the model the
+  // game loads is all identity nodes. The Corvette's wheels carry a 1.5-degree
+  // camber on their nodes, and this three.js build boxes a rotated mesh by its own
+  // box (Box3's precise flag is ignored): the body was stood 9 cm off the road on
+  // its loose box. A mesh two nodes share is copied first, or baking one moves both.
+  if (opts.bake) {
+    await doc.transform(flatten());
+    for (const n of root.listNodes()) {
+      const mesh = n.getMesh(); if (!mesh) continue;
+      if (mesh.listParents().filter((p) => p.propertyType === "Node").length > 1) {
+        const m2 = mesh.clone();
+        for (const p of m2.listPrimitives()) {
+          for (const sem of p.listSemantics()) p.setAttribute(sem, p.getAttribute(sem).clone());
+          if (p.getIndices()) p.setIndices(p.getIndices().clone());
+        }
+        n.setMesh(m2);
+      }
+    }
+    for (const n of root.listNodes()) if (n.getMesh()) clearNodeTransform(n);
   }
   await doc.transform(
     dedup(),
@@ -322,6 +413,36 @@ async function buildLivery(srcFile, outName, targetTris, opts = {}) {
       "cover": "body", "Material": "body", "Material.001": "tint", "Material.002": "tint", "Material.003": "trim",
       "Material.004": "lamp", "Material.005": "tail", "Material.006": "tyre", "Material.007": "rim",
     },
+  });
+  // v159: the Corvette. A 400k-triangle source with a full cabin and engine bay,
+  // 47 textures and the maker's names on it. What goes: the cabin, the engine
+  // (all but its four tail pipes, which the rocket booster's flames come out of),
+  // the badges, the plate, the calliper badges -- every texture with them, so no
+  // painted word survives -- and, in the black trim, every piece under 16 cm,
+  // which is the raised lettering across the tail and on the doors and the two emblems, nose and tail (a word
+  // moulded into the trim is still a word once it is baked flat). The glass is
+  // OPAQUE, as on the Cybertruck: with the cabin gone, see-through glass shows a
+  // hole. Source units are 100 m (the car is 0.0465 long), nose at +Z.
+  const CV = "cChevrolet_CorvetteC8ZR1_2024";
+  if (!only || only === "corvette") await build("corvette", 22000, {
+    src: "2025_chevrolet_corvette_zr1.glb", bake: true, stripAttrs: true, weld: 0.0002, error: 0.0015, palette: CORVETTE_PALETTE,
+    islands: { materials: ["Coloured_Material", "Grille", "SpecularTint", "Textured"], below: 0.0016, weld: 0.000002 },
+    regions: [
+      // the four tail pipes: the Engine's triangles right at the tail and low
+      { name: "pipes", from: CV + "EngineA_Material1", test: (x, y, z) => z < -0.0212 && y < 0.0055 },
+      // the light material is both ends: the back half of it is the tail lamps
+      { name: "taillamp", from: CV + "LightA_Material1", test: (x, y, z) => z < -0.012 },
+    ],
+    materialsBy: [
+      ["pipes", "pipe"], ["taillamp", "tail"],
+      ["Paint_Material", "body"], ["red_glass", "tail"], ["LightA_Material", "lamp"],
+      ["Window_Material", "tint"],
+      ["Wheel1A_3DCarbon2", "rim"], ["Wheel1A_3D_3DWheel1A", "tyre"],
+      ["Carbon1_Material", "trim"], ["Base_Material", "trim"], ["Coloured_Material", "trim"], ["Grille", "trim"],
+      ["SpecularTint", "trim"], ["TexturedA", "trim"], ["CalliperA_Zone", "trim"], ["cphong1", "trim"],
+      ["EngineA_Material", "drop"], ["InteriorA_Material", "drop"], ["InteriorTilling", "drop"], ["emis", "drop"],
+      ["BadgeA_Material", "drop"], ["ManufacturerPlate", "drop"], ["CalliperBadge", "drop"],
+    ],
   });
   // The two airliners: livery kept, hierarchy kept, textures paid for.
   if (!only || only === "airlinerDelta")

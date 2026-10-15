@@ -31,6 +31,9 @@ const CASES = [
   { key: "airlinerDelta",   kind: "plane" },
   { key: "helicopter",      kind: "heli" },
   { key: "car",             kind: "car" },
+  // v159: the Corvette -- a new vehicle, so new numbers (the baseline was
+  // regenerated for it, deliberately; every other vehicle's are unchanged)
+  { key: "corvette",        kind: "corvette" },
   { key: "speedboat",       kind: "boat" },
   { key: "yacht",           kind: "yacht" },
   { key: "rocket",          kind: "rocket" },
@@ -185,7 +188,7 @@ module.exports = async function vehicleContractChecks({ newPage, check }) {
       // (v129: the yacht, the rover and the drone can go bang now too -- the one
       // wall law, solids.js -- and solidity_checks.js drives each into walls.)
       out.crash = null;
-      const direct = { boat: "boatCrash", car: "carCrash" }[c.kind];
+      const direct = { boat: "boatCrash", car: "carCrash", corvette: "carCrash" }[c.kind];   // (v159: the Corvette bangs as the car)
       const flies = c.kind === "plane" || c.kind === "heli";
       if (direct && typeof window[direct] === "function") {
         place();

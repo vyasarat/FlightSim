@@ -653,8 +653,10 @@
   @keyframes numBeat { from { transform: translate(-50%,-50%) scale(1.5); } to { transform: translate(-50%,-50%) scale(1); } }
   /* ---- v147: DAD MODE (dadmode.js). The key on the picker is small and dim; every
      other dad element is made on entry and removed on exit. */
+  /* (v159: 34 px wide, not 44 -- with sixteen cards a 390 px portrait picker's last row is
+     two cards, 37 px in from each side, and the wider key sat over the left one) */
   #dadKey { position: fixed; left: env(safe-area-inset-left); bottom: env(safe-area-inset-bottom);
-    width: 44px; height: 44px; padding: 12px; border: 0; background: transparent; color: #8a93a0; opacity: .22;
+    width: 34px; height: 44px; padding: 12px 7px; border: 0; background: transparent; color: #8a93a0; opacity: .22;
     z-index: 31; touch-action: manipulation; }
   #dadKey svg { width: 20px; height: 20px; pointer-events: none; }
   #dadKey.locked { opacity: .08; }
@@ -1250,6 +1252,23 @@
       <circle cx="146" cy="86" r="15" fill="#1f2328"/><circle cx="146" cy="86" r="6" fill="#c9ced6"/>
     </svg>
   </button>
+  <button class="card vehCard" data-v="corvette">
+    <svg viewBox="0 0 200 120">
+      <!-- v159: the Corvette, low and red, nose to the right like the car's, a black wing over its tail and the booster's flame out of the back (white-blue core, yellow, a long orange tail); no badge, no wordmark -->
+      <path d="M36 70 L4 62 L14 72 L2 82 L36 78 Z" fill="#ff7a1a"/>
+      <path d="M36 71 L14 67 L22 74 L12 80 L36 77 Z" fill="#ffd23e"/>
+      <path d="M36 72 L22 71 L36 76 Z" fill="#d8ecff"/>
+      <path d="M32 84 L32 64 Q34 58 48 56 L80 51 Q100 36 122 37 L142 46 L178 56 Q192 60 190 74 L188 84 Z"
+            fill="#e0483e" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M86 51 Q103 41 120 42 L136 49 L86 53 Z" fill="#1b2430" stroke="#23282f" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M26 40 L62 40 L62 47 L26 47 Z" fill="#1f2328" stroke="#23282f" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M44 47 L48 56" stroke="#1f2328" stroke-width="5"/>
+      <rect x="174" y="62" width="14" height="5" rx="2.5" fill="#dfe9ff"/>
+      <path d="M40 84 A20 20 0 0 1 80 84 Z M134 84 A20 20 0 0 1 174 84 Z" fill="#23282f"/>
+      <circle cx="60" cy="86" r="15" fill="#1f2328"/><circle cx="60" cy="86" r="6" fill="#8a93a0"/>
+      <circle cx="154" cy="86" r="15" fill="#1f2328"/><circle cx="154" cy="86" r="6" fill="#8a93a0"/>
+    </svg>
+  </button>
   <button class="card vehCard" data-v="monster">
     <svg viewBox="0 0 200 120">
       <!-- a blue monster truck on four giant black wheels: dark glass, nobody shown -->
@@ -1485,6 +1504,7 @@
 <script src="js/highway.js"></script>
 <script src="js/streets.js"></script>
 <script src="js/car.js"></script>
+<script src="js/corvette.js"></script>
   <script src="js/lights.js"></script>
   <script src="js/police.js"></script>
 <script src="js/harbor.js"></script>

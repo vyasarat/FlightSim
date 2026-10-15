@@ -27,6 +27,9 @@
 // missed turn, a bang.
 //
 //   [NOISY_VEH=cybertruck] node scripts/noisy_drive.js [seconds=300] [seed=1] [root]
+//   NOISY_STEP=4 ...                       at that speed step (0 is the slowest)
+//   NOISY_VEH=corvette NOISY_BOOST=1 ...   (v159) the finger also dragged UP the whole way, so the
+//                                          Corvette's booster burns -- wobble and lifts as ever
 // or, from the harness: require("./noisy_drive")({ newPage, check }).
 const fs = require("fs"), path = require("path");
 
@@ -47,6 +50,7 @@ function install() {
       L.api.skipScreens(); L.api.setVehicle(window.__ndVeh || "car"); L.api.spawnAt(0, 0);   // NOISY_VEH=cybertruck (v146) drives it in the Cybertruck
       for (let i = 0; i < 10; i++) L.update(1 / 60);
       L.spdReset(); L.api.setView(false);
+      if (window.__ndStep !== undefined) st.speedStep = window.__ndStep;   // NOISY_STEP=<i>: at that speed step
       const rec = L.streets.cities.ny.ramps.inFar, g = rec.gantry, c = g.c;
       const s0 = g.s - c * where;
       const q = L.hwySampleAt(s0), lat = c * (L.HW.medianW / 2 + L.HW.laneW * 0.5);
@@ -73,6 +77,7 @@ function install() {
         hwyLat: n.lateral, hwyS: n.s, hwyDir: Math.sign(-Math.sin(st.heading) * n.fx + -Math.cos(st.heading) * n.fz),
         crashes: L.flags.carCrashes || 0, walls: L.flags.wallHits || 0,
         ct: L.flags.cityTrafficHit || 0, ht: L.flags.hwyTrafficHit || 0, reds: L.flags.redsRun || 0,
+        burning: !!(L.cv && L.cv.on),
         onLine: !!P.onLine, holding: !!(L.car.road && L.car.road.holding), plan: P.turn ? (P.turn.held ? "held" : P.turn.forced ? "forced" : "straight") : null,
         steerIn: +(L.car.dbgSteer || 0).toFixed(2), cap: L.car.road && L.car.road.cap < 999 ? +L.car.road.cap.toFixed(1) : null,
       };
@@ -165,7 +170,8 @@ function makeHand(rand, geo) {
     const over = H.overUntil >= 0 ? H.overAmt : 0;
     const wob = 0.15 * (0.6 * Math.sin(t * H.f[0] * 6.283 + H.ph[0]) + 0.4 * Math.sin(t * H.f[1] * 6.283 + H.ph[1]));
     const wobY = 0.15 * (0.6 * Math.sin(t * H.f[2] * 6.283 + H.ph[2]) + 0.4 * Math.sin(t * H.f[3] * 6.283 + H.ph[3]));
-    const dx = (H.cur + over + wob) * geo.dragPx, dy = wobY * geo.dragYPx;
+    // (NOISY_BOOST: dragged up past the booster's mark too, and wobbling about it)
+    const dx = (H.cur + over + wob) * geo.dragPx, dy = (wobY - (geo.boostUp || 0)) * geo.dragYPx;
     ev.push({ type: "touchMove", x: H.ox + dx, y: H.oy + dy });
     H.lastDrag = (H.cur + over + wob);
     return ev;
@@ -180,9 +186,11 @@ function makeHand(rand, geo) {
 
 async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
   await page.evaluate((v) => { window.__ndVeh = v; }, process.env.NOISY_VEH || "car");
+  if (process.env.NOISY_STEP !== undefined) await page.evaluate((k) => { window.__ndStep = k; }, +process.env.NOISY_STEP);
   await page.evaluate(install);
   const cdp = await page.context().newCDPSession(page);
   const geo = await page.evaluate(() => window.__nd.setup(800));
+  geo.boostUp = process.env.NOISY_BOOST ? 0.75 : 0;
   const rand = mulberry(seed);
   // how long the finger stays down after a turn is done: its own stream, so a
   // seed drives the same streets it always did. Half the time it lets go at
@@ -303,6 +311,7 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
       if (!off && S.offRoad) L("back on the road", {});
       S.offRoad = off;
     }
+    S.frames = (S.frames || 0) + 1; if (o.burning) S.burnF = (S.burnF || 0) + 1;
     S.prev = o;
     S.ring = S.ring || []; S.ring.push({ t: +t.toFixed(2), x: Math.round(o.x), z: Math.round(o.z), v: +(o.v || 0).toFixed(1), plan: o.plan, dbg: o.dbg, bank: +(o.bank || 0).toFixed(2), road: o.road, nearCar: o.nearCar });
     if (S.ring.length > 360) S.ring.shift();
@@ -323,6 +332,7 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
     unintended: J.filter(j => j.verdict === "UNINTENDED TURN").length, missed: J.filter(j => j.verdict === "MISSED TURN").length,
     notHeldFull: J.filter(j => j.verdict.startsWith("not held full")).length,
     bangs: count("BANG"), touches: count("TOUCH"), offRoad: count("off the road"), lifts: count("lift"), overshoots: count("overshoot"),
+    boosting: Math.round(100 * (S.burnF || 0) / Math.max(1, S.frames || 0)) + "%",   // v159: of the frames, the Corvette's booster burning
   };
   return { summary, log };
 }

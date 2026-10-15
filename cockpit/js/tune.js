@@ -287,6 +287,11 @@ const TUNE = {
     // `cabinLift`: the driving seat's cabin rises with the eye, which is eyeFrac of the
     // body's measured height -- 3.65 m against the Y's 3.18, so 0.72 * 0.47 = 0.34 m.
     cybertruck: { file: "models/cybertruck.glb", length: 11.0, yaw: Math.PI, lift: 0, cabinLift: 0.34 },   // nose-at-+Z in the source
+    // v159: the Corvette, at the same scale as the other two (its 4.68 m against the
+    // Y's 4.75 m), and LOW: its measured 2.40 m (the wing's tips are its top) against
+    // the Y's 3.17, so the cabin comes DOWN with the eye, 0.72 * 0.77 = 0.56 m. `smooth`:
+    // a curved body, like the Y's, not a faceted one.
+    corvette: { file: "models/corvette.glb", length: 9.07, yaw: Math.PI, lift: 0, smooth: true, cabinLift: -0.56 },   // nose-at-+Z in the source
     fighter: { file: "models/fighter.glb", length: 16.0, yaw: Math.PI, lift: 0, burner: true },   // tail-first; `burner`: find the nozzle and light it
     // The two hulls (scripts/build_boats.js). `lift` sits the waterline where
     // the game's waterline is: an imported hull stands on its keel, and the game
@@ -684,6 +689,48 @@ const TUNE = {
       // brings the wind-up forward, so a honk is answered and nothing is skipped.
       bridgeRange: 620,
     },
+  },
+
+  // ---- v159: THE CORVETTE'S ROCKET BOOSTER (corvette.js). The Corvette drives AS the
+  // car -- every number above is its own -- and its drag-up, the burst on every other
+  // car, is the booster: held, it burns for as long as he holds it. Nothing runs out.
+  corvette: {
+    // Lit past `pitch` of drag up, out only under `release` (a wobbling finger is one
+    // burn, one whoosh). While it burns, going straight along the motorway, he is
+    // driven at `over` times the TOP speed step's speed whatever step he is on -- well
+    // above the top step's -- at `accel` m/s^2; through a turn he holds, on a way on or
+    // off and in the cities at the top step's own (corvette.js, cvStraight). Everything
+    // that slows him still does: the corner assist's cap, the motorway's end-turn, off-road.
+    // `aheadMax`: lane-keep's aim reaches no further than the top step's own (car.js,
+    // carAimAhead) -- 1.5 s at 128 m/s cut the motorway's curves and crossed the median.
+    // `shed`: while it burns, speed over what it drives him at comes off this hard -- a
+    // turn he takes drops it to the top step's (corvette.js, cvStraight).
+    // `alignTol`: its full speed only within this (radians) of lane-keep's aim -- lined up.
+    booster: { pitch: 0.45, release: 0.2, over: 1.5, accel: 30, rate: 6, fade: 2.5, aheadMax: 128, shed: 40, alignTol: 0.12 },
+    // The flames, out of the four tail pipes: a white-blue core, a yellow middle and a
+    // long orange tail, each [radius, length at a standstill], every length growing by
+    // `perV` of itself per m/s up to `grow`; a flicker of `flicker` of the length at
+    // `hz`. A glow at the pipes, one over the plume and one lying on the road behind.
+    flame: { core: [0.24, 1.5], mid: [0.4, 2.8], tail: [0.58, 4.2], perV: 0.012, grow: 2.6, flicker: 0.12, hz: 23,
+             coreColor: 0xd8ecff, midColor: 0xffd23e, tailColor: 0xff7a1a,
+             // (the glows are camera-facing squares at pipe height: any bigger than twice that
+             // and the road cuts them off in a straight line across the tarmac)
+             nozzle: 1.4, plume: 1.6, road: [7, 18], roadOpacity: 0.6 },
+    // A few sparks off the tail: born at `rate` a second at full burn, thrown back at
+    // `speed` m/s (his own speed carried by `carry`), spread `spread`, falling at `gravity`.
+    sparks: { count: 36, rate: 45, life: [0.25, 0.5], speed: [8, 16], carry: 0.7, spread: 3.5, gravity: 14, size: 0.55 },
+    // How fast it FEELS: the chase camera drops back by `back` and up by `up` (fractions
+    // of where it sits), and the view widens by `fov` degrees, all eased at `rate`. And
+    // it keeps up: the camera's lag is a time, so at 128 m/s it trailed 25 m further
+    // and the car and its flames were a dot -- it follows `lag` times as tightly.
+    cam: { back: 0.12, up: 0.1, fov: 10, rate: 3, lag: 2.3 },
+    // Its voice, over the engine: a sawtooth roar at `hz`, rising by `rise` of itself
+    // with the burn, and a whoosh as it lights.
+    roar: { hz: 52, rise: 0.5, gain: 0.2, whoosh: { dur: 0.6, freq: 420, peak: 0.4 } },
+    // The rear-view mirror that shows the flames from the seat (the cabin's own is on
+    // the car's middle, off a portrait screen): `inboard` of his eye, `drop` under the
+    // roof, at `z` (metres, -Z ahead), tipped down `tilt` toward him; the glass w x h.
+    mirror: { w: 0.34, h: 0.09, inboard: 0.14, drop: -0.24, z: -1.0, tilt: -0.12 },
   },
 
   // ---- The palette. Every colour in the game snaps to one of these unless it
@@ -1201,8 +1248,8 @@ const TUNE = {
   // (landMax*) says what counts as arriving and everything else is a crash.
   // The car's and the boat's crawls are their old crash speeds, unchanged.
   solid: {
-    r:     { plane: 3, heli: 3, rocket: 3, car: 3, cybertruck: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12, dad: 4 },
-    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, cybertruck: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99, dad: -1 },   // the monster never bangs at any speed
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, cybertruck: 3, corvette: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12, dad: 4 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, cybertruck: 18, corvette: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99, dad: -1 },   // the monster never bangs at any speed
     // v147: the parent's jet in dad mode (dadmode.js). Its own rules: anything solid at
     // any speed is a crash that ENDS the mission (crawl -1) -- dad mode is exempt from
     // the free reassembly, and nothing of it exists outside dad mode.
@@ -2095,6 +2142,8 @@ const TUNE = {
       // v146: the Cybertruck ejects as the car does, through its own taller roof:
       // 2.6 m of origin under the road, the body's measured 3.66 m, and the same clearance.
       cybertruck: { opening: 1, hatch: 'panel', seat: 'rocket', front: 0.4, roof: 6.4, color: 0xe0483e },
+      // v159: the Corvette, the same way out of its own low roof (2.6 m + its measured 2.40 + clearance)
+      corvette: { opening: 1, hatch: 'panel', seat: 'rocket', front: 0.4, roof: 5.2, color: 0xffd23e },
       // And the boat, for the same reason the car needed an entry: without one
       // `ejectStart` returns false and the button sits there doing nothing.
       // `roof` is measured from the MODEL's origin, which for a boat sits a
@@ -2297,6 +2346,7 @@ const TUNE = {
     fighter:          { cruiseSpeed: 95, turnRateDeg: 22, pitchLimitDeg: 38, bankLimitDeg: 50, accel: 22, capped: true, size: 1.25, hasGear: true },
     car:              { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true },  // its own model: TUNE.car
     cybertruck:       { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true, cybertruck: true },  // v146: drives AS the car (car.js, TUNE.car); only its body is its own
+    corvette:         { cruiseSpeed: 46, turnRateDeg: 34, pitchLimitDeg: 10, bankLimitDeg: 8, accel: 11, capped: true, size: 1.0, hasGear: false, car: true, corvette: true },  // v159: drives AS the car; its body and its booster (corvette.js, TUNE.corvette) are its own
     monster:          { cruiseSpeed: 24, turnRateDeg: 70, pitchLimitDeg: 40, bankLimitDeg: 8, accel: 9, capped: true, size: 1.0, hasGear: false, monster: true },  // its own model and rules: TUNE.monster
     sled:             { cruiseSpeed: 120, turnRateDeg: 0, pitchLimitDeg: 0, bankLimitDeg: 0, accel: 40, capped: true, size: 1.0, hasGear: false, sledRide: true },  // v144: the set-piece's rail and run (sledride.js, TUNE.sledRide)
     crane:            { cruiseSpeed: 1, turnRateDeg: 34, pitchLimitDeg: 0, bankLimitDeg: 0, accel: 0, capped: true, size: 1.0, hasGear: false, crane: true },  // v145: parked for good; its own rules (crane.js, TUNE.crane); cruiseSpeed is nominal, it never moves
@@ -2311,6 +2361,7 @@ const TUNE = {
     helicopter:       ["#20a39e", "#f2f4f7"],
     car:              ["#4a4f55", "#c9ced6"],   // stealth grey; no badge, no wordmark
     cybertruck:       ["#8a93a0", "#c9ced6"],   // v146: brushed steel; no badge, no wordmark
+    corvette:         ["#e0483e", "#1f2328"],   // v159: torch red and black trim; no badge, no wordmark
     monster:          ["#2b6fd1", "#ffd23e"],   // the set-piece truck's blue and yellow
     sled:             ["#e0483e", "#ffd23e"],   // the set-piece sled's red and yellow
     crane:            ["#ffd23e", "#1f2328"],   // the crane's yellow and its ball's black
