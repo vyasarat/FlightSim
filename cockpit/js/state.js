@@ -113,6 +113,7 @@ const VEHICLE_TONES = [
   ["yachtHull", "triangle", 55],
   ["rover", "sawtooth", 55],
   ["srBurst", "sawtooth", TUNE.sledRide.burst.hz],   // v144: the rocket sled's burst (sledride.js)
+  ["cvRoar", "sawtooth", TUNE.corvette.roar.hz],     // v159: the Corvette's booster (corvette.js)
 ];
 
 function applyVehicle(key) {
@@ -125,6 +126,7 @@ function applyVehicle(key) {
   if (typeof heavyReset === "function" && !(TUNE.vehicles[key] && TUNE.vehicles[key].heavy)) heavyReset();
   if (typeof heliReset === "function") heliReset();
   if (typeof trackReset === "function") trackReset();
+  if (typeof cvReset === "function") cvReset();      // v159: the booster's flames do not outlive the Corvette
   state.vehicleKey = key;
   state.vp = TUNE.vehicles[key];
   if (typeof rocketNodes !== "undefined" && rocketNodes) setRocketEngine(0, 0);   // silence the roar, but don't build the graph for a plane

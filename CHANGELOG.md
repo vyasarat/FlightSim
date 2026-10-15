@@ -10,6 +10,63 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v159 — the Corvette, with a rocket booster
+
+**What he gets:** a new card in the picker, after the Cybertruck: a low red sports car with a
+black wing and a flame out of its tail. It drives exactly like the SUV, the same finger, the
+same lane-keep coast to coast, the same turns in both cities, the same speed steps, police,
+signals, horn and eject. Only the body and the drag-up are new. On every other car a drag up
+is a short burst. On the Corvette it is a **rocket booster**, and it burns for as long as he
+holds it: there is no fuel, no cooldown and nothing that runs out. Big flames come out of its
+four tail pipes, each a white-blue core inside a yellow middle inside a long orange tail that
+grows with speed. There is a glow at the pipes, a glow on the road behind and a few sparks.
+The chase camera drops back a little, the view widens, and a whoosh and a roar sit over the
+engine. From the driving seat the flames are behind him, so the rear-view mirror shows them.
+On the motorway, going straight, it takes him to 128 m/s (the top speed step is 85) whatever
+step he is on. Through a turn he holds on the motorway it gives the top step's 85, the speed
+the exits and the end-turn are proven at with a four-year-old's hand, still a jump from any
+other step. On a way on or off and in the cities it adds nothing: he drives at his own step's
+speed, exactly the car, with the flames lit. A noisy hand holding the booster at 128, and then
+at 85, went wide into New York's walls on held corners, where the SUV at 85 never did.
+
+**Fast is still safe.** Three things change for the Corvette only, and nothing for any other car:
+- Lane-keep aims no further ahead than at the top step. At 128 m/s its 1.5 s aim was 192 m out, and on the motorway's long curves the line to it walked him over the median into the oncoming lanes.
+- While the booster burns, speed over what it is driving him at comes off at 40 m/s², so a turn he takes, or the motorway's end-turn, sheds 128 m/s in time.
+- The booster pushes at full strength only when he is lined up with the road. Out of the end-turn's U at full strength he swung off the road; a check drives both ends at 128 and fails without this.
+
+The traffic's promises are made against his speed, so traffic ahead yields and outruns him at
+128 too. In the cities the corner assist sheds speed for every corner while he boosts, as it
+does for the car. Off the road
+he bangs and is rebuilt where it happened, as every car is.
+
+**How:** a row in the vehicle contract that calls the car's own functions, like the
+Cybertruck's, plus one new slot, `booster`. The booster is `corvette.js`. The model is a
+CC BY-NC-SA 4.0 Sketchfab download (credited below), built by `scripts/build_models.js` from
+400k triangles to 26k and 0.36 MB. The build drops the cabin, the engine (all but its four
+tail pipes), the badges, the plate and every texture. In the black trim it also drops every
+loose piece under 16 cm: the raised lettering across the tail and on the doors, and the
+emblems on the nose and tail, which would still be a word and a logo once baked flat. The
+glass is opaque. New check module `corvette_checks`:
+- The SUV's twin run gives the same path to the millimetre with the booster untouched.
+- The card, the contract row and the model.
+- The booster is measurably faster.
+- The flames are visible from the chase view, and from the seat in the mirror.
+- Booster-held crossings of the country both ways, at the bottom and top steps: zero bangs, never on the oncoming side.
+- Booster-held hands-off loops of both cities: zero bangs.
+- A held corner, a building bang, and leaving it.
+
+`noisy_drive.js` takes `NOISY_BOOST=1` and `NOISY_STEP`. The picker goes from 15 cards to 16,
+deliberately. With sixteen, a narrow portrait picker's last row is two cards, so dad mode's dim
+key in the corner is 34 px wide instead of 44 and covers none of them. The vehicle baseline
+gains one row, the Corvette's (a new vehicle), including its bang; every other vehicle's numbers
+are unchanged.
+
+**Noisy finger, five real minutes each, New York's way in to its way out:**
+- Booster held throughout (`NOISY_BOOST=1`, boosting 99% of the time), seeds 1-5: 5/5 turns made in every run; 0 unintended, 0 missed, 0 bangs, 0 touches and 0 off-road in every run (junctions 28, 42, 38, 14 and 10).
+- The plain Corvette, seeds 1-2: the same, all zeros (junctions 20 and 16).
+
+1058/1058
+
 ## v158 — dad mode: Breaking the Sound Barrier
 
 Dad mode only; his game is unchanged. Mission 6 on the list, the last of the five asked for,
@@ -2151,6 +2208,9 @@ processed as described above:
 - "Tesla Cybertruck" by Lexyc16 (sketchfab.com/Lexyc16), CC BY 4.0, via
   Sketchfab (v146) —
   https://sketchfab.com/3d-models/tesla-cybertruck-f12e67159f75486bb21213e573520612
+- "2025 Chevrolet Corvette ZR1" by Ddiaz Design (sketchfab.com/ddiaz-design),
+  CC BY-NC-SA 4.0, via Sketchfab (v159) —
+  https://sketchfab.com/3d-models/2025-chevrolet-corvette-zr1-9df7e489a49c4820b09d3fdde7271e78
 
 Three of the four are **CC BY-NC 4.0** — attribution *and* non-commercial — which is what the
 `asset.extras` block inside each GLB records, not the plain CC BY they were taken

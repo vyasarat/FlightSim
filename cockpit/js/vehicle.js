@@ -336,7 +336,8 @@ function updateFeel(dt) {
   // ---- field of view: wider the faster he goes, plus whatever punched it
   const sp = state.vp && state.vp.cruiseSpeed ? clamp(state.speed / state.vp.cruiseSpeed, 0, 1.25) : 0;
   feel.punch = Math.max(0, feel.punch - C.punchDecay * dt * Math.max(0.4, feel.punch));
-  const wantFov = TUNE.fov + C.fovSpeed * sp + feel.punch;
+  // (v159: the Corvette's booster widens it as it burns; 0 for everything else)
+  const wantFov = TUNE.fov + C.fovSpeed * sp + feel.punch + (typeof cvFov === "function" ? cvFov() : 0);
   feel.fov += (wantFov - feel.fov) * Math.min(1, C.fovRate * dt);
   if (Math.abs(camera.fov - feel.fov) > 0.02) { camera.fov = feel.fov; camera.updateProjectionMatrix(); }
 

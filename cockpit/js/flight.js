@@ -419,6 +419,8 @@ function update(dt) {
     // shaking them off, and it is not one.
     if (typeof ltUpdate === "function" && lights.built) ltUpdate(dt);
     if (typeof updatePolice === "function") updatePolice(dt);
+    // and the Corvette's booster goes out in the bang (v159): its roar and flames stop
+    if (typeof cvUpdate === "function" && vehBooster()) cvUpdate(dt, false);
     rumble = 0;
     skyDome.position.set(state.x, state.y, state.z);
     waterMesh.position.set(state.x, TUNE.waterLevel, state.z);

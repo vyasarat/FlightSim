@@ -46,6 +46,7 @@ function vehKind() {
   if (vp.sledRide) return "sled";        // v144: the set-piece's rail, ridden (sledride.js)
   if (vp.crane) return "crane";          // v145: the wrecking-ball crane, parked for good (crane.js)
   if (vp.cybertruck) return "cybertruck";   // v146: a car (vp.car is true): ask first
+  if (vp.corvette) return "corvette";       // v159: a car too, with the booster
   if (vp.car) return "car";
   if (vp.heli) return "heli";
   return "plane";                        // prop, fighter, the airliners
@@ -78,6 +79,9 @@ function vehKind() {
 //                   writes `safePos`, which only the AEROPLANE reads, so a car
 //                   doing its own is the difference between coming back on the
 //                   road and coming back wherever the last aeroplane crashed.
+//
+//   booster         (v159) his drag-up is the rocket booster (corvette.js): held,
+//                   it burns, instead of the car's timed burst. Asked by vehBooster().
 //
 //   carLike         he is driving a car: car.js runs it, and every promise the
 //                   road makes the car -- the police, the signals, a set-piece
@@ -132,6 +136,21 @@ const VEHICLE_CONTRACT = {
   // (TUNE.models.cybertruck) and its eject seat are its own.
   cybertruck: {
     carLike: true,
+    solidClass: SOLID.CAR,
+    solid: () => true,
+    wallHit: (push) => carWallHit(push),
+    update: (dt) => updateCar(dt),
+    camera: (dt) => carCamera(dt),
+    parked: () => state.speed === 0,
+    reassemble: () => carReassemble(),
+  },
+  // v159: the Corvette. A third body on the car, like the Cybertruck: car.js drives
+  // it, every slot is the car's own. What is its own is the model
+  // (TUNE.models.corvette), its eject seat, and `booster` -- its drag-up is the rocket
+  // booster (corvette.js), held for as long as he likes, not the car's timed burst.
+  corvette: {
+    carLike: true,
+    booster: true,
     solidClass: SOLID.CAR,
     solid: () => true,
     wallHit: (push) => carWallHit(push),
@@ -292,6 +311,8 @@ function vehWallHit(push, hit) {
 // Is he driving a car -- the SUV or the Cybertruck? The honest form of
 // `vehKind() === "car"`, which a second car would silently fail.
 function vehIsCar() { return !!vehSlot("carLike"); }
+// Is his drag-up the rocket booster (v159: the Corvette)?
+function vehBooster() { return !!vehSlot("booster"); }
 
 // The three numbers the one wall law reads (solids.js, collision.js).
 function vehSolidClass() { return vehSlot("solidClass") || SOLID.AIR; }

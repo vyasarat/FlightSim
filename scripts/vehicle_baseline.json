@@ -112,6 +112,29 @@
    "settled": true
   }
  },
+ "corvette": {
+  "x": 336,
+  "z": 6060,
+  "heading": 0.005,
+  "groundY": 7.5,
+  "aboveGround": 2.6,
+  "y": 10.1,
+  "headingAfterStick": -0.567,
+  "speedAfterHold": 22,
+  "chaseDx": 0.1,
+  "chaseDy": 6.5,
+  "chaseDz": 16.8,
+  "eyeDx": -0.9,
+  "eyeDy": 1.7,
+  "eyeDz": -0.2,
+  "buttons": "camBtn,ejectBtn,fastBtn,hornBtn,menuBtn,slowBtn,vehBtn,viewBtn",
+  "crash": {
+   "exploded": true,
+   "backDx": 0,
+   "backDz": 0,
+   "settled": true
+  }
+ },
  "speedboat": {
   "x": 1500,
   "z": -6200,

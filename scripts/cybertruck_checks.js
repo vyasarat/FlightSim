@@ -223,18 +223,20 @@ module.exports.twinRun = function (key) {
 };
 
 // Runs in the page. For the SUV and the Cybertruck: the body, how it sits, both views.
-module.exports.lookAt = function () {
+module.exports.lookAt = function (keys) {   // (v159: the Corvette module asks it of ["car", "corvette"])
   const L = window.__lp, S = L.state, T = L.TUNE;
   const out = {};
   // Vertex by vertex. Box3.setFromObject's `precise` flag is ignored by this
   // three.js build: it boxes each mesh's own box, so a wheel turned half a radian
   // reads a third of its radius under the road it is standing on.
+  // (v159: the Corvette's booster hangs its flames and glows off the body; they are not the body)
+  const inFx = (c) => { for (let p = c; p; p = p.parent) if (p.name === "corvetteBooster") return true; return false; };
   const span = (o) => {
     o.updateWorldMatrix(true, true);
     let min = 1e9, max = -1e9, sx = 0, sz = 0, n = 0;
     const v = new THREE.Vector3();
     o.traverse(c => {
-      if (!c.isMesh || !c.geometry || !c.geometry.attributes.position) return;
+      if (!c.isMesh || !c.geometry || !c.geometry.attributes.position || inFx(c)) return;
       const p = c.geometry.attributes.position;
       for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(c.matrixWorld); min = Math.min(min, v.y); max = Math.max(max, v.y); sx += v.x; sz += v.z; n++; }
     });
@@ -255,7 +257,7 @@ module.exports.lookAt = function () {
     return gaps;
   };
   try {
-    for (const key of ["car", "cybertruck"]) {
+    for (const key of keys || ["car", "cybertruck"]) {
       const o = out[key] = {};
       L.api.setVehicle(key); L.api.spawnAt(0, 0); L.api.clearStick();
       L.api.setView(true);
@@ -273,7 +275,7 @@ module.exports.lookAt = function () {
       let tris = 0, wheels = 0, textures = 0; const mats = new Set();
       m.traverse(c => {
         if (/^wheel_/.test(c.name)) wheels++;
-        if (!c.isMesh) return;
+        if (!c.isMesh || inFx(c)) return;
         const g = c.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3;
         for (const mt of (Array.isArray(c.material) ? c.material : [c.material])) {
           mats.add(mt.name);

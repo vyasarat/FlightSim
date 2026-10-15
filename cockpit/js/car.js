@@ -408,7 +408,7 @@ function carRoadTarget(steer01, dt) {
   const n = hwyNearest(state.x, state.z);
   if (!n) return null;
   const LK = CAR.laneKeep;
-  const ahead = Math.max(LK.minAhead, state.speed * LK.lookAhead);
+  const ahead = carAimAhead(state.speed);
 
   // An exit is HIS to take. Measured from the centreline, a spur's mouth comes
   // within the outer lane's 14 m, and that is what lets a held steer pick the
@@ -587,6 +587,18 @@ function carLaneBusy(side, lane, s, laneLat, lat) {
 }
 
 // which lane centre is nearest, in metres from the road centreline
+// How far ahead lane-keep aims: `laneKeep.lookAhead` seconds of him, never under
+// `minAhead`. v159: on the Corvette never further than `booster.aheadMax` either --
+// the top speed step's own reach. At the booster's 128 m/s the 1.5 s aim was 192 m
+// up the road, and on the motorway's long curves the line to it cut the inside by
+// ten metres and walked him over the median into the oncoming lanes. Under the
+// top step's speed it is the same aim as every other car's.
+function carAimAhead(speed) {
+  const LK = CAR.laneKeep;
+  const a = Math.max(LK.minAhead, speed * LK.lookAhead);
+  return vehBooster() ? Math.min(a, CORVETTE.booster.aheadMax) : a;
+}
+
 function carLaneCentre(lat, onSpur) {
   if (onSpur) return 0;
   const half = HW.medianW / 2;
@@ -805,12 +817,14 @@ function updateCar(dt) {
   el.rotateArrow.classList.remove("on");
   state.phase = "TAXI";
 
-  if (state.exploding) { setEngine(0); setTone("carTyre", "triangle", 90, 0); return; }
+  // (the Corvette's booster, v159, goes out in a bang and on the toy track)
+  const rocketCar = vehBooster();
+  if (state.exploding) { setEngine(0); setTone("carTyre", "triangle", 90, 0); if (rocketCar) cvUpdate(dt, false); return; }
   // the giant toy track (track.js): on it, it drives him; at the foot of its
   // lift, it takes him up
   if (typeof trk !== "undefined") {
     if (!trk.on && trackCanBoard()) trackBoard();
-    if (trk.on) { setTone("carTyre", "triangle", 90, 0); trackUpdate(dt); return; }
+    if (trk.on) { setTone("carTyre", "triangle", 90, 0); if (rocketCar) cvUpdate(dt, false); trackUpdate(dt); return; }
   }
 
   const touching = state.touching && !menuOpen();
@@ -892,7 +906,15 @@ function updateCar(dt) {
 
   // ---- speed. Finger down drives; off eases to a stop. Off-road is slower.
   const LK = CAR.laneKeep;
-  if (pitch > 0.45 && touching && car.boost <= 0 && state.speed > CAR.cruise * 0.3) {
+  // THE CORVETTE'S DRAG-UP IS ITS ROCKET BOOSTER (v159, corvette.js), not the burst:
+  // held, it burns, and while it burns he is driven at its speed -- well above the
+  // top step's on the motorway when he is going straight along it; the top step's
+  // own through a turn he holds, on a way on or off and in the cities (cvStraight). It only raises what he is
+  // driven AT: the corner assist's cap, the motorway's end-turn and off-road still
+  // bring it down, as they do any speed. (Short of its full speed it pushes at the
+  // car's own acceleration: out of the end-turn's U at its 30 m/s^2 he swung off.)
+  const burning = rocketCar && cvUpdate(dt, touching && !eject.active && pitch > (cv.on ? CORVETTE.booster.release : CORVETTE.booster.pitch));
+  if (!rocketCar && pitch > 0.45 && touching && car.boost <= 0 && state.speed > CAR.cruise * 0.3) {
     car.boost = CAR.boostTime;
     engSurge(0.8);              // the bend that says something just let go
     cameraPunch(0.55);
@@ -905,7 +927,11 @@ function updateCar(dt) {
   // still holds at the top step: `laneKeep.lookAhead` is a TIME, so the aim
   // point slides further ahead as he goes faster and the pursuit stays stable.
   const step = spdMul();
-  const roadMax = CAR.cruise * step * lerp(1, CAR.offRoadMax, car.offRoad) * boosting;
+  // (the booster's full speed is for a road he is lined up with and going straight
+  // along: not a turn he holds, the motorway's end-turn, a way on or off, a city)
+  const cvFull = burning && cvStraight(hold !== 0 || !!(road && (road.holding || road.endTurn)), road);
+  const roadMax = burning ? (cvFull ? cvSpeed() : (road && (road.spur || road.street)) || car.onStreet ? CAR.cruise * step : cvTopStep()) * lerp(1, CAR.offRoadMax, car.offRoad)
+                          : CAR.cruise * step * lerp(1, CAR.offRoadMax, car.offRoad) * boosting;
   let want = touching ? roadMax : 0;
   // THE CORNER ASSIST (streets.js), speed-only: near a junction, with a turn
   // held into a street that is there -- or the road ending ahead of him -- it
@@ -914,13 +940,15 @@ function updateCar(dt) {
   const cornering = touching && cap < want;
   if (cornering) want = cap;
   const giveBack = road && road.street && typeof stPlan !== "undefined" && stPlan.giveBack > 0;
-  const up = giveBack ? Math.max(CAR.accel, TUNE.city.giveBackAccel) : CAR.accel;
+  const up = cvFull ? CORVETTE.booster.accel : giveBack ? Math.max(CAR.accel, TUNE.city.giveBackAccel) : CAR.accel;
   const down = cornering && state.speed > want
     ? Math.max(CAR.brake, road && !road.spur && !road.street ? HW.endTurn.brake
                : road && road.spur ? TUNE.city.ramp.safeBrake : Math.max(TUNE.city.cornerBrake, road && road.capBrake || 0)) : CAR.brake;
-  const rate = (want > state.speed ? up : down) * dt;
+  // (the booster's own speed comes off a turn he takes at `booster.shed`: at the car's
+  // brake, 128 m/s took three seconds to come down to the top step's, steering)
+  const rate = (want > state.speed ? up : burning ? Math.max(down, CORVETTE.booster.shed) : down) * dt;
   state.speed += clamp(want - state.speed, -rate, rate);
-  state.speed = clamp(state.speed, 0, CAR.cruise * step * CAR.boost * 1.05);
+  state.speed = clamp(state.speed, 0, Math.max(CAR.cruise * step * CAR.boost, rocketCar ? cvSpeed() : 0) * 1.05);
   if (state.speed < 0.05) state.speed = 0;
 
   // LANE-KEEP NEVER BRAKES FOR A RED, and that is deliberate. Stopping at a
@@ -1119,10 +1147,13 @@ function carCamera(dt) {
     // through the roof at the car -- the tunnel disappears at exactly the moment
     // he is inside it.
     const duck = typeof hwyBoreCeiling === "function" ? hwyBoreCeiling(state.x, state.z) : null;
-    const camY = duck === null ? state.y + CAR.camChase[1]
-                               : Math.min(state.y + CAR.camChase[1], duck);
-    camDesired.set(state.x - fx * CAR.camChase[0], camY, state.z - fz * CAR.camChase[0]);
-    camera.position.lerp(camDesired, Math.min(1, CAR.camLag * dt));
+    let camY = duck === null ? state.y + CAR.camChase[1]
+                             : Math.min(state.y + CAR.camChase[1], duck);
+    // (the Corvette's booster drops the camera back and up a little as it burns: it FEELS fast)
+    const back = CAR.camChase[0] * (1 + cvCamK() * CORVETTE.cam.back);
+    if (duck === null) camY += CAR.camChase[1] * cvCamK() * CORVETTE.cam.up;
+    camDesired.set(state.x - fx * back, camY, state.z - fz * back);
+    camera.position.lerp(camDesired, Math.min(1, CAR.camLag * (1 + cvCamK() * (CORVETTE.cam.lag - 1)) * dt));
     lookV.set(state.x + fx * 18, state.y + 1.6, state.z + fz * 18);
     camera.lookAt(lookV);
     camera.rotateZ(-state.bank * DEG * 0.3);

@@ -579,7 +579,7 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
 
   // ---- the path, the aim point and the corner ceiling
   const LK = CAR.laneKeep;
-  let ahead = Math.max(LK.minAhead, speed * LK.lookAhead);          // the motorway's own aim
+  let ahead = carAimAhead(speed);                                     // the motorway's own aim
   P.cap = Infinity;
   if (P.turn) {
     const J = stJunctionPath(road, dir, node, P.turn.arm);
