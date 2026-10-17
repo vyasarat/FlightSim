@@ -40,6 +40,7 @@ entry below.
 | v145 | pick the crane, turn it to a different block of towers before each go (all three blocks within one sitting), and knock them down three or more times in a row without changing vehicle, making a "boom" or "crash" noise as they fall | open |
 | v159 | pick the Corvette first, hold the booster down along the motorway for long stretches (more than ten seconds at a time) and look in the mirror or switch to the chase view to see the flames, making a "whoosh" or rocket noise | open |
 | v160 | in New York with the Corvette, hold the booster down along the streets and say it is going fast, without noticing that it slows for every crossing; no more bangs in the city than with the SUV (none) | open |
+| v161 | after a corner, he lets go for a moment and puts the finger straight back down at full, and the car carries on straight past the next street instead of turning again; nothing he notices, and no new complaints about the car "turning by itself" | open |
 
 ## Entries
 

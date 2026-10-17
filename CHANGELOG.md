@@ -10,6 +10,60 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v161 — a turn done while the finger is off is still done, and a way in's mouth is road
+
+**What he gets.** A corner his held finger takes is spent even when the finger
+happened to be off the glass at the moment it finished. Before, a turn that
+completed during a lift shorter than `liftGrace` was never marked spent: the
+same finger landed, dragged back to full, and took the NEXT street too (the
+SUV's noisy seed 8, junction 82 at 71.95 s, on v159 and v160 alike). Now the
+side that held the turn -- `lastHeld`, which is what was steering him through
+the lift and the relatch -- is what spends it (`car.js`). Every car, the one
+turn rule; nothing else about the turn rule changes: hands-off and forced corners are
+still never spent, a real lift (past `liftGrace`) or a centred stick still
+re-arms, a full steer the other way still ends it. The toy track runs its own
+update and is untouched.
+
+**The check.** `city_checks`' "a turn done is spent" gains a third case,
+*lifted*: full left, the finger off for 0.25 s across the frame the corner is
+done, landing at the middle of its drag and dragging back to full left. It must
+go straight at the next junction, its own corner must be done inside the lift,
+and he must land spent. On the tree before the fix it failed in both cities
+(second junction "turned", not spent on landing); after it, it passes.
+
+**And at a city ramp's mouth, the motorway beside it is road** (the parent's call,
+asked for in this release). The far way in takes him while he is still on the
+carriageway beside its mouth, fourteen metres from the ramp's line, and measured
+against the ramp alone that read as off the road for half a second: slowed from
+46 to 34 m/s, the off-road rumble, and the ramp assist (gated on being on the
+road) off -- the boosted Corvette's noisy seed 3 went "off the road" there in about
+one run in six, on v160 as on this tree (A/B, 6 runs each). Now on a city ramp the
+motorway he is LEVEL with also counts (`carLevelMotorway`, car.js); where a far way
+in stands over the motorway, off its side is still off the road. The held way-in
+check now also requires the game's own off-road never above 0.3: without the fix
+it read 0.97 on both of New York's ways in at the top step (and 0.46 on
+California's near one); with it, 0 everywhere. A new check pins the level gate
+(7.4 and 7.6 m up, off the ramp's side, is not road).
+
+**Known and shipped past: a bus stopped across his street.** The way-in check
+gains a *lifted* case (finger off 0.25 s as he comes on to the ramp; still taken
+and spent). In one of its cases -- California's near way in at the slowest step,
+4 runs in 5 -- he drives into the back of a city bus: a queue backs up to a junction
+and the fourteen-metre bus stops with its middle past it and its tail across his
+street (`stExitRoom` counts the room from the junction's centre, not the box's far
+edge). It is on main too, worse: there the same case bangs in 3 of the 4 slowest
+ways in. A "never queue with the tail in a box" fix moved the bang into the
+hands-off loop and was reverted. The parent chose to ship v161 with that one case
+red, as its own check line, and fix the traffic in v162.
+
+**Renders.** The views skipped in v160 are now rendered and looked at: the driving seat approaching a junction with the booster on, a signal junction, crossing traffic, and a held corner while boosting (at its start, then 20 and 45 frames on). The render-critic's block stands: at the very start of a held corner the chase camera sits in a building's face for under a third of a second. It happens with the SUV too, so it is not new, and it is v163's fix.
+
+**Noisy finger, 3 runs a seed, the worst of each.** SUV and boosted Corvette, seeds 1-10 (60 runs): 0 unintended, 0 missed, 0 bangs, 0 touches, 0 off-road. The only counts are spent holds, straight on as the rule says: SUV seed 4, boosted seeds 3, 5 and 7. SUV seed 8 now goes straight at junction 82 on all three runs. Boosted seed 3 used to go off-road at the way-in mouth 1 time in 6; it was 0 in 3. Boosted seed 9 differed between runs (cityMean 29.7 / 32.3 / 29.7), with all counts zero on every run.
+
+**Harness.** 1062/1062. The bus case is intermittent: it went green in this run, but the traffic behind it is unchanged and still v162's job. A first full run stopped itself (`HARNESS STALLED`) at the chase perf page after 1044 passes; that module passed 11/11 alone, and the full rerun is the count above.
+
+---
+
 ## v160 — the Corvette's booster boosts in the cities too
 
 **What he gets:** in v159 the booster lit the flames in New York and California but added

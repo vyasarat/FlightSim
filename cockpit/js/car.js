@@ -810,6 +810,15 @@ function carReassembleOffRoad(x, z, nx, nz) {
 }
 
 // ---------------------------------------------------------------------------
+// Is this point on the motorway's carriageway AND level with it? (A road he is
+// not level with is not his road: where a far way in stands over the motorway,
+// off its side is off the road, not on the carriageway below.)
+function carLevelMotorway(x, z, y) {
+  if (typeof highway === "undefined" || !highway.built) return false;
+  const n = hwyNearest(x, z);
+  return !!n && Math.abs(n.lateral) < CAR.onRoadHalf && Math.abs(n.y - y) < ST.levelTol;
+}
+
 function updateCar(dt) {
   if (car.crashCool > 0) car.crashCool -= dt;
   // one finger: no throttle button and no gear. The speed steps ARE up -- they
@@ -885,8 +894,14 @@ function updateCar(dt) {
   const onSpur = road && road.spur && car.onSpurRoad ? road.spur : null;
   const arrived = onSpur && onSpur !== car.arrived;
   car.arrived = onSpur;
-  if (!spent && full && road && (road.turned || arrived)) {
-    car.spent = Math.sign(bank);
+  // The turn is done by the steer that HELD it, and that is the held side
+  // (`lastHeld`) as much as a full steer now: a finger off the glass under
+  // `liftGrace`, or landed and still finding its drag, is holding the turn, and
+  // the turn it finishes is spent. (v161: done while the finger was off, it was
+  // never spent, and the same finger dragged back to full took the next street.)
+  const doneBy = full ? Math.sign(bank) : (car.lastHeld || 0);
+  if (!spent && doneBy && road && (road.turned || arrived)) {
+    car.spent = doneBy;
     // and the spur it took is held as chosen, or at its mouth the motorway
     // beside it -- nearer, and the spent finger reading as hands-off -- took
     // him back
@@ -899,6 +914,11 @@ function updateCar(dt) {
   // (on a corner he is measured against the street he is leaving: the corner
   // itself is road, or every turn read as leaving it)
   car.onRoad = !!road && (!!road.corner || Math.abs(road.lateral) < (road.street ? road.street.halfW + 2 : rampHalf ? rampHalf + 2 : CAR.onRoadHalf));
+  // (and at a city ramp's mouth the motorway he is level with is road too: the
+  // ramp takes him while he is still on the carriageway beside it, fourteen
+  // metres from its line, and measured against the ramp alone that read as off
+  // the road -- slowed, rumbling, the ramp assist off -- for half a second, v161)
+  if (!car.onRoad && rampHalf) car.onRoad = carLevelMotorway(state.x, state.z, state.y);
   car.lateral = road ? road.lateral : 0;
   car.roadY = road ? road.y : 0;
   const wantOff = car.onRoad ? 0 : 1;

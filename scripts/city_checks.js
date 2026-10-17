@@ -268,6 +268,32 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
       const bad = lay.filter(r => r.way === "out" ? !(r.merges && r.oneWay && r.grade <= gl) : !(r.right && r.before && r.oneWay && !r.crossesAtGrade && r.grade <= gl && r.minSafe > 55));
       check(`city: each city has a way in on each carriageway, on its right, after its gantry, one-way, and the far one over the motorway clear of a lorry (${lay.filter(r => r.clear).map(r => r.k + " " + r.clear + " m").join(", ")}), and one way out merging into the other carriageway -- none of the three steeper than ${(gl * 100).toFixed(0)}% anywhere (${lay.map(r => r.k + " " + r.way + " " + (r.grade * 100).toFixed(1) + "%").join(", ")})`,
         lay.length === 6 && bad.length === 0, JSON.stringify(lay));
+
+      // At a far way in's mouth the motorway beside it is road (the ramp takes him
+      // while he is still on the carriageway, v161); where it stands over the
+      // motorway, off its side is NOT -- a road he is not level with is not his road
+      const level = await page.evaluate(() => {
+        const L = window.__lp, out = [];
+        for (const k of ["ny", "ca"]) {
+          const pts = L.streets.cities[k].ramps.inFar.spur, m = pts[0];
+          const mouth = L.carLevelMotorway(m.x, m.z, m.y);
+          let over = null;
+          for (let i = 1; i < pts.length && !over; i++) {
+            const p = pts[i], q = pts[i - 1], n = L.hwyNearest(p.x, p.z);
+            if (p.y - n.y < L.ST.levelTol + 1 || Math.abs(n.lateral) > L.CAR.onRoadHalf - 8) continue;
+            // six metres off the ramp's side, at the ramp's height, still over the carriageway
+            const l = Math.hypot(p.x - q.x, p.z - q.z) || 1, rx = -(p.z - q.z) / l, rz = (p.x - q.x) / l;
+            for (const sgn of [1, -1]) {
+              const x = p.x + rx * sgn * (L.ST.ramp.halfW + 6), z = p.z + rz * sgn * (L.ST.ramp.halfW + 6), n2 = L.hwyNearest(x, z);
+              if (Math.abs(n2.lateral) < L.CAR.onRoadHalf) { over = { i, above: +(p.y - n2.y).toFixed(1), reads: L.carLevelMotorway(x, z, p.y) }; break; }
+            }
+          }
+          out.push({ k, mouth, over });
+        }
+        return out;
+      });
+      check(`city: at each far way in's mouth the motorway beside it counts as road, and where the ramp stands over the motorway, off its side at its height does not (${level.map(r => r.k + " " + (r.over ? r.over.above + " m up" : "none")).join(", ")})`,
+        level.length === 2 && level.every(r => r.mouth && r.over && r.over.reads === false), JSON.stringify(level));
     }
 
     // Hold right on the approach and he takes it, to a city street; a tap near
@@ -278,8 +304,9 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
       const L = window.__lp, st = L.state, D = window.__city, out = [];
       for (const step of steps) for (const k of ["ny", "ca"]) for (const way of ["inNear", "inFar"]) {
         const rec = L.streets.cities[k].ramps[way], g = rec.gantry, c = g.c;
-        for (const pat of ["hold", "keep", "tap", "light", "hands-off"]) {
-          D.start(step);
+        let arriveAt = null;   // the frame the keep run came on to the ramp: the same in the lifted run, up to it
+        for (const pat of ["hold", "keep", "lifted", "tap", "light", "hands-off"]) {
+          D.start(step); window.__nearHist = [];
           const v = L.CAR.cruise * L.spdMul(), s0 = g.s - c * 500;
           const q = L.hwySampleAt(s0), lat = c * (L.HW.medianW / 2 + L.HW.laneW * 0.5);
           st.x = q.x - q.fz * lat; st.z = q.z + q.fx * lat; st.y = q.y; st.heading = Math.atan2(-q.fx * c, -q.fz * c); st.speed = v;
@@ -292,43 +319,73 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
           // (the tap ends 20 m short of the mouth: a tap still held as he reaches
           // it, at the top step, IS a held turn)
           const t0 = pat === "hold" ? (500 - 300) / v : (mouth - 60) / v, t1 = pat === "tap" ? (mouth - 20) / v : pat === "light" ? t0 + 8 : Infinity;
-          const f0 = D.flags(); let took = null, street = null, f = 0, keptOff = null, onRamp = false;
+          const f0 = D.flags(); let took = null, street = null, f = 0, keptOff = null, onRamp = false, arriveF = null, spentOnLand = null, offMax = 0, bangAt = null;
           for (; f < 60 * 75 && street === null; f++) {
             const tt = f / 60;
             // keep: the hold is never let go -- the turn done is spent, and he is
             // held on the ramp and then the street, never steered off them
-            const holding = pat === "keep" ? tt > t0
+            // lifted (v161): keep, but the finger is off the glass for 0.25 s -- under
+            // liftGrace -- across the moment he comes on to the ramp, lands at the
+            // middle of its drag and drags back to full: the ramp taken while it was
+            // off is still taken, and spent
+            const lt = pat === "lifted" && arriveAt !== null ? (f - (arriveAt - 8)) / 60 : -1;
+            const holding = pat === "keep" || pat === "lifted" ? tt > t0
               : pat === "hold" ? tt > t0 && !(L.car.spurRec === rec && took !== null && tt > took + 1.5) : tt > t0 && tt < t1;
-            D.frame(pat === "hands-off" || !holding ? 0 : pat === "light" ? D.carStick(0.5) : 1);
+            if (lt >= 0 && lt < 0.25) { L.api.clearStick(); L.update(1 / 60); if (st.exploding) { st.explodeTimer = 0; for (let i = 0; i < 40; i++) L.update(1 / 60); } }
+            else {
+              const x0 = st.x, z0 = st.z, v0 = st.speed, sp0 = L.car.spent, str0 = L.car.onStreet, rd0 = L.stPlan.road && L.stPlan.road.id;
+              const near0 = L.stTraffic.list.filter(o => o.alive && Math.hypot(o.wx - st.x, o.wz - st.z) < 30).map(o => ({ slot: o.slot, type: o.type, d: +Math.hypot(o.wx - st.x, o.wz - st.z).toFixed(1), x: +o.wx.toFixed(1), z: +o.wz.toFixed(1), hx: +o.hx.toFixed(2), hz: +o.hz.toFixed(2), speed: +o.speed.toFixed(1), sp: +(o.sp || 0).toFixed(1), hold: o.hold, crossing: !!o.crossing, next: o.next && o.next.road && o.next.road.id, road: o.road && o.road.id, dir: o.dir, s: +o.s.toFixed(1), len: o.road && Math.round(o.road.len), path: !!o.path, parked: !!o.parked }));
+              (window.__nearHist = window.__nearHist || []).push({ tt: +tt.toFixed(2), near: near0.filter(o => o.d < 25) }); if (window.__nearHist.length > 181) window.__nearHist.shift();
+              const me0 = { h: +st.heading.toFixed(2), fx: +(-Math.sin(st.heading)).toFixed(2), fz: +(-Math.cos(st.heading)).toFixed(2), s: L.stPlan.road ? +(L.stProject(L.stPlan.road, st.x, st.z).s).toFixed(1) : null, dir: L.stPlan.dir, turn: L.stPlan.turn ? { node: L.stPlan.turn.node.id, held: L.stPlan.turn.held, forced: L.stPlan.turn.forced } : null };
+              if (D.frame(pat === "hands-off" || !holding ? 0 : pat === "light" ? D.carStick(0.5) : lt >= 0.25 && lt < 0.65 ? (lt - 0.25) / 0.4 : 1) && !bangAt)
+                bangAt = { tt: +tt.toFixed(2), x: Math.round(x0), z: Math.round(z0), v: +v0.toFixed(1), spent: sp0, onStreet: str0, road: rd0, hit: L.stTraffic.lastTouch, near: near0, me: me0, hist: window.__nearHist.filter((h, k) => k % 30 === 0) };
+            }
+            if (lt >= 0.25 && spentOnLand === null) spentOnLand = L.car.spent;
+            if (arriveF === null && L.car.arrived) { arriveF = f; if (pat === "keep") arriveAt = f; }
             // off the road: off the ramp AND off the motorway it is leaving, each
             // by the car's own measure (as the ramp peels away he is still on the
             // motorway's edge beside it)
             // (checked from the moment he is ON the ramp: at the top step, with
             // the outer lane busy, the join itself crosses the verge where a
             // flyover has already peeled away -- the join, not the held finger)
-            if (pat === "keep" && L.car.spurRec === rec && L.car.onRoad) onRamp = true;
-            if (pat === "keep" && onRamp && !keptOff && !L.car.onRoad &&
+            const keeps = pat === "keep" || pat === "lifted";
+            if (keeps && L.car.spurRec === rec && L.car.onRoad) onRamp = true;
+            if (keeps && onRamp && !keptOff && !L.car.onRoad &&
                 Math.abs(L.hwyNearest(st.x, st.z).lateral) > L.CAR.onRoadHalf) keptOff = +tt.toFixed(1);
+            // the game's own off-road (it slows him, rumbles and drops the ramp assist):
+            // never for the ramp he is taking, mouth included (v161: at the far way in's
+            // mouth it read him off the road beside it for half a second)
+            if (pat === "hold" || pat === "keep" || pat === "lifted") offMax = Math.max(offMax, L.car.offRoad);
             if (L.car.spurRec === rec && took === null) took = +tt.toFixed(1);
             if (L.car.onStreet && L.stPlan.road && L.stPlan.road.kind === "grid") street = +tt.toFixed(1);
-            if (pat !== "hold" && pat !== "keep" && tt > mouth / v + 4) break;
+            if (pat !== "hold" && pat !== "keep" && pat !== "lifted" && tt > mouth / v + 4) break;
           }
           // still holding, four seconds on along the street: on it, never off
-          if (pat === "keep" && street !== null) for (let i = 0; i < 240; i++) {
-            D.frame(1);
+          if ((pat === "keep" || pat === "lifted") && street !== null) for (let i = 0; i < 240; i++) {
+            const x0 = st.x, z0 = st.z, v0 = st.speed, sp0 = L.car.spent, rd0 = L.stPlan.road && L.stPlan.road.id;
+            if (D.frame(1) && !bangAt) bangAt = { street: +(i / 60).toFixed(2), x: Math.round(x0), z: Math.round(z0), v: +v0.toFixed(1), spent: sp0, road: rd0, toGo: (L.stPlan.dbg || {}).toGo };
             if ((!L.car.onStreet || !L.car.onRoad) && !keptOff) keptOff = "street " + (i / 60).toFixed(1);
           }
           const d = D.delta(f0);
-          out.push({ step, mul: L.spdMul(), k, way, pat, took, street, keptOff, crashes: d.c, walls: d.w });
+          out.push({ step, mul: L.spdMul(), k, way, pat, took, street, keptOff, offMax: +offMax.toFixed(2), bangAt, crashes: d.c, walls: d.w,
+            ...(pat === "lifted" ? { spentOnLand, arriveInLift: arriveAt !== null && arriveF >= arriveAt - 8 && arriveF < arriveAt - 8 + 15 } : {}) });
         }
       }
       L.spdReset();
       return out;
     }, vi === 0 ? [0, 2, 4] : [2]);
-    const badTakes = takes.filter(t => t.crashes || t.walls || t.keptOff ||
-      (t.pat === "hold" || t.pat === "keep" ? t.took === null || t.street === null : t.took !== null));
-    check(`city ${tag}: a full right held from the gantry takes each way in, all the way to a city street -- ${takes.filter(t => t.pat === "hold").map(t => `${t.k} ${t.way === "inNear" ? "near" : "far"} x${t.mul} ${t.street}s`).join(", ")} -- and held on and never let go it keeps him on the ramp and the street; a tap, a light steer or no steer at all drives past; never a bang`,
-      takes.length >= 20 && badTakes.length === 0, JSON.stringify(badTakes.length ? badTakes : takes));
+    const held = takes.filter(t => t.pat !== "lifted"), lifted = takes.filter(t => t.pat === "lifted");
+    const badTakes = held.filter(t => t.crashes || t.walls || t.keptOff ||
+      (t.pat === "hold" || t.pat === "keep" ? t.took === null || t.street === null : t.took !== null) || t.offMax > 0.3);
+    check(`city ${tag}: a full right held from the gantry takes each way in, all the way to a city street -- ${held.filter(t => t.pat === "hold").map(t => `${t.k} ${t.way === "inNear" ? "near" : "far"} x${t.mul} ${t.street}s`).join(", ")} -- and held on and never let go it keeps him on the ramp and the street, never once read as off the road, its mouth included; a tap, a light steer or no steer at all drives past; never a bang`,
+      held.length >= 20 && badTakes.length === 0, JSON.stringify(badTakes.length ? badTakes : held));
+    // (its own line, v161: one case -- California's near way in at the slowest step --
+    // still bangs into a bus stopped with its tail across a junction (on main too,
+    // worse; v162 fixes the traffic). Kept apart so the cases above stay a clean red.)
+    const badLifted = lifted.filter(t => t.crashes || t.walls || t.keptOff || t.took === null || t.street === null ||
+      !t.arriveInLift || t.spentOnLand !== 1 || t.offMax > 0.3);
+    check(`city ${tag}: the way in taken with the finger off the glass for 0.25 s as he comes on to the ramp is still taken and spent -- the same finger dragged back to full keeps him on the ramp and the street, never off the road, never a bang`,
+      lifted.length >= 4 && badLifted.length === 0, JSON.stringify(badLifted.length ? badLifted : lifted));
 
     // What he can see: from the driving seat the gantry's panel and the ramp
     // are on the screen from 300 m out, from 150 m and at the mouth -- and the
@@ -454,33 +511,44 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
         if (!pick) { out.push({ city: k, none: true }); continue; }
         const { node, inArm, want, nx, s2, l2 } = pick;
         const road = inArm.road, dir = inArm.atStart ? -1 : 1;
-        for (const how of ["kept", "again"]) {
+        let doneAt = null;      // the frame the kept run's corner was done: the same in every run, up to it
+        for (const how of ["kept", "again", "lifted"]) {
           D.start(2);
           for (const v of L.stTraffic.list) v.alive = false;
           D.placeOn(road, dir, Math.min(road.len - 5, 60), L.CAR.cruise);
           const f0 = D.flags();
-          let f = 0, first = null, second = null, centred = 0;
+          let f = 0, first = null, second = null, centred = 0, spentOnLand = null, doneF = null;
           while (f < 60 * 25 && second === null) {
             const onNew = L.stPlan.road === want.arm.road;
             // kept: full left the whole way; again: full left, centred for half a
-            // second once he is round the first corner, then full left again
+            // second once he is round the first corner, then full left again;
+            // lifted (v161, the SUV's seed 8): full left, but the finger is off the
+            // glass for 0.25 s -- under liftGrace -- across the moment the corner is
+            // done, lands at the middle of its new drag and drags back to full left.
+            // The corner done while it was off is still done, and spent.
             let steer = -1;
             if (how === "again" && onNew && first === "turned" && centred < 30) { steer = 0; centred++; }
-            D.frame(steer); f++;
-            if (first === null && L.stPlan.road !== road) first = L.stPlan.road === want.arm.road ? "turned" : "other";
+            const lt = how === "lifted" && doneAt !== null ? (f - (doneAt - 8)) / 60 : -1;
+            if (lt >= 0 && lt < 0.25) { L.api.clearStick(); L.update(1 / 60); if (st.exploding) { st.explodeTimer = 0; for (let i = 0; i < 40; i++) L.update(1 / 60); } }
+            else D.frame(lt >= 0.25 && lt < 0.65 ? steer * (lt - 0.25) / 0.4 : steer);
+            f++;
+            if (lt >= 0.25 && spentOnLand === null) spentOnLand = L.car.spent;
+            if (first === null && L.stPlan.road !== road) { first = L.stPlan.road === want.arm.road ? "turned" : "other"; doneF = f; if (how === "kept") doneAt = f; }
             if (first !== null && second === null && L.stPlan.road !== road && L.stPlan.road !== want.arm.road)
               second = L.stPlan.road === s2.arm.road ? "straight" : L.stPlan.road === l2.arm.road ? "turned" : "other";
           }
           const d = D.delta(f0);
-          out.push({ city: k, how, first, second, crashes: d.c, walls: d.w });
+          out.push({ city: k, how, first, second, crashes: d.c, walls: d.w, ...(how === "lifted" ? { spentOnLand, doneInLift: doneAt !== null && doneF >= doneAt - 8 && doneF < doneAt - 8 + 15 } : {}) });
         }
       }
       return out;
     });
     const badSpent = spent.filter(t => t.none || t.crashes || t.walls || t.first !== "turned" ||
-      t.second !== (t.how === "kept" ? "straight" : "turned"));
-    check(`city ${tag}: a turn done is spent -- held on after the corner he goes straight through the next junction, and only centred and steered full again does he turn there; never a bang`,
-      spent.length === 4 && badSpent.length === 0, JSON.stringify(badSpent.length ? badSpent : spent));
+      t.second !== (t.how === "again" ? "turned" : "straight") ||
+      // the lifted run's own corner was done while the finger was off, and it landed spent
+      (t.how === "lifted" && (!t.doneInLift || t.spentOnLand !== -1)));
+    check(`city ${tag}: a turn done is spent -- held on after the corner he goes straight through the next junction, even when the corner was done while his finger was off the glass for 0.25 s and it came back and dragged to full again, and only centred and steered full again does he turn there; never a bang`,
+      spent.length === 6 && badSpent.length === 0, JSON.stringify(badSpent.length ? badSpent : spent));
 
     // ---- 3. A BUILDING AT SPEED: a bang, and he is back on the street, in his
     // lane, facing along it -- not wherever the last aeroplane crashed
