@@ -73,7 +73,7 @@ function install() {
       const n = L.hwyNearest(st.x, st.z);
       const out = {
         x: st.x, z: st.z, v: st.speed, h: st.heading, bank: st.ctrlBank, touching: st.touching,
-        onStreet: !!L.car.onStreet, offRoad: L.car.offRoad, spur: L.car.spurRec ? L.car.spurRec.to : null,
+        onStreet: !!L.car.onStreet, offRoad: L.car.offRoad, onRoad: !!L.car.onRoad, lat: L.car.lateral, spur: L.car.spurRec ? L.car.spurRec.to : null,
         road: road ? road.id : null, kind: road ? road.kind : null, city: road ? road.city : null,
         hwyLat: n.lateral, hwyS: n.s, hwyDir: Math.sign(-Math.sin(st.heading) * n.fx + -Math.cos(st.heading) * n.fz),
         crashes: L.flags.carCrashes || 0, walls: L.flags.wallHits || 0,
@@ -324,7 +324,7 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
       if (!off && S.offRoad) L("back on the road", {});
       S.offRoad = off;
     }
-    if (process.env.NOISY_TRACE) { const [a, b] = process.env.NOISY_TRACE.split(",").map(Number); if (t >= a && t <= b) L("trace", { v: +o.v.toFixed(1), bank: +(o.bank || 0).toFixed(2), touching: o.touching, spent: o.spent, relatch: o.relatch, jn: o.jn ? Math.round(o.jn.toGo) : null }); }
+    if (process.env.NOISY_TRACE) { const [a, b] = process.env.NOISY_TRACE.split(",").map(Number); if (t >= a && t <= b) L("trace", { v: +o.v.toFixed(1), bank: +(o.bank || 0).toFixed(2), touching: o.touching, spent: o.spent, relatch: o.relatch, jn: o.jn ? Math.round(o.jn.toGo) : null, onRoad: o.onRoad, lat: +(o.lat || 0).toFixed(1), hwyLat: +o.hwyLat.toFixed(1), spur: o.spur, offRoad: +o.offRoad.toFixed(2) }); }
     S.frames = (S.frames || 0) + 1; if (o.burning) S.burnF = (S.burnF || 0) + 1;
     // v160: how fast he goes in the city (the Corvette's booster now boosts there)
     if (o.onStreet && o.kind === "grid") { S.cityF = (S.cityF || 0) + 1; S.cityV = (S.cityV || 0) + o.v; S.cityMax = Math.max(S.cityMax || 0, o.v); }

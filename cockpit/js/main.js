@@ -205,7 +205,7 @@ window.__lp = {
   MODELS, modelStore, modelState, modelInstance, modelPrototype, modelsPreload,
   highway, HW, hwyNearest, hwySampleAt, hwyBuild, updateHighway, hwyTrafficNear, hwyKnockTraffic,
   hwyInCorridor, hwyCorridorDist, inCorridor, hwyBoreCut, hwyBoreCeiling, hwyBores,
-  car, CAR, carActive, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
+  car, CAR, carActive, carLevelMotorway, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
   streets, ST, stPlan, stTraffic, stTrail, stProject, stPointAt, stRoadsNear, stCarNear, stCarTarget,
   stCityNear, stTouching, stSurfaceAt, stTrailPoint, stReassembleAt, stJunctionPath, stChoices, stArmDir, stDriveVehicle, ST_TYPES,
   stRoadY, stHwyAt, stArmAllowed, carRejoinTarget,
