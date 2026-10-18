@@ -1175,6 +1175,15 @@ function carCamera(dt) {
     if (duck === null) camY += CAR.camChase[1] * cvCamK() * CORVETTE.cam.up;
     camDesired.set(state.x - fx * back, camY, state.z - fz * back);
     camera.position.lerp(camDesired, Math.min(1, CAR.camLag * (1 + cvCamK() * (CORVETTE.cam.lag - 1)) * dt));
+    // NEVER IN A BUILDING (v163). On a corner the lagging camera swings wide round
+    // the inside of the turn -- through the building on the corner, or the signal
+    // head hanging over it at its own height: the picture a wall. Where it has got
+    // to is tested on the line back to him, and it comes in to the last clear
+    // point: in at once, out again at its own lag.
+    const ey = state.y + CAR.camClear.eye;
+    const k = Math.min(solidSight(state.x, ey, state.z, camera.position.x, camera.position.y, camera.position.z, CAR.camClear.r, CAR.camClear.kinds),
+                       ltCamSight(state.x, ey, state.z, camera.position.x, camera.position.y, camera.position.z, CAR.camClear.r));
+    if (k < 1) camera.position.set(state.x + (camera.position.x - state.x) * k, ey + (camera.position.y - ey) * k, state.z + (camera.position.z - state.z) * k);
     lookV.set(state.x + fx * 18, state.y + 1.6, state.z + fz * 18);
     camera.lookAt(lookV);
     camera.rotateZ(-state.bank * DEG * 0.3);

@@ -5629,6 +5629,7 @@ function check(name, ok, extra) {
   await runModule("./payoff_size_checks", { newPage, check });
   // the drivable cities: portrait, the driving seat on the first and the chase view on the second
   await runModule("./city_checks", { newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
+  await runModule("./corner_cam_checks", { newPage, check });   // v163: the chase camera never inside a building on a corner
   // the usability test, before every city release: five REAL minutes of a noisy
   // four-year-old's finger through New York, by touch, from the driving seat
   await runModule("./noisy_drive", { newPage, check });

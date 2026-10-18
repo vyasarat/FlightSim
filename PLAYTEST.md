@@ -42,6 +42,7 @@ entry below.
 | v160 | in New York with the Corvette, hold the booster down along the streets and say it is going fast, without noticing that it slows for every crossing; no more bangs in the city than with the SUV (none) | open |
 | v161 | after a corner, he lets go for a moment and puts the finger straight back down at full, and the car carries on straight past the next street instead of turning again; nothing he notices, and no new complaints about the car "turning by itself" | open |
 | v162 | driving around New York and California with a held finger, no bang into the back or side of a bus or car standing at a junction; the traffic still looks busy to him (cars queueing at reds, turning, crossing), and nothing he would call "stuck" |  open |
+| v163 | in the chase view, turning a corner in New York or California, he never says the screen went black or that he cannot see the car; the camera coming in closer on a tight corner reads to him as normal |  open |
 
 ## Entries
 

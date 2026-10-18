@@ -548,6 +548,22 @@ function monCamera(dt) {
       camDesired.set(ex + (camDesired.x - ex) * kk, ey + (camDesired.y - ey) * kk + (1 - kk) * C.pullRise, ez + (camDesired.z - ez) * kk);
     }
     camera.position.lerp(camDesired, Math.min(1, C.lag * dt));
+    // (v163) and where the lag has left it, too: swinging after a corner it cut
+    // through the building on it, though where it was going was clear
+    // and if that line is blocked near him (lagging round a corner, the building on
+    // it), the line to where it is going, behind him, if that keeps it farther out:
+    // a cut to the chase, never a drop on to the roof of his cab. (A signal head
+    // only if the camera would be IN one: from up here a head on the line is a small
+    // box in front of a big truck, not the cars' wall at its own height, and as a
+    // wall it dropped the camera on to his roof.)
+    const sight = p => Math.min(solidSight(ex, ey, ez, p.x, p.y, p.z, CAR.camClear.r, CAR.camClear.kinds),
+                                ltCamInHead(p.x, p.y, p.z, CAR.camClear.r) ? ltCamSight(ex, ey, ez, p.x, p.y, p.z, CAR.camClear.r) : 1);
+    const k2 = sight(camera.position);
+    if (k2 < 1) {
+      const kd = sight(camDesired), far = (p, k) => k * Math.hypot(p.x - ex, p.y - ey, p.z - ez);
+      const p = far(camDesired, kd) > far(camera.position, k2) ? camDesired : camera.position, k = p === camDesired ? kd : k2;
+      camera.position.set(ex + (p.x - ex) * k, ey + (p.y - ey) * k, ez + (p.z - ez) * k);
+    }
     // ... and the nearer it has come, the more it looks DOWN at the truck, so the
     // whole cab and its wheels stay in the picture, not one blue slab of roof
     const near = 1 - kk;

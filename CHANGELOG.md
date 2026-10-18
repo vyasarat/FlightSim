@@ -10,6 +10,55 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v163 — the chase camera never goes into a building on a corner
+
+**What he gets.** On a held corner in either city the chase camera now stays
+outside the buildings, and the car stays in the picture. Before, the camera lagged
+the turn and swung wide round its inside. In New York that took it through the
+building on the corner, and at signalled junctions into the black signal head
+that hangs at the camera's own height. For the first part of the corner the
+screen was a black slab with the car hidden behind it (the render-critic's
+standing BLOCK on v161).
+
+- **The camera keeps a clear line to him.** After the lag has moved it, the
+  camera checks the line back to the car against buildings and walls
+  (`solidSight`, solids.js) and against every signal head (`lights.heads`,
+  `ltCamSight`). If something is in the way, the camera moves in to the last
+  clear point at once, then eases back out at its normal lag. The SUV, the
+  Cybertruck and the Corvette share this (`carCamera`). The monster truck's camera
+  already came in when the spot it was heading for was blocked. Now it also
+  checks where the lag has actually left it (`monCamera`); if that line is
+  blocked close to the truck, it takes the line to where it was heading,
+  behind him, when that keeps it farther out. From its height a signal head on
+  the line is a small box in front of a big truck, so for it a head counts only
+  if the camera would be inside one -- tested as a wall, it dropped the camera
+  on to the roof of the cab. A wall or head the eye is already beside is tested
+  as a line, not a sphere, for the same reason. Nothing becomes solid
+  to anything he drives: the signal heads matter to the camera only. Tunnels are
+  unchanged, because their own duck still handles the roof. Numbers:
+  `TUNE.car.camClear`.
+
+**The check.** `corner_cam_checks` drives every held corner, left and right, at
+every four-way grid junction in both cities: about 160–290 corners per city, with
+the SUV and with the Corvette's booster lit. It also drives a spread of corners
+with the Cybertruck and the monster truck. On every frame it tests the camera with
+its own walk of the solids registry and of the signal-head boxes: is the camera
+inside a building or a wall, and is a building, wall or head between it and him?
+It also requires that the corners were really turned, that buildings were really
+standing beside each one, and that there were no bangs. On main it fails in New
+York: 18 frames inside a building with the SUV and 1695 with the Corvette. Here
+it passes with 0 frames inside a building, 0 blocked, 0 through a signal head and
+0 bangs, and it never comes nearer than 5 m to him (no drop on to his roof).
+At its closest it is 9.7 m behind a car and 18.7 m behind the monster truck. A
+pull-in is a cut: usually 3–4 m in a frame, on about a quarter of New York's
+corners, at most 14 m. Renders: both cities, the SUV and the Corvette, at the start of a held
+corner and 1/3 s later. The render-critic passed all eight.
+
+Full harness 1072/1072.
+
+---
+
+
 ## v162 — no city car ever stands in a junction box
 
 **What he gets.** A bus no longer stops with its tail across the street he is

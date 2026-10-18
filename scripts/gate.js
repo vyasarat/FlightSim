@@ -35,15 +35,15 @@ const git = (...a) => { try { return execFileSync("git", a, { cwd: ROOT, stdio: 
 // the full harness -- which is the honest default for the plane, the rocket and
 // anything shared (tune, terrain, scene, flight, main).
 const MODULES = {
-  "car.js": ["road_checks", "car_feel_checks", "city_checks", "cybertruck_checks", "corvette_checks"],
+  "car.js": ["road_checks", "car_feel_checks", "city_checks", "cybertruck_checks", "corvette_checks", "corner_cam_checks"],
   "corvette.js": ["corvette_checks", "slot_checks", "engine_sound_checks"],
   "highway.js": ["road_checks", "car_feel_checks"],
   "streets.js": ["city_checks", "road_checks", "solidity_checks", "corvette_checks"],
   "city.js": ["city_checks"], "citydata.js": ["city_checks", "solidity_checks"],
   "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks", "cybertruck_checks", "corvette_checks"],
   "vehiclekit.js": ["road_checks", "city_checks"],
-  "solids.js": ["solidity_checks"], "collision.js": ["solidity_checks"],
-  "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks"], "crane.js": ["crane_checks", "slot_checks", "solidity_checks", "vehicle_contract_checks", "state_semantics_checks"], "dadmode.js": ["dadmode_checks", "dadmissions_checks", "slot_checks", "vehicle_contract_checks", "state_semantics_checks"], "valley.js": ["dadmode_checks", "solidity_checks"], "dadair.js": ["dadmissions_checks"], "dad_dam.js": ["dadmissions_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks"],
+  "solids.js": ["solidity_checks", "corner_cam_checks"], "collision.js": ["solidity_checks"],
+  "track.js": ["track_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks"], "crane.js": ["crane_checks", "slot_checks", "solidity_checks", "vehicle_contract_checks", "state_semantics_checks"], "dadmode.js": ["dadmode_checks", "dadmissions_checks", "slot_checks", "vehicle_contract_checks", "state_semantics_checks"], "valley.js": ["dadmode_checks", "solidity_checks"], "dadair.js": ["dadmissions_checks"], "dad_dam.js": ["dadmissions_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks", "corner_cam_checks"],
   "boat.js": ["boat_checks", "sea_checks"], "harbor.js": ["boat_checks", "lock_checks", "sea_checks"],
   "lock.js": ["lock_checks"], "yacht.js": ["yacht_checks"], "seaevents.js": ["sea_checks"],
   "heli.js": ["heli_control_checks", "heli_play_checks", "heli_land_checks"],

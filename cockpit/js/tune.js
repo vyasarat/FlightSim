@@ -639,6 +639,9 @@ const TUNE = {
     crashDebounce: 0.9,          // seconds of GAME time between bangs, driven by the frame
     bodyL: 9.2, bodyW: 4.2, bodyH: 2.6,
     camChase: [17, 6.5], camLag: 5,
+    // the chase camera comes in along its line to him (from this high on him) to stay
+    // this far clear of these (v163: never inside a building on a corner)
+    camClear: { eye: 1.6, r: 0.8, headNear: 2, kinds: ["building", "wall"] },
     // The cartoon on the centre screen: a paper plane flying a figure of eight.
     // A figure of eight closes on itself, so the loop has no seam to jump at.
     screenPlay: { loop: 5.5, trail: 14, trailStep: 0.010, every: 3 },

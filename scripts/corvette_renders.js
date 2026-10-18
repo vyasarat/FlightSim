@@ -16,6 +16,7 @@
 //   dusk            the chase view on the motorway at dusk (the night sky part-way in), burning
 //   turn            the chase view mid-turn, a full steer held, burning: the flames side-on
 //   side|three      close in, stopped, at wheel height: the body, no lettering, wheels on the road
+// VEH= the car (corvette, car, cybertruck), CITY= ny|ca, LATE= frames on after the scene is found.
 //   node scripts/corvette_renders.js [root] [views...]    -> evidence/corvette/ (OUT= to change)
 const path = require("path"), fs = require("fs");
 const { launch, openGame, serve } = require("./art_rig.js");
@@ -29,6 +30,7 @@ async function render(root, views) {
   const page = await openGame(browser, port, { width: 820, height: 1180 });
   await page.evaluate((v) => { window.__rVeh = v; }, process.env.VEH || "corvette");
   await page.evaluate((c) => { window.__late = c; }, +(process.env.LATE || 0));   // frames on after the scene is found (a corner's later moments)
+  await page.evaluate((c) => { window.__rCity = c; }, process.env.CITY || "ny");      // the city the city views are in (v163: CITY=ca)
   await page.evaluate(() => { window.__lp.api.skipScreens(); window.__hold = () => {}; for (let i = 0; i < 3; i++) window.__paint(); });
   await page.waitForFunction(() => window.__lp.modelState && window.__lp.modelState.corvette !== "loading", null, { timeout: 120000 }).catch(() => {});
   await page.screenshot({ timeout: 180000 });
@@ -66,7 +68,7 @@ async function render(root, views) {
         window.__hold = () => { S.touching = true; S.ctrlPitch = p; };
       } else if (["city", "citySeat", "cityApproach", "seatApproach", "signal", "cross", "heldCorner", "heldCornerOff"].includes(v)) {
         // the longest straight grid street in New York, from its start, the booster lit
-        const C = L.streets.cities.ny;
+        const C = L.streets.cities[window.__rCity];
         const grid = C.roads.filter(x => x.kind === "grid" && x.b).sort((a, b) => b.len - a.len), r = grid[0], q = {};
         L.stPointAt(r, 20, 1, r.lo, q);
         S.x = q.x; S.z = q.z; S.y = L.stSurfaceAt(q.x, q.z); S.heading = Math.atan2(-q.fx, -q.fz); S.speed = L.CAR.cruise;
@@ -95,7 +97,7 @@ async function render(root, views) {
         // the junctions to come up to: a four-way of grid streets (with a left, for
         // the held corner; with signals, for those two), placed on the approach to
         // it, its block's length back, and driven in -- the next one if nothing shows
-        const C2 = L.streets.cities.ny, tries = [];
+        const C2 = L.streets.cities[window.__rCity], tries = [];
         for (const node of C2.nodes) {
           if (node.arms.length !== 4 || !node.arms.every(a => a.road.kind === "grid")) continue;
           if (v === "signal" && !node.signal) continue;
