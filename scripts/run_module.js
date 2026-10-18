@@ -19,11 +19,13 @@ const { launch, serve } = require("./art_rig.js");
   const URL = `http://127.0.0.1:${port}/cockpit/index.html`;
   async function newPage(w, h) {
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
-    await ctx.addInitScript(() => {
+    // SEED=<n> runs the page on another random stream (for a check run many times
+    // over, each on different traffic); unset, the harness's own
+    await ctx.addInitScript((s0) => {
       try { localStorage.clear(); } catch (e) {}
-      let seed = 0x2F6E2B1;
+      let seed = s0;
       Math.random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-    });
+    }, process.env.SEED ? (0x2F6E2B1 ^ (+process.env.SEED * 2654435761)) >>> 0 : 0x2F6E2B1);
     const page = await ctx.newPage();
     const errors = [];
     page.on("pageerror", e => errors.push("pageerror: " + e.message));

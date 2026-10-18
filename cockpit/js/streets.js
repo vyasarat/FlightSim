@@ -1731,9 +1731,15 @@ function stPlaceVehicle(v, city, px, pz, far) {
     if (d > STT.range || d < (far ? keep : 0)) continue;
     // never materialise in his lane ahead of him: that is a wall out of nowhere
     if (stPlaceHim && stPlaceHim.lanes.some(L => L.road === r && L.dir === dir)) continue;
+    // and never in front of a car coming along that lane or turning into it: the
+    // room it counted at the junction behind is its own (v162: a car spawned 29 m in
+    // front of one crossing into the lane, and it stood in the box behind it)
     let clash = false;
     for (const o of stTraffic.list) {
-      if (o !== v && o.alive && o.road === r && o.dir === dir && Math.abs(o.s - s) < 16) { clash = true; break; }
+      if (o === v || !o.alive) continue;
+      if (o.road === r && o.dir === dir && !o.path && ((o.s - s) * dir > -STT.spawnBehind && (o.s - s) * dir < 16)) { clash = true; break; }
+      const into = o.path ? o.path.arm : o.next;
+      if (into && into.road === r && stArmDir(into) === dir && (dir > 0 ? s : r.len - s) < STT.spawnBehind) { clash = true; break; }
     }
     if (clash) continue;
     v.road = r; v.dir = dir; v.s = s; v.path = null; v.next = null;
@@ -1851,26 +1857,80 @@ function stHimClaims(node, him, clearT) {
   return false;
 }
 
-// Everything that makes a vehicle stop short of a junction: a red, him about to
-// be in it, another car crossing it, the car in front. Returns the speed it may
-// have, `toGo` metres short of the junction's middle.
-// Is there room on the far side for it to get out of the junction?
-function stExitRoom(v, arm) {
+// Is there room on the far side for it to get out of the junction -- ALL of it,
+// past the box's far edge? (v162: the room was counted from the junction's middle,
+// and only behind cars already stopped, so a bus went in behind a slowing queue and
+// stopped with its tail across the crossing street, where a held finger drove into
+// it.) Every car ahead of it in that lane counts at the earliest it could be
+// standing -- its tail now, plus the shortest stop it could make from its speed --
+// and so does every car going into that lane through this junction ahead of it: on
+// its corner, or over its line going straight. The room is for this one's whole
+// length and a queue gap beyond the far edge of the box.
+function stExitRoom(v, arm, node, toGo) {
   if (!arm) return true;
   const r = arm.road, d = stArmDir(arm), T = ST_TYPES[v.type];
+  const edge = node ? stBoxHalf(node, r) : 0;
   for (const o of stTraffic.list) {
-    if (o === v || !o.alive || o.spin || o.road !== r || o.dir !== d || o.path) continue;
-    const from = d > 0 ? o.s : r.len - o.s;
-    if (from < T.hl * 2 + STT.queueGap + ST_TYPES[o.type].hl && (o.sp || 0) < 3) return false;
+    if (o === v || !o.alive || o.spin) continue;
+    let from;
+    // (one standing at the far end on its corner's path is still on this lane)
+    if (o.road === r && o.dir === d && (!o.path || o.path.arm.road !== r)) from = d > 0 ? o.s : r.len - o.s;
+    else {
+      // into the same lane through this junction, and ahead of it
+      const into = o.path ? o.path.arm.road === r && stArmDir(o.path.arm) === d
+                          : o.crossing && o.next && o.next.road === r && stArmDir(o.next) === d && (o.dir > 0 ? o.road.b : o.road.a) === node;
+      if (!into) continue;
+      const oToGo = o.path ? o.path.inLen - o.ps : o.dir > 0 ? o.road.len - o.s : o.s;
+      if (o.road === v.road && o.dir === v.dir ? !(oToGo < toGo) : !(o.path || o.crossing)) continue;
+      from = o.path ? Math.max(0, (p => d > 0 ? p : r.len - p)(stProject(r, o.wx, o.wz).s)) : -oToGo;
+    }
+    const osp = o.sp || 0;
+    const tail = from - ST_TYPES[o.type].hl + osp * osp / (2 * Math.max(STT.brake, STT.shed));
+    if (tail - STT.queueGap - 2 * T.hl < edge) return false;
+  }
+  // and so does he: a car that followed him over a junction stood with its tail in
+  // the box behind when he stopped just past it (his own brake, his own length)
+  const him = stPlaceHim;
+  if (him && !him.off && him.road === r && him.dir === d) {
+    const tail = (d > 0 ? him.s : r.len - him.s) - CAR.bodyL / 2 + him.speed * him.speed / (2 * CAR.brake);
+    if (tail - STT.queueGap - 2 * T.hl < edge) return false;
   }
   return true;
 }
 
+// How far out from a junction's middle its box reaches along one of its roads: the
+// widest road crossing it, half of it. Inside it a car that stands is a wall across
+// somebody else's road.
+function stBoxHalf(node, road) {
+  return node.arms.reduce((m, a) => a.road === road ? m : Math.max(m, a.road.halfW), 0);
+}
+
+// Everything that makes a vehicle stop short of a junction: a red, him about to
+// be in it, another car crossing it, the car in front. Returns the speed it may
+// have, `toGo` metres short of the junction's middle.
 function stStopFor(v, node, road, toGo, sp, turning, him) {
-  const cross = node.arms.reduce((m, a) => a.road === road ? m : Math.max(m, a.road.halfW), 0);
-  const line = cross + ST.zebraGap + ST.zebraLen + STT.stopGap;
+  const cross = stBoxHalf(node, road);
+  // the line is where a car's nose stops; anything longer stops its nose there too
+  // (v162: held by its middle, a bus stood with its nose 7 m on, in the box)
+  const line = cross + ST.zebraGap + ST.zebraLen + STT.stopGap + Math.max(0, ST_TYPES[v.type].hl - ST_TYPES[0].hl);
   if (toGo < line - 2) {
-    // over the line: it is crossing, and it holds the junction while it does
+    // Over the line: it is crossing, and it holds the junction while it does --
+    // but until its nose is in the box it asks again everything it asked at the line
+    // (him, a red, another car holding the junction) and room on the far side, and
+    // without them holds short of the box. (v162: the room counted at the line was
+    // gone a second later, taken by a car round the corner into the same street;
+    // two that crossed their lines in the same second each counted the room the
+    // other then took; and one that waited there for room turned across him when it
+    // came. The hold point itself counts as short of the box: stopped on it, a hair
+    // of rounding read it as past, and it rolled in without asking.)
+    const nose = toGo - ST_TYPES[v.type].hl - cross - STT.boxBack;
+    const clearIn = (2 * cross + 2 * ST_TYPES[v.type].hl) / Math.max(4, v.speed) + (turning ? STT.turnClearT : 0);
+    if (nose > -STT.boxBack / 2 && ((node.res && node.res !== v && node.resT > 0) || stSignalAspect(node, road) === "red" ||
+        stHimClaims(node, him, clearIn) || !stExitRoom(v, v.path ? v.path.arm : v.next, node, toGo))) {
+      v.crossing = false;
+      v.hold = Math.max(0, nose);
+      return Math.min(sp, v.hold * 0.6);
+    }
     if (toGo > -cross - 4) { node.res = v; node.resT = STT.resHold; }
     v.crossing = true;
     return sp;
@@ -1882,7 +1942,7 @@ function stStopFor(v, node, road, toGo, sp, turning, him) {
   const clearT = (2 * line + 2 * ST_TYPES[v.type].hl) / Math.max(4, v.speed) + (turning ? STT.turnClearT : 0);
   if (!stop && stHimClaims(node, him, clearT)) stop = true;
   if (!stop && node.res && node.res !== v && node.resT > 0) stop = true;
-  if (!stop && !stExitRoom(v, v.path ? v.path.arm : v.next)) stop = true;
+  if (!stop && !stExitRoom(v, v.path ? v.path.arm : v.next, node, toGo)) stop = true;
   if (!stop) return sp;
   // and it holds SHORT of the line: braking lags the target, so the frame that
   // would carry it over is clamped (stDriveVehicle reads v.hold)
@@ -1932,12 +1992,16 @@ function stUpdateTraffic(dt) {
 // car that only began to queue 9 m short drove into the one in front and stayed
 // there. Inside it already, it goes at half the leader's speed rather than
 // stopping dead, so a pile always drives off, comes apart, and never freezes.
+// It comes up to the queue gap, not short of it: it slows on the curve that brings it
+// to the leader's speed just as it gets there (v162: it slowed to the leader's speed
+// the moment the gap was inside its braking distance, and so stood several metres
+// further back -- a queue a car longer than the room the junction behind counted
+// for it, and the last one stood in the box).
 function stQueueBehind(v, o, g, sp) {
   const bump = g - ST_TYPES[o.type].hl - ST_TYPES[v.type].hl, osp = o.sp || 0;
-  const need = STT.queueGap + Math.max(0, (v.sp * v.sp - osp * osp) / (2 * STT.brake));
-  if (bump >= need) return sp;
   if (bump < 0) return Math.min(sp, osp * 0.5);
-  return Math.min(sp, bump < STT.bumperStop ? 0 : osp);
+  if (bump < STT.bumperStop) return Math.min(sp, 0);
+  return Math.min(sp, Math.sqrt(osp * osp + 2 * STT.brake * Math.max(0, bump - STT.queueGap)));
 }
 
 function stDriveVehicle(v, dt, him) {
@@ -1967,8 +2031,14 @@ function stDriveVehicle(v, dt, him) {
       yieldMode = true;
     } else if (gap !== null && gap < 0 && -gap < STT.follow + Math.max(0, (v.sp * v.sp - him.speed * him.speed) / (2 * STT.shed))) {
       // behind him: never into the back of him -- from as far back as it
-      // needs to stop in, when it is still carrying speed from outrunning him
-      sp = Math.min(sp, him.speed * 0.98);
+      // needs to stop in, when it is still carrying speed from outrunning him.
+      // Standing still, he is the head of a queue: it comes up to the queue gap
+      // behind him like behind any car, and no closer (v162: held at his speed,
+      // zero, from 70 m back, one stood with its tail across the junction behind
+      // for as long as he was parked). Moving, it holds his speed as ever: he
+      // brakes harder than it can.
+      const behind = -gap - CAR.bodyL / 2 - T.hl - STT.queueGap;
+      sp = Math.min(sp, him.speed < 0.5 ? Math.sqrt(2 * STT.brake * Math.max(0, behind)) : him.speed * 0.98);
     }
   }
   const acc = (yieldMode ? STT.yieldAccel : STT.accel) * dt;
@@ -2048,6 +2118,15 @@ function stDriveVehicle(v, dt, him) {
   // ---- stopping: a red, him, a car crossing
   v.hold = null;
   if (node && !yieldMode) sp = stStopFor(v, node, r, toGo, sp, !!(J && J.turn), him);
+  // hurried out of his way it stops for nothing -- his road outranks the box -- but
+  // over its line it still says it is crossing and holds the junction, so every
+  // other car counts it in the room it needs
+  // (and only there: short of its line it is not committed, and stays not -- read as
+  // committed, a car across him is hurried over its line instead of held by his claim)
+  else if (node) {
+    v.crossing = toGo < stBoxHalf(node, r) + ST.zebraGap + ST.zebraLen + STT.stopGap && toGo > -stBoxHalf(node, r) - 4;
+    if (v.crossing) { node.res = v; node.resT = STT.resHold; }
+  }
   // the one ahead of it in its own lane -- but never inside a junction box:
   // a car that stops in the box is a wall across somebody else's road
   const inBox = node && toGo < node.arms.reduce((m, a) => a.road === r ? m : Math.max(m, a.road.halfW), 0) + 2;

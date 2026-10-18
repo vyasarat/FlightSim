@@ -547,8 +547,10 @@ const TUNE = {
     traffic: {
       count: 64, range: 620, keepOut: 110, speed: [11, 17], accel: 5, brake: 11,
       turnSpeed: 6.5, decide: 45, straightP: 0.6, stopGap: 2.5, lineBack: 0.6, queueGap: 9, bumperStop: 1.4,
+      boxBack: 0.5,              // over its line with no room past the box, it holds its nose this far short of it
       boxR: 12, yieldT: 3.2, resHold: 2.6, respawn: 2.5, parkedBack: 6,
       spawnClear: 26,            // a car is placed at least this far from either end of its street
+      spawnBehind: 60,           // ...and never this close in front of a car coming along its lane or turning into it
       // the three promises (streets.js): ahead of him in his lane it outruns him
       // from yieldReach, faster than he is by yieldMatch; behind, it holds his speed
       yieldReach: 150, yieldMatch: 40, yieldAccel: 60, follow: 70,
