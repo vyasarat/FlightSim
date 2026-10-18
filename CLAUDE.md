@@ -15,6 +15,8 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
   the birds, gulls and whale, which carry `noSolid`/`noShatter`).
 - **Nothing is ever taken away**: no score, timers, unlocks or failure. A crash explodes
   and reassembles free, *where it happened*; every reward re-arms.
+  One exception, the parent's call (v164): in a race (`race.js`) he can lose -- a real
+  finishing order, and he can come last. Nothing else goes: no score kept, nothing saved, nothing locked.
 - **Pointing, not timing**: every control is "aim at it"; assists exist so *coasting in*
   works. **Drag up = nose up**, never inverted; on a surface vehicle it is that vehicle's
   burst, except the yacht, where it is the horn.
@@ -222,6 +224,7 @@ a deliberate, stated behaviour change.
 | `streets.js` | both cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, the square (no people) |
 | `vehiclekit.js` | the traffic's six low-poly shapes (and the police sedan): wheels spun in the shader, lamps lit per vertex, one instanced call per shape |
 | `track.js` | the giant toy track: its typed sections, the rail, the forks, the net, the lift, its own exit |
+| `race.js` | the race: its tracks as typed sections (`TUNE.race.tracks`), the venue in the world, one speed model for every car, the podium |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
 | `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
 

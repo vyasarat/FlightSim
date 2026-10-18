@@ -25,7 +25,7 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
   const t0 = Date.now(), TRACE = process.env.CC_TRACE;   // (CC_TRACE=<try>: every frame of one corner)
   for (const city of ["ny", "ca"]) {
     for (const [veh, pull] of VEHS) {
-      if (process.env.CC_ONLY && process.env.CC_ONLY !== city + ":" + veh) continue;   // (iterating on one)
+      if (process.env.CC_ONLY && !process.env.CC_ONLY.split(",").includes(city + ":" + veh)) continue;   // (iterating on one)
       const r = await page.evaluate(([city, veh, pull, TRACE]) => {
         const L = window.__lp, S = L.state, cam = L.camera;
         L.noRender = true; L.api.skipScreens();
@@ -93,10 +93,17 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
         // camera, a spread of them)
         const spread = veh === "cybertruck" || veh === "monster";
         const want = spread ? 16 : Infinity, step = spread ? Math.max(1, Math.floor(tries.length / want)) : 1;
-        for (let t = 0; t < tries.length && out.corners < want; t += step) {
+        // (a corner skipped -- traffic at its start, nothing standing yet -- hands on to
+        // the next one, not a whole stride on: skipping a stride left the spread short)
+        let nextT = 0;
+        for (let t = 0; t < tries.length && out.corners < want; t++) {
+          if (t < nextT) continue;
           const { node, inArm, side } = tries[t], rd = inArm.road, dir = inArm.atStart ? -1 : 1, q = {};
           L.stPointAt(rd, dir > 0 ? 5 : rd.len - 5, dir, rd.lo, q);
-          if (L.stTraffic.list.some(o => o.alive && Math.hypot(o.wx - q.x, o.wz - q.z) < 15)) continue;
+          // nothing on the approach: put down at speed behind a car queued at the junction,
+          // he had no time to be seen and ran into it (a teleport, not a drive; on main too)
+          const segD = (px, pz) => { const ax = node.x - q.x, az = node.z - q.z, u = Math.max(0, Math.min(1, ((px - q.x) * ax + (pz - q.z) * az) / (ax * ax + az * az))); return Math.hypot(px - q.x - ax * u, pz - q.z - az * u); };
+          if (L.stTraffic.list.some(o => o.alive && (Math.hypot(o.wx - q.x, o.wz - q.z) < 15 || segD(o.wx, o.wz) < 8))) continue;
           S.x = q.x; S.z = q.z; S.y = L.stSurfaceAt(q.x, q.z); S.heading = Math.atan2(-q.fx, -q.fz);
           S.speed = L.CAR.cruise * L.spdStepsFor(veh)[2]; S.exploding = false;
           L.car.yield = 1; L.car.steer = 0; L.car.spent = 0; L.stPlan.road = rd; L.stPlan.dir = dir; L.stPlan.turn = null;
@@ -114,7 +121,7 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
           if (!standing) { out.unbuilt = (out.unbuilt || 0) + 1; continue; }
           out.near += standing;
           const h0 = S.heading, bangs0 = L.flags.carCrashes || 0;
-          out.corners++;
+          out.corners++; nextT = t + step;
           let after = -1, turnedHere = false, prev = null, hand = false;
           for (let i = 0; i < 60 * 12; i++) {
             // the monster truck steers freely (no junction rule): it is turned by hand from the corner until it has turned
@@ -143,14 +150,16 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
             if (after >= 0 && i >= after) break;
           }
           if (turnedHere) out.turned++;
-          out.bangs += (L.flags.carCrashes || 0) - bangs0;
+          const nb = (L.flags.carCrashes || 0) - bangs0;
+          if (nb && (out.bangAt || []).length < 3) (out.bangAt = out.bangAt || []).push({ t, x: Math.round(S.x), z: Math.round(S.z), turned: turnedHere, traffic: L.stTraffic.list.filter(o => o.alive && Math.hypot(o.wx - S.x, o.wz - S.z) < 12).map(o => [Math.round(o.wx), Math.round(o.wz), +(o.v || 0).toFixed(1)]) });
+          out.bangs += nb;
           L.api.clearStick();
         }
         out.minBack = +out.minBack.toFixed(1); out.jump = +out.jump.toFixed(1);
         return out;
       }, [city, veh, pull, TRACE]);
       const tag = `${r.city} ${r.veh}${r.veh === "corvette" ? " boosted" : ""}`;
-      check(`corner camera ${tag}: on ${r.corners} held corners (${r.turned} turned through a right angle, buildings standing beside every one), the chase camera is never inside a building or a wall and none -- nor a signal head hanging over a junction -- ever stands between it and him -- ${r.frames} frames (${r.signalFrames} by a signal), ${r.inside} inside, ${r.blocked} blocked, ${r.head} through a signal head, nearest ${r.minBack} m behind (never on to his roof: at least 5), its biggest step in a frame ${r.jump} m (${r.jumps} frames over 3 m), ${r.bangs} bangs ${JSON.stringify(r.worst)} nearest at ${JSON.stringify(r.minAt)} biggest at ${JSON.stringify(r.bigAt)} ${r.trace ? JSON.stringify(r.trace) : ""} (${r.tries} corners there, ${r.unbuilt || 0} with nothing standing yet; ${Math.round((Date.now() - t0) / 1000)} s in)`,
+      check(`corner camera ${tag}: on ${r.corners} held corners (${r.turned} turned through a right angle, buildings standing beside every one), the chase camera is never inside a building or a wall and none -- nor a signal head hanging over a junction -- ever stands between it and him -- ${r.frames} frames (${r.signalFrames} by a signal), ${r.inside} inside, ${r.blocked} blocked, ${r.head} through a signal head, nearest ${r.minBack} m behind (never on to his roof: at least 5), its biggest step in a frame ${r.jump} m (${r.jumps} frames over 3 m), ${r.bangs} bangs ${r.bangAt ? JSON.stringify(r.bangAt) : ""} ${JSON.stringify(r.worst)} nearest at ${JSON.stringify(r.minAt)} biggest at ${JSON.stringify(r.bigAt)} ${r.trace ? JSON.stringify(r.trace) : ""} (${r.tries} corners there, ${r.unbuilt || 0} with nothing standing yet; ${Math.round((Date.now() - t0) / 1000)} s in)`,
         r.corners >= (r.veh === "cybertruck" || r.veh === "monster" ? 8 : 60) && r.turned >= Math.ceil(r.corners * 0.75) && r.frames > 2000 && r.signalFrames > 100 && r.inside === 0 && r.blocked === 0 && r.head === 0 && r.bangs === 0 && r.minBack >= 5);
     }
   }

@@ -10,6 +10,120 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v164 — the race (his idea)
+
+**What he gets.** In any car he can drive (the SUV, the Cybertruck, the Corvette
+or the monster truck), a pulsing chequered flag offers a race. It opens a track
+picker: one big card showing the oval from above, and the way back. Tapping the
+card puts him on the grid at the oval, in the same car, with five others to
+race. Each of the five is a different car from the game: the other cars he can
+drive, plus the traffic's taxi and green hatchback. Three lamps on the start
+gantry come on red one a second, with the numerals 3-2-1 up in the sky, then
+all go green. The race is three laps. Three lights at the top fill as the laps
+go by, and under them the six cars are drawn small in race order, his ringed in
+yellow. His controls are the ones he already knows. His finger drives. Dragging
+left or right moves him across the track to overtake, dodge, take the inside of
+a bend, or hit the cyan boost chevrons he aims at. Dragging up is his car's burst
+(the Corvette keeps its booster, flames and all), and the speed steps are the
+same pair. He cannot leave the track and nothing can stop him. A car or a barrier
+is a shove, never a bang. At the end comes the podium, in true finishing order,
+with confetti and cheering. If he wins, his car hops on the gold step under a
+spinning trophy, with fireworks. If he does not, the winner hops, and his car
+drives along the straight in front of the podium and stops for its cheer. Two
+pulsing buttons follow: race again, or go back. EXIT, top left during a race,
+puts him back where he was, in the same car. The oval stands in the world in
+normal play, flat open ground 500 m off the motorway near the desert, with
+grandstands, flags, kerbs, the gantry and the podium.
+
+**The parent's exception, written into CLAUDE.md.** In a race he can lose: the
+finishing order is real and he can come last. Nothing else is taken away. No
+score is kept, nothing is saved, and nothing is locked.
+
+**Fair for every car, and close.** Every racer runs the same speed model: one
+base speed times *his* speed step, one burst gain, one pad gain. The car he
+picked changes how it looks and sounds, never how fast it goes. With the same
+finger, alone on the track, all four of his cars lap in exactly the same time
+(113.55 s with drag up held, 133.7 s without). The opponents race at his step
+with a spread of skill, and the skill goes with the place on the grid, not with
+which car holds it, so the field he meets is the same whatever he drives. They
+ease off a little when well ahead of him and push a little when well behind, but
+they never wait. A pull up is a burst of the same length for every car, the
+Corvette's booster burning for exactly as long (burning only while held, a
+lifting finger got less of it) and needing the same pull to go again, and a pad
+catches every car by the same width. Measured before these: the monster truck won
+55% and the others 20-25%. The last slot on the grid -- the giant's, when it races
+-- starts a row further back, so its wheels never fill his chase camera; the slot,
+not the car, so the field stays the same. The gantry stands 15 m tall, over every
+chase camera, and the race's chase camera keeps v163's clear line back to him. The parent's dial is
+`TUNE.race.ai.strength` (1.04 now: up is harder, down is easier). Track 1 is
+data, five typed sections laid with the toy track's own generators: an egg-shaped
+oval with a 110 m banked turn and a 170 m sweeping bend whose numbers close it
+exactly. A later track is a new entry in `TUNE.race.tracks`. The race is a mode
+(`vehKind()` answers "race"), so nothing that asks for a car (the police, the
+signals, the horn, eject) sees him in one. It draws from its own random stream,
+never the game's.
+
+**The noisy finger, racing** (`race_drive.js`: drag wobbling, lifts, overshoots,
+steering at pads and round cars), 20 races per car on each of four seeds, run three
+times (all three identical; the race and the hand have their own streams), at
+strength 1.04:
+
+| car | wins (of 80) | per seed of 20 | worst gap behind the winner | bangs | stuck |
+|---|---|---|---|---|---|
+| SUV | 59% | 60 / 60 / 55 / 60% | 3.49 s | 0 | 0 |
+| Cybertruck | 42% | 35 / 40 / 55 / 40% | 2.90 s | 0 | 0 |
+| Corvette | 51% | 60 / 60 / 40 / 45% | 3.85 s | 0 | 0 |
+| monster truck | 46% | 80 / 40 / 30 / 35% | 3.44 s | 0 | 0 |
+
+50% overall.
+
+**The checks.** `race_checks` (portrait, iPad and phone): the track closes (0.003
+m) and stands dry, 537 m from the motorway, outside both cities. The flag is up
+in every car he drives and in nothing else. A real tap on it opens the picker,
+with no text. The grid has five different opponents, none of them his car. The
+lamps come on 0-1-2-3 with 3-2-1, then green, and nobody moves before the green.
+Mid-race the HUD shows, with no clashes and nothing over a button. A held-straight
+race gives three laps, a real finishing order and the podium in it. The fairness
+test is above. Driven into a slower car he is shoved and rolls on. Held into the
+barrier for ten seconds he runs along it and never stops. A pad pushes him past
+his speed. Again gives a fresh grid. EXIT puts him back where he was, 0 m off.
+The menu from a race opens on the vehicles. One noisy race in each car finishes
+with no bang and never stuck. `race_drive.js` is the hand. `race_renders.js`
+draws the picker, the grid (chase and seat), an overtake (chase and seat), both
+podiums and the venue from the motorway. The render-critic passed them.
+
+Also: the race flag sits bottom-right low (high, it shared the slow button's slot in
+landscape; the slot check caught it), and `vehicle_baseline.json` gains `raceBtn` for
+the SUV and the Corvette, regenerated with `UPDATE_VEHICLE`. The same regeneration
+also moved one unrelated number, the yacht's resting height, by 0.2 m (`aboveGround`
+0.1 to -0.1, `y` -3.4 to -3.6). The old values pass against this tree, so that hunk
+was put back by hand rather than shipped as a change nobody made. `race_checks` gains
+the same rules whatever he drives: a lifting finger, a light pull, the pad's catch,
+and the field by grid slot, in all four cars. When a race ends, its confetti goes
+with it. `corner_cam_checks` (v163): a corner skipped
+for traffic at its start now hands on to the next one rather than a whole stride
+(the spread fell to 5 of 8), it names where any bang happened, and `CC_ONLY` takes a
+list. Named, the bangs it saw now and then in a full run (on main too: 2 of 3 runs)
+were all the same thing: he was put down at speed on a street behind a car queued
+at the junction ahead, with no time to be seen, and ran into it. That is a teleport,
+not a drive, so a corner with traffic on its approach is now skipped. On the podium
+every car fits its step (the giant on silver dwarfed the winner on gold). If he does
+not win and he is in the giant, it stops at the edge of the shot, not in front of
+the steps. The fireworks burst behind the podium, to either side of the trophy:
+scattered toward the camera, they showed as grey lumps at the top of the frame.
+The Corvette floated over the deck in every race, a metre or more. His height was
+measured from a box that took in the booster's hidden flame sprites, which hang below
+the body. Now it is measured from the body he can see. A new check (on a fresh page:
+what the earlier tests leave on the Corvette hid it) has every car's lowest visible
+point on the deck: 3.34 m over it on the old code, 0 now. The countdown has its own
+place in a race, smaller, between the gantry's lamps and his car (up in the sky it
+covered the order strip in landscape).
+
+Full harness not run: shipped at the parent's call so he could play (the gate and race_checks 23/23 green; render-critic BLOCK on round three standing, on the winner's hop reading as floating and the monster truck overtake framing -- both fixed in v165).
+
+---
+
+
 ## v163 — the chase camera never goes into a building on a corner
 
 **What he gets.** On a held corner in either city the chase camera now stays
