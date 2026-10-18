@@ -55,6 +55,58 @@ function installDriver() {
   // a fraction of the CAR's own drag range, as a stick value: the car rescales
   // the shared range (car.js), so setStick(0.5) is most of a full steer
   D.carStick = (frac) => frac * L.CAR.dragRangeX * innerWidth / (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight));
+  // The box watch (v162), on every frame of every drive in this module: no city car
+  // ever STOPS with any part of it inside a junction box. Measured on the ground,
+  // not by the traffic's own reckoning: a junction's box is each of its arms' stubs,
+  // out from its middle as far as the widest road crossing it, as wide as its own
+  // road; a car is its own rectangle (a bus is fourteen metres long). Stopped is
+  // under 0.5 m/s.
+  const stubs = [];
+  for (const k in L.streets.cities) for (const n of L.streets.cities[k].nodes) {
+    if (n.arms.length < 3) continue;                                // a bend or the turnaround: no crossing traffic
+    for (const a of n.arms) {
+      const cross = n.arms.reduce((m, b) => b.road === a.road ? m : Math.max(m, b.road.halfW), 0);
+      const p = a.road.pts, i0 = a.atStart ? 0 : p.length - 1, i1 = a.atStart ? 1 : p.length - 2;
+      const dl = Math.hypot(p[i1].x - p[i0].x, p[i1].z - p[i0].z) || 1, ux = (p[i1].x - p[i0].x) / dl, uz = (p[i1].z - p[i0].z) / dl;
+      stubs.push({ node: n, x: n.x + ux * cross / 2, z: n.z + uz * cross / 2, ux, uz, hl: cross / 2, hw: a.road.halfW });
+    }
+  }
+  const touch = (ax, az, ahx, ahz, aw, al, bx, bz, bhx, bhz, bw, bl) => {
+    for (const [ux, uz] of [[ahx, ahz], [-ahz, ahx], [bhx, bhz], [-bhz, bhx]]) {
+      const ra = Math.abs(ahx * ux + ahz * uz) * al + Math.abs(-ahz * ux + ahx * uz) * aw;
+      const rb = Math.abs(bhx * ux + bhz * uz) * bl + Math.abs(-bhz * ux + bhx * uz) * bw;
+      if (Math.abs((bx - ax) * ux + (bz - az) * uz) > ra + rb) return false;
+    }
+    return true;
+  };
+  // And that it measured something: car-frames spent in a box at all (moving through),
+  // and that traffic keeps moving -- no car stands still longer than `stuckS` at a
+  // stretch, so a hold that never lets go, or two cars waiting on each other, shows.
+  D.box = { frames: 0, bad: {}, through: 0, still: {}, stuckMax: 0, stuck: null };
+  const update = L.update;
+  L.update = (dt) => {
+    update(dt);
+    D.box.frames++;
+    for (const v of L.stTraffic.list) {
+      if (!v.alive || v.spin) { D.box.still[v.slot] = 0; continue; }
+      const stopped = (v.sp || 0) < 0.5;
+      const t = D.box.still[v.slot] = stopped ? (D.box.still[v.slot] || 0) + dt : 0;
+      if (t > D.box.stuckMax) { D.box.stuckMax = t; D.box.stuck = { slot: v.slot, type: v.type, x: Math.round(v.wx), z: Math.round(v.wz), road: v.road && v.road.id, hold: v.hold, s: +(t.toFixed(1)) }; }
+      const T = L.ST_TYPES[v.type];
+      for (const b of stubs) {
+        if (Math.abs(b.node.x - v.wx) > 30 || Math.abs(b.node.z - v.wz) > 30) continue;
+        if (!touch(v.wx, v.wz, v.hx, v.hz, T.hw, T.hl, b.x, b.z, b.ux, b.uz, b.hw, b.hl)) continue;
+        if (!stopped) { D.box.through++; break; }
+        const key = v.slot + "@" + b.node.id, e = D.box.bad[key];
+        if (e) e.frames++;
+        else D.box.bad[key] = { slot: v.slot, type: v.type, node: b.node.id, x: Math.round(v.wx), z: Math.round(v.wz), road: v.road && v.road.id,
+                                s: +v.s.toFixed(1), dir: v.dir, len: v.road && Math.round(v.road.len), toGo: v.road ? +(v.dir > 0 ? v.road.len - v.s : v.s).toFixed(1) : null,
+                                atEnd: v.road ? (b.node === (v.dir > 0 ? v.road.b : v.road.a) ? "ahead" : b.node === (v.dir > 0 ? v.road.a : v.road.b) ? "behind" : "other") : null,
+                                hold: v.hold == null ? null : +v.hold.toFixed(1), path: !!v.path, crossing: !!v.crossing, frames: 1 };
+        break;
+      }
+    }
+  };
 }
 
 module.exports = async function cityChecks({ newPage, check, viewports }) {
@@ -857,6 +909,10 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
         obey.crossings > 10 && obey.redCrossings === 0 && obey.stoppedAtRed > 20, JSON.stringify(obey));
     }
 
+    // v162: watched on every frame of every drive above (the box watch, installDriver)
+    const box = await page.evaluate(() => { const B = window.__city.box; return { frames: B.frames, through: B.through, stuckMax: +B.stuckMax.toFixed(1), stuck: B.stuck, bad: Object.values(B.bad) }; });
+    check(`city ${tag}: no city car ever stops with any part of it inside a junction box -- not a bus with its tail across the crossing street, not a car on a corner -- ${box.frames} frames watched, every drive in this module, ${box.through} car-frames moving through a box; and the traffic keeps moving: the longest any car stood still was ${box.stuckMax} s`,
+      box.frames > 10000 && box.through > 20000 && box.stuckMax < 90 && box.bad.length === 0, JSON.stringify({ stuck: box.stuck, bad: box.bad.slice(0, 12) }));
     check(`city ${tag}: no browser or frame errors`, errors.length === 0, JSON.stringify(errors.slice(0, 5)));
     await page.close();
   }

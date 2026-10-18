@@ -10,6 +10,69 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v162 — no city car ever stands in a junction box
+
+**What he gets.** A bus no longer stops with its tail across the street he is
+driving down. In v161 a city queue backed up to a junction, and the fourteen-metre bus at
+its back stopped with its middle just past the junction and its tail across the
+crossing street; on California's near way in at the slowest step, a held finger
+drove into it. It turned out to be far more than that one bus. Watched frame by frame on every
+drive in `city_checks`, main's traffic left buses standing part-inside a box at
+dozens of junctions per run, in two ways, and cars did it too once those were
+fixed. Seven fixes, all to the city's traffic (`streets.js`; nothing he drives
+changes):
+
+- **The stop line holds the nose, not the middle.** A car's nose stops where it
+  always did, and a longer vehicle stops its nose there too. Held by its middle,
+  a bus stood with its nose 7 m on, in the box.
+- **Room means room for all of it, past the box.** A car goes into a junction
+  only if the lane beyond has room for its whole length and a queue gap past the
+  box's far edge. That room used to be counted from the junction's middle, and
+  only behind cars already stopped. Every car ahead now counts at the earliest
+  it could be standing, and so does every car going into that lane through the
+  same junction ahead of it: on its corner, or over its line going straight.
+- **Short of the box it asks again.** Over its line but not yet in the box, a car
+  asks again for room, the junction, his claim and the light, and holds short of
+  the box (by `boxBack`) without them. Two cars that crossed their lines in the
+  same second each used to count the room the other then took. The junction is
+  taken only by the car that actually goes in, and a car stopped on the hold
+  point counts as short of it.
+- **A queue closes up to its gap.** A car slows on the curve that brings it to
+  the car ahead's speed just as it reaches the queue gap. It used to stop wherever
+  the gap first came inside its braking distance, several metres further back. The
+  queue was then a car longer than the room the junction behind had counted.
+- **No spawning into a lane that is being entered.** A car is never placed within
+  `spawnBehind` (60 m) in front of one coming along that lane or turning into it.
+- **He is a car in the queue too.** He counts in the room a junction needs, at
+  his own earliest stop, like any car. A car behind him used to hold his speed
+  from as far back as 70 m, so with him parked it stood still 56 m behind him with
+  its tail across the junction behind it. Now, while he stands still, it comes up
+  to the queue gap behind him like behind any car. While he moves it holds his
+  speed exactly as before, because he brakes harder than it can.
+- **Hurried cars are counted.** A car hurried out of his way still stops for
+  nothing, because his road outranks the box. Over its line, though, it now says
+  it is crossing and holds the junction, so the others count it. Short of its
+  line it is never read as committed.
+
+**The check.** `city_checks` wraps every frame of every drive in a box watch
+measured on the ground. Each junction's box is each arm's stub, out from its
+middle as far as the widest road crossing it and as wide as its own road. Each
+car is its own rectangle. Stopped means under 0.5 m/s. A new line per viewport:
+no car ever stops with any part of it in a box. It also checks that traffic really
+went through boxes (car-frames moving through one) and that it keeps moving (the
+longest any car stood still, under 90 s, so a hold that never lets go shows). On
+main it fails at dozens of junctions per run; here it passes. The bus case from v161
+(the lifted way in) is its own line, as before. `run_module.js` takes `SEED=` to
+run a module on another random stream.
+
+**Twenty streams.** `city_checks` run alone on twenty random streams (`SEED=1`..`20`): 20/20 green, bus-in-box and box watch passing at both viewports on every one.
+
+**Noisy finger**, three runs a seed, SUV and boosted Corvette, seeds 1-10, the worst run of each: 0 unintended, 0 missed, 0 bangs, 0 touches, 0 off-road on all 60 runs (city max 46 m/s for the SUV, 64 for the boosted Corvette; a finger held after a turn read as spent, straight on, 9 times across them, per the rule).
+
+Full harness 1064/1064.
+
+---
+
 ## v161 — a turn done while the finger is off is still done, and a way in's mouth is road
 
 **What he gets.** A corner his held finger takes is spent even when the finger
