@@ -32,6 +32,7 @@ const lights = {
   built: false, g: null, junctions: [],
   lampMesh: null, carMesh: null, glow: null,
   ran: 0,                     // how many reds he has gone through, ever
+  heads: [],                  // every head, as a ball the chase camera keeps out of (v163)
 };
 
 // ---- one junction ---------------------------------------------------------
@@ -284,6 +285,10 @@ function ltBuild() {
   if (masts.length) g.add(new THREE.Mesh(mergeBoxes(masts), steel));
   if (arms.length) g.add(new THREE.Mesh(mergeBoxes(arms), steel));
   if (boxes.length) g.add(new THREE.Mesh(mergeBoxes(boxes), mattMat(LT.colors.dark)));
+  // (v163) the heads hang at the chase camera's height over every junction, and
+  // swinging round a corner it went INTO one: the picture a black slab. They are
+  // not solid to anything he drives; the camera alone keeps out of them.
+  lights.heads = boxes.map(b => ({ x: b.x, y: b.y, z: b.z, w: b.w, h: b.h, d: b.d, ry: b.ry || 0 }));
 
   // Every lamp in the world is ONE instanced mesh and one glow field: there are
   // twelve per junction and seven junctions, and eighty-four little spheres is
@@ -550,4 +555,46 @@ function ltForce(i, phase) {
   if (j.phase < 0) j.phase = 0;
   j.t = ltPhaseTime(j.phase, j);
   return true;
+}
+
+// The sight line again (solids.js solidSight), for the signal heads: how far a
+// ball of radius r gets along the line from (ax, ay, az) to (bx, by, bz) before
+// it meets a head, as a fraction 0..1. A head is its own box (turned a right
+// angle or none, as every head is), grown by r -- no bigger, or the camera would
+// jump in under heads it was never going to touch.
+function ltCamSight(ax, ay, az, bx, by, bz, r) {
+  const dx = bx - ax, dy = by - ay, dz = bz - az;
+  const reach = Math.hypot(dx, dz) + 8;
+  let k = 1;
+  for (const h of lights.heads) {
+    if (Math.abs(h.x - ax) > reach || Math.abs(h.z - az) > reach) continue;
+    // (a head within headNear of the eye is in the bulk of what he drives -- the
+    // monster truck's eye, over its cab, passes right under them -- and is seen
+    // past: as a wall it dropped the camera on to his roof)
+    if (ltHeadEnter(h, ax, ay, az, dx, dy, dz, CAR.camClear.headNear, 0) === 0) continue;
+    const t = ltHeadEnter(h, ax, ay, az, dx, dy, dz, r, k);
+    if (t > 0) k = t;
+  }
+  return k;
+}
+// Whether a point is inside a head's box grown by r.
+function ltCamInHead(x, y, z, r) {
+  for (const h of lights.heads) if (Math.abs(h.x - x) < 8 && Math.abs(h.z - z) < 8 && ltHeadEnter(h, x, y, z, 0, 0, 0, r, 0) === 0) return true;
+  return false;
+}
+// Where the line first enters the head's box grown by r, as a fraction under
+// `upTo`: -1 if it never does, 0 if it starts inside. In the head's own frame
+// (turned by ry about the vertical).
+function ltHeadEnter(h, ax, ay, az, dx, dy, dz, r, upTo) {
+  const c = Math.cos(h.ry), sn = Math.sin(h.ry), px = ax - h.x, pz = az - h.z;
+  const lax = c * px - sn * pz, laz = sn * px + c * pz, ldx = c * dx - sn * dz, ldz = sn * dx + c * dz;
+  let t0 = 0, t1 = upTo;
+  for (const [a, d, m, e] of [[lax, ldx, 0, h.w / 2 + r], [ay, dy, h.y, h.h / 2 + r], [laz, ldz, 0, h.d / 2 + r]]) {
+    if (Math.abs(d) < 1e-9) { if (a < m - e || a > m + e) return -1; continue; }
+    let u0 = (m - e - a) / d, u1 = (m + e - a) / d;
+    if (u0 > u1) { const t = u0; u0 = u1; u1 = t; }
+    if (u0 > t0) t0 = u0; if (u1 < t1) t1 = u1;
+    if (t0 > t1) return -1;
+  }
+  return t0;
 }

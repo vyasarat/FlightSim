@@ -322,6 +322,32 @@ function solidCol(x, z, yLo, yHi, r, cls, skip) {
   return hit;
 }
 
+// THE SIGHT LINE (v163): how far a sphere of radius r gets along the line from
+// (ax, ay, az) to (bx, by, bz) before it meets a solid of one of `kinds`, as a
+// fraction 0..1 (1: clear the whole way). A chase camera comes in to that point,
+// so it is never inside a building and no wall stands between it and him. One
+// walk of the registry; a box the line's own box misses is never probed.
+function solidSight(ax, ay, az, bx, by, bz, r, kinds) {
+  const x0 = Math.min(ax, bx) - r, x1 = Math.max(ax, bx) + r, y0 = Math.min(ay, by) - r, y1 = Math.max(ay, by) + r;
+  const z0 = Math.min(az, bz) - r, z1 = Math.max(az, bz) + r;
+  const n = Math.max(2, Math.ceil(Math.hypot(bx - ax, by - ay, bz - az) / r));
+  let k = 1;
+  forEachSolid(b => {
+    if (b.x + b.hw < x0 || b.x - b.hw > x1 || b.z + b.hd < z0 || b.z - b.hd > z1 || b.y1 < y0 || b.y0 > y1) return;
+    if (!kinds.includes(solidKind(b)) || isSolidHidden(b)) return;
+    // a wall he is already beside (his eye within r of it) is tested as a line, not a
+    // sphere: as a sphere it stops the line at its first step and the camera lands on him
+    if (solidTest(b, ax, ay, az, 0)) return;
+    const rr = solidTest(b, ax, ay, az, r) ? 0 : r;
+    for (let j = 1; j <= n; j++) {
+      const u = j / n;
+      if (u > k) return;
+      if (solidTest(b, ax + (bx - ax) * u, ay + (by - ay) * u, az + (bz - az) * u, rr)) { k = (j - 1) / n; return; }
+    }
+  });
+  return k;
+}
+
 // Where a hull reassembles: walked out of anything within `r` of it, `pad`
 // metres clear, a few steps at most.
 function solidClearHull(x, z, r, pad) {
