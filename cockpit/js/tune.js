@@ -1258,8 +1258,8 @@ const TUNE = {
   // (landMax*) says what counts as arriving and everything else is a crash.
   // The car's and the boat's crawls are their old crash speeds, unchanged.
   solid: {
-    r:     { plane: 3, heli: 3, rocket: 3, car: 3, cybertruck: 3, corvette: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12, dad: 4 },
-    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, cybertruck: 18, corvette: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99, dad: -1 },   // the monster never bangs at any speed
+    r:     { plane: 3, heli: 3, rocket: 3, car: 3, cybertruck: 3, corvette: 3, boat: 4.5, yacht: 17, rover: 2.2, drone: 1.6, astro: 1, monster: 5.5, sled: 5, crane: 12, dad: 4, race: 3 },
+    crawl: { plane: 12, heli: 12, rocket: -1, car: 18, cybertruck: 18, corvette: 18, boat: 20, yacht: 6, rover: 6, drone: 7, astro: 99, monster: 99, sled: 99, crane: 99, dad: -1, race: 99 },   // the monster never bangs at any speed
     // v147: the parent's jet in dad mode (dadmode.js). Its own rules: anything solid at
     // any speed is a crash that ENDS the mission (crawl -1) -- dad mode is exempt from
     // the free reassembly, and nothing of it exists outside dad mode.
@@ -2364,6 +2364,57 @@ const TUNE = {
     // Stage 2. Shelved from TUNE alone, so the card exists and does not render,
     // and the model rig can still inspect the hull before it ships.
     yacht:            { cruiseSpeed: 17, turnRateDeg: 9,  pitchLimitDeg: 6,  bankLimitDeg: 6,  accel: 3,  capped: true, size: 1.0, hasGear: false, boat: true, bigBoat: true }
+  },
+
+  // ---- v164: THE RACE (race.js) -- his idea. The one place he can lose (CLAUDE.md,
+  // the parent's exception): a real finishing order. Nothing else is taken away.
+  race: {
+    site: { x: 1050, z: -3150, heading: 0 },   // (surveyed: flat to 4 m, 500 m off the motorway, nothing near) the start line's middle; heading as the game's (forward = -sin, -cos): the main straight runs along -z
+    width: 26, kerbW: 1.8, kerbStep: 4, wallH: 1.1,
+    lift: 0.25, smooth: 40,            // the deck this far over the ground under it, its height smoothed over this many metres
+    gantryH: 15, flagStep: 45, wallPiece: 12,
+    laps: 3, field: 5,                 // five to race him, each a different car from the game
+    roster: ["car", "cybertruck", "corvette", "monster", "taxi", "hatch"],
+    hatchColour: 0x36c46a,
+    // TRACK 1: an egg-shaped oval. A gentle banked turn (110 m) at one end, a long
+    // sweeping bend (170 m) at the other, centres 420 m apart: the straights are the
+    // circles' outer tangents, 415.69 m each, and the turns 180 -/+ twice
+    // asin(60/420). Those numbers close it exactly; the harness checks they do.
+    // A later track is another entry here, never an edit to race.js.
+    tracks: [
+      { id: "oval", sections: [
+        { type: "straight", len: 200 },
+        { type: "turn", angle: 163.5736, radius: 110, bank: 9 },
+        { type: "straight", len: 415.6922 },
+        { type: "turn", angle: 196.4264, radius: 170 },
+        { type: "straight", len: 215.6922 },
+      ] },
+    ],
+    // ONE speed model for every car, his and theirs: base speed times HIS speed
+    // step, the same burst, the same pads. The car he picked is how it looks and
+    // sounds, never how fast it goes.
+    v: 38, accel: 9, brake: 9, coast: 6,
+    burst: 1.18, burstTime: 2.2,       // drag up: the burst (the Corvette's booster: the same gain while it burns)
+    pad: 1.3, padTime: 1.6, padW: 6, footW: 3.4, burstPull: 0.45, padLen: 12,
+    pads: [{ s: 0.17, lat: 7 }, { s: 0.48, lat: -7 }, { s: 0.80, lat: 6 }],   // a fraction of the lap along, metres across (+ left)
+    coolDown: 0.55,                    // over the line he rolls on, slower
+    latRate: 9, latFull: 20, latResp: 6,   // across the track: m/s at full drag (from latFull m/s up), how fast it follows the drag
+    wallKeep: 0.97, shoveKeep: 0.97,   // a barrier or a car: a shove, and this much of his speed kept
+    grid: { first: 10, row: 11, lat: 5, him: 2, lastBack: 16 },   // behind the line in twos; he starts third
+    count: { lead: 1.0, step: 1.0 },   // the gantry's lamps: the first after this long, one a second, then green
+    stuckV: 4, stuckFor: 2.5,          // the harness's "stuck": finger down, racing, under this for this long
+    finishWait: 25,                    // after him, at most this long for the rest to come home
+    // THE OPPONENTS. `strength` is the parent's dial: 1 is the tuning below; up is
+    // harder, down is easier. They race at his speed step, each a skill across
+    // `skill`; the rubber band eases them off when they are more than `bandFrom` m
+    // ahead of him and pushes them when they are as far behind, up to `ease` /
+    // `push` of their speed over another `bandSpan` m.
+    ai: { strength: 1.04, skill: [0.95, 1.02], bandFrom: 25, bandSpan: 140, ease: 0.10, push: 0.10,
+          burstEvery: [3, 7], burstP: 0.35, wander: [0.25, 3], inside: 0.35, padSee: 70, padP: 0.45, passSee: 22, steerK: 1.2 },
+    stands: { count: 4, from: -0.06, step: 0.037, back: 6, depth: 16, len: 60, rise: 10 },
+    podium: { s: 0.025, back: 18, w: 9, d: 12, h: [3.2, 2.2, 1.4], camBack: 48, camUp: 10, buttonsAfter: 3,
+              parade: 60, paradeV: 10, stopPast: 14, giantPast: 4, fit: 0.9, fwClear: 34, fwWide: 30, fwBack: 120, fwUp: 44, fwUpRnd: 16, trophy: 1.8 },
+    cam: { back: 15, up: 6, lag: 5 },
   },
 
   vehicleColors: {

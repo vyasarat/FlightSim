@@ -178,6 +178,7 @@ function rocketPad(idx) {
 function spawnForTakeoff(originIdx, dirIdx) {
   if (originIdx === undefined) { originIdx = state.originIdx; }
   if (dirIdx === undefined) { dirIdx = state.dirIdx; }
+  if (typeof raceReset === "function") raceReset();   // v164: every start is out of a race
   state.originIdx = originIdx;
   state.dirIdx = dirIdx;
   state.destIdx = 1 - originIdx;

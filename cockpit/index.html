@@ -649,6 +649,7 @@
   }
   #bigNum.on { opacity: .96; }
   #bigNum.sky { top: 22%; }    /* the point-at set-pieces (launchsite.js, rocketsled.js, ...): up in the sky, off the thing it is counting down */
+  #bigNum.race { top: 33%; font-size: clamp(80px, 15vh, 160px); }   /* the race's count: between the gantry's lamps and his car, both ways up */
   #bigNum.beat { animation: numBeat .5s ease-out; }
   @keyframes numBeat { from { transform: translate(-50%,-50%) scale(1.5); } to { transform: translate(-50%,-50%) scale(1); } }
   /* ---- v147: DAD MODE (dadmode.js). The key on the picker is small and dim; every
@@ -834,6 +835,37 @@
     overflow-y: auto;
     touch-action: pan-y;
   }
+  /* v164: the race (race.js). The chequered flag where the bottom-right ladder's
+     upper slot is (nothing a car has sits there); in a race, its way out in the
+     picker's corner, its HUD between the top corners; at the podium, again and back. */
+  #raceBtn { right: calc(var(--edge) + env(safe-area-inset-right)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    z-index: 10; border-color: #ffd23e; animation: homePulse 1.2s ease-in-out infinite; }
+  #raceExitBtn { top: calc(var(--top-row) + env(safe-area-inset-top)); left: calc(var(--edge) + env(safe-area-inset-left)); z-index: 11; border-color: #5ff1ff; }
+  #raceAgainBtn, #raceBackBtn { bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom)); width: var(--thr); height: var(--thr); z-index: 12;
+    animation: homePulse 1.1s ease-in-out infinite; }
+  #raceAgainBtn { left: calc(50% - var(--thr) - 18px); border-color: #ffd23e; }
+  #raceBackBtn { left: calc(50% + 18px); border-color: #5ff1ff; }
+  #raceBtn.hidden, #raceExitBtn.hidden, #raceAgainBtn.hidden, #raceBackBtn.hidden { display: none; }
+  #raceHud { position: fixed; top: calc(var(--top-row) + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9;
+    pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  #raceHud.hidden { display: none; }
+  #raceHud .raceLaps { display: flex; gap: 10px; }
+  #raceHud .raceLaps i { width: 20px; height: 20px; border-radius: 50%; background: #1f2328; border: 3px solid #8a93a0; box-sizing: border-box; }
+  #raceHud .raceLaps i.now { background: #ffd23e; border-color: #ffd23e; animation: homePulse .9s ease-in-out infinite; }
+  #raceHud .raceLaps i.done { background: #36c46a; border-color: #36c46a; }
+  #raceHud .racePos { display: flex; align-items: center; gap: 2px; background: rgba(8, 14, 20, .5); border-radius: 10px; padding: 3px 6px; }
+  #raceHud .racePos b { width: 28px; height: 16px; display: block; border-radius: 5px; }
+  #raceHud .racePos b svg { width: 100%; height: 100%; display: block; }
+  #raceHud .racePos b.him { width: 40px; height: 22px; background: rgba(255, 210, 62, .28); box-shadow: 0 0 0 3px #ffd23e; }
+  #raceHud.podium .raceLaps { display: none; }
+  @media (max-width: 520px) {
+    #raceHud .raceLaps i { width: 16px; height: 16px; }
+    #raceHud .racePos { padding: 2px 4px; gap: 1px; }
+    #raceHud .racePos b { width: 22px; height: 12px; }
+    #raceHud .racePos b.him { width: 32px; height: 17px; box-shadow: 0 0 0 2px #ffd23e; }
+  }
+  .card.trackCard { width: clamp(220px, 42vmin, 400px); height: clamp(160px, 30vmin, 290px); }
+  .card.trackCard.back { width: clamp(120px, 18vmin, 170px); height: clamp(120px, 18vmin, 170px); }
   .screen.hiddenS, .card.hiddenS { display: none; }
   .card {
     width: clamp(150px, 23vmin, 225px);
@@ -1203,6 +1235,12 @@
     <path d="M50 10 L80 56 L60 56 L60 90 L40 90 L40 56 L20 56 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3" stroke-linejoin="round"/>
   </svg>
 </button>
+<!-- v164: the race (race.js): the chequered flag, the way out, and at the podium again and back -->
+<button id="raceBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M24 90V12" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round"/><path d="M28 14h56v40H28z" fill="#f2f4f7"/><path d="M28 14h14v10H28zM56 14h14v10H56zM42 24h14v10H42zM70 24h14v10H70zM28 34h14v10H28zM56 34h14v10H56zM42 44h14v10H42zM70 44h14v10H70z" fill="#1f2328"/></svg></button>
+<button id="raceExitBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M30 86V30h40v56" stroke="#5ff1ff" stroke-width="8"/><path d="M50 62C50 40 62 26 86 22M74 12l12 10-12 10" stroke="#f2f4f7" stroke-width="8"/></svg></button>
+<button id="raceAgainBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M24 90V12" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round"/><path d="M28 14h56v40H28z" fill="#f2f4f7"/><path d="M28 14h14v10H28zM56 14h14v10H56zM42 24h14v10H42zM70 24h14v10H70zM28 34h14v10H28zM56 34h14v10H56zM42 44h14v10H42zM70 44h14v10H70z" fill="#1f2328"/></svg></button>
+<button id="raceBackBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M30 86V30h40v56" stroke="#5ff1ff" stroke-width="8"/><path d="M50 62C50 40 62 26 86 22M74 12l12 10-12 10" stroke="#f2f4f7" stroke-width="8"/></svg></button>
+<div id="raceHud" class="hidden" aria-hidden="true"><div class="raceLaps"></div><div class="racePos"></div></div>
 <button id="vehBtn" class="roundBtn hidden" aria-hidden="true">
   <svg viewBox="0 0 100 100">
     <path d="M50 8 L58 40 L92 60 L92 70 L58 62 L56 82 L66 90 L66 96 L50 92 L34 96 L34 90 L44 82 L42 62 L8 70 L8 60 L42 40 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="3" stroke-linejoin="round"/>
@@ -1415,6 +1453,21 @@
     </svg>
   </button>
 </div>
+<!-- v164: the track picker. One big card per track; the way back beside it. -->
+<div id="screenRace" class="screen hiddenS">
+  <button class="card trackCard" data-track="oval">
+    <svg viewBox="0 0 220 160">
+      <!-- track 1: the egg-shaped oval, seen from above: grass inside, a red-and-white kerb on the bends, the chequered line -->
+      <path d="M60 30 L150 22 A58 58 0 0 1 154 138 L60 132 A51 51 0 0 1 60 30 Z" fill="#3c4350" stroke="#f2f4f7" stroke-width="4"/>
+      <path d="M64 52 L148 46 A34 34 0 0 1 150 114 L64 110 A29 29 0 0 1 64 52 Z" fill="#36c46a"/>
+      <path d="M150 22 A58 58 0 0 1 154 138" fill="none" stroke="#e0483e" stroke-width="5" stroke-dasharray="8 8"/>
+      <path d="M60 132 A51 51 0 0 1 60 30" fill="none" stroke="#e0483e" stroke-width="5" stroke-dasharray="8 8"/>
+      <path d="M100 26 h6 v6 h-6z M106 32 h6 v6 h-6z M100 38 h6 v6 h-6z M106 44 h6 v6 h-6z" fill="#f2f4f7"/>
+      <path d="M106 26 h6 v6 h-6z M100 32 h6 v6 h-6z M106 38 h6 v6 h-6z M100 44 h6 v6 h-6z" fill="#1f2328"/>
+    </svg>
+  </button>
+  <button class="card trackCard back" data-track="back"><svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M30 86V30h40v56" stroke="#5ff1ff" stroke-width="8"/><path d="M50 62C50 40 62 26 86 22M74 12l12 10-12 10" stroke="#f2f4f7" stroke-width="8"/></svg></button>
+</div>
 <div id="screenDir" class="screen hiddenS">
   <button class="card dirCard" data-d="0">
     <svg viewBox="0 0 220 160">
@@ -1521,6 +1574,7 @@
 <script src="js/heavy.js"></script>
 <script src="js/sledride.js"></script>
 <script src="js/crane.js"></script>
+<script src="js/race.js"></script>
 <script src="js/valley.js"></script>
 <script src="js/dadmode.js"></script>
 <script src="js/dadair.js"></script>

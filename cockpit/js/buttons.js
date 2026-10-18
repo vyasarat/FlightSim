@@ -49,7 +49,7 @@ const BUTTONS = {
   viewBtn:   { slot: "topRight1", when: () => true },
   menuBtn:   { slot: "dashLeft",  when: () => !menuOpen() && !eject.active && !btnDad() },
   ejectBtn:  { slot: "dashRight", when: null },          // eject.js owns its own, and its modes
-  hornBtn:   { slot: "dashRight2", when: () => carHornCan() },
+  hornBtn:   { slot: "dashRight2", when: () => carHornCan() && !raceOn() },
 
   // ---- the speed control: js/speed.js decides WHICH of the three, this says when
   fastBtn:   { slot: "topRight2", when: () => spdShows() && !spdUsesCycle() && !btnDad() },
@@ -83,6 +83,14 @@ const BUTTONS = {
   cannonBtn:  { slot: "lowLeft",  when: () => boatCannonCan() },
   garageBtn:  { slot: "lowLeft",  when: () => !!state.vp.boat && yachtGarageCan() },
   lockBtn:    { slot: "lowLeft",  when: () => lockCanCycle() },
+
+  // ---- v164: the race (race.js). The chequered flag in anything that drives, and
+  // in a race its way out (the go button's corner: in a race he is never parked,
+  // so the picker button is not there) and, at the podium, again or back.
+  raceBtn:      { slot: "lowRight", when: () => raceBtnShows() },
+  raceExitBtn:  { slot: "topLeft1",  when: () => raceExitShows() },
+  raceAgainBtn: { slot: "free",      when: () => raceEndShows() },
+  raceBackBtn:  { slot: "free",      when: () => raceEndShows() },
 
   // ---- v147: DAD MODE's own (dadmode.js). False everywhere outside it, so nothing
   // of dad mode ever shows in his game; inside it they take the slots his own
@@ -119,7 +127,7 @@ function spdShows() {
 // capsule); on everything else it is the "take me home" arrow, and it stays
 // away until he is properly en route.
 function btnSkipShows() {
-  if (state.exploding || btnDad()) return false;
+  if (state.exploding || btnDad() || raceOn()) return false;
   // `out`: floating about the station, where the go button means "back to the
   // capsule seat" rather than a destination. updateGoButton still owns the icon.
   if (state.vp.rocket) {
@@ -192,7 +200,7 @@ function btnUpdateAll() {
 // is looking at. `btnObstructions` is the geometric half that the declared half
 // cannot do.
 const BTN_HUD_OVERLAY = ["homeArrow", "rotateArrow", "glideGuide", "aimMarker",
-                         "heliTarget", "alarm", "wingman", "bigNum", "dadHud"];
+                         "heliTarget", "alarm", "wingman", "bigNum", "dadHud", "raceHud"];
 
 function btnVisibleRect(e) {
   const rs = btnDrawnRects(e);

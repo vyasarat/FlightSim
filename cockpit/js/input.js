@@ -98,7 +98,8 @@ window.addEventListener("pagehide", releaseAllInputs);
 // while the thumb holds it must not release it.
 let throttlePointerId = null;
 function menuOpen() {
-  return !el.screenVehicle.classList.contains("hiddenS") || !el.screenDir.classList.contains("hiddenS") || !el.screenDest.classList.contains("hiddenS");
+  return !el.screenVehicle.classList.contains("hiddenS") || !el.screenDir.classList.contains("hiddenS") || !el.screenDest.classList.contains("hiddenS") ||
+    !!(el.screenRace && !el.screenRace.classList.contains("hiddenS"));   // v164: the track picker
 }
 el.throttleBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
@@ -490,6 +491,7 @@ function openPickerAnywhere() {
   if (typeof heliReset === "function") heliReset();
   if (typeof boatCannonPress === "function") boatCannonPress(false);
   if (typeof carHornRelease === "function") carHornRelease();
+  if (typeof raceReset === "function") raceReset();   // v164: out of a race, and its track picker shut
   // ALWAYS on the vehicles -- never on the rocket's destination screen, which
   // has the way back to the vehicles underneath it.
   el.screenDir.classList.add("hiddenS");

@@ -27,7 +27,7 @@ function updateEjectControl() {
   // Nor does the crane (v145): parked for good, its cab is not a seat to fly out of.
   // Nor in dad mode (v147): the parent's sortie ends in its own card, not a rescue.
   const supported = !astroActive() && !(typeof srActive === "function" && srActive()) && !(typeof crActive === "function" && crActive()) &&
-    !(typeof dadActive === "function" && dadActive());
+    !(typeof dadActive === "function" && dadActive()) && !(typeof raceOn === "function" && raceOn());   // v164: nor in a race: nothing in one explodes
   el.ejectBtn.classList.toggle('hidden', !eject.active && (!supported || menuOpen() || state.exploding));
   el.ejectBtn.dataset.mode = eject.active && ['transit','float','land','return','rejoin'].includes(eject.phase) ? 'return' : 'eject';
   el.ejectBtn.setAttribute('aria-label', el.ejectBtn.dataset.mode === 'return' ? 'Return to vehicle' : 'Eject');

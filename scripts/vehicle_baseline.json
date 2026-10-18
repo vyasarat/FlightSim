@@ -104,7 +104,7 @@
   "eyeDx": -0.9,
   "eyeDy": 2.3,
   "eyeDz": -0.2,
-  "buttons": "camBtn,ejectBtn,fastBtn,hornBtn,menuBtn,slowBtn,vehBtn,viewBtn",
+  "buttons": "camBtn,ejectBtn,fastBtn,hornBtn,menuBtn,raceBtn,slowBtn,vehBtn,viewBtn",
   "crash": {
    "exploded": true,
    "backDx": 0,
@@ -127,7 +127,7 @@
   "eyeDx": -0.9,
   "eyeDy": 1.7,
   "eyeDz": -0.2,
-  "buttons": "camBtn,ejectBtn,fastBtn,hornBtn,menuBtn,slowBtn,vehBtn,viewBtn",
+  "buttons": "camBtn,ejectBtn,fastBtn,hornBtn,menuBtn,raceBtn,slowBtn,vehBtn,viewBtn",
   "crash": {
    "exploded": true,
    "backDx": 0,

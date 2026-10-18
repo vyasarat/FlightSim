@@ -34,6 +34,7 @@ function vehKind() {
   const vp = state.vp;
   if (!vp) return "plane";
   if (vp.dadJet) return "dad";           // v147: the parent's jet in dad mode (dadmode.js), its own everything
+  if (typeof raceOn === "function" && raceOn()) return "race";   // v164: a race (race.js) drives him, whatever car he is in
   if (vp.rocket) {
     if (typeof marsDroneActive === "function" && marsDroneActive()) return "drone";
     if (typeof roverActive === "function" && roverActive()) return "rover";
@@ -158,6 +159,20 @@ const VEHICLE_CONTRACT = {
     camera: (dt) => carCamera(dt),
     parked: () => state.speed === 0,
     reassemble: () => carReassemble(),
+  },
+  // v164: A RACE (race.js). A mode, not a car: whichever car he is in, the race
+  // drives him on its track, places his camera and poses his model. Not carLike,
+  // so nothing that asks for a car -- the police, the signals, the horn -- sees
+  // him in it; not solid against the registry, because the track is the only
+  // thing he meets and every meeting there is a shove (race.js). Never parked:
+  // the way out is its own EXIT.
+  race: {
+    solidClass: SOLID.CAR,
+    solid: () => false,
+    update: (dt) => rcUpdate(dt),
+    camera: (dt) => raceCamera(dt),
+    parked: () => false,
+    reassemble: null,
   },
   // v141: the monster truck he drives (monster.js). It meets the registry itself
   // (monMeet: a column, crushed or shoved), so the shared resolver never runs for
