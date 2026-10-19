@@ -24,7 +24,9 @@
 //
 // HE CAN'T FALL OFF AND HE IS NEVER STUCK. He is laid on the track as metres
 // along it and metres across it, so lane-keep is the track itself: hands-off
-// holds his line, and the barrier at either edge is a shove back on to it.
+// holds his line, and the barrier at either edge is a shove back on to it -- on a
+// fresh hit; a steer held on into it glides along it, quietly, and never quicker
+// than the racing line (v171, rcEdge).
 // Contact with another car is a shove, both ways, never a bang -- nothing in a
 // race explodes and nothing stops one. Steering across the track is how he
 // overtakes, dodges, takes the inside of a bend (shorter, so faster) and hits
@@ -625,7 +627,7 @@ function rcStartRace(trackId, seed) {
   if (typeof carHornRelease === "function") carHornRelease();
   rcClearRacers();
   race.on = true; race.phase = "grid"; race.t = 0; race.finished = 0; race.order = [];
-  race.stuckT = 0; race.stuck = 0; race.shoves = 0; race.wallShoves = 0; race.padHits = 0; race.bangs0 = flags.carCrashes || 0;
+  race.stuckT = 0; race.stuck = 0; race.shoves = 0; race.wallShoves = 0; race.glideT = 0; race.padHits = 0; race.bangs0 = flags.carCrashes || 0;
   race.podium = null; race.confT = 0; race.fwT = 0;
   if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
   race.loseShot = null;
@@ -812,6 +814,7 @@ function rcHimControl(r, dt, touching, bank, held) {
   r.latV += (wantLatV - r.latV) * Math.min(1, A.latResp * sf.grip * dt);
 }
 function rcSpeedTo(r, want, dt) {
+  if (r.glideHold > 0) { r.glideHold -= dt; if (!r.air) want *= RC.wall.glideSpeed; }   // (riding a barrier: rcEdge)
   const up = RC.accel, down = want > 1 ? RC.brake : RC.coast;
   r.v += clamp(want - r.v, -down * dt, up * dt);
   if (r.v < 0.05 && want === 0) r.v = 0;
@@ -885,16 +888,8 @@ function rcMove(r, dt) {
   const q = rcAt(r.s);
   r.lat += r.latV * dt;
   const lim = RC.width / 2 - r.wid / 2 - 0.2;
-  if (Math.abs(r.lat) > lim) {
-    r.lat = Math.sign(r.lat) * lim;
-    // (held to a shortcut's side through its approach, that edge is its way in, not a barrier)
-    const open = r.scw && race.track.sc.some(sc => { const w = r.scw.get(sc); return sc.side === Math.sign(r.lat) && w && w.on && w.ok; });
-    if (Math.sign(r.latV) === Math.sign(r.lat) && Math.abs(r.latV) > 1 && !open) {
-      if (r.isHim) { race.wallShoves++; flags.raceWallShoves = (flags.raceWallShoves || 0) + 1; rcBump(0.25); }
-      r.v *= RC.wallKeep;
-    }
-    r.latV = -r.latV * 0.3;
-  }
+  // (held to a shortcut's side through its approach, that edge is its way in, not a barrier)
+  rcEdge(r, lim, dt, () => r.scw && race.track.sc.some(sc => { const w = r.scw.get(sc); return sc.side === Math.sign(r.lat) && w && w.on && w.ok; }));
   const f = 1 / Math.max(0.6, 1 - q.kh * r.lat);
   const prevS = r.s;
   r.s += r.v * f * dt;
@@ -920,7 +915,7 @@ function rcMove(r, dt) {
     const chose = r.isHim ? w.on && w.ok : r.scGo && r.scFor === sc;
     if (prevS - base < nose && r.s - base >= nose && chose && sc.side * r.lat >= RC.width / 2 - sc.mouth && !r.air && !r.done) {
       rcPoint(r.s, r.lat, rcPV);
-      r.path = sc; r.scBase = base;
+      r.path = sc; r.scBase = base; r.wallSide = undefined;
       r.u = (rcPV.x - sc.ax) * sc.dx + (rcPV.z - sc.az) * sc.dz;
       r.lat = (rcPV.x - sc.ax) * sc.lx + (rcPV.z - sc.az) * sc.lz;
       r.y = rcPV.y; r.vyG = 0;
@@ -928,6 +923,31 @@ function rcMove(r, dt) {
       break;
     }
   }
+}
+// (v171) The barrier. A FRESH hit -- coming at it across the track, off it (or on the
+// other one) for longer than `wall.fresh` -- is the shove it always was: a thump, a
+// bounce and wallKeep of the speed. Pressed on along it after that, a held steer GLIDES:
+// held at the edge, nothing back across, no sound, and a quiet drag (it aims at `wall.glideSpeed` of
+// its speed) so that riding a barrier is never quicker than the racing line -- the
+// inside of a bend is shorter, and a finger held into it is no free win. The same law
+// for every racer.
+function rcEdge(r, lim, dt, openFn) {
+  const W = RC.wall;
+  if (Math.abs(r.lat) <= lim) { r.wallOff = (r.wallOff || 0) + dt; return; }
+  const side = Math.sign(r.lat);
+  r.lat = side * lim;
+  if (openFn && openFn()) { r.latV = 0; r.glideHold = 0; r.wallOff = (r.wallOff || 0) + dt; return; }   // (its way in: no thump and no drag)
+  const fresh = r.wallSide !== side || (r.wallOff || 0) > W.fresh || r.wallSide === undefined;
+  if (fresh && Math.sign(r.latV) === side && Math.abs(r.latV) > 1) {
+    if (r.isHim) { race.wallShoves++; flags.raceWallShoves = (flags.raceWallShoves || 0) + 1; rcBump(0.25); }
+    r.v *= RC.wallKeep;
+    r.latV = -r.latV * 0.3;
+  } else {
+    if (Math.sign(r.latV) === side) r.latV = 0;
+    r.glideHold = W.hold;                       // (rcSpeedTo: aiming at glideSpeed of what it would)
+    if (r.isHim) race.glideT = (race.glideT || 0) + dt;
+  }
+  r.wallSide = side; r.wallOff = 0;
 }
 // His hold on a shortcut's side through its approach, by exactly the car's allowances
 // (track.js tkTrackHold): a lift shorter than liftGrace is not a release, and the
@@ -956,21 +976,13 @@ function rcScHold(r, sc, rel, dt) {
 function rcMoveSc(r, dt) {
   const sc = r.path;
   r.lat += r.latV * dt;
-  const lim = sc.half - r.wid / 2 - 0.2;
-  if (Math.abs(r.lat) > lim) {
-    r.lat = Math.sign(r.lat) * lim;
-    if (Math.sign(r.latV) === Math.sign(r.lat) && Math.abs(r.latV) > 1) {
-      if (r.isHim) { race.wallShoves++; flags.raceWallShoves = (flags.raceWallShoves || 0) + 1; rcBump(0.25); }
-      r.v *= RC.wallKeep;
-    }
-    r.latV = -r.latV * 0.3;
-  }
+  rcEdge(r, sc.half - r.wid / 2 - 0.2, dt, null);
   r.u += r.v * dt;
   r.s = r.scBase + sc.sa + Math.min(r.u, sc.Ls) * (sc.sb - sc.sa) / sc.Ls;
   r.yaw = Math.atan2(r.latV, Math.max(4, r.v));
   r.y = rcScPoint(sc, r.u, r.lat, rcPV).y; r.air = false;
   // at its end, back on the road where it meets it
-  if (r.u >= sc.Ls) { r.path = null; r.s = r.scBase + sc.sb + (r.u - sc.Ls); r.lat = sc.latC + r.lat; r.vyG = 0; }
+  if (r.u >= sc.Ls) { r.path = null; r.wallSide = undefined; r.s = r.scBase + sc.sb + (r.u - sc.Ls); r.lat = sc.latC + r.lat; r.vyG = 0; }
 }
 
 // (v170) Up and down: on the deck it follows it, and where the deck falls away

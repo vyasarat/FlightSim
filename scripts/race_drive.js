@@ -23,6 +23,10 @@
 //   node scripts/race_drive.js [races=20] [cars=car,cybertruck,corvette,monster] [seed=1] [root]
 //   RACE_STRENGTH=1.1 ...   the opponents' strength (TUNE.race.ai.strength) for this run
 //   RACE_TRACK=dunes ...    which track (v170; the first, the oval, if unset)
+//   RACE_HAND=hug ...       (v171) the wall-hugger: the same lifts, tremor, overshoots and
+//                           bursts, but what it MEANS is a full steer into the inside of the bend
+//                           coming (the last one's on a straight), the whole race -- riding the
+//                           inside barrier must never be a free win
 // or, from the harness: require("./race_drive").races(page, { veh, races, seed }).
 const fs = require("fs"), path = require("path");
 
@@ -43,7 +47,7 @@ async function oneRace(page, veh, seed, opts) {
     let scFor = null, scGo = false;
     let nextLift = 12 + rnd() * 18, liftLeft = 0, nextOver = 8 + rnd() * 12, overLeft = 0, overDir = 1, overAmt = 0;
     let mood = 0, moodLeft = 2 + rnd() * 4, aimPad = null, aimGo = false, passSide = 0, t = 0, exploded = 0, nan = 0;
-    let wob1 = rnd() * 6.28, wob2 = rnd() * 6.28;
+    let wob1 = rnd() * 6.28, wob2 = rnd() * 6.28, hugSide = 1;
     const log = [];
     for (let f = 0; f < 60 * 60 * 6 && R.phase !== "podium"; f++) {
       const dt = 1 / 60; t += dt;
@@ -75,7 +79,8 @@ async function oneRace(page, veh, seed, opts) {
       }
       // the drag that would put him there: drag right moves him right (-left)
       let bank = Math.abs(want - him.lat) < 0.8 ? 0 : Math.max(-1, Math.min(1, -(want - him.lat) * 0.22));
-      if (sc && scGo && !him.path && ((sc.sa + sc.gore - him.s) % R.track.len + R.track.len) % R.track.len < sc.hold + 8) bank = -sc.side;   // (going for a shortcut: the full steer, held through its approach -- the turn rule)
+      if (opts.hand === "hug") { const q = L.rcAt(him.s + 40); if (Math.abs(q.kh) > 0.002) hugSide = Math.sign(q.kh); bank = -hugSide; }
+      else if (sc && scGo && !him.path && ((sc.sa + sc.gore - him.s) % R.track.len + R.track.len) % R.track.len < sc.hold + 8) bank = -sc.side;   // (going for a shortcut: the full steer, held through its approach -- the turn rule)
       wob1 += dt * (2 + rnd() * 3); wob2 += dt * (2 + rnd() * 3);
       bank += Math.sin(wob1) * 0.15;
       let pitch = (mood && R.phase === "race" ? 0.8 : 0) + Math.sin(wob2) * 0.15;
@@ -102,9 +107,9 @@ async function oneRace(page, veh, seed, opts) {
   }, [veh, seed, opts || {}]);
 }
 
-async function races(page, { veh, races: n, seed, strength, step, track }) {
+async function races(page, { veh, races: n, seed, strength, step, track, hand }) {
   const out = [];
-  for (let k = 0; k < n; k++) out.push(await oneRace(page, veh, (seed || 1) * 1000 + k, { strength, step, track }));
+  for (let k = 0; k < n; k++) out.push(await oneRace(page, veh, (seed || 1) * 1000 + k, { strength, step, track, hand }));
   return out;
 }
 
@@ -135,7 +140,7 @@ if (require.main === module) {
       const list = [];
       for (let k = 0; k < n; k++) {
         const r = await oneRace(page, veh, seed * 1000 + k, { strength: process.env.RACE_STRENGTH ? +process.env.RACE_STRENGTH : undefined,
-                                                             step: process.env.RACE_STEP !== undefined ? +process.env.RACE_STEP : undefined, track: process.env.RACE_TRACK });
+                                                             step: process.env.RACE_STEP !== undefined ? +process.env.RACE_STEP : undefined, track: process.env.RACE_TRACK, hand: process.env.RACE_HAND });
         list.push(r);
         console.log(JSON.stringify(r));
       }

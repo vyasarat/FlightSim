@@ -12,7 +12,9 @@
 //   surface:<kind> / surfaceSeat:<kind>   (v170) him mid-way along that surface at speed, its spray up
 //   fork / shortcut   (v170) where the shortcut leaves the road, and half-way along it
 //   dune / landing / pad / hairpin   (v170) a dune ahead, a landing, a boost pad, a dirt hairpin
+//   padAhead          (v171) a boost pad about 80 m ahead, him down the middle: what he sees to aim
 //   jump / jumpSeat   (v170) off a dune, near the top of the flight
+//   glide / glideSeat (v171) held full into the left barrier for three seconds: riding along it
 //   TRACK=dunes renders that track (the oval if unset)
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
 const path = require("path"), fs = require("fs");
@@ -83,19 +85,32 @@ async function render(root, views) {
         note.path = !!him.path; note.lat = +him.lat.toFixed(1);
         return note;
       }
-      if (v === "dune" || v === "landing" || v === "pad" || v === "hairpin") {
+      if (v === "glide" || v === "glideSeat") {
+        // (v171) on the straight before the first pad, the finger held full left: on the barrier, gliding
+        const T = R.track, pd = R.pads[0];
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him, base = Math.floor(him.s / T.len) * T.len;
+        him.s = base + pd.s - 160; him.v = L.RC.v * 0.95; him.lat = 4;
+        for (const r of R.racers) if (!r.isHim) { r.s = him.s + 60 + r.i * 12; r.v = him.v; r.lat = (r.i % 2 ? -1 : 1) * 3; }
+        const w0 = R.wallShoves, g0 = R.glideT, range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
+        go(60 * 3, -1 / range, 0);
+        window.__hold = () => { S.touching = true; S.ctrlBank = -1 / range; S.ctrlPitch = 0; };
+        note.lat = +him.lat.toFixed(2); note.thumps = R.wallShoves - w0; note.glide = +(R.glideT - g0).toFixed(1); note.v = +him.v.toFixed(1);
+        return note;
+      }
+      if (v === "dune" || v === "landing" || v === "pad" || v === "padAhead" || v === "hairpin") {
         // (v170) the dune ahead of him; the moment he lands; a boost pad coming up; a dirt hairpin
         const T = R.track, d = T.S.find(q => q.dune), pd = R.pads[0];
         go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
         const him = R.him, base = Math.floor(him.s / T.len) * T.len;
-        const at = v === "pad" ? pd.s - 100 : v === "hairpin" ? T.S.find(q => q.sf === "dirt").s - 60 : d.s - (v === "dune" ? 45 : 60);
-        him.s = base + at; him.v = L.RC.v * 0.9; him.lat = v === "pad" ? pd.lat : 2;
-        for (const r of R.racers) if (!r.isHim) { r.s = him.s + (v === "dune" || v === "pad" ? 90 : 30) + r.i * 10; r.v = him.v; r.lat = (r.i % 2 ? -1 : 1) * 7; }
+        const at = v === "pad" ? pd.s - 100 : v === "padAhead" ? pd.s - 130 : v === "hairpin" ? T.S.find(q => q.sf === "dirt").s - 60 : d.s - (v === "dune" ? 45 : 60);
+        him.s = base + at; him.v = L.RC.v * 0.9; him.lat = v === "pad" ? pd.lat : v === "padAhead" ? 0 : 2;
+        for (const r of R.racers) if (!r.isHim) { r.s = him.s + (v === "dune" || v === "pad" || v === "padAhead" ? 90 : 30) + r.i * 10; r.v = him.v; r.lat = (r.i % 2 ? -1 : 1) * 7; }
         if (v === "landing") { let was = false; for (let i = 0; i < 60 * 6; i++) { go(1, 0, 0); if (was && !him.air) break; was = was || him.air; } go(3, 0, 0); }
         else if (v === "hairpin") go(90, 0, 0);
         else go(Math.round(60 * (v === "dune" ? 0.8 : 1.5)), 0, 0);      // (long enough for the camera to be behind him again)
         window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
-        note.air = !!him.air; note.s = Math.round(him.s - base); note.phase = R.phase; note.big = document.getElementById("bigNum") && document.getElementById("bigNum").textContent;
+        note.air = !!him.air; note.s = Math.round(him.s - base); note.padAhead = Math.round(pd.s - (him.s - base)); note.phase = R.phase; note.big = document.getElementById("bigNum") && document.getElementById("bigNum").textContent;
         return note;
       }
       if (v === "jump" || v.startsWith("jumpSeat")) {

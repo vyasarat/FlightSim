@@ -26,6 +26,10 @@
 //      the world's track (race.track) is the first again;
 //   h. NOTHING NEW IN PLAY: a race on it makes no three.js object (each draws the
 //      seeded stream) and draws nothing from Math.random;
+//   k. (v171, the oval too) A STEER HELD INTO A BARRIER GLIDES: a whole lap held full
+//      into either barrier, in every car, is one thump on the first touch and then a
+//      quiet glide, no bang, never stuck, and never quicker than the racing line;
+//      off it a second and back into it is a fresh hit, one thump more.
 //   i. (v170) A SPENT STEER AND A PITCH THAT STAYS IN THE RACE: the full steer that took
 //      a shortcut, still held a whole lap, is nobody's choice of it the next time
 //      round; lifted (past liftGrace) and put back full, it is his again and takes
@@ -350,5 +354,65 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
       return out;
     }, id);
     check(`race ${id}: nothing new in play -- three laps on it, the race's own update and camera make no three.js object and draw ${h[id].draws} times from Math.random (the oval's: ${h.oval.draws})`, h[id].laps >= 3 && h[id].draws === 0 && h.oval.draws === 0, J(h));
+  }
+
+  // ---- k. (v171) THE BARRIER, ON EVERY TRACK (the oval too): one whole lap alone, in every car,
+  // with the finger held full into the left barrier, then the right -- one thump, on the first
+  // touch, and then a quiet glide; never a bang, never stuck. Held into the barrier is never
+  // quicker than the racing line (the inside of every bend coming up, the middle on a
+  // straight): the inside is shorter, and riding it is no free win. Let go of it for a second
+  // and back into it, and that is a fresh hit: one more thump.
+  for (const id of ["oval"].concat(ids)) {
+    // (the barrier is no way to a pad: no car riding either barrier has its middle in any pad's catch)
+    const pg = await page.evaluate((id) => {
+      const L = window.__lp, RC = L.RC, V = L.race.venues[id], catchW = RC.padW / 2 + RC.footW * 0.3, out = [];
+      // (every body on a grid: his two, and the opponents' own widths off their meshes)
+      L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+      L.rcStartRace(id, 34); const wids = Array.from(new Set(L.race.racers.map(r => r.wid).concat([3.4, 5.8]))); L.raceReset();
+      for (const wid of wids) for (const side of [-1, 1]) for (const pd of V.pads) out.push(+(Math.abs(side * (RC.width / 2 - wid / 2 - 0.2) - pd.lat) - catchW).toFixed(2));
+      return { clear: Math.min(...out), pads: V.pads.map(p => p.lat), wids };
+    }, id);
+    check(`race ${id}: no pad lies under the line along either barrier, in any car on the grid (widths ${pg.wids.map(w => +w.toFixed(1)).join(", ")} m) -- the nearest catch is ${pg.clear} m off it (pads at ${pg.pads.join(", ")} m)`, pg.clear >= 0.5, J(pg));
+    const k = await page.evaluate((id) => {
+      const L = window.__lp, S = L.state, RC = L.RC, out = {};
+      L.noRender = true; L.api.skipScreens();
+      const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
+      for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+        out[veh] = {};
+        for (const mode of ["line", "heldL", "heldR", "again"]) {
+          L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.spdReset(); L.rcStartRace(id, 34);
+          const R = L.race, him = R.him;
+          for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+          const field = R.racers.slice(); R.racers = [him];
+          const Ln = R.track.len, s0 = Math.ceil(him.s / Ln) * Ln + 20;
+          him.s = s0 - 200; him.lat = 0; him.v = RC.v * L.spdMul();
+          const w0 = R.wallShoves, g0 = R.glideT, b0 = L.flags.carCrashes || 0, p0 = R.padHits;
+          out.wids = Array.from(new Set((out.wids || []).concat(field.map(r => r.wid))));
+          let t0 = null, t = null, minV = 1e9, tAgain = null, w1 = null, pT0 = null;
+          for (let f = 0; f < 60 * 150; f++) {
+            let bank;
+            if (mode === "line") {
+              const q = L.rcAt(him.s + 40), side = Math.abs(q.kh) > 0.002 ? Math.sign(q.kh) : 0, err = side * RC.width * 0.3 - (him.path ? 99 : him.lat);
+              bank = Math.abs(err) < 0.3 ? 0 : Math.max(-1, Math.min(1, -err * 0.4));
+            } else bank = mode === "heldR" ? 1 : -1;
+            // (again: on the left barrier half a lap, then a second of full right, then full left again)
+            if (mode === "again" && t0 !== null) { const el = R.t - t0; if (el > 15 && el < 16) bank = 1; if (el >= 16 && w1 === null) w1 = R.wallShoves; }
+            S.touching = true; S.ctrlBank = bank / range; S.ctrlPitch = 0; L.update(1 / 60);
+            if (t0 === null && him.s >= s0) { t0 = R.t; pT0 = R.padHits; }   // (pads from the timed lap: the run-up crosses the track to the barrier)
+            if (t0 !== null) minV = Math.min(minV, him.v);
+            if (t0 !== null && him.s >= s0 + Ln) { t = R.t - t0; break; }
+          }
+          out[veh][mode] = { t: t && +t.toFixed(2), thumps: R.wallShoves - w0, glide: +(R.glideT - g0).toFixed(1), minV: +minV.toFixed(1), bangs: (L.flags.carCrashes || 0) - b0, pads: R.padHits - (pT0 === null ? p0 : pT0), stuck: R.stuck, after: w1 === null ? null : R.wallShoves - w1 };
+          R.racers = field; L.raceReset();
+        }
+      }
+      L.noRender = false;
+      return out;
+    }, id);
+    const wids = k.wids; delete k.wids;
+    const cars = Object.keys(k), held = m => cars.map(c => `${k[c][m].t} s/${k[c][m].thumps}`).join(", ");
+    check(`race ${id}: held into the barrier a whole lap he glides along it -- one thump on the first touch, then quiet (left: ${held("heldL")}; right: ${held("heldR")}, lap s/thumps per car), no pad on the way (${cars.map(c => k[c].heldL.pads + k[c].heldR.pads).join("/")}), never a bang, never stuck; never quicker than the racing line (${cars.map(c => k[c].line.t).join("/")} s); off it a second and back, a fresh hit (${cars.map(c => k[c].again.after).join("/")} more)`,
+      cars.every(c => { const K = k[c]; return ["heldL", "heldR"].every(m => K[m].t !== null && K[m].thumps === 1 && K[m].glide > K[m].t * 0.4 && K[m].bangs === 0 && K[m].pads === 0 && K[m].stuck === 0 && K[m].minV > 15 && K[m].t >= K.line.t) && K.line.t !== null && K.again.after === 1 && K.again.bangs === 0; }), J(k));
   }
 };

@@ -429,8 +429,8 @@ module.exports = async function raceChecks({ newPage, check }) {
       L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens();
       return out;
     });
-    check(`race ${tag}: a shove, never a bang -- driven into a slower car he is shoved (${f.shoves}) and rolls on behind it; held hard into the barrier for ten seconds he runs along it (${f.walls} shoves, at ${f.lat} m, its edge ${f.edge}) and never stops; never an explosion ${J(f)}`,
-      f.shoves > 0 && f.himV > 5 && f.walls > 0 && Math.abs(f.lat - f.edge) < 0.3 && f.minV > 15 && !f.exploded && f.stuck === 0);
+    check(`race ${tag}: a shove, never a bang -- driven into a slower car he is shoved (${f.shoves}) and rolls on behind it; held hard into the barrier for ten seconds he glides along it (${f.walls} thump, on the first touch only -- v171, at ${f.lat} m, its edge ${f.edge}) and never stops; never an explosion ${J(f)}`,
+      f.shoves > 0 && f.himV > 5 && f.walls === 1 && Math.abs(f.lat - f.edge) < 0.3 && f.minV > 15 && !f.exploded && f.stuck === 0);
     check(`race ${tag}: a pad he aims at pushes him past his speed (${f.maxV} m/s against ${f.base}) ${J(f)}`, f.pads === 1 && f.maxV > f.base * 1.15);
 
     // ---- j. a noisy race in every car
