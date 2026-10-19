@@ -10,6 +10,32 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v169 — the two cases v168 left unchecked, driven (checks only; the build is still v168)
+
+v168's reviewer named two ways a car might still be in front of him that no check drove.
+Both are driven now, and neither bangs, so the game is unchanged.
+
+**A car already over its line at a junction that has only just come into his claim.**
+corner_cam_checks now watches every junction come into his claim as he drives the held
+corners. On two streams it happens to about one in five (14-30 per vehicle, mostly at
+the second junction past a corner), and every one comes in at least 151 m away (168 m in
+California). The claim never reaches less than the traffic's `yieldReach`, 150 m, so the
+crossing car is long gone before he gets there: 0 bangs. The check now asserts that floor
+(120 m). The one time he met such a car closer than that was the check putting him down
+83 m short (v168).
+
+**A motorway lane change into a car in the next lane.** road_checks steers him across
+into a lane with a car anywhere from 40 m behind to 60 m ahead of him: the car at its
+cruise, and the Corvette at 85 and 128 m/s, 69 changes in all. 0 bangs. Steering into a
+car 4 m ahead, all but beside him, is a bang with or without v168's change. That is his
+steer into it, like a wall, and the check leaves it out. This check passes with or without
+v168's `leadT` too. So the one stream that showed the way-in cut-in is still the only
+evidence for that change, and nothing in the harness fails without it.
+
+Full harness 1103/1103.
+
+---
+
 ## v168 — no car out of nowhere where the motorway ends
 
 The three traffic touches v166's full harness left (shipped past at the parent's call)
