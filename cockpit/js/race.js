@@ -349,6 +349,15 @@ function rcBuildPodium() {
   cup.visible = false; cup.userData.noSolid = true;
   scene.add(cup);
   race.trophy = cup;
+  // it stands on a plinth on top of the board, over the gold step -- never in the air
+  // over his car, where the monster truck sent it 11 m up with nothing under it
+  // (as tall as it must be for the cup to stand clear over his car: rcTrophyStand)
+  const P = RC.podium.stand, stand = new THREE.Group();
+  const blk = new THREE.Mesh(new THREE.BoxGeometry(P.w, 1, P.d), mattMat(TUNE.palette.white)); blk.position.y = 0.5; stand.add(blk);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(P.w + 0.4, 0.3, P.d + 0.4), gold); stand.add(cap);
+  stand.position.set(0, 9, -RC.podium.d / 2 - 2); stand.visible = false; g.add(stand);
+  stand.userData.blk = blk; stand.userData.cap = cap;
+  race.trophyStand = stand;
 }
 
 // Flags on poles along the outside of the bends, and the chequered pair at the line.
@@ -464,7 +473,7 @@ function rcStartRace(trackId, seed) {
   race.on = true; race.phase = "grid"; race.t = 0; race.finished = 0; race.order = [];
   race.stuckT = 0; race.stuck = 0; race.shoves = 0; race.wallShoves = 0; race.padHits = 0; race.bangs0 = flags.carCrashes || 0;
   race.podium = null; race.confT = 0; race.fwT = 0;
-  if (race.trophy) race.trophy.visible = false;
+  if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
   rcUnscale(vehicleModel);                    // (again, from the podium: measured at his own size, not the step's)
   rcMeasureHim();
   const him = rcMakeRacer(state.vehicleKey, true, 0);
@@ -524,7 +533,7 @@ function raceReset() {
   if (!race.on && !race.racers.length) { if (el.screenRace) raceClosePicker(); return; }
   race.on = false; race.phase = "off";
   rcClearRacers();
-  if (race.trophy) race.trophy.visible = false;
+  if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
   if (el.raceHud) el.raceHud.classList.add("hidden");
   raceClosePicker();
   setBigNum(null); el.bigNum.classList.remove("sky", "race");
@@ -794,7 +803,7 @@ function rcToPodium() {
   }
   confettiBurst(); cheer();
   if (won) {
-    race.trophy.visible = true;
+    race.trophyFit = false;                     // (shown once his car stands on the step: rcTrophyStand)
     rcFireworks(9);
   }
   flags.racePodiums = (flags.racePodiums || 0) + 1;
@@ -811,6 +820,29 @@ function rcFireworks(n) {
     fwQueue.push({ t: 0.2 + i * 0.45, x: C.x - C.fz * side - C.fx * back, y: C.y + up, z: C.z + C.fx * side - C.fz * back, c: fireworkColors[i % fireworkColors.length] });
     fireworkSound(i * 0.45);
   }
+}
+// The plinth stands on the board and reaches over his car on the gold step: its
+// cap `over` m above the car's top as it stands there (measured, posed, the hop
+// taken off), and never under P.h. Until then neither is shown.
+function rcTrophyStand() {
+  const P = RC.podium.stand, st = race.trophyStand, g = race.podiumG, m = vehicleModel, him = race.him;
+  m.updateMatrixWorld(true);
+  rcBox.makeEmpty();
+  m.traverse(o => {
+    if (!o.isMesh || !o.geometry) return;
+    for (let p = o; p && p !== m; p = p.parent) if (!p.visible) return;
+    if (o.userData.cvFx || o.material && (o.material.visible === false || o.material.blending === THREE.AdditiveBlending)) return;
+    o.geometry.boundingBox || o.geometry.computeBoundingBox();
+    rcBox2.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+    rcBox.union(rcBox2);
+  });
+  const hop = him.podPose ? him.podPose.y - race.podiumSpots[0].y : 0;
+  const top = (isFinite(rcBox.max.y) ? rcBox.max.y - hop : race.podiumSpots[0].y) + RC.podium.hop.h + P.over;
+  const base = new THREE.Vector3(0, 9, 0).applyMatrix4(g.matrixWorld).y;
+  const h = Math.max(P.h, top - base);
+  st.userData.blk.scale.y = h; st.userData.blk.position.y = h / 2; st.userData.cap.position.y = h + 0.15;
+  race.trophyAt = new THREE.Vector3(0, 9 + h + 0.3, -RC.podium.d / 2 - 2).applyMatrix4(g.matrixWorld);
+  race.trophy.visible = st.visible = true;
 }
 function rcPodium(dt) {
   const P = race.podium, C = race.podiumC;
@@ -834,9 +866,10 @@ function rcPodium(dt) {
   } else {
     const pp = him.podPose; state.x = pp.x; state.y = pp.y; state.z = pp.z; state.heading = pp.yaw; state.speed = 0;
   }
-  if (P.won && race.trophy) {
-    const pp = him.podPose;
-    race.trophy.position.set(pp.x, pp.y + (state.vp.monster ? 11 : 4.5) + Math.sin(race.podiumT * 2) * 0.4, pp.z);
+  if (P.won && race.trophy && !race.trophyFit && him.podPose && race.podiumT > 0.05) { rcTrophyStand(); race.trophyFit = true; }
+  if (P.won && race.trophy && race.trophyFit) {
+    // (standing on its plinth, its base on the cap: it turns, it never lifts)
+    race.trophy.position.copy(race.trophyAt).y -= 0.25 * RC.podium.trophy;
     race.trophy.rotation.y = race.podiumT * 1.2;
   }
   race.confT -= dt;

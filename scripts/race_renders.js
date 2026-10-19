@@ -72,7 +72,7 @@ async function render(root, views) {
         // a car just ahead of him, a lane over; he is quicker and coming past it
         const him = R.him, o = R.racers.find(r => !r.isHim && r.key === "corvette") || R.racers.find(r => !r.isHim);
         for (const r of R.racers) if (r !== him && r !== o) r.s = him.s - 200;
-        o.s = him.s + (S.vp && S.vp.monster ? 2 : 18); o.lat = him.lat + (S.vp && S.vp.monster ? (him.lat > 0 ? -10 : 10) : 4.5);   // (the giant: the rival alongside it, clear of its wheels, or its body hides it)
+        o.s = him.s + (S.vp && S.vp.monster ? (v === "overtakeSeat" ? 14 : 2) : 18); o.lat = him.lat + (S.vp && S.vp.monster ? (him.lat > 0 ? -10 : 10) : 4.5);   // (the giant: the rival alongside it, clear of its wheels, or its body hides it)
         // (its own line where it is put, and its wander at the middle of its swing: it holds that lane)
         o.line = o.lat; o.lineT = -o.i / L.RC.ai.wander[0]; o.aim = null; o.aimGo = false;
         go(40, 0, 0.8);
