@@ -39,7 +39,8 @@ async function oneRace(page, veh, seed, opts) {
     L.rcStartRace(opts.track || "oval", seed);   // the race's own stream, seeded with the hand's: one seed, one race
     const R = L.race, him = R.him;
     const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
-    const bangs0 = L.flags.carCrashes || 0;
+    const bangs0 = L.flags.carCrashes || 0, sc0 = L.flags.raceShortcuts || 0, j0 = L.flags.raceJumps || 0;
+    let scFor = null, scGo = false;
     let nextLift = 12 + rnd() * 18, liftLeft = 0, nextOver = 8 + rnd() * 12, overLeft = 0, overDir = 1, overAmt = 0;
     let mood = 0, moodLeft = 2 + rnd() * 4, aimPad = null, aimGo = false, passSide = 0, t = 0, exploded = 0, nan = 0;
     let wob1 = rnd() * 6.28, wob2 = rnd() * 6.28;
@@ -56,10 +57,17 @@ async function oneRace(page, veh, seed, opts) {
       let pad = null;
       for (const p of R.pads) { const d = ((p.s - him.s) % R.track.len + R.track.len) % R.track.len; if (d > 5 && d < 90) pad = p; }
       if (pad !== aimPad) { aimPad = pad; aimGo = !!pad && rnd() < 0.75; }
-      if (pad && aimGo) want = pad.lat;
+      // (v170) a shortcut ahead: it goes for its edge about half the time it comes to one
+      // (its draw only where a track has one, so the oval's hand is the one it was)
+      let sc = null;
+      for (const c of (R.track.sc || [])) { const d = ((c.sa + c.gore - him.s) % R.track.len + R.track.len) % R.track.len; if (d > 0 && d < 90 && !him.path) sc = c; }
+      if (sc && sc !== scFor) { scFor = sc; scGo = rnd() < 0.5; }
+      if (him.path) want = 0;
+      else if (sc && scGo) want = sc.side * (L.RC.width / 2 - sc.mouth / 2);
+      else if (pad && aimGo) want = pad.lat;
       else {
         for (const o of R.racers) {
-          if (o === him) continue;
+          if (o === him || o.path !== him.path) continue;
           let ds = (o.s - him.s) % R.track.len; if (ds > R.track.len / 2) ds -= R.track.len; if (ds < -R.track.len / 2) ds += R.track.len;
           if (ds > 0 && ds < 25 && Math.abs(o.lat - him.lat) < 4.5) { if (!passSide) passSide = o.lat > 0 ? -1 : 1; want = o.lat + passSide * 6; }
         }
@@ -67,6 +75,7 @@ async function oneRace(page, veh, seed, opts) {
       }
       // the drag that would put him there: drag right moves him right (-left)
       let bank = Math.abs(want - him.lat) < 0.8 ? 0 : Math.max(-1, Math.min(1, -(want - him.lat) * 0.22));
+      if (sc && scGo && !him.path && ((sc.sa + sc.gore - him.s) % R.track.len + R.track.len) % R.track.len < sc.hold + 8) bank = -sc.side;   // (going for a shortcut: the full steer, held through its approach -- the turn rule)
       wob1 += dt * (2 + rnd() * 3); wob2 += dt * (2 + rnd() * 3);
       bank += Math.sin(wob1) * 0.15;
       let pitch = (mood && R.phase === "race" ? 0.8 : 0) + Math.sin(wob2) * 0.15;
@@ -87,6 +96,7 @@ async function oneRace(page, veh, seed, opts) {
       time: me.t, bangs: (L.flags.carCrashes || 0) - bangs0 + (exploded ? 1 : 0), stuck: R.stuck, nan,
       shoves: R.shoves, walls: R.wallShoves, pads: R.padHits, podium: R.phase === "podium", order: order.map(o => o.key + ":" + o.t),
     };
+    if (R.track.sc && R.track.sc.length || R.track.jumps) { out.shortcuts = (L.flags.raceShortcuts || 0) - sc0; out.jumps = (L.flags.raceJumps || 0) - j0; }
     st.touching = false; st.ctrlBank = 0; st.ctrlPitch = 0;
     return out;
   }, [veh, seed, opts || {}]);

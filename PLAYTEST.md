@@ -48,6 +48,7 @@ entry below.
 | v166 | when he wins, he points at the cup on top of the podium or says he got the trophy; nobody asks why it is floating |  open |
 | v167 | when he loses, he finds his own car on the screen straight away and watches it stop by the podium; he taps the flag to race again, not to get a better look |  open |
 | v168 | nothing he sees changes: holding the booster to the end of the motorway, he turns round and goes again with no bang from behind |  open |
+| v170 | he picks the dune card, and on the dunes he steers on purpose for the jumps and the dusty strip by the river, and asks for the "sand race" again |  open |
 
 ## Entries
 
