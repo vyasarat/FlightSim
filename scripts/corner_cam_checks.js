@@ -88,7 +88,7 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
             }
           }
         }
-        const out = { city, veh, tries: tries.length, corners: 0, turned: 0, frames: 0, inside: 0, blocked: 0, head: 0, signalFrames: 0, jump: 0, jumps: 0, bangs: 0, near: 0, minBack: 99, worst: [] };
+        const out = { city, veh, tries: tries.length, corners: 0, turned: 0, frames: 0, inside: 0, blocked: 0, head: 0, signalFrames: 0, jump: 0, jumps: 0, bangs: 0, near: 0, minBack: 99, worst: [], claimed: 0, claimedBusy: 0, claimMin: Infinity };
         // every corner there is, lefts and rights both (the Cybertruck, on the car's own
         // camera, a spread of them)
         const spread = veh === "cybertruck" || veh === "monster";
@@ -132,13 +132,23 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
           out.near += standing;
           const h0 = S.heading, bangs0 = L.flags.carCrashes || 0; L.stTraffic.lastTouch = null;   // (what he touches at THIS corner)
           out.corners++; nextT = t + step;
-          let after = -1, turnedHere = false, prev = null, hand = false;
+          let after = -1, turnedHere = false, prev = null, hand = false, prevClaim = null;
           for (let i = 0; i < 60 * 12; i++) {
             // the monster truck steers freely (no junction rule): it is turned by hand from the corner until it has turned
             if (veh === "monster" && Math.hypot(S.x - node.x, S.z - node.z) < 14) hand = true;
             const steer = veh !== "monster" ? side * full : (hand && !turnedHere ? side * full : 0);
             S.touching = true; S.touchIsPoint = false; S.ctrlBank = steer; S.ctrlPitch = pull;
             L.update(1 / 60);
+            // a junction that comes into his claim comes in FAR off, driven: a car already
+            // over its line there is long gone when he arrives (v169: about one in five has
+            // one; put down 83 m short of one, the check alone ever met it -- v168). The floor
+            // is the claim's own: never shorter than the traffic's yieldReach, 150 m.
+            { const hm = L.stHim(), now = new Set(hm && hm.nodes ? hm.nodes.map(n => n.node) : []);
+              if (prevClaim) for (const q of hm ? hm.nodes : []) if (!prevClaim.has(q.node)) {
+                out.claimed++; if (q.dist < out.claimMin) out.claimMin = Math.round(q.dist), out.claimMinAt = { t, i, v: +S.speed.toFixed(1), turned: turnedHere };
+                if (L.stTraffic.list.some(o => o.alive && !o.spin && (o.crossing || o.path) && Math.hypot(o.wx - q.node.x, o.wz - q.node.z) < 32)) out.claimedBusy++;
+              }
+              prevClaim = now; }
             if (S.exploding) break;
             if (!turnedHere && Math.abs(L.wrapPi(S.heading - h0)) > 1.3) { turnedHere = true; after = i + 90; }
             // the line the camera keeps clear: from him at its own eye (the monster's is high over its cab)
@@ -170,8 +180,8 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
         return out;
       }, [city, veh, pull, TRACE]);
       const tag = `${r.city} ${r.veh}${r.veh === "corvette" ? " boosted" : ""}`;
-      check(`corner camera ${tag}: on ${r.corners} held corners (${r.turned} turned through a right angle, buildings standing beside every one), the chase camera is never inside a building or a wall and none -- nor a signal head hanging over a junction -- ever stands between it and him -- ${r.frames} frames (${r.signalFrames} by a signal), ${r.inside} inside, ${r.blocked} blocked, ${r.head} through a signal head, nearest ${r.minBack} m behind (never on to his roof: at least 5), its biggest step in a frame ${r.jump} m (${r.jumps} frames over 3 m), ${r.bangs} bangs ${r.bangAt ? JSON.stringify(r.bangAt) : ""} ${JSON.stringify(r.worst)} nearest at ${JSON.stringify(r.minAt)} biggest at ${JSON.stringify(r.bigAt)} ${r.trace ? JSON.stringify(r.trace) : ""} (${r.tries} corners there, ${r.unbuilt || 0} with nothing standing yet; ${Math.round((Date.now() - t0) / 1000)} s in)`,
-        r.corners >= (r.veh === "cybertruck" || r.veh === "monster" ? 8 : 60) && r.turned >= Math.ceil(r.corners * 0.75) && r.frames > 2000 && r.signalFrames > 100 && r.inside === 0 && r.blocked === 0 && r.head === 0 && r.bangs === 0 && r.minBack >= 5);
+      check(`corner camera ${tag}: on ${r.corners} held corners (${r.turned} turned through a right angle, buildings standing beside every one), the chase camera is never inside a building or a wall and none -- nor a signal head hanging over a junction -- ever stands between it and him -- ${r.frames} frames (${r.signalFrames} by a signal), ${r.inside} inside, ${r.blocked} blocked, ${r.head} through a signal head, nearest ${r.minBack} m behind (never on to his roof: at least 5), its biggest step in a frame ${r.jump} m (${r.jumps} frames over 3 m), ${r.bangs} bangs ${r.bangAt ? JSON.stringify(r.bangAt) : ""} ${JSON.stringify(r.worst)} nearest at ${JSON.stringify(r.minAt)} biggest at ${JSON.stringify(r.bigAt)} ${r.trace ? JSON.stringify(r.trace) : ""} -- and every junction that came into his claim came in ${r.claimed ? `at least ${r.claimMin} m off (${r.claimed} of them, ${r.claimedBusy} with a car already over its line)` : "(none: off the grid)"} ${r.claimMinAt ? JSON.stringify(r.claimMinAt) : ""} (${r.tries} corners there, ${r.unbuilt || 0} with nothing standing yet; ${Math.round((Date.now() - t0) / 1000)} s in)`,
+        r.corners >= (r.veh === "cybertruck" || r.veh === "monster" ? 8 : 60) && r.turned >= Math.ceil(r.corners * 0.75) && r.frames > 2000 && r.signalFrames > 100 && r.inside === 0 && r.blocked === 0 && r.head === 0 && r.bangs === 0 && r.minBack >= 5 && (r.veh === "monster" ? r.claimed === 0 : r.claimed > 0 && r.claimMin >= 120));
     }
   }
 };

@@ -89,6 +89,43 @@ module.exports = async function roadChecks({ newPage, check, viewports }) {
         sp.out.length === 8 && sp.out.every(r => r.near >= sp.keepOut), JSON.stringify(sp.out));
     }
 
+    // ---- 0c. a lane change across into the next lane, with a car in it ahead or behind:
+    // nothing in that lane is hit (v169, after v168's way-in cut-in). Steered into a
+    // car right beside him is his to steer, like a wall; from 8 m clear either way it is not.
+    {
+      const lc = await page.evaluate(() => {
+        const L = window.__lp, st = L.state, out = [];
+        L.noRender = true;
+        for (const [veh, V] of [["car", L.CAR.cruise], ["corvette", 85], ["corvette", 128]]) for (let X = -40; X <= 60; X += 4) {
+          if (Math.abs(X) < 8) continue;
+          L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          const s0 = L.highway.length * 0.30, q = L.hwySampleAt(s0), off = L.HW.medianW / 2 + L.HW.laneW * 0.5;
+          st.x = q.x - q.fz * off; st.z = q.z + q.fx * off; st.y = q.y; st.heading = Math.atan2(-q.fx, -q.fz); st.speed = V; st.exploding = false;
+          L.car.steer = 0; L.car.yield = 1; L.car.rejoin = null; L.stPlan.road = null; L.updateScenery(st.x, st.z, true);
+          for (const o of L.highway.traffic) { o.alive = false; o.respawn = 600; }
+          const t = L.highway.traffic.find(o => !o.truck);
+          Object.assign(t, { s: s0 + X, dir: 1, lane: 1, laneF: 1, speed: 56, alive: true, spin: 0, respawn: 0 });
+          const h0 = L.flags.hwyTrafficHit || 0, c0 = L.flags.carCrashes || 0, l0 = L.hwyNearest(st.x, st.z).lateral;
+          let released = false, crossed = false;
+          for (let i = 0; i < 60 * 4; i++) {
+            const moved = Math.abs(L.hwyNearest(st.x, st.z).lateral - l0);
+            if (!released && moved >= L.HW.laneW * 0.55) released = true;
+            if (moved >= L.HW.laneW * 0.85) crossed = true;
+            L.api.setStick(released ? 0 : 1, 0.9); L.update(1 / 60);
+            if (st.exploding) break;
+            st.speed = V;   // (at the speed it says: the drag up is a burst or the booster)
+          }
+          out.push({ veh, V: Math.round(V), X, crossed, bangs: (L.flags.hwyTrafficHit || 0) - h0 + (L.flags.carCrashes || 0) - c0 });
+        }
+        for (const o of L.highway.traffic) if (!o.alive) o.respawn = 0;   // the motorway's traffic back for what follows
+        L.api.clearStick(); L.api.setVehicle("car"); L.noRender = false;
+        return out;
+      });
+      const bad = lc.filter(r => r.bangs || !r.crossed);
+      check(`road: a lane change across into a lane with a car in it, from 40 m behind to 60 m ahead of him (8 m clear either way), at the car's cruise and the Corvette's 85 and 128 m/s -- ${lc.length} changes, every one across, ${lc.reduce((a, r) => a + r.bangs, 0)} bangs`,
+        lc.length === 69 && bad.length === 0, JSON.stringify(bad));
+    }
+
     // ---- 1. the crossing: nothing streamed inside the corridor, nothing hit
     const cross = await page.evaluate(() => {
       const L = window.__lp, st = L.state;
