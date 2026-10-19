@@ -39,6 +39,9 @@ const VIEWS = [
   ["front",        180, 8],
   ["top",          210, 62],
 ];
+// RIG_CLOSE=1: a close-up of the tail as well, the number plate filling the frame
+// (zero text: anything on a plate that could read as letters shows here)
+if (process.env.RIG_CLOSE) VIEWS.splice(0, VIEWS.length, ["tailClose", 0, 6, 1]);
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -133,8 +136,8 @@ const VIEWS = [
   }
   if (!setup.preserved) console.log("  WARNING: buffer not preserved -- captures may be blank");
 
-  for (const [name, az, el] of VIEWS) {
-    const info = await pg.evaluate(([az, el, w, h]) => {
+  for (const [name, az, el, close] of VIEWS) {
+    const info = await pg.evaluate(([az, el, w, h, close]) => {
       const L = window.__lp;
       const m = L.vehicleModel;
       if (!m) return { missing: true };
@@ -143,7 +146,9 @@ const VIEWS = [
       const c = bb.getCenter(new THREE.Vector3());
       const size = bb.getSize(new THREE.Vector3());
       const fov = 30;
-      const dist = Math.max(size.x, size.y, size.z) * 0.5 / Math.tan(fov * Math.PI / 360) * 1.45;
+      // (close: the tail's own middle, low, from 3 m -- the box takes in hidden parts, so not from its size)
+      if (close) { const t = new THREE.Box3(); m.traverse(o => { if (o.isMesh && o.material && o.material.visible !== false && o.material.blending !== THREE.AdditiveBlending && !o.userData.cvFx) { let v = true; for (let p = o; p && p !== m; p = p.parent) if (!p.visible) v = false; if (v) t.union(new THREE.Box3().setFromObject(o)); } }); t.getCenter(c); const tz = t.getSize(new THREE.Vector3()); c.addScaledVector(new THREE.Vector3(Math.sin(az * Math.PI / 180 + L.state.heading), 0, Math.cos(az * Math.PI / 180 + L.state.heading)), Math.max(tz.x, tz.z) * 0.5).y -= tz.y * 0.1; }
+      const dist = close ? 3.2 : Math.max(size.x, size.y, size.z) * 0.5 / Math.tan(fov * Math.PI / 360) * 1.45;
       const a = az * Math.PI / 180 + L.state.heading, e = el * Math.PI / 180;
       const place = () => {
         L.camera.position.set(c.x + Math.sin(a) * Math.cos(e) * dist,
@@ -176,7 +181,7 @@ const VIEWS = [
         fov: +L.camera.fov.toFixed(0),
         fillPct: +(((maxx - minx) * (maxy - miny)) / (w * h) * 100).toFixed(1),
       };
-    }, [az, el, W, H]);
+    }, [az, el, W, H, close]);
     if (info.missing) { console.log(`  ${name}: NO MODEL`); continue; }
     await pg.screenshot({ path: path.join(OUT, `${PREFIX}-${name}.png`) });
     // ...and a version cropped to the box we just measured. Cropping afterwards

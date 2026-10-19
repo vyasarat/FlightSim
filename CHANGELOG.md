@@ -10,6 +10,23 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v166 — the trophy stands on something
+
+When he wins, the gold cup used to hang in the air over his car -- 4.5 m over most
+cars and 11 m over the monster truck, with nothing under it. Now it stands on a white
+plinth with a gold cap on top of the blue board behind the podium, over the gold step,
+at the same height whatever he drives; it turns slowly but never lifts off
+(`TUNE.race.podium.stand`). race_checks wins a race in the monster truck and wants the
+cup's foot on the cap and the cup clear over the truck. The Corvette's four tail pipes
+were bright steel in a row; small, from behind, they looked like characters on a number
+plate (the plate itself is blank -- a close-up shows it). They are dark slate now
+(`tone` on the model, `models.js`), and the flames still come out of them. Rendered and
+looked at: the monster truck overtake from his seat, and a podium he did not win.
+
+Full harness 1095/1098, shipped at the parent's call: three traffic touches in the full run only (the Corvette at the motorway's far end-turn, a New York corner boosted, a California corner in the SUV) -- each module passes alone (corvette_checks 19/19 three times, corner_cam_checks 8/8), and main ran 1096/1096; v166 touches no driving code. Queued to find what the full run carries in.
+
+---
+
 ## v165 — the winner lands on the top step
 
 When he wins, his car used to hop 1.4 m off the gold step and spend almost all its

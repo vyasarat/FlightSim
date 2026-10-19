@@ -291,7 +291,7 @@ const TUNE = {
     // Y's 4.75 m), and LOW: its measured 2.40 m (the wing's tips are its top) against
     // the Y's 3.17, so the cabin comes DOWN with the eye, 0.72 * 0.77 = 0.56 m. `smooth`:
     // a curved body, like the Y's, not a faceted one.
-    corvette: { file: "models/corvette.glb", length: 9.07, yaw: Math.PI, lift: 0, smooth: true, cabinLift: -0.56 },   // nose-at-+Z in the source
+    corvette: { file: "models/corvette.glb", length: 9.07, yaw: Math.PI, lift: 0, smooth: true, cabinLift: -0.56, tone: { pipe: "slate" } },   // nose-at-+Z in the source; tone: a material recoloured to a palette name
     fighter: { file: "models/fighter.glb", length: 16.0, yaw: Math.PI, lift: 0, burner: true },   // tail-first; `burner`: find the nozzle and light it
     // The two hulls (scripts/build_boats.js). `lift` sits the waterline where
     // the game's waterline is: an imported hull stands on its keel, and the game
@@ -2414,7 +2414,7 @@ const TUNE = {
     stands: { count: 4, from: -0.06, step: 0.037, back: 6, depth: 16, len: 60, rise: 10 },
     podium: { s: 0.025, back: 18, w: 9, d: 12, h: [3.2, 2.2, 1.4], camBack: 48, camUp: 10, buttonsAfter: 3,
               parade: 60, paradeV: 10, stopPast: 14, giantPast: 4, fit: 0.9, fwClear: 34, fwWide: 30, fwBack: 120, fwUp: 44, fwUpRnd: 16, trophy: 1.8,
-              hop: { h: 0.5, air: 0.3, every: 1.1 } },
+              hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 } },
     cam: { back: 15, up: 6, lag: 5 },
   },
 

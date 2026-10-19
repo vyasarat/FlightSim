@@ -74,6 +74,8 @@ module.exports = async function raceChecks({ newPage, check }) {
         });
         L.rcPoint(R.him.s, R.him.lat, q);
         out[v] = +(b.min.y - q.y).toFixed(2);
+        // (the Corvette's tail pipes: dark, in a row they read as characters on a plate)
+        if (v === "corvette") { out.pipes = []; m.traverse(o => { if (o.isMesh && o.material && o.material.name === "pipe") out.pipes.push(o.material.color.getHex()); }); }
         L.raceReset();
       }
       L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens();
@@ -82,6 +84,8 @@ module.exports = async function raceChecks({ newPage, check }) {
     });
     check(`race ${tag}: his car stands on the deck in every car -- the lowest point of the body he sees, over the deck under it ${J(e4)} m`,
       [e4.car, e4.cybertruck, e4.corvette, e4.monster].every(d => Math.abs(d) < 0.25));
+    check(`race ${tag}: the Corvette's tail pipes are the palette's slate, not bright steel in a row like characters on a plate ${J(e4.pipes)}`,
+      e4.pipes && e4.pipes.length > 0 && e4.pipes.every(c => c === 0x3c4350));
 
     }
     // ---- a. the track
@@ -325,6 +329,10 @@ module.exports = async function raceChecks({ newPage, check }) {
         const w = R.racers.find(r => r.onStep === 0); if (!w || !w.podPose) continue;
         const up = w.podPose.y - R.podiumSpots[0].y; n++; if (up < 0.01) on++; top = Math.max(top, up); }
       out.onFrac = n ? +(on / n).toFixed(2) : 0; out.hopTop = +top.toFixed(2);
+      // (the trophy stands on its plinth -- its lowest point on the cap -- and over the giant, not in it)
+      { const T = window.THREE, b = new T.Box3().setFromObject(R.trophy), sb = new T.Box3().setFromObject(R.trophyStand), mb = new T.Box3();
+        m().traverse(o => { if (!o.isMesh) return; for (let p = o; p; p = p.parent) if (!p.visible) return; mb.union(new T.Box3().setFromObject(o)); });
+        out.cupOnStand = +(b.min.y - sb.max.y).toFixed(2); out.cupOverCar = +(b.min.y - mb.max.y).toFixed(2); out.cupShown = R.trophy.visible && R.trophyStand.visible; }
       out.place = R.him.place; out.onStep = +m().scale.x.toFixed(3);
       L.raceAgain(); for (let i = 0; i < 5; i++) L.update(1 / 60);
       out.again = +m().scale.x.toFixed(3); out.lift1 = +R.himLift.toFixed(2);
@@ -337,6 +345,7 @@ module.exports = async function raceChecks({ newPage, check }) {
     });
     check(`race ${tag}: the podium in the monster truck -- it fits its step (scale ${e3.onStep} of ${e3.s0}), is its own size again for the next race and measured at it (lift ${e3.lift1} against ${e3.lift0}) and after EXIT, which leaves no confetti behind ${J(e3)}`,
       e3.place === 1 && e3.onStep < e3.s0 * 0.9 && e3.again === e3.s0 && e3.exit === e3.s0 && e3.lift1 === e3.lift0 && e3.confetti === 0);
+    check(`race ${tag}: the trophy stands on its plinth on the board (its foot ${e3.cupOnStand} m off the cap) and clear over the monster truck (${e3.cupOverCar} m)`, e3.cupShown && Math.abs(e3.cupOnStand) < 0.1 && e3.cupOverCar > 0.5);
     check(`race ${tag}: the winner's hop lands on its step -- on it ${e3.onFrac} of the frames, never more than ${e3.hopTop} m up`, e3.onFrac >= 0.6 && e3.hopTop > 0 && e3.hopTop <= 0.6);
 
     // ---- f, g. a shove, the barrier, a pad

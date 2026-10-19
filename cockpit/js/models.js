@@ -210,6 +210,9 @@ function modelPrepare(key, scene) {
     o.receiveShadow = false;
     const m = o.material;
     if (m && m.transparent) { m.depthWrite = false; m.side = THREE.DoubleSide; }
+    // `tone`: a material recoloured by name (the Corvette's four bright tail pipes in a
+    // row read, small, as characters on a plate -- zero text)
+    if (cfg.tone && m && m.color && cfg.tone[m.name] !== undefined) m.color.setHex(TUNE.palette[cfg.tone[m.name]]);   // (a palette name)
   });
   // 5. wheels: only the car has them, and only if they can be found
   if (vp.car) { try { modelSplitWheels(g); } catch (e) { console.warn("models: wheel split failed", e && e.message); } }
