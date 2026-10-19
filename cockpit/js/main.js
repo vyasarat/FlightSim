@@ -203,7 +203,7 @@ window.__lp = {
   art, ART_LAYER, cities, citiesSettled, terrainMeshY, cityCovers, CITY,
   artReady() { return (art.ready || art.failed) && citiesSettled(); },
   MODELS, modelStore, modelState, modelInstance, modelPrototype, modelsPreload,
-  highway, HW, hwyNearest, hwySampleAt, hwyBuild, updateHighway, hwyTrafficNear, hwyKnockTraffic,
+  highway, HW, hwyNearest, hwySampleAt, hwyBuild, updateHighway, hwyTrafficNear, hwyKnockTraffic, hwyPlaceTraffic,
   hwyInCorridor, hwyCorridorDist, inCorridor, hwyBoreCut, hwyBoreCeiling, hwyBores,
   car, CAR, carActive, carLevelMotorway, updateCar, carCamera, carSpawn, carReassemble, carRoadTarget, buildCarModel,
   streets, ST, stPlan, stTraffic, stTrail, stProject, stPointAt, stRoadsNear, stCarNear, stCarTarget,

@@ -1015,8 +1015,12 @@ function hwyPlaceTraffic(t, aroundS) {
   const T = HW.traffic;
   // Never materialise on top of him. Spawning uniformly around his position put
   // a car inside his bumper now and then, which read as a crash out of nowhere.
-  const sign = Math.random() < 0.5 ? -1 : 1;
+  // And never off either END of the road, clamped back on to it: the clamp put it at
+  // the end, under keepOut from him -- turning round there, a car appeared 20 m behind
+  // him at 60 m/s and ran into the back of him (v168). Past an end, it goes the other side.
+  let sign = Math.random() < 0.5 ? -1 : 1;
   const off = T.keepOut + Math.random() * (T.range - T.keepOut);
+  if (aroundS + sign * off < 0 || aroundS + sign * off > highway.length) sign = -sign;
   t.s = clamp(aroundS + sign * off, 0, highway.length);
   t.speed = T.speed[0] + Math.random() * (T.speed[1] - T.speed[0]);
   t.lane = Math.floor(Math.random() * HW.lanes);
@@ -1054,6 +1058,20 @@ function hwyUpdateTraffic(dt, px, pz) {
     if (car.merging) { carHere.side = car.merging; carHere.lateral = car.merging * (HW.medianW / 2 + HW.laneW * 1.5); }
     else if (typeof ST !== "undefined" && (car.onStreet || car.onSpurRoad) && Math.abs(near.y - state.y) > ST.levelTol) carHere = null;
   }
+  // ... and where he is GOING across the road, `leadT` on: sweeping right across the
+  // outer lane for a way in at 85 m/s, he was in a car's lane before it counted him
+  // there, 6 m behind it -- and once he was over the line its "move over" took it
+  // left, back across his path (v168). Both ask where he will be as well.
+  if (carHere && !car.merging) {
+    const pv = highway.himLat;
+    highway.himLatV = pv !== undefined && Math.abs(near.lateral - pv) < 1 && dt > 0
+      ? lerp(highway.himLatV || 0, (near.lateral - pv) / dt, Math.min(1, dt * 8)) : 0;
+    highway.himLat = near.lateral;   // (a jump of a metre in a frame is a placing, not a speed)
+    carHere.latAhead = carHere.lateral + clamp(highway.himLatV * T.leadT, -HW.laneW, HW.laneW);
+  } else {
+    highway.himLat = undefined; highway.himLatV = 0;
+    if (carHere) carHere.latAhead = carHere.lateral;
+  }
   const vkN = { sedan: 0, hatch: 0, lorry: 0 };
   const vkM = { sedan: highway.trafficMesh, hatch: highway.hatchMesh, lorry: highway.truckMesh };
   for (const t of highway.traffic) {
@@ -1067,8 +1085,9 @@ function hwyUpdateTraffic(dt, px, pz) {
     // faster than he does, so without this it overtakes straight through him and
     // he gets rear-ended for holding a finger down and steering nothing.
     let sp = t.speed;
+    const laneLat = t.dir * (HW.medianW / 2 + HW.laneW * (t.laneF + 0.5));
     const laneGap = carHere && t.dir === carHere.side
-      ? Math.abs((t.dir * (HW.medianW / 2 + HW.laneW * (t.laneF + 0.5))) - carHere.lateral) : Infinity;
+      ? Math.min(Math.abs(laneLat - carHere.lateral), Math.abs(laneLat - carHere.latAhead)) : Infinity;
     if (laneGap < HW.laneW * 1.1) {
       const ahead = (carHere.s - t.s) * t.dir;      // positive: he is in front of it
       // and it keeps its distance: pulled back on to the carriageway beside
@@ -1096,8 +1115,11 @@ function hwyUpdateTraffic(dt, px, pz) {
       const gap = (t.s - carHere.s) * t.dir;        // positive: it is in front of him
       if (gap > 0 && gap < T.yieldReach) {
         if (t.laneF === t.lane) {
-          // across, to whichever lane is further from him
-          const want = carHere.lateral * t.dir > HW.medianW / 2 + HW.laneW ? 0 : HW.lanes - 1;
+          // across, to whichever lane is further from him -- from where he is and where
+          // he is going both, and never toward either
+          const clearOf = k => { const L = t.dir * (HW.medianW / 2 + HW.laneW * (k + 0.5)); return Math.min(Math.abs(L - carHere.lateral), Math.abs(L - carHere.latAhead)); };
+          let want = t.lane;
+          for (let k = 0; k < HW.lanes; k++) if (clearOf(k) > clearOf(want) + 0.5) want = k;
           if (want !== t.lane && hwyLaneClear(t, want)) t.lane = want;
         }
         const k = clamp((T.yieldReach - gap) / (T.yieldReach - T.yieldMatch), 0, 1);
@@ -1136,6 +1158,9 @@ function hwyUpdateTraffic(dt, px, pz) {
 // A traffic car that has been hit spins off and comes back later. It is a
 // machine, it is never a target, and nothing is scored.
 function hwyKnockTraffic(t) {
+  // (what it was, for a check that has to say what he touched -- as stKnock does)
+  highway.lastTouch = { s: Math.round(t.s), dir: t.dir, lane: t.lane, v: +t.speed.toFixed(1), truck: t.truck,
+                        x: Math.round(t.wx), z: Math.round(t.wz), him: +state.speed.toFixed(1) };
   t.spin = 0.001;
   t.alive = false;
   t.respawn = HW.traffic.respawn;
