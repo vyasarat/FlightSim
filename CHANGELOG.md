@@ -77,7 +77,7 @@ chose to fix it. It passed on a frame-by-frame strip of the flight in two cars. 
 law-reviewer's last round passed. Its note on a held steer scraping the shortcut's wall
 is fixed here. The same scraping along any barrier is the next release.
 
-HARNESS_LINE
+Full harness 1113/1113 (new: race_track_checks, 10 checks). The oval's 16 pinned races, its geometry and the random stream after it are identical to v169's.
 
 ---
 
