@@ -5625,6 +5625,7 @@ function check(name, ok, extra) {
   await runModule("./cybertruck_checks", { newPage, check });   // v146: the Cybertruck, a second body on the car
   await runModule("./corvette_checks", { newPage, check });     // v159: the Corvette, a third, and its rocket booster
   await runModule("./race_checks", { newPage, check });         // v164: the race -- his idea; the one place he can lose
+  await runModule("./race_track_checks", { newPage, check });   // v170: the tracks after the oval -- surfaces, dunes, the shortcut
   await runModule("./dadmode_checks", { newPage, check });
   await runModule("./dadmissions_checks", { newPage, check });   // v154: dad mode's historical missions      // v147: dad mode (the parent's, behind a code) and the valley
   await runModule("./payoff_size_checks", { newPage, check });

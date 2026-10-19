@@ -86,6 +86,8 @@ const ART_PRESETS = {
   asphalt:    { wall: "asphalt", top: "asphalt", fade: [500, 1500, 1] },
   road:       { wall: "road", top: "road", uv: true, fade: [500, 1500, 1] },
   grass:      { wall: "grass", top: "grass", world: true, fade: [500, 1500, 1] },
+  scrub:      { wall: "scrub", top: "scrub", world: true, fade: [500, 1500, 1] },   // (v170) the race's dirt
+  sand:       { wall: "sand", top: "sand", world: true, fade: [500, 1500, 1] },     // (v170) the race's sand
   corrugated: { wall: "corrugated", top: "corrugated", fade: [500, 1500, 1] },
   container:  { wall: "container", top: "container", offset: [0.5, 0], fade: [600, 1600, 1] },
   deck:       { wall: "deck", top: "deck", fade: [600, 1600, 1] },

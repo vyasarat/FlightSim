@@ -9,6 +9,11 @@
 //   podiumLose  he did not: the podium in its order, his car driving on in front
 //   world       normal play: his car by the oval, facing it, the flag up
 //   afterPodium the first frames after "go back" from a podium: nothing of the race left
+//   surface:<kind> / surfaceSeat:<kind>   (v170) him mid-way along that surface at speed, its spray up
+//   fork / shortcut   (v170) where the shortcut leaves the road, and half-way along it
+//   dune / landing / pad / hairpin   (v170) a dune ahead, a landing, a boost pad, a dirt hairpin
+//   jump / jumpSeat   (v170) off a dune, near the top of the flight
+//   TRACK=dunes renders that track (the oval if unset)
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
 const path = require("path"), fs = require("fs");
 const { launch, openGame, serve } = require("./art_rig.js");
@@ -21,7 +26,7 @@ async function render(root, views) {
   const port = +(process.env.PORT || 8232), srv = serve(root, port), browser = await launch();
   const [vw, vh] = (process.env.VP || "820x1180").split("x").map(Number);   // VP=1180x820 for landscape
   const page = await openGame(browser, port, { width: vw, height: vh });
-  await page.evaluate((v) => { window.__rVeh = v; }, process.env.VEH || "car");
+  await page.evaluate(([v, t]) => { window.__rVeh = v; window.__rTrack = t; }, [process.env.VEH || "car", process.env.TRACK || "oval"]);
   await page.evaluate(() => { window.__lp.api.skipScreens(); window.__hold = () => {}; for (let i = 0; i < 3; i++) window.__paint(); });
   await page.waitForFunction(() => { const s = window.__lp.modelState; return s && ["car", "cybertruck", "corvette"].every(k => s[k] !== "loading"); }, null, { timeout: 120000 }).catch(() => {});
   await page.screenshot({ timeout: 180000 });
@@ -40,7 +45,7 @@ async function render(root, views) {
       if (v === "world") {
         // normal play: his car on the open ground outside the oval, facing it, his own chase camera
         L.api.setView(true);
-        const T = R.track, q = T.S[Math.floor(T.n * 0.55)];
+        const T = R.venues[window.__rTrack].track, q = T.S[Math.floor(T.n * 0.55)];
         const cx = T.S.reduce((a, p) => a + p.x, 0) / T.n, cz = T.S.reduce((a, p) => a + p.z, 0) / T.n;
         const dx = q.x - cx, dz = q.z - cz, d = Math.hypot(dx, dz);
         S.x = q.x + dx / d * 45; S.z = q.z + dz / d * 45; S.heading = Math.atan2(dx, dz);
@@ -51,7 +56,7 @@ async function render(root, views) {
       }
       if (v === "afterPodium") {
         // straight after "go back" from a podium: normal play, nothing of the race left on screen
-        L.api.setView(true); L.rcStartRace("oval");
+        L.api.setView(true); L.rcStartRace(window.__rTrack);
         for (let i = 0; i < 60 * 400 && R.phase !== "podium"; i++) go(1, 0, 0);
         for (let i = 0; i < 60 * 3; i++) { S.touching = false; L.update(1 / 60); }
         L.raceExit();
@@ -59,8 +64,81 @@ async function render(root, views) {
         note.raceOn = L.raceOn(); note.confetti = typeof confetti !== "undefined" ? confetti.length : -1;
         return note;
       }
-      L.api.setView(!v.endsWith("Seat"));
-      L.rcStartRace("oval");
+      L.api.setView(!/Seat/.test(v));
+      L.rcStartRace(window.__rTrack);
+      if (v === "fork" || v === "shortcut") {
+        // (v170) the shortcut: coming up to where it leaves the road (him on its edge), or half-way along it
+        const T = R.track, sc = T.sc[0];
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him, base = Math.floor(him.s / T.len) * T.len;
+        him.s = base + sc.sa - (v === "fork" ? 45 : 30); him.v = L.RC.v * 0.86; him.lat = -9;
+        for (const r of R.racers) if (!r.isHim) { r.s = him.s + 30 + r.i * 9; r.v = him.v; r.lat = (r.i % 2 ? -1 : 1) * 5; }
+        const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
+        for (let i = 0; i < 60 * 8; i++) {
+          if (v === "fork" && him.s > base + sc.sa - 25) break;
+          if (v === "shortcut" && him.path && him.u > sc.Ls * 0.35) break;
+          go(1, him.path ? 0 : -sc.side / range, 0);           // (a full steer to its side, held)
+        }
+        window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+        note.path = !!him.path; note.lat = +him.lat.toFixed(1);
+        return note;
+      }
+      if (v === "dune" || v === "landing" || v === "pad" || v === "hairpin") {
+        // (v170) the dune ahead of him; the moment he lands; a boost pad coming up; a dirt hairpin
+        const T = R.track, d = T.S.find(q => q.dune), pd = R.pads[0];
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him, base = Math.floor(him.s / T.len) * T.len;
+        const at = v === "pad" ? pd.s - 100 : v === "hairpin" ? T.S.find(q => q.sf === "dirt").s - 60 : d.s - (v === "dune" ? 45 : 60);
+        him.s = base + at; him.v = L.RC.v * 0.9; him.lat = v === "pad" ? pd.lat : 2;
+        for (const r of R.racers) if (!r.isHim) { r.s = him.s + (v === "dune" || v === "pad" ? 90 : 30) + r.i * 10; r.v = him.v; r.lat = (r.i % 2 ? -1 : 1) * 7; }
+        if (v === "landing") { let was = false; for (let i = 0; i < 60 * 6; i++) { go(1, 0, 0); if (was && !him.air) break; was = was || him.air; } go(3, 0, 0); }
+        else if (v === "hairpin") go(90, 0, 0);
+        else go(Math.round(60 * (v === "dune" ? 0.8 : 1.5)), 0, 0);      // (long enough for the camera to be behind him again)
+        window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+        note.air = !!him.air; note.s = Math.round(him.s - base); note.phase = R.phase; note.big = document.getElementById("bigNum") && document.getElementById("bigNum").textContent;
+        return note;
+      }
+      if (v === "jump" || v.startsWith("jumpSeat")) {
+        // (v170) off the first dune at his step, frozen where the dune falls away under him
+        const T = R.track, d = T.S.find(q => q.dune);
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him;
+        him.s = Math.floor(him.s / T.len) * T.len + d.s - 60; him.v = L.RC.v * 0.9; him.lat = 2;
+        for (const r of R.racers) if (!r.isHim) { r.s = him.s + 30 + r.i * 10; r.v = him.v; r.lat = (r.i % 2 ? -1 : 1) * 6; }
+        let prevOver = -1;
+        for (let i = 0; i < 60 * 6; i++) {
+          go(1, 0, 0);
+          const over = him.air ? him.y - L.rcPoint(him.s, him.lat, {}).y : 0;
+          // (from the seat: pre = on the deck 25 m before the crest, up = off it, nose up into the sky, top = the top of
+          // the flight, down = just before he lands, nose down)
+          const ph = v === "jump" ? "top" : v.split(":")[1] || "up", toCrest = d.s - (him.s - Math.floor(him.s / T.len) * T.len);
+          if (ph === "pre" && toCrest <= 25) break;
+          // (t<sec>: that long after leaving the crest -- a strip; after: 0.3 s after he lands)
+          if (ph[0] === "t" && him.air && him.airT >= +ph.slice(1) - 3 / 60) break;
+          if (ph.startsWith("after")) { const wait = +(ph.slice(5) || 0.3); if (him.air) note.flew = true; else if (note.flew) { note.since = (note.since || 0) + 1 / 60; if (note.since >= wait - 3 / 60) break; } }
+          if (ph === "up" && him.air && him.airT >= 0.1 - 3 / 60) break;
+          if (ph === "down" && him.air && him.vy < 0 && over < 2.2) break;   // (three frames more are drawn before the picture)
+          if (ph === "top" && him.air && over < prevOver) break;          // (the highest he is over the ground under him)
+          prevOver = over;
+        }
+        window.__hold = () => {};
+        note.air = !!him.air; note.vy = +(him.vy || 0).toFixed(2); note.pitchDeg = +S.pitch.toFixed(1); note.over = +(him.y - L.rcPoint(him.s, him.lat, {}).y).toFixed(2);
+        return note;
+      }
+      if (v.startsWith("surface")) {
+        // mid-way along the longest run of that surface, at his speed, for a second and a half
+        const kind = v.split(":")[1], T = R.track, S2 = T.S;
+        let best = null, run = null;
+        for (const q of S2) { if (q.sf === kind) { if (!run) run = { a: q.s }; run.b = q.s; if (!best || run.b - run.a > best.b - best.a) best = run; } else run = null; }
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him, mid = (best.a + best.b) / 2 - 40;
+        him.s = Math.floor(him.s / T.len) * T.len + mid; him.v = L.RC.v; him.lat = 2;
+        for (const r of R.racers) if (!r.isHim) { r.s = him.s + 25 + r.i * 9; r.v = L.RC.v; r.lat = (r.i % 2 ? -1 : 1) * 6; }
+        go(90, 0, 0);
+        window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+        note.sf = L.rcAt(him.s).sf; note.speed = +him.v.toFixed(1);
+        return note;
+      }
       if (v === "grid" || v === "gridSeat") {
         go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 1.6)), 0, 0);
         window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
@@ -133,7 +211,10 @@ async function render(root, views) {
       return out;
     }, process.env.HIDE));
     await page.evaluate(() => { const f = document.getElementById("flash"); f.style.transition = "none"; f.classList.remove("on"); });
-    await page.evaluate(() => { for (let i = 0; i < 3; i++) { window.__hold(); window.__lp.update(1 / 60); window.__hold(); window.__paint(); } });
+    const shot = await page.evaluate(() => { for (let i = 0; i < 3; i++) { window.__hold(); window.__lp.update(1 / 60); window.__hold(); window.__paint(); }
+      const L = window.__lp, h = L.race && L.race.him; const bn = document.getElementById("bigNum");
+      return h ? { atShot: { air: !!h.air, airT: +(h.airT || 0).toFixed(2), pitchDeg: +L.state.pitch.toFixed(1), phase: L.race.phase, raceT: +(L.race.t - L.race.raceT0).toFixed(2), bigNum: bn && [bn.textContent, bn.className, getComputedStyle(bn).opacity] } } : {}; });
+    Object.assign(info, shot);
     const file = path.join(out, v + ".png");
     await page.screenshot({ path: file, timeout: 180000 });
     console.log("wrote", file, JSON.stringify(info));

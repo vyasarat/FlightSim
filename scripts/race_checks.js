@@ -134,6 +134,7 @@ module.exports = async function raceChecks({ newPage, check }) {
     // a real touch on the flag: it opens the track picker
     const fr = await page.evaluate(() => { const r = document.getElementById("raceBtn").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
     await tap(fr.x, fr.y);
+    const L_tracks = await page.evaluate(() => window.__lp.RC.tracks.map(t => t.id));
     const pk = await page.evaluate(() => {
       const L = window.__lp, s = document.getElementById("screenRace");
       const cards = [...s.querySelectorAll(".card")].filter(c => getComputedStyle(c).display !== "none");
@@ -142,8 +143,8 @@ module.exports = async function raceChecks({ newPage, check }) {
       return { open: !s.classList.contains("hiddenS"), menu: L.menuOpen ? L.menuOpen() : null, cards: cards.map(c => c.dataset.track), text,
                vehiclesHidden: document.getElementById("screenVehicle").classList.contains("hiddenS"), card: r && { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width } };
     });
-    check(`race ${tag}: tapped, the flag opens the track picker -- one big track card and the way back, no text -- and the vehicles' picker stays shut ${J(pk)}`,
-      pk.open && pk.cards.length === 2 && pk.cards[0] === "oval" && pk.cards[1] === "back" && pk.text === "" && pk.vehiclesHidden && pk.card.w >= 200);
+    check(`race ${tag}: tapped, the flag opens the track picker -- a big card for every track and the way back, no text -- and the vehicles' picker stays shut ${J(pk)}`,
+      pk.open && pk.cards.length === L_tracks.length + 1 && pk.cards.slice(0, -1).join() === L_tracks.join() && pk.cards[pk.cards.length - 1] === "back" && pk.text === "" && pk.vehiclesHidden && pk.card.w >= 200);
     await tap(pk.card.x, pk.card.y);
 
     // ---- c. the grid, the field, the lamps

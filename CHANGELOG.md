@@ -10,6 +10,77 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v170 — Desert Dunes
+
+The second race track, and the first of the four he asked for. Its card in the track
+picker is a sand dune under the sun with a dirt track over the crest. It stands on the
+canyon's north rim, beside the river. The canyon's floor is the river itself, so the
+track runs along its edge rather than down in it: putting it on the floor would have
+meant reshaping ground he flies over. From the motorway bridge he sees it in normal play.
+
+**What it is made of.** Each section of a track now says what it is made of
+(`TUNE.race.surfaces`):
+- asphalt on the start straight and the bulge;
+- rust-red dirt with tyre ruts on the hairpins;
+- sand along the river.
+
+Each changes the speed every racer aims for and how quickly a steer takes, the same for
+him and for them in every car, so the car he picked is still how it looks, not how fast
+it goes. Each has its own colour, its own puffs from the wheels (small and short, never a
+cloud over his own car) and its own sound under him.
+
+**Two dune jumps.** A 4 m dune is heaped on each 80 m dirt run between the hairpins. A
+car leaves the deck where the dune falls away faster than it can fall, and flies about a
+second and 32 m at his usual step. It lands on the deck again in its lane, the same for
+every car. The top step is a 66 m jump, not a flight, and the lowest rolls over the top.
+In the air the chase camera keeps to the ground, so he sees his car fly. From the seat, the view,
+the cabin and the centre attitude gauge pitch with the car: nose up off the crest, a dive with the
+track filling the windscreen, then a settle back to level. They show it 2.5 times larger than the
+car's real pitch, up to 23 degrees (`seatGain`/`seatMax`), because 6 degrees was too small for him
+to see; the flight itself is the same. The pitch stays in the race: leaving it in mid-air he comes
+back to the world level.
+
+**The dusty shortcut.** The road bulges into the infield, and a straight strip of deep
+khaki dust runs across it along the river. It is a fork, so the game's one turn rule takes it: a full
+steer to its side, held through its 40 m approach (a short lift is not a release). Hands-off, a light
+touch, or a finger left on that edge never does. A turn done is spent: the steer that took it reads
+as hands-off while the finger stays put, so a finger held all the way glides down the strip instead
+of scraping its wall, and is nobody's choice of it next lap.
+It is about 0.4 s quicker than the road's inside line, the same in every car: worth
+aiming at, never a cheat, never a trap. The opponents take it now and then.
+
+**Boost pads** on the straights, as on the oval.
+
+**Under it.** The race code now builds every track as a venue of its own and races on
+the one he picked. The oval is untouched: its race results, its geometry and the random
+stream after it were pinned before the change and are identical after. A race on the
+dunes makes nothing new in play and draws nothing from the random stream.
+
+`race_track_checks` covers every track after the oval:
+- it closes, and stands dry and clear;
+- laps take under a minute in every car (about 45 s);
+- every surface sets the same speed for every car and for them;
+- every dune is the same jump for every car, and nobody is ever under or off the deck;
+- the shortcut is faster than the inside line, but by less than 0.6 s;
+- the same, with the finger held full the whole way: no thump on its wall;
+- a spent steer held a whole lap does not take it again; lifted and put back, it does;
+- the seat pitch is bigger than 8 degrees up and down, level a second after landing, and
+  never carried out of the race;
+- a noisy race in every car;
+- the losing podium shot fits;
+- nothing new in play.
+
+Noisy-finger races, 20 per car on each of two seeds: SUV 21/40 wins, Cybertruck 23/40,
+Corvette 26/40, monster truck 19/40 (89/160, 56%). Worst gap 3.25 s, 0 bangs, 0 stuck.
+Render-critic BLOCKED the seat-view jump three times (it read as "downhill"). The parent
+chose to fix it. It passed on a frame-by-frame strip of the flight in two cars. The
+law-reviewer's last round passed. Its note on a held steer scraping the shortcut's wall
+is fixed here. The same scraping along any barrier is the next release.
+
+Full harness 1113/1113 (new: race_track_checks, 10 checks). The oval's 16 pinned races, its geometry and the random stream after it are identical to v169's.
+
+---
+
 ## v169 — the two cases v168 left unchecked, driven (checks only; the build is still v168)
 
 v168's reviewer named two ways a car might still be in front of him that no check drove.
