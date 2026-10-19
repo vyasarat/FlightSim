@@ -68,6 +68,27 @@ module.exports = async function roadChecks({ newPage, check, viewports }) {
         runs.length >= 10 && bad.length === 0, JSON.stringify(bad.length ? bad : runs.map(r => `${r.dir} x${r.mul} ${r.secs}s`)));
     }
 
+    // ---- 0b. traffic never appears on top of him, at the ends of the road too: a spawn
+    // past an end was clamped back to the end, under keepOut from him, and a car came up
+    // behind him at 60 m/s as he turned round there (v168). Its own random stream, put back.
+    {
+      const sp = await page.evaluate(() => {
+        const L = window.__lp, T = L.HW.traffic, len = L.highway.length, R = Math.random;
+        let sd = 168; Math.random = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; };
+        const out = [];
+        try {
+          for (const at of [0, 20, 150, T.keepOut, len / 2, len - 150, len - 20, len]) {
+            let near = Infinity, n = 0;
+            for (let i = 0; i < 400; i++) { const t = {}; L.hwyPlaceTraffic(t, at); near = Math.min(near, Math.abs(t.s - at)); n++; }
+            out.push({ at: Math.round(at), n, near: Math.round(near) });
+          }
+        } finally { Math.random = R; }
+        return { keepOut: T.keepOut, out };
+      });
+      check(`road: a traffic car is never put down within ${sp.keepOut} m of him, at either end of the road as anywhere -- ${sp.out.map(r => `from s=${r.at} the nearest of ${r.n} ${r.near} m`).join(", ")}`,
+        sp.out.length === 8 && sp.out.every(r => r.near >= sp.keepOut), JSON.stringify(sp.out));
+    }
+
     // ---- 1. the crossing: nothing streamed inside the corridor, nothing hit
     const cross = await page.evaluate(() => {
       const L = window.__lp, st = L.state;

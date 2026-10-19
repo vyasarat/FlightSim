@@ -110,6 +110,10 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
           // he had no time to be seen and ran into it (a teleport, not a drive; on main too)
           const segD = (px, pz) => { const ax = node.x - q.x, az = node.z - q.z, u = Math.max(0, Math.min(1, ((px - q.x) * ax + (pz - q.z) * az) / (ax * ax + az * az))); return Math.hypot(px - q.x - ax * u, pz - q.z - az * u); };
           if (L.stTraffic.list.some(o => o.alive && (Math.hypot(o.wx - q.x, o.wz - q.z) < 15 || segD(o.wx, o.wz) < 8))) continue;
+          // nor a car already over its line at the junction ahead: it committed before he
+          // existed, out of reach of his claim, and was crossing at a walk as he came in at
+          // 46 m/s (v166's full run, three seeds in six; driven there, his claim holds it)
+          if (L.stTraffic.list.some(o => o.alive && (o.crossing || o.path) && Math.hypot(o.wx - node.x, o.wz - node.z) < 32)) continue;
           S.x = q.x; S.z = q.z; S.y = L.stSurfaceAt(q.x, q.z); S.heading = Math.atan2(-q.fx, -q.fz);
           S.speed = L.CAR.cruise * L.spdStepsFor(veh)[2]; S.exploding = false;
           L.car.yield = 1; L.car.steer = 0; L.car.spent = 0; L.stPlan.road = rd; L.stPlan.dir = dir; L.stPlan.turn = null;
@@ -126,7 +130,7 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
           L.forEachSolid(b => { if (L.solidKind(b) === "building" && !L.__lpIsHidden(b) && Math.hypot(b.x - node.x, b.z - node.z) < 60) standing++; });
           if (!standing) { out.unbuilt = (out.unbuilt || 0) + 1; continue; }
           out.near += standing;
-          const h0 = S.heading, bangs0 = L.flags.carCrashes || 0;
+          const h0 = S.heading, bangs0 = L.flags.carCrashes || 0; L.stTraffic.lastTouch = null;   // (what he touches at THIS corner)
           out.corners++; nextT = t + step;
           let after = -1, turnedHere = false, prev = null, hand = false;
           for (let i = 0; i < 60 * 12; i++) {
@@ -144,7 +148,7 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
             if (bk < out.minBack) { out.minBack = bk; out.minAt = { t, i, up: +(p.y - S.y).toFixed(1), turned: turnedHere }; }
             if (prev && Math.hypot(p.x - prev[0], p.y - prev[1], p.z - prev[2]) > 20 && !out.bigAt) out.bigAt = { t, i, from: prev.map(v => Math.round(v)), to: [Math.round(p.x), Math.round(p.y), Math.round(p.z)], him: [Math.round(S.x), Math.round(S.y), Math.round(S.z)], exploding: S.exploding };
             if (prev) { const j = Math.hypot(p.x - prev[0], p.y - prev[1], p.z - prev[2]); out.jump = Math.max(out.jump, j); if (j > 3) out.jumps++; }
-            if (TRACE && +TRACE === t) (out.trace = out.trace || []).push([i, Math.round(S.x), +S.y.toFixed(1), Math.round(S.z), +S.speed.toFixed(1), +Math.hypot(p.x - S.x, p.z - S.z).toFixed(1), +(p.y - S.y).toFixed(1)]);
+            if (TRACE && +TRACE === t) (out.trace = out.trace || []).push([i, Math.round(S.x), +S.y.toFixed(1), Math.round(S.z), +S.speed.toFixed(1), +Math.hypot(p.x - S.x, p.z - S.z).toFixed(1), +(p.y - S.y).toFixed(1), L.stTraffic.list.filter(o => o.alive && Math.hypot(o.wx - S.x, o.wz - S.z) < 100 && (o.crossing || o.path || Math.abs(o.wx - S.x) < 20)).map(o => [Math.round(o.wx - S.x), Math.round(o.wz - S.z), +o.sp.toFixed(1), +o.hx.toFixed(2), +o.hz.toFixed(2), o.path ? "P" : "", o.crossing ? "X" : "", o.spin ? "S" : "", +(o.s || 0).toFixed(0), o.dir])]);
             prev = [p.x, p.y, p.z];
             // (the monster truck's high camera: never IN a head -- from up there one on the line is a small box in front of a big truck)
             const a = inside(p.x, p.y, p.z), bl = !a && blocked(S.x, ey, S.z, p.x, p.y, p.z), hd = veh === "monster" ? headIn(p.x, p.y, p.z) : headHit(S.x, ey, S.z, p.x, p.y, p.z);
@@ -157,7 +161,7 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
           }
           if (turnedHere) out.turned++;
           const nb = (L.flags.carCrashes || 0) - bangs0;
-          if (nb && (out.bangAt || []).length < 3) (out.bangAt = out.bangAt || []).push({ t, x: Math.round(S.x), z: Math.round(S.z), turned: turnedHere, traffic: L.stTraffic.list.filter(o => o.alive && Math.hypot(o.wx - S.x, o.wz - S.z) < 12).map(o => [Math.round(o.wx), Math.round(o.wz), +(o.v || 0).toFixed(1)]) });
+          if (nb && (out.bangAt || []).length < 3) (out.bangAt = out.bangAt || []).push({ t, x: Math.round(S.x), z: Math.round(S.z), turned: turnedHere, speed: +S.speed.toFixed(1), hit: L.stTraffic.lastTouch, traffic: L.stTraffic.list.filter(o => o.alive && Math.hypot(o.wx - S.x, o.wz - S.z) < 12).map(o => [Math.round(o.wx), Math.round(o.wz), +(o.sp || 0).toFixed(1)]) });
           out.bangs += nb;
           L.api.clearStick();
         }

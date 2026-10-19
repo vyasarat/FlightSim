@@ -47,6 +47,7 @@ entry below.
 | v165 | when he wins he watches his car hop on the top step and says it is the winner or points at it; nothing about it flying away |  open |
 | v166 | when he wins, he points at the cup on top of the podium or says he got the trophy; nobody asks why it is floating |  open |
 | v167 | when he loses, he finds his own car on the screen straight away and watches it stop by the podium; he taps the flag to race again, not to get a better look |  open |
+| v168 | nothing he sees changes: holding the booster to the end of the motorway, he turns round and goes again with no bang from behind |  open |
 
 ## Entries
 

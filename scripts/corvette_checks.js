@@ -295,6 +295,7 @@ module.exports = async function corvetteChecks({ newPage, check }) {
           if (back && st.speed > L.cvSpeed() - 8) { fastAgain = true; break; }
         }
         out.push({ end: end === 0 ? "s=0" : "far", secs: Math.round(f / 60), minEnd: Math.round(minEnd), vAtEnd: +vEnd.toFixed(1), back, fastAgain, offFrames: offF,
+          hit: (L.flags.hwyTrafficHit || 0) - h0 ? L.highway.lastTouch : undefined,
           touches: (L.flags.hwyTrafficHit || 0) - h0, crashes: (L.flags.carCrashes || 0) - c0, walls: (L.flags.wallHits || 0) - w0 });
       }
       L.api.clearStick(); L.noRender = false;
@@ -403,7 +404,7 @@ module.exports = async function corvetteChecks({ newPage, check }) {
         st.speed = L.CAR.cruise; st.exploding = false;
         L.car.yield = 1; L.car.steer = 0; L.car.onSpurRoad = false; L.car.spurRec = null; L.stPlan.road = null; L.stPlan.turn = null;
         for (const t of L.highway.traffic) if (t.alive && Math.abs(t.s - s0) < 300) { t.alive = false; t.respawn = 3; }
-        const c0 = (L.flags.carCrashes || 0) + (L.flags.wallHits || 0) + (L.flags.hwyTrafficHit || 0);
+        const c0 = (L.flags.carCrashes || 0) + (L.flags.wallHits || 0) + (L.flags.hwyTrafficHit || 0), h0 = L.flags.hwyTrafficHit || 0;
         const stepV = L.CAR.cruise * L.spdStepsFor("corvette")[k];
         let vBefore = 0, vSpur = null, spurMax = 0, off = 0, city = false, f = 0, burn = 0;
         for (; f < 60 * 40 && !city; f++) {
@@ -417,7 +418,8 @@ module.exports = async function corvetteChecks({ newPage, check }) {
           city = !!L.car.onStreet;
         }
         out.push({ step: k, stepV: +stepV.toFixed(1), vBefore: Math.round(vBefore), vSpur, spurMax: +spurMax.toFixed(1), city, off, secs: Math.round(f / 60),
-                   burnPct: Math.round(100 * burn / f), bangs: (L.flags.carCrashes || 0) + (L.flags.wallHits || 0) + (L.flags.hwyTrafficHit || 0) - c0 });
+                   burnPct: Math.round(100 * burn / f), bangs: (L.flags.carCrashes || 0) + (L.flags.wallHits || 0) + (L.flags.hwyTrafficHit || 0) - c0,
+                   gantryS: Math.round(g.s), hit: (L.flags.hwyTrafficHit || 0) > h0 ? L.highway.lastTouch : undefined });
       }
       L.api.clearStick(); L.spdReset(); L.noRender = false;
       return out;

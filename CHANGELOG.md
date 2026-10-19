@@ -10,6 +10,40 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v168 — no car out of nowhere where the motorway ends
+
+The three traffic touches v166's full harness left (shipped past at the parent's call)
+were two things. One is the game's: a traffic car is never put down within `keepOut`
+(260 m) of him -- except at the ends of the motorway, where a spot past the end was
+clamped back on to it. Turning round 20 m from the end with the booster held, he had
+a car appear 20 m behind him at 60 m/s, in the lane he was turning into, and it ran
+into the back of him (`corvette_checks`' end-turn, one random stream in eighteen).
+`hwyPlaceTraffic` now puts a spawn that would fall off an end on his other side, with
+the same random draws, so the stream is unchanged. road_checks puts 400 cars down from
+eight spots, both ends included, on its own stream, and the nearest is never under
+keepOut. The other two were the corner-camera check's own: it puts him down at
+46 m/s, 80 m short of a junction, and twice a car already over its line there --
+committed before he existed, out of reach of his claim -- was crossing at a walk as he
+arrived. Driven there, his claim holds it at its line; the check now skips such a
+corner, as it skips one with traffic on the approach (three seeds in six failed; none
+do now). Both checks now say what he touched, and how fast.
+
+The end fix made the traffic near New York real -- the spawns that had piled up at the
+road's end now land in front of him -- and that showed a third: at the top speed step,
+sweeping right across the outer lane for New York's far way in at 85 m/s, a car a few
+metres ahead in that lane counted him in it only once he was over its line, and its
+"move over" then took it left, back across his path. Motorway traffic now asks where
+he is going as well as where he is (`HW.traffic.leadT`, his sideways speed one second
+on), both for whether he is in its lane and for which way to move over -- never toward
+either. corvette_checks passes on that stream and on twelve others. The harness's own
+stream never puts a car in that spot, and a replay of the eleven cars round him did not
+bring the cut-in back (his timing differs), so no check drives it yet: v169 writes one,
+with the city's committed-crosser case.
+
+Full harness 1101/1101.
+
+---
+
 ## v167 — when he loses, he sees his own car
 
 When he did not make the steps, his car drives past the podium for its cheer and

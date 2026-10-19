@@ -462,6 +462,7 @@ const TUNE = {
                // the car AHEAD of him in his lane yields: from yieldReach it moves
                // over if it can and speeds up, and by yieldMatch it runs faster than he does
                yieldReach: 160, yieldMatch: 45, laneChange: 1.4,
+               leadT: 1.0,   // ... and "his lane" is where he is AND where he is going, this far on (v168)
                // a car closer than keepBack behind him drops back, dropBack m/s per metre short
                keepBack: 25, dropBack: 1.2 },
                                  // above TUNE.car.cruise on purpose: lane-keep with no
