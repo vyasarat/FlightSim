@@ -44,6 +44,7 @@ entry below.
 | v162 | driving around New York and California with a held finger, no bang into the back or side of a bus or car standing at a junction; the traffic still looks busy to him (cars queueing at reds, turning, crossing), and nothing he would call "stuck" |  open |
 | v163 | in the chase view, turning a corner in New York or California, he never says the screen went black or that he cannot see the car; the camera coming in closer on a tight corner reads to him as normal |  open |
 | v164 | he finds the chequered flag in a car and races; he wins some and loses some, and when he loses he says something like "again!" and taps the flag button rather than walking away; he talks about overtaking or the boost arrows; nothing about being stuck or the race being unfair |  open |
+| v165 | when he wins he watches his car hop on the top step and says it is the winner or points at it; nothing about it flying away |  open |
 
 ## Entries
 

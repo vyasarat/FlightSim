@@ -815,12 +815,13 @@ function rcFireworks(n) {
 function rcPodium(dt) {
   const P = race.podium, C = race.podiumC;
   race.podiumT += dt;
-  // the cars on the steps, facing the track; the winner hops for joy
+  // the cars on the steps, facing the track; the winner hops for joy -- a small hop that lands
+  // back on its step and sits there between hops, so it reads as standing on the top, not floating
+  const H = RC.podium.hop, ph = race.podiumT % H.every, hop = ph < H.air ? Math.sin(Math.PI * ph / H.air) * H.h : 0;
   for (const r of race.racers) {
     if (r.onStep === undefined || r.onStep === null || r.onStep < 0) continue;
     const sp = race.podiumSpots[r.onStep];
-    const hop = r.onStep === 0 ? Math.abs(Math.sin(race.podiumT * 4)) * 1.4 : 0;
-    r.podPose = { x: sp.x, y: sp.y + hop, z: sp.z, yaw: race.podiumFace + (r.onStep === 0 && P.won ? race.podiumT * 0.8 : 0) };
+    r.podPose = { x: sp.x, y: sp.y + (r.onStep === 0 ? hop : 0), z: sp.z, yaw: race.podiumFace + (r.onStep === 0 && P.won ? race.podiumT * 0.8 : 0) };
   }
   // his car, if it is not on a step, rolls on along the straight in front for its cheer
   const him = race.him;

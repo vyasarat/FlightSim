@@ -319,7 +319,12 @@ module.exports = async function raceChecks({ newPage, check }) {
       L.rcStartRace("oval"); out.lift0 = +R.himLift.toFixed(2);
       for (const r of R.racers) if (!r.isHim) r.skill = 0.5;
       for (let i = 0; i < 60 * 400 && R.phase !== "podium"; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); }
-      for (let i = 0; i < 60 * 2; i++) { st.touching = false; L.update(1 / 60); }
+      // (and the winner's hop lands: on its step most frames, never far off it)
+      let on = 0, n = 0, top = 0;
+      for (let i = 0; i < 60 * 4; i++) { st.touching = false; L.update(1 / 60);
+        const w = R.racers.find(r => r.onStep === 0); if (!w || !w.podPose) continue;
+        const up = w.podPose.y - R.podiumSpots[0].y; n++; if (up < 0.01) on++; top = Math.max(top, up); }
+      out.onFrac = n ? +(on / n).toFixed(2) : 0; out.hopTop = +top.toFixed(2);
       out.place = R.him.place; out.onStep = +m().scale.x.toFixed(3);
       L.raceAgain(); for (let i = 0; i < 5; i++) L.update(1 / 60);
       out.again = +m().scale.x.toFixed(3); out.lift1 = +R.himLift.toFixed(2);
@@ -332,6 +337,7 @@ module.exports = async function raceChecks({ newPage, check }) {
     });
     check(`race ${tag}: the podium in the monster truck -- it fits its step (scale ${e3.onStep} of ${e3.s0}), is its own size again for the next race and measured at it (lift ${e3.lift1} against ${e3.lift0}) and after EXIT, which leaves no confetti behind ${J(e3)}`,
       e3.place === 1 && e3.onStep < e3.s0 * 0.9 && e3.again === e3.s0 && e3.exit === e3.s0 && e3.lift1 === e3.lift0 && e3.confetti === 0);
+    check(`race ${tag}: the winner's hop lands on its step -- on it ${e3.onFrac} of the frames, never more than ${e3.hopTop} m up`, e3.onFrac >= 0.6 && e3.hopTop > 0 && e3.hopTop <= 0.6);
 
     // ---- f, g. a shove, the barrier, a pad
     const f = await page.evaluate(() => {

@@ -10,6 +10,28 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v165 — the winner lands on the top step
+
+When he wins, his car used to hop 1.4 m off the gold step and spend almost all its
+time in the air, so every picture of the podium showed it floating. Now it does a
+small hop (half a metre, under a third of a second) and lands, sitting on the step
+between hops: on it in about three frames of four (`TUNE.race.podium.hop`). A check
+in race_checks watches four seconds of the podium and wants the winner on its step in
+at least 60% of the frames and never more than 0.6 m up. The monster truck's overtake
+render now puts the rival alongside the truck, a lane over, where the camera can see
+it past the wheels; the game itself is unchanged there. These were the render-critic's
+standing round-three block on v164, which shipped at the parent's call so he could play.
+
+The corner-camera check's spread (the Cybertruck and monster truck, about fifteen corners
+a city) now takes half its corners at junctions with signals: a plain stride landed on
+them by luck, and the full harness's traffic left the Californian Cybertruck 92 frames by a
+signal against the 100 it asks for (1659 run alone). On four random streams it now has at
+least 1248, with the camera never inside, never blocked and no bang.
+
+Full harness 1096/1096.
+
+---
+
 ## v164 — the race (his idea)
 
 **What he gets.** In any car he can drive (the SUV, the Cybertruck, the Corvette
