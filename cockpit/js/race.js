@@ -74,7 +74,7 @@ function raceCarOK() { return !!(state.vp && (state.vp.car || state.vp.monster))
 // samples every TK.ds with position, tangent, the left vector across the deck
 // (banked), the ground height for it and the bend's horizontal curvature (+ left)
 function rcLayTrack(def) {
-  const site = RC.site, h = site.heading * DEG;
+  const site = def.site || RC.site, h = site.heading * DEG;
   const start = { p: new THREE.Vector3(site.x, 0, site.z), f: new THREE.Vector3(-Math.sin(h), 0, -Math.cos(h)), u: new THREE.Vector3(0, 1, 0) };
   const laid = tkLay(start, def.sections, "race:" + def.id);
   const pc = laid.pieces[0], S = pc.S, n = S.length, W = RC.width / 2 + RC.kerbW;
@@ -137,8 +137,35 @@ function rcBuild() {
   race.built = true;
   flags.raceBuilt = (flags.raceBuilt || 0) + 1;
 }
+// Every track is a VENUE of its own, built once at load and standing in the world:
+// what the race reads -- race.track, race.pads, race.lights, the podium -- is the
+// venue in use (`rcUse`), so the race itself never asks which track it is. The
+// oval is built first, exactly as it always was; each later one on the kit's
+// stream with its seed put back after, so the oval and everything built after the
+// venues draw what they drew before there was more than one.
+const RC_VENUE = ["track", "pads", "padMesh", "venue", "lights", "gantry", "stands", "standsG", "podiumG", "podiumSpots",
+                  "podiumFace", "podiumC", "trophy", "trophyStand", "flags"];
 function rcBuildQuiet() {
-  race.track = rcLayTrack(RC.tracks[0]);
+  race.venues = {};
+  RC.tracks.forEach((def, i) => {
+    const s0 = vkSeed;
+    try { rcBuildVenue(def); } finally { if (i > 0) vkSeed = s0; }
+    const v = race.venues[def.id] = {};
+    for (const k of RC_VENUE) v[k] = race[k];
+  });
+  rcUse(RC.tracks[0].id);
+}
+// The venue a race is run on; an id it does not know is the first track.
+function rcUse(id) {
+  const v = race.venues && (race.venues[id] || race.venues[RC.tracks[0].id]);
+  if (!v || race.track === v.track) return;
+  if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
+  for (const k of RC_VENUE) race[k] = v[k];
+}
+// where on the lap its podium stands (a fraction of it)
+function rcPodiumS(def) { return (def && def.podiumS !== undefined ? def.podiumS : RC.podium.s); }
+function rcBuildVenue(def) {
+  race.track = rcLayTrack(def);
   const T = race.track, S = T.S, n = T.n, P = TUNE.palette, W = RC.width / 2, KW = RC.kerbW;
   const g = new THREE.Group();
   g.userData.noSolid = false;
@@ -200,7 +227,7 @@ function rcBuildQuiet() {
     mk(strip, new THREE.MeshBasicMaterial({ color: 0x1f2328, side: THREE.DoubleSide }));
   }
   // ---- the boost pads: bright chevrons he aims at (never painted: he acts on them)
-  race.pads = RC.pads.map(p => ({ s: p.s * T.len, lat: p.lat }));
+  race.pads = (def.pads || RC.pads).map(p => ({ s: p.s * T.len, lat: p.lat }));
   {
     const chev = [];
     for (const pd of race.pads) {
@@ -268,7 +295,7 @@ function rcBuildQuiet() {
 // the main straight (the side away from the infield). The main straight runs
 // along a world axis, so their boxes -- and their solids -- are true to it.
 function rcBuildStands() {
-  const T = race.track, St = RC.stands;
+  const T = race.track, St = Object.assign({}, RC.stands, T.def.stands);
   const seat = [TUNE.palette.blue, TUNE.palette.red, TUNE.palette.warning, TUNE.palette.green];
   const off = RC.width / 2 + RC.kerbW + St.back, D = St.depth, L = St.len, H = St.rise;
   race.stands = [];
@@ -302,7 +329,7 @@ function rcBuildStands() {
 // The podium: three steps on the infield beside the line, gold in the middle
 // (the tallest), silver to its left, bronze to its right, facing the track.
 function rcBuildPodium() {
-  const q = rcAt(RC.podium.s * race.track.len);
+  const q = rcAt(rcPodiumS(race.track.def) * race.track.len);
   const off = RC.width / 2 + RC.kerbW + RC.podium.back;
   const cx = q.x + q.lx * off, cz = q.z + q.lz * off, gy = terrainEff(cx, cz);
   const g = new THREE.Group();
@@ -370,7 +397,7 @@ function rcBuildFlags() {
   for (let s = 0; s < T.len; s += RC.flagStep) {
     const q = rcAt(s);
     if (Math.abs(q.kh) < 0.0015 && s > 120) continue;
-    if (Math.abs(s - RC.podium.s * T.len) < 60) continue;          // nothing between the podium and the camera
+    if (Math.abs(s - rcPodiumS(T.def) * T.len) < 60) continue;          // nothing between the podium and the camera
     const side = q.kh > 0 ? -1 : 1;               // the outside of the bend
     const off = side * (RC.width / 2 + RC.kerbW + 3);
     const x = q.x + q.lx * off, z = q.z + q.lz * off, y = terrainEff(x, z);
@@ -456,6 +483,7 @@ function raceClosePicker() { el.screenRace.classList.add("hiddenS"); }
 
 function rcStartRace(trackId, seed) {
   rcBuild();
+  rcUse(trackId);
   race.seedN = (race.seedN || 0) + 1;
   rcSeed = (seed === undefined ? race.seedN * 7919 : seed) >>> 0;
   raceClosePicker();
@@ -545,6 +573,7 @@ function raceReset() {
   if (typeof confetti !== "undefined") confetti.length = 0;   // the podium's confetti stays at the podium
   if (vehicleModel) { vehicleModel.visible = true; vehicleModel.quaternion.identity(); rcUnscale(vehicleModel); }
   camera.up.set(0, 1, 0);
+  rcUse(RC.tracks[0].id);                       // out of a race, the first track is the one the world asks about
 }
 
 function raceAgain() {
@@ -798,7 +827,7 @@ function rcToPodium() {
   // the straight in front of it for his cheer, and stops there
   for (const r of race.racers) if (!r.isHim && !top.includes(r) && r.mesh) r.mesh.visible = false;
   if (!race.podium.onStep) {
-    const L = race.track.len, ps = RC.podium.s * L;
+    const L = race.track.len, ps = rcPodiumS(race.track.def) * L;
     const base = Math.floor(him.s / L) * L;
     him.s = base + ps - RC.podium.parade; him.lat = RC.width / 2 - 2.5; him.latV = 0; him.v = RC.podium.paradeV; him.yaw = 0;
     race.paradeStop = base + ps + RC.podium.stopPast + (state.vp.monster ? RC.podium.giantPast : 0);   // (the giant stops further on, or it hides the steps)
