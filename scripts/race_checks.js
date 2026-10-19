@@ -346,6 +346,56 @@ module.exports = async function raceChecks({ newPage, check }) {
     check(`race ${tag}: the podium in the monster truck -- it fits its step (scale ${e3.onStep} of ${e3.s0}), is its own size again for the next race and measured at it (lift ${e3.lift1} against ${e3.lift0}) and after EXIT, which leaves no confetti behind ${J(e3)}`,
       e3.place === 1 && e3.onStep < e3.s0 * 0.9 && e3.again === e3.s0 && e3.exit === e3.s0 && e3.lift1 === e3.lift0 && e3.confetti === 0);
     check(`race ${tag}: the trophy stands on its plinth on the board (its foot ${e3.cupOnStand} m off the cap) and clear over the monster truck (${e3.cupOverCar} m)`, e3.cupShown && Math.abs(e3.cupOnStand) < 0.1 && e3.cupOverCar > 0.5);
+    // ---- e5 (v167). the podium he did not make: the shot holds his own car whole -- in
+    // every car, the monster truck most of all, portrait and landscape -- inside the
+    // screen, under no button (the two at the end included) and off the steps
+    const e5 = [];
+    for (const [vw, vh] of [[820, 1180], [1180, 820]]) {
+      await page.setViewportSize({ width: vw, height: vh });
+      for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+        e5.push(await page.evaluate(([veh, vw]) => {
+          const L = window.__lp, R = L.race, st = L.state, T = window.THREE, cam = L.camera, out = { veh, vw };
+          L.api.setVehicle(veh); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.rcStartRace("oval");
+          for (let i = 0; i < 60 * 12; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); }
+          // last: the rest ahead of him by a lap, and so to the podium
+          R.racers.forEach((r, k) => { if (!r.isHim) r.s = R.him.s + 40 + k * 5; });
+          window.rcToPodium();
+          for (let i = 0; i < 60 * 12; i++) { st.touching = false; L.update(1 / 60); }
+          cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+          const m = L.vehicleModel, b = new T.Box3();
+          m.updateMatrixWorld(true);
+          m.traverse(o => { if (!o.isMesh || !o.geometry) return; for (let p = o; p && p !== m; p = p.parent) if (!p.visible) return;
+            if (o.userData.cvFx || o.material && (o.material.visible === false || o.material.blending === T.AdditiveBlending)) return;
+            o.geometry.boundingBox || o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); });
+          const rect = (pts) => { const r = [9, -9, 9, -9]; for (const p of pts) { const v = p.clone().project(cam); r[0] = Math.min(r[0], v.x); r[1] = Math.max(r[1], v.x); r[2] = Math.min(r[2], v.y); r[3] = Math.max(r[3], v.y); } return r; };
+          const corners = (bx) => { const a = []; for (const x of [bx.min.x, bx.max.x]) for (const y of [bx.min.y, bx.max.y]) for (const z of [bx.min.z, bx.max.z]) a.push(new T.Vector3(x, y, z)); return a; };
+          const car = rect(corners(b));
+          // the steps and the cars standing on them (5 m), not the board behind
+          const g = R.podiumG, PD = L.TUNE.race.podium, W = PD.w * 1.5, sp = [];
+          for (const x of [-W, W]) for (const y of [0, 5]) for (const z of [-PD.d / 2, PD.d / 2]) sp.push(new T.Vector3(x, y, z).applyMatrix4(g.matrixWorld));
+          const steps = rect(sp);
+          const H = window.innerHeight, Wd = window.innerWidth, hits = [];
+          for (const e of document.querySelectorAll("button")) {
+            const q = e.getBoundingClientRect(); if (q.width < 1 || q.height < 1 || getComputedStyle(e).visibility === "hidden") continue;
+            const k = [2 * q.left / Wd - 1, 2 * q.right / Wd - 1, 1 - 2 * q.bottom / H, 1 - 2 * q.top / H];
+            if (car[1] > k[0] && car[0] < k[1] && car[3] > k[2] && car[2] < k[3]) hits.push(e.id);
+          }
+          out.place = R.him.place; out.onStep = !!R.podium.onStep; out.v = +R.him.v.toFixed(2); out.fitted = !!R.loseShot;
+          if (R.loseShot) out.fit = { ok: R.loseShot.ok, up: R.loseShot.up, slide: R.loseShot.slide, car: R.loseShot.rects.car.map(n => +n.toFixed(2)), win: R.loseShot.rects.win.map(n => +n.toFixed(2)) };
+          out.car = car.map(n => +n.toFixed(2)); out.steps = steps.map(n => +n.toFixed(2)); out.under = hits;
+          out.inside = car[0] > -1 && car[1] < 1 && car[2] > -1 && car[3] < 1;
+          out.offSteps = car[1] <= steps[0] || car[0] >= steps[1] || car[3] <= steps[2] || car[2] >= steps[3];
+          out.ends = ["raceAgainBtn", "raceBackBtn"].every(id => { const e = document.getElementById(id); return e && !e.classList.contains("hidden"); });
+          L.raceExit(); for (let i = 0; i < 3; i++) L.update(1 / 60);
+          L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens();
+          return out;
+        }, [veh, vw]));
+      }
+    }
+    await page.setViewportSize({ width: w, height: h });
+    check(`race ${tag}: when he loses, the podium shot holds his own car whole -- every car, portrait and landscape, inside the screen, under no button (the two at the end showing) and clear of the steps ${J(e5.map(r => ({ veh: r.veh, vw: r.vw, place: r.place, car: r.car, under: r.under })))}`,
+      e5.length === 8 && e5.every(r => !r.onStep && r.place > 3 && r.v < 0.5 && r.fitted && r.fit && r.fit.ok && r.inside && r.under.length === 0 && r.offSteps && r.ends), J(e5));
     check(`race ${tag}: the winner's hop lands on its step -- on it ${e3.onFrac} of the frames, never more than ${e3.hopTop} m up`, e3.onFrac >= 0.6 && e3.hopTop > 0 && e3.hopTop <= 0.6);
 
     // ---- f, g. a shove, the barrier, a pad

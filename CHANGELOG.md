@@ -10,6 +10,27 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v167 — when he loses, he sees his own car
+
+When he did not make the steps, his car drives past the podium for its cheer and
+stops -- and the podium camera, a fixed shot, cut it off at the right edge (the monster
+truck half out of the screen) or left it under the two buttons that come up at the end.
+Now that shot is fitted (`rcLoseShot`, `TUNE.race.podium.loseFit`): it takes the
+podium and his car where the parade will stop it, and finds the lowest camera on the
+line in front of the podium (never back into the grandstands), slid along the track,
+that holds both inside the screen, above the two end buttons, with his car under no
+side button and clear of the steps. It is fitted again once the car has stopped. In
+landscape it is the old shot slid along a little; in portrait it rises, and highest
+for the monster truck. Plain projection maths, no three.js object made in play.
+race_checks loses a race in every car, portrait and landscape, and projects his car
+with the real camera: inside the screen, under no button (the two at the end
+showing), clear of the steps. Rendered and looked at: the losing podium for every
+car, both ways up.
+
+Full harness 1099/1099.
+
+---
+
 ## v166 — the trophy stands on something
 
 When he wins, the gold cup used to hang in the air over his car -- 4.5 m over most

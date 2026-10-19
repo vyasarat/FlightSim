@@ -46,6 +46,7 @@ entry below.
 | v164 | he finds the chequered flag in a car and races; he wins some and loses some, and when he loses he says something like "again!" and taps the flag button rather than walking away; he talks about overtaking or the boost arrows; nothing about being stuck or the race being unfair |  open |
 | v165 | when he wins he watches his car hop on the top step and says it is the winner or points at it; nothing about it flying away |  open |
 | v166 | when he wins, he points at the cup on top of the podium or says he got the trophy; nobody asks why it is floating |  open |
+| v167 | when he loses, he finds his own car on the screen straight away and watches it stop by the podium; he taps the flag to race again, not to get a better look |  open |
 
 ## Entries
 
