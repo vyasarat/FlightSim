@@ -85,6 +85,7 @@ function rcLayTrack(def) {
     let g = -Infinity;
     for (const a of [-W, -W / 2, 0, W / 2, W]) g = Math.max(g, terrainEff(q.x + L[0] * a, q.z + L[2] * a) - L[1] * a);
     q.g = g + RC.lift;
+    q.sf = def.sections[q.sec].surface || "asphalt";   // what it is made of (v170)
   }
   // smoothed along it, so a bump in the ground is never a step in the road
   const sm = S.map(q => q.g), K = Math.max(1, Math.round(RC.smooth / TK.ds));
@@ -104,7 +105,7 @@ function rcLayTrack(def) {
 }
 
 // Where s metres along it is (s wraps by the lap): one sample's worth, interpolated.
-const rcAtOut = { x: 0, gy: 0, z: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0, s: 0 };
+const rcAtOut = { x: 0, gy: 0, z: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0, s: 0, sf: "asphalt" };
 function rcAt(s) {
   const T = race.track, S = T.S, n = T.n;
   let u = s % T.len; if (u < 0) u += T.len;
@@ -113,9 +114,11 @@ function rcAt(s) {
   o.tx = a.tx + (b.tx - a.tx) * t; o.tz = a.tz + (b.tz - a.tz) * t;
   const tl = Math.hypot(o.tx, o.tz) || 1; o.tx /= tl; o.tz /= tl;
   o.lx = a.lx + (b.lx - a.lx) * t; o.ly = a.ly + (b.ly - a.ly) * t; o.lz = a.lz + (b.lz - a.lz) * t;
-  o.kh = a.kh + (b.kh - a.kh) * t; o.s = u;
+  o.kh = a.kh + (b.kh - a.kh) * t; o.s = u; o.sf = (t < 0.5 ? a : b).sf;
   return o;
 }
+// The surface s metres along (TUNE.race.surfaces): the same answer for every racer there.
+function rcSurfAt(s) { return RC.surfaces[rcAt(s).sf] || RC.surfaces.asphalt; }
 // the world point at (s, lat), and the deck's up there
 function rcPoint(s, lat, out) {
   const q = rcAt(s);
@@ -171,17 +174,21 @@ function rcBuildVenue(def) {
   g.userData.noSolid = false;
   // ---- the deck, the kerbs and the barriers: three ribbons and a wall, one mesh each
   const deck = [], kerbR = [], kerbW = [], wall = [], line = [];
+  const decks = { asphalt: deck }, ruts = [];        // (v170) a deck per surface, asphalt's the one there always was
   const at = (q, a, up) => [q.x + q.lx * a, q.gy + q.ly * a + (up || 0), q.z + q.lz * a];
   const quad = (arr, a, b, c, d) => { arr.push(...a, ...b, ...c, ...a, ...c, ...d); };
   for (let i = 0; i < n; i++) {
     const a = S[i], b = S[(i + 1) % n];
-    quad(deck, at(a, -W), at(b, -W), at(b, W), at(a, W));
-    // kerbs on the bends, red and white every few metres, on both edges
-    const bend = Math.abs(a.kh) > 0.0015;
+    quad(decks[a.sf] || (decks[a.sf] = []), at(a, -W), at(b, -W), at(b, W), at(a, W));
+    const sf = RC.surfaces[a.sf] || RC.surfaces.asphalt;
+    // dirt keeps the ruts of the cars before him, where the racing lines run
+    if (sf.ruts) for (const c of RC.rutLat) quad(ruts, at(a, c - 0.25, 0.04), at(b, c - 0.25, 0.04), at(b, c + 0.25, 0.04), at(a, c + 0.25, 0.04));
+    // kerbs on the bends, red and white every few metres, on both edges (asphalt's alone)
+    const bend = Math.abs(a.kh) > 0.0015 && sf.kerbs;
     const red = Math.floor(a.s / RC.kerbStep) % 2 === 0;
     for (const sd of [-1, 1]) {
       const k = bend ? (red ? kerbR : kerbW) : kerbW;
-      if (bend || i % 4 < 2) quad(k, at(a, sd * W, 0.04), at(b, sd * W, 0.04), at(b, sd * (W + KW), 0.04), at(a, sd * (W + KW), 0.04));
+      if (sf.kerbs && (bend || i % 4 < 2)) quad(k, at(a, sd * W, 0.04), at(b, sd * W, 0.04), at(b, sd * (W + KW), 0.04), at(a, sd * (W + KW), 0.04));
       // the barrier just outside the kerb, low and white with a red cap
       const e = sd * (W + KW + 0.4);
       quad(wall, at(a, e), at(b, e), at(b, e, RC.wallH), at(a, e, RC.wallH));
@@ -215,6 +222,8 @@ function rcBuildVenue(def) {
     const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; g.add(m); return m;
   };
   mk(deck, artPaint(new THREE.MeshLambertMaterial({ color: P.slate, side: THREE.DoubleSide }), "asphalt"));
+  for (const k in decks) if (k !== "asphalt") mk(decks[k], artPaint(new THREE.MeshLambertMaterial({ color: RC.surfaces[k].col, side: THREE.DoubleSide }), RC.surfaces[k].art));
+  if (ruts.length) mk(ruts, new THREE.MeshLambertMaterial({ color: P.slate, side: THREE.DoubleSide }));
   mk(kerbR, new THREE.MeshLambertMaterial({ color: P.red, side: THREE.DoubleSide }));
   mk(kerbW, new THREE.MeshLambertMaterial({ color: 0xf2f4f7, side: THREE.DoubleSide }));
   mk(wall, new THREE.MeshLambertMaterial({ color: TUNE.palette.white, side: THREE.DoubleSide }));
@@ -463,7 +472,7 @@ function rcMakeRacer(key, isHim, i) {
 // drives, and only the giant's place at the back moves who sits where.
 function rcSkillFor(r, i) {
   const A = RC.ai, k = (i - 1) / Math.max(1, RC.field - 1);
-  r.skill = lerp(A.skill[0], A.skill[1], k) * A.strength;
+  r.skill = lerp(A.skill[0], A.skill[1], k) * A.strength * (race.track.def.aiMul || 1);   // (a track's own: its bends favour a clean line more than his hand)
   r.line = (k - 0.5) * RC.width * 0.5;
 }
 function rcClearRacers() {
@@ -570,6 +579,7 @@ function raceReset() {
   if (car.screen) car.screen.visible = true;
   if (typeof cvUpdate === "function" && state.vp && state.vp.corvette) cvUpdate(1 / 60, false);
   setTone("raceCrowd", "sawtooth", 120, 0);
+  for (const k in RC.surfaces) { const T = RC.surfaces[k].tone; if (T) setTone(T[0], T[1], T[2], 0); }
   if (typeof confetti !== "undefined") confetti.length = 0;   // the podium's confetti stays at the podium
   if (vehicleModel) { vehicleModel.visible = true; vehicleModel.quaternion.identity(); rcUnscale(vehicleModel); }
   camera.up.set(0, 1, 0);
@@ -621,6 +631,7 @@ function rcUpdate(dt) {
   // ---- what the shared state says about him (the camera, the model and the sound read it)
   if (race.phase !== "podium") rcSyncHim(him);
   rcPoseAll(dt);
+  rcSpray(dt);
   rcHud();
   rcSound(him, touching);
   for (const f of race.flags) f.m.rotation.y = Math.sin(race.t * 2.2 + f.ph) * 0.5;
@@ -662,14 +673,15 @@ function rcHimControl(r, dt, touching, bank, held) {
   r.boosting = r.burstT > 0;
   if (cvt) cvUpdate(dt, r.boosting);
   if (race.phase === "done" && r.done) touching = true;          // across the line he rolls on for his cheer
-  const want = (touching ? A.v * step : 0) * (r.boosting ? A.burst : 1) * (r.padT > 0 ? A.pad : 1) * (r.done ? A.coolDown : 1);
+  const sf = rcSurfAt(r.s);                    // (the ground's own speed and grip: the same for every racer on it)
+  const want = (touching ? A.v * step : 0) * (r.boosting ? A.burst : 1) * (r.padT > 0 ? A.pad : 1) * (r.done ? A.coolDown : 1) * sf.speed;
   rcSpeedTo(r, want, dt);
   // across the track: a rate, from the drag, past the car's own deadzone
   const dz = CAR.deadzone || 0.08;
   const steer = Math.abs(bank) < dz ? 0 : (bank - Math.sign(bank) * dz) / (1 - dz);
   // drag right = to his right, which is -left
   const wantLatV = r.done ? (0 - r.lat) * 0.5 : -steer * A.latRate * clamp(r.v / A.latFull, 0.25, 1);
-  r.latV += (wantLatV - r.latV) * Math.min(1, A.latResp * dt);
+  r.latV += (wantLatV - r.latV) * Math.min(1, A.latResp * sf.grip * dt);
 }
 function rcSpeedTo(r, want, dt) {
   const up = RC.accel, down = want > 1 ? RC.brake : RC.coast;
@@ -698,7 +710,8 @@ function rcAI(r, dt, going) {
   const q = rcAt(r.s);
   if (r.wantBurst && Math.abs(q.kh) < 0.002 && r.burstT <= 0 && r.v > RC.v * 0.5) { r.burstT = RC.burstTime; r.wantBurst = false; }
   r.boosting = r.burstT > 0;
-  const want = RC.v * step * r.skill * band * (r.boosting ? RC.burst : 1) * (r.padT > 0 ? RC.pad : 1) * (r.done ? RC.coolDown : 1);
+  const sf = rcSurfAt(r.s);
+  const want = RC.v * step * r.skill * band * (r.boosting ? RC.burst : 1) * (r.padT > 0 ? RC.pad : 1) * (r.done ? RC.coolDown : 1) * sf.speed;
   rcSpeedTo(r, want, dt);
   // where across: their line, slowly wandering; a pad ahead, if they go for it;
   // round a car close in front
@@ -722,7 +735,7 @@ function rcAI(r, dt, going) {
   const lim = RC.width / 2 - r.wid / 2 - 0.3;
   aim = clamp(aim, -lim, lim);
   const wantLatV = clamp((aim - r.lat) * A.steerK, -RC.latRate, RC.latRate);
-  r.latV += (wantLatV - r.latV) * Math.min(1, RC.latResp * dt);
+  r.latV += (wantLatV - r.latV) * Math.min(1, RC.latResp * sf.grip * dt);
 }
 
 // metres from b forward to a along the lap (0..len), and the signed gap a-b in race metres
@@ -1135,8 +1148,38 @@ function raceCamera(dt) {
 }
 
 // ---- the sound ----------------------------------------------------------------------------
+// (v170) What his wheels throw up off the ground they are on: dust off sand, dirt
+// off dirt, nothing off asphalt -- his, and the two others nearest the camera. The
+// world's own puff pool (landmarks.js), and no random in it: the race's stream
+// would make the results hang on the camera, the game's would move the traffic's.
+const rcPS = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
+function rcSpray(dt) {
+  if (race.phase === "grid" || race.phase === "podium" || typeof wakePuff !== "function") return;
+  const SP = RC.spray, cx = camera.position.x, cz = camera.position.z;
+  let a = null, b = null, da = SP.near, db = SP.near;
+  for (const r of race.racers) {
+    if (r.isHim) continue;
+    const d = Math.hypot(r.mesh.position.x - cx, r.mesh.position.z - cz);
+    if (d < da) { b = a; db = da; a = r; da = d; } else if (d < db) { b = r; db = d; }
+  }
+  for (const r of race.racers) {
+    if (!(r.isHim || r === a || (SP.others > 1 && r === b))) continue;
+    r.sprayT = (r.sprayT || 0) - dt;
+    if (r.sprayT > 0) continue;
+    const sf = rcSurfAt(r.s);
+    if (!sf.spray || r.v < SP.minV) continue;
+    r.sprayT = r.isHim ? sf.every : SP.otherEvery;
+    r.sprayK = (r.sprayK || 0) + 1;
+    rcPoint(r.s - 0.45 * r.len, r.lat + (r.sprayK % 2 ? 0.35 : -0.35) * r.wid, rcPS);
+    wakePuff(rcPS.x, rcPS.y + 0.4, rcPS.z, sf.spray, sf.size, sf.rise, sf.life);
+  }
+}
+
 function rcSound(him, touching) {
   setEngine(clamp(him.v / RC.v, 0, 1.4));
+  // the ground under him, by its own voice: louder the faster he goes
+  const here = rcAt(him.s).sf;
+  for (const k in RC.surfaces) { const T = RC.surfaces[k].tone; if (T) setTone(T[0], T[1], T[2] * (0.7 + 0.5 * clamp(him.v / RC.v, 0, 1.4)), k === here && race.phase !== "podium" ? T[3] * clamp(him.v / RC.v, 0, 1) : 0); }
   const near = race.racers.reduce((m, r) => r.isHim ? m : Math.min(m, Math.abs(rcGap(r.s, him.s))), 1e9);
   setTone("raceCrowd", "sawtooth", 140 + Math.min(80, 2000 / (near + 20)), race.phase === "race" && near < 40 ? 0.012 : 0);
 }

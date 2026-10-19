@@ -2390,7 +2390,42 @@ const TUNE = {
         { type: "turn", angle: 196.4264, radius: 170 },
         { type: "straight", len: 215.6922 },
       ] },
+      // TRACK 2 (v170): DESERT DUNES, on the canyon's north rim -- the floor is the
+      // river, so the run along the rim is the canyon's. Dirt hairpins, sand along
+      // the edge, a paved bulge into the infield; the start on the long asphalt.
+      // (Surveyed: dry by 2.5 m out past the barriers, 511 m off the motorway,
+      // nothing standing or streamed in it.) It closes: 240 + 280 = 120 + 207.85 +
+      // 192.15 (the bulge's chord), and the two 80 m runs between the hairpins match.
+      { id: "dunes", site: { x: -725, z: -3420, heading: 270 },
+        pads: [{ s: 0.09, lat: 7 }, { s: 0.36, lat: -7 }, { s: 0.90, lat: 6 }],
+        aiMul: 0.97,   // the opponents' skill here: the hairpins' inside line is worth more to a clean hand than to his
+        sections: [
+        { type: "straight", len: 240 },
+        { type: "turn", angle: 90, radius: 70, surface: "dirt" },
+        { type: "straight", len: 80, surface: "dirt" },
+        { type: "turn", angle: 90, radius: 70, surface: "dirt" },
+        { type: "straight", len: 120, surface: "sand" },
+        { type: "turn", angle: 60, radius: 60 },
+        { type: "turn", angle: -120, radius: 60 },
+        { type: "turn", angle: 60, radius: 60 },
+        { type: "straight", len: 192.1539, surface: "sand" },
+        { type: "turn", angle: 90, radius: 70, surface: "dirt" },
+        { type: "straight", len: 80, surface: "dirt" },
+        { type: "turn", angle: 90, radius: 70, surface: "dirt" },
+        { type: "straight", len: 280 },
+      ] },
     ],
+    // (v170) WHAT THE TRACK IS MADE OF, per section (asphalt where it says nothing).
+    // Each changes speed and grip a little -- the same for every car, his and theirs
+    // -- and has its own look, spray and sound. `speed` scales what every racer aims
+    // for on it, `grip` how quickly it answers a steer.
+    surfaces: {
+      asphalt: { speed: 1, grip: 1, kerbs: true },
+      dirt: { speed: 0.9, grip: 0.9, col: 0xb5522e, art: "scrub", spray: 0xb5522e, every: 0.07, size: 0.9, rise: 1.5, life: 0.7, ruts: true, tone: ["raceDirt", "sawtooth", 55, 0.010] },
+      sand: { speed: 0.86, grip: 0.85, col: 0xd9c27e, art: "sand", spray: 0xd9c27e, every: 0.05, size: 1.4, rise: 2.8, life: 1.0, tone: ["raceSand", "triangle", 38, 0.014] },
+    },
+    spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8 },
+    rutLat: [-6.5, -4.5, -1, 1, 4.5, 6.5],   // dirt's ruts, metres across: where the cars run   // who throws it: him, and the two nearest the camera within `near` m
     // ONE speed model for every car, his and theirs: base speed times HIS speed
     // step, the same burst, the same pads. The car he picked is how it looks and
     // sounds, never how fast it goes.

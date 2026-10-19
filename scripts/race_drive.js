@@ -22,6 +22,7 @@
 //
 //   node scripts/race_drive.js [races=20] [cars=car,cybertruck,corvette,monster] [seed=1] [root]
 //   RACE_STRENGTH=1.1 ...   the opponents' strength (TUNE.race.ai.strength) for this run
+//   RACE_TRACK=dunes ...    which track (v170; the first, the oval, if unset)
 // or, from the harness: require("./race_drive").races(page, { veh, races, seed }).
 const fs = require("fs"), path = require("path");
 
@@ -35,7 +36,7 @@ async function oneRace(page, veh, seed, opts) {
     if (opts.strength) RC.ai.strength = opts.strength;
     if (st.vehicleKey !== veh || !L.raceOn()) { L.api.skipScreens(); L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60); }
     if (opts.step !== undefined) st.speedStep = opts.step;
-    L.rcStartRace("oval", seed);                 // the race's own stream, seeded with the hand's: one seed, one race
+    L.rcStartRace(opts.track || "oval", seed);   // the race's own stream, seeded with the hand's: one seed, one race
     const R = L.race, him = R.him;
     const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
     const bangs0 = L.flags.carCrashes || 0;
@@ -91,9 +92,9 @@ async function oneRace(page, veh, seed, opts) {
   }, [veh, seed, opts || {}]);
 }
 
-async function races(page, { veh, races: n, seed, strength, step }) {
+async function races(page, { veh, races: n, seed, strength, step, track }) {
   const out = [];
-  for (let k = 0; k < n; k++) out.push(await oneRace(page, veh, (seed || 1) * 1000 + k, { strength, step }));
+  for (let k = 0; k < n; k++) out.push(await oneRace(page, veh, (seed || 1) * 1000 + k, { strength, step, track }));
   return out;
 }
 
@@ -124,7 +125,7 @@ if (require.main === module) {
       const list = [];
       for (let k = 0; k < n; k++) {
         const r = await oneRace(page, veh, seed * 1000 + k, { strength: process.env.RACE_STRENGTH ? +process.env.RACE_STRENGTH : undefined,
-                                                             step: process.env.RACE_STEP !== undefined ? +process.env.RACE_STEP : undefined });
+                                                             step: process.env.RACE_STEP !== undefined ? +process.env.RACE_STEP : undefined, track: process.env.RACE_TRACK });
         list.push(r);
         console.log(JSON.stringify(r));
       }
