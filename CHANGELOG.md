@@ -63,7 +63,11 @@ noisy-hand car on the oval at 14/40; two more seeds put it at 34/80 (42%). 0 ban
 The worst gap is 5.85 s, in one Corvette race on the dunes stuck in the pack (483 car-to-car
 shoves, no barrier). Three races in 160 were lost by more than 3 s.
 
-HARNESS_LINE
+Reviews: the law-reviewer passed both rounds. The render-critic passed on round 3: the frames
+where the monster truck's own body hides a pad ahead in the chase view look the same with the
+pads where v170 had them, so that is an older problem, queued as v172. This release
+deliberately changes how the oval races (its barriers and its pads), so v170's oval pins no
+longer apply. Full harness 1117/1117.
 
 ---
 
