@@ -474,6 +474,7 @@ function rcStartRace(trackId, seed) {
   race.stuckT = 0; race.stuck = 0; race.shoves = 0; race.wallShoves = 0; race.padHits = 0; race.bangs0 = flags.carCrashes || 0;
   race.podium = null; race.confT = 0; race.fwT = 0;
   if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
+  race.loseShot = null;
   rcUnscale(vehicleModel);                    // (again, from the podium: measured at his own size, not the step's)
   rcMeasureHim();
   const him = rcMakeRacer(state.vehicleKey, true, 0);
@@ -534,6 +535,7 @@ function raceReset() {
   race.on = false; race.phase = "off";
   rcClearRacers();
   if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
+  race.loseShot = null;
   if (el.raceHud) el.raceHud.classList.add("hidden");
   raceClosePicker();
   setBigNum(null); el.bigNum.classList.remove("sky", "race");
@@ -844,6 +846,106 @@ function rcTrophyStand() {
   race.trophyAt = new THREE.Vector3(0, 9 + h + 0.3, -RC.podium.d / 2 - 2).applyMatrix4(g.matrixWorld);
   race.trophy.visible = st.visible = true;
 }
+// When he did not make the steps, the shot is fitted to hold the podium AND his
+// own car where it will stop (every car, the monster truck too), all of it inside
+// the screen and above the two buttons that come up after it: the camera stays on
+// the line in front of the podium (never back into the stands), slides along the
+// track to centre the pair, and rises until they fit with his car clear of the steps
+// (a giant in front of the bronze step hid it). Plain projection maths, no
+// three.js object made in play (each would draw Math.random for its id).
+function rcLoseShot() {
+  const C = race.podiumC, g = race.podiumG, m = vehicleModel, him = race.him, F = RC.podium.loseFit;
+  const pts = [];
+  // the podium: its three steps (with the cars on them, 5 m) and the board behind
+  const W = RC.podium.w * 1.5, z0 = -RC.podium.d / 2 - 2.3, z1 = RC.podium.d / 2;
+  g.updateMatrixWorld(true);
+  for (const x of [-W, W]) for (const y of [0, 5, 9]) for (const z of [z0, z1]) pts.push(new THREE.Vector3(x, y, z).applyMatrix4(g.matrixWorld));
+  // his car as it stands now, moved on to where the parade stops it (the straight)
+  m.updateMatrixWorld(true);
+  rcBox.makeEmpty();
+  m.traverse(o => {
+    if (!o.isMesh || !o.geometry) return;
+    for (let p = o; p && p !== m; p = p.parent) if (!p.visible) return;
+    if (o.userData.cvFx || o.material && (o.material.visible === false || o.material.blending === THREE.AdditiveBlending)) return;
+    o.geometry.boundingBox || o.geometry.computeBoundingBox();
+    rcBox2.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+    rcBox.union(rcBox2);
+  });
+  const nPod = pts.length;
+  if (isFinite(rcBox.max.x)) {
+    // (deck point to deck point: the model's origin is not on the deck's line)
+    rcPoint(him.s, him.lat, rcP); const ax = rcP.x, ay = rcP.y, az = rcP.z;
+    rcPoint(race.paradeStop, him.lat, rcP);
+    const dx = rcP.x - ax, dy = rcP.y - ay, dz = rcP.z - az;
+    for (const x of [rcBox.min.x, rcBox.max.x]) for (const y of [rcBox.min.y, rcBox.max.y]) for (const z of [rcBox.min.z, rcBox.max.z])
+      pts.push(new THREE.Vector3(x + dx, y + dy, z + dz));
+  }
+  // the window it must fit, in the screen's -1..1: above the buttons' top
+  let yb = F.bottom;
+  const b = document.getElementById("raceAgainBtn"), H = window.innerHeight || 1;
+  if (b) {
+    const hid = b.classList.contains("hidden");
+    b.classList.remove("hidden");
+    const r = b.getBoundingClientRect();
+    if (hid) b.classList.add("hidden");
+    if (r.height > 0) yb = 1 - 2 * r.top / H + F.gap;
+  }
+  // and the buttons standing at the sides: his car and the steps are never under one
+  const Wd = window.innerWidth || 1, btns = [];
+  for (const e of document.querySelectorAll("button")) {
+    if (e.id === "raceAgainBtn" || e.id === "raceBackBtn") continue;
+    const q = e.getBoundingClientRect();
+    if (q.width < 1 || q.height < 1 || getComputedStyle(e).visibility === "hidden") continue;
+    btns.push([2 * q.left / Wd - 1 - F.gap, 2 * q.right / Wd - 1 + F.gap, 1 - 2 * q.bottom / H - F.gap, 1 - 2 * q.top / H + F.gap]);
+  }
+  const under = (k) => btns.some(q => k[1] > q[0] && k[0] < q[1] && k[3] > q[2] && k[2] < q[3]);
+  const yt = F.top, xw = F.side, asp = camera.aspect || 1;
+  const tv = Math.tan(TUNE.fov * Math.PI / 360), th = tv * asp;
+  // slide along the track: the camera faces the podium (-fx), so the track runs across it
+  const tx = -C.fz, tz = C.fx;
+  let c = 0;
+  for (const p of pts) c += (p.x - C.x) * tx + (p.z - C.z) * tz;
+  c /= pts.length;
+  const pos = new THREE.Vector3(), aim = new THREE.Vector3(), f = new THREE.Vector3(), r = new THREE.Vector3(), u = new THREE.Vector3(), v = new THREE.Vector3();
+  // lowest first, then the least slid: sliding toward the podium's side moves his (nearer)
+  // car off the steps on the screen; rising drops it under them
+  let best = null, done = false;
+  const slides = [0];
+  for (let k = F.slideStep; k <= F.slide; k += F.slideStep) slides.push(k, -k);
+  for (let up = RC.podium.camUp; up <= F.maxUp && !done; up += 2) for (const sl of slides) {
+    pos.set(C.x + C.fx * RC.podium.camBack + tx * (c + sl), C.y + up, C.z + C.fz * RC.podium.camBack + tz * (c + sl));
+    aim.set(C.x + tx * c, C.y + 3, C.z + tz * c);
+    let ok = false, ext = 0, rects = null;
+    for (let it = 0; it < 12; it++) {
+      f.subVectors(aim, pos); const d = f.length(); f.divideScalar(d);
+      r.set(-f.z, 0, f.x).normalize(); u.crossVectors(r, f);
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      const sb = [Infinity, -Infinity, Infinity, -Infinity], cb = [Infinity, -Infinity, Infinity, -Infinity];   // the steps' and his car's
+      pts.forEach((p, i) => {
+        v.subVectors(p, pos); const z = Math.max(0.1, v.dot(f));
+        const nx = v.dot(r) / (z * th), ny = v.dot(u) / (z * tv);
+        x0 = Math.min(x0, nx); x1 = Math.max(x1, nx); y0 = Math.min(y0, ny); y1 = Math.max(y1, ny);
+        const k = i < nPod ? sb : cb;
+        if (i < nPod && p.y > g.position.y + 5.5) return;   // (the board behind may stand over his car; the steps and the cars on them, 5 m, may not)
+        k[0] = Math.min(k[0], nx); k[1] = Math.max(k[1], nx); k[2] = Math.min(k[2], ny); k[3] = Math.max(k[3], ny);
+      });
+      const M = F.clear, clear = nPod === pts.length || cb[1] + M <= sb[0] || cb[0] - M >= sb[1] || cb[3] + M <= sb[2] || cb[2] - M >= sb[3];
+      ok = clear && x1 - x0 <= 2 * xw && y1 - y0 <= yt - yb && !under(sb) && !under(cb);
+      rects = { steps: sb, car: cb, all: [x0, x1, y0, y1], win: [-xw, xw, yb, yt], clear, btns: btns.length };
+      ext = Math.max((x1 - x0) / (2 * xw), (y1 - y0) / (yt - yb));
+      // turn the aim so the pair sits in the middle across, and down on the buttons' row
+      // (the side buttons stand higher up: it is below them that there is room)
+      const ex = (x0 + x1) / 2, ey = y0 - yb;
+      if (Math.abs(ex) < 0.005 && Math.abs(ey) < 0.005) break;
+      aim.addScaledVector(r, ex * d * th).addScaledVector(u, ey * d * tv);
+    }
+    // (failing a fit, the fullest that keeps him clear of the steps, else the fullest)
+    const rank = ok ? 0 : rects.clear ? 1 + ext : 10 + ext;
+    if (!best || rank < best.rank) best = { pos: pos.clone(), aim: aim.clone(), ext, clear: ok, rects, up, slide: sl, rank };
+    if (ok) { done = true; break; }
+  }
+  race.loseShot = { pos: best.pos, aim: best.aim, aspect: camera.aspect, stopped: him.v < 0.5, fit: best.ext, ok: best.clear, rects: best.rects, up: best.up, slide: best.slide };
+}
 function rcPodium(dt) {
   const P = race.podium, C = race.podiumC;
   race.podiumT += dt;
@@ -960,9 +1062,13 @@ function raceCamera(dt) {
   if (race.phase === "podium") {
     // a fixed shot from the track: the podium, the stands behind, the sky for the fireworks
     const C = race.podiumC;
-    camDesired.set(C.x + C.fx * RC.podium.camBack, C.y + RC.podium.camUp, C.z + C.fz * RC.podium.camBack);
+    // (fitted as the parade starts, to where it will stop; and again once it has, from where it stands)
+    if (!race.podium.onStep && race.podiumT > 0 && (!race.loseShot || race.loseShot.aspect !== camera.aspect || (!race.loseShot.stopped && him.v < 0.5))) rcLoseShot();
+    const LS = !race.podium.onStep && race.loseShot;
+    if (LS) camDesired.copy(LS.pos);
+    else camDesired.set(C.x + C.fx * RC.podium.camBack, C.y + RC.podium.camUp, C.z + C.fz * RC.podium.camBack);
     camera.position.lerp(camDesired, Math.min(1, 2.5 * dt));
-    lookV.set(C.x, C.y + 5, C.z);
+    if (LS) lookV.lerp(LS.aim, Math.min(1, 2.5 * dt)); else lookV.set(C.x, C.y + 5, C.z);
     camera.lookAt(lookV);
     if (typeof carHideCabin === "function") carHideCabin();
     return;

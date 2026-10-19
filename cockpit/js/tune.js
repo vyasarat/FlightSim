@@ -2414,7 +2414,9 @@ const TUNE = {
     stands: { count: 4, from: -0.06, step: 0.037, back: 6, depth: 16, len: 60, rise: 10 },
     podium: { s: 0.025, back: 18, w: 9, d: 12, h: [3.2, 2.2, 1.4], camBack: 48, camUp: 10, buttonsAfter: 3,
               parade: 60, paradeV: 10, stopPast: 14, giantPast: 4, fit: 0.9, fwClear: 34, fwWide: 30, fwBack: 120, fwUp: 44, fwUpRnd: 16, trophy: 1.8,
-              hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 } },
+              hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 },
+              // (v167) the shot when he lost: the podium and his car inside these screen edges (-1..1), above the buttons by `gap`, his car `clear` of the steps, the camera up to `maxUp` m and slid along the track up to `slide` m
+              loseFit: { side: 0.88, top: 0.62, bottom: -0.5, gap: 0.05, clear: 0.08, maxUp: 50, slide: 36, slideStep: 3 } },
     cam: { back: 15, up: 6, lag: 5 },
   },
 

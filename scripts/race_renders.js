@@ -88,6 +88,7 @@ async function render(root, views) {
         // he did not win: on until his car has stopped for its cheer
         for (let i = 0; i < 60 * 15 && !win && !R.podium.onStep && R.him.v > 0.1; i++) { S.touching = false; L.update(1 / 60); }
         note.himV = +R.him.v.toFixed(2);
+        if (!win && R.loseShot) { const a = R.loseShot; note.fit = { ok: a.ok, up: a.up, slide: a.slide, full: +a.fit.toFixed(2) }; }   // (v167: the fitted shot)
         note.place = R.him.place; note.top = R.podium && R.podium.top.map(r => r.key);
         return note;
       }
