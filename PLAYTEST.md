@@ -49,6 +49,7 @@ entry below.
 | v167 | when he loses, he finds his own car on the screen straight away and watches it stop by the podium; he taps the flag to race again, not to get a better look |  open |
 | v168 | nothing he sees changes: holding the booster to the end of the motorway, he turns round and goes again with no bang from behind |  open |
 | v170 | he picks the dune card, and on the dunes he steers on purpose for the jumps and the dusty strip by the river, and asks for the "sand race" again |  open |
+| v171 | he leans on a barrier with his finger held and keeps going without complaining about the bumping; he does not discover that hugging the wall wins (he still steers for the pads) |  open |
 
 ## Entries
 

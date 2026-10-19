@@ -2397,7 +2397,7 @@ const TUNE = {
       // nothing standing or streamed in it.) It closes: 240 + 280 = 120 + 207.85 +
       // 192.15 (the bulge's chord), and the two 80 m runs between the hairpins match.
       { id: "dunes", site: { x: -725, z: -3420, heading: 270 },
-        pads: [{ s: 0.09, lat: 7 }, { s: 0.36, lat: -7 }, { s: 0.90, lat: 6 }],
+        pads: [{ s: 0.09, lat: 5 }, { s: 0.36, lat: -5 }, { s: 0.90, lat: 5 }],
         aiMul: 0.98,
         // the dusty shortcut: the chord across the bulge (sections 5-7), along the canyon's edge
         shortcuts: [{ from: 5, to: 7, side: -1, half: 6, mouth: 5, gore: 15, hold: 40, surface: "dust" }],   // (taken by a full steer held its last `hold` m to the gore)   // the opponents' skill here: the hairpins' inside line is worth more to a clean hand than to his
@@ -2427,7 +2427,7 @@ const TUNE = {
       dirt: { speed: 0.9, grip: 0.9, col: 0xb5522e, art: "scrub", spray: 0xb5522e, every: 0.07, size: 0.35, rise: 1.0, life: 0.4, ruts: true, tone: ["raceDirt", "sawtooth", 55, 0.010] },
       sand: { speed: 0.86, grip: 0.85, col: 0xd9c27e, art: "sand", spray: 0xd9c27e, every: 0.06, size: 0.4, rise: 1.4, life: 0.5, tone: ["raceSand", "triangle", 38, 0.014] },
       // deep dust, the shortcut's: shorter than the road round, and slower over it
-      dust: { speed: 0.82, grip: 0.85, col: 0xa8a06b, art: "sand", spray: 0xa8a06b, every: 0.05, size: 0.42, rise: 1.6, life: 0.55, tone: ["raceDust", "triangle", 32, 0.016] },
+      dust: { speed: 0.91, grip: 0.85, col: 0xa8a06b, art: "sand", spray: 0xa8a06b, every: 0.05, size: 0.42, rise: 1.6, life: 0.55, tone: ["raceDust", "triangle", 32, 0.016] },
     },
     spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8 },
     // (v170) dune jumps: a section's `jump` heaps a dune `h` m high on it, its crest
@@ -2443,10 +2443,11 @@ const TUNE = {
     v: 38, accel: 9, brake: 9, coast: 6,
     burst: 1.18, burstTime: 2.2,       // drag up: the burst (the Corvette's booster: the same gain while it burns)
     pad: 1.3, padTime: 1.6, padW: 6, footW: 3.4, burstPull: 0.45, padLen: 12,
-    pads: [{ s: 0.17, lat: 7 }, { s: 0.48, lat: -7 }, { s: 0.80, lat: 6 }],   // a fraction of the lap along, metres across (+ left)
+    pads: [{ s: 0.17, lat: 5 }, { s: 0.48, lat: -5 }, { s: 0.80, lat: 5 }],   // a fraction of the lap along, metres across (+ left) -- (v171) never under any car riding a barrier: a pad is aimed at, not collected by the wall
     coolDown: 0.55,                    // over the line he rolls on, slower
     latRate: 9, latFull: 20, latResp: 6,   // across the track: m/s at full drag (from latFull m/s up), how fast it follows the drag
     wallKeep: 0.97, shoveKeep: 0.97,   // a barrier or a car: a shove, and this much of his speed kept
+    wall: { fresh: 0.5, glideSpeed: 0.96, hold: 0.1 },   // (v171) off a barrier this long and the next touch is a fresh hit (a thump); pressed along it, a glide aiming at this much of the speed (until `hold` s off it): never quicker than the racing line
     grid: { first: 10, row: 11, lat: 5, him: 2, lastBack: 16 },   // behind the line in twos; he starts third
     count: { lead: 1.0, step: 1.0 },   // the gantry's lamps: the first after this long, one a second, then green
     stuckV: 4, stuckFor: 2.5,          // the harness's "stuck": finger down, racing, under this for this long

@@ -10,6 +10,67 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v171 — a held steer glides along the barrier
+
+The parent's ask, after v170: on every track, a steer held into a barrier glides him along
+it quietly. He gets a thump only on a fresh hit, and holding into the inside wall is never a
+free win.
+
+**The glide.** The first touch of a barrier is the shove it always was: a thump, a little
+bounce and 3% of his speed. If he stays pressed against it after that, he glides along the
+edge: no bounce, no sound, no repeated thumps. Leave it for half a second and come back,
+and that is a fresh hit with one more thump (`TUNE.race.wall.fresh`). The same law holds
+for every racer, his and theirs, on the road and on the shortcut. The shortcut's open edge,
+while he holds the turn for it, is still its way in: no thump and no drag.
+
+**Never quicker than the racing line.** The inside of a bend is shorter. Measured with no
+drag, a finger held into the inside wall beat the racing line: the monster truck gained
+0.36 s a lap on the oval and 1.1 s on the dunes. So a racer gliding along a barrier aims at
+96% of its speed (`wall.glideSpeed`). A whole lap held into either wall is now slower than
+the racing line in every car, on both tracks: by 1.5 s on the oval and 0.8 s on the dunes
+for the monster truck, the closest. A plain speed loss per second would have done nothing,
+because the cars accelerate back faster than any small drag takes away.
+
+**The pads moved in, to 5 m off the middle on both tracks** (they were at 6-7 m). The
+monster truck is wider, so the line it glides along a wall ran straight over the pads. Over
+whole races the wall-hugging hand collected about six pads a race in it and none in the
+other cars, and won 13 of 40 on the oval. A pad is aimed at, not collected by the wall. A
+check now proves that no car riding either barrier has a pad in reach, on any track (the
+nearest is 0.88 m clear). Moving them took a pad off the dusty shortcut's run-up, and that
+pad had been most of its gain. So the dust is faster (0.82 to 0.91), and the shortcut is
+again 0.36 s quicker than the inside line.
+
+Checks:
+- `race_track_checks` k runs on the oval and every track, in every car. A whole lap held
+  full into the left barrier, then the right, gives exactly one thump, then a glide; no bang,
+  never stuck, and never quicker than the racing line. A second off the wall and back is one
+  more thump.
+- Probes: with the drag removed the check fails, with held laps beating the line (42.87 s
+  against 43.23 s). With every touch a fresh hit it fails too.
+- `race_checks` f: ten seconds held hard into the barrier is now exactly one thump.
+- `race_drive.js` has a wall-hugging hand (`RACE_HAND=hug`): full into the inside of every
+  bend, the whole race, with the noisy hand's lifts and tremor.
+
+Win rates, 20 races per car on each of two seeds, against the full field:
+
+| | noisy hand | wall-hugger |
+|---|---|---|
+| Oval | 83/160 (52%) | 23/160 (14%) |
+| Dunes | 90/160 (56%) | 59/160 (37%) |
+
+The wall-hugger wins less in every car, on both tracks. The monster truck is the lowest
+noisy-hand car on the oval at 14/40; two more seeds put it at 34/80 (42%). 0 bangs, 0 stuck.
+The worst gap is 5.85 s, in one Corvette race on the dunes stuck in the pack (483 car-to-car
+shoves, no barrier). Three races in 160 were lost by more than 3 s.
+
+Reviews: the law-reviewer passed both rounds. The render-critic passed on round 3: the frames
+where the monster truck's own body hides a pad ahead in the chase view look the same with the
+pads where v170 had them, so that is an older problem, queued as v172. This release
+deliberately changes how the oval races (its barriers and its pads), so v170's oval pins no
+longer apply. Full harness 1117/1117.
+
+---
+
 ## v170 — Desert Dunes
 
 The second race track, and the first of the four he asked for. Its card in the track
