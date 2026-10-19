@@ -92,13 +92,19 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
         // every corner there is, lefts and rights both (the Cybertruck, on the car's own
         // camera, a spread of them)
         const spread = veh === "cybertruck" || veh === "monster";
-        const want = spread ? 16 : Infinity, step = spread ? Math.max(1, Math.floor(tries.length / want)) : 1;
+        // (the spread takes half its corners at junctions with signals, the rest anywhere:
+        // a plain stride landed on signalled corners by luck -- 1659 frames by a signal on one
+        // random stream, 92 on the full harness's)
+        const want = spread ? 16 : Infinity, signalled = n => heads.some(h => Math.hypot(h.x - n.x, h.z - n.z) < 30);
+        const passes = spread ? [[tries.filter(c => signalled(c.node)), want / 2], [tries.filter(c => !signalled(c.node)), want]] : [[tries, want]];
+        for (const [list, upTo] of passes) {
+        const step = spread ? Math.max(1, Math.floor(list.length / (want / 2))) : 1;
         // (a corner skipped -- traffic at its start, nothing standing yet -- hands on to
         // the next one, not a whole stride on: skipping a stride left the spread short)
         let nextT = 0;
-        for (let t = 0; t < tries.length && out.corners < want; t++) {
+        for (let t = 0; t < list.length && out.corners < upTo; t++) {
           if (t < nextT) continue;
-          const { node, inArm, side } = tries[t], rd = inArm.road, dir = inArm.atStart ? -1 : 1, q = {};
+          const { node, inArm, side } = list[t], rd = inArm.road, dir = inArm.atStart ? -1 : 1, q = {};
           L.stPointAt(rd, dir > 0 ? 5 : rd.len - 5, dir, rd.lo, q);
           // nothing on the approach: put down at speed behind a car queued at the junction,
           // he had no time to be seen and ran into it (a teleport, not a drive; on main too)
@@ -154,6 +160,7 @@ module.exports = async function cornerCamChecks({ newPage, check }) {
           if (nb && (out.bangAt || []).length < 3) (out.bangAt = out.bangAt || []).push({ t, x: Math.round(S.x), z: Math.round(S.z), turned: turnedHere, traffic: L.stTraffic.list.filter(o => o.alive && Math.hypot(o.wx - S.x, o.wz - S.z) < 12).map(o => [Math.round(o.wx), Math.round(o.wz), +(o.v || 0).toFixed(1)]) });
           out.bangs += nb;
           L.api.clearStick();
+        }
         }
         out.minBack = +out.minBack.toFixed(1); out.jump = +out.jump.toFixed(1);
         return out;

@@ -2413,7 +2413,8 @@ const TUNE = {
           burstEvery: [3, 7], burstP: 0.35, wander: [0.25, 3], inside: 0.35, padSee: 70, padP: 0.45, passSee: 22, steerK: 1.2 },
     stands: { count: 4, from: -0.06, step: 0.037, back: 6, depth: 16, len: 60, rise: 10 },
     podium: { s: 0.025, back: 18, w: 9, d: 12, h: [3.2, 2.2, 1.4], camBack: 48, camUp: 10, buttonsAfter: 3,
-              parade: 60, paradeV: 10, stopPast: 14, giantPast: 4, fit: 0.9, fwClear: 34, fwWide: 30, fwBack: 120, fwUp: 44, fwUpRnd: 16, trophy: 1.8 },
+              parade: 60, paradeV: 10, stopPast: 14, giantPast: 4, fit: 0.9, fwClear: 34, fwWide: 30, fwBack: 120, fwUp: 44, fwUpRnd: 16, trophy: 1.8,
+              hop: { h: 0.5, air: 0.3, every: 1.1 } },
     cam: { back: 15, up: 6, lag: 5 },
   },
 
