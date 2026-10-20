@@ -7,7 +7,7 @@
 //      barriers and 15 m past them), clear of every road's corridor, both cities
 //      and the other venues;
 //   b. alone, finger down and straight at his own step, every car laps it in
-//      under a minute;
+//      about two minutes, 90 to 150 s (v173; the oval too);
 //   c. WHAT IT IS MADE OF: on each surface it has, his speed settles at the
 //      track's base speed times his step times that surface's `speed` -- the same
 //      for every car, and the same for an opponent running at skill 1;
@@ -50,7 +50,36 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
   const ids = await page.evaluate(() => window.__lp.RC.tracks.slice(1).map(t => t.id));
   check(`race tracks: there is a track after the oval (${ids.join(", ")})`, ids.length >= 1);
 
-  for (const id of ids) {
+  // a lap of it alone, finger down at his step, in every car: (v173) about two minutes (the parent:
+  // "each lap takes about 2 minutes, not 1"), 90 to 150 s -- the first includes the standing start
+  const lapsAlone = (id) => page.evaluate((id) => {
+    const L = window.__lp, S = L.state, out = {};
+    L.noRender = true; L.api.skipScreens();
+    for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+      L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+      L.spdReset(); L.rcStartRace(id, 31);
+      const R = L.race, him = R.him, laps = []; let t0 = null, last = 0;
+      const field = R.racers.slice(); R.racers = [him];                 // (alone on the track; the field back before it is put away)
+      for (let f = 0; f < 60 * 600 && R.phase !== "done" && R.phase !== "podium"; f++) {
+        S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
+        if (R.phase === "race" && t0 === null) t0 = R.t;
+        if (him.lapsDone > last) { laps.push(+(R.t - t0).toFixed(1)); t0 = R.t; last = him.lapsDone; }
+      }
+      out[veh] = laps;
+      R.racers = field; L.raceReset();
+    }
+    L.noRender = false;
+    return out;
+  }, id);
+  const lapCheck = async (id) => {
+    const b = await lapsAlone(id), allLaps = Object.values(b).flat();
+    check(`race ${id}: finger down at his own step, every car laps it in about two minutes -- ${Object.entries(b).map(([k, v]) => `${k} ${v.join("/")} s`).join(", ")}`,
+      Object.values(b).every(v => v.length === 3) && allLaps.every(t => t >= 90 && t <= 150), J(b));
+  };
+  await lapCheck("oval");
+
+  // (v173: the oval too -- it moved on to new ground)
+  const siteCheck = async (id) => {
     // ---- a. closes, dry, clear
     const a = await page.evaluate((id) => {
       const L = window.__lp, RC = L.RC, V = L.race.venues[id], T = V.track, S = T.S, W = RC.width / 2 + RC.kerbW + 0.4;
@@ -73,30 +102,15 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
     }, id);
     check(`race ${id}: the track closes (${a.gap} m and ${a.turn} rad from its start) at the ${a.want} m its numbers say (${a.len}); dry by ${a.dry} m at its barriers and 15 m past them, ${a.corridor} samples near the motorway, ${a.city} in a city, ${a.other} m from the next venue`,
       a.gap < 0.5 && a.turn < 0.01 && Math.abs(a.len - a.want) < 1 && a.dry >= 1 && a.corridor === 0 && a.city === 0 && a.other > 300, J(a));
+  };
+  await siteCheck("oval");
 
-    // ---- b. laps under a minute, every car, finger down
-    const b = await page.evaluate((id) => {
-      const L = window.__lp, S = L.state, out = {};
-      L.noRender = true; L.api.skipScreens();
-      for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
-        L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
-        L.spdReset(); L.rcStartRace(id, 31);
-        const R = L.race, him = R.him, laps = []; let t0 = null, last = 0;
-        const field = R.racers.slice(); R.racers = [him];                 // (alone on the track; the field back before it is put away)
-        for (let f = 0; f < 60 * 240 && R.phase !== "done" && R.phase !== "podium"; f++) {
-          S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
-          if (R.phase === "race" && t0 === null) t0 = R.t;
-          if (him.lapsDone > last) { laps.push(+(R.t - t0).toFixed(1)); t0 = R.t; last = him.lapsDone; }
-        }
-        out[veh] = laps;
-        R.racers = field; L.raceReset();
-      }
-      L.noRender = false;
-      return out;
-    }, id);
-    const allLaps = Object.values(b).flat();
-    check(`race ${id}: finger down at his own step, every car laps it in under a minute -- ${Object.entries(b).map(([k, v]) => `${k} ${v.join("/")} s`).join(", ")}`,
-      Object.values(b).every(v => v.length === 3) && allLaps.every(t => t < 60), J(b));
+  for (const id of ids) {
+    // ---- a. closes, dry, clear
+    await siteCheck(id);
+
+    // ---- b. (v173) a lap takes about two minutes -- he asked for longer tracks -- every car, finger down
+    await lapCheck(id);
 
     // ---- c. surfaces: the same speed on each, for every car and for them
     const c = await page.evaluate((id) => {
@@ -147,7 +161,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
           const R = L.race, him = R.him, T = R.track, bangs0 = L.flags.carCrashes || 0, flights = [];
           const field = R.racers.slice(); R.racers = [him];
           let cur = null, under = 0, maxD = 0, outLat = 0, lap = 0;
-          for (let f = 0; f < 60 * 120 && him.lapsDone < 1; f++) {
+          for (let f = 0; f < 60 * 300 && him.lapsDone < 1; f++) {
             S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
             if (him.path) continue;
             const deck = L.rcPoint(him.s, him.lat, {}).y;
@@ -221,7 +235,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         for (let k = 0; k < 3; k++) {
           L.spdReset(); L.rcStartRace(id, 40 + k);
           const R = L.race, sc = R.track.sc[0], seen = new Set();
-          for (let f = 0; f < 60 * 200 && R.phase !== "done" && R.phase !== "podium"; f++) {
+          for (let f = 0; f < 60 * 600 && R.phase !== "done" && R.phase !== "podium"; f++) {
             S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
             for (const o of R.racers) if (!o.isHim && o.path && !seen.has(o.i + ":" + o.scBase)) { seen.add(o.i + ":" + o.scBase); takes++; }
           }
@@ -253,7 +267,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         // pass 1: steered to its edge, then full and NEVER let go -- two passes; pass 3: a 0.6 s lift
         // before its approach, the finger landing full again
         const takes = [0, 0, 0], atNose = [null, null, null]; let wasOn = false, lifted = 0;
-        for (let f = 0; f < 60 * 240; f++) {
+        for (let f = 0; f < 60 * 600; f++) {
           const pass = Math.floor((him.s - (sc.sa - 120)) / Ln), rel = him.s - pass * Ln;
           if (pass > 2) break;
           let bank = -sc.side, touch = true;
@@ -348,7 +362,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         L.spdReset(); L.rcStartRace(tr, 36);
         const u0 = wrap("rcUpdate"), c0 = wrap("raceCamera"), R = L.race;
         try {
-          for (let f = 0; f < 60 * 200 && R.phase !== "done" && R.phase !== "podium"; f++) { S.touching = true; S.ctrlBank = Math.sin(f / 40) * 0.4; S.ctrlPitch = f % 600 < 200 ? 0.8 : 0; L.update(1 / 60); }
+          for (let f = 0; f < 60 * 600 && R.phase !== "done" && R.phase !== "podium"; f++) { S.touching = true; S.ctrlBank = Math.sin(f / 40) * 0.4; S.ctrlPitch = f % 600 < 200 ? 0.8 : 0; L.update(1 / 60); }
         } finally { window.rcUpdate = u0; window.raceCamera = c0; }
         out[tr] = { draws, laps: R.him.lapsDone };
         L.raceReset();
@@ -390,10 +404,10 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
           const field = R.racers.slice(); R.racers = [him];
           const Ln = R.track.len, s0 = Math.ceil(him.s / Ln) * Ln + 20;
           him.s = s0 - 200; him.lat = 0; him.v = RC.v * L.spdMul();
-          const w0 = R.wallShoves, g0 = R.glideT, b0 = L.flags.carCrashes || 0, p0 = R.padHits;
+          const w0 = R.wallShoves, g0 = R.glideT, b0 = L.flags.carCrashes || 0, p0 = R.padHits, sc0 = L.flags.raceShortcuts || 0;
           out.wids = Array.from(new Set((out.wids || []).concat(field.map(r => r.wid))));
-          let t0 = null, t = null, minV = 1e9, tAgain = null, w1 = null, pT0 = null;
-          for (let f = 0; f < 60 * 150; f++) {
+          let t0 = null, t = null, minV = 1e9, tAgain = null, w1 = null, pT0 = null, padsOnWall = 0;
+          for (let f = 0; f < 60 * 300; f++) {
             let bank;
             if (mode === "line") {
               const q = L.rcAt(him.s + 40), side = Math.abs(q.kh) > 0.002 ? Math.sign(q.kh) : 0, err = side * RC.width * 0.3 - (him.path ? 99 : him.lat);
@@ -401,12 +415,16 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
             } else bank = mode === "heldR" ? 1 : -1;
             // (again: on the left barrier half a lap, then a second of full right, then full left again)
             if (mode === "again" && t0 !== null) { const el = R.t - t0; if (el > 15 && el < 16) bank = 1; if (el >= 16 && w1 === null) w1 = R.wallShoves; }
+            const ph0 = R.padHits;
             S.touching = true; S.ctrlBank = bank / range; S.ctrlPitch = 0; L.update(1 / 60);
+            // (a pad crossed while he rides the barrier: the wall is no way to a pad. Off it -- the
+            // held lap that took the shortcut is hands-off once the steer is spent -- is his line)
+            if (t0 !== null && R.padHits > ph0 && him.glideHold > 0) padsOnWall++;
             if (t0 === null && him.s >= s0) { t0 = R.t; pT0 = R.padHits; }   // (pads from the timed lap: the run-up crosses the track to the barrier)
             if (t0 !== null) minV = Math.min(minV, him.v);
             if (t0 !== null && him.s >= s0 + Ln) { t = R.t - t0; break; }
           }
-          out[veh][mode] = { t: t && +t.toFixed(2), thumps: R.wallShoves - w0, glide: +(R.glideT - g0).toFixed(1), minV: +minV.toFixed(1), bangs: (L.flags.carCrashes || 0) - b0, pads: R.padHits - (pT0 === null ? p0 : pT0), stuck: R.stuck, after: w1 === null ? null : R.wallShoves - w1 };
+          out[veh][mode] = { t: t && +t.toFixed(2), thumps: R.wallShoves - w0, glide: +(R.glideT - g0).toFixed(1), minV: +minV.toFixed(1), bangs: (L.flags.carCrashes || 0) - b0, sc: (L.flags.raceShortcuts || 0) - sc0, pads: padsOnWall, padsAll: R.padHits - (pT0 === null ? p0 : pT0), stuck: R.stuck, after: w1 === null ? null : R.wallShoves - w1 };
           R.racers = field; L.raceReset();
         }
       }
@@ -416,7 +434,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
     const wids = k.wids; delete k.wids;
     const cars = Object.keys(k), held = m => cars.map(c => `${k[c][m].t} s/${k[c][m].thumps}`).join(", ");
     check(`race ${id}: held into the barrier a whole lap he glides along it -- one thump on the first touch, then quiet (left: ${held("heldL")}; right: ${held("heldR")}, lap s/thumps per car), no pad on the way (${cars.map(c => k[c].heldL.pads + k[c].heldR.pads).join("/")}), never a bang, never stuck; never quicker than the racing line (${cars.map(c => k[c].line.t).join("/")} s); off it a second and back, a fresh hit (${cars.map(c => k[c].again.after).join("/")} more)`,
-      cars.every(c => { const K = k[c]; return ["heldL", "heldR"].every(m => K[m].t !== null && K[m].thumps === 1 && K[m].glide > K[m].t * 0.4 && K[m].bangs === 0 && K[m].pads === 0 && K[m].stuck === 0 && K[m].minV > 15 && K[m].t >= K.line.t) && K.line.t !== null && K.again.after === 1 && K.again.bangs === 0; }), J(k));
+      cars.every(c => { const K = k[c]; return ["heldL", "heldR"].every(m => K[m].t !== null && K[m].thumps === 1 && (K[m].sc > 0 ? K[m].glide > 10 : K[m].glide > K[m].t * 0.4)   /* (a held lap that took the shortcut: its steer is spent there, hands-off after -- the turn rule) */ && K[m].bangs === 0 && K[m].pads === 0 && (K[m].sc > 0 || K[m].padsAll === 0) && K[m].stuck === 0 && K[m].minV > 15 && K[m].t >= K.line.t) && K.line.t !== null && K.again.after === 1 && K.again.bangs === 0; }), J(k));
   }
 
   // ---- m. (v172) HIS OWN CAR NEVER HIDES WHAT HE AIMS AT: from the chase camera (the game's

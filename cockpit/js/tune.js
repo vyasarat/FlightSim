@@ -2370,51 +2370,89 @@ const TUNE = {
   // ---- v164: THE RACE (race.js) -- his idea. The one place he can lose (CLAUDE.md,
   // the parent's exception): a real finishing order. Nothing else is taken away.
   race: {
-    site: { x: 1050, z: -3150, heading: 0 },   // (surveyed: flat to 4 m, 500 m off the motorway, nothing near) the start line's middle; heading as the game's (forward = -sin, -cos): the main straight runs along -z
+    site: { x: 1050, z: -3150, heading: 180 },   // (surveyed: flat to 4 m, 500 m off the motorway, nothing near) the start line's middle; heading as the game's (forward = -sin, -cos): the main straight (v173: raced south, along +z; it ran north)
     width: 26, kerbW: 1.8, kerbStep: 4, wallH: 1.1,
     lift: 0.25, smooth: 40,            // the deck this far over the ground under it, its height smoothed over this many metres
     gantryH: 15, flagStep: 45, wallPiece: 12,
     laps: 3, field: 5,                 // five to race him, each a different car from the game
     roster: ["car", "cybertruck", "corvette", "monster", "taxi", "hatch"],
     hatchColour: 0x36c46a,
-    // TRACK 1: an egg-shaped oval. A gentle banked turn (110 m) at one end, a long
-    // sweeping bend (170 m) at the other, centres 420 m apart: the straights are the
-    // circles' outer tangents, 415.69 m each, and the turns 180 -/+ twice
-    // asin(60/420). Those numbers close it exactly; the harness checks they do.
+    // TRACK 1 (v173: longer -- he asked, 2026-10-19 -- a lap about two minutes): the
+    // oval's start line where it was, now raced SOUTH, so its left-hand turns take it
+    // east on to the open ground (the motorway is to the west). A rectangle with things in
+    // it: the banked turn, a long second straight with pads, an S, the big sweeper, a
+    // chicane, a hairpin that dips into the infield, home. Closed by two straights
+    // solved for it (the south straight's last run and the run home); the harness checks
+    // it closes. (Surveyed: dry by 2.1 m 15 m past the barriers, 886 m off the motorway.)
     // A later track is another entry here, never an edit to race.js.
     tracks: [
-      { id: "oval", sections: [
-        { type: "straight", len: 200 },
-        { type: "turn", angle: 163.5736, radius: 110, bank: 9 },
-        { type: "straight", len: 415.6922 },
-        { type: "turn", angle: 196.4264, radius: 170 },
-        { type: "straight", len: 215.6922 },
+      { id: "oval", pads: [{ m: 150, lat: 5 }, { m: 620, lat: -5 }, { m: 880, lat: 5 }, { m: 2050, lat: -5 }, { m: 2500, lat: 5 }, { m: 3900, lat: -5 }],
+        sections: [
+        { type: "straight", len: 250 },
+        { type: "turn", angle: 90, radius: 110, bank: 9 },
+        { type: "straight", len: 600 },
+        { type: "turn", angle: 45, radius: 90 },
+        { type: "turn", angle: -90, radius: 90 },
+        { type: "turn", angle: 45, radius: 90 },
+        { type: "straight", len: 115.442 },
+        { type: "turn", angle: 90, radius: 170 },
+        { type: "straight", len: 150 },
+        { type: "turn", angle: -30, radius: 60 },
+        { type: "turn", angle: 60, radius: 60 },
+        { type: "turn", angle: -30, radius: 60 },
+        { type: "straight", len: 250 },
+        { type: "turn", angle: 90, radius: 100 },
+        { type: "straight", len: 360 },
+        { type: "turn", angle: 90, radius: 80 },
+        { type: "straight", len: 260 },
+        { type: "turn", angle: -180, radius: 80 },
+        { type: "straight", len: 260 },
+        { type: "turn", angle: 90, radius: 80 },
+        { type: "straight", len: 360 },
+        { type: "turn", angle: 90, radius: 110 },
+        { type: "straight", len: 320 },
       ] },
       // TRACK 2 (v170): DESERT DUNES, on the canyon's north rim -- the floor is the
-      // river, so the run along the rim is the canyon's. Dirt hairpins, sand along
-      // the edge, a paved bulge into the infield; the start on the long asphalt.
-      // (Surveyed: dry by 2.5 m out past the barriers, 511 m off the motorway,
-      // nothing standing or streamed in it.) It closes: 240 + 280 = 120 + 207.85 +
-      // 192.15 (the bulge's chord), and the two 80 m runs between the hairpins match.
+      // river, so the run along the rim is the canyon's. (v173: longer.) Out from the line
+      // east, up a dirt hairpin over a dune to the rim, west along it on sand -- past the
+      // paved bulge into the infield, whose chord is the dusty shortcut -- and on west
+      // for half a kilometre more, then down a long dirt run over two more dunes, back
+      // east along the new asphalt straight with its pads and a sandy S, and up a dirt
+      // run to the line. Closed by two straights solved for it (the descent's middle and
+      // the south straight). (Surveyed: dry by 2.3 m 15 m past the barriers, 511 m off
+      // the motorway.)
       { id: "dunes", site: { x: -725, z: -3420, heading: 270 },
-        pads: [{ s: 0.09, lat: 5 }, { s: 0.36, lat: -5 }, { s: 0.90, lat: 5 }],
-        aiMul: 0.98,
-        // the dusty shortcut: the chord across the bulge (sections 5-7), along the canyon's edge
-        shortcuts: [{ from: 5, to: 7, side: -1, half: 6, mouth: 5, gore: 15, hold: 40, surface: "dust" }],   // (taken by a full steer held its last `hold` m to the gore)   // the opponents' skill here: the hairpins' inside line is worth more to a clean hand than to his
+        pads: [{ m: 150, lat: 5 }, { m: 800, lat: -5 }, { m: 1850, lat: 5 }, { m: 2960, lat: -5 }, { m: 3180, lat: 5 }, { m: 4380, lat: 5 }],
+        aiMul: 1.0,                       // (v173: 0.98 at a 45 s lap; over a two-minute lap his hand gained more -- 85% wins -- so even)
+        // the dusty shortcut: the chord across the bulge (sections 5-9), along the canyon's edge
+        shortcuts: [{ from: 5, to: 9, side: -1, half: 6, mouth: 5, gore: 15, hold: 40, surface: "dust" }],   // (taken by a full steer held its last `hold` m to the gore)
         sections: [
         { type: "straight", len: 240 },
         { type: "turn", angle: 90, radius: 70, surface: "dirt" },
         { type: "straight", len: 80, surface: "dirt", jump: { at: 0.5, up: 28, down: 22, h: 4 } },
         { type: "turn", angle: 90, radius: 70, surface: "dirt" },
-        { type: "straight", len: 120, surface: "sand" },
-        { type: "turn", angle: 60, radius: 60 },
-        { type: "turn", angle: -120, radius: 60 },
-        { type: "turn", angle: 60, radius: 60 },
-        { type: "straight", len: 192.1539, surface: "sand" },
+        { type: "straight", len: 520, surface: "sand" },
+        { type: "turn", angle: 35, radius: 90 },
+        { type: "straight", len: 120 },
+        { type: "turn", angle: -70, radius: 90 },
+        { type: "straight", len: 120 },
+        { type: "turn", angle: 35, radius: 90 },
+        { type: "straight", len: 480, surface: "sand" },
         { type: "turn", angle: 90, radius: 70, surface: "dirt" },
         { type: "straight", len: 80, surface: "dirt", jump: { at: 0.5, up: 28, down: 22, h: 4 } },
-        { type: "turn", angle: 90, radius: 70, surface: "dirt" },
-        { type: "straight", len: 280 },
+        { type: "straight", len: 350, surface: "dirt" },
+        { type: "straight", len: 80, surface: "dirt", jump: { at: 0.5, up: 28, down: 22, h: 4 } },
+        { type: "straight", len: 100, surface: "dirt" },
+        { type: "turn", angle: 90, radius: 90, surface: "dirt" },
+        { type: "straight", len: 398.526 },
+        { type: "turn", angle: -45, radius: 90, surface: "sand" },
+        { type: "turn", angle: 90, radius: 90, surface: "sand" },
+        { type: "turn", angle: -45, radius: 90, surface: "sand" },
+        { type: "straight", len: 120 },
+        { type: "turn", angle: 90, radius: 90 },
+        { type: "straight", len: 390, surface: "dirt" },
+        { type: "turn", angle: -90, radius: 70 },
+        { type: "straight", len: 210 },
       ] },
     ],
     // (v170) WHAT THE TRACK IS MADE OF, per section (asphalt where it says nothing).
@@ -2427,7 +2465,7 @@ const TUNE = {
       dirt: { speed: 0.9, grip: 0.9, col: 0xb5522e, art: "scrub", spray: 0xb5522e, every: 0.07, size: 0.35, rise: 1.0, life: 0.4, ruts: true, tone: ["raceDirt", "sawtooth", 55, 0.010] },
       sand: { speed: 0.86, grip: 0.85, col: 0xd9c27e, art: "sand", spray: 0xd9c27e, every: 0.06, size: 0.4, rise: 1.4, life: 0.5, tone: ["raceSand", "triangle", 38, 0.014] },
       // deep dust, the shortcut's: shorter than the road round, and slower over it
-      dust: { speed: 0.91, grip: 0.85, col: 0xa8a06b, art: "sand", spray: 0xa8a06b, every: 0.05, size: 0.42, rise: 1.6, life: 0.55, tone: ["raceDust", "triangle", 32, 0.016] },
+      dust: { speed: 0.94, grip: 0.85, col: 0xa8a06b, art: "sand", spray: 0xa8a06b, every: 0.05, size: 0.42, rise: 1.6, life: 0.55, tone: ["raceDust", "triangle", 32, 0.016] },
     },
     spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8 },
     // (v170) dune jumps: a section's `jump` heaps a dune `h` m high on it, its crest
@@ -2443,7 +2481,7 @@ const TUNE = {
     v: 38, accel: 9, brake: 9, coast: 6,
     burst: 1.18, burstTime: 2.2,       // drag up: the burst (the Corvette's booster: the same gain while it burns)
     pad: 1.3, padTime: 1.6, padW: 6, footW: 3.4, burstPull: 0.45, padLen: 12,
-    pads: [{ s: 0.17, lat: 5 }, { s: 0.48, lat: -5 }, { s: 0.80, lat: 5 }],   // a fraction of the lap along, metres across (+ left) -- (v171) never under any car riding a barrier: a pad is aimed at, not collected by the wall
+    pads: [{ m: 150, lat: 5 }],   // (a track's own list, if it has none) metres along the lap, metres across (+ left) -- (v171) never under any car riding a barrier: a pad is aimed at, not collected by the wall; (v173) metres, not a fraction of the lap: a longer lap kept them where they were
     coolDown: 0.55,                    // over the line he rolls on, slower
     latRate: 9, latFull: 20, latResp: 6,   // across the track: m/s at full drag (from latFull m/s up), how fast it follows the drag
     wallKeep: 0.97, shoveKeep: 0.97,   // a barrier or a car: a shove, and this much of his speed kept
@@ -2460,8 +2498,8 @@ const TUNE = {
     ai: { strength: 1.04, skill: [0.95, 1.02], bandFrom: 25, bandSpan: 140, ease: 0.10, push: 0.10,
           burstEvery: [3, 7], burstP: 0.35, wander: [0.25, 3], inside: 0.35, padSee: 70, padP: 0.45, passSee: 22, steerK: 1.2,
           shortcutP: 0.3 },   // (v170) how often one takes a shortcut it comes to
-    stands: { count: 4, from: -0.06, step: 0.037, back: 6, depth: 16, len: 60, rise: 10 },
-    podium: { s: 0.025, back: 18, w: 9, d: 12, h: [3.2, 2.2, 1.4], camBack: 48, camUp: 10, buttonsAfter: 3,
+    stands: { count: 4, from: -104, step: 64, back: 6, depth: 16, len: 60, rise: 10 },   // (v173) metres along the lap from the line (were fractions of it)
+    podium: { m: 43, back: 18, w: 9, d: 12, h: [3.2, 2.2, 1.4], camBack: 48, camUp: 10, buttonsAfter: 3,
               parade: 60, paradeV: 10, stopPast: 14, giantPast: 4, fit: 0.9, fwClear: 34, fwWide: 30, fwBack: 120, fwUp: 44, fwUpRnd: 16, trophy: 1.8,
               hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 },
               // (v167) the shot when he lost: the podium and his car inside these screen edges (-1..1), above the buttons by `gap`, his car `clear` of the steps, the camera up to `maxUp` m and slid along the track up to `slide` m

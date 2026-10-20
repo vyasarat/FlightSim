@@ -106,11 +106,12 @@ module.exports = async function raceChecks({ newPage, check }) {
         let stands = 0;
         L.forEachSolid(b => { if (L.solidKind(b) === "building" && R.standsG && b.mesh && b.mesh.parent === R.standsG) stands++; });
         const def = L.RC.tracks[0];
-        return { len: +T.len.toFixed(1), gap: +T.gap.toFixed(3), turn: +T.turn.toFixed(4), sections: def.sections.map(s => s.type), wet, nearRoad: Math.round(nearRoad), inCity, stands,
+        let want = 0; for (const sc of def.sections) want += sc.type === "turn" ? Math.abs(sc.angle) * Math.PI / 180 * sc.radius : sc.len;   // (what its numbers say)
+        return { len: +T.len.toFixed(1), want: +want.toFixed(1), gap: +T.gap.toFixed(3), turn: +T.turn.toFixed(4), sections: def.sections.map(s => s.type), wet, nearRoad: Math.round(nearRoad), inCity, stands,
                  venue: !!(R.venue && R.venue.parent), gantry: !!(R.gantry && R.gantry.parent), podium: !!(R.podiumG && R.podiumG.parent) };
       });
-      check(`race ${tag}: track 1 is typed sections laid end to end, and it closes -- it ends ${a.gap} m from where it starts, turned ${a.turn} rad, ${a.len} m round (its numbers say 1728) ${J(a)}`,
-        !a.none && a.gap < 0.5 && a.turn < 0.01 && Math.abs(a.len - 1728.2) < 3);
+      check(`race ${tag}: track 1 is typed sections laid end to end, and it closes -- it ends ${a.gap} m from where it starts, turned ${a.turn} rad, ${a.len} m round (its numbers say ${a.want}; v173 made it longer) ${J(a)}`,
+        !a.none && a.gap < 0.5 && a.turn < 0.01 && Math.abs(a.len - a.want) < 1 && a.len > 4000);
       check(`race ${tag}: it stands in the world from the start -- deck, gantry, podium and grandstands (${a.stands} solid as buildings), on dry ground, ${a.nearRoad} m from the motorway at its nearest, outside both cities ${J(a)}`,
         a.venue && a.gantry && a.podium && a.stands >= 4 && a.wet === 0 && a.nearRoad > 120 && a.inCity === 0);
     }
@@ -197,7 +198,7 @@ module.exports = async function raceChecks({ newPage, check }) {
     const d = await page.evaluate(() => {
       const L = window.__lp, R = L.race, st = L.state, bangs0 = L.flags.carCrashes || 0;
       let exploded = 0, laps = [], lastLaps = 0;
-      for (let i = 0; i < 60 * 400 && R.phase !== "podium"; i++) {
+      for (let i = 0; i < 60 * 900 && R.phase !== "podium"; i++) {
         st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60);
         if (st.exploding) exploded++;
         const lit = document.querySelectorAll("#raceHud .raceLaps i.done").length;
@@ -256,7 +257,7 @@ module.exports = async function raceChecks({ newPage, check }) {
         for (const r of R.racers) if (!r.isHim) L.scene.remove(r.mesh);
         R.racers = [R.him];
         let t = 0;
-        for (let i = 0; i < 60 * 300 && !R.him.done; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = R.phase === "race" ? pull : 0; L.update(1 / 60); }
+        for (let i = 0; i < 60 * 700 && !R.him.done; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = R.phase === "race" ? pull : 0; L.update(1 / 60); }
         out[v + (pull ? "+up" : "")] = +R.him.finishT.toFixed(2);
         L.raceReset();
       }
@@ -276,7 +277,7 @@ module.exports = async function raceChecks({ newPage, check }) {
         L.api.setVehicle(v); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
         L.rcStartRace("oval"); alone();
         let t = 0;
-        for (let i = 0; i < 60 * 300 && !R.him.done; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = R.phase === "race" ? pitchAt(t) : 0; if (R.phase === "race") t += 1 / 60; L.update(1 / 60); }
+        for (let i = 0; i < 60 * 700 && !R.him.done; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = R.phase === "race" ? pitchAt(t) : 0; if (R.phase === "race") t += 1 / 60; L.update(1 / 60); }
         const T = +R.him.finishT.toFixed(2); L.raceReset(); return T;
       };
       for (const v of ["car", "cybertruck", "corvette", "monster"]) {
@@ -323,7 +324,7 @@ module.exports = async function raceChecks({ newPage, check }) {
       out.s0 = +m().scale.x.toFixed(3);
       L.rcStartRace("oval"); out.lift0 = +R.himLift.toFixed(2);
       for (const r of R.racers) if (!r.isHim) r.skill = 0.5;
-      for (let i = 0; i < 60 * 400 && R.phase !== "podium"; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); }
+      for (let i = 0; i < 60 * 900 && R.phase !== "podium"; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); }
       // (and the winner's hop lands: on its step most frames, never far off it)
       let on = 0, n = 0, top = 0;
       for (let i = 0; i < 60 * 4; i++) { st.touching = false; L.update(1 / 60);
@@ -337,7 +338,7 @@ module.exports = async function raceChecks({ newPage, check }) {
       out.place = R.him.place; out.onStep = +m().scale.x.toFixed(3);
       L.raceAgain(); for (let i = 0; i < 5; i++) L.update(1 / 60);
       out.again = +m().scale.x.toFixed(3); out.lift1 = +R.himLift.toFixed(2);
-      for (let i = 0; i < 60 * 400 && R.phase !== "podium"; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); }
+      for (let i = 0; i < 60 * 900 && R.phase !== "podium"; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); }
       for (let i = 0; i < 60 * 1; i++) { st.touching = false; L.update(1 / 60); }
       L.raceExit(); for (let i = 0; i < 3; i++) L.update(1 / 60);
       out.exit = +m().scale.x.toFixed(3); out.confetti = typeof confetti !== "undefined" ? confetti.length : -1;

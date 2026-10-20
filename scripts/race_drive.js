@@ -49,7 +49,7 @@ async function oneRace(page, veh, seed, opts) {
     let mood = 0, moodLeft = 2 + rnd() * 4, aimPad = null, aimGo = false, passSide = 0, t = 0, exploded = 0, nan = 0;
     let wob1 = rnd() * 6.28, wob2 = rnd() * 6.28, hugSide = 1;
     const log = [];
-    for (let f = 0; f < 60 * 60 * 6 && R.phase !== "podium"; f++) {
+    for (let f = 0; f < 60 * 60 * 15 && R.phase !== "podium"; f++) {
       const dt = 1 / 60; t += dt;
       // the lifts and the overshoots
       nextLift -= dt; nextOver -= dt;
