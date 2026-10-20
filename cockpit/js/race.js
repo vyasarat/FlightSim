@@ -298,6 +298,8 @@ function rcBuildVenue(def) {
       quad(skirt, at(a, e, -0.05), at(b, e, -0.05), gb, ga);
     }
     // dirt keeps the ruts of the cars before him, where the racing lines run
+    // (v174) a snow or ice road has a blue line down each edge: white on white, from his seat a bend could not be read
+    if (sf.edgeLine) { const el = ruts[sf.edgeLine] || (ruts[sf.edgeLine] = []); for (const sd of [-1, 1]) { const o = sd * (W - 0.5); quad(el, at(a, o - 0.35, 0.045), at(b, o - 0.35, 0.045), at(b, o + 0.35, 0.045), at(a, o + 0.35, 0.045)); } }
     if (sf.ruts) { const rr = ruts[sf.rutCol || P.slate] || (ruts[sf.rutCol || P.slate] = []); for (const c of RC.rutLat) quad(rr, at(a, c - RC.rutW / 2, 0.04), at(b, c - RC.rutW / 2, 0.04), at(b, c + RC.rutW / 2, 0.04), at(a, c + RC.rutW / 2, 0.04)); }
     // kerbs on the bends, red and white every few metres, on both edges (asphalt's alone)
     const bend = Math.abs(a.kh) > 0.0015 && sf.kerbs;
@@ -584,17 +586,19 @@ function rcBuildTunnel(T, k, tn, g) {
   const hy = (u, v) => {
     const wq = rcAt(sM + u), x = wq.x + lx * v, z = wq.z + lz * v, gr = terrainEff(x, z) - 0.5;
     if (open(u, v)) return gr;
-    const top = deckY(sM + u) + H + 1.5 + C.over * Math.pow(Math.cos(Math.PI / 2 * Math.min(1, Math.abs(v) / Vo)), 2) * (1 - 0.35 * Math.min(1, (u / Uo) ** 2));
+    // (crags on top: a mountain, not a dome)
+    const crag = 1 + C.crag * (valueNoise(wq.x / 30 + 3.7, wq.z / 30 + 1.9) * 2 - 1);
+    const top = deckY(sM + u) + H + 1.5 + C.over * crag * Math.pow(Math.cos(Math.PI / 2 * Math.min(1, Math.abs(v) / Vo)), 2.6) * (1 - 0.35 * Math.min(1, (u / Uo) ** 2));
     const fV = 1 - smoothstep(half + 2, Vo, Math.abs(v)), fU = 1 - smoothstep(Lh, Uo, Math.abs(u));
     return Math.max(gr, lerp(gr, top, Math.min(fV, fU)));
   };
   const Y = uN.map(u => vN.map(v => hy(u, v)));
   const pos = [], col = [], cSnow = new THREE.Color(RC.surfaces.snow.col), cRock = new THREE.Color(TUNE.palette.grey);   // (grey, not slate: the dark mouth is what must stand out)
   const vtx = (i, j) => { const wq = rcAt(sM + uN[i]); return [wq.x + lx * vN[j], Y[i][j], wq.z + lz * vN[j]]; };
-  const tri = (a, b, c) => {
+  const tri = (a, b, c, force) => {
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz) || 1;
-    const k = Math.abs(ny / nl) < C.rockBelow ? cRock : cSnow;
+    const k = force || (Math.abs(ny / nl) < C.rockBelow ? cRock : cSnow);
     pos.push(...a, ...b, ...c); for (let r = 0; r < 3; r++) col.push(k.r, k.g, k.b);
   };
   // (a height field cannot overhang: the cells over each cutting are left out, and its
@@ -621,7 +625,7 @@ function rcBuildTunnel(T, k, tn, g) {
       const g0 = rcAt(sM + uN[i]), g1 = rcAt(sM + uN[i + 1]);
       const p0 = [g0.x + lx * sd * cut, terrainEff(g0.x + lx * sd * cut, g0.z + lz * sd * cut) - 0.5, g0.z + lz * sd * cut];
       const p1 = [g1.x + lx * sd * cut, terrainEff(g1.x + lx * sd * cut, g1.z + lz * sd * cut) - 0.5, g1.z + lz * sd * cut];
-      tri(p0, p1, vtx(i + 1, j)); tri(p0, vtx(i + 1, j), vtx(i, j));
+      tri(p0, p1, vtx(i + 1, j), cSnow); tri(p0, vtx(i + 1, j), vtx(i, j), cSnow);
     }
   }
   const geo = new THREE.BufferGeometry();
