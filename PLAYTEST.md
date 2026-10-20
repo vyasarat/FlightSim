@@ -63,6 +63,11 @@ Newest first. Copy the block.
 - Stuck, lost, bored, or broke:
 ```
 
+### 2026-10-19 — the build live today (v170/v171, the races) — from his dad
+- Went to first / stayed longest: the races (the oval and Desert Dunes).
+- Did again and again / said out loud: wants the tracks LONGER.
+- Stuck, lost, bored, or broke: nothing reported.
+
 ### 2026-10-03 — v138 — from his dad
 - Went to first / stayed longest: loved the new set-pieces; the giant toy track was the biggest hit.
 - Did again and again / said out loud: wants to FLY the new rocket (likes the side boosters landing); wants to DRIVE the monster truck.

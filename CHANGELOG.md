@@ -33,7 +33,7 @@ has settled. The first version worked out where the camera ought to be instead, 
 at 17 m up. Reading the real camera, 17 m failed (the road 60 m ahead hidden on both
 tracks), and so did 28 m back and 15 m up.
 
-HARNESS_LINE
+Law-reviewer PASS (two rounds: the check now reads the real camera); render-critic PASS (two rounds; the frame v171 blocked on now shows the pad). Full harness 1119/1119.
 
 ---
 
