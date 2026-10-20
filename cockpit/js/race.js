@@ -1365,15 +1365,15 @@ function raceCamera(dt) {
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   const mon = !!state.vp.monster;
   if (state.viewChase) {
-    const back = mon ? 26 : RC.cam.back, up = mon ? 11 : RC.cam.up;
+    const C = rcChaseCam(mon), back = C.back, up = C.up;
     // (v170) off a dune the camera keeps to the ground under him, so he is SEEN to fly
     const yb = him && him.air ? rcPoint(him.s, him.lat, rcPC).y : state.y;
     camDesired.set(state.x - fx * back, yb + up, state.z - fz * back);
     camera.position.lerp(camDesired, Math.min(1, RC.cam.lag * dt));
     // never inside the venue: the line back to him clear of its stands, gantry and walls (v163's rule)
-    const ey = state.y + (mon ? 4 : 1.6), k = solidSight(state.x, ey, state.z, camera.position.x, camera.position.y, camera.position.z, CAR.camClear.r, CAR.camClear.kinds);
+    const ey = state.y + C.lookUp, k = solidSight(state.x, ey, state.z, camera.position.x, camera.position.y, camera.position.z, CAR.camClear.r, CAR.camClear.kinds);
     if (k < 1) camera.position.set(state.x + (camera.position.x - state.x) * k, ey + (camera.position.y - ey) * k, state.z + (camera.position.z - state.z) * k);
-    lookV.set(state.x + fx * 18, yb + (mon ? 4 : 1.6), state.z + fz * 18);
+    lookV.set(state.x + fx * C.look, yb + C.lookUp, state.z + fz * C.look);
     camera.lookAt(lookV);
     if (typeof carHideCabin === "function") carHideCabin();
   } else if (mon) {
@@ -1404,6 +1404,11 @@ function raceCamera(dt) {
     }
   }
 }
+
+// The chase camera's place, per body. (v172) The monster truck's sits higher: from
+// 11 m up its own cab hid every pad within 100 m ahead -- three seconds of road, the
+// whole of his time to aim at one (race_track_checks m).
+function rcChaseCam(mon) { return mon ? RC.cam.monster : RC.cam; }
 
 // (v170) off a dune the car pitches: nose up off the crest, down to land. The seat
 // and the centre gauge show it bigger (rcSeatPitch, TUNE.race.jump.seatGain).

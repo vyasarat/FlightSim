@@ -50,6 +50,7 @@ entry below.
 | v168 | nothing he sees changes: holding the booster to the end of the motorway, he turns round and goes again with no bang from behind |  open |
 | v170 | he picks the dune card, and on the dunes he steers on purpose for the jumps and the dusty strip by the river, and asks for the "sand race" again |  open |
 | v171 | he leans on a barrier with his finger held and keeps going without complaining about the bumping; he does not discover that hugging the wall wins (he still steers for the pads) |  open |
+| v172 | in the monster truck he steers for the pads on a straight as often as in the other cars (he sees them coming); he does not say the monster view is "too high" |  open |
 
 ## Entries
 

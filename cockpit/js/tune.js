@@ -2466,7 +2466,8 @@ const TUNE = {
               hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 },
               // (v167) the shot when he lost: the podium and his car inside these screen edges (-1..1), above the buttons by `gap`, his car `clear` of the steps, the camera up to `maxUp` m and slid along the track up to `slide` m
               loseFit: { side: 0.88, top: 0.62, bottom: -0.5, gap: 0.05, clear: 0.08, maxUp: 50, slide: 36, slideStep: 3 } },
-    cam: { back: 15, up: 6, lag: 5 },
+    cam: { back: 15, up: 6, lag: 5, look: 18, lookUp: 1.6,
+           monster: { back: 26, up: 19, look: 24, lookUp: 4 } },   // (v172) the monster truck's: high enough that its own cab hides no pad 60 m ahead
   },
 
   vehicleColors: {

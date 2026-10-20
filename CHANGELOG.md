@@ -10,6 +10,33 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v172 — the monster truck sees the pads coming
+
+v171's render review found it. In a race the monster truck's chase camera sat 26 m behind
+it and 11 m up, and the truck stands about 10 m tall. On a straight, its own cab hid the
+road for 100 m ahead: about three seconds of road, which is all the time he has to see a
+pad and steer for it. The pads had been hidden there since the race began (v164); moving
+them in v171 changed nothing. The other cars stand about 3.4 m tall under a camera 6 m up,
+and hide nothing.
+
+The monster truck's race chase camera now sits 19 m up (still 26 m back) and looks a little
+further ahead (24 m against 18 m), so the horizon stays about where it was. At racing speed
+the camera trails about 33 m behind the truck, not 26. From where it really is, the cab
+hides nothing 60 m ahead or more. Its numbers are in `TUNE.race.cam.monster`; they were
+bare numbers in the camera code. Nothing else moves: the seat view, every other car, the
+podium shots, and the race itself (the camera changes no result).
+
+`race_track_checks` m: on the longest straight of the oval and of every track, in every car,
+the road 60 and 80 m ahead (the middle and both pad lanes) is tested against his own body,
+seen from the game's own chase camera after two seconds at speed, wherever that camera
+has settled. The first version worked out where the camera ought to be instead, and passed
+at 17 m up. Reading the real camera, 17 m failed (the road 60 m ahead hidden on both
+tracks), and so did 28 m back and 15 m up.
+
+HARNESS_LINE
+
+---
+
 ## v171 — a held steer glides along the barrier
 
 The parent's ask, after v170: on every track, a steer held into a barrier glides him along
