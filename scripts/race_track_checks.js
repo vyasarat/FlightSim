@@ -29,7 +29,10 @@
 //   k. (v171, the oval too) A STEER HELD INTO A BARRIER GLIDES: a whole lap held full
 //      into either barrier, in every car, is one thump on the first touch and then a
 //      quiet glide, no bang, never stuck, and never quicker than the racing line;
-//      off it a second and back into it is a fresh hit, one thump more.
+//      off it a second and back into it is a fresh hit, one thump more;
+//   m. (v172, the oval too) HIS OWN CAR NEVER HIDES WHAT HE AIMS AT: from the chase
+//      camera (where the game put it, settled), the road 60 and 80 m ahead on the longest straight, in the middle and
+//      both pad lanes, is not behind his own body, in every car.
 //   i. (v170) A SPENT STEER AND A PITCH THAT STAYS IN THE RACE: the full steer that took
 //      a shortcut, still held a whole lap, is nobody's choice of it the next time
 //      round; lifted (past liftGrace) and put back full, it is his again and takes
@@ -414,5 +417,46 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
     const cars = Object.keys(k), held = m => cars.map(c => `${k[c][m].t} s/${k[c][m].thumps}`).join(", ");
     check(`race ${id}: held into the barrier a whole lap he glides along it -- one thump on the first touch, then quiet (left: ${held("heldL")}; right: ${held("heldR")}, lap s/thumps per car), no pad on the way (${cars.map(c => k[c].heldL.pads + k[c].heldR.pads).join("/")}), never a bang, never stuck; never quicker than the racing line (${cars.map(c => k[c].line.t).join("/")} s); off it a second and back, a fresh hit (${cars.map(c => k[c].again.after).join("/")} more)`,
       cars.every(c => { const K = k[c]; return ["heldL", "heldR"].every(m => K[m].t !== null && K[m].thumps === 1 && K[m].glide > K[m].t * 0.4 && K[m].bangs === 0 && K[m].pads === 0 && K[m].stuck === 0 && K[m].minV > 15 && K[m].t >= K.line.t) && K.line.t !== null && K.again.after === 1 && K.again.bangs === 0; }), J(k));
+  }
+
+  // ---- m. (v172) HIS OWN CAR NEVER HIDES WHAT HE AIMS AT: from the chase camera (the game's
+  // own place for it, rcChaseCam), on each track's longest straight, the road 60 and 80 m ahead
+  // -- the middle and both pad lanes -- is not behind his own body, in every car. (The monster
+  // truck's cab hid every pad within 100 m.)
+  for (const id of ["oval"].concat(ids)) {
+    const m = await page.evaluate((id) => {
+      const L = window.__lp, S = L.state, T3 = window.THREE, RC = L.RC, out = {};
+      L.noRender = true; L.api.skipScreens();
+      for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+        L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+        L.spdReset(); L.rcStartRace(id, 34);
+        const R = L.race, him = R.him, Tk = R.track;
+        for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+        const field = R.racers.slice(); R.racers = [him];
+        let best = null, run = null;
+        for (const q of Tk.S) { if (Math.abs(q.kh) < 0.0005 && !q.dune) { if (!run) run = { a: q.s }; run.b = q.s; if (!best || run.b - run.a > best.b - best.a) best = run; } else run = null; }
+        him.s = Math.floor(him.s / Tk.len) * Tk.len + best.a + 5; him.lat = 0; him.v = 30;
+        // (the game's own camera, settled: two seconds down the straight in the chase view)
+        S.viewChase = true; L.noRender = false;
+        for (let i = 0; i < 120; i++) { S.touching = true; S.ctrlBank = 0; L.update(1 / 60); }
+        L.noRender = true;
+        const body = him.mesh || L.vehicleModel; body.updateMatrixWorld(true);   // (his body is the vehicle model)
+        const C = window.rcChaseCam(!!S.vp.monster), cam = L.camera.position.clone(), q = {}, hid = [], up = +(cam.y - S.y).toFixed(1), back = +Math.hypot(cam.x - S.x, cam.z - S.z).toFixed(1), v = +him.v.toFixed(1);
+        const eye = new T3.PerspectiveCamera(); eye.position.copy(cam); eye.updateMatrixWorld(true);
+        for (const ahead of [60, 80]) for (const lat of [0, 5, -5]) {
+          L.rcPoint(him.s + ahead, lat, q);
+          const p = new T3.Vector3(q.x, q.y + 0.1, q.z), d = p.distanceTo(cam);
+          const rc = new T3.Raycaster(cam, p.clone().sub(cam).normalize(), 0, d);
+          rc.camera = eye;                       // (a sprite on him -- the Corvette's flames -- is tested against a camera)
+          if (rc.intersectObject(body, true).some(h => !h.object.isSprite)) hid.push(ahead + "@" + lat);
+        }
+        out[veh] = { hid, straight: Math.round(best.b - best.a), camUp: up, camBack: back, v, tune: [C.back, C.up] };
+        R.racers = field; L.raceReset();
+      }
+      L.noRender = false;
+      return out;
+    }, id);
+    check(`race ${id}: his own car never hides the road he aims at -- from the chase camera on the longest straight, 60 and 80 m ahead in the middle and both pad lanes, hidden: ${Object.entries(m).map(([k, v]) => k + " " + (v.hid.join(",") || "none")).join("; ")}`,
+      Object.values(m).every(v => v.hid.length === 0 && v.straight >= 90 && Math.abs(v.camUp - v.tune[1]) < 1.5), J(m));
   }
 };

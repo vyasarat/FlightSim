@@ -50,6 +50,7 @@ entry below.
 | v168 | nothing he sees changes: holding the booster to the end of the motorway, he turns round and goes again with no bang from behind |  open |
 | v170 | he picks the dune card, and on the dunes he steers on purpose for the jumps and the dusty strip by the river, and asks for the "sand race" again |  open |
 | v171 | he leans on a barrier with his finger held and keeps going without complaining about the bumping; he does not discover that hugging the wall wins (he still steers for the pads) |  open |
+| v172 | in the monster truck he steers for the pads on a straight as often as in the other cars (he sees them coming); he does not say the monster view is "too high" |  open |
 
 ## Entries
 
@@ -61,6 +62,11 @@ Newest first. Copy the block.
 - Did again and again / said out loud:
 - Stuck, lost, bored, or broke:
 ```
+
+### 2026-10-19 — the build live today (v170/v171, the races) — from his dad
+- Went to first / stayed longest: the races (the oval and Desert Dunes).
+- Did again and again / said out loud: wants the tracks LONGER.
+- Stuck, lost, bored, or broke: nothing reported.
 
 ### 2026-10-03 — v138 — from his dad
 - Went to first / stayed longest: loved the new set-pieces; the giant toy track was the biggest hit.
