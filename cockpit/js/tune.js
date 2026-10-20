@@ -2454,6 +2454,51 @@ const TUNE = {
         { type: "turn", angle: -90, radius: 70 },
         { type: "straight", len: 210 },
       ] },
+      // TRACK 3 (v174): SNOWY PEAKS, up on the mountain range's spine east of the
+      // motorway (it crosses the range 650 m to the west; the stands face it). Raced EAST
+      // from the line on a cleared asphalt straight, then packed snow: an S, a snow jump,
+      // the frozen lake (ice, dead level), a long run to the east end, back west through
+      // the tunnel in the mountain, the icy hairpin down into the infield and out, the
+      // long north straight, an S, home. Snowbanks for walls, with marker poles. Closed by
+      // two straights solved for it (the long north straight and the west end's link).
+      // (Surveyed: the ground under it 60-100 m, all above the snow line; 1090 m from the
+      // oval, 369 m off the motorway.)
+      { id: "snow", site: { x: 900, z: -1380, heading: 270 },
+        pads: [{ m: 150, lat: 5 }, { m: 1150, lat: 5 }, { m: 1300, lat: -5 }, { m: 2180, lat: -5 }, { m: 2950, lat: 5 }, { m: 3300, lat: -5 }],
+        aiMul: 0.988,                     // (at 1.0 the noisy hand won 25%: the slippery bends cost his wobbling line more than theirs)
+        banks: true,                      // snowbanks for barriers (the same solids), red-and-white poles on them
+        // the frozen lake's bed, shaped into the ground (terrain.js rcLakeBed): level at `y`
+        // inside the ellipse -- `a` m along the track's heading either side of its middle,
+        // `b` m across -- and back to the mountain over `blend` m. Its middle is the lake
+        // section's, by the planar layout (race_track_checks p says it is, to a metre).
+        lakeBed: { x: 2203, z: -1420.19, heading: 270, a: 130, b: 55, y: 97, blend: 50 },
+        sections: [
+        { type: "straight", len: 300 },
+        { type: "turn", angle: 30, radius: 150, surface: "snow" },
+        { type: "turn", angle: -30, radius: 150, surface: "snow" },
+        { type: "straight", len: 80, surface: "snow", jump: { at: 0.5, up: 28, down: 22, h: 4 } },
+        { type: "straight", len: 120, surface: "snow" },
+        { type: "straight", len: 340, surface: "snow" },
+        { type: "straight", len: 243, surface: "snow" },
+        { type: "straight", len: 140, surface: "ice", lake: true },                         // across the frozen lake (lakeBed)
+        { type: "straight", len: 17, surface: "snow" },
+        { type: "turn", angle: 90, radius: 90, surface: "snow" },
+        { type: "straight", len: 100, surface: "snow" },
+        { type: "turn", angle: 90, radius: 90, surface: "snow" },
+        { type: "straight", len: 460, surface: "snow", tunnel: { from: 140, len: 200 } },   // through the mountain: `len` m of it under rock, from `from` m along
+        { type: "turn", angle: 90, radius: 60, surface: "snow" },
+        { type: "straight", len: 60, surface: "snow" },
+        { type: "turn", angle: -180, radius: 50, surface: "ice" },                          // the icy hairpin
+        { type: "straight", len: 60, surface: "snow" },
+        { type: "turn", angle: 90, radius: 60, surface: "snow" },
+        { type: "straight", len: 790, surface: "snow" },
+        { type: "turn", angle: -30, radius: 120, surface: "snow" },
+        { type: "turn", angle: 30, radius: 120, surface: "snow" },
+        { type: "turn", angle: 90, radius: 90, surface: "snow" },
+        { type: "straight", len: 172.3463, surface: "snow" },
+        { type: "turn", angle: 90, radius: 90, surface: "snow" },
+        { type: "straight", len: 200 },
+      ] },
     ],
     // (v170) WHAT THE TRACK IS MADE OF, per section (asphalt where it says nothing).
     // Each changes speed and grip a little -- the same for every car, his and theirs
@@ -2466,7 +2511,26 @@ const TUNE = {
       sand: { speed: 0.86, grip: 0.85, col: 0xd9c27e, art: "sand", spray: 0xd9c27e, every: 0.06, size: 0.4, rise: 1.4, life: 0.5, tone: ["raceSand", "triangle", 38, 0.014] },
       // deep dust, the shortcut's: shorter than the road round, and slower over it
       dust: { speed: 0.94, grip: 0.85, col: 0xa8a06b, art: "sand", spray: 0xa8a06b, every: 0.05, size: 0.42, rise: 1.6, life: 0.55, tone: ["raceDust", "triangle", 32, 0.016] },
+      // (v174) packed snow and ice: a bit slippery -- on a bend every car swings wide by up
+      // to `slideMax` m (`slide` s^2 times how hard the bend pulls, v^2 times its curvature),
+      // eased in and back out at `slideRate`, so hands-off he comes back to his line after
+      // it: lane-keep holds. The same for every racer.
+      snow: { speed: 0.9, grip: 0.8, slide: 0.16, slideMax: 2.5, slideRate: 1.2, col: 0xf2f4f7, art: "asphalt", spray: 0xf2f4f7, every: 0.08, size: 0.28, rise: 0.9, life: 0.4, ruts: true, rutCol: 0x8a93a0, tone: ["raceSnow", "square", 46, 0.008] },
+      ice: { speed: 0.86, grip: 0.7, slide: 0.24, slideMax: 3.5, slideRate: 1.0, col: 0xc9ced6, shine: 60, spray: 0xf2f4f7, every: 0.12, size: 0.22, rise: 0.6, life: 0.3, tone: ["raceIce", "triangle", 620, 0.004] },
     },
+    // (v174) a track's snowbanks (def.banks): a heap of snow outside each edge where the
+    // barrier would be (the barrier's own solids), `h` m high, `w` m across its foot, with
+    // a red-and-white marker pole every `poleStep` m; under a raised deck, snow down to
+    // the ground for `skirt` m (a road on a snow embankment, not on stilts)
+    banks: { h: 1.6, w: 4.5, poleStep: 24, poleH: 2.6, skirt: 14 },
+    // (v174) the tunnel: a lining `half` m from the line each side and `h` m high inside,
+    // lamps every `lampStep` m, the mountain heaped `over` m above the roof at its middle,
+    // falling to the ground `foot` m beyond the lining and `apron` m beyond each portal
+    tunnel: { half: 18.5, h: 12, lampStep: 16, over: 38, foot: 90, apron: 40, piece: 10, rockBelow: 0.5 },   // (rockBelow: a face whose normal is this far from up, or more, is rock; the rest snow)
+    // (v174) a frozen lake: the ice sheet `over` m above its bed (the deck stands RC.lift over it,
+    // so the road reads on it), and the deck eased on to its level over `along` m either side
+    lake: { over: 0.03, segs: 48, along: 50,
+            drifts: [[-0.8, -0.6, 0.5, 0.05], [-0.3, 0.45, 0.6, 0.04], [0.2, -0.75, 0.45, 0.05], [0.45, 0.6, 0.35, 0.06], [-0.6, 0.15, 0.25, 0.03], [0.05, -0.3, 0.3, 0.03]] },   // (snow blown across the ice: along, across, length -- fractions of the lake -- and width)
     spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8 },
     // (v170) dune jumps: a section's `jump` heaps a dune `h` m high on it, its crest
     // `at` of the way along, its face `up` m long and its back `down`. A car leaves

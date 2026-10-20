@@ -52,6 +52,7 @@ entry below.
 | v171 | he leans on a barrier with his finger held and keeps going without complaining about the bumping; he does not discover that hugging the wall wins (he still steers for the pads) |  open |
 | v172 | in the monster truck he steers for the pads on a straight as often as in the other cars (he sees them coming); he does not say the monster view is "too high" |  open |
 | v173 | he races whole races on the longer tracks without wandering off, and says nothing about them being too long or boring; on Desert Dunes he talks about the jumps (there are three now) |  open |
+| v174 | he picks the mountain card, says "snow" or "tunnel" out loud, and races Snowy Peaks more than once in a sitting; he notices the car sliding wide on the icy hairpin or the lake without calling it unfair or crashing into a bank |  open |
 
 ## Entries
 

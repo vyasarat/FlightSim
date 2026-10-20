@@ -46,7 +46,14 @@
 // (track.js tkSection/tkLay). Track 1 is an egg-shaped oval -- a gentle banked
 // turn at one end, a long sweeping bend at the other -- whose numbers close it
 // exactly (the harness checks the end meets the start). A later track adds
-// sections; it never edits this file.
+// sections; it edits this file only for a kind of thing no track had before.
+//
+// (v174, Snowy Peaks) SNOW AND ICE are a bit slippery: on a bend every racer swings
+// wide by the same amount, and comes back to its line after it -- lane-keep holds,
+// hands-off never reaches a bank. A track's SNOWBANKS are its barriers drawn as snow
+// (the same solids). Its TUNNEL is built over the deck, never cut into the ground,
+// and the chase camera stays inside it by v163's line test. Its FROZEN LAKE is ice on
+// a level bed shaped into the ground (terrain.js rcLakeBed) -- ice, never water.
 //
 // THE VENUE STANDS IN THE WORLD, seen in normal play: asphalt, kerbs, barriers,
 // grandstands (solid, as buildings are), flags, the start gantry with its three
@@ -97,6 +104,23 @@ function rcLayTrack(def) {
     for (let j = -K; j <= K; j++) m = Math.max(m, sm[(i + j + n) % n]);
     S[i].gy = m;
   }
+  // (v174) a frozen lake is dead level: its section at the highest the deck stands
+  // over it (its bed is level: terrain.js rcLakeBed), eased in over `along` m either
+  // side -- toward a height the deck is under there, so never under the ground
+  const lakes = [];
+  def.sections.forEach((sc, k) => {
+    if (!sc.lake) return;
+    let a = Infinity, b = -Infinity;
+    for (const q of S) if (q.sec === k) { a = Math.min(a, q.s); b = Math.max(b, q.s); }
+    const E = RC.lake.along;
+    let y = -Infinity;
+    for (const q of S) if (q.sec === k) y = Math.max(y, q.gy);
+    for (const q of S) {
+      const d = q.s < a ? a - q.s : q.s > b ? q.s - b : 0;
+      if (d < E) q.gy = lerp(q.gy, y, 1 - smoothstep(0, E, d));
+    }
+    lakes.push({ sec: k, a, b, y });
+  });
   // (v170) a track with jumps rides its slopes: the deck eased once more (the
   // highest-under-it pass leaves corners a car at speed would leave the deck on),
   // then its dunes heaped on it, and the slope kept for the cars to pitch with
@@ -124,7 +148,7 @@ function rcLayTrack(def) {
   S[n - 1].kh = S[n - 2].kh;
   const gap = Math.hypot(laid.end.p.x - start.p.x, laid.end.p.z - start.p.z);
   const turn = Math.abs(wrapPi(Math.atan2(laid.end.f.x, laid.end.f.z) - Math.atan2(start.f.x, start.f.z)));
-  return { def, S, len: pc.len, n, gap, turn, jumps };
+  return { def, S, len: pc.len, n, gap, turn, jumps, lakes };
 }
 
 // Where s metres along it is (s wraps by the lap): one sample's worth, interpolated.
@@ -259,7 +283,7 @@ function rcBuildVenue(def) {
   g.userData.noSolid = false;
   // ---- the deck, the kerbs and the barriers: three ribbons and a wall, one mesh each
   const deck = [], kerbR = [], kerbW = [], wall = [], line = [];
-  const decks = { asphalt: deck }, ruts = [], skirt = [];   // (v170) a deck per surface, asphalt's the one there always was
+  const decks = { asphalt: deck }, ruts = {}, skirt = [];   // (ruts: one mesh per colour, v174)   // (v170) a deck per surface, asphalt's the one there always was
   const at = (q, a, up) => [q.x + q.lx * a, q.gy + q.ly * a + (up || 0), q.z + q.lz * a];
   const quad = (arr, a, b, c, d) => { arr.push(...a, ...b, ...c, ...a, ...c, ...d); };
   for (let i = 0; i < n; i++) {
@@ -267,14 +291,14 @@ function rcBuildVenue(def) {
     quad(decks[a.sf] || (decks[a.sf] = []), at(a, -W), at(b, -W), at(b, W), at(a, W));
     const sf = RC.surfaces[a.sf] || RC.surfaces.asphalt;
     // a dune is ground, not a deck on stilts: its sides run down to the desert
-    if (a.dune || b.dune) for (const sd of [-1, 1]) {
+    if ((a.dune || b.dune) && !def.banks) for (const sd of [-1, 1]) {
       const e = sd * (W + KW + 0.4), o = sd * (W + KW + 0.4 + RC.jump.skirt);
       const ga = [a.x + a.lx * o, terrainEff(a.x + a.lx * o, a.z + a.lz * o) - 0.3, a.z + a.lz * o];
       const gb = [b.x + b.lx * o, terrainEff(b.x + b.lx * o, b.z + b.lz * o) - 0.3, b.z + b.lz * o];
       quad(skirt, at(a, e, -0.05), at(b, e, -0.05), gb, ga);
     }
     // dirt keeps the ruts of the cars before him, where the racing lines run
-    if (sf.ruts) for (const c of RC.rutLat) quad(ruts, at(a, c - RC.rutW / 2, 0.04), at(b, c - RC.rutW / 2, 0.04), at(b, c + RC.rutW / 2, 0.04), at(a, c + RC.rutW / 2, 0.04));
+    if (sf.ruts) { const rr = ruts[sf.rutCol || P.slate] || (ruts[sf.rutCol || P.slate] = []); for (const c of RC.rutLat) quad(rr, at(a, c - RC.rutW / 2, 0.04), at(b, c - RC.rutW / 2, 0.04), at(b, c + RC.rutW / 2, 0.04), at(a, c + RC.rutW / 2, 0.04)); }
     // kerbs on the bends, red and white every few metres, on both edges (asphalt's alone)
     const bend = Math.abs(a.kh) > 0.0015 && sf.kerbs;
     const red = Math.floor(a.s / RC.kerbStep) % 2 === 0;
@@ -283,7 +307,7 @@ function rcBuildVenue(def) {
       if (sf.kerbs && (bend || i % 4 < 2)) quad(k, at(a, sd * W, 0.04), at(b, sd * W, 0.04), at(b, sd * (W + KW), 0.04), at(a, sd * (W + KW), 0.04));
       // the barrier just outside the kerb, low and white with a red cap (open where a shortcut leaves it)
       const e = sd * (W + KW + 0.4), pe = at(a, e);
-      if (!T.sc.some(sc => rcOnSc(sc, pe[0], pe[2], 0.5))) quad(wall, pe, at(b, e), at(b, e, RC.wallH), at(a, e, RC.wallH));
+      if (!def.banks && !T.sc.some(sc => rcOnSc(sc, pe[0], pe[2], 0.5))) quad(wall, pe, at(b, e), at(b, e, RC.wallH), at(a, e, RC.wallH));   // (v174: a snow track's are its banks, rcBuildBanks)
     }
   }
   // the barriers are walls in the world, to anything that meets them out of a race
@@ -340,8 +364,16 @@ function rcBuildVenue(def) {
     const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; g.add(m); return m;
   };
   mk(deck, artPaint(new THREE.MeshLambertMaterial({ color: P.slate, side: THREE.DoubleSide }), "asphalt"));
-  for (const k in decks) if (k !== "asphalt") mk(decks[k], artPaint(new THREE.MeshLambertMaterial({ color: RC.surfaces[k].col, side: THREE.DoubleSide }), RC.surfaces[k].art));
-  if (ruts.length) mk(ruts, new THREE.MeshLambertMaterial({ color: P.slate, side: THREE.DoubleSide }));
+  for (const k in decks) if (k !== "asphalt") {
+    const sf = RC.surfaces[k];
+    // (v174) ice shines; everything else is matt
+    mk(decks[k], sf.shine ? new THREE.MeshPhongMaterial({ color: sf.col, shininess: sf.shine, specular: 0x8a93a0, side: THREE.DoubleSide })
+                          : artPaint(new THREE.MeshLambertMaterial({ color: sf.col, side: THREE.DoubleSide }), sf.art));
+  }
+  if (def.banks) rcBuildBanks(T, mk);
+  for (const lk of T.lakes) rcBuildLake(T, lk, mk);
+  def.sections.forEach((sc, k) => { if (sc.tunnel) rcBuildTunnel(T, k, sc.tunnel, g); });
+  for (const c in ruts) mk(ruts[c], new THREE.MeshLambertMaterial({ color: +c, side: THREE.DoubleSide }));
   if (skirt.length) mk(skirt, artPaint(new THREE.MeshLambertMaterial({ color: RC.surfaces.sand.col, side: THREE.DoubleSide }), "sand"));
   mk(kerbR, new THREE.MeshLambertMaterial({ color: P.red, side: THREE.DoubleSide }));
   mk(kerbW, new THREE.MeshLambertMaterial({ color: 0xf2f4f7, side: THREE.DoubleSide }));
@@ -415,8 +447,210 @@ function rcBuildVenue(def) {
   const cx = S.reduce((a, q) => a + q.x, 0) / n, cz = S.reduce((a, q) => a + q.z, 0) / n;
   for (let i = 0; i < n; i += 20) for (const f of [0.25, 0.5, 0.75]) claim.push({ x: lerp(S[i].x, cx, f), z: lerp(S[i].z, cz, f) });
   for (const st of race.stands) claim.push({ x: st.x, z: st.z });
+  for (const p of T.claimMore || []) claim.push(p);          // (v174) the lake's ice and the tunnel's mountain: nothing streamed on them
   hwyClaimCorridor(claim);
   hwyIndexCorridor();
+}
+
+// ---- (v174) the snow track's pieces ------------------------------------------------------
+const rcQuad = (arr, a, b, c, d) => { arr.push(...a, ...b, ...c, ...a, ...c, ...d); };
+// Snowbanks for barriers: a heap of snow just outside each edge, where the barrier's
+// own solids stand; a red-and-white marker pole on its crest every few metres; and from
+// its foot snow down to the ground, so a deck raised off it (a jump, a hollow) stands on
+// a snow embankment, never on nothing.
+function rcBuildBanks(T, mk) {
+  const S = T.S, n = T.n, B = RC.banks, W = RC.width / 2 + RC.kerbW;
+  const bank = [], red = [], white = [];
+  const at = (q, a, up) => [q.x + q.lx * a, q.gy + q.ly * a + (up || 0), q.z + q.lz * a];
+  const ground = (q, a) => { const x = q.x + q.lx * a, z = q.z + q.lz * a; return [x, terrainEff(x, z) - 0.3, z]; };
+  for (let i = 0; i < n; i++) {
+    const a = S[i], b = S[(i + 1) % n];
+    for (const sd of [-1, 1]) {
+      // (from the kerb's edge where there is one, from the deck's own edge where there is not)
+      const e0 = sd * ((RC.surfaces[a.sf] || RC.surfaces.asphalt).kerbs ? W : RC.width / 2), e1 = sd * (W + B.w * 0.4), e2 = sd * (W + B.w), e3 = sd * (W + B.w + B.skirt);
+      rcQuad(bank, at(a, e0, -0.05), at(b, e0, -0.05), at(b, e1, B.h), at(a, e1, B.h));
+      rcQuad(bank, at(a, e1, B.h), at(b, e1, B.h), at(b, e2, -0.05), at(a, e2, -0.05));
+      rcQuad(bank, at(a, e2, -0.05), at(b, e2, -0.05), ground(b, e3), ground(a, e3));
+    }
+  }
+  const pole = (p) => {
+    const r = 0.16, nb = 5, hb = B.poleH / nb, c = [[-r, -r], [r, -r], [r, r], [-r, r]];
+    for (let k = 0; k < nb; k++) {
+      const arr = k % 2 ? white : red, y0 = p[1] - 0.3 + k * hb, y1 = y0 + hb;
+      for (let j = 0; j < 4; j++) { const u = c[j], v = c[(j + 1) % 4]; rcQuad(arr, [p[0] + u[0], y0, p[2] + u[1]], [p[0] + v[0], y0, p[2] + v[1]], [p[0] + v[0], y1, p[2] + v[1]], [p[0] + u[0], y1, p[2] + u[1]]); }
+    }
+  };
+  const step = Math.max(1, Math.round(B.poleStep / TK.ds));
+  for (let i = 0; i < n; i += step) for (const sd of [-1, 1]) pole(at(S[i], sd * (W + B.w * 0.4), B.h));
+  mk(bank, new THREE.MeshLambertMaterial({ color: RC.surfaces.snow.col, side: THREE.DoubleSide }));
+  mk(red, new THREE.MeshLambertMaterial({ color: TUNE.palette.red }));
+  mk(white, new THREE.MeshLambertMaterial({ color: TUNE.palette.white }));
+}
+// A frozen lake: a level sheet of ice on its bed (terrain.js rcLakeBed), just under the
+// deck where the track crosses it, a darker band round its edge and a rim of snow. Not
+// water: the ground under it is dry, and nothing asks it what the sea is (CLAUDE.md:
+// water is one definition).
+function rcBuildLake(T, lk, mk) {
+  const L = RC.lake, Bd = T.def.lakeBed, hd = Bd.heading * DEG, cx = Bd.x, cz = Bd.z;
+  const tx = -Math.sin(hd), tz = -Math.cos(hd), lx = -Math.cos(hd), lz = Math.sin(hd);
+  const A = Bd.a, Bc = Bd.b, y = Bd.y + L.over;          // (on its bed: a car out of a race stands on it, not in it)
+  const ice = [], shore = [], rim = [], drift = [];
+  const P = (k, f) => { const t = 2 * Math.PI * k / L.segs; return [cx + (tx * Math.cos(t) * A + lx * Math.sin(t) * Bc) * f, cz + (tz * Math.cos(t) * A + lz * Math.sin(t) * Bc) * f]; };
+  for (let k = 0; k < L.segs; k++) {
+    const a = P(k, 1), b = P(k + 1, 1), a2 = P(k, 1.06), b2 = P(k + 1, 1.06);
+    ice.push(cx, y, cz, a[0], y, a[1], b[0], y, b[1]);
+    // its shore: snow from the ice's edge to the ground
+    rcQuad(shore, [a[0], y + 0.02, a[1]], [b[0], y + 0.02, b[1]], [b2[0], Math.max(y, terrainEff(b2[0], b2[1])) + 0.05, b2[1]], [a2[0], Math.max(y, terrainEff(a2[0], a2[1])) + 0.05, a2[1]]);
+    // a white band of frost round its edge
+    const a3 = P(k, 0.95), b3 = P(k + 1, 0.95);
+    rcQuad(rim, [a3[0], y + 0.01, a3[1]], [b3[0], y + 0.01, b3[1]], [b[0], y + 0.01, b[1]], [a[0], y + 0.01, a[1]]);
+  }
+  // streaks of snow blown across it, along the wind: what makes blue read as ICE, not water
+  for (const [u0, v0, len, w] of L.drifts) {
+    const p = (u, v) => [cx + tx * u * A + lx * v * Bc, y + 0.015, cz + tz * u * A + lz * v * Bc];
+    rcQuad(drift, p(u0, v0), p(u0 + len, v0 + 0.08), p(u0 + len, v0 + 0.08 + w), p(u0, v0 + w));
+  }
+  // blue, glossy: frozen water under the deck's pale ice road
+  mk(ice, new THREE.MeshPhongMaterial({ color: TUNE.palette.sea, shininess: RC.surfaces.ice.shine, specular: 0xc9ced6, side: THREE.DoubleSide }));
+  mk(rim, new THREE.MeshLambertMaterial({ color: TUNE.palette.white, side: THREE.DoubleSide }));
+  mk(drift, new THREE.MeshLambertMaterial({ color: TUNE.palette.white, side: THREE.DoubleSide }));
+  mk(shore, new THREE.MeshLambertMaterial({ color: RC.surfaces.snow.col, side: THREE.DoubleSide }));
+  const more = T.claimMore || (T.claimMore = []);
+  for (let u = -A; u <= A; u += 25) for (let v = -Bc; v <= Bc; v += 25) if ((u / A) ** 2 + (v / Bc) ** 2 <= 1.1) more.push({ x: cx + tx * u + lx * v, z: cz + tz * u + lz * v });
+}
+// The tunnel through the mountain: on a straight, `len` m of it under a mountain heaped
+// on the track -- an arched lining with lamps down both walls, a concrete portal at
+// each end, snow on the mountain's slopes and rock where they are steep. The lining and
+// the mountain are solid in the world (the camera keeps inside it: v163's line test).
+function rcBuildTunnel(T, k, tn, g) {
+  const C = RC.tunnel, S = T.S;
+  let a0 = Infinity; for (const q of S) if (q.sec === k) a0 = Math.min(a0, q.s);
+  const sA = a0 + tn.from, sB = sA + tn.len, sM = (sA + sB) / 2, half = C.half, H = C.h, yW = H * 0.55;
+  const q0 = Object.assign({}, rcAt(sM)), tx = q0.tx, tz = q0.tz, lx = q0.lx, lz = q0.lz;
+  const deckY = (s) => rcAt(clamp(s, a0, a0 + T.def.sections[k].len)).gy;
+  const W = (s, v, y) => { const q = rcAt(s); return [q.x + lx * v, y, q.z + lz * v]; };
+  // the lining's cross-section, left wall up, over, right wall down (lat, height)
+  const arch = [[half, 0], [half, yW]];
+  for (let j = 1; j < 12; j++) { const t = Math.PI * j / 12; arch.push([half * Math.cos(t), yW + (H - yW) * Math.sin(t)]); }
+  arch.push([-half, yW], [-half, 0]);
+  const lining = [], lamps = [], portal = [];
+  for (let s = sA; s < sB - 0.01; s += 4) {
+    const s2 = Math.min(sB, s + 4), y1 = deckY(s), y2 = deckY(s2);
+    for (let j = 0; j < arch.length - 1; j++) {
+      const p = arch[j], o = arch[j + 1];
+      rcQuad(lining, W(s, p[0], y1 + p[1]), W(s2, p[0], y2 + p[1]), W(s2, o[0], y2 + o[1]), W(s, o[0], y1 + o[1]));
+    }
+  }
+  for (let s = sA + C.lampStep / 2; s < sB; s += C.lampStep) for (const sd of [-1, 1]) {
+    const y = deckY(s) + 5.5, v = sd * (half - 0.25);
+    rcQuad(lamps, W(s - 1.6, v, y), W(s + 1.6, v, y), W(s + 1.6, v, y + 0.6), W(s - 1.6, v, y + 0.6));
+  }
+  for (const [s, f] of [[sA, -1], [sB, 1]]) {
+    const y = deckY(s);
+    for (let j = 0; j < arch.length - 1; j++) {
+      const p = arch[j], o = arch[j + 1], P2 = [p[0] * 1.14, p[1] * 1.12 + (p[1] > 0 ? 0 : 0)], O2 = [o[0] * 1.14, o[1] * 1.12];
+      rcQuad(portal, W(s, p[0], y + p[1]), W(s, o[0], y + o[1]), W(s + f * 0.5, O2[0], y + O2[1]), W(s + f * 0.5, P2[0], y + P2[1]));
+    }
+  }
+  const mkM = (arr, mat) => { const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(arr, 3)); geo.computeVertexNormals(); const m = new THREE.Mesh(geo, mat); m.receiveShadow = true; g.add(m); return m; };
+  // (lit: a tunnel he can see into from outside and see the cars in -- readability over realism)
+  mkM(lining, new THREE.MeshLambertMaterial({ color: TUNE.palette.concrete, emissive: TUNE.palette.concrete, emissiveIntensity: 0.6, side: THREE.DoubleSide }));
+  mkM(lamps, new THREE.MeshBasicMaterial({ color: TUNE.palette.warning, side: THREE.DoubleSide }));
+  mkM(portal, new THREE.MeshLambertMaterial({ color: TUNE.palette.grey, side: THREE.DoubleSide }));
+  // ---- the mountain over it: a height field in the track's frame, open in a cutting
+  // in front of each portal, snow where it is gentle and rock where it is steep
+  const Lh = tn.len / 2, Uo = Lh + C.apron, Vo = half + C.foot, cut = half + 3;
+  const uN = [], vN = [];
+  for (let u = -Uo; u <= Uo + 0.01; u += 8) uN.push(u);
+  uN.push(-Lh, Lh, -Lh - 0.05, Lh + 0.05); uN.sort((a, b) => a - b);
+  for (let v = -Vo; v <= Vo + 0.01; v += 8) if (Math.abs(v) > cut) vN.push(v);
+  vN.push(-cut, cut, -half - 1, half + 1);
+  for (const p of arch) vN.push(p[0] * 1.14);                 // (the portal's outline: the face over it meets it exactly)
+  vN.sort((a, b) => a - b);
+  const open = (u, v) => Math.abs(u) > Lh && Math.abs(v) < cut - 0.01;
+  // the portal ring's outer edge over the deck, at lat v (the arch scaled as the ring is)
+  const ringY = (v) => {
+    const w = Math.abs(v) / 1.14;
+    if (w >= half) return 0;
+    return 1.12 * (w <= half * 0.001 ? H : yW + (H - yW) * Math.sqrt(Math.max(0, 1 - (w / half) ** 2)));
+  };
+  const hy = (u, v) => {
+    const wq = rcAt(sM + u), x = wq.x + lx * v, z = wq.z + lz * v, gr = terrainEff(x, z) - 0.5;
+    if (open(u, v)) return gr;
+    const top = deckY(sM + u) + H + 1.5 + C.over * Math.pow(Math.cos(Math.PI / 2 * Math.min(1, Math.abs(v) / Vo)), 2) * (1 - 0.35 * Math.min(1, (u / Uo) ** 2));
+    const fV = 1 - smoothstep(half + 2, Vo, Math.abs(v)), fU = 1 - smoothstep(Lh, Uo, Math.abs(u));
+    return Math.max(gr, lerp(gr, top, Math.min(fV, fU)));
+  };
+  const Y = uN.map(u => vN.map(v => hy(u, v)));
+  const pos = [], col = [], cSnow = new THREE.Color(RC.surfaces.snow.col), cRock = new THREE.Color(TUNE.palette.grey);   // (grey, not slate: the dark mouth is what must stand out)
+  const vtx = (i, j) => { const wq = rcAt(sM + uN[i]); return [wq.x + lx * vN[j], Y[i][j], wq.z + lz * vN[j]]; };
+  const tri = (a, b, c) => {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz) || 1;
+    const k = Math.abs(ny / nl) < C.rockBelow ? cRock : cSnow;
+    pos.push(...a, ...b, ...c); for (let r = 0; r < 3; r++) col.push(k.r, k.g, k.b);
+  };
+  // (a height field cannot overhang: the cells over each cutting are left out, and its
+  // walls and the face over each portal are built standing)
+  for (let i = 0; i < uN.length - 1; i++) for (let j = 0; j < vN.length - 1; j++) {
+    if (open(uN[i], vN[j]) || open(uN[i + 1], vN[j]) || open(uN[i], vN[j + 1]) || open(uN[i + 1], vN[j + 1])) continue;
+    if (Math.abs(vN[j] + vN[j + 1]) / 2 < cut && (uN[i] + uN[i + 1]) / 2 < -Lh || (uN[i] + uN[i + 1]) / 2 > Lh && Math.abs(vN[j] + vN[j + 1]) / 2 < cut) continue;
+    const a = vtx(i, j), b = vtx(i + 1, j), c = vtx(i + 1, j + 1), d = vtx(i, j + 1);
+    tri(a, b, c); tri(a, c, d);
+  }
+  const iA = uN.indexOf(-Lh), iB = uN.indexOf(Lh);
+  for (let j = 0; j < vN.length - 1; j++) {
+    if (Math.abs(vN[j]) > cut + 0.01 || Math.abs(vN[j + 1]) > cut + 0.01) continue;
+    for (const i of [iA, iB]) {
+      const s = sM + uN[i], y = deckY(s);
+      const b0 = W(s, vN[j], y + ringY(vN[j])), b1 = W(s, vN[j + 1], y + ringY(vN[j + 1]));
+      tri(b0, b1, vtx(i, j + 1)); tri(b0, vtx(i, j + 1), vtx(i, j));
+    }
+  }
+  for (const sd of [-1, 1]) {
+    const j = vN.indexOf(sd * cut);
+    for (let i = 0; i < uN.length - 1; i++) {
+      if (Math.abs(uN[i]) < Lh - 0.01 || Math.abs(uN[i + 1]) < Lh - 0.01) continue;
+      const g0 = rcAt(sM + uN[i]), g1 = rcAt(sM + uN[i + 1]);
+      const p0 = [g0.x + lx * sd * cut, terrainEff(g0.x + lx * sd * cut, g0.z + lz * sd * cut) - 0.5, g0.z + lz * sd * cut];
+      const p1 = [g1.x + lx * sd * cut, terrainEff(g1.x + lx * sd * cut, g1.z + lz * sd * cut) - 0.5, g1.z + lz * sd * cut];
+      tri(p0, p1, vtx(i + 1, j)); tri(p0, vtx(i + 1, j), vtx(i, j));
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  const mt = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, specular: 0x000000, side: THREE.DoubleSide }));
+  mt.receiveShadow = true; g.add(mt);   // (it casts no shadow: under it the road and the cars stay as bright as outside)
+  // ---- its solids, in the track's frame: the lining's walls, and the mountain in
+  // pieces -- over the roof down to it, beside the lining down to the ground (each
+  // piece's top the lowest of the mountain over it: never a wall where there is air)
+  const U = [tx, 0, tz], V = [0, 1, 0], Wv = [lx, 0, lz];
+  for (let s = sA; s < sB - 0.01; s += C.piece) {
+    const s2 = Math.min(sB, s + C.piece), y = Math.min(deckY(s), deckY(s2)), m = rcAt((s + s2) / 2);
+    for (const sd of [-1, 1]) solidBox3(m.x + lx * sd * (half + 0.4), y + H / 2, m.z + lz * sd * (half + 0.4), U, V, Wv, (s2 - s) / 2, H / 2 + 0.5, 0.4, "wall");
+  }
+  const cells = [[-Vo * 0.8, -half - 1], [-half - 1, half + 1], [half + 1, Vo * 0.8]];
+  for (let u = -Uo; u < Uo - 0.01; u += C.piece * 2) {
+    const u2 = Math.min(Uo, u + C.piece * 2);
+    for (const [v0, v1] of cells) {
+      const roof = v0 < 0 && v1 > 0;
+      if (roof && (u < -Lh || u2 > Lh)) continue;                  // (the cutting in front of a portal is open)
+      let top = Infinity, gr = Infinity;
+      for (const uu of [u, (u + u2) / 2, u2]) for (const vv of [v0, (v0 + v1) / 2, v1]) {
+        if (open(uu, vv)) continue;
+        top = Math.min(top, hy(uu, vv)); const wq = rcAt(sM + uu); gr = Math.min(gr, terrainEff(wq.x + lx * vv, wq.z + lz * vv));
+      }
+      const bot = roof ? deckY(sM + (u + u2) / 2) + H : gr - 1;
+      if (!(top - 0.5 > bot + 0.5)) continue;
+      const m = rcAt(sM + (u + u2) / 2), vc = (v0 + v1) / 2;
+      solidBox3(m.x + lx * vc, (top - 0.5 + bot) / 2, m.z + lz * vc, U, V, Wv, (u2 - u) / 2, (top - 0.5 - bot) / 2, (v1 - v0) / 2, roof ? "wall" : "rock");
+    }
+  }
+  const more = T.claimMore || (T.claimMore = []);
+  for (let u = -Uo; u <= Uo; u += 20) for (let v = -Vo; v <= Vo; v += 20) { const wq = rcAt(sM + u); more.push({ x: wq.x + lx * v, z: wq.z + lz * v }); }
+  T.tunnels = (T.tunnels || []).concat([{ sA, sB, half, h: H }]);
 }
 
 // The stands: stepped tiers in the palette's seat colours under a roof, outside
@@ -887,6 +1121,13 @@ function rcMove(r, dt) {
   if (r.path) { rcMoveSc(r, dt); return; }
   const q = rcAt(r.s);
   r.lat += r.latV * dt;
+  // (v174) snow and ice: on a bend every car swings wide -- by how hard the bend pulls,
+  // up to the surface's `slideMax` -- and comes back to its line as it straightens: the
+  // slip eases in and out, so hands-off he is back where he was (lane-keep holds)
+  const sl = rcSurfAt(r.s), slip0 = r.slip || 0;
+  const slipTo = sl.slide && !r.air ? -Math.sign(q.kh) * Math.min(sl.slideMax, sl.slide * r.v * r.v * Math.abs(q.kh)) : 0;
+  r.slip = slip0 + (slipTo - slip0) * Math.min(1, (sl.slideRate || RC.surfaces.snow.slideRate) * dt);
+  r.lat += r.slip - slip0;
   const lim = RC.width / 2 - r.wid / 2 - 0.2;
   // (held to a shortcut's side through its approach, that edge is its way in, not a barrier)
   rcEdge(r, lim, dt, () => r.scw && race.track.sc.some(sc => { const w = r.scw.get(sc); return sc.side === Math.sign(r.lat) && w && w.on && w.ok; }));

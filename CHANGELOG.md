@@ -10,6 +10,74 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v174 — Snowy Peaks
+
+The third race track, the one he asked for after the dunes. Its card in the track picker
+shows two snowy mountains with a tunnel in the big one and a track coming out of it. It
+stands up on the mountain range east of the motorway, 650 m from where the motorway crosses
+the range; the grandstands face the motorway, so he can see it from the road in normal play.
+A lap is 4.3 km and takes about two minutes (122-125 s alone, in every car); a race is three
+laps.
+
+**What it is made of.** The start straight is cleared asphalt. The rest is packed snow, and
+the icy hairpin and the frozen lake are ice:
+- snow is a little slower (0.9) and ice slower still (0.86), the same for every car;
+- both are **a bit slippery**: on a bend every car swings wide (up to 2.5 m on snow and 3.5 m
+  on ice) and slides back to its line after the bend. With his finger down and no steer, he
+  never reaches a bank, and he is back on his line before the next bend. It is the same for
+  him and the other cars;
+- white puffs of snow from the wheels, grey wheel tracks in the snow, a crunch under him on
+  snow and a hiss on ice.
+
+**What is on it.** From the line:
+- an S;
+- a snow jump (the same jump in every car, about a second in the air);
+- a long climb;
+- the frozen lake: a blue lake of ice with white streaks of snow blown across it and a pale
+  ice road over it. Its bed is shaped level into the mountain (`terrain.js` `rcLakeBed`), so
+  the ice lies flat in the ground and not on a bank. It is ice, not water: the ground under
+  it is dry;
+- round the east end;
+- **the tunnel through the mountain**: 200 m under a snowy mountain heaped over the track,
+  with an arched lining lit by lamps down both walls and a portal at each end. It is lit
+  inside so he can see the cars in it. The mountain and the lining are solid in the world.
+  In every car (the monster truck too), the chase camera stays inside the tunnel with his
+  car in sight;
+- the icy hairpin, down into the infield and out;
+- the long north straight with two boost pads;
+- an S, and home.
+
+The walls are **snowbanks**: a heap of snow at each edge with red-and-white marker poles on
+it. They are the same barriers as on the other tracks (a thump on a fresh hit, a quiet glide
+when he holds into one). Where the road stands above the ground, snow runs down from the bank
+to the ground.
+
+**Who wins.** At full strength the noisy hand won only 25%. The slippery bends cost his
+wobbling line more than theirs, so the opponents here run at `aiMul` 0.988. 20 races per car
+on each of two seeds:
+
+| | noisy hand | wall-hugger |
+|---|---|---|
+| Snowy Peaks | 79/160 (49%) | 30/160 (19%) |
+
+Per car, noisy: SUV 20/40, Cybertruck 17/40, Corvette 16/40, monster truck 26/40. 0 bangs,
+0 stuck. The worst gap is 3.28 s.
+
+**Unchanged.** The oval and Desert Dunes are untouched. Their geometry and 32 pinned races
+(16 per track, every car) are identical before and after.
+
+`race_track_checks`, new checks:
+- (n) snow and ice swing every car wide by the same amount and back to its line, never into a
+  bank, while nothing on the other tracks swings at all;
+- (o) the tunnel is roofed all through, the mountain is solid beside it and the road in front
+  of each portal is open; the camera stays inside it in every car;
+- (p) the frozen lake's crossing sits on the middle of its bed, its deck is dead level and
+  the bed is level and dry;
+- the seat and gauge pitch off a jump is now checked on any track with a jump, not only one
+  with a shortcut.
+
+---
+
 ## v173 — longer tracks
 
 From his playtest: he wants the tracks LONGER. A lap on either track now takes about two
