@@ -63,7 +63,7 @@ very finely here: at the next step up he won 19%. 20 races per car on each of tw
 
 The lowest noisy-hand car is the monster truck on the oval, 15/40; two more seeds put it at 34/80 (42%). 0 bangs, 0 stuck. The worst gap is 3.55 s.
 
-HARNESS_LINE
+Law-reviewer PASS (round 2), render-critic PASS (round 2). Full harness 1121/1121.
 
 ---
 
