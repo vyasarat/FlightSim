@@ -10,6 +10,63 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v173 — longer tracks
+
+From his playtest: he wants the tracks LONGER. A lap on either track now takes about two
+minutes, not 45 seconds, and a race is still three laps (about five and a half minutes).
+Both grew by new sections, not by stretching the old ones. The oval is really a new layout:
+the old one sat between the motorway and its start line, with no room to grow.
+
+**The oval**, 1.7 km to 4.6 km. The start line, the grandstands and the gantry are where they
+were, but the race now runs the OTHER WAY, south from the line, so its left-hand turns take
+it east onto open ground (the motorway is to the west). It keeps a banked turn and the big
+sweeper, but every section is new. From the line:
+- the banked turn;
+- a long second straight with two pads;
+- an S-bend;
+- the big sweeper;
+- a chicane;
+- a hairpin that dips into the infield;
+- the run home.
+
+Laps take 119-122 s in every car.
+
+**Desert Dunes**, 1.7 km to 4.5 km. It leaves the line as before, up the dirt hairpin over
+the first dune to the canyon's rim, and west along it on sand. Then:
+- the paved bulge into the infield, now bigger: its dusty shortcut is twice as long, 403 m
+  against 192;
+- half a kilometre more along the rim;
+- a long dirt run down over two more dunes (three jumps in all, each the same jump);
+- a new asphalt straight back east, with two pads;
+- a sandy S;
+- a dirt climb up to the line.
+
+Laps take 126-128 s. Because more of the shortcut is now on dust, the dust is faster
+(0.94), which keeps the shortcut about 0.4 s quicker than the inside line: never a cheat.
+
+Both layouts were drawn on a 50 m map of the ground first, and are closed exactly by two
+straights solved for them. Both are dry by over 2 m past their barriers, at least 511 m from
+the motorway, out of the cities, and 1.2 km apart. The pads, the stands and the podium are
+now placed in metres from the line, not as a fraction of the lap, so they stay where they
+were (a longer lap would have spread them out). The checks now expect a lap of 90 to
+150 s, on the oval too. Before, they said "under a minute"; the parent dropped that, and the
+next three tracks will be built at this length.
+
+**Who wins.** Over a two-minute lap the noisy finger pulled away on the dunes (85% wins), so
+the dunes' opponents are now at full strength (`aiMul` 1.0, was 0.98). Win rates measure
+very finely here: at the next step up he won 19%. 20 races per car on each of two seeds:
+
+| | noisy hand | wall-hugger |
+|---|---|---|
+| Oval | 72/160 (45%) | 15/160 (9%) |
+| Dunes | 78/160 (49%) | 3/160 (2%) |
+
+The lowest noisy-hand car is the monster truck on the oval, 15/40; two more seeds put it at 34/80 (42%). 0 bangs, 0 stuck. The worst gap is 3.55 s.
+
+HARNESS_LINE
+
+---
+
 ## v172 — the monster truck sees the pads coming
 
 v171's render review found it. In a race the monster truck's chase camera sat 26 m behind

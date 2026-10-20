@@ -13,6 +13,7 @@
 //   fork / shortcut   (v170) where the shortcut leaves the road, and half-way along it
 //   dune / landing / pad / hairpin   (v170) a dune ahead, a landing, a boost pad, a dirt hairpin
 //   padAhead          (v171) a boost pad about 80 m ahead, him down the middle: what he sees to aim
+//   at:<m> / atSeat:<m>  (v173) him down the middle, settled, at that many metres along the lap
 //   jump / jumpSeat   (v170) off a dune, near the top of the flight
 //   glide / glideSeat (v171) held full into the left barrier for three seconds: riding along it
 //   TRACK=dunes renders that track (the oval if unset)
@@ -83,6 +84,18 @@ async function render(root, views) {
         }
         window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
         note.path = !!him.path; note.lat = +him.lat.toFixed(1);
+        return note;
+      }
+      if (v.startsWith("at:") || v.startsWith("atSeat:")) {
+        // (v173) anywhere on the lap: him down the middle at his speed, 90 m short of it, for 2.5 s
+        const T = R.track, m = +v.split(":")[1];
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him, base = Math.floor(him.s / T.len) * T.len;
+        him.s = base + m - 90; him.lat = 0; him.v = L.RC.v * 0.95;
+        for (const r of R.racers) if (!r.isHim) { r.s = him.s - 40 - r.i * 14; r.v = him.v * 0.9; r.lat = (r.i % 2 ? -1 : 1) * 5; }   // (behind him: the road ahead is the subject)
+        go(Math.round(60 * 2.5), 0, 0);
+        window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+        note.s = Math.round(him.s - base); note.air = !!him.air;
         return note;
       }
       if (v === "glide" || v === "glideSeat") {

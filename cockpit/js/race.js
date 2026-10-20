@@ -250,7 +250,7 @@ function rcUse(id) {
   for (const k of RC_VENUE) race[k] = v[k];
 }
 // where on the lap its podium stands (a fraction of it)
-function rcPodiumS(def) { return (def && def.podiumS !== undefined ? def.podiumS : RC.podium.s); }
+function rcPodiumM(def) { return (def && def.podiumM !== undefined ? def.podiumM : RC.podium.m); }   // (v173: metres from the line)
 function rcBuildVenue(def) {
   race.track = rcLayTrack(def);
   race.track.sc = (def.shortcuts || []).map(rcLayShortcut);
@@ -355,7 +355,7 @@ function rcBuildVenue(def) {
     mk(strip, new THREE.MeshBasicMaterial({ color: 0x1f2328, side: THREE.DoubleSide }));
   }
   // ---- the boost pads: bright chevrons he aims at (never painted: he acts on them)
-  race.pads = (def.pads || RC.pads).map(p => ({ s: p.s * T.len, lat: p.lat }));
+  race.pads = (def.pads || RC.pads).map(p => ({ s: p.m, lat: p.lat }));   // (v173: metres)
   {
     const chev = [];
     for (const pd of race.pads) {
@@ -428,7 +428,7 @@ function rcBuildStands() {
   const off = RC.width / 2 + RC.kerbW + St.back, D = St.depth, L = St.len, H = St.rise;
   race.stands = [];
   for (let k = 0; k < St.count; k++) {
-    const q = rcAt((St.from + k * St.step) * T.len);
+    const q = rcAt(St.from + k * St.step);   // (v173: metres from the line)
     race.stands.push({ q: { x: q.x, z: q.z, lx: q.lx, lz: q.lz, tx: q.tx, tz: q.tz, gy: q.gy }, x: q.x - q.lx * (off + D / 2), z: q.z - q.lz * (off + D / 2) });
   }
   const x0 = race.stands[0].x, z0 = race.stands[0].z, yg = terrainEff(x0, z0) - 0.5;
@@ -457,7 +457,7 @@ function rcBuildStands() {
 // The podium: three steps on the infield beside the line, gold in the middle
 // (the tallest), silver to its left, bronze to its right, facing the track.
 function rcBuildPodium() {
-  const q = rcAt(rcPodiumS(race.track.def) * race.track.len);
+  const q = rcAt(rcPodiumM(race.track.def));
   const off = RC.width / 2 + RC.kerbW + RC.podium.back;
   const cx = q.x + q.lx * off, cz = q.z + q.lz * off, gy = terrainEff(cx, cz);
   const g = new THREE.Group();
@@ -525,7 +525,7 @@ function rcBuildFlags() {
   for (let s = 0; s < T.len; s += RC.flagStep) {
     const q = rcAt(s);
     if (Math.abs(q.kh) < 0.0015 && s > 120) continue;
-    if (Math.abs(s - rcPodiumS(T.def) * T.len) < 60) continue;          // nothing between the podium and the camera
+    if (Math.abs(s - rcPodiumM(T.def)) < 60) continue;          // nothing between the podium and the camera
     const side = q.kh > 0 ? -1 : 1;               // the outside of the bend
     const off = side * (RC.width / 2 + RC.kerbW + 3);
     const x = q.x + q.lx * off, z = q.z + q.lz * off, y = terrainEff(x, z);
@@ -1086,7 +1086,7 @@ function rcToPodium() {
   // the straight in front of it for his cheer, and stops there
   for (const r of race.racers) if (!r.isHim && !top.includes(r) && r.mesh) r.mesh.visible = false;
   if (!race.podium.onStep) {
-    const L = race.track.len, ps = rcPodiumS(race.track.def) * L;
+    const L = race.track.len, ps = rcPodiumM(race.track.def);
     const base = Math.floor(him.s / L) * L;
     him.s = base + ps - RC.podium.parade; him.lat = RC.width / 2 - 2.5; him.latV = 0; him.v = RC.podium.paradeV; him.yaw = 0; him.path = null; him.air = false;
     race.paradeStop = base + ps + RC.podium.stopPast + (state.vp.monster ? RC.podium.giantPast : 0);   // (the giant stops further on, or it hides the steps)
