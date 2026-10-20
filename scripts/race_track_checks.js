@@ -389,9 +389,10 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         for (let s = tn.sA + 5; s < tn.sB - 5; s += 10) { roofN++; if (solidAt(...at(s, 0, C.h + 3))) roofed++; if (solidAt(...at(s, C.half + 12, 3))) side++; }
         for (const s of [tn.sA - 15, tn.sB + 15]) for (const up of [3, C.h + 3, C.h + 15]) if (!solidAt(...at(s, 0, up))) frontOpen++;
         out.roof = roofed + "/" + roofN; out.side = side + "/" + roofN; out.frontOpen = frontOpen + "/6";
-        for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+        // (portrait, the chase view in every car and his seat in two: the views he is really in)
+        for (const [veh, chase] of [["car", true], ["cybertruck", true], ["corvette", true], ["monster", true], ["car", false], ["monster", false]]) {
           L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
-          L.spdReset(); L.api.setView(true); L.rcStartRace(id, 36);
+          L.spdReset(); L.api.setView(chase); L.rcStartRace(id, 36);
           const R = L.race, him = R.him, field = R.racers.slice(); R.racers = [him];
           for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
           const base = Math.floor(him.s / T.len) * T.len + T.len;
@@ -408,12 +409,13 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
             const deck = L.rcPoint(u + rel[0] * d.tx + rel[1] * d.tz, 0, {}).y;
             const bad = c.y > deck + C.h - 0.3 || Math.abs(lat) > C.half - 0.3 || solidAt(c.x, c.y, c.z);
             if (bad) { out1++; if (!worst) worst = { u: Math.round(u), up: +(c.y - deck).toFixed(1), lat: +lat.toFixed(1), in: solidAt(c.x, c.y, c.z) }; }
-            if (window.solidSight(c.x, c.y, c.z, S.x, S.y + 1.5, S.z, 0.3, ["wall", "building", "rock"]) < 0.98) hidden++;
+            if (chase && window.solidSight(c.x, c.y, c.z, S.x, S.y + 1.5, S.z, 0.3, ["wall", "building", "rock"]) < 0.98) hidden++;
           }
           L.noRender = true;
-          out.cars[veh] = { frames, outside: out1, hidden, worst };
+          out.cars[veh + (chase ? "" : "@seat")] = { frames, outside: out1, hidden, worst };
           R.racers = field; L.raceReset();
         }
+        L.api.setView(true);
         L.noRender = false;
         return out;
       }, id);

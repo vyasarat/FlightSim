@@ -2522,11 +2522,12 @@ const TUNE = {
     // barrier would be (the barrier's own solids), `h` m high, `w` m across its foot, with
     // a red-and-white marker pole every `poleStep` m; under a raised deck, snow down to
     // the ground for `skirt` m (a road on a snow embankment, not on stilts)
-    banks: { h: 1.6, w: 4.5, poleStep: 24, poleH: 2.6, skirt: 14 },
+    banks: { h: 1.6, lakeH: 0.5, w: 4.5, poleStep: 24, poleH: 2.6, skirt: 14 },   // (lakeH: over the frozen lake, low enough to see the ice past from the seat)
     // (v174) the tunnel: a lining `half` m from the line each side and `h` m high inside,
     // lamps every `lampStep` m, the mountain heaped `over` m above the roof at its middle,
     // falling to the ground `foot` m beyond the lining and `apron` m beyond each portal
-    tunnel: { half: 18.5, h: 12, lampStep: 16, over: 38, foot: 90, apron: 40, piece: 10, rockBelow: 0.5 },   // (rockBelow: a face whose normal is this far from up, or more, is rock; the rest snow)
+    tunnel: { half: 18.5, h: 16, lampStep: 16, over: 38, foot: 90, apron: 40, piece: 10, rockBelow: 0.5,
+              camFrom: 60, camUnder: 3.5 },   // (the chase camera at most h - camUnder up from camFrom m before the portal until it is out)   // (rockBelow: a face whose normal is this far from up, or more, is rock; the rest snow)
     // (v174) a frozen lake: the ice sheet `over` m above its bed (the deck stands RC.lift over it,
     // so the road reads on it), and the deck eased on to its level over `along` m either side
     lake: { over: 0.03, segs: 48, along: 50,

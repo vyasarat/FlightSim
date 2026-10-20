@@ -319,8 +319,10 @@ function rcBuildVenue(def) {
       const e = sd * (W + KW + 0.4), p0 = at(a, e), p1 = at(b, e);
       if (T.sc.some(sc => rcOnSc(sc, p0[0], p0[2], 0.5) || rcOnSc(sc, p1[0], p1[2], 0.5))) continue;
       const dx = p1[0] - p0[0], dz = p1[2] - p0[2], L = Math.hypot(dx, dz) || 1;
-      solidBox3((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + RC.wallH / 2 - 0.25, (p0[2] + p1[2]) / 2,
-                [dx / L, 0, dz / L], [0, 1, 0], [-dz / L, 0, dx / L], L / 2 + 0.3, RC.wallH / 2 + 0.25, 0.3, "wall");
+      // (v174: a snowbank's solid is as tall as the bank drawn over it -- its crest stands on this line)
+      const wh = def.banks ? (def.sections[a.sec].lake ? RC.banks.lakeH : RC.banks.h) : RC.wallH;
+      solidBox3((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + wh / 2 - 0.25, (p0[2] + p1[2]) / 2,
+                [dx / L, 0, dz / L], [0, 1, 0], [-dz / L, 0, dx / L], L / 2 + 0.3, wh / 2 + 0.25, 0.3, "wall");
     }
   }
   // the shortcuts: a deck of their own surface where they leave the road, barriers
@@ -465,11 +467,12 @@ function rcBuildBanks(T, mk) {
   const ground = (q, a) => { const x = q.x + q.lx * a, z = q.z + q.lz * a; return [x, terrainEff(x, z) - 0.3, z]; };
   for (let i = 0; i < n; i++) {
     const a = S[i], b = S[(i + 1) % n];
+    const bh = T.def.sections[a.sec].lake ? B.lakeH : B.h;   // (low over the lake: from his seat he sees the ice)
     for (const sd of [-1, 1]) {
       // (from the kerb's edge where there is one, from the deck's own edge where there is not)
-      const e0 = sd * ((RC.surfaces[a.sf] || RC.surfaces.asphalt).kerbs ? W : RC.width / 2), e1 = sd * (W + B.w * 0.4), e2 = sd * (W + B.w), e3 = sd * (W + B.w + B.skirt);
-      rcQuad(bank, at(a, e0, -0.05), at(b, e0, -0.05), at(b, e1, B.h), at(a, e1, B.h));
-      rcQuad(bank, at(a, e1, B.h), at(b, e1, B.h), at(b, e2, -0.05), at(a, e2, -0.05));
+      const e0 = sd * ((RC.surfaces[a.sf] || RC.surfaces.asphalt).kerbs ? W : RC.width / 2), e1 = sd * (W + 0.4), e2 = sd * (W + B.w), e3 = sd * (W + B.w + B.skirt);   // (its crest where the barrier's solid stands)
+      rcQuad(bank, at(a, e0, -0.05), at(b, e0, -0.05), at(b, e1, bh), at(a, e1, bh));
+      rcQuad(bank, at(a, e1, bh), at(b, e1, bh), at(b, e2, -0.05), at(a, e2, -0.05));
       rcQuad(bank, at(a, e2, -0.05), at(b, e2, -0.05), ground(b, e3), ground(a, e3));
     }
   }
@@ -481,7 +484,11 @@ function rcBuildBanks(T, mk) {
     }
   };
   const step = Math.max(1, Math.round(B.poleStep / TK.ds));
-  for (let i = 0; i < n; i += step) for (const sd of [-1, 1]) pole(at(S[i], sd * (W + B.w * 0.4), B.h));
+  const pm = rcPodiumM(T.def);
+  for (let i = 0; i < n; i += step) for (const sd of [-1, 1]) {
+    if (sd > 0 && Math.abs(S[i].s - pm) < RC.podium.w * 3) continue;          // (nothing between the podium and its camera)
+    pole(at(S[i], sd * (W + 0.4), T.def.sections[S[i].sec].lake ? B.lakeH : B.h));
+  }
   mk(bank, new THREE.MeshLambertMaterial({ color: RC.surfaces.snow.col, side: THREE.DoubleSide }));
   mk(red, new THREE.MeshLambertMaterial({ color: TUNE.palette.red }));
   mk(white, new THREE.MeshLambertMaterial({ color: TUNE.palette.white }));
@@ -1606,7 +1613,7 @@ function raceCamera(dt) {
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   const mon = !!state.vp.monster;
   if (state.viewChase) {
-    const C = rcChaseCam(mon), back = C.back, up = C.up;
+    const C = rcChaseCam(mon), back = C.back, up = Math.min(C.up, rcTunnelCamUp(him, back));
     // (v170) off a dune the camera keeps to the ground under him, so he is SEEN to fly
     const yb = him && him.air ? rcPoint(him.s, him.lat, rcPC).y : state.y;
     camDesired.set(state.x - fx * back, yb + up, state.z - fz * back);
@@ -1646,6 +1653,18 @@ function raceCamera(dt) {
   }
 }
 
+// (v174) In a tunnel -- from a little before its portal until the camera behind him
+// is out of it -- the chase camera comes down under its roof (the monster truck's sits
+// 19 m up: cut short by the roof it landed on its own cab and hid the road).
+function rcTunnelCamUp(him, back) {
+  const T = race.track;
+  if (!him || !T.tunnels) return Infinity;
+  for (const tn of T.tunnels) {
+    const u = rcAhead(him.s, tn.sA - RC.tunnel.camFrom);
+    if (u < tn.sB - tn.sA + RC.tunnel.camFrom + back + 10) return RC.tunnel.h - RC.tunnel.camUnder;
+  }
+  return Infinity;
+}
 // The chase camera's place, per body. (v172) The monster truck's sits higher: from
 // 11 m up its own cab hid every pad within 100 m ahead -- three seconds of road, the
 // whole of his time to aim at one (race_track_checks m).
