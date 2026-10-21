@@ -7,7 +7,7 @@ in which case it goes to the top.
 
 ## Releases
 
-0. [ ] **v177 Harness back under 45 minutes** (the parent's, ahead of everything) — v176's full run took 1 h 48 m. Time every module, list the 5 slowest and what grew; move long sweeps into their own script that runs when a race or track file changes, keeping a small sample in the harness; list every check that moved and where it now runs; prove it with two green full runs, both under 45 min.
+0. [x] **v177 Harness back under 45 minutes** (shipped 2026-10-21, merge 70fdc37; 38.7 and 42.7 min; harness only, no deploy) — v176's full run took 1 h 48 m. Time every module, list the 5 slowest and what grew; move long sweeps into their own script that runs when a race or track file changes, keeping a small sample in the harness; list every check that moved and where it now runs; prove it with two green full runs, both under 45 min.
 1. [x] **v174 Snowy Peaks** (shipped 2026-10-21, merge 43bfa0b) — a race track in the snow mountains: an icy hairpin, a tunnel through the mountain, a frozen-lake crossing, snowbank walls; snow and ice surfaces; laps about 2 minutes, 3 laps.
 2. [x] **v175 Beach Splash** (shipped 2026-10-21, merge 4472501) — a race track along the beach: sand and shallow-water splash sections, a jump; laps about 2 minutes, 3 laps.
 3. [x] **v176 Sky Glow Road** (shipped 2026-10-21, merge 3b9a7b9) — a glowing race track up in the sky: a road in the air with a jump; laps about 2 minutes, 3 laps.
