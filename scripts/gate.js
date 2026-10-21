@@ -254,13 +254,13 @@ if (fs.existsSync(path.join(ROOT, "scripts", "race_sweep.js"))) {
   const readAt = f => { try { return fs.readFileSync(path.join(ROOT, f), "utf8"); } catch (e) { return null; } };
   // (the rule's own proof: an edit inside TUNE.race, or to any file it lists, changes the hash)
   const tune = readAt("cockpit/js/tune.js") || "";
-  if (raceHash(f => f === "cockpit/js/tune.js" ? tune.replace(/^  race: \{/m, "  race: { /*x*/") : readAt(f)) === raceHash(readAt) ||
+  if (["race", "car", "solid"].some(k => raceHash(f => f === "cockpit/js/tune.js" ? tune.replace(new RegExp(`^  ${k}: \\{`, "m"), `  ${k}: { /*x*/`) : readAt(f)) === raceHash(readAt)) ||
       raceHash(f => f === "cockpit/js/race.js" ? readAt(f) + "//x" : readAt(f)) === raceHash(readAt))
-    fail("race-sweep", "scripts/race_sweep.js's hash no longer sees an edit to TUNE.race or race.js -- the sweep rule would never fire");
+    fail("race-sweep", "scripts/race_sweep.js's hash no longer sees an edit to TUNE.race/car/solid or race.js -- the sweep rule would never fire");
   const now = raceHash(readAt), was = raceHash(f => git("show", `${base}:${f}`));
   if (now !== was) {
     let r = null; try { r = JSON.parse(readAt("evidence/race-sweep.json")); } catch (e) {}
-    if (!r || r.hash !== now) fail("race-sweep", `the race changed (race.js, track.js, TUNE.race or its checks) and has not been swept as it stands -- run node scripts/race_sweep.js (every car on every track, about 10 min)`);
+    if (!r || r.hash !== now) fail("race-sweep", `the race or a car in it changed (race.js, track.js, car.js and the bodies, solids.js, TUNE.race/car/solid/models, or its checks) and has not been swept as it stands -- run node scripts/race_sweep.js (every car on every track, about 10 min)`);
     else if (!r.ok) fail("race-sweep", `the race sweep FAILED on this content (${r.fail} failed) -- evidence/race-sweep.json`);
   }
 }

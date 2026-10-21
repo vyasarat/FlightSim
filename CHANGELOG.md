@@ -37,7 +37,8 @@ v176's five slowest: race_track_checks 9.8 min, corner_cam_checks 7.1, lights_po
   runs one car per track, turning through the four cars so every car is on some track for each.
 - **The full matrix is `scripts/race_sweep.js`.** It runs every car on every track (10 min).
   The gate fails any change to the race or to what drives a car in it (`race.js`,
-  `track.js`, `car.js`, the bodies, `vehicles.js`, `speed.js`, `TUNE.race` or the race scripts)
+  `track.js`, `car.js`, the bodies, `vehicles.js`, `speed.js`, `solids.js`, `TUNE.race`, `.car`,
+  `.solid` and `.models`, or the race scripts)
   until the sweep has passed on exactly that content (`evidence/race-sweep.json`).
 - **The police check draws 200 frames, not 960.** It judges the same draw calls. Its INFO
   milliseconds are now a median of three runs of ten frames over two settles, so they no longer
@@ -56,8 +57,9 @@ v176's five slowest: race_track_checks 9.8 min, corner_cam_checks 7.1, lights_po
   Before this, a shard that threw could leave its module run nowhere and still read all-pass.
   The gate drives that verdict through eight made-up ways a run goes wrong.
 - **Sea's seaplane, submarine and fireboat checks come first on their page now.** They start
-  from the same fresh page however the harness runs. The frame-time sample follows them in a
-  serial run, and runs alone in the solo phase.
+  from the same fresh page however the harness runs. The frame-time sample follows them, on their page, in a
+  serial run (a page booted after the sample waited past two minutes behind its queued frames),
+  and runs alone on a fresh page in the solo phase, the run that counts.
 - **`HARNESS_SHARDS=1`** is the old serial run.
 - **A page action waits two minutes, not 30 s.** A screenshot under load outlasted 30 s.
 

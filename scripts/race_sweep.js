@@ -5,7 +5,7 @@
 // race (f) and the barrier lap (k) in one car per track, turning through the four
 // cars. Here they run in all four, on every track, the way they ran in the harness
 // before v177. The gate demands it: when a change touches a race or track file, or a car's (the
-// files in RACE_FILES, or TUNE.race), it fails until this has passed on exactly that
+// files in RACE_FILES, or the TUNE_BLOCKS), it fails until this has passed on exactly that
 // content, and the pass is recorded in evidence/race-sweep.json.
 //
 //   node scripts/race_sweep.js        (needs CHROME_HEADLESS_SHELL and NODE_PATH, as the harness does)
@@ -19,12 +19,16 @@ const ROOT = path.resolve(__dirname, "..");
 // contract that says what he is in (law-reviewer, v177: a car change reached the sweep's checks
 // b and k in every car, and only the sample would have seen it)
 const RACE_FILES = ["cockpit/js/race.js", "cockpit/js/track.js", "cockpit/js/car.js", "cockpit/js/vehicles.js",
-  "cockpit/js/vehicle.js", "cockpit/js/speed.js", "cockpit/js/corvette.js", "cockpit/js/monster.js",
+  "cockpit/js/vehicle.js", "cockpit/js/speed.js", "cockpit/js/corvette.js", "cockpit/js/monster.js", "cockpit/js/solids.js",
   "scripts/race_track_checks.js", "scripts/race_drive.js", "scripts/race_sweep.js"];
 
-// TUNE.race, as text: from `  race: {` to the next key at its depth
-function tuneRace(src) {
-  const lines = (src || "").split("\n"), a = lines.findIndex(l => /^  race: \{/.test(l));
+// and the TUNE blocks behind them: the race, each car's tuning, the solids' radii and crawls (the
+// barrier lap runs on them), and the models (each body's size)
+const TUNE_BLOCKS = ["race", "car", "corvette", "monster", "solid", "models"];
+
+// one TUNE block, as text: from `  <key>: {` to the next key at its depth
+function tuneBlock(src, key) {
+  const lines = (src || "").split("\n"), a = lines.findIndex(l => l.startsWith(`  ${key}: {`));
   if (a < 0) return "";
   let b = a + 1;
   while (b < lines.length && !/^  [A-Za-z_$][\w$]*: /.test(lines[b]) && !/^\};?\s*$/.test(lines[b])) b++;
@@ -35,11 +39,12 @@ function tuneRace(src) {
 function raceHash(read) {
   const h = crypto.createHash("sha256");
   for (const f of RACE_FILES) h.update(f + "\0" + (read(f) || "") + "\0");
-  h.update("TUNE.race\0" + tuneRace(read("cockpit/js/tune.js")));
+  const tune = read("cockpit/js/tune.js");
+  for (const k of TUNE_BLOCKS) h.update(`TUNE.${k}\0` + tuneBlock(tune, k) + "\0");
   return h.digest("hex").slice(0, 16);
 }
 
-module.exports = { RACE_FILES, tuneRace, raceHash };
+module.exports = { RACE_FILES, TUNE_BLOCKS, tuneBlock, raceHash };
 
 if (require.main === module) {
   const read = f => { try { return fs.readFileSync(path.join(ROOT, f), "utf8"); } catch (e) { return null; } };
