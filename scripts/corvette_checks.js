@@ -30,6 +30,9 @@
 //   i. off the road it bangs as every car does: pointed at a building mid-block,
 //      booster burning, one bang, and back free on that street where it happened;
 //   j. leaving it: nothing of it follows him into the next vehicle.
+//   k. the mirror is never the loudest thing in the seat view (v178): drawn, booster
+//      burning, motorway / New York / a race, its glass no brighter and no more vivid
+//      at its top 5% than the world alone, and its flames still there.
 // On v158 there is no such vehicle: every check FAILs, none throws.
 //
 // Alone: node scripts/run_module.js corvette_checks
@@ -206,7 +209,8 @@ module.exports = async function corvetteChecks({ newPage, check }) {
       L.api.setView(false); drive(10, 0.8);
       const m = L.cv.mirror;
       cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-      const orange = () => { const d = L.cv.mirrorArt.cx.getImageData(0, 0, 128, 32).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] > 90 && d[i + 1] < 230 && d[i + 2] < 120) n++; return n; };
+      // orange by its hue, not its brightness (v178 paints the reflection faded)
+      const orange = () => { const d = L.cv.mirrorArt.cx.getImageData(0, 0, 128, 32).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] >= d[i + 1] && d[i] - d[i + 2] > 60) n++; return n; };
       out.seat = { cabin: !!(L.car.cabin && L.car.cabin.visible), mirror: !!m && m.visible };
       if (m) {
         m.updateWorldMatrix(true, false); v.setFromMatrixPosition(m.matrixWorld);
@@ -473,6 +477,88 @@ module.exports = async function corvetteChecks({ newPage, check }) {
     });
     check("corvette: leaving it mid-burn, nothing of it follows him -- in the next car no flames, no sparks, no mirror picture, no camera pull-back, no wider view, no booster",
       leave.was.on && leave.was.fx && !leave.on && leave.k === 0 && !leave.fx && !leave.sparks && !leave.mirror && leave.camK === 0 && leave.fov === 0 && !leave.booster, J(leave));
+
+    // ---- k. the mirror is never the loudest thing in the seat (v178): drawn as he
+    // sees it, booster burning, on the motorway, along a New York street and in a race,
+    // the mirror's glass against the world drawn alone (the cabin hidden) -- no brighter
+    // and no more vivid at its top 5%, and its flames still there, not there once out
+    const mir = await page.evaluate(() => {
+      const L = window.__lp, S = L.state, T = THREE, out = {};
+      L.noRender = false; window.__hold = () => {};
+      const gl = L.renderer.getContext();
+      const grab = () => { const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, a = new Uint8Array(w * h * 4);
+        L.renderer.render(L.scene, L.camera); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, a); return { a, w, h }; };
+      const stats = (g, box) => {
+        const lum = [], chr = []; let orange = 0;
+        for (let y = box.y0; y < box.y1; y++) for (let x = box.x0; x < box.x1; x++) {
+          const i = (y * g.w + x) * 4, r = g.a[i], gg = g.a[i + 1], b = g.a[i + 2];
+          lum.push(0.2126 * r + 0.7152 * gg + 0.0722 * b); chr.push(Math.max(r, gg, b) - Math.min(r, gg, b));
+          if (r >= gg && r - b > 60) orange++;
+        }
+        const q = (v, f) => { v.sort((x, y) => x - y); return Math.round(v[Math.floor(v.length * f)]); };
+        return { l95: q(lum, 0.95), c95: q(chr, 0.95), orange: +(orange / lum.length).toFixed(3) };
+      };
+      const glassBox = (g) => {
+        const glass = L.cv.mirror.children[1], M = L.CORVETTE.mirror, cam = L.camera, v = new T.Vector3();
+        glass.updateWorldMatrix(true, false); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+        let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+        for (const sx of [-0.35, 0.35]) for (const sy of [-0.3, 0.3]) {      // the middle of the glass, clear of the frame
+          v.set(sx * M.w, sy * M.h, 0).applyMatrix4(glass.matrixWorld).project(cam);
+          const px = (v.x + 1) / 2 * g.w, py = (v.y + 1) / 2 * g.h;
+          x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+        }
+        return { x0: Math.max(0, Math.floor(x0)), x1: Math.min(g.w, Math.ceil(x1)), y0: Math.max(0, Math.floor(y0)), y1: Math.min(g.h, Math.ceil(y1)) };
+      };
+      const measure = (burn) => {
+        for (let i = 0; i < 6; i++) { S.touching = true; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = burn ? 0.8 : 0; L.update(1 / 60); }
+        const g = grab(), box = glassBox(g), m = stats(g, box);
+        L.car.cabin.visible = false; const w = grab(); L.car.cabin.visible = true;
+        const world = stats(w, { x0: 0, x1: w.w, y0: 0, y1: w.h });
+        return { on: L.cv.on, k: +L.cv.k.toFixed(2), px: (box.x1 - box.x0) * (box.y1 - box.y0), mirror: m, world,
+          street: !!(L.car.onStreet && L.stPlan.road && L.stPlan.road.city === "ny"), race: L.race.on && L.race.phase === "race", kind: L.vehKind() };
+      };
+      const drive = (n, pitch) => { for (let i = 0; i < n; i++) { S.touching = true; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = pitch; L.update(1 / 60); } };
+      const scene = (name) => {
+        drive(60 * 3, 0.8); out[name] = measure(true);
+        drive(60 * 3, 0); out[name].off = measure(false).mirror.orange;
+      };
+      L.api.setVehicle("corvette"); L.api.spawnAt(0, 0); L.api.skipScreens(); L.api.setView(false); L.api.clearStick();
+      for (let i = 0; i < 30; i++) L.update(1 / 60);
+      drive(60 * 3, 0); scene("motorway");
+      const C = L.streets.cities.ny, r = C.roads.filter(x => x.kind === "grid" && x.b).sort((a, b) => b.len - a.len)[0], q = {};
+      L.stPointAt(r, 20, 1, r.lo, q);
+      S.x = q.x; S.z = q.z; S.y = L.stSurfaceAt(q.x, q.z); S.heading = Math.atan2(-q.fx, -q.fz); S.speed = L.CAR.cruise;
+      L.car.yield = 1; L.car.steer = 0; L.stPlan.road = r; L.stPlan.dir = 1; L.stPlan.turn = null;
+      L.car.rejoin = null; L.car.rejoinT = 0; L.car.rejoinPts = null; L.updateScenery(S.x, S.z, true);
+      for (let i = 0; i < 60; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+      scene("city");
+      L.api.setView(true); L.rcStartRace("oval"); L.api.setView(false);
+      for (let i = 0; i < 60 * 8 && L.race.phase !== "race"; i++) drive(1, 0);
+      drive(60 * 4, 0); scene("race");
+      L.raceExit();
+      // the chase view: the same frame drawn with the mirror shown and hidden is the same
+      // picture to the pixel -- nothing of the mirror reaches it, so its flames are v177's
+      L.api.setVehicle("corvette"); L.api.spawnAt(0, 0); L.api.setView(true); drive(60 * 3, 0); drive(60 * 3, 0.8);
+      const diff = (a, b) => { let n = 0; for (let i = 0; i < a.a.length; i += 4) if (a.a[i] !== b.a[i] || a.a[i + 1] !== b.a[i + 1] || a.a[i + 2] !== b.a[i + 2]) n++; return n; };
+      const was = L.cv.mirror.visible;
+      L.cv.mirror.visible = true; const a1 = grab(), a2 = grab();
+      L.cv.mirror.visible = false; const b1 = grab();
+      L.cv.mirror.visible = was;
+      // (by construction: the mirror is on the cabin, and the chase view hides the cabin --
+      // this pins that it stays so; the chase flames' own code is not touched by v178)
+      out.chase = { on: L.cv.on, fx: L.cv.fx.visible, cabinHidden: !L.car.cabin.visible, mirrorOnCabin: L.cv.mirror.parent === L.car.cabin, again: diff(a1, a2), mirrorOnOff: diff(a1, b1) };
+      L.api.clearStick();
+      return out;
+    });
+    {
+      const where = { motorway: o => !o.street && !o.race, city: o => o.street, race: o => o.race && o.kind === "race" };
+      const ok = k => { const o = mir[k]; return o && where[k](o) && o.on && o.k > 0.9 && o.px > 400 && o.mirror.l95 <= o.world.l95 && o.mirror.c95 <= o.world.c95 && o.mirror.orange >= 0.04 && o.off < 0.01; };
+      check("corvette: the mirror is never the loudest thing in the seat view -- booster burning, on the motorway, a New York street and in a race, the mirror's glass is no brighter and no more vivid at its top 5% than the world he drives into, and its flames still show (orange on at least 4% of the glass, none once out)",
+        ["motorway", "city", "race"].every(ok), J(mir));
+      const c = mir.chase || {};
+      check("corvette: the mirror never reaches the chase view -- it hangs on the cabin, which the chase view hides, and the same burning frame drawn with the mirror shown and hidden is the same picture to the pixel",
+        c.on && c.fx && c.cabinHidden && c.mirrorOnCabin && c.again === 0 && c.mirrorOnOff === 0, J(c));
+    }
 
     check("corvette: no browser or frame errors", errors.length === 0, J(errors.slice(0, 5)));
   } finally { await ctx.close(); }

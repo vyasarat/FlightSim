@@ -329,7 +329,7 @@ function cvSparks(dt, emit) {
 // From the driving seat the flames are behind him, so the mirror shows them: a
 // face on the cabin's mirror (car.js, carBuildCabin), painted -- the road running
 // away behind, and the four flames over it as the booster burns. No glyph, ever.
-const CV_MIRROR_W = 128, CV_MIRROR_H = 32;
+const CV_MIRROR_W = 128, CV_MIRROR_H = 32, CV_MIRROR_ROAD = [47, 52, 59];   // the road behind, in the glass
 function cvMirror() {
   if (typeof car === "undefined" || !car.cabin) return;
   if (!cv.mirror) vkQuiet(0, cvMirrorBuild);
@@ -347,7 +347,7 @@ function cvMirrorBuild() {
     const K = TUNE.car.cabin, M = CORVETTE.mirror;
     const m = new THREE.Group();
     const frame = new THREE.Mesh(new THREE.BoxGeometry(M.w + 0.06, M.h + 0.05, 0.05), mattMat(TUNE.palette.ink));
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(M.w, M.h), new THREE.MeshBasicMaterial({ map: tex, fog: false }));
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(M.w, M.h), new THREE.MeshBasicMaterial({ map: tex, fog: false, color: new THREE.Color(M.glass, M.glass, M.glass) }));
     glass.position.z = 0.03;
     m.add(frame, glass);
     m.position.set(K.seatX + M.inboard, K.roof + M.drop, M.z);
@@ -367,17 +367,19 @@ function cvMirrorPaint() {
   sky.addColorStop(0, "#9fc3e6"); sky.addColorStop(0.5, "#c9dbea"); sky.addColorStop(0.5, "#5a5f66"); sky.addColorStop(1, "#3c4350");
   cx.fillStyle = sky; cx.fillRect(0, 0, W, H);
   // the road running away behind him, to a point in the middle
-  cx.fillStyle = "#2f343b";
+  cx.fillStyle = `rgb(${CV_MIRROR_ROAD})`;
   cx.beginPath(); cx.moveTo(W * 0.5, H * 0.5); cx.lineTo(W * 0.92, H); cx.lineTo(W * 0.08, H); cx.closePath(); cx.fill();
   if (k > 0) {
     const F = CORVETTE.flame, fl = 1 + F.flicker * Math.sin(cv.t * F.hz * 6.283);
+    // the flames' colours, `fade` of the way to a deep ember (v178): a reflection, still fire
+    const f = CORVETTE.mirror.fade, R = CORVETTE.mirror.ember, mix = (r, g, b, a) => `rgba(${Math.round(r + (R[0] - r) * f)},${Math.round(g + (R[1] - g) * f)},${Math.round(b + (R[2] - b) * f)},${a})`;
     const glow = cx.createRadialGradient(W / 2, H, 2, W / 2, H, H * 1.4 * k);
-    glow.addColorStop(0, "rgba(255,180,58,0.85)"); glow.addColorStop(1, "rgba(255,122,26,0)");
+    glow.addColorStop(0, mix(255, 180, 58, 0.85)); glow.addColorStop(1, mix(255, 122, 26, 0));
     cx.fillStyle = glow; cx.fillRect(0, 0, W, H);
     for (let i = 0; i < 4; i++) {
       const x = W * (0.38 + i * 0.08), h = H * 0.75 * k * fl;
       const flame = (w, hh, col) => { cx.fillStyle = col; cx.beginPath(); cx.ellipse(x, H, w, hh, 0, Math.PI, 2 * Math.PI); cx.fill(); };
-      flame(5, h, "#ff7a1a"); flame(3.4, h * 0.7, "#ffd23e"); flame(1.8, h * 0.4, "#d8ecff");
+      flame(5, h, mix(255, 122, 26, 1)); flame(3.4, h * 0.7, mix(255, 210, 62, 1)); flame(1.8, h * 0.4, mix(216, 236, 255, 1));
     }
   }
   // the frame

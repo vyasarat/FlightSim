@@ -10,6 +10,31 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v178 — the Corvette's mirror is a mirror, not a lamp
+
+From the render-critic's note (v166): in the Corvette's driving seat, with the booster
+burning, the little rear-view mirror at the top of the windscreen was the loudest thing on
+the screen -- its four flames were painted at full strength on a pale sky, so the brightest,
+most vivid patch he could see was behind him, not the road he is driving into.
+
+Now the mirror gives back less than it shows, as a real one does: the glass is 68% of its
+picture (`TUNE.corvette.mirror.glass`), and its flames are painted half of the way
+(`mirror.fade`) to a deep ember red (`mirror.ember`). Faded toward the grey road instead, as
+first tried, their yellow cores went olive-brown and stopped reading as fire (the
+render-critic, round 2). They are still four flames, orange-red round amber, that grow and
+flicker with the burn, and they still go out when the booster does. Nothing else changed: the chase view's flames,
+the booster, the speeds and how the car drives are all as they were.
+
+**The check** (corvette_checks k), drawn as he sees it with the booster burning, on the
+motorway, along a New York street and in a race: the mirror's glass against the world drawn
+alone. On v177 its top 5% was brighter than the world's (211-222 against 205-210) and twice as
+vivid (222-226 against 112-135); now 140-148 and 99-100, with orange still on 24-32% of the
+glass and none once the booster is out. Each scene asserts he is really there (on the street,
+in the race). A second check pins that the mirror never reaches the chase view: it hangs on
+the cabin, which the chase view hides, and the same burning frame drawn with the mirror shown
+and hidden is the same picture to the pixel. The seat check that counts the
+mirror's flames now tells orange by its hue, not its brightness.
+
 ## v177 — the harness back under 45 minutes
 
 Nothing he plays changed: this release is the test harness only (no `cockpit/` file, no new
