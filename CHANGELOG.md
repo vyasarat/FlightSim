@@ -10,6 +10,64 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v176 — Sky Glow Road
+
+The fifth race track. Its card in the track picker shows a blue road with yellow lights down
+both edges climbing off the grass on white pylons into a sky with clouds and the sun, a hump
+in it, and the chequered line. It stands on open ground east of the motorway, between the
+two cities, about a kilometre off the road, so he sees the ribbon up in the sky driving past.
+A lap is 4.4 km and takes about two minutes (113-116 s alone, in every car); a race is three
+laps.
+
+**What is on it.** From the line, raced EAST, on the ground:
+- the asphalt start straight, with the grid, the gantry, the grandstands and the podium;
+- then the glowing road: a long ramp **climbing off the ground**, and round to the left
+  climbing on into the sky, 55 m over the line;
+- an S in the air, the north straight, round to the west;
+- **the sky jump** (a hump in the ribbon), a chicane;
+- round to the south and **the long run down** to the ground, round on to the asphalt, home.
+
+**The sky road.** A section's `sky` is the road's height (metres over the line) at its end;
+it is straight between them, eased over 60 m, and it leaves the ground over its first 10 m
+of height, so there is no step where it lifts off. It is never under the ground. Wherever it
+stands more than 3 m over the ground it is up in the air: a steel girder under the deck, a
+pylon down to the ground every 40 m, and the barriers riding up with it. The deck is
+deep blue with a white line down each edge and red-and-white kerbs on the bends; a yellow
+glow stands on top of each barrier every 8 m, all one draw call on the game's shared glow
+texture (additive, no post-processing), never over the road and never on a pad (the pads
+are plain cyan, as on every track). It is as quick as the asphalt, the same for every car,
+with a soft hum. No flags on poles up there, and no sand skirts under its jump.
+
+**Solid.** The girder (across the deck), the pylons and the barriers are solid in the world:
+a plane or a helicopter flown into the ribbon crashes and comes back free, as into any bridge.
+
+**Who wins.** At full strength the noisy hand won 45% (the Cybertruck 14/40), so the
+opponents here run at `aiMul` 0.992. 20 races per car on each of two seeds:
+
+| | noisy hand | wall-hugger |
+|---|---|---|
+| Sky Glow Road | 87/160 (54%) | 4/160 (3%) |
+
+Per car, noisy: SUV 20/40, Cybertruck 23/40, Corvette 26/40, monster truck 18/40. 0 bangs,
+0 stuck. The worst gap is 3.64 s.
+
+**Unchanged.** The oval, Desert Dunes, Snowy Peaks and Beach Splash: their geometry and 64
+pinned races (16 per track, every car) are identical before and after. Nothing changes how
+anything drives outside a race. (The game's random stream at the moment the venues are built
+is not a pin: it moves with load timing, on main as much as here.)
+
+**Checks.** `race_track_checks`, new:
+- (r) the sky road is up as high as its numbers say (59 m over the line at its highest, the
+  ground under it adding to the 55) and never under the ground; 91 pylons, each solid from the
+  ground to the girder, never more than 40 m apart; the girder solid across the deck at 183
+  places and the barriers beside it; no flag pole under it; a plane and a helicopter flown at it at three places
+  (the climb, the north straight, the run down) all crash; 942 glows, none over the deck; a lap
+  hands-off with the field, every car on the deck all the way. It first caught a real hole:
+  on a bend the girder's straight pieces left a wedge open on the outside, which a plane could
+  have flown through; they are now long enough to close it;
+- (a) the dryness at the barriers leaves out the ribbon where it is up in the air: it flies
+  over two ponds on its pylons.
+
 ## v175 — Beach Splash
 
 The fourth race track. Its card in the track picker shows the sea with a wave, a sandy beach

@@ -2538,6 +2538,40 @@ const TUNE = {
         { type: "straight", len: 100 },
         { type: "turn", angle: -180, radius: 140 },
       ] },
+      // TRACK 5 (v176): SKY GLOW ROAD, on open ground east of the motorway between the two
+      // cities (759 m off it: seen from the road). Raced EAST from the line on the ground --
+      // the grid, the gantry, the stands and the podium all stand on the ground -- then up a
+      // long glowing ramp and round to the left into the sky, 55 m over the line: an S in the
+      // air, the north straight, the SKY JUMP, a chicane, round to the south and down the long
+      // run to the ground, round and home. `sky` is the deck's height (m over the line's) at
+      // a section's end; the ribbon stands on pylons and glows (RC.sky, rcBuildSky). Closed by
+      // two straights solved for it (the north straight and the run home). (Surveyed: the
+      // ground under the line, the stands and the podium dry by more than a metre; under the
+      // ribbon, pylons stand in two ponds -- the ground it flies over is not its to keep dry.)
+      { id: "sky", site: { x: 1850, z: 1300, heading: 270 },
+        pads: [{ m: 150, lat: 5 }, { m: 640, lat: -5 }, { m: 1500, lat: 5 }, { m: 1950, lat: -5 }, { m: 2950, lat: 5 }, { m: 3450, lat: -5 }],
+        aiMul: 0.992,                     // (at 1.0 the noisy hand won 45%, the Cybertruck 35%; at 0.992, 54%)
+        sections: [
+        { type: "straight", len: 300 },
+        { type: "straight", len: 500, surface: "glow", sky: 30 },   // up off the ground: the long climb
+        { type: "turn", angle: 90, radius: 150, surface: "glow", sky: 55 },   // ... climbing round to the left, into the sky
+        { type: "turn", angle: -40, radius: 120, surface: "glow", sky: 55 },   // an S in the air
+        { type: "turn", angle: 80, radius: 120, surface: "glow", sky: 55 },
+        { type: "turn", angle: -40, radius: 120, surface: "glow", sky: 55 },
+        { type: "straight", len: 271.462, surface: "glow", sky: 55 },
+        { type: "turn", angle: 90, radius: 140, surface: "glow", sky: 55 },
+        { type: "straight", len: 250, surface: "glow", sky: 55 },
+        { type: "straight", len: 120, surface: "glow", sky: 55, jump: { at: 0.5, up: 28, down: 22, h: 4 } },   // THE SKY JUMP
+        { type: "straight", len: 300, surface: "glow", sky: 55 },
+        { type: "turn", angle: 30, radius: 100, surface: "glow", sky: 55 },   // a chicane
+        { type: "turn", angle: -60, radius: 100, surface: "glow", sky: 55 },
+        { type: "turn", angle: 30, radius: 100, surface: "glow", sky: 55 },
+        { type: "straight", len: 300, surface: "glow", sky: 55 },
+        { type: "turn", angle: 90, radius: 120, surface: "glow", sky: 50 },
+        { type: "straight", len: 600, surface: "glow", sky: 15 },   // the long run down
+        { type: "turn", angle: 90, radius: 150, surface: "glow", sky: 0 },   // ... and round on to the ground
+        { type: "straight", len: 330 },
+      ] },
     ],
     // (v170) WHAT THE TRACK IS MADE OF, per section (asphalt where it says nothing).
     // Each changes speed and grip a little -- the same for every car, his and theirs
@@ -2561,6 +2595,9 @@ const TUNE = {
       // a film of sea with white foam down each edge, and white water off the wheels -- small
       // and low enough never to stand between the camera and his car (race_track_checks q)
       splash: { speed: 0.82, grip: 0.85, col: 0x5ff1ff, art: "sand", film: 0x2f74b8, edgeLine: 0xf2f4f7, spray: 0xf2f4f7, every: 0.045, size: 0.45, rise: 1.6, life: 0.45, tone: ["raceSplash", "sawtooth", 95, 0.006] },
+      // (v176) the sky road's ribbon: a deep blue deck with a white line down each edge and red
+      // and white kerbs on its bends, as quick as the asphalt; a soft hum over the wind
+      glow: { speed: 1, grip: 1, col: 0x2b4fb0, art: "asphalt", kerbs: true, edgeLine: 0xf2f4f7, tone: ["raceGlow", "sine", 220, 0.004] },
     },
     // (v174) a track's snowbanks (def.banks): a heap of snow outside each edge where the
     // barrier would be (the barrier's own solids), `h` m high, `w` m across its foot, with
@@ -2582,6 +2619,13 @@ const TUNE = {
     // lower (never under the ground: where that is higher the deck stands on it), eased to the
     // road on either side over `along` m; the sea's film over it `film` opaque
     splash: { over: 0.12, along: 40, film: 0.55, filmUp: 0.03 },
+    // (v176) a sky road (a section's `sky`): its height eased over `ease` m, and off the ground
+    // over its first `blend` m (from the ground's height to the line's); `minUp` m over the
+    // ground under it, it is up in the air -- on a pylon every `pylonStep` m (`pylonW` square),
+    // a girder `girder` m deep under the deck, both solid; a glow on each barrier's top every
+    // `glowStep` m (the shared texture, additive: never post-processing, never on a pad)
+    sky: { ease: 60, blend: 10, minUp: 3, pylonStep: 40, pylonW: 2.6, girder: 1.6, glowStep: 8, glowSize: 3.2, glowCol: 0xffd23e, glowOpacity: 0.95,
+           girderCol: 0xc9ced6, pylonCol: 0xf2f4f7 },
     spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8 },
     // (v170) dune jumps: a section's `jump` heaps a dune `h` m high on it, its crest
     // `at` of the way along, its face `up` m long and its back `down`. A car leaves

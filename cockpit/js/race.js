@@ -55,6 +55,11 @@
 // and the chase camera stays inside it by v163's line test. Its FROZEN LAKE is ice on
 // a level bed shaped into the ground (terrain.js rcLakeBed) -- ice, never water.
 //
+// (v176, Sky Glow Road) A SKY ROAD is a section's `sky`: the deck that many metres over the
+// line, eased, never under the ground. Up in the air it stands on pylons over a girder, both
+// solid in the world, and its barriers' tops glow (additive, the shared texture, no post).
+// He cannot fall off it any more than off the ground: he is laid on the track, as everywhere.
+//
 // THE VENUE STANDS IN THE WORLD, seen in normal play: asphalt, kerbs, barriers,
 // grandstands (solid, as buildings are), flags, the start gantry with its three
 // lamps, the boost pads and the podium. It is built on its own random stream
@@ -129,6 +134,27 @@ function rcLayTrack(def) {
     const B = Math.max(1, Math.round(RC.jump.ease / TK.ds)), raw = S.map(q => q.gy);
     for (let i = 0; i < n; i++) { let a = 0; for (let j = -B; j <= B; j++) a += raw[(i + j + n) % n]; S[i].gy = a / (2 * B + 1); }
   }
+  // (v176) a SKY ROAD: each section's `sky` is the deck's height at its end, in metres
+  // over the line's own deck (none or 0: on the ground), straight from the last section's
+  // end to it and eased over `RC.sky.ease` m -- and never under the ground (its own
+  // highest under it, plus the lift). Where it stands `RC.sky.minUp` over that it is
+  // up in the air: on pylons, solid, glowing (rcBuildSky).
+  const sky = def.sections.some(sc => sc.sky !== undefined);
+  if (sky) {
+    const from = {}, to = {}, base = S[0].gy, hs = def.sections.map(sc => sc.sky || 0), raw = new Array(n);
+    for (const q of S) { if (from[q.sec] === undefined) from[q.sec] = q.s; to[q.sec] = q.s; }
+    for (let i = 0; i < n; i++) {
+      const q = S[i], k = q.sec, h0 = hs[(k - 1 + hs.length) % hs.length];
+      raw[i] = lerp(h0, hs[k], to[k] > from[k] ? (q.s - from[k]) / (to[k] - from[k]) : 1);
+    }
+    const B = Math.max(1, Math.round(RC.sky.ease / TK.ds));
+    for (let i = 0; i < n; i++) {
+      let a = 0; for (let j = -B; j <= B; j++) a += raw[(i + j + n) % n];
+      const q = S[i], h = a / (2 * B + 1);
+      q.gy = Math.max(q.gy, q.g, lerp(q.gy, base + h, Math.min(1, h / RC.sky.blend)));   // (off the ground over the first `blend` m: no step where it leaves it)
+      q.up = q.gy - q.g + RC.lift > RC.sky.minUp;              // (up in the air: over the ground under it, not its lift)
+    }
+  }
   // (v175) a splash is the deck down AT the water: over each splash section it stands
   // `over` m above the sea where the ground under it is lower, and on the ground (its
   // own highest under it, plus the lift) where that is higher -- never under either --
@@ -168,7 +194,7 @@ function rcLayTrack(def) {
   S[n - 1].kh = S[n - 2].kh;
   const gap = Math.hypot(laid.end.p.x - start.p.x, laid.end.p.z - start.p.z);
   const turn = Math.abs(wrapPi(Math.atan2(laid.end.f.x, laid.end.f.z) - Math.atan2(start.f.x, start.f.z)));
-  return { def, S, len: pc.len, n, gap, turn, jumps, lakes, splashes };
+  return { def, S, len: pc.len, n, gap, turn, jumps, lakes, splashes, sky };
 }
 
 // Where s metres along it is (s wraps by the lap): one sample's worth, interpolated.
@@ -311,7 +337,7 @@ function rcBuildVenue(def) {
     quad(decks[a.sf] || (decks[a.sf] = []), at(a, -W), at(b, -W), at(b, W), at(a, W));
     const sf = RC.surfaces[a.sf] || RC.surfaces.asphalt;
     // a dune is ground, not a deck on stilts: its sides run down to the desert
-    if ((a.dune || b.dune) && !def.banks) for (const sd of [-1, 1]) {
+    if ((a.dune || b.dune) && !def.banks && !(a.up || b.up)) for (const sd of [-1, 1]) {   // (v176: a sky jump has nothing under it but its girder)
       const e = sd * (W + KW + 0.4), o = sd * (W + KW + 0.4 + RC.jump.skirt);
       const ga = [a.x + a.lx * o, terrainEff(a.x + a.lx * o, a.z + a.lz * o) - 0.3, a.z + a.lz * o];
       const gb = [b.x + b.lx * o, terrainEff(b.x + b.lx * o, b.z + b.lz * o) - 0.3, b.z + b.lz * o];
@@ -399,6 +425,7 @@ function rcBuildVenue(def) {
   if (def.banks) rcBuildBanks(T, mk);
   for (const lk of T.lakes) rcBuildLake(T, lk, mk);
   def.sections.forEach((sc, k) => { if (sc.tunnel) rcBuildTunnel(T, k, sc.tunnel, g); });
+  if (T.sky) rcBuildSky(T, mk, g);
   for (const c in films) mk(films[c], new THREE.MeshLambertMaterial({ color: +c, transparent: true, opacity: RC.splash.film, depthWrite: false, side: THREE.DoubleSide })).receiveShadow = false;
   for (const c in ruts) mk(ruts[c], new THREE.MeshLambertMaterial({ color: +c, side: THREE.DoubleSide }));
   if (skirt.length) mk(skirt, artPaint(new THREE.MeshLambertMaterial({ color: RC.surfaces.sand.col, side: THREE.DoubleSide }), "sand"));
@@ -477,6 +504,55 @@ function rcBuildVenue(def) {
   for (const p of T.claimMore || []) claim.push(p);          // (v174) the lake's ice and the tunnel's mountain: nothing streamed on them
   hwyClaimCorridor(claim);
   hwyIndexCorridor();
+}
+
+// ---- (v176) the sky road's pieces ---------------------------------------------------------
+// Where the ribbon is up in the air (q.up): a girder under the deck and a pylon down to the
+// ground every `pylonStep` m, both solid in the world -- a plane or a helicopter flown into
+// the ribbon crashes, free, as into any bridge; the barriers' own solids ride up with the
+// deck. Along all of the glow road, a glow on each barrier's top every `glowStep` m: one
+// draw call, the shared texture, additive (glowField) -- never post-processing, and never
+// on a pad (the pads are his to aim at: plain cyan, as on every track).
+function rcBuildSky(T, mk, g) {
+  const S = T.S, n = T.n, K = RC.sky, W = RC.width / 2 + RC.kerbW + 0.4, girder = [], pylon = [];
+  const at = (q, a, up) => [q.x + q.lx * a, q.gy + q.ly * a + (up || 0), q.z + q.lz * a];
+  for (let i = 0; i < n; i++) {
+    const a = S[i], b = S[(i + 1) % n];
+    if (!a.up && !b.up) continue;
+    for (const sd of [-1, 1]) rcQuad(girder, at(a, sd * W, -0.05), at(b, sd * W, -0.05), at(b, sd * W, -K.girder), at(a, sd * W, -K.girder));
+    rcQuad(girder, at(a, -W, -K.girder), at(b, -W, -K.girder), at(b, W, -K.girder), at(a, W, -K.girder));
+  }
+  // the girder's solid, piece by piece: a slab under the deck, as wide as the barriers
+  const step = Math.max(1, Math.round(RC.wallPiece / TK.ds));
+  for (let i = 0; i < n; i += step) {
+    const a = S[i], b = S[(i + step) % n];
+    if (!a.up && !b.up) continue;
+    const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1, dy = Math.abs(b.gy - a.gy);
+    const turn = Math.abs(Math.atan2(a.tx * b.tz - a.tz * b.tx, a.tx * b.tx + a.tz * b.tz));   // (on a bend, long enough to close the wedge on its outside)
+    solidBox3((a.x + b.x) / 2, (a.gy + b.gy) / 2 - K.girder / 2, (a.z + b.z) / 2, [dx / L, 0, dz / L], [0, 1, 0], [-dz / L, 0, dx / L],
+              L / 2 + 0.3 + W * turn, K.girder / 2 + dy / 2, W, "bridge");
+  }
+  // the pylons, down the middle of it to the ground
+  const ps = Math.max(1, Math.round(K.pylonStep / TK.ds)), hw = K.pylonW / 2;
+  for (let i = 0; i < n; i += ps) {
+    const q = S[i];
+    if (!q.up) continue;
+    const y0 = terrainEff(q.x, q.z) - 1, y1 = q.gy - K.girder + 0.05, ux = q.tx, uz = q.tz, vx = -q.tz, vz = q.tx;
+    const c = (a, b, y) => [q.x + ux * a + vx * b, y, q.z + uz * a + vz * b];
+    const P4 = [[-hw, -hw], [hw, -hw], [hw, hw], [-hw, hw]];
+    for (let k = 0; k < 4; k++) { const [a0, b0] = P4[k], [a1, b1] = P4[(k + 1) % 4]; rcQuad(pylon, c(a0, b0, y0), c(a1, b1, y0), c(a1, b1, y1), c(a0, b0, y1)); }
+    solidBox3(q.x, (y0 + y1) / 2, q.z, [ux, 0, uz], [0, 1, 0], [vx, 0, vz], hw, (y1 - y0) / 2, hw, "pillar");
+  }
+  if (girder.length) mk(girder, new THREE.MeshLambertMaterial({ color: K.girderCol, side: THREE.DoubleSide }));
+  if (pylon.length) mk(pylon, new THREE.MeshLambertMaterial({ color: K.pylonCol, side: THREE.DoubleSide }));
+  // the glow along its barriers
+  const pts = [], gs = Math.max(1, Math.round(K.glowStep / TK.ds));
+  for (let i = 0; i < n; i += gs) {
+    const q = S[i];
+    if (q.sf !== "glow") continue;
+    for (const sd of [-1, 1]) { const p = at(q, sd * W, RC.wallH + 0.3); pts.push({ x: p[0], y: p[1], z: p[2] }); }
+  }
+  if (pts.length) { const gf = glowField(pts, K.glowCol, K.glowSize, K.glowOpacity); gf.userData.noSolid = true; g.add(gf); T.glow = gf; }
 }
 
 // ---- (v174) the snow track's pieces ------------------------------------------------------
@@ -814,6 +890,7 @@ function rcBuildFlags() {
     const q = rcAt(s);
     if (Math.abs(q.kh) < 0.0015 && s > 120) continue;
     if (Math.abs(s - rcPodiumM(T.def)) < 60) continue;          // nothing between the podium and the camera
+    if (T.S[Math.min(T.n - 1, Math.round(s / T.len * (T.n - 1)))].up) continue;   // (v176: in the sky, no flag on a pole from the ground)
     const side = q.kh > 0 ? -1 : 1;               // the outside of the bend
     const off = side * (RC.width / 2 + RC.kerbW + 3);
     const x = q.x + q.lx * off, z = q.z + q.lz * off, y = terrainEff(x, z);
