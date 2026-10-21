@@ -62,7 +62,8 @@ the terrain and every streamed thing always have. The render-critic found it (sk
 `race.js`): the frame counted, shadow pass and all, on the runway, in both cities, beside each
 venue and racing on each -- 13 scenes, in landscape from the chase view and again in portrait
 from his seat. From the runway the venues add at most 10 calls and 2,000 triangles (v178: 39
-and 152k); every landscape scene inside its budget of calls and triangles (v179's measure plus
+and 152k; from California's middle a piece at the screen's edge is in sight by depth, so the
+cities are held by their budgets instead); every landscape scene inside its budget of calls and triangles (v179's measure plus
 12%); nothing of a venue the fog leaves any of in sight is ever culled -- every culled piece's
 nearest corner, in the camera's own space, is past the fog's far edge, as the fog counts it, in
 all 26 frames; the cut keeps every triangle; and a gantry culled from a camera on the runway is

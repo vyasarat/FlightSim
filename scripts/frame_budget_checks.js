@@ -149,7 +149,10 @@ module.exports = async function frameBudgetChecks({ newPage, check }) {
   if (process.env.MEASURE) { check("frame budget measured", true); return; }
   const O = res.out;
   // 1. from where he is not at a venue, the venues cost (next to) nothing: on v178 they added
-  // 152k triangles to the runway's frame, from 1.5 to 6.6 km off, under a fog that hid them
+  // 152k triangles to the runway's frame, from 1.5 to 6.6 km off, under a fog that hid them.
+  // (The runway only: from California's middle a venue piece IS in sight -- at the edge of the
+  // wide screen, inside the fog by view depth, about 26k triangles -- so the cities are held by
+  // their budgets in 2. and by the depth rule in 3., not by a zero share.)
   const away = [["runway", O.runway.venueCalls, O.runway.venueTris], ["seat runway", seat.out.runway.venueCalls, seat.out.runway.venueTris]];
   check("frame budget: from the runway, in landscape from the chase view and in portrait from his seat, the race venues add at " +
     "most 10 draw calls and 2,000 triangles -- fogged out, they are not drawn (v178: 39 calls and 152k triangles)",
