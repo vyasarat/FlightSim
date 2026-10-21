@@ -2499,6 +2499,45 @@ const TUNE = {
         { type: "turn", angle: 90, radius: 90, surface: "snow" },
         { type: "straight", len: 200 },
       ] },
+      // TRACK 4 (v175): BEACH SPLASH, on the New York coast west of its airport (the
+      // runway is 800 m east; the stands are seen flying out of New York). Raced WEST from
+      // the line along the beach, the sea on his left: an asphalt start, the sand beach
+      // with a dune jump and an S inland, round the west end, then back EAST across the
+      // lagoon behind the beach -- splash, a sandbar with a jump, splash -- up over the
+      // hill on asphalt, a dip into the infield, round the east end, home. The lagoon is
+      // the coast's own (terrainEff under seaLevelAt, 0-2.4 m deep): nothing is reshaped.
+      // Closed by the beach's long straight (the west end at x -2410) and the return.
+      // (Surveyed: dry by 1.3 m 15 m past the barriers away from the lagoon, 1.09 km off the
+      // motorway, 7.8 km from the oval.)
+      { id: "beach", site: { x: -900, z: 6585, heading: 90 },
+        pads: [{ m: 150, lat: 5 }, { m: 560, lat: -5 }, { m: 1200, lat: 5 }, { m: 1400, lat: -5 }, { m: 2990, lat: 5 }, { m: 3110, lat: -5 }],   // (none on a splash: cyan on water does not read)
+        aiMul: 1.018,                     // (at 1.0 the noisy hand won 88%: a lap that is mostly long straights gives his hand nothing to lose; 1.02 won 45%)
+        sections: [
+        { type: "straight", len: 250 },
+        { type: "straight", len: 150, surface: "sand" },
+        { type: "straight", len: 80, surface: "sand", jump: { at: 0.5, up: 28, down: 22, h: 4 } },   // a dune on the beach
+        { type: "straight", len: 120, surface: "sand" },
+        { type: "turn", angle: -15, radius: 200, surface: "sand" },
+        { type: "straight", len: 100, surface: "sand" },
+        { type: "turn", angle: 30, radius: 200, surface: "sand" },
+        { type: "straight", len: 100, surface: "sand" },
+        { type: "turn", angle: -15, radius: 200, surface: "sand" },
+        { type: "straight", len: 509.76, surface: "sand" },
+        { type: "turn", angle: -180, radius: 140, surface: "sand" },
+        { type: "straight", len: 220, surface: "sand" },
+        { type: "straight", len: 190, surface: "splash" },                                          // into the lagoon
+        { type: "straight", len: 110, surface: "sand", jump: { at: 0.5, up: 28, down: 22, h: 4 } },  // the sandbar, and off it
+        { type: "straight", len: 190, surface: "splash" },                                          // ... back into the water
+        { type: "straight", len: 150, surface: "sand" },
+        { type: "straight", len: 350 },
+        { type: "turn", angle: -90, radius: 50 },
+        { type: "straight", len: 60 },
+        { type: "turn", angle: 180, radius: 50 },
+        { type: "straight", len: 60 },
+        { type: "turn", angle: -90, radius: 50 },
+        { type: "straight", len: 100 },
+        { type: "turn", angle: -180, radius: 140 },
+      ] },
     ],
     // (v170) WHAT THE TRACK IS MADE OF, per section (asphalt where it says nothing).
     // Each changes speed and grip a little -- the same for every car, his and theirs
@@ -2518,6 +2557,10 @@ const TUNE = {
       snow: { speed: 0.9, grip: 0.8, slide: 0.16, slideMax: 2.5, slideRate: 1.2, col: 0xf2f4f7, art: "asphalt", spray: 0xf2f4f7, every: 0.08, size: 0.28, rise: 0.9, life: 0.4, ruts: true, rutCol: 0x8a93a0, edgeLine: 0x2b4fb0, tone: ["raceSnow", "square", 46, 0.008] },
       // (ice grey, a shade darker than the snow round it, and both with a blue edge line: the hairpin reads from his seat)
       ice: { speed: 0.86, grip: 0.7, slide: 0.24, slideMax: 3.5, slideRate: 1.0, col: 0x8a93a0, shine: 30, edgeLine: 0x2b4fb0, spray: 0xf2f4f7, every: 0.12, size: 0.22, rise: 0.6, life: 0.3, tone: ["raceIce", "triangle", 620, 0.004] },
+      // (v175) the lagoon's shallows: the deck at the water's surface (RC.splash), sand under
+      // a film of sea with white foam down each edge, and white water off the wheels -- small
+      // and low enough never to stand between the camera and his car (race_track_checks q)
+      splash: { speed: 0.82, grip: 0.85, col: 0x5ff1ff, art: "sand", film: 0x2f74b8, edgeLine: 0xf2f4f7, spray: 0xf2f4f7, every: 0.045, size: 0.45, rise: 1.6, life: 0.45, tone: ["raceSplash", "sawtooth", 95, 0.006] },
     },
     // (v174) a track's snowbanks (def.banks): a heap of snow outside each edge where the
     // barrier would be (the barrier's own solids), `h` m high, `w` m across its foot, with
@@ -2535,6 +2578,10 @@ const TUNE = {
     // so the road reads on it), and the deck eased on to its level over `along` m either side
     lake: { over: 0.03, segs: 48, along: 50,
             drifts: [[-0.8, -0.6, 0.5, 0.05], [-0.3, 0.45, 0.6, 0.04], [0.2, -0.75, 0.45, 0.05], [0.45, 0.6, 0.35, 0.06], [-0.6, 0.15, 0.25, 0.03], [0.05, -0.3, 0.3, 0.03]] },   // (snow blown across the ice: along, across, length -- fractions of the lake -- and width)
+    // (v175) a splash section's deck: `over` m above the water where the ground under it is
+    // lower (never under the ground: where that is higher the deck stands on it), eased to the
+    // road on either side over `along` m; the sea's film over it `film` opaque
+    splash: { over: 0.12, along: 40, film: 0.55, filmUp: 0.03 },
     spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8 },
     // (v170) dune jumps: a section's `jump` heaps a dune `h` m high on it, its crest
     // `at` of the way along, its face `up` m long and its back `down`. A car leaves

@@ -39,6 +39,9 @@
 //      each portal open; the chase camera stays inside the lining, his car in sight, every car;
 //   p. (v174) THE FROZEN LAKE: the crossing on the bed's middle, its deck dead level on the bed's
 //      height, the bed level and dry under all the ice;
+//   q. (v175) THE SPLASH: the deck down at the water over real water (the one definition), never
+//      under the ground or the water; the spray -- his and the cars round him -- never between the
+//      chase camera and his car, or his seat and the road 30 m ahead;
 //   i. (v170) A SPENT STEER AND A PITCH THAT STAYS IN THE RACE: the full steer that took
 //      a shortcut, still held a whole lap, is nobody's choice of it the next time
 //      round; lifted (past liftGrace) and put back full, it is his again and takes
@@ -93,11 +96,14 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
       // (the road corridor, read without this venue's own claim: a point of it is the venue's
       // when it is within the venue's width of its own track)
       const own = (x, z) => S.some(q => Math.hypot(q.x - x, q.z - z) < 60);
+      // (v175) a splash is in the water on purpose, and its shore with it: within 1.5 times
+      // its easing of one, the dryness is q's to check, not this
+      const shore = q => (T.splashes || []).some(w => q.s > w.a - 1.5 * RC.splash.along && q.s < w.b + 1.5 * RC.splash.along);
       for (let i = 0; i < S.length; i += 6) {
         const q = S[i];
         for (const k of [-W - 15, -W, W, W + 15]) {
           const x = q.x + q.lx * k, z = q.z + q.lz * k;
-          dry = Math.min(dry, L.terrainEff(x, z) - L.seaLevelAt(x, z));
+          if (!shore(q)) dry = Math.min(dry, L.terrainEff(x, z) - L.seaLevelAt(x, z));
           if (L.cityCovers && L.cityCovers(x, z, 40)) city++;
         }
         if (Math.abs(L.hwyNearest(q.x, q.z).lateral) < 150) corridor++;
@@ -463,6 +469,74 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
     }, id);
     if (lake) check(`race ${id}: the frozen lake -- its crossing's middle ${lake.off} m from the bed's, the deck over it level at ${lake.deck.join("-")} m (the bed's ${lake.want - 0.25} + its lift), the bed level at ${lake.bed.join("-")} m and dry (${lake.wet} wet points) under all of the ice, the crossing ${lake.sf.join("/")}`,
       lake.off < 1 && lake.deck[1] - lake.deck[0] < 0.02 && Math.abs(lake.deck[0] - lake.want) < 0.02 && lake.bed[1] - lake.bed[0] < 0.01 && lake.wet === 0 && lake.sf.join() === "ice", J(lake));
+
+    // ---- q. (v175) THE SPLASH: each splash section's deck is down at the water -- over real
+    // water (terrainEff under seaLevelAt, the one definition) for most of it, at the sea plus
+    // `over` wherever the ground under it is lower, never under the ground (its own highest
+    // under it, plus the lift) across the splash and its easing, and the deck never under the
+    // water anywhere on the lap. Driving it, his own spray rises off it and never stands
+    // between the chase camera and his car (CLAUDE.md: wake stays out of the shot, by SIZE).
+    const sp = await page.evaluate((id) => {
+      const L = window.__lp, RC = L.RC, T = L.race.venues[id].track;
+      if (!T.splashes || !T.splashes.length) return null;
+      const out = { secs: [], underGround: 0, underWater: 0, worstWater: Infinity };
+      for (const q of T.S) {
+        const sea = L.seaLevelAt(q.x, q.z);
+        if (q.gy - sea < out.worstWater) out.worstWater = +(q.gy - sea).toFixed(3);
+        if (q.gy < sea + 0.1) out.underWater++;
+        if (T.splashes.some(w => q.s > w.a - RC.splash.along && q.s < w.b + RC.splash.along) && q.gy < q.g - 0.01) out.underGround++;
+      }
+      for (const w of T.splashes) {
+        const on = T.S.filter(q => q.sec === w.sec);
+        let wet = 0, atWater = 0, low = 0;
+        for (const q of on) {
+          if (L.terrainEff(q.x, q.z) < L.seaLevelAt(q.x, q.z)) wet++;
+          if (q.g < w.y) { low++; if (Math.abs(q.gy - w.y) < 0.01) atWater++; }
+        }
+        out.secs.push({ sec: w.sec, len: Math.round(w.b - w.a), wet: +(wet / on.length).toFixed(2), low, atWater, sf: [...new Set(on.map(q => q.sf))].join("/") });
+      }
+      return out;
+    }, id);
+    if (sp) {
+      const spray = await page.evaluate((id) => {
+        const L = window.__lp, S = L.state, T3 = window.THREE, out = {};
+        L.api.skipScreens();
+        // (chase and seat, both -- from the seat, what he aims at; the field on the track, two of them just ahead of him on the
+        // water and one just behind, throwing their own)
+        for (const [veh, chase] of [["car", true], ["cybertruck", true], ["corvette", true], ["monster", true], ["car", false], ["monster", false]]) {
+          L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.spdReset(); L.rcStartRace(id, 36);
+          const R = L.race, him = R.him, Tk = R.track;
+          for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+          const w = Tk.splashes[0];
+          him.s = Math.floor(him.s / Tk.len) * Tk.len + w.a - 60; him.lat = 0; him.v = 30;
+          const them = R.racers.filter(r => !r.isHim);
+          [[18, 5], [30, -5], [-16, 6]].forEach(([ds, lat], k) => { const o = them[k]; o.s = him.s + ds; o.lat = lat; o.v = 30; });
+          L.api.setView(chase); L.noRender = false;
+          let frames = 0, hidden = 0, born = 0, onSplash = 0;
+          const seg = new T3.Line3(), cp = new T3.Vector3(), tgt = new T3.Vector3();
+          for (let i = 0; i < 60 * 6; i++) {
+            const life0 = L.wakePuffList.map(p => p.life);
+            S.touching = true; S.ctrlBank = 0; L.update(1 / 60);
+            if (L.rcAt(him.s).sf !== "splash") continue;
+            onSplash++; born += L.wakePuffList.filter((p, k) => p.life > life0[k] + 1e-6).length;   // (a puff born this frame: its life put back up)
+            // (chase: his car; from his seat, where he looks -- the road 30 m ahead on his line)
+            if (chase) { const m = him.mesh || L.vehicleModel; m.updateMatrixWorld(true); tgt.setFromMatrixPosition(m.matrixWorld); tgt.y += 0.8; }
+            else { const q = {}; L.rcPoint(him.s + 30, him.lat, q); tgt.set(q.x, q.y + 0.5, q.z); }
+            seg.set(L.camera.position.clone(), tgt.clone());
+            frames++;
+            if (L.wakePuffList.some(p => p.life > 0 && p.mesh.visible && seg.closestPointToPoint(p.mesh.position, true, cp).distanceTo(p.mesh.position) < p.mesh.scale.x)) hidden++;
+          }
+          out[veh + (chase ? "" : ":seat")] = { frames, hidden, born, onSplash };
+          L.raceReset();
+        }
+        L.api.setView(true);
+        return out;
+      }, id);
+      check(`race ${id}: the splash -- ${sp.secs.map(w => `${w.len} m over water ${Math.round(w.wet * 100)}%, its deck at the water on ${w.atWater} of the ${w.low} samples where the ground is under it`).join("; ")}; never under the ground (${sp.underGround}) or the water (${sp.underWater}, lowest ${sp.worstWater} m over the sea); the spray rises off it (${Object.values(spray).map(v => v.born).join("/")} puffs, his and theirs) and never stands between the chase camera and his car, or his seat and the road 30 m ahead (${Object.entries(spray).map(([k, v]) => `${k} ${v.hidden} of ${v.frames} frames`).join(", ")})`,
+        sp.secs.every(w => w.wet >= 0.5 && w.low > 0 && w.atWater === w.low && w.sf === "splash") && sp.underGround === 0 && sp.underWater === 0 &&
+        Object.values(spray).every(v => v.frames > 100 && v.hidden === 0 && v.born > 20), J({ sp, spray }));
+    }
 
     // ---- f. the noisy hand, a race in every car
     const f = [];

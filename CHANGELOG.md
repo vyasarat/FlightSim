@@ -10,6 +10,61 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v175 — Beach Splash
+
+The fourth race track. Its card in the track picker shows the sea with a wave, a sandy beach
+and a sand road running into the water with a white splash where it goes in. It stands on
+the New York coast west of the airport (the runway is 800 m to the east), so he sees its
+grandstands flying out of New York. A lap is 4.1 km and takes about two minutes (120-123 s
+alone, in every car); a race is three laps.
+
+**What is on it.** From the line, raced WEST along the beach with the sea on his left:
+- the asphalt start straight;
+- the sand beach, with a dune jump on it and an S inland and back;
+- round the west end on sand;
+- back EAST across the lagoon behind the beach: **splash** into the water, a **sandbar with a
+  jump** off it, and **splash** into the water again;
+- up over the hill on asphalt, a hairpin dip into the infield, round the east end, home.
+
+**The splash.** The lagoon is the coast's own water (the ground there is under the sea, by
+the game's one definition of water); nothing in the world was reshaped. Over each splash the
+road comes down to the water: 12 cm over the sea wherever the ground under it is lower, on
+the ground wherever that is higher, and never under either. It eases back up to the road
+over 40 m either side. It is drawn as shallow water: turquoise, the sea's colour over a
+light base, with a white line of foam down each edge, the lagoon's water on both sides,
+white spray off every car's wheels and a splashing sound. It is 0.82 of the road's speed,
+the same for every car. There is no boost pad on a splash (cyan on water does not read).
+
+**Who wins.** At full strength the noisy hand won 88% (a lap that is mostly long straights
+gives his hand little to lose), so the opponents here run at `aiMul` 1.018. 20 races per
+car on each of two seeds:
+
+| | noisy hand | wall-hugger |
+|---|---|---|
+| Beach Splash | 82/160 (51%) | 18/160 (11%) |
+
+Per car, noisy: SUV 20/40, Cybertruck 25/40, Corvette 18/40, monster truck 19/40. 0 bangs,
+0 stuck. The worst gap is 2.75 s.
+
+**Unchanged.** The oval, Desert Dunes and Snowy Peaks: their geometry, the game's random
+stream and 48 pinned races (16 per track, every car) are identical before and after.
+(`rcLayTrack`'s jump easing now runs before the splash pass and the dunes after it; on a
+track with no splash that is the same order as before.)
+
+**Checks.** `race_track_checks`, new:
+- (q) each splash is over real water for most of its length (80% and 82%), its deck at the
+  water wherever the ground is lower, never under the ground or the water anywhere on the
+  lap; the spray (his and three cars round him) never stands between the chase camera and
+  his car, or between his seat and the road 30 m ahead, in any car;
+- (a) the dryness at the barriers leaves out the lagoon's shore (within 60 m of a splash):
+  that water is there on purpose.
+
+Harness change: `heli_land_checks`' release flight (up off a roof, then away at cruise) now
+points at open air -- the first of four ways whose 700 m at his height is clear. It used to
+fly blind toward +x; the new venue's grandstand roofs moved which roof it starts from, and
+it flew into the side of a New York tower at cruise. That is the one bang that stays in the
+game, but the check counted it against the landings.
+
 ## v174 — Snowy Peaks
 
 The third race track, the one he asked for after the dunes. Its card in the track picker

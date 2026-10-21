@@ -236,7 +236,16 @@ module.exports = async function heliLandChecks({ newPage, check }) {
       H.vertical = -1; let t = 0;
       while (t < 30 && S.phase !== "TAXI") { step(1); t += 1 / 60; }
       H.vertical = 1; step(120); H.vertical = 0;
-      H.target = { x: S.x + 2000, y: S.y, z: S.z }; H.sky = true;
+      // (v175: pointed at OPEN air -- the first way whose 700 m at his height is clear. Pointed
+      // blind at +x, a roof that moved in the sample flew him into a tower's side at cruise:
+      // the one bang that stays, counted against the landings)
+      let way = [1, 0];
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        let clear = true;
+        for (let d = 20; d <= 700 && clear; d += 10) { const px = S.x + dx * d, pz = S.z + dz * d; if (floorAt(px, pz, S.y).y > S.y - 15 || lp.solidQuery(px, S.y, pz, 8, lp.SOLID.AIR)) clear = false; }
+        if (clear) { way = [dx, dz]; break; }
+      }
+      H.target = { x: S.x + way[0] * 2000, y: S.y, z: S.z + way[1] * 2000 }; H.sky = true;
       let top = 0; for (let i = 0; i < 60 * 6; i++) { step(1); top = Math.max(top, S.speed); }
       out.release = { top: +top.toFixed(1), block: !!H.landBlock };
     }
