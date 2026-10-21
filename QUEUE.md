@@ -7,7 +7,7 @@ in which case it goes to the top.
 
 ## Releases
 
-1. [ ] **v174 Snowy Peaks** — a race track in the snow mountains: an icy hairpin, a tunnel through the mountain, a frozen-lake crossing, snowbank walls; snow and ice surfaces; laps about 2 minutes, 3 laps.
+1. [x] **v174 Snowy Peaks** (shipped 2026-10-21, merge 43bfa0b) — a race track in the snow mountains: an icy hairpin, a tunnel through the mountain, a frozen-lake crossing, snowbank walls; snow and ice surfaces; laps about 2 minutes, 3 laps.
 2. [ ] **v175 Beach Splash** — a race track along the beach: sand and shallow-water splash sections, a jump; laps about 2 minutes, 3 laps.
 3. [ ] **v176 Sky Glow Road** — a glowing race track up in the sky: a road in the air with a jump; laps about 2 minutes, 3 laps.
 
