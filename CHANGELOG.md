@@ -10,6 +10,72 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v177 — the harness back under 45 minutes
+
+Nothing he plays changed: this release is the test harness only (no `cockpit/` file, no new
+cache name, nothing to deploy). The full harness had grown to 1 h 48 m for v176 (77 min at
+v162, 94 at v173). The parent asked for it back under 45 minutes without dropping coverage.
+
+**Where the time went.** The harness now times itself: every module, every inline check, and
+the pages a module leaves open (`evidence/harness-times.json`, and a `TIME` summary at the end).
+v176's five slowest: race_track_checks 9.8 min, corner_cam_checks 7.1, lights_police_checks
+6.2, city_checks 5.0, noisy_drive 5.0. What grew:
+- **The race checks, not the win-rate sweeps.** The 160-race sweeps were never in the harness.
+  What grew was race_track_checks driving whole laps and races in every car on every track:
+  five tracks by four cars, 9.8 minutes.
+- **One police check, 5.5 minutes.** It drew 960 SwiftShader frames to judge a draw-call
+  count, which a single frame gives exactly.
+- **The cost of a drawn frame.** The world got heavier as the venues arrived: the FPS smoke
+  test went from 4 fps to 3, and the chase frame from 210 to 300 ms. That is a game question,
+  queued in QUEUE.md.
+- **Time no clock counted.** Closing a page runs the SwiftShader work its frames queued: 240 s
+  of boat_checks' 283, about nine minutes a run.
+
+**What changed.**
+- **The race checks are a sample.** In race_track_checks, three checks drive whole laps or
+  races: the lap alone (b), the noisy race (f) and the barrier lap (k). In the harness each now
+  runs one car per track, turning through the four cars so every car is on some track for each.
+- **The full matrix is `scripts/race_sweep.js`.** It runs every car on every track (10 min).
+  The gate fails any change to the race or to what drives a car in it (`race.js`,
+  `track.js`, `car.js`, the bodies, `vehicles.js`, `speed.js`, `solids.js`, `TUNE.race`, `.car`,
+  `.solid` and `.models`, or the race scripts)
+  until the sweep has passed on exactly that content (`evidence/race-sweep.json`).
+- **The police check draws 200 frames, not 960.** It judges the same draw calls. Its INFO
+  milliseconds are now a median of three runs of ten frames over two settles, so they no longer
+  line up with older logs. They were never judged.
+- **The harness runs as four shards.** Each has its own server and browser, and takes the
+  next unclaimed module, dearest first. Every check still runs on every full run.
+- **The timing checks run alone after the shards.** Those are the five checks that judge
+  milliseconds:
+  - the harbour, the busiest harbour and the drawbridge (absolute bounds);
+  - the valley chunk (a ratio);
+  - the meteor shower's frame time (a ratio; lifted from inline into `events_perf_checks`).
+  Each gets a browser of its own, which is killed afterwards, so nothing else is on the
+  machine while they measure.
+- **A run is green only if it was whole.** Every module ran exactly once across the shards,
+  the solo phase ran exactly its five timing parts, and every process reached its own count.
+  Before this, a shard that threw could leave its module run nowhere and still read all-pass.
+  The gate drives that verdict through eight made-up ways a run goes wrong.
+- **Sea's seaplane, submarine and fireboat checks come first on their page now.** They start
+  from the same fresh page however the harness runs. The frame-time sample follows them, on their page, in a
+  serial run (a page booted after the sample waited past two minutes behind its queued frames),
+  and runs alone on a fresh page in the solo phase, the run that counts.
+- **`HARNESS_SHARDS=1`** is the old serial run.
+- **A page action waits two minutes, not 30 s.** A screenshot under load outlasted 30 s.
+
+**Moved out of the full harness, and where it runs now.** Only the race matrix moved: checks
+b, f and k of race_track_checks in the three cars per track the sample skips. They run in
+`scripts/race_sweep.js`, which the gate demands on every race or track change. Everything
+else still runs in every full run.
+
+**The proof.** Two full runs, back to back, alone on the machine, on the final code: 1162/1162 in
+38.7 min, and 1162/1162 in 42.7 min. The race sweep passed 59/59 on the same content (10 min).
+The margin is thin: the rendering-heavy modules slow two to three times under four shards (the
+launch site took 13.9 min in the first run and 19.1 in the second). The next minutes to win are in
+the frame cost queued in QUEUE.md, not in the harness. Law-reviewer: BLOCK in round 1 (a shard
+that threw could leave its module run nowhere and still read all-pass -- fixed and self-tested),
+PASS in round 2.
+
 ## v176 — Sky Glow Road
 
 The fifth race track. Its card in the track picker shows a blue road with yellow lights down

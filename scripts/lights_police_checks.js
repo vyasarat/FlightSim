@@ -364,22 +364,26 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
         // (v174: drawn only for its last 20 frames -- drawing all 540 of the six settles took this one check
         // to 16 minutes of SwiftShader, and over the harness's 20-minute stall line when anything grew)
         for (let i = 0; i < 60 * 9; i++) { L.update(1 / 60); hold(); if (i >= 60 * 9 - 20) L.renderer.render(L.scene, L.camera); }
+        // (v177: what this check judges is draw calls, which a frame counts exactly; the
+        // milliseconds are an INFO line. Seven timed runs of twenty drawn frames, six
+        // times over, were 960 SwiftShader frames: five and a half minutes, the harness's
+        // dearest check. Three runs of ten, four settles: 200 frames, the same calls.)
         const ms = [];
-        for (let r = 0; r < 7; r++) {
+        for (let r = 0; r < 3; r++) {
           const t0 = performance.now();
-          for (let i = 0; i < 20; i++) { L.update(1 / 60); hold(); L.renderer.render(L.scene, L.camera); }
-          ms.push((performance.now() - t0) / 20);
+          for (let i = 0; i < 10; i++) { L.update(1 / 60); hold(); L.renderer.render(L.scene, L.camera); }
+          ms.push((performance.now() - t0) / 10);
         }
         ms.sort((a, b) => a - b);
-        return { ms: +ms[3].toFixed(2), calls: L.renderer.info.render.calls,
+        return { ms: +ms[1].toFixed(2), calls: L.renderer.info.render.calls,
                  tris: L.renderer.info.render.triangles,
                  nearest: chase && L.police.active ? +L.policeState().nearest : null,
                  chasing: !!(chase && L.police.active) };
       };
       // interleaved, because sampling one then the other lets drift land on a side
       const a = [], b = [];
-      for (let r = 0; r < 3; r++) { a.push(sit(false)); b.push(sit(true)); }
-      const med = (xs) => xs.map(x => x.ms).sort((p, q) => p - q)[1];
+      for (let r = 0; r < 2; r++) { a.push(sit(false)); b.push(sit(true)); }
+      const med = (xs) => xs.reduce((p, x) => p + x.ms, 0) / xs.length;
       L.policeStop(false);
       return { quiet: a[1], chase: b[1], quietMs: +med(a).toFixed(2), chaseMs: +med(b).toFixed(2) };
     });

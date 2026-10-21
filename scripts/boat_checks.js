@@ -10,7 +10,48 @@
 // ---------------------------------------------------------------------------
 const path = require("path");
 
-module.exports = async function boatChecks({ newPage, check, shots }) {
+module.exports = async function boatChecks({ newPage, check, shots, perf }) {
+  // (v177) the timing check is its own function: the sharded harness runs it ALONE after the
+  // shards (perf: "only") and the rest of this module in a shard (perf: "skip"); unset, both, as before
+  const perfBlock = async () => {
+    const { page } = await newPage(1180, 820);
+    const perf = await page.evaluate(() => {
+      const L = window.__lp, st = L.state;
+      L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1);
+      const place = (terminal) => {
+        if (terminal) { st.x = 1100; st.z = -6420; st.heading = Math.PI * 0.85; }
+        else { st.x = 1300; st.z = -12000; st.heading = 0; }   // open sea, nothing built
+        st.y = L.TUNE.waterLevel; st.speed = 0;
+      };
+      // A/B the HARBOUR ITSELF, from the same spot, by hiding it -- and
+      // INTERLEAVED, never in blocks. Sampling A five times then B five times
+      // lets machine drift land on one side of the comparison; it once priced a
+      // layer at +19% that interleaved sampling showed to be free. Comparing the
+      // terminal against a patch of open sea measured the terrain instead: out
+      // there almost no ground chunks are drawn at all.
+      const sample = (on) => {
+        L.harbor.g.visible = on;
+        place(true);
+        for (let i = 0; i < 30; i++) { L.update(1 / 60); L.harbor.g.visible = on; }
+        const t0 = performance.now();
+        for (let i = 0; i < 50; i++) { L.update(1 / 60); L.harbor.g.visible = on; L.renderer.render(L.scene, L.camera); }
+        return { ms: (performance.now() - t0) / 50, calls: L.renderer.info.render.calls, tris: L.renderer.info.render.triangles };
+      };
+      const a = [], b = [];
+      for (let i = 0; i < 5; i++) { a.push(sample(true)); b.push(sample(false)); }
+      const med = (v, k) => v.map(s => s[k]).sort((x, y) => x - y)[Math.floor(v.length / 2)];
+      L.harbor.g.visible = true;
+      return { withMs: +med(a, "ms").toFixed(2), withoutMs: +med(b, "ms").toFixed(2),
+               calls: med(a, "calls"), callsWithout: med(b, "calls"),
+               tris: med(a, "tris"), trisWithout: med(b, "tris") };
+    });
+    const addedCalls = perf.calls - perf.callsWithout;
+    check("harbour: the whole port -- terminal, cranes, ship, container stacks, marina, bridge and buoys -- costs a bounded number of extra draw calls at the busiest place in it (SwiftShader: read calls/tris as the hardware proxy, cpuMs only as a bound)",
+      addedCalls < 90 && perf.withMs < 220, JSON.stringify({ ...perf, addedCalls }));
+    console.log(`INFO  harbour perf: ${perf.withMs} ms with the port vs ${perf.withoutMs} ms without, +${addedCalls} draw calls (${perf.calls} vs ${perf.callsWithout}), +${(perf.tris - perf.trisWithout).toLocaleString()} triangles (swiftshader, interleaved)`);
+    await page.close();
+  };
+  if (perf === "only") return perfBlock();
   const { page } = await newPage(1180, 820);
   await page.evaluate(() => { window.__lp.noRender = true; });
 
@@ -276,42 +317,5 @@ module.exports = async function boatChecks({ newPage, check, shots }) {
   // Interleaved A/B, never in blocks: sampling A three times then B three times
   // lets machine drift land on one side, and it once priced a layer at +19% that
   // interleaved sampling showed to be free.
-  {
-    const { page } = await newPage(1180, 820);
-    const perf = await page.evaluate(() => {
-      const L = window.__lp, st = L.state;
-      L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1);
-      const place = (terminal) => {
-        if (terminal) { st.x = 1100; st.z = -6420; st.heading = Math.PI * 0.85; }
-        else { st.x = 1300; st.z = -12000; st.heading = 0; }   // open sea, nothing built
-        st.y = L.TUNE.waterLevel; st.speed = 0;
-      };
-      // A/B the HARBOUR ITSELF, from the same spot, by hiding it -- and
-      // INTERLEAVED, never in blocks. Sampling A five times then B five times
-      // lets machine drift land on one side of the comparison; it once priced a
-      // layer at +19% that interleaved sampling showed to be free. Comparing the
-      // terminal against a patch of open sea measured the terrain instead: out
-      // there almost no ground chunks are drawn at all.
-      const sample = (on) => {
-        L.harbor.g.visible = on;
-        place(true);
-        for (let i = 0; i < 30; i++) { L.update(1 / 60); L.harbor.g.visible = on; }
-        const t0 = performance.now();
-        for (let i = 0; i < 50; i++) { L.update(1 / 60); L.harbor.g.visible = on; L.renderer.render(L.scene, L.camera); }
-        return { ms: (performance.now() - t0) / 50, calls: L.renderer.info.render.calls, tris: L.renderer.info.render.triangles };
-      };
-      const a = [], b = [];
-      for (let i = 0; i < 5; i++) { a.push(sample(true)); b.push(sample(false)); }
-      const med = (v, k) => v.map(s => s[k]).sort((x, y) => x - y)[Math.floor(v.length / 2)];
-      L.harbor.g.visible = true;
-      return { withMs: +med(a, "ms").toFixed(2), withoutMs: +med(b, "ms").toFixed(2),
-               calls: med(a, "calls"), callsWithout: med(b, "calls"),
-               tris: med(a, "tris"), trisWithout: med(b, "tris") };
-    });
-    const addedCalls = perf.calls - perf.callsWithout;
-    check("harbour: the whole port -- terminal, cranes, ship, container stacks, marina, bridge and buoys -- costs a bounded number of extra draw calls at the busiest place in it (SwiftShader: read calls/tris as the hardware proxy, cpuMs only as a bound)",
-      addedCalls < 90 && perf.withMs < 220, JSON.stringify({ ...perf, addedCalls }));
-    console.log(`INFO  harbour perf: ${perf.withMs} ms with the port vs ${perf.withoutMs} ms without, +${addedCalls} draw calls (${perf.calls} vs ${perf.callsWithout}), +${(perf.tris - perf.trisWithout).toLocaleString()} triangles (swiftshader, interleaved)`);
-    await page.close();
-  }
+  if (perf !== "skip") await perfBlock();
 };

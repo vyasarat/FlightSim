@@ -4,7 +4,7 @@
 // newPage/check contract -- on a spare port, in a couple of minutes instead of
 // the suite's half hour. For iterating; the full harness is still the gate.
 //
-//   node scripts/run_module.js solidity_checks [root] [--vp=1024x768,390x844]
+//   node scripts/run_module.js solidity_checks [root] [--vp=1024x768,390x844] [--perf=only|skip]
 const path = require("path");
 const { launch, serve } = require("./art_rig.js");
 
@@ -13,6 +13,7 @@ const { launch, serve } = require("./art_rig.js");
   const name = args.find(a => !a.startsWith("--"));
   const rootArg = args.filter(a => !a.startsWith("--"))[1];
   const vpArg = (args.find(a => a.startsWith("--vp=")) || "").slice(5);
+  const perf = (args.find(a => a.startsWith("--perf=")) || "").slice(7) || undefined;   // (v177) only | skip: a module's timing part
   const viewports = vpArg ? vpArg.split(",").map(s => s.split("x").map(Number)) : [[1024, 768]];
   const root = path.resolve(rootArg || path.join(__dirname, ".."));
   const port = +(process.env.PORT || 8191), srv = serve(root, port), browser = await launch();
@@ -46,7 +47,7 @@ const { launch, serve } = require("./art_rig.js");
   const SHOTS = path.resolve(__dirname, "..", "evidence", "module");
   require("fs").mkdirSync(SHOTS, { recursive: true });
   try {
-    await require(name.startsWith("/") ? name : "./" + name)({ newPage, check, shots: SHOTS, viewports });
+    await require(name.startsWith("/") ? name : "./" + name)({ newPage, check, shots: SHOTS, viewports, perf });
   } catch (e) { fail++; console.log("FAIL module threw: " + (e.stack || e)); }
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close(); srv.close();

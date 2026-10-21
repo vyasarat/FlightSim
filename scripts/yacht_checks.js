@@ -7,7 +7,40 @@
 // ---------------------------------------------------------------------------
 const path = require("path");
 
-module.exports = async function yachtChecks({ newPage, check, shots }) {
+module.exports = async function yachtChecks({ newPage, check, shots, perf }) {
+  // (v177) the timing check is its own function: the sharded harness runs it ALONE after the
+  // shards (perf: "only") and the rest of this module in a shard (perf: "skip"); unset, both, as before
+  const perfBlock = async () => {
+    const { page } = await newPage(1180, 820);
+    const perf = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, b = L.harbor.bridge;
+      L.api.setVehicle("yacht"); L.api.spawnAt(1, 1);
+      const place = () => {
+        st.x = L.HB.cx; st.z = -6560; st.heading = 0; st.speed = L.YT.cruise; st.y = L.TUNE.waterLevel;
+        b.want = 1; b.open = 1; b.state = "open";
+      };
+      const sample = (on) => {
+        L.harbor.g.visible = on;
+        place();
+        for (let i = 0; i < 30; i++) { L.update(1 / 60); place(); L.harbor.g.visible = on; }
+        const t0 = performance.now();
+        for (let i = 0; i < 50; i++) { L.update(1 / 60); place(); L.harbor.g.visible = on; L.renderer.render(L.scene, L.camera); }
+        return { ms: (performance.now() - t0) / 50, calls: L.renderer.info.render.calls };
+      };
+      const a = [], c = [];
+      for (let i = 0; i < 5; i++) { a.push(sample(true)); c.push(sample(false)); }
+      const med = (v, k) => v.map(s => s[k]).sort((x, y) => x - y)[Math.floor(v.length / 2)];
+      L.harbor.g.visible = true;
+      return { withMs: +med(a, "ms").toFixed(2), withoutMs: +med(c, "ms").toFixed(2),
+               calls: med(a, "calls"), callsWithout: med(c, "calls") };
+    });
+    const added = perf.calls - perf.callsWithout;
+    check("yacht: the drawbridge open with the traffic queued on it stays inside the draw-call budget (SwiftShader: calls are the hardware proxy, cpuMs only a bound)",
+      added < 90 && perf.withMs < 220, JSON.stringify({ ...perf, added }));
+    console.log(`INFO  drawbridge perf: ${perf.withMs} ms with the port vs ${perf.withoutMs} ms without, +${added} draw calls (swiftshader, interleaved)`);
+    await page.close();
+  };
+  if (perf === "only") return perfBlock();
   const { page } = await newPage(1180, 820);
   await page.evaluate(() => { window.__lp.noRender = true; });
 
@@ -345,34 +378,5 @@ module.exports = async function yachtChecks({ newPage, check, shots }) {
   await page.close();
 
   // ---- frame time at the drawbridge, with the traffic queued ---------------
-  {
-    const { page } = await newPage(1180, 820);
-    const perf = await page.evaluate(() => {
-      const L = window.__lp, st = L.state, b = L.harbor.bridge;
-      L.api.setVehicle("yacht"); L.api.spawnAt(1, 1);
-      const place = () => {
-        st.x = L.HB.cx; st.z = -6560; st.heading = 0; st.speed = L.YT.cruise; st.y = L.TUNE.waterLevel;
-        b.want = 1; b.open = 1; b.state = "open";
-      };
-      const sample = (on) => {
-        L.harbor.g.visible = on;
-        place();
-        for (let i = 0; i < 30; i++) { L.update(1 / 60); place(); L.harbor.g.visible = on; }
-        const t0 = performance.now();
-        for (let i = 0; i < 50; i++) { L.update(1 / 60); place(); L.harbor.g.visible = on; L.renderer.render(L.scene, L.camera); }
-        return { ms: (performance.now() - t0) / 50, calls: L.renderer.info.render.calls };
-      };
-      const a = [], c = [];
-      for (let i = 0; i < 5; i++) { a.push(sample(true)); c.push(sample(false)); }
-      const med = (v, k) => v.map(s => s[k]).sort((x, y) => x - y)[Math.floor(v.length / 2)];
-      L.harbor.g.visible = true;
-      return { withMs: +med(a, "ms").toFixed(2), withoutMs: +med(c, "ms").toFixed(2),
-               calls: med(a, "calls"), callsWithout: med(c, "calls") };
-    });
-    const added = perf.calls - perf.callsWithout;
-    check("yacht: the drawbridge open with the traffic queued on it stays inside the draw-call budget (SwiftShader: calls are the hardware proxy, cpuMs only a bound)",
-      added < 90 && perf.withMs < 220, JSON.stringify({ ...perf, added }));
-    console.log(`INFO  drawbridge perf: ${perf.withMs} ms with the port vs ${perf.withoutMs} ms without, +${added} draw calls (swiftshader, interleaved)`);
-    await page.close();
-  }
+  if (perf !== "skip") await perfBlock();
 };
