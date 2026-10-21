@@ -371,7 +371,9 @@ function generate() {
             const n = Math.ceil(stand / 2);
             for (let k = 0; k <= n && ok; k++) {
               const t = k / n, px = sx - fc.nx * stand * t, pz = sz - fc.nz * stand * t;
-              if (air && Math.max(ground(px, pz), T.waterLevel) > y - (veh === "heli" ? 2.5 : veh === "rocket" ? 3.5 : T.terrainClearance + 1.5)) ok = false;
+              // (v174: the helicopter's run in keeps its spawn's own 3 m over the ground, plus the floor
+              // tolerance it lands on -- 2.5 m let a slope rising under it set it down before the solid)
+              if (air && Math.max(ground(px, pz), T.waterLevel) > y - (veh === "heli" ? 3 + T.heli.floorTol : veh === "rocket" ? 3.5 : T.terrainClearance + 1.5)) ok = false;
               if (veh === "car" && (wet(px, pz, 0) || Math.abs(ground(px, pz) - y) > 2.5)) ok = false;
               if ((veh === "boat" || veh === "yacht") && k < n - Math.ceil(r / 2) && !wet(px, pz, veh === "yacht" ? 2 : 0.5)) ok = false;
               const hit = (veh === "boat" || veh === "yacht") ? solidCol(px, pz, T.waterLevel - 0.5, T.waterLevel + 2.5, r, CLS[veh])
