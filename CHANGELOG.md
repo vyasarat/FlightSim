@@ -59,6 +59,12 @@ track with no splash that is the same order as before.)
 - (a) the dryness at the barriers leaves out the lagoon's shore (within 60 m of a splash):
   that water is there on purpose.
 
+Harness change: `heli_land_checks`' release flight (up off a roof, then away at cruise) now
+points at open air -- the first of four ways whose 700 m at his height is clear. It used to
+fly blind toward +x; the new venue's grandstand roofs moved which roof it starts from, and
+it flew into the side of a New York tower at cruise. That is the one bang that stays in the
+game, but the check counted it against the landings.
+
 ## v174 — Snowy Peaks
 
 The third race track, the one he asked for after the dunes. Its card in the track picker
