@@ -56,6 +56,7 @@ entry below.
 | v175 | he picks the beach card, makes a splash noise or says "water" or "splash" driving through the lagoon, and steers for the sandbar jump; he does not say the blue road is the sea or that he is "in the water" as if he had crashed |  open |
 | v176 | he picks the sky card, says the road is "in the sky" or "up high" on the climb, steers for the sky jump, and asks for the sky race again; he does not say he is scared of falling off or that the blue road is the sea |  open |
 | v178 | nothing he would mention: in the Corvette's seat with the booster held he looks at the road ahead, not up at the mirror; asked where the flames are, he can still point to them in the mirror |  open |
+| v179 | nothing he notices: every track, the runway and the cities look as before; on the iPad nothing he would call slow or jerky beside a race track or in a race |  open |
 
 ## Entries
 

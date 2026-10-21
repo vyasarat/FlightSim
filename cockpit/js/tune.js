@@ -2378,6 +2378,11 @@ const TUNE = {
     width: 26, kerbW: 1.8, kerbStep: 4, wallH: 1.1,
     lift: 0.25, smooth: 40,            // the deck this far over the ground under it, its height smoothed over this many metres
     gantryH: 15, flagStep: 45, wallPiece: 12,
+    // (v179) a venue is drawn only where it can be seen: its long ribbons cut into `cell` m squares
+    // (any over `chunkMin` triangles), and a piece whose nearest corner is deeper than the fog's
+    // far edge plus `margin` (view depth, as the fog counts) is off the camera's layer -- the fog
+    // has hidden it whole by then. Still solid; still there.
+    cull: { cell: 600, chunkMin: 5000, margin: 150 },
     laps: 3, field: 5,                 // five to race him, each a different car from the game
     roster: ["car", "cybertruck", "corvette", "monster", "taxi", "hatch"],
     hatchColour: 0x36c46a,
