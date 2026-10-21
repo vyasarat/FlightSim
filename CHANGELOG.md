@@ -68,7 +68,13 @@ b, f and k of race_track_checks in the three cars per track the sample skips. Th
 `scripts/race_sweep.js`, which the gate demands on every race or track change. Everything
 else still runs in every full run.
 
-PROOF_RUNS
+**The proof.** Two full runs, back to back, alone on the machine, on the final code: 1162/1162 in
+38.7 min, and 1162/1162 in 42.7 min. The race sweep passed 59/59 on the same content (10 min).
+The margin is thin: the rendering-heavy modules slow two to three times under four shards (the
+launch site took 13.9 min in the first run and 19.1 in the second). The next minutes to win are in
+the frame cost queued in QUEUE.md, not in the harness. Law-reviewer: BLOCK in round 1 (a shard
+that threw could leave its module run nowhere and still read all-pass -- fixed and self-tested),
+PASS in round 2.
 
 ## v176 — Sky Glow Road
 
