@@ -131,10 +131,11 @@ const harnessMain = async () => {
   }, 60 * 1000);
   watchdog.unref();
 
-  const browser = await chromium.launch({
+  const launchBrowser = () => chromium.launch({
     executablePath: SHELL,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
   });
+  let browser = await launchBrowser();
 
   // Every navigation goes through here: behind a health check, and retried on a
   // timeout (re-navigating keeps the context's storage, which the persistence
@@ -175,8 +176,16 @@ const harnessMain = async () => {
     curMod = key;
     if (process.env.HARNESS_TRACE) console.log(`TRACE ${key} at ${((t - T0) / 1000).toFixed(0)} s`);
     lastAt = t;
+    // (v177) the solo phase gives each timing part a browser of its own and KILLS it after, rather
+    // than closing its pages: closing one runs every frame its measurement queued (boat's 500 took
+    // four minutes), work nobody looks at, and on a shared browser it would run under the next
+    // module's measurement
+    const solo = SHARDS > 1 && SHARD === SHARDS;
+    // (and a page's own close() is a no-op there: the browser goes, with everything queued in it)
+    if (solo) opts = { ...opts, newPage: async (w, h) => { const r = await newPage(w, h); r.page.close = async () => {}; return r; } };
     try { await require(name)(opts); }
     finally {
+      if (solo) { for (const c of [...liveCtxs]) liveCtxs.delete(c); try { browser.process().kill("SIGKILL"); } catch (e) {} browser = await launchBrowser(); }
       // (the pages it left open are closed in its time: closing one runs the SwiftShader work
       // its frames queued -- 240 s of boat_checks' 283, which no clock used to count)
       const left = [...liveCtxs].filter(c => !before.has(c));
@@ -5665,7 +5674,7 @@ const harnessMain = async () => {
   ];
   for (const [name, opts] of SHARDS > 1 ? SHARDING.order(MODULES) : MODULES) await runModule(name, opts);
 
-  await browser.close();
+  await browser.close().catch(() => {});
   killAll();
 
   harnessTimes();
