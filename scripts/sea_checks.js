@@ -306,8 +306,11 @@ module.exports = async function seaChecks({ newPage, check, shots, perf }) {
 
   // ---- frame time at the busiest the harbour ever gets ----------------------
   {
+    // (v177: these come FIRST on this page now, so they start from the same fresh page however the
+    // harness runs; they used to follow the frame-time sample, cruise ship alongside and bridge up,
+    // and the sharded harness runs the sample apart from them, alone. The sample follows them here,
+    // on their page: a new page booted after it waited past two minutes behind its queued frames.)
     const { page } = await newPage(1180, 820);
-    if (perf !== "skip") await perfBlock(page);
 
     // ---- the three new ones: the seaplane, the submarine and the fireboat ----
     // On the SHARED page, not a fresh one. The server behind the harness is a
@@ -406,6 +409,7 @@ module.exports = async function seaChecks({ newPage, check, shots, perf }) {
     check("sea: leaving the harbour puts the seaplane away -- its engine does not follow him out",
       quiet.wasFlying && quiet.hidden, JSON.stringify(quiet));
 
+    if (perf !== "skip") await perfBlock(page);
     await page.close();
   }
 };

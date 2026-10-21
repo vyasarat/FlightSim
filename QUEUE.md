@@ -16,6 +16,7 @@ Every track: about 50% wins per car, 0 bangs, 0 stuck, wall-hugging slower than 
 
 ## Bugs (below the tracks)
 
+- [ ] Perf (found in v177): a drawn world frame got dearer with every venue -- the harness's FPS smoke test went 4 -> 3 fps from v173 to v176, and a synced runway frame is 240 ms under SwiftShader (565 calls, 491k triangles). Find out whether the race venues are drawn from everywhere (merged meshes spanning kilometres are never culled); if so, cull or LOD them. A game change, for its own release; measure with polish_check (calls/tris) first.
 - [ ] **v178** (branch mirror-v177, paused for v177) The Corvette's seat-view mirror flames are the brightest thing in the seat view (render-critic note, v166) — readability only.
 - [ ] Snowy Peaks looks (render-critic notes, v174): dark-green wedges where the lake's ice road meets the shore; the tunnel mountain reads as a grey dome from its shaded side; snow off the track carries the grass detail tile (green blotches) -- readability only.
 - [ ] Perf: the solids registry is one flat list walked by every solidQuery. The three race venues add about 2,300 boxes (Snowy Peaks 1,324 of them: barriers and the tunnel mountain), and on a headless timing solidQuery went from 309 to 381 µs a call against main. A coarse spatial index would make the venues free. Measure on the iPad first (polish_check).

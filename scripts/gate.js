@@ -252,12 +252,24 @@ for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => /^d
 if (fs.existsSync(path.join(ROOT, "scripts", "race_sweep.js"))) {
   const { raceHash } = require("./race_sweep.js");
   const readAt = f => { try { return fs.readFileSync(path.join(ROOT, f), "utf8"); } catch (e) { return null; } };
+  // (the rule's own proof: an edit inside TUNE.race, or to any file it lists, changes the hash)
+  const tune = readAt("cockpit/js/tune.js") || "";
+  if (raceHash(f => f === "cockpit/js/tune.js" ? tune.replace(/^  race: \{/m, "  race: { /*x*/") : readAt(f)) === raceHash(readAt) ||
+      raceHash(f => f === "cockpit/js/race.js" ? readAt(f) + "//x" : readAt(f)) === raceHash(readAt))
+    fail("race-sweep", "scripts/race_sweep.js's hash no longer sees an edit to TUNE.race or race.js -- the sweep rule would never fire");
   const now = raceHash(readAt), was = raceHash(f => git("show", `${base}:${f}`));
   if (now !== was) {
     let r = null; try { r = JSON.parse(readAt("evidence/race-sweep.json")); } catch (e) {}
     if (!r || r.hash !== now) fail("race-sweep", `the race changed (race.js, track.js, TUNE.race or its checks) and has not been swept as it stands -- run node scripts/race_sweep.js (every car on every track, about 10 min)`);
     else if (!r.ok) fail("race-sweep", `the race sweep FAILED on this content (${r.fail} failed) -- evidence/race-sweep.json`);
   }
+}
+
+// ---------- 12. the sharded harness's verdict turns red on every way a run goes wrong (v177) ----------
+// a shard that threw, a module run nowhere or twice, a solo phase short of a timing part, a stale
+// timing file: scripts/harness_shards.js's verdict, driven with made-up shard results
+if (fs.existsSync(path.join(ROOT, "scripts", "harness_shards.js"))) {
+  for (const c of require("./harness_shards.js").selftest()) if (!c.ok) fail("harness", `harness_shards.js verdict: ${c.label} -- got exit ${c.code}`);
 }
 
 // ---------- which modules the change answers to ----------

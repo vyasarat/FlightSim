@@ -4,7 +4,7 @@
 // The full harness runs race_track_checks as a SAMPLE -- the lap alone (b), the noisy
 // race (f) and the barrier lap (k) in one car per track, turning through the four
 // cars. Here they run in all four, on every track, the way they ran in the harness
-// before v177. The gate demands it: when a change touches a race or track file (the
+// before v177. The gate demands it: when a change touches a race or track file, or a car's (the
 // files in RACE_FILES, or TUNE.race), it fails until this has passed on exactly that
 // content, and the pass is recorded in evidence/race-sweep.json.
 //
@@ -15,7 +15,12 @@
 const fs = require("fs"), path = require("path"), crypto = require("crypto"), { spawnSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const RACE_FILES = ["cockpit/js/race.js", "cockpit/js/track.js", "scripts/race_track_checks.js", "scripts/race_drive.js", "scripts/race_sweep.js"];
+// the race itself, and what drives each car in it -- its bodies and widths, its speed steps, the
+// contract that says what he is in (law-reviewer, v177: a car change reached the sweep's checks
+// b and k in every car, and only the sample would have seen it)
+const RACE_FILES = ["cockpit/js/race.js", "cockpit/js/track.js", "cockpit/js/car.js", "cockpit/js/vehicles.js",
+  "cockpit/js/vehicle.js", "cockpit/js/speed.js", "cockpit/js/corvette.js", "cockpit/js/monster.js",
+  "scripts/race_track_checks.js", "scripts/race_drive.js", "scripts/race_sweep.js"];
 
 // TUNE.race, as text: from `  race: {` to the next key at its depth
 function tuneRace(src) {

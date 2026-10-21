@@ -76,6 +76,7 @@ async function orchestrate(file, shards) {
     process.exit(2);
   }
   const T0 = Date.now(), kids = [], logs = [], ends = new Array(shards).fill(null);
+  for (const f of fs.readdirSync(EV)) if (/^harness-(times-\d+\.json|shard-.*\.txt)$/.test(f)) fs.rmSync(path.join(EV, f), { force: true });   // nothing from an earlier run
   const claims = path.join(EV, "harness-claims");
   fs.rmSync(claims, { recursive: true, force: true }); fs.mkdirSync(claims, { recursive: true });
   console.log(`INFO  harness in ${shards} shards (ports ${BASE_PORT}-${BASE_PORT + shards - 1}; logs in evidence/harness-shard-<k>.txt), then the solo phase on ${BASE_PORT + shards}`);
@@ -109,29 +110,80 @@ async function orchestrate(file, shards) {
     await new Promise(r => kid.on("exit", code => { ends[k] = { code: code === null ? 2 : code, s: (Date.now() - T0) / 1000 }; r(); }));
   }
   // every shard's log, in shard order, without its own count and clock
-  let pass = 0, fail = 0, stalled = [], errored = [];
+  const texts = logs.map(read), jsons = [];
+  for (let k = 0; k <= shards; k++) { try { jsons[k] = JSON.parse(read(path.join(EV, `harness-times-${k}.json`))); } catch (e) { jsons[k] = null; } }
   for (let k = 0; k <= shards; k++) {
-    const txt = read(logs[k]), c = count(txt);
-    pass += c.p; fail += c.f;
-    if (/HARNESS STALLED/.test(txt)) stalled.push(k);
-    else if (ends[k].code !== 0 && ends[k].code !== 1) errored.push(k);
     console.log(`\n===== ${k === shards ? "solo phase" : "shard " + k} (ended at ${(ends[k].s / 60).toFixed(1)} min, exit ${ends[k].code}) =====`);
-    console.log(txt.split("\n").filter(l => !/^\d+\/\d+ checks passed/.test(l) && !l.startsWith("TIME  ")).join("\n").trimEnd());
+    console.log(texts[k].split("\n").filter(l => !/^\d+\/\d+ checks passed/.test(l) && !l.startsWith("TIME  ")).join("\n").trimEnd());
   }
   // where the time went, all shards together
   const mods = [], checks = [];
-  for (let k = 0; k <= shards; k++) {
-    try { const j = JSON.parse(read(path.join(EV, `harness-times-${k}.json`))); mods.push(...j.modules.map(m => ({ ...m, shard: k }))); checks.push(...j.checks.map(c => ({ ...c, shard: k }))); } catch (e) {}
-  }
+  jsons.forEach((j, k) => { if (j) { mods.push(...j.modules.map(m => ({ ...m, shard: k }))); checks.push(...j.checks.map(c => ({ ...c, shard: k }))); } });
   const total = (Date.now() - T0) / 1000;
   console.log(`\nTIME  ${(total / 60).toFixed(1)} min wall in ${shards} shards: ${ends.map((e, k) => `${k === shards ? "solo" : k}: ${(e.s / 60).toFixed(1)}`).join(", ")} min (when each ended)`);
   for (const m of mods.slice().sort((a, b) => b.s - a.s).slice(0, 15)) console.log(`TIME  ${(m.s / 60).toFixed(1).padStart(5)} min  ${m.mod} (${m.shard === shards ? "solo" : "shard " + m.shard}${m.checks > 1 ? `, ${m.checks} checks` : ""})`);
   try { fs.writeFileSync(path.join(EV, "harness-times.json"), JSON.stringify({ total, shards: ends, modules: mods, checks }, null, 1)); } catch (e) {}
-  for (const k of stalled) console.error(`HARNESS STALLED in shard ${k} (its log: evidence/harness-shard-${k}.txt)`);
-  for (const k of errored) console.error(`HARNESS ERROR in shard ${k} (exit ${ends[k].code}; its log: evidence/harness-shard-${k}.txt)`);
-  const incomplete = stalled.length || errored.length;
-  console.log(`\n${pass}/${pass + fail} checks passed${incomplete ? " (INCOMPLETE -- a shard did not finish)" : ""}`);
-  process.exit(fail ? 1 : incomplete ? (stalled.length ? 3 : 2) : 0);
+  const v = verdict({ texts, jsons, codes: ends.map(e => e.code), shards });
+  for (const p of v.problems) console.error(p);
+  console.log(`\n${v.pass}/${v.pass + v.fail} checks passed${v.problems.length ? " (INCOMPLETE -- " + v.problems.length + " problem(s) above)" : ""}`);
+  process.exit(v.code);
 }
 
-module.exports = { COST, DEFAULT, SOLO, PERF_PARTS, BASE_PORT, order, claim, orchestrate };
+// THE VERDICT, as a function of what the processes left behind (their logs, their timing files,
+// their exit codes), so a test can drive it. Green only if no check failed AND the run was whole:
+// a shard that died -- an uncaught throw exits 1, the same code as a FAIL -- leaves the module it
+// had claimed run nowhere (law-reviewer, v177). So every process must reach its own count and
+// write a finished timing file, every module the harness lists must have run exactly once across
+// the shards, and the solo phase must have run exactly its timing parts.
+function verdict({ texts, jsons, codes, shards }) {
+  const count = txt => { let p = 0, f = 0; for (const l of (txt || "").split("\n")) { if (l.startsWith("PASS  ")) p++; else if (l.startsWith("FAIL  ")) f++; } return { p, f }; };
+  const name = k => k === shards ? "the solo phase" : "shard " + k;
+  let pass = 0, fail = 0, stalled = false;
+  const problems = [];
+  for (let k = 0; k <= shards; k++) {
+    const c = count(texts[k]); pass += c.p; fail += c.f;
+    if (/HARNESS STALLED/.test(texts[k] || "")) { stalled = true; problems.push(`HARNESS STALLED in ${name(k)}`); }
+    else if (codes[k] !== 0 && codes[k] !== 1) problems.push(`HARNESS ERROR in ${name(k)} (exit ${codes[k]})`);
+    if (!/^\d+\/\d+ checks passed\s*$/m.test(texts[k] || "") || !(jsons[k] && jsons[k].finished)) problems.push(`HARNESS INCOMPLETE: ${name(k)} never reached its own count`);
+  }
+  const expected = (jsons.find(j => j && j.expected) || {}).expected || [];
+  if (!expected.length) problems.push("HARNESS INCOMPLETE: no shard listed the modules");
+  const ranN = {};
+  for (let k = 0; k < shards; k++) for (const m of (jsons[k] && jsons[k].modules) || []) ranN[m.mod] = (ranN[m.mod] || 0) + 1;
+  for (const m of expected) if (!SOLO.includes(m) && ranN[m] !== 1) problems.push(`HARNESS INCOMPLETE: ${m} ran ${ranN[m] || 0} times, not once`);
+  const solo = ((jsons[shards] && jsons[shards].modules) || []).map(m => m.mod).sort();
+  const wantSolo = SOLO.concat(PERF_PARTS.map(m => m + " (timing part)")).sort();
+  if (JSON.stringify(solo) !== JSON.stringify(wantSolo)) problems.push(`HARNESS INCOMPLETE: the solo phase ran [${solo.join(", ")}], not [${wantSolo.join(", ")}]`);
+  return { pass, fail, problems, code: fail ? 1 : problems.length ? (stalled ? 3 : 2) : 0 };
+}
+
+// The verdict's own proof, without a browser: made-up shard results, each the way a run can go
+// wrong, through the same function (`node scripts/harness_shards.js --selftest`; the gate runs it).
+function selftest() {
+  const shards = 2, mods = ["a_checks", "b_checks", "c_checks", "events_perf_checks"];
+  const done = (k, ms) => ({ finished: true, expected: mods, modules: ms.map(mod => ({ mod, s: 1 })) });
+  const soloMods = SOLO.concat(PERF_PARTS.map(m => m + " (timing part)"));
+  const good = () => ({
+    texts: ["PASS  x\n1/1 checks passed\n", "PASS  y\nPASS  z\n2/2 checks passed\n", "PASS  t\n1/1 checks passed\n"],
+    jsons: [done(0, ["a_checks", "c_checks"]), done(1, ["b_checks"]), done(2, soloMods)],
+    codes: [0, 0, 0], shards });
+  const cases = [];
+  const run = (label, mutate, want) => { const r = good(); mutate(r); const v = verdict(r); cases.push({ label, ok: want === "green" ? v.code === 0 : v.code !== 0, code: v.code, problems: v.problems }); };
+  run("a whole, clean run is green", () => {}, "green");
+  run("a FAIL line is red", r => { r.texts[1] = "FAIL  y\nPASS  z\n1/2 checks passed\n"; r.codes[1] = 1; }, "red");
+  run("a shard that threw (exit 1, no FAIL, no count) is red", r => { r.texts[1] = "PASS  y\n"; r.codes[1] = 1; r.jsons[1] = null; }, "red");
+  run("a stale timing file from an earlier run does not make a dead shard whole", r => { r.texts[1] = "PASS  y\n"; r.codes[1] = 1; r.jsons[1] = { ...r.jsons[1], finished: false }; }, "red");
+  run("a module nobody ran is red", r => { r.jsons[1] = done(1, []); }, "red");
+  run("a module run twice is red", r => { r.jsons[1] = done(1, ["b_checks", "a_checks"]); }, "red");
+  run("a solo phase missing a timing part is red", r => { r.jsons[2] = done(2, soloMods.slice(1)); }, "red");
+  run("a stalled shard is red", r => { r.texts[0] += "HARNESS STALLED: no check for 20 minutes\n"; }, "red");
+  return cases;
+}
+
+if (require.main === module && process.argv.includes("--selftest")) {
+  const cases = selftest();
+  for (const c of cases) console.log(`${c.ok ? "ok  " : "BAD "} ${c.label} (exit ${c.code})`);
+  process.exit(cases.every(c => c.ok) ? 0 : 1);
+}
+
+module.exports = { COST, DEFAULT, SOLO, PERF_PARTS, BASE_PORT, order, claim, orchestrate, verdict, selftest };

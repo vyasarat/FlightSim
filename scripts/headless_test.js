@@ -47,6 +47,8 @@ let harnessTick = () => {};
 // it and the module it came from, and a module's own wall time is kept, so the
 // end of the run says where the time went (and writes evidence/harness-times.json).
 const T0 = Date.now(), modTimes = [];
+const modKey = (name, opts) => name.replace("./", "") + (opts && opts.airport ? " (airport)" : "");
+let expectedMods = null;     // every module after the inline checks, for the orchestrator to prove each ran once
 let curMod = null, lastAt = T0;
 function check(name, ok, extra) {
   const now = Date.now();
@@ -158,7 +160,7 @@ const harnessMain = async () => {
   // the chase checks, on main too). Closing the context drops its queue.
   const liveCtxs = new Set();
   async function runModule(name, opts) {
-    let key = name.replace("./", "") + (opts && opts.airport ? " (airport)" : "");
+    let key = modKey(name, opts);
     // (v177) sharded: the solo phase runs the timing parts and nothing else; a shard runs what it
     // claims first, with its timing part (if it has one) left for the solo phase
     if (!inlinePhase && SHARDS > 1) {
@@ -5672,6 +5674,7 @@ const harnessMain = async () => {
     ["./cleanup_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] }],
     ["./hardening_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] }],
   ];
+  expectedMods = MODULES.map(([n, o]) => modKey(n, o));
   for (const [name, opts] of SHARDS > 1 ? SHARDING.order(MODULES) : MODULES) await runModule(name, opts);
 
   await browser.close().catch(() => {});
@@ -5697,7 +5700,7 @@ function harnessTimes() {
   for (const r of all.slice(0, 15)) console.log(`TIME  ${(r.s / 60).toFixed(1).padStart(5)} min  ${r.mod}${r.checks > 1 ? ` (${r.checks} checks)` : ""}`);
   try {
     const dir = path.resolve(__dirname, "..", "evidence"); fs_mkdir(dir);
-    require("fs").writeFileSync(path.join(dir, SHARDS > 1 ? `harness-times-${SHARD}.json` : "harness-times.json"), JSON.stringify({ total, modules: modTimes, checks: results.map(r => ({ name: r.name.slice(0, 120), mod: r.mod, s: r.s })) }, null, 1));
+    require("fs").writeFileSync(path.join(dir, SHARDS > 1 ? `harness-times-${SHARD}.json` : "harness-times.json"), JSON.stringify({ total, expected: expectedMods, finished: !!expectedMods, modules: modTimes, checks: results.map(r => ({ name: r.name.slice(0, 120), mod: r.mod, s: r.s })) }, null, 1));
   } catch (e) {}
 }
 
