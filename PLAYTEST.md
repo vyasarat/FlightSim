@@ -54,6 +54,7 @@ entry below.
 | v173 | he races whole races on the longer tracks without wandering off, and says nothing about them being too long or boring; on Desert Dunes he talks about the jumps (there are three now) |  open |
 | v174 | he picks the mountain card, says "snow" or "tunnel" out loud, and races Snowy Peaks more than once in a sitting; he notices the car sliding wide on the icy hairpin or the lake without calling it unfair or crashing into a bank |  open |
 | v175 | he picks the beach card, makes a splash noise or says "water" or "splash" driving through the lagoon, and steers for the sandbar jump; he does not say the blue road is the sea or that he is "in the water" as if he had crashed |  open |
+| v176 | he picks the sky card, says the road is "in the sky" or "up high" on the climb, steers for the sky jump, and asks for the sky race again; he does not say he is scared of falling off or that the blue road is the sea |  open |
 
 ## Entries
 

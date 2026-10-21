@@ -42,6 +42,10 @@
 //   q. (v175) THE SPLASH: the deck down at the water over real water (the one definition), never
 //      under the ground or the water; the spray -- his and the cars round him -- never between the
 //      chase camera and his car, or his seat and the road 30 m ahead;
+//   r. (v176) THE SKY ROAD: up as high as its numbers say and never under the ground; where it is
+//      up, a pylon from the ground to its girder every pylonStep, the girder solid across the deck and
+//      the barriers beside it -- a plane and a helicopter flown at it crash, free; its glow on the
+//      barriers' tops, never over the deck; no flag pole under it; a lap hands-off with the field, every car on the deck;
 //   i. (v170) A SPENT STEER AND A PITCH THAT STAYS IN THE RACE: the full steer that took
 //      a shortcut, still held a whole lap, is nobody's choice of it the next time
 //      round; lifted (past liftGrace) and put back full, it is his again and takes
@@ -103,7 +107,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         const q = S[i];
         for (const k of [-W - 15, -W, W, W + 15]) {
           const x = q.x + q.lx * k, z = q.z + q.lz * k;
-          if (!shore(q)) dry = Math.min(dry, L.terrainEff(x, z) - L.seaLevelAt(x, z));
+          if (!shore(q) && !q.up) dry = Math.min(dry, L.terrainEff(x, z) - L.seaLevelAt(x, z));   // (v176: a sky road's ribbon stands on pylons -- the ground it flies over is not its to keep dry)
           if (L.cityCovers && L.cityCovers(x, z, 40)) city++;
         }
         if (Math.abs(L.hwyNearest(q.x, q.z).lateral) < 150) corridor++;
@@ -536,6 +540,126 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
       check(`race ${id}: the splash -- ${sp.secs.map(w => `${w.len} m over water ${Math.round(w.wet * 100)}%, its deck at the water on ${w.atWater} of the ${w.low} samples where the ground is under it`).join("; ")}; never under the ground (${sp.underGround}) or the water (${sp.underWater}, lowest ${sp.worstWater} m over the sea); the spray rises off it (${Object.values(spray).map(v => v.born).join("/")} puffs, his and theirs) and never stands between the chase camera and his car, or his seat and the road 30 m ahead (${Object.entries(spray).map(([k, v]) => `${k} ${v.hidden} of ${v.frames} frames`).join(", ")})`,
         sp.secs.every(w => w.wet >= 0.5 && w.low > 0 && w.atWater === w.low && w.sf === "splash") && sp.underGround === 0 && sp.underWater === 0 &&
         Object.values(spray).every(v => v.frames > 100 && v.hidden === 0 && v.born > 20), J({ sp, spray }));
+    }
+
+    // ---- r. (v176) THE SKY ROAD: up in the air -- its highest over the line's deck what its
+    // numbers say, never under the ground anywhere; where it is up, a pylon from the ground to the
+    // girder at least every pylonStep (+ a sample), the girder solid across the deck and the
+    // barriers solid beside it, so a plane and a helicopter flown at it crash (free) at three
+    // places; its glow along the barriers' tops, never over the deck he aims at; and a lap
+    // hands-off with the field, every car on the deck all the way (never under it, never off it)
+    const sky = await page.evaluate((id) => {
+      const L = window.__lp, RC = L.RC, T = L.race.venues[id].track;
+      if (!T.sky) return null;
+      const K = RC.sky, S = T.S, W = RC.width / 2 + RC.kerbW + 0.4, out = {};
+      // (every kind standing at a point: on a slope the girder's piece and the pylon under it overlap)
+      const kindsAt = (x, y, z) => { const h = []; L.forEachSolid(b => { if (L.solidTest(b, x, y, z, 0)) h.push(L.solidKind(b)); }); return h; };
+      const at = (q, lat, up) => [q.x + q.lx * lat, q.gy + q.ly * lat + up, q.z + q.lz * lat];
+      const want = Math.max(...T.def.sections.map(sc => sc.sky || 0));
+      out.want = want; out.high = +(Math.max(...S.map(q => q.gy)) - S[0].gy).toFixed(1);
+      out.under = S.filter(q => q.gy < q.g - 0.01).length;
+      out.upN = S.filter(q => q.up).length;
+      // the pylons: every one where it should stand is solid from the ground up to the girder
+      let gapMax = 0, last = null, pyl = 0, pylBad = [];
+      const ps = Math.max(1, Math.round(K.pylonStep / (S[1].s - S[0].s)));
+      for (let i = 0; i < S.length; i++) {
+        const q = S[i];
+        if (!q.up) { last = null; continue; }
+        if (i % ps === 0) {
+          pyl++;
+          const g = L.terrainEff(q.x, q.z), top = q.gy - K.girder - 0.3;
+          if (![g + 0.5, (g + top) / 2, top].every(y => kindsAt(q.x, y, q.z).includes("pillar"))) pylBad.push(Math.round(q.s));
+          if (last !== null) gapMax = Math.max(gapMax, q.s - last);
+          last = q.s;
+        }
+      }
+      out.step = K.pylonStep; out.pylons = pyl; out.pylBad = pylBad.slice(0, 10); out.pylGap = Math.round(gapMax);
+      // the girder across the deck, the barriers beside it
+      let girN = 0, girBad = [], wallBad = [];
+      for (let i = 0; i < S.length; i += 40) {
+        const q = S[i]; if (!q.up) continue;
+        girN++;
+        for (const lat of [-RC.width / 2 + 1, 0, RC.width / 2 - 1]) if (!kindsAt(...at(q, lat, -K.girder / 2)).includes("bridge")) girBad.push(Math.round(q.s));
+        for (const sd of [-1, 1]) if (!kindsAt(...at(q, sd * W, 0.5)).includes("wall")) wallBad.push(Math.round(q.s));
+      }
+      out.girder = girN; out.girBad = girBad.slice(0, 10); out.wallBad = wallBad.slice(0, 10);
+      // the glow: on the barriers' tops, nothing over the deck
+      const pos = T.glow ? T.glow.geometry.attributes.position.array : [];
+      let glowIn = 0;
+      for (let k = 0; k < pos.length; k += 3) {
+        let best = Infinity, bq = null;
+        for (let i = 0; i < S.length; i += 4) { const d = Math.hypot(S[i].x - pos[k], S[i].z - pos[k + 2]); if (d < best) { best = d; bq = S[i]; } }
+        if (Math.abs((pos[k] - bq.x) * bq.lx + (pos[k + 2] - bq.z) * bq.lz) < RC.width / 2) glowIn++;
+      }
+      out.glow = pos.length / 3; out.glowIn = glowIn;
+      // no flag on a pole from the ground stands under the ribbon (they are for bends on the ground)
+      const flags = L.race.venues[id].flags || [];
+      out.flags = flags.length;
+      out.flagsUnder = flags.filter(f => { let best = Infinity, bq = null; for (let i = 0; i < S.length; i += 4) { const d = Math.hypot(S[i].x - f.m.position.x, S[i].z - f.m.position.z); if (d < best) { best = d; bq = S[i]; } } return bq.up; }).length;
+      // three places up in the air: the climb, the north straight, the run down
+      const ups = S.filter(q => q.up && q.gy - L.terrainEff(q.x, q.z) > 20);
+      out.places = [ups[Math.floor(ups.length * 0.1)], ups[Math.floor(ups.length * 0.5)], ups[Math.floor(ups.length * 0.9)]].map(q => ({ x: q.x, z: q.z, y: q.gy - K.girder / 2, lx: q.lx, lz: q.lz, s: Math.round(q.s) }));
+      return out;
+    }, id);
+    if (sky) {
+      // a plane and a helicopter, at cruise, flown across the ribbon from 150 m out at the girder's height
+      const fly = await page.evaluate((places) => {
+        const L = window.__lp, st = L.state, T = L.TUNE, out = [];
+        for (const veh of ["prop", "helicopter"]) for (const p of places) {
+          if (L.restoreShattered) L.restoreShattered();
+          st.exploding = false; st.explodeTimer = 0;
+          L.api.setVehicle(veh); L.api.spawnAt(0, 0);
+          for (let i = 0; i < 20; i++) L.update(1 / 60);
+          const x0 = p.x + p.lx * 150, z0 = p.z + p.lz * 150, h = Math.atan2(p.lx, p.lz);   // (heading toward the ribbon: forward is (-sin h, -cos h))
+          const v = veh === "prop" ? (st.vp && st.vp.cruiseSpeed || 60) : T.heli.cruise * 0.7;
+          const boom0 = (L.flags.exploded || 0);
+          let minD = Infinity;
+          for (let i = 0; i < 60 * 6; i++) {
+            st.x = i === 0 ? x0 : st.x; st.z = i === 0 ? z0 : st.z;
+            if (i === 0 || !st.exploding) {
+              st.heading = h; st.speed = v; st.y = p.y; st.pitch = 0; st.bank = 0;
+              if (veh === "prop") { st.phase = "AIRBORNE"; st.engaged = false; st.approachData = null; st.gearDown = false; }
+              else { st.phase = "AIRBORNE"; const H = heli; H.altitude = p.y; H.vy = 0; H.target = null; H.vertical = 0; H.vx = -Math.sin(h) * v; H.vz = -Math.cos(h) * v; }
+            }
+            L.update(1 / 60);
+            minD = Math.min(minD, Math.hypot(st.x - p.x, st.z - p.z));
+            if ((L.flags.exploded || 0) > boom0) break;
+          }
+          out.push({ veh, s: p.s, crashed: (L.flags.exploded || 0) > boom0, minD: Math.round(minD) });
+          st.exploding = false;
+        }
+        return out;
+      }, sky.places);
+      // a lap hands-off with the field: every car on the deck all the way
+      const on = await page.evaluate((id) => {
+        const L = window.__lp, S = L.state, RC = L.RC, out = {};
+        L.noRender = true; L.api.skipScreens();
+        for (const veh of ["car", "monster"]) {
+          L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.spdReset(); L.rcStartRace(id, 37);
+          const R = L.race; let below = 0, worst = 0, off = 0, frames = 0;
+          for (let f = 0; f < 60 * 160 && R.phase !== "podium"; f++) {
+            S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
+            if (R.phase !== "race") continue;
+            frames++;
+            for (const r of R.racers) {
+              if (r.path) continue;
+              const d = r.y - L.rcPoint(r.s, r.lat, {}).y;
+              if (d < -0.05) { below++; worst = Math.min(worst, d); }
+              if (Math.abs(r.lat) > RC.width / 2) off++;
+            }
+            if (R.him.lapsDone >= 1) break;
+          }
+          out[veh] = { frames, below, worst: +worst.toFixed(2), off };
+          L.raceReset();
+        }
+        L.noRender = false;
+        return out;
+      }, id);
+      check(`race ${id}: the sky road -- up ${sky.high} m over the line (its numbers: ${sky.want}), never under the ground (${sky.under}); ${sky.pylons} pylons, each solid from the ground to the girder (${sky.pylBad.length} not), never more than ${sky.pylGap} m apart; the girder solid across the deck at ${sky.girder} places (${sky.girBad.length} not) and the barriers beside it (${sky.wallBad.length} not); flown at it ${fly.map(f => `${f.veh} at ${f.s} m ${f.crashed ? "crashed" : "PASSED THROUGH (" + f.minD + " m)"}`).join(", ")}; ${sky.glow} glows, ${sky.glowIn} over the deck; ${sky.flags} flags on the ground, ${sky.flagsUnder} under the ribbon; a lap hands-off with the field, ${Object.entries(on).map(([k, v]) => `${k}: ${v.frames} frames, ${v.below} under the deck, ${v.off} off it`).join("; ")}`,
+        sky.high >= sky.want - 0.5 && sky.under === 0 && sky.upN > 1000 && sky.pylons > 40 && sky.pylBad.length === 0 && sky.pylGap <= sky.step + 1 &&
+        sky.girder > 50 && sky.girBad.length === 0 && sky.wallBad.length === 0 && fly.every(f => f.crashed) && sky.glow > 400 && sky.glowIn === 0 && sky.flags > 0 && sky.flagsUnder === 0 &&
+        Object.values(on).every(v => v.frames > 60 * 90 && v.below === 0 && v.off === 0), J({ sky, fly, on }));
     }
 
     // ---- f. the noisy hand, a race in every car
