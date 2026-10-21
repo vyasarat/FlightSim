@@ -49,7 +49,7 @@ const MODULES = {
   "heli.js": ["heli_control_checks", "heli_play_checks", "heli_land_checks"],
   "buttons.js": ["slot_checks"], "speed.js": ["speed_horn_checks"],
   "engines.js": ["engine_sound_checks"], "audio.js": ["engine_sound_checks", "hardening_checks"],
-  "eventpool.js": ["event_pool_checks"], "events.js": ["event_pool_checks"],
+  "eventpool.js": ["event_pool_checks"], "events.js": ["event_pool_checks", "events_perf_checks"],
   "vehicles.js": ["vehicle_contract_checks", "state_semantics_checks", "solidity_checks", "cybertruck_checks", "corvette_checks"],
   "state.js": ["state_semantics_checks", "vehicle_contract_checks"],
   "vehicle.js": ["aircraft_orientation_checks", "cybertruck_checks", "corvette_checks"], "models.js": ["aircraft_orientation_checks", "cybertruck_checks", "corvette_checks"],
@@ -243,6 +243,21 @@ for (const f of fs.readdirSync(path.join(ROOT, "scripts")).filter(f => f.endsWit
 for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => /^dad.*\.js$/.test(f))) {
   const src = read("cockpit/js/" + f), re = /setTone\(\s*(["'`])([^"'`]*)\1/g; let m;
   while ((m = re.exec(src))) if (!m[2].startsWith("dad")) fail("dad", `cockpit/js/${f}: setTone("${m[2]}") -- a dad tone is named "dad..." so dadSoundsOff can find it`);
+}
+
+// ---------- 11. a race or track change has been swept (v177) ----------
+// The full harness runs race_track_checks as a sample, one car per track; every car on every
+// track is scripts/race_sweep.js. When the race's content (its files, TUNE.race) differs from
+// the base, the change is not done until the sweep has passed on exactly what is on disk.
+if (fs.existsSync(path.join(ROOT, "scripts", "race_sweep.js"))) {
+  const { raceHash } = require("./race_sweep.js");
+  const readAt = f => { try { return fs.readFileSync(path.join(ROOT, f), "utf8"); } catch (e) { return null; } };
+  const now = raceHash(readAt), was = raceHash(f => git("show", `${base}:${f}`));
+  if (now !== was) {
+    let r = null; try { r = JSON.parse(readAt("evidence/race-sweep.json")); } catch (e) {}
+    if (!r || r.hash !== now) fail("race-sweep", `the race changed (race.js, track.js, TUNE.race or its checks) and has not been swept as it stands -- run node scripts/race_sweep.js (every car on every track, about 10 min)`);
+    else if (!r.ok) fail("race-sweep", `the race sweep FAILED on this content (${r.fail} failed) -- evidence/race-sweep.json`);
+  }
 }
 
 // ---------- which modules the change answers to ----------

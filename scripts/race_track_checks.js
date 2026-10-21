@@ -56,19 +56,29 @@
 // ---------------------------------------------------------------------------
 const { oneRace } = require("./race_drive.js");
 
-module.exports = async function raceTrackChecks({ newPage, check }) {
+module.exports = async function raceTrackChecks({ newPage, check, full }) {
   const J = o => JSON.stringify(o);
   const { page } = await newPage(820, 1180);
   await page.waitForFunction(() => window.__lp && window.__lp.race && window.__lp.race.built, null, { timeout: 120000 });
   const ids = await page.evaluate(() => window.__lp.RC.tracks.slice(1).map(t => t.id));
+  // (v177) THE SAMPLE AND THE SWEEP. Three checks drive whole laps or races in every car on every
+  // track (b. the lap alone, f. the noisy race, k. the barrier): on five tracks that was most of this
+  // module's ten minutes. In the full harness each of them takes ONE car per track, turning through
+  // the four so every car is on some track for each (b, f and k start one car apart); the whole
+  // matrix, every car on every track, is `full` -- scripts/race_sweep.js, which the gate demands
+  // whenever a race or track file changes (and RACE_FULL=1 with run_module.js).
+  full = full || !!process.env.RACE_FULL;
+  const ALL = ["car", "cybertruck", "corvette", "monster"], order = ["oval"].concat(ids);
+  const carsFor = (id, off) => full ? ALL : [ALL[(order.indexOf(id) + off) % ALL.length]];
+  const tag = (id, off) => full ? "" : ` (sample: the ${carsFor(id, off)[0]} here; every car on every track: race_sweep.js)`;
   check(`race tracks: there is a track after the oval (${ids.join(", ")})`, ids.length >= 1);
 
   // a lap of it alone, finger down at his step, in every car: (v173) about two minutes (the parent:
   // "each lap takes about 2 minutes, not 1"), 90 to 150 s -- the first includes the standing start
-  const lapsAlone = (id) => page.evaluate((id) => {
+  const lapsAlone = (id) => page.evaluate(([id, cars]) => {
     const L = window.__lp, S = L.state, out = {};
     L.noRender = true; L.api.skipScreens();
-    for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+    for (const veh of cars) {
       L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
       L.spdReset(); L.rcStartRace(id, 31);
       const R = L.race, him = R.him, laps = []; let t0 = null, last = 0;
@@ -83,10 +93,10 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
     }
     L.noRender = false;
     return out;
-  }, id);
+  }, [id, carsFor(id, 0)]);
   const lapCheck = async (id) => {
     const b = await lapsAlone(id), allLaps = Object.values(b).flat();
-    check(`race ${id}: finger down at his own step, every car laps it in about two minutes -- ${Object.entries(b).map(([k, v]) => `${k} ${v.join("/")} s`).join(", ")}`,
+    check(`race ${id}: finger down at his own step, every car laps it in about two minutes -- ${Object.entries(b).map(([k, v]) => `${k} ${v.join("/")} s`).join(", ")}${tag(id, 0)}`,
       Object.values(b).every(v => v.length === 3) && allLaps.every(t => t >= 90 && t <= 150), J(b));
   };
   await lapCheck("oval");
@@ -664,8 +674,8 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
 
     // ---- f. the noisy hand, a race in every car
     const f = [];
-    for (const veh of ["car", "cybertruck", "corvette", "monster"]) { const r = await oneRace(page, veh, 7100 + f.length, { track: id }); f.push(r); }
-    check(`race ${id}: a race with the noisy hand in every car -- places ${f.map(r => r.veh + " " + r.place).join(", ")}; ${f.reduce((a, r) => a + r.bangs, 0)} bangs, ${f.reduce((a, r) => a + r.stuck, 0)} stuck, every one to the podium`,
+    for (const veh of carsFor(id, 1)) { const r = await oneRace(page, veh, 7100 + ALL.indexOf(veh), { track: id }); f.push(r); }
+    check(`race ${id}: a race with the noisy hand in every car -- places ${f.map(r => r.veh + " " + r.place).join(", ")}; ${f.reduce((a, r) => a + r.bangs, 0)} bangs, ${f.reduce((a, r) => a + r.stuck, 0)} stuck, every one to the podium${tag(id, 1)}`,
       f.every(r => r.bangs === 0 && r.stuck === 0 && r.nan === 0 && r.podium), J(f));
 
     // ---- g. he lost: the shot fits his car and the steps, on this track's podium
@@ -733,11 +743,11 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
       return { clear: Math.min(...out), pads: V.pads.map(p => p.lat), wids };
     }, id);
     check(`race ${id}: no pad lies under the line along either barrier, in any car on the grid (widths ${pg.wids.map(w => +w.toFixed(1)).join(", ")} m) -- the nearest catch is ${pg.clear} m off it (pads at ${pg.pads.join(", ")} m)`, pg.clear >= 0.5, J(pg));
-    const k = await page.evaluate((id) => {
+    const k = await page.evaluate(([id, cars]) => {
       const L = window.__lp, S = L.state, RC = L.RC, out = {};
       L.noRender = true; L.api.skipScreens();
       const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
-      for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+      for (const veh of cars) {
         out[veh] = {};
         for (const mode of ["line", "heldL", "heldR", "again"]) {
           L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
@@ -773,10 +783,10 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
       }
       L.noRender = false;
       return out;
-    }, id);
+    }, [id, carsFor(id, 2)]);
     const wids = k.wids; delete k.wids;
     const cars = Object.keys(k), held = m => cars.map(c => `${k[c][m].t} s/${k[c][m].thumps}`).join(", ");
-    check(`race ${id}: held into the barrier a whole lap he glides along it -- one thump on the first touch, then quiet (left: ${held("heldL")}; right: ${held("heldR")}, lap s/thumps per car), no pad on the way (${cars.map(c => k[c].heldL.pads + k[c].heldR.pads).join("/")}), never a bang, never stuck; never quicker than the racing line (${cars.map(c => k[c].line.t).join("/")} s); off it a second and back, a fresh hit (${cars.map(c => k[c].again.after).join("/")} more)`,
+    check(`race ${id}: held into the barrier a whole lap he glides along it -- one thump on the first touch, then quiet (left: ${held("heldL")}; right: ${held("heldR")}, lap s/thumps per car), no pad on the way (${cars.map(c => k[c].heldL.pads + k[c].heldR.pads).join("/")}), never a bang, never stuck; never quicker than the racing line (${cars.map(c => k[c].line.t).join("/")} s); off it a second and back, a fresh hit (${cars.map(c => k[c].again.after).join("/")} more)${tag(id, 2)}`,
       cars.every(c => { const K = k[c]; return ["heldL", "heldR"].every(m => K[m].t !== null && K[m].thumps === 1 && (K[m].sc > 0 ? K[m].glide > 10 : K[m].glide > K[m].t * 0.4)   /* (a held lap that took the shortcut: its steer is spent there, hands-off after -- the turn rule) */ && K[m].bangs === 0 && K[m].pads === 0 && (K[m].sc > 0 || K[m].padsAll === 0) && K[m].stuck === 0 && K[m].minV > 15 && K[m].t >= K.line.t) && K.line.t !== null && K.again.after === 1 && K.again.bangs === 0; }), J(k));
   }
 

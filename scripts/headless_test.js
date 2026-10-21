@@ -16,7 +16,13 @@ const { chromium } = require("playwright-core");
 
 const ROOT = path.resolve(__dirname, "..");            // repo root: both builds are reachable
 const SHOTS = path.resolve(__dirname, "..", "qa-screenshots");
-const PORT = 8177;
+// (v177) sharded: with no HARNESS_SHARD this process is the orchestrator and runs
+// HARNESS_SHARDS copies of itself (harness_shards.js); a shard serves on 8177 + k
+const SHARDING = require("./harness_shards.js");
+const SHARDS = Math.max(1, Math.floor(+(process.env.HARNESS_SHARDS || 4)));
+const SHARD = process.env.HARNESS_SHARD === undefined ? (SHARDS > 1 ? null : 0) : +process.env.HARNESS_SHARD;
+let inlinePhase = false;
+const PORT = SHARDING.BASE_PORT + SHARD;
 const URL = `http://127.0.0.1:${PORT}/cockpit/index.html`;
 const SHELL = process.env.CHROME_HEADLESS_SHELL;
 
@@ -37,19 +43,26 @@ function waitForServer(url, tries) {
 const L_GEAR = 3.2;   // TUNE.gearHeight (asserted below)
 const results = [];
 let harnessTick = () => {};
+// (v177) the clock: every check is stamped with the seconds since the one before
+// it and the module it came from, and a module's own wall time is kept, so the
+// end of the run says where the time went (and writes evidence/harness-times.json).
+const T0 = Date.now(), modTimes = [];
+let curMod = null, lastAt = T0;
 function check(name, ok, extra) {
-  results.push({ name, ok });
+  const now = Date.now();
+  results.push({ name, ok, mod: curMod, s: (now - lastAt) / 1000 });
+  lastAt = now;
   harnessTick();
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${extra ? "  — " + extra : ""}`);
 }
 
-(async () => {
+const harnessMain = async () => {
   if (!SHELL) {
     console.error("Set CHROME_HEADLESS_SHELL to a chrome-headless-shell binary");
     process.exit(1);
   }
   fs_mkdir(SHOTS);
-  // Refuse to run against a server we didn't start (stale build on :8177).
+  // Refuse to run against a server we didn't start (stale build on :8177 + shard).
   const portBusy = await new Promise(resolve => {
     const req = http.get(URL, res => { res.resume(); resolve(true); });
     req.on("error", () => resolve(false));
@@ -111,6 +124,7 @@ function check(name, ok, extra) {
     if (Date.now() - lastCheckAt < 20 * 60 * 1000) return;
     const last = results.length ? results[results.length - 1].name.slice(0, 120) : "(none)";
     console.error(`HARNESS STALLED: no check for 20 minutes; the last was: ${last}`);
+    harnessTimes();
     console.log(`\n${results.filter(r => r.ok).length}/${results.length} checks passed (STALLED -- incomplete)`);
     killAll();
     process.exit(3);
@@ -143,10 +157,33 @@ function check(name, ok, extra) {
   // the chase checks, on main too). Closing the context drops its queue.
   const liveCtxs = new Set();
   async function runModule(name, opts) {
-    const before = new Set(liveCtxs);
-    await require(name)(opts);
-    const left = [...liveCtxs].filter(c => !before.has(c));
-    for (const c of left) await c.close().catch(() => {});
+    let key = name.replace("./", "") + (opts && opts.airport ? " (airport)" : "");
+    // (v177) sharded: the solo phase runs the timing parts and nothing else; a shard runs what it
+    // claims first, with its timing part (if it has one) left for the solo phase
+    if (!inlinePhase && SHARDS > 1) {
+      const part = SHARDING.PERF_PARTS.includes(key.split(" ")[0]);
+      if (SHARD === SHARDS) {
+        if (SHARDING.SOLO.includes(key)) {}
+        else if (part && !opts.airport) { opts = { ...opts, perf: "only" }; key += " (timing part)"; }
+        else return;
+      } else {
+        if (SHARDING.SOLO.includes(key) || !SHARDING.claim(key)) return;
+        if (part) opts = { ...opts, perf: "skip" };
+      }
+    }
+    const before = new Set(liveCtxs), t = Date.now(), n0 = results.length;
+    curMod = key;
+    if (process.env.HARNESS_TRACE) console.log(`TRACE ${key} at ${((t - T0) / 1000).toFixed(0)} s`);
+    lastAt = t;
+    try { await require(name)(opts); }
+    finally {
+      // (the pages it left open are closed in its time: closing one runs the SwiftShader work
+      // its frames queued -- 240 s of boat_checks' 283, which no clock used to count)
+      const left = [...liveCtxs].filter(c => !before.has(c));
+      for (const c of left) await c.close().catch(() => {});
+      modTimes.push({ mod: curMod, s: (Date.now() - t) / 1000, checks: results.length - n0, at: (t - T0) / 1000 });
+      curMod = null; lastAt = Date.now();
+    }
   }
   // Booting a page is retried: a load that times out restarts the server (if it
   // has stopped answering) and tries again, instead of ending the run.
@@ -163,6 +200,10 @@ function check(name, ok, extra) {
   async function newPageOnce(w, h) {
     await ensureServer();
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+    // (v177) a screenshot or a wait is infrastructure, not a check: with four shards on the
+    // machine a SwiftShader screenshot can outlast Playwright's 30 s default (toyworld's did),
+    // and a throw there ends the whole shard. Two minutes; the 20-minute watchdog still stands.
+    ctx.setDefaultTimeout(120000);
     liveCtxs.add(ctx); ctx.on("close", () => liveCtxs.delete(ctx));
     try { return await bootPage(ctx); }
     catch (e) { await ctx.close().catch(() => {}); throw e; }
@@ -216,6 +257,9 @@ function check(name, ok, extra) {
     });
   }
 
+  // (v177) the inline checks are shard 0's, in their order, one page reused as before
+  inlinePhase = true;
+  if (SHARD === 0 || SHARDS === 1) {
   // ---------- T0 phone landscape: nothing overlaps ----------
   {
     const { page } = await newPage(844, 390);
@@ -3194,40 +3238,8 @@ function check(name, ok, extra) {
     check("events: zero text anywhere in the UI while any of the six is staged",
       clean.text.length === 0, JSON.stringify(clean.text.slice(0, 6)));
 
-    const perf = await page.evaluate(() => {
-      const L = window.__lp, st = L.state;
-      const park = () => { L.rk.vx = L.rk.vy = L.rk.vz = 0; st.y = 4000; };
-      const space = () => {
-        st.phase = "AIRBORNE"; L.rk.stage = 3; L.rk.fuel = [0, 0, Infinity];
-        st.y = 4000; st.pitch = 10; st.spaceF = 1;
-      };
-      // the real cost of a shower is draw calls, not the simulation, so both are timed
-      const sim = (n) => { const t0 = performance.now(); for (let i = 0; i < n; i++) { L.update(1 / 60); park(); } return (performance.now() - t0) / n; };
-      const drawn = (n) => {
-        L.noRender = false;
-        const t0 = performance.now();
-        for (let i = 0; i < n; i++) { const q = window.__rafQueue.splice(0); if (q.length) q[q.length - 1](window.__simTime += 1000 / 60); park(); }
-        const ms = (performance.now() - t0) / n;
-        L.noRender = true;
-        return ms;
-      };
-      L.noRender = true;
-      L.api.setVehicle("rocket"); L.api.placeOnRunway(); space();
-      sim(60); drawn(20);                              // warm the pipeline
-      const baseSim = sim(300), baseDraw = drawn(90);   // in space, no event staged
-      L.api.placeOnRunway(); L.eventsForce("meteors"); space();
-      for (let i = 0; i < 60 * 8; i++) { L.update(1 / 60); park(); }   // let the shower fill up
-      const rocks = L.evProps.length;
-      const showSim = sim(300), showDraw = drawn(90);
-      return { baseSim: +baseSim.toFixed(3), showSim: +showSim.toFixed(3),
-               baseDraw: +baseDraw.toFixed(2), showDraw: +showDraw.toFixed(2), rocks };
-    });
-    console.log(`INFO  events: ${perf.baseSim.toFixed(2)} -> ${perf.showSim.toFixed(2)} ms of update(), ` +
-      `${perf.baseDraw.toFixed(1)} -> ${perf.showDraw.toFixed(1)} ms of CPU per drawn frame with ${perf.rocks} props (swiftshader)`);
-    check("events: frame time holds during the meteor shower",
-      perf.rocks > 5 &&
-      perf.showSim < Math.max(perf.baseSim * 2.5 + 0.5, 4) &&
-      perf.showDraw < perf.baseDraw * 1.8 + 6, JSON.stringify(perf));
+    // (v177) "frame time holds during the meteor shower" times frames: it is events_perf_checks.js,
+    // run alone after the shards
     await page.close();
   }
 
@@ -5586,70 +5598,99 @@ function check(name, ok, extra) {
     await page.close();
   }
 
-  await runModule("./heli_play_checks", { newPage, check, shots: SHOTS });
-  await runModule("./heli_land_checks", { newPage, check });
-  await runModule("./eject_framing_checks", { newPage, check, shots: SHOTS });
-  await runModule("./toyfinish_checks", { newPage, check, shots: SHOTS });
-  await runModule("./toyworld_checks", { newPage, check, shots: SHOTS });
-  await runModule("./workshop_checks", { newPage, check, shots: SHOTS });
-  await runModule("./workshop_play_checks", { newPage, check, shots: SHOTS });
-  await runModule("./garden_play_checks", { newPage, check, shots: SHOTS });
-  await runModule("./workshop_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
-  await runModule("./garden_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
-  await runModule("./robot_checks", { newPage, check, shots: SHOTS });
-  await runModule("./robot_play_checks", { newPage, check, shots: SHOTS });
-  await runModule("./robot_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] });
-  await runModule("./workshop_offline_check", { newPage, check, shots: SHOTS });
-  await runModule("./boat_checks", { newPage, check, shots: SHOTS });
-  await runModule("./yacht_checks", { newPage, check, shots: SHOTS });
-  await runModule("./sea_checks", { newPage, check, shots: SHOTS });
-  await runModule("./speed_horn_checks", { newPage, check, shots: SHOTS });
-  await runModule("./lock_checks", { newPage, check, shots: SHOTS });
-  await runModule("./vehicle_contract_checks", { newPage, check });
-  await runModule("./state_semantics_checks", { newPage, check });
-  await runModule("./aircraft_orientation_checks", { newPage, check });
-  await runModule("./slot_checks", { newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] });
-  await runModule("./road_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
-  await runModule("./solidity_checks", { newPage, check });
-  await runModule("./track_checks", { newPage, check });
-  await runModule("./launchsite_checks", { newPage, check });
-  await runModule("./rocketsled_checks", { newPage, check });
-  await runModule("./fireworksbarge_checks", { newPage, check });
-  await runModule("./monstertruck_checks", { newPage, check });
-  await runModule("./monster_checks", { newPage, check });
-  await runModule("./heavy_checks", { newPage, check });
-  // v144: the rocket sled, ridden -- portrait, a full ride in each camera view
-  await runModule("./sledride_checks", { newPage, check });
-  // v145: the wrecking-ball crane -- portrait, a whole go in each camera view, the drag that turns it
-  await runModule("./crane_checks", { newPage, check });
-  await runModule("./cybertruck_checks", { newPage, check });   // v146: the Cybertruck, a second body on the car
-  await runModule("./corvette_checks", { newPage, check });     // v159: the Corvette, a third, and its rocket booster
-  await runModule("./race_checks", { newPage, check });         // v164: the race -- his idea; the one place he can lose
-  await runModule("./race_track_checks", { newPage, check });   // v170: the tracks after the oval -- surfaces, dunes, the shortcut
-  await runModule("./dadmode_checks", { newPage, check });
-  await runModule("./dadmissions_checks", { newPage, check });   // v154: dad mode's historical missions      // v147: dad mode (the parent's, behind a code) and the valley
-  await runModule("./payoff_size_checks", { newPage, check });
-  // the drivable cities: portrait, the driving seat on the first and the chase view on the second
-  await runModule("./city_checks", { newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] });
-  await runModule("./corner_cam_checks", { newPage, check });   // v163: the chase camera never inside a building on a corner
-  // the usability test, before every city release: five REAL minutes of a noisy
-  // four-year-old's finger through New York, by touch, from the driving seat
-  await runModule("./noisy_drive", { newPage, check });
-  await runModule("./event_pool_checks", { newPage, check, shots: SHOTS });
-  await runModule("./engine_sound_checks", { newPage, check, shots: SHOTS });
-  await runModule("./lights_police_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] });
-  await runModule("./car_feel_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[390,844]] });
-  await runModule("./cleanup_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] });
-  await runModule("./hardening_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] });
+  }
+  inlinePhase = false;
+  // (with SHARD 0 of 1, SHARDS === 1: the serial run, everything in its old order)
+
+  // Every module after the inline checks, in order. Serial (HARNESS_SHARDS=1) they run in this order;
+  // sharded, each shard takes the next unclaimed one, dearest first (harness_shards.js claims it
+  // with a lock file, so each runs exactly once), and a module's timing check waits for the solo phase.
+  const MODULES = [
+    ["./heli_play_checks", { newPage, check, shots: SHOTS }],
+    ["./heli_land_checks", { newPage, check }],
+    ["./eject_framing_checks", { newPage, check, shots: SHOTS }],
+    ["./toyfinish_checks", { newPage, check, shots: SHOTS }],
+    ["./toyworld_checks", { newPage, check, shots: SHOTS }],
+    ["./workshop_checks", { newPage, check, shots: SHOTS }],
+    ["./workshop_play_checks", { newPage, check, shots: SHOTS }],
+    ["./garden_play_checks", { newPage, check, shots: SHOTS }],
+    ["./workshop_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] }],
+    ["./garden_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] }],
+    ["./robot_checks", { newPage, check, shots: SHOTS }],
+    ["./robot_play_checks", { newPage, check, shots: SHOTS }],
+    ["./robot_play_checks", { newPage, check, shots: SHOTS, airport: 1, viewports: [[1024,768],[390,844]] }],
+    ["./workshop_offline_check", { newPage, check, shots: SHOTS }],
+    ["./boat_checks", { newPage, check, shots: SHOTS }],
+    ["./yacht_checks", { newPage, check, shots: SHOTS }],
+    ["./sea_checks", { newPage, check, shots: SHOTS }],
+    ["./speed_horn_checks", { newPage, check, shots: SHOTS }],
+    ["./lock_checks", { newPage, check, shots: SHOTS }],
+    ["./vehicle_contract_checks", { newPage, check }],
+    ["./state_semantics_checks", { newPage, check }],
+    ["./aircraft_orientation_checks", { newPage, check }],
+    ["./slot_checks", { newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] }],
+    ["./road_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] }],
+    ["./solidity_checks", { newPage, check }],
+    ["./track_checks", { newPage, check }],
+    ["./launchsite_checks", { newPage, check }],
+    ["./rocketsled_checks", { newPage, check }],
+    ["./fireworksbarge_checks", { newPage, check }],
+    ["./monstertruck_checks", { newPage, check }],
+    ["./monster_checks", { newPage, check }],
+    ["./heavy_checks", { newPage, check }],
+    // v144: the rocket sled, ridden -- portrait, a full ride in each camera view
+    ["./sledride_checks", { newPage, check }],
+    // v145: the wrecking-ball crane -- portrait, a whole go in each camera view, the drag that turns it
+    ["./crane_checks", { newPage, check }],
+    ["./cybertruck_checks", { newPage, check }],   // v146: the Cybertruck, a second body on the car
+    ["./corvette_checks", { newPage, check }],     // v159: the Corvette, a third, and its rocket booster
+    ["./race_checks", { newPage, check }],         // v164: the race -- his idea; the one place he can lose
+    ["./race_track_checks", { newPage, check }],   // v170: the tracks after the oval -- surfaces, dunes, the shortcut
+    ["./dadmode_checks", { newPage, check }],
+    ["./dadmissions_checks", { newPage, check }],   // v154: dad mode's historical missions      // v147: dad mode (the parent's, behind a code) and the valley
+    ["./payoff_size_checks", { newPage, check }],
+    // the drivable cities: portrait, the driving seat on the first and the chase view on the second
+    ["./city_checks", { newPage, check, shots: SHOTS, viewports: [[768,1024],[390,844]] }],
+    ["./corner_cam_checks", { newPage, check }],   // v163: the chase camera never inside a building on a corner
+    // the usability test, before every city release: five REAL minutes of a noisy
+    // four-year-old's finger through New York, by touch, from the driving seat
+    ["./noisy_drive", { newPage, check }],
+    ["./event_pool_checks", { newPage, check, shots: SHOTS }],
+    ["./events_perf_checks", { newPage, check }],   // v177: lifted out of T-EV (it times frames)
+    ["./engine_sound_checks", { newPage, check, shots: SHOTS }],
+    ["./lights_police_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] }],
+    ["./car_feel_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[390,844]] }],
+    ["./cleanup_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] }],
+    ["./hardening_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] }],
+  ];
+  for (const [name, opts] of SHARDS > 1 ? SHARDING.order(MODULES) : MODULES) await runModule(name, opts);
 
   await browser.close();
   killAll();
 
+  harnessTimes();
+  if (process.env.HARNESS_TRACE) console.log(`TRACE end at ${((Date.now() - T0) / 1000).toFixed(0)} s`);
   const failed = results.filter(r => !r.ok);
   if (restarts) console.log(`INFO  the static server was restarted ${restarts} time(s) during the run`);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
   process.exit(failed.length ? 1 : 0);
-})().catch(e => { console.error("HARNESS ERROR:", e); process.exit(2); });
+};
+if (SHARD === null) SHARDING.orchestrate(__filename, SHARDS);
+else harnessMain().catch(e => { console.error("HARNESS ERROR:", e); process.exit(2); });
+
+// Where the time went: every module, and the inline checks one by one (the time
+// since the check before, which includes any page it booted), slowest first.
+function harnessTimes() {
+  const inline = results.filter(r => !r.mod).map(r => ({ mod: "inline: " + r.name.slice(0, 70), s: r.s, checks: 1 }));
+  const all = modTimes.concat(inline).sort((a, b) => b.s - a.s), total = (Date.now() - T0) / 1000;
+  const inl = inline.reduce((a, r) => a + r.s, 0);
+  console.log(`\nTIME  ${(total / 60).toFixed(1)} min in all; modules ${(modTimes.reduce((a, r) => a + r.s, 0) / 60).toFixed(1)} min, inline checks ${(inl / 60).toFixed(1)} min`);
+  for (const r of all.slice(0, 15)) console.log(`TIME  ${(r.s / 60).toFixed(1).padStart(5)} min  ${r.mod}${r.checks > 1 ? ` (${r.checks} checks)` : ""}`);
+  try {
+    const dir = path.resolve(__dirname, "..", "evidence"); fs_mkdir(dir);
+    require("fs").writeFileSync(path.join(dir, SHARDS > 1 ? `harness-times-${SHARD}.json` : "harness-times.json"), JSON.stringify({ total, modules: modTimes, checks: results.map(r => ({ name: r.name.slice(0, 120), mod: r.mod, s: r.s })) }, null, 1));
+  } catch (e) {}
+}
 
 function fs_mkdir(dir) {
   require("fs").mkdirSync(dir, { recursive: true });

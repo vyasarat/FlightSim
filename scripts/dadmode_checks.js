@@ -31,9 +31,28 @@
 // ---------------------------------------------------------------------------
 const pilot = require("./dad_autopilot.js");
 
-module.exports = async function dadChecks({ newPage, check }) {
+module.exports = async function dadChecks({ newPage, check, perf }) {
   const J = x => JSON.stringify(x);
   const run = async (page, fn, arg) => { try { return await page.evaluate(fn, arg); } catch (e) { return { err: String(e && e.message || e).slice(0, 300) }; } };
+  // (v177) the one check here that times something: the sharded harness runs it ALONE after the
+  // shards (perf: "only", on a page of its own) and the rest of the module in a shard (perf: "skip")
+  const valleyCost = async (page) => {
+    // streaming the valley costs about what streaming anywhere else does: a ground chunk
+    // there is built in under 3x the time of one on the plains (alternated, medians)
+    const cost = await run(page, () => {
+      const cs = window.__lp.TUNE.chunkSize, t = { valley: [], plains: [] };
+      const at = { valley: [-6000, -1500], plains: [0, 1500] };
+      for (let rep = 0; rep < 8; rep++) for (const k of ["valley", "plains"]) {
+        const [x, z] = at[k];
+        const t0 = performance.now(); const m = buildChunk(Math.round(x / cs) + rep, Math.round(z / cs)); t[k].push(performance.now() - t0); m.geometry.dispose();
+      }
+      const med = a => a.slice().sort((p, q) => p - q)[a.length >> 1];
+      return { valley: +med(t.valley).toFixed(2), plains: +med(t.plains).toFixed(2) };
+    });
+    check("dad/valley: a ground chunk in the valley builds in under 3x the time of one on the plains -- flying it does not hitch while it streams",
+      !cost.err && cost.valley < cost.plains * 3, J(cost));
+  };
+  if (perf === "only") { const p = await newPage(1180, 820); await valleyCost(p.page); await p.page.close(); return; }
   const { page, errors } = await newPage(1180, 820);
   await page.evaluate(`(${pilot.toString()})()`);
   await page.evaluate(() => {
@@ -832,20 +851,7 @@ module.exports = async function dadChecks({ newPage, check }) {
     !bk.err && bk.kind === "building" && bk.clearOfFloor > bk.clearance && bk.boxTop > -3 && bk.bang && bk.back && bk.minDx > 0 && bk.minDx < 15 && bk.vis && bk.ventVis && bk.noShatter && bk.solids === 0 &&
     bk.shot.fired === 1 && bk.shot.struck && bk.shot.hidBunker === 0 && bk.shot.stillSolid, J(bk));
 
-  // streaming the valley costs about what streaming anywhere else does: a ground chunk
-  // there is built in under 3x the time of one on the plains (alternated, medians)
-  const cost = await run(page, () => {
-    const cs = window.__lp.TUNE.chunkSize, t = { valley: [], plains: [] };
-    const at = { valley: [-6000, -1500], plains: [0, 1500] };
-    for (let rep = 0; rep < 8; rep++) for (const k of ["valley", "plains"]) {
-      const [x, z] = at[k];
-      const t0 = performance.now(); const m = buildChunk(Math.round(x / cs) + rep, Math.round(z / cs)); t[k].push(performance.now() - t0); m.geometry.dispose();
-    }
-    const med = a => a.slice().sort((p, q) => p - q)[a.length >> 1];
-    return { valley: +med(t.valley).toFixed(2), plains: +med(t.plains).toFixed(2) };
-  });
-  check("dad/valley: a ground chunk in the valley builds in under 3x the time of one on the plains -- flying it does not hitch while it streams",
-    !cost.err && cost.valley < cost.plains * 3, J(cost));
+  if (perf !== "skip") await valleyCost(page);
 
   // the key in HIS portrait picker covers no card, scrolled to the top or the bottom:
   // a tap on a card is always the card

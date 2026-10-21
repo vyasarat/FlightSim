@@ -289,12 +289,12 @@ nothing else can — paid for by cutting one.
 2. Bump `CACHE_NAME` in `cockpit/sw.js` **and** root `sw.js` for any `cockpit/` change —
    `deploy.sh` refuses otherwise. Check afterwards: a `sed` for a version that is not
    there is a silent no-op.
-3. Harness green: `CHROME_HEADLESS_SHELL=… NODE_PATH=… node scripts/headless_test.js`
-   (~40 min, prints the count; :8177, refuses if busy). Its static server is supervised: a
-   dead or silent server is restarted and the page boot retried, and a run with no check for
-   20 minutes stops itself (`HARNESS STALLED`). Run it with nothing else alongside; iterate on
-   one module with `node scripts/run_module.js <module> [root]`. **Don't edit `cockpit/` while it
-   runs.** Node buffers piped stdout — redirect to a file and poll. `UPDATE_VISUAL` /
+3. Harness green: `CHROME_HEADLESS_SHELL=… NODE_PATH=… node scripts/headless_test.js` (~40 min,
+   prints the count). It runs itself as four shards on :8177-8180 and then, ALONE, the checks that
+   judge milliseconds (`SOLO`, `harness_shards.js`); nothing else may run beside it, its own shards
+   are the only exception, and `HARNESS_SHARDS=1` is the old serial run. A race or track change
+   also needs `scripts/race_sweep.js` (every car, every track; the gate demands it). Don't edit
+   `cockpit/` while it runs; redirect its output to a file and poll. `UPDATE_VISUAL` /
    `UPDATE_VEHICLE` regenerate the baselines; never hand-edit them.
 4. **A check whose expected value you edited is re-run before ship** -- the module alone,
    or the inline check extracted -- and passes. Editing a number to match is not passing.
