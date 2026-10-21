@@ -628,6 +628,14 @@ function rcBuildTunnel(T, k, tn, g) {
       tri(p0, p1, vtx(i + 1, j), cSnow); tri(p0, vtx(i + 1, j), vtx(i, j), cSnow);
     }
   }
+  // the height as DRAWN at (u, v): the two triangles of its grid cell, as tri() laid them (a,b,c / a,c,d)
+  const drawnY = (u, v) => {
+    let i = 0; while (i < uN.length - 2 && uN[i + 1] <= u) i++;
+    let j = 0; while (j < vN.length - 2 && vN[j + 1] <= v) j++;
+    const s = clamp((u - uN[i]) / (uN[i + 1] - uN[i] || 1), 0, 1), t = clamp((v - vN[j]) / (vN[j + 1] - vN[j] || 1), 0, 1);
+    const a = Y[i][j], b = Y[i + 1][j], c = Y[i + 1][j + 1], d = Y[i][j + 1];
+    return s >= t ? a + (b - a) * s + (c - b) * t : a + (c - d) * s + (d - a) * t;
+  };
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
@@ -642,21 +650,31 @@ function rcBuildTunnel(T, k, tn, g) {
     const s2 = Math.min(sB, s + C.piece), y = Math.min(deckY(s), deckY(s2)), m = rcAt((s + s2) / 2);
     for (const sd of [-1, 1]) solidBox3(m.x + lx * sd * (half + 0.4), y + H / 2, m.z + lz * sd * (half + 0.4), U, V, Wv, (s2 - s) / 2, H / 2 + 0.5, 0.4, "wall");
   }
-  const cells = [[-Vo * 0.8, -half - 1], [-half - 1, half + 1], [half + 1, Vo * 0.8]];
-  for (let u = -Uo; u < Uo - 0.01; u += C.piece * 2) {
-    const u2 = Math.min(Uo, u + C.piece * 2);
-    for (const [v0, v1] of cells) {
-      const roof = v0 < 0 && v1 > 0;
+  // (in cells `cell` m along by `strip` m across: over the lining, flat boxes down to its roof;
+  // beside it, down into the ground. Each one's top is the lowest of the mountain over it, so a
+  // plane never meets air it cannot see; narrow across the slope, so little it can see is not
+  // solid -- race_track_checks o measures both)
+  const strips = [];
+  for (let v = -half - 1; v < half + 1 - 0.01; v += C.cell) strips.push([v, Math.min(half + 1, v + C.cell), true]);
+  for (let v = half + 1; v < Vo * 0.9; v += C.strip) { const v2 = Math.min(Vo * 0.9, v + C.strip); strips.push([v, v2, false], [-v2, -v, false]); }
+  for (let u = -Uo, du; u < Uo - 0.01; u += du) {
+    // (narrow along the track too where the mountain falls toward a portal's end)
+    du = Math.abs(u) > Lh - C.cell || Math.abs(u + C.cell) > Lh - C.cell ? C.strip : C.cell;
+    const u2 = Math.min(Uo, u + du), m = rcAt(sM + (u + u2) / 2);
+    for (const [v0, v1, roof] of strips) {
       if (roof && (u < -Lh || u2 > Lh)) continue;                  // (the cutting in front of a portal is open)
       let top = Infinity, gr = Infinity;
-      for (const uu of [u, (u + u2) / 2, u2]) for (const vv of [v0, (v0 + v1) / 2, v1]) {
+      const us = [u, (u + u2) / 2, u2].concat(uN.filter(x => x > u && x < u2)), vs = [v0, (v0 + v1) / 2, v1].concat(vN.filter(x => x > v0 && x < v1));
+      for (const uu of us) for (const vv of vs) {
         if (open(uu, vv)) continue;
-        top = Math.min(top, hy(uu, vv)); const wq = rcAt(sM + uu); gr = Math.min(gr, terrainEff(wq.x + lx * vv, wq.z + lz * vv));
+        top = Math.min(top, drawnY(uu, vv)); const wq = rcAt(sM + uu); gr = Math.min(gr, terrainEff(wq.x + lx * vv, wq.z + lz * vv));
       }
+      if (!isFinite(top)) continue;
+      top -= 0.5;
       const bot = roof ? deckY(sM + (u + u2) / 2) + H : gr - 1;
-      if (!(top - 0.5 > bot + 0.5)) continue;
-      const m = rcAt(sM + (u + u2) / 2), vc = (v0 + v1) / 2;
-      solidBox3(m.x + lx * vc, (top - 0.5 + bot) / 2, m.z + lz * vc, U, V, Wv, (u2 - u) / 2, (top - 0.5 - bot) / 2, (v1 - v0) / 2, roof ? "wall" : "rock");
+      if (top - bot < (roof ? 1 : 2.5)) continue;                   // (the last of the foot: there the ground is the mountain)
+      const vc = (v0 + v1) / 2;
+      solidBox3(m.x + lx * vc, (top + bot) / 2, m.z + lz * vc, U, V, Wv, (u2 - u) / 2, (top - bot) / 2, (v1 - v0) / 2, roof ? "wall" : "rock");
     }
   }
   const more = T.claimMore || (T.claimMore = []);

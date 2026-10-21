@@ -2464,7 +2464,7 @@ const TUNE = {
       // (Surveyed: the ground under it 60-100 m, all above the snow line; 1090 m from the
       // oval, 369 m off the motorway.)
       { id: "snow", site: { x: 900, z: -1380, heading: 270 },
-        pads: [{ m: 150, lat: 5 }, { m: 1150, lat: 5 }, { m: 1300, lat: -5 }, { m: 2180, lat: -5 }, { m: 2950, lat: 5 }, { m: 3300, lat: -5 }],
+        pads: [{ m: 150, lat: 5 }, { m: 1150, lat: 5 }, { m: 1300, lat: -5 }, { m: 1830, lat: -5 }, { m: 2950, lat: 5 }, { m: 3300, lat: -5 }],   // (none aimed at under the tunnel's lowered camera: race_track_checks o)
         aiMul: 0.988,                     // (at 1.0 the noisy hand won 25%: the slippery bends cost his wobbling line more than theirs)
         banks: true,                      // snowbanks for barriers (the same solids), red-and-white poles on them
         // the frozen lake's bed, shaped into the ground (terrain.js rcLakeBed): level at `y`
@@ -2527,7 +2527,7 @@ const TUNE = {
     // (v174) the tunnel: a lining `half` m from the line each side and `h` m high inside,
     // lamps every `lampStep` m, the mountain heaped `over` m above the roof at its middle,
     // falling to the ground `foot` m beyond the lining and `apron` m beyond each portal
-    tunnel: { half: 18.5, h: 16, lampStep: 16, over: 46, crag: 0.3, foot: 90, apron: 40, piece: 10, rockBelow: 0.3,
+    tunnel: { half: 18.5, h: 16, lampStep: 16, over: 46, crag: 0.15, foot: 90, apron: 70, piece: 10, cell: 14, strip: 4, solidGap: 9, rockBelow: 0.3,
               camFrom: 60, camUnder: 3.5 },   // (the chase camera at most h - camUnder up from camFrom m before the portal until it is out)   // (rockBelow: a face whose normal is this far from up, or more, is rock; the rest snow)
     // (v174) a frozen lake: the ice sheet `over` m above its bed (the deck stands RC.lift over it,
     // so the road reads on it), and the deck eased on to its level over `along` m either side

@@ -389,6 +389,25 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         for (let s = tn.sA + 5; s < tn.sB - 5; s += 10) { roofN++; if (solidAt(...at(s, 0, C.h + 3))) roofed++; if (solidAt(...at(s, C.half + 12, 3))) side++; }
         for (const s of [tn.sA - 15, tn.sB + 15]) for (const up of [3, C.h + 3, C.h + 15]) if (!solidAt(...at(s, 0, up))) frontOpen++;
         out.roof = roofed + "/" + roofN; out.side = side + "/" + roofN; out.frontOpen = frontOpen + "/6";
+        // no pad is aimed at while the camera is down under its roof (the monster's camera sits 19 m up so
+        // that its own cab never hides a pad ahead -- v172; here it cannot)
+        const capA = tn.sA - C.camFrom + 40, capB = tn.sB + RC.cam.monster.back + 10 + 80;
+        out.padsUnder = (T.def.pads || []).filter(p => p.m > capA && p.m < capB).map(p => p.m);
+        // the mountain as drawn against its solid, from above: where it is solid, the solid's top is never
+        // above what is drawn (no invisible wall) and never far under it (nothing seen that a plane passes through)
+        const T3 = window.THREE, rc = new T3.Raycaster(), V = L.race.venues[id].venue, mid = T.S[Math.round((tn.sA + tn.sB) / 2 / T.len * (T.n - 1))];
+        let over = 0, under = 0, n = 0, worst = 0, worstAt = null; const bad = [];
+        for (let u = -(tn.sB - tn.sA) / 2 - C.apron; u <= (tn.sB - tn.sA) / 2 + C.apron; u += 7) for (let v = -(C.half + C.foot); v <= C.half + C.foot; v += 7) {
+          if (Math.abs(v) < C.half + 4) continue;                                  // (beside the lining: the roof is checked above)
+          const x = mid.x + mid.tx * u + mid.lx * v, z = mid.z + mid.tz * u + mid.lz * v;
+          rc.set(new T3.Vector3(x, 400, z), new T3.Vector3(0, -1, 0));
+          const hit = rc.intersectObject(V, true)[0]; if (!hit) continue;
+          const drawn = hit.point.y;
+          let top = null; for (let y = drawn + 3; y > L.terrainEff(x, z); y -= 0.25) if (solidAt(x, y, z)) { top = y; break; }
+          if (top === null) continue;
+          n++; if (top > drawn + 0.6) { over++; bad.push(["inv", u, v, +(top - drawn).toFixed(1)]); } const g = drawn - top; if (g > worst) { worst = g; worstAt = [u, v]; } if (g > C.solidGap) { under++; bad.push([u, v, +g.toFixed(1)]); }
+        }
+        out.surface = { n, invisible: over, farUnder: under, worstGap: +worst.toFixed(1), worstAt, bad: bad.slice(0, 40) };
         // (portrait, the chase view in every car and his seat in two: the views he is really in)
         for (const [veh, chase] of [["car", true], ["cybertruck", true], ["corvette", true], ["monster", true], ["car", false], ["monster", false]]) {
           L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
@@ -420,8 +439,9 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         return out;
       }, id);
       const cs = Object.entries(o.cars);
-      check(`race ${id}: the tunnel is a tunnel -- roofed ${o.roof} along it, the mountain solid beside it ${o.side}, the road in front of each portal open (${o.frontOpen}); through it the chase camera stays inside the lining with his car in sight (${cs.map(([k, v]) => `${k}: ${v.outside} of ${v.frames} frames outside, ${v.hidden} hidden`).join("; ")})`,
-        o.roof.split("/")[0] === o.roof.split("/")[1] && o.side.split("/")[0] === o.side.split("/")[1] && o.frontOpen === "6/6" && cs.every(([k, v]) => v.frames > 100 && v.outside === 0 && v.hidden === 0), J(o));
+      check(`race ${id}: the tunnel is a tunnel -- roofed ${o.roof} along it, the mountain solid beside it ${o.side}, the road in front of each portal open (${o.frontOpen}); the mountain's solid under what is drawn at ${o.surface.n} points (${o.surface.invisible} invisible, ${o.surface.farUnder} more than the allowed gap under it, worst ${o.surface.worstGap} m); no pad aimed at under its lowered camera (${o.padsUnder.join(",") || "none"}); through it the chase camera stays inside the lining with his car in sight (${cs.map(([k, v]) => `${k}: ${v.outside} of ${v.frames} frames outside, ${v.hidden} hidden`).join("; ")})`,
+        o.roof.split("/")[0] === o.roof.split("/")[1] && o.side.split("/")[0] === o.side.split("/")[1] && o.frontOpen === "6/6" && o.padsUnder.length === 0 &&
+        o.surface.n > 50 && o.surface.invisible === 0 && o.surface.farUnder === 0 && cs.every(([k, v]) => v.frames > 100 && v.outside === 0 && v.hidden === 0), J(o));
     }
 
     // ---- p. (v174) THE FROZEN LAKE: the crossing's middle is the bed's (to a metre), the deck over
