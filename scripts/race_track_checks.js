@@ -391,7 +391,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         out.roof = roofed + "/" + roofN; out.side = side + "/" + roofN; out.frontOpen = frontOpen + "/6";
         // no pad is aimed at while the camera is down under its roof (the monster's camera sits 19 m up so
         // that its own cab never hides a pad ahead -- v172; here it cannot)
-        const capA = tn.sA - C.camFrom + 40, capB = tn.sB + RC.cam.monster.back + 10 + 80;
+        const capA = tn.sA - C.camFrom, capB = tn.sB + RC.cam.monster.back + 10 + 80;
         out.padsUnder = (T.def.pads || []).filter(p => p.m > capA && p.m < capB).map(p => p.m);
         // the mountain as drawn against its solid, from above: where it is solid, the solid's top is never
         // above what is drawn (no invisible wall) and never far under it (nothing seen that a plane passes through)
@@ -405,7 +405,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
           const drawn = hit.point.y;
           let top = null; for (let y = drawn + 3; y > L.terrainEff(x, z); y -= 0.25) if (solidAt(x, y, z)) { top = y; break; }
           if (top === null) continue;
-          n++; if (top > drawn + 0.6) { over++; bad.push(["inv", u, v, +(top - drawn).toFixed(1)]); } const g = drawn - top; if (g > worst) { worst = g; worstAt = [u, v]; } if (g > C.solidGap) { under++; bad.push([u, v, +g.toFixed(1)]); }
+          n++; if (top > drawn + 0.3) { over++; bad.push(["inv", u, v, +(top - drawn).toFixed(1)]); } const g = drawn - top; if (g > worst) { worst = g; worstAt = [u, v]; } if (g > C.solidGap) { under++; bad.push([u, v, +g.toFixed(1)]); }
         }
         out.surface = { n, invisible: over, farUnder: under, worstGap: +worst.toFixed(1), worstAt, bad: bad.slice(0, 40) };
         // (portrait, the chase view in every car and his seat in two: the views he is really in)

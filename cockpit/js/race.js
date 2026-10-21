@@ -571,11 +571,13 @@ function rcBuildTunnel(T, k, tn, g) {
   const Lh = tn.len / 2, Uo = Lh + C.apron, Vo = half + C.foot, cut = half + 3;
   const uN = [], vN = [];
   for (let u = -Uo; u <= Uo + 0.01; u += 8) uN.push(u);
-  uN.push(-Lh, Lh, -Lh - 0.05, Lh + 0.05); uN.sort((a, b) => a - b);
+  uN.push(-Lh, Lh, -Lh - 0.05, Lh + 0.05, Uo); uN.sort((a, b) => a - b);
+  for (let k = uN.length - 1; k > 0; k--) if (uN[k] - uN[k - 1] < 0.01) uN.splice(k, 1);
   for (let v = -Vo; v <= Vo + 0.01; v += 8) if (Math.abs(v) > cut) vN.push(v);
-  vN.push(-cut, cut, -half - 1, half + 1);
+  vN.push(-cut, cut, -half - 1, half + 1, -Vo, Vo);
   for (const p of arch) vN.push(p[0] * 1.14);                 // (the portal's outline: the face over it meets it exactly)
   vN.sort((a, b) => a - b);
+  for (let k = vN.length - 1; k > 0; k--) if (vN[k] - vN[k - 1] < 0.01) vN.splice(k, 1);
   const open = (u, v) => Math.abs(u) > Lh && Math.abs(v) < cut - 0.01;
   // the portal ring's outer edge over the deck, at lat v (the arch scaled as the ring is)
   const ringY = (v) => {
@@ -660,7 +662,7 @@ function rcBuildTunnel(T, k, tn, g) {
   for (let u = -Uo, du; u < Uo - 0.01; u += du) {
     // (narrow along the track too where the mountain falls toward a portal's end)
     du = Math.abs(u) > Lh - C.cell || Math.abs(u + C.cell) > Lh - C.cell ? C.strip : C.cell;
-    const u2 = Math.min(Uo, u + du), m = rcAt(sM + (u + u2) / 2);
+    const u2 = Math.min(Uo, u + du), m = Object.assign({}, rcAt(sM + (u + u2) / 2));   // (a copy: rcAt answers in one shared object)
     for (const [v0, v1, roof] of strips) {
       if (roof && (u < -Lh || u2 > Lh)) continue;                  // (the cutting in front of a portal is open)
       let top = Infinity, gr = Infinity;
@@ -670,9 +672,9 @@ function rcBuildTunnel(T, k, tn, g) {
         top = Math.min(top, drawnY(uu, vv)); const wq = rcAt(sM + uu); gr = Math.min(gr, terrainEff(wq.x + lx * vv, wq.z + lz * vv));
       }
       if (!isFinite(top)) continue;
-      top -= 0.5;
+      top -= roof ? 0.5 : C.under;
       const bot = roof ? deckY(sM + (u + u2) / 2) + H : gr - 1;
-      if (top - bot < (roof ? 1 : 2.5)) continue;                   // (the last of the foot: there the ground is the mountain)
+      if (top - bot < (roof ? 1 : 4)) continue;                     // (the last 3 m of its foot: there the ground is the mountain)
       const vc = (v0 + v1) / 2;
       solidBox3(m.x + lx * vc, (top + bot) / 2, m.z + lz * vc, U, V, Wv, (u2 - u) / 2, (top - bot) / 2, (v1 - v0) / 2, roof ? "wall" : "rock");
     }
