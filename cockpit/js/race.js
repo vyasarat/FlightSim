@@ -128,6 +128,26 @@ function rcLayTrack(def) {
   if (jumps) {
     const B = Math.max(1, Math.round(RC.jump.ease / TK.ds)), raw = S.map(q => q.gy);
     for (let i = 0; i < n; i++) { let a = 0; for (let j = -B; j <= B; j++) a += raw[(i + j + n) % n]; S[i].gy = a / (2 * B + 1); }
+  }
+  // (v175) a splash is the deck down AT the water: over each splash section it stands
+  // `over` m above the sea where the ground under it is lower, and on the ground (its
+  // own highest under it, plus the lift) where that is higher -- never under either --
+  // eased back to the road over `along` m each side. Real water: the lagoon is the
+  // coast's own (terrainEff under seaLevelAt, CLAUDE.md's one definition); nothing is
+  // reshaped and nothing new answers "is this water".
+  const splashes = [];
+  def.sections.forEach((sc, k) => {
+    if (sc.surface !== "splash") return;
+    let a = Infinity, b = -Infinity, y = -Infinity;
+    for (const q of S) if (q.sec === k) { a = Math.min(a, q.s); b = Math.max(b, q.s); y = Math.max(y, seaLevelAt(q.x, q.z) + RC.splash.over); }
+    const E = RC.splash.along;
+    for (const q of S) {
+      const d = q.s < a ? a - q.s : q.s > b ? q.s - b : 0;
+      if (d < E) q.gy = Math.max(q.g, lerp(q.gy, Math.max(q.g, y), 1 - smoothstep(0, E, d)));
+    }
+    splashes.push({ sec: k, a, b, y });
+  });
+  if (jumps) {
     const from = {};
     for (const q of S) if (from[q.sec] === undefined) from[q.sec] = q.s;
     for (const q of S) {
@@ -148,7 +168,7 @@ function rcLayTrack(def) {
   S[n - 1].kh = S[n - 2].kh;
   const gap = Math.hypot(laid.end.p.x - start.p.x, laid.end.p.z - start.p.z);
   const turn = Math.abs(wrapPi(Math.atan2(laid.end.f.x, laid.end.f.z) - Math.atan2(start.f.x, start.f.z)));
-  return { def, S, len: pc.len, n, gap, turn, jumps, lakes };
+  return { def, S, len: pc.len, n, gap, turn, jumps, lakes, splashes };
 }
 
 // Where s metres along it is (s wraps by the lap): one sample's worth, interpolated.
@@ -283,7 +303,7 @@ function rcBuildVenue(def) {
   g.userData.noSolid = false;
   // ---- the deck, the kerbs and the barriers: three ribbons and a wall, one mesh each
   const deck = [], kerbR = [], kerbW = [], wall = [], line = [];
-  const decks = { asphalt: deck }, ruts = {}, skirt = [];   // (ruts: one mesh per colour, v174)   // (v170) a deck per surface, asphalt's the one there always was
+  const decks = { asphalt: deck }, ruts = {}, films = {}, skirt = [];   // (films: v175's splash)   // (ruts: one mesh per colour, v174)   // (v170) a deck per surface, asphalt's the one there always was
   const at = (q, a, up) => [q.x + q.lx * a, q.gy + q.ly * a + (up || 0), q.z + q.lz * a];
   const quad = (arr, a, b, c, d) => { arr.push(...a, ...b, ...c, ...a, ...c, ...d); };
   for (let i = 0; i < n; i++) {
@@ -300,6 +320,8 @@ function rcBuildVenue(def) {
     // dirt keeps the ruts of the cars before him, where the racing lines run
     // (v174) a snow or ice road has a blue line down each edge: white on white, from his seat a bend could not be read
     if (sf.edgeLine) { const el = ruts[sf.edgeLine] || (ruts[sf.edgeLine] = []); for (const sd of [-1, 1]) { const o = sd * (W - 0.5); quad(el, at(a, o - 0.35, 0.045), at(b, o - 0.35, 0.045), at(b, o + 0.35, 0.045), at(a, o + 0.35, 0.045)); } }
+    // (v175) a splash is under a film of the sea: the road's sand seen through shallow water
+    if (sf.film) { const fl = films[sf.film] || (films[sf.film] = []); quad(fl, at(a, -W, RC.splash.filmUp), at(b, -W, RC.splash.filmUp), at(b, W, RC.splash.filmUp), at(a, W, RC.splash.filmUp)); }
     if (sf.ruts) { const rr = ruts[sf.rutCol || P.slate] || (ruts[sf.rutCol || P.slate] = []); for (const c of RC.rutLat) quad(rr, at(a, c - RC.rutW / 2, 0.04), at(b, c - RC.rutW / 2, 0.04), at(b, c + RC.rutW / 2, 0.04), at(a, c + RC.rutW / 2, 0.04)); }
     // kerbs on the bends, red and white every few metres, on both edges (asphalt's alone)
     const bend = Math.abs(a.kh) > 0.0015 && sf.kerbs;
@@ -377,6 +399,7 @@ function rcBuildVenue(def) {
   if (def.banks) rcBuildBanks(T, mk);
   for (const lk of T.lakes) rcBuildLake(T, lk, mk);
   def.sections.forEach((sc, k) => { if (sc.tunnel) rcBuildTunnel(T, k, sc.tunnel, g); });
+  for (const c in films) mk(films[c], new THREE.MeshLambertMaterial({ color: +c, transparent: true, opacity: RC.splash.film, depthWrite: false, side: THREE.DoubleSide })).receiveShadow = false;
   for (const c in ruts) mk(ruts[c], new THREE.MeshLambertMaterial({ color: +c, side: THREE.DoubleSide }));
   if (skirt.length) mk(skirt, artPaint(new THREE.MeshLambertMaterial({ color: RC.surfaces.sand.col, side: THREE.DoubleSide }), "sand"));
   mk(kerbR, new THREE.MeshLambertMaterial({ color: P.red, side: THREE.DoubleSide }));

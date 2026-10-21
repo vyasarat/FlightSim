@@ -53,6 +53,7 @@ entry below.
 | v172 | in the monster truck he steers for the pads on a straight as often as in the other cars (he sees them coming); he does not say the monster view is "too high" |  open |
 | v173 | he races whole races on the longer tracks without wandering off, and says nothing about them being too long or boring; on Desert Dunes he talks about the jumps (there are three now) |  open |
 | v174 | he picks the mountain card, says "snow" or "tunnel" out loud, and races Snowy Peaks more than once in a sitting; he notices the car sliding wide on the icy hairpin or the lake without calling it unfair or crashing into a bank |  open |
+| v175 | he picks the beach card, makes a splash noise or says "water" or "splash" driving through the lagoon, and steers for the sandbar jump; he does not say the blue road is the sea or that he is "in the water" as if he had crashed |  open |
 
 ## Entries
 
