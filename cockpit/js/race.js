@@ -63,7 +63,9 @@
 // THE VENUE STANDS IN THE WORLD, seen in normal play: asphalt, kerbs, barriers,
 // grandstands (solid, as buildings are), flags, the start gantry with its three
 // lamps, the boost pads and the podium. It is built on its own random stream
-// (vkQuiet), so the seeded traffic still sees v125's.
+// (vkQuiet), so the seeded traffic still sees v125's. It is DRAWN only where it can be seen
+// (v179, rcCull): its long ribbons in 600 m squares, and past the fog off the camera's layer --
+// never `visible`, which the solids registry asks (frame_budget_checks).
 // ---------------------------------------------------------------------------
 const RC = TUNE.race;
 const race = {
@@ -310,7 +312,98 @@ function rcBuildQuiet() {
     const v = race.venues[def.id] = {};
     for (const k of RC_VENUE) v[k] = race[k];
   });
+  // (v179) cut and culled after every venue is built, on the kit's stream put back after:
+  // nothing built before or after draws differently for it
+  const s0 = vkSeed;
+  race.cullStats = { before: 0, after: 0, from: 0, into: 0 };
+  try { for (const id in race.venues) rcChunkVenue(race.venues[id]); } finally { vkSeed = s0; }
+  race.padMesh = race.venues[RC.tracks[0].id].padMesh;
+  rcCullPrep();
   rcUse(RC.tracks[0].id);
+}
+
+// ---- (v179) a venue drawn only where it can be seen ------------------------------------------
+// Five venues of four-odd kilometres each, every ribbon one mesh: a mesh that long is never
+// out of the frustum, so all of them were drawn from everywhere -- 150k triangles on the
+// runway, 475k beside the oval -- under a fog that had hidden them whole. Now each long
+// ribbon is cut into squares (the same triangles, the same material), and anything of a venue
+// wholly past the fog's far edge (in view depth) is taken off the camera's LAYER, not hidden: `visible` is what the
+// solids registry asks (isSolidHidden), and a grandstand far from the camera is still a wall to
+// whatever the harness puts beside it. What the fog lets him see is drawn exactly as before.
+// Glows that ignore the fog (fog: false) are never culled here.
+function rcChunkVenue(v) {
+  const C = RC.cull, g = v.venue;
+  for (const m of g.children.slice()) {
+    if (!m.isMesh || m.material.fog === false) continue;
+    const g0 = m.geometry, nTri = (g0.index ? g0.index.count : g0.attributes.position.count) / 3;
+    if (nTri < C.chunkMin) continue;
+    const geo = g0.index ? g0.toNonIndexed() : g0, pos = geo.attributes.position, cells = new Map();
+    for (let t = 0; t < pos.count / 3; t++) {
+      const i = t * 3, cx = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3, cz = (pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+      const key = Math.floor(cx / C.cell) + "," + Math.floor(cz / C.cell);
+      let a = cells.get(key); if (!a) cells.set(key, a = []); a.push(t);
+    }
+    if (cells.size < 2) { if (geo !== g0) geo.dispose(); continue; }
+    const st = race.cullStats; st.before += pos.count / 3; st.from++; st.into += cells.size;
+    for (const tris of cells.values()) {
+      const ng = new THREE.BufferGeometry();
+      for (const name in geo.attributes) {
+        const src = geo.attributes[name], k = src.itemSize, arr = new Float32Array(tris.length * 3 * k);
+        let o = 0;
+        for (const t of tris) for (let j = t * 3 * k, e = j + 3 * k; j < e; j++) arr[o++] = src.array[j];
+        ng.setAttribute(name, new THREE.BufferAttribute(arr, k));
+      }
+      st.after += tris.length;
+      const piece = new THREE.Mesh(ng, m.material);
+      piece.receiveShadow = m.receiveShadow; piece.castShadow = m.castShadow; piece.renderOrder = m.renderOrder;
+      piece.name = m.name; piece.frustumCulled = m.frustumCulled; piece.onBeforeRender = m.onBeforeRender;
+      piece.position.copy(m.position); piece.quaternion.copy(m.quaternion); piece.scale.copy(m.scale);
+      Object.assign(piece.userData, m.userData);
+      g.add(piece);
+      if (v.padMesh === m) v.padMesh = piece;
+    }
+    g.remove(m);
+    if (geo !== g0) geo.dispose();
+    g0.dispose();
+  }
+}
+// every mesh of every venue, with the box it stands in (the trophy travels: never culled)
+const RC_CULL_SKIP = ["trophy", "trophyStand"];
+function rcCullPrep() {
+  race.cull = [];
+  const seen = new Set();
+  for (const id in race.venues) {
+    const v = race.venues[id];
+    for (const k in v) {
+      if (RC_CULL_SKIP.includes(k) || !v[k] || !v[k].isObject3D) continue;
+      v[k].updateWorldMatrix(true, true);
+      v[k].traverse(m => {
+        if (!(m.isMesh || m.isPoints) || seen.has(m) || !m.material || m.material.fog === false) return;
+        seen.add(m);
+        race.cull.push({ m, box: new THREE.Box3().setFromObject(m) });
+      });
+    }
+  }
+  scene.onBeforeRender = rcCull;
+}
+// before every render, with the camera it is drawn from. The fog is by VIEW DEPTH (three.js
+// fogs on -mvPosition.z), not by distance: at the edge of a wide screen a piece 1.7 km off is
+// only 1.2 km deep and half seen. So a piece is culled only when the NEAREST corner of its box,
+// measured along the camera's line of sight, is past the fog's far edge plus the margin -- the
+// fog has then hidden every point of it, wherever it is on the screen.
+const rcFwd = new THREE.Vector3();
+function rcCull(renderer, sc, cam) {
+  if (!race.cull || !cam || !sc.fog) return;
+  const far = sc.fog.far + RC.cull.margin, p = cam.position;
+  cam.getWorldDirection(rcFwd);
+  const fx = rcFwd.x, fy = rcFwd.y, fz = rcFwd.z;
+  for (const c of race.cull) {
+    const b = c.box;
+    // the least depth over the box's eight corners: per axis, the end that is nearer along it
+    const d = (fx > 0 ? b.min.x : b.max.x) * fx + (fy > 0 ? b.min.y : b.max.y) * fy + (fz > 0 ? b.min.z : b.max.z) * fz
+            - (p.x * fx + p.y * fy + p.z * fz);
+    c.m.layers.mask = d > far ? 0 : 1;
+  }
 }
 // The venue a race is run on; an id it does not know is the first track.
 function rcUse(id) {

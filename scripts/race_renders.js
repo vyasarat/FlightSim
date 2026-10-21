@@ -17,7 +17,7 @@
 //   jump / jumpSeat   (v170) off a dune, near the top of the flight
 //   glide / glideSeat (v171) held full into the left barrier for three seconds: riding along it
 //   cam:<x>,<y>,<z>,<tx>,<ty>,<tz>  (v174) normal play, the camera put there (heights over the ground) looking at that
-//   TRACK=dunes renders that track (the oval if unset)
+//   TRACK=dunes renders that track (the oval if unset); SKY=3 at night (v179)
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
 const path = require("path"), fs = require("fs");
 const { launch, openGame, serve } = require("./art_rig.js");
@@ -30,7 +30,7 @@ async function render(root, views) {
   const port = +(process.env.PORT || 8232), srv = serve(root, port), browser = await launch();
   const [vw, vh] = (process.env.VP || "820x1180").split("x").map(Number);   // VP=1180x820 for landscape
   const page = await openGame(browser, port, { width: vw, height: vh });
-  await page.evaluate(([v, t]) => { window.__rVeh = v; window.__rTrack = t; }, [process.env.VEH || "car", process.env.TRACK || "oval"]);
+  await page.evaluate(([v, t, k]) => { window.__rVeh = v; window.__rTrack = t; window.__rSky = k; }, [process.env.VEH || "car", process.env.TRACK || "oval", +(process.env.SKY || 0)]);
   await page.evaluate(() => { window.__lp.api.skipScreens(); window.__hold = () => {}; for (let i = 0; i < 3; i++) window.__paint(); });
   await page.waitForFunction(() => { const s = window.__lp.modelState; return s && ["car", "cybertruck", "corvette"].every(k => s[k] !== "loading"); }, null, { timeout: 120000 }).catch(() => {});
   await page.screenshot({ timeout: 180000 });
@@ -39,7 +39,7 @@ async function render(root, views) {
       const L = window.__lp, S = L.state, R = L.race;
       window.__hold = () => {};
       if (window.__carCam0) window.carCamera = window.__carCam0;
-      S.sky = 0; S.nightF = 0;
+      S.sky = window.__rSky; S.nightF = S.sky === 3 ? 1 : 0;   // (v179) SKY=3 renders it at night
       L.raceReset();
       L.api.setVehicle(window.__rVeh); L.api.spawnAt(0, 0); L.api.skipScreens();
       for (let i = 0; i < 20; i++) L.update(1 / 60);

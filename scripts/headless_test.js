@@ -5657,6 +5657,7 @@ const harnessMain = async () => {
     ["./corvette_checks", { newPage, check }],     // v159: the Corvette, a third, and its rocket booster
     ["./race_checks", { newPage, check }],         // v164: the race -- his idea; the one place he can lose
     ["./race_track_checks", { newPage, check }],   // v170: the tracks after the oval -- surfaces, dunes, the shortcut
+    ["./frame_budget_checks", { newPage, check }], // v179: what a drawn frame costs, and the venues culled past the fog
     ["./dadmode_checks", { newPage, check }],
     ["./dadmissions_checks", { newPage, check }],   // v154: dad mode's historical missions      // v147: dad mode (the parent's, behind a code) and the valley
     ["./payoff_size_checks", { newPage, check }],

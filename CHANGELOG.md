@@ -10,6 +10,67 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v179 — the race venues drawn only where they can be seen
+
+Nothing he does changed; a frame got cheaper. Found in v177: every race venue (five tracks of
+four-odd kilometres) was drawn from everywhere. Each ribbon of a track -- its deck, kerbs,
+barriers, banks, girder -- was ONE mesh as long as the track, and a mesh that long is never
+outside the camera's view, so all five venues went to the GPU in every frame, from the
+runway, from the cities, from beside another track -- under a fog that had hidden them whole
+1.56 km out.
+
+Now each long ribbon is cut into 600 m squares (the same triangles, the same materials: 590,460
+triangles before and after, 26 meshes into 156), so the parts behind him or off to the side
+drop out of the frame, and any piece of a venue whose NEAREST corner is deeper than the fog's
+far edge (plus 150 m) is taken off the camera's layer before the frame is drawn. Depth, not
+distance: three.js fogs by depth along the line of sight, so at the edge of a wide screen a
+piece 1.7 km off is only 1.2 km deep and half seen -- measured flat, the first cut culled it
+(the law-reviewer). Not hidden either: `visible` is what the solids registry asks, so a start
+gantry far from the camera is still a wall to whatever is put beside it. The glows that ignore
+the fog (the sky road's lamps, the gantry's) are never culled, so the sky road still glows at
+night from as far as it ever did. All three numbers are `TUNE.race.cull`.
+
+**What it costs now** (draw calls / triangles per frame, shadow pass included, the harness's
+1024x768 chase view; synced frame under SwiftShader, not an iPad -- three runs each, alternated):
+
+| scene | v173 | v178 | v179 |
+|---|---|---|---|
+| on the runway | 569 / 363k | 606 / 513k | 574 / 361k |
+| California | 559 / 943k | 559 / 943k | 560 / 873k |
+| beside the oval | 761 / 711k | 891 / 1,090k | 814 / 770k |
+| racing on the oval | 603 / 665k | 778 / 1,043k | 751 / 837k |
+| racing on Desert Dunes | 608 / 813k | 661 / 1,039k | 653 / 749k |
+| racing on Snowy Peaks | -- | 375 / 1,032k | 388 / 832k |
+| racing on Beach Splash | -- | 363 / 575k | 380 / 575k |
+| racing on Sky Glow Road | -- | 318 / 690k | 331 / 614k |
+| synced runway frame | 190-195 ms | 243-245 ms | 194-214 ms |
+| synced frame beside the oval | 341-343 ms | 481-483 ms | 364-396 ms |
+
+From the runway the venues added 152k triangles; now under 500. On a track he races, the cut
+costs up to 17 more draw calls where the whole venue is in view anyway (Beach Splash) and saves
+up to 290k triangles where it is not.
+
+**One thing he could see changes, and it is stated, not hidden.** Past the fog's far edge
+nothing is shaded any more -- a venue piece there was drawn in the fog's own flat colour. Where
+it stood above the horizon (the sky road's ribbon, Snowy Peaks' mountain) that flat colour
+showed against the bluer sky as a pale ghost on the skyline, and that ghost is now gone; as he
+drives toward a venue, it appears at the same depth the terrain's own edge does (1.6 km), as
+the terrain and every streamed thing always have. The render-critic found it (sky, racing at
+1.5 km along the lap); the approach renders show it.
+
+**The check** (`frame_budget_checks`, new, in the harness and asked for by any change to
+`race.js`): the frame counted, shadow pass and all, on the runway, in both cities, beside each
+venue and racing on each -- 13 scenes, in landscape from the chase view and again in portrait
+from his seat. From the runway the venues add at most 10 calls and 2,000 triangles (v178: 39
+and 152k; from California's middle a piece at the screen's edge is in sight by depth, so the
+cities are held by their budgets instead); every landscape scene inside its budget of calls and triangles (v179's measure plus
+12%); nothing of a venue the fog leaves any of in sight is ever culled -- every culled piece's
+nearest corner, in the camera's own space, is past the fog's far edge, as the fog counts it, in
+all 26 frames; the cut keeps every triangle; and a gantry culled from a camera on the runway is
+still solid. On v178 all five fail.
+
+`race_renders.js` takes `SKY=3` to render at night.
+
 ## v178 — the Corvette's mirror is a mirror, not a lamp
 
 From the render-critic's note (v166): in the Corvette's driving seat, with the booster
