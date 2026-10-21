@@ -356,7 +356,10 @@ function generate() {
             const air = veh === "plane" || veh === "heli" || veh === "rocket";
             if (air) {
               y = (fc.y0 + fc.y1) / 2;
-              const floor = Math.max(ground(sx, sz), T.waterLevel) + (veh === "heli" ? 3 : veh === "rocket" ? 4 : T.terrainClearance + 2);
+              // (v174: the helicopter flies its run in 3 m plus the floor it lands on, plus a metre, over the
+              // ground at its spawn, and the ground under the run may rise to 3 m plus that floor under it:
+              // closer, a slope rising under it set it down -- a landing, not the cruise it is meant to measure)
+              const floor = Math.max(ground(sx, sz), T.waterLevel) + (veh === "heli" ? 4 + T.heli.floorTol : veh === "rocket" ? 4 : T.terrainClearance + 2);
               if (y < floor) y = Math.min(fc.y1 - 1.5, floor);
               if (y < floor - 0.1 || y > fc.y1 - 1) continue;
             } else if (veh === "car") {
@@ -371,7 +374,7 @@ function generate() {
             const n = Math.ceil(stand / 2);
             for (let k = 0; k <= n && ok; k++) {
               const t = k / n, px = sx - fc.nx * stand * t, pz = sz - fc.nz * stand * t;
-              if (air && Math.max(ground(px, pz), T.waterLevel) > y - (veh === "heli" ? 2.5 : veh === "rocket" ? 3.5 : T.terrainClearance + 1.5)) ok = false;
+              if (air && Math.max(ground(px, pz), T.waterLevel) > y - (veh === "heli" ? 3 + T.heli.floorTol : veh === "rocket" ? 3.5 : T.terrainClearance + 1.5)) ok = false;
               if (veh === "car" && (wet(px, pz, 0) || Math.abs(ground(px, pz) - y) > 2.5)) ok = false;
               if ((veh === "boat" || veh === "yacht") && k < n - Math.ceil(r / 2) && !wet(px, pz, veh === "yacht" ? 2 : 0.5)) ok = false;
               const hit = (veh === "boat" || veh === "yacht") ? solidCol(px, pz, T.waterLevel - 0.5, T.waterLevel + 2.5, r, CLS[veh])

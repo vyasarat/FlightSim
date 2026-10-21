@@ -16,6 +16,7 @@
 //   at:<m> / atSeat:<m>  (v173) him down the middle, settled, at that many metres along the lap
 //   jump / jumpSeat   (v170) off a dune, near the top of the flight
 //   glide / glideSeat (v171) held full into the left barrier for three seconds: riding along it
+//   cam:<x>,<y>,<z>,<tx>,<ty>,<tz>  (v174) normal play, the camera put there (heights over the ground) looking at that
 //   TRACK=dunes renders that track (the oval if unset)
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
 const path = require("path"), fs = require("fs");
@@ -55,6 +56,17 @@ async function render(root, views) {
         L.updateScenery(S.x, S.z, true);
         S.y = L.terrainEff(S.x, S.z); S.speed = 0;
         for (let i = 0; i < 90; i++) { S.touching = false; L.update(1 / 60); }
+        return note;
+      }
+      if (v.startsWith("cam:")) {
+        // (v174) a fixed camera anywhere, in normal play: cam:<x>,<y>,<z>,<tx>,<ty>,<tz> (y over the ground there)
+        const [x, y, z, tx, ty, tz] = v.slice(4).split(",").map(Number);
+        L.api.setView(true);
+        S.x = tx + 30; S.z = tz + 30; S.y = L.terrainEff(S.x, S.z); S.speed = 0;
+        L.updateScenery(tx, tz, true);
+        for (let i = 0; i < 30; i++) { S.touching = false; L.update(1 / 60); }
+        const cy = L.terrainEff(x, z) + y, gy = L.terrainEff(tx, tz) + ty;
+        window.__hold = () => { L.camera.position.set(x, cy, z); L.camera.up.set(0, 1, 0); L.camera.lookAt(tx, gy, tz); };
         return note;
       }
       if (v === "afterPodium") {

@@ -277,7 +277,26 @@ function shapedTerrain(x, z) {
     const hd = Math.max(0, 1 - Math.abs(Math.abs(z - harborZ) - 60) / 130);
     h -= hd * 9;
   }
+  h = rcLakeBed(x, z, h);  // v174: the snow race track's frozen lake (see below)
   return harborHeight(x, z, h);
+}
+
+// v174: THE FROZEN LAKE's bed, for the snow race track (TUNE.race.tracks, `lakeBed`):
+// level inside its ellipse and eased back to the mountain round it, so the ice lies
+// flat IN the ground rather than on a bank over it. Shaped here so the track laid over
+// it, the scenery and every reader of the ground agree. Dry: it is ice, not water.
+function rcLakeBed(x, z, h) {
+  for (const t of TUNE.race.tracks) {
+    const B = t.lakeBed;
+    if (!B) continue;
+    const dx = x - B.x, dz = z - B.z, R = Math.max(B.a, B.b) + B.blend * 3;
+    if (Math.abs(dx) > R || Math.abs(dz) > R) continue;
+    const hd = B.heading * DEG, fx = -Math.sin(hd), fz = -Math.cos(hd);
+    const u = dx * fx + dz * fz, v = dx * -fz + dz * fx;
+    const r = Math.hypot(u / B.a, v / B.b);
+    if (r < 1 + B.blend / Math.min(B.a, B.b)) h = lerp(h, B.y, 1 - smoothstep(1, 1 + B.blend / Math.min(B.a, B.b), r));
+  }
+  return h;
 }
 
 const AIRPORTS = [

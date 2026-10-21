@@ -361,7 +361,9 @@ module.exports = async function lightsPoliceChecks({ newPage, check, viewports }
         // long enough for them to close right up: they spawn seventy metres
         // back, and behind the chase camera they cost nothing because they are
         // not being drawn -- which is not what this is trying to price.
-        for (let i = 0; i < 60 * 9; i++) { L.update(1 / 60); hold(); L.renderer.render(L.scene, L.camera); }
+        // (v174: drawn only for its last 20 frames -- drawing all 540 of the six settles took this one check
+        // to 16 minutes of SwiftShader, and over the harness's 20-minute stall line when anything grew)
+        for (let i = 0; i < 60 * 9; i++) { L.update(1 / 60); hold(); if (i >= 60 * 9 - 20) L.renderer.render(L.scene, L.camera); }
         const ms = [];
         for (let r = 0; r < 7; r++) {
           const t0 = performance.now();

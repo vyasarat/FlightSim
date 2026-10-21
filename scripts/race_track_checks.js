@@ -33,6 +33,12 @@
 //   m. (v172, the oval too) HIS OWN CAR NEVER HIDES WHAT HE AIMS AT: from the chase
 //      camera (where the game put it, settled), the road 60 and 80 m ahead on the longest straight, in the middle and
 //      both pad lanes, is not behind his own body, in every car.
+//   n. (v174, every track) SNOW AND ICE: hands-off a whole lap, a slippery bend swings every car
+//      wide the same, never into a bank, and he is back on his line after it; nothing else swings;
+//   o. (v174) THE TUNNEL: roofed all through, the mountain solid beside it, the road in front of
+//      each portal open; the chase camera stays inside the lining, his car in sight, every car;
+//   p. (v174) THE FROZEN LAKE: the crossing on the bed's middle, its deck dead level on the bed's
+//      height, the bed level and dry under all the ice;
 //   i. (v170) A SPENT STEER AND A PITCH THAT STAYS IN THE RACE: the full steer that took
 //      a shortcut, still held a whole lap, is nobody's choice of it the next time
 //      round; lifted (past liftGrace) and put back full, it is his again and takes
@@ -252,12 +258,14 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         cars.every(k => e[k].shortcut.took && e[k].held.took && e[k].held.onWall === 0 && e[k].lift.took && !e[k].middle.took && !e[k].inside.took && !e[k].edge.took && !e[k].light.took && e[k].edge.atNose !== null && sc0.side * e[k].edge.atNose >= W2 - sc0.mouth) && gain.every(g => g > 0 && g < 0.6) && Math.max(...gain) - Math.min(...gain) < 0.05 && heldGain.every(g => g > 0 && g < 0.6) && e.ai.takes > 0 && e.ai.takes < e.ai.passes * 0.6, J(e));
     }
 
-    // ---- i. the spent steer, and the pitch stays in the race
-    if (hasSc) {
-      const sp = await page.evaluate((id) => {
+    // ---- i. the spent steer, and the pitch stays in the race (v174: the pitch on any track with a
+    // jump; the spent steer where there is a shortcut)
+    if (hasSc || hasJumps) {
+      const sp = await page.evaluate(([id, hasSc]) => {
         const L = window.__lp, S = L.state, RC = L.RC, out = {};
         L.noRender = true; L.api.skipScreens();
         const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
+        if (hasSc) {
         L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
         L.spdReset(); L.rcStartRace(id, 34);
         const R = L.race, him = R.him, sc = R.track.sc[0], Ln = R.track.len, nose = sc.sa + sc.gore;
@@ -281,6 +289,7 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         }
         out.takes = takes; out.atNose = atNose; out.edge = sc.side * (RC.width / 2 - sc.mouth); out.wallsHeld = R.wallShoves;
         R.racers = field; L.raceReset();
+        }
         // the pitch: off the first dune, and leaving the race in the air, in every car
         out.cars = {};
         for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
@@ -313,11 +322,147 @@ module.exports = async function raceTrackChecks({ newPage, check }) {
         }
         L.noRender = false;
         return out;
-      }, id);
+      }, [id, hasSc]);
       const cs = Object.values(sp.cars);
-      check(`race ${id}: a spent steer is nobody's choice -- held full a whole lap after taking the shortcut, he took it ${sp.takes[1]} times on the next pass, meeting its gore ON its edge (lat ${sp.atNose[1]}, the edge from ${sp.edge}); lifted 0.6 s and full again, ${sp.takes[2]} (first pass ${sp.takes[0]}). Off a dune the seat pitches up to ${cs.map(c => c.maxUp).join("/")} and down to ${cs.map(c => c.maxDown).join("/")} degrees, ${cs.map(c => c.after).join("/")} a second after landing; left mid-air at ${cs.map(c => c.exitAt).join("/")} degrees he comes back level (${cs.map(c => c.back.join(">")).join("; ")})`,
+      if (!hasSc) check(`race ${id}: off a jump the seat pitches up to ${cs.map(c => c.maxUp).join("/")} and down to ${cs.map(c => c.maxDown).join("/")} degrees, ${cs.map(c => c.after).join("/")} a second after landing; left mid-air at ${cs.map(c => c.exitAt).join("/")} degrees he comes back level (${cs.map(c => c.back.join(">")).join("; ")})`,
+        cs.every(c => c.maxUp > 8 && c.maxDown < -8 && c.after !== null && Math.abs(c.after) < 0.5 && c.exitAt !== null && c.back.every(b => b === 0) && !c.inRace), J(sp));
+      else check(`race ${id}: a spent steer is nobody's choice -- held full a whole lap after taking the shortcut, he took it ${sp.takes[1]} times on the next pass, meeting its gore ON its edge (lat ${sp.atNose[1]}, the edge from ${sp.edge}); lifted 0.6 s and full again, ${sp.takes[2]} (first pass ${sp.takes[0]}). Off a dune the seat pitches up to ${cs.map(c => c.maxUp).join("/")} and down to ${cs.map(c => c.maxDown).join("/")} degrees, ${cs.map(c => c.after).join("/")} a second after landing; left mid-air at ${cs.map(c => c.exitAt).join("/")} degrees he comes back level (${cs.map(c => c.back.join(">")).join("; ")})`,
         sp.takes[0] === 1 && sp.takes[1] === 0 && sp.atNose[1] !== null && Math.sign(sp.edge) * sp.atNose[1] >= Math.abs(sp.edge) && sp.takes[2] === 1 && cs.every(c => c.maxUp > 8 && c.maxDown < -8 && c.after !== null && Math.abs(c.after) < 0.5 && c.exitAt !== null && c.back.every(b => b === 0) && !c.inRace), J(sp));
     }
+
+    // ---- n. (v174) SNOW AND ICE ARE A BIT SLIPPERY, AND LANE-KEEP HOLDS: hands-off from the middle
+    // a whole lap alone, in every car, at his step: on a slippery bend he swings wide (more than a
+    // metre on its iciest), never more than the surface's slideMax, never into a bank (no thump,
+    // no glide), and is back on his line (within 0.3 m) 150 m past every bend; the same swing in
+    // every car. On a track with nothing slippery he never swings at all.
+    {
+      const n = await page.evaluate((id) => {
+        const L = window.__lp, S = L.state, RC = L.RC, out = {};
+        L.noRender = true; L.api.skipScreens();
+        const T = L.race.venues[id].track, slip = T.S.some(q => (RC.surfaces[q.sf] || {}).slide);
+        const lastBend = []; let lb = -1e9;
+        for (const q of T.S) { if (Math.abs(q.kh) > 1e-4) lb = q.s; lastBend.push(lb); }
+        for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+          L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.spdReset(); L.rcStartRace(id, 35);
+          const R = L.race, him = R.him, field = R.racers.slice(); R.racers = [him];
+          for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+          const base = Math.floor(him.s / T.len) * T.len + T.len;
+          him.s = base - 20; him.lat = 0; him.latV = 0; him.slip = 0;
+          const w0 = R.wallShoves, g0 = R.glideT || 0;
+          let maxSwing = 0, notBack = 0, worstBack = 0, maxSlip = 0;
+          while (him.s < base + T.len) {
+            S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
+            const u = him.s - base; if (u < 0) continue;
+            maxSwing = Math.max(maxSwing, Math.abs(him.lat)); maxSlip = Math.max(maxSlip, Math.abs(him.slip || 0));
+            const i = Math.min(T.n - 1, Math.round(u / T.len * (T.n - 1)));
+            if (u - lastBend[i] > 150 && Math.abs(him.lat) > 0.3) { notBack++; worstBack = Math.max(worstBack, Math.abs(him.lat)); }
+          }
+          out[veh] = { swing: +maxSwing.toFixed(2), slip: +maxSlip.toFixed(2), notBack, worstBack: +worstBack.toFixed(2), thumps: R.wallShoves - w0, glide: +((R.glideT || 0) - g0).toFixed(2) };
+          R.racers = field; L.raceReset();
+        }
+        out.slippery = slip;
+        out.slideMax = Math.max(0, ...Object.values(RC.surfaces).map(f => f.slideMax || 0));
+        L.noRender = false;
+        return out;
+      }, id);
+      const cars = ["car", "cybertruck", "corvette", "monster"], sw = cars.map(c => n[c].swing);
+      check(`race ${id}: ${n.slippery ? "snow and ice are a bit slippery" : "nothing here is slippery"} -- hands-off from the middle a whole lap he swings out at most ${sw.join("/")} m (slip ${cars.map(c => n[c].slip).join("/")}), the same in every car; never into a bank (${cars.map(c => n[c].thumps + "/" + n[c].glide).join(", ")} thumps/s gliding); back on his line 150 m past every bend (${cars.map(c => n[c].notBack).join("/")} frames off it, worst ${cars.map(c => n[c].worstBack).join("/")} m)`,
+        cars.every(c => n[c].thumps === 0 && n[c].glide === 0 && n[c].notBack === 0) && Math.max(...sw) - Math.min(...sw) < 0.05 &&
+        (n.slippery ? Math.max(...sw) > 1 && Math.max(...sw) <= n.slideMax + 0.2 : Math.max(...sw) === 0), J(n));
+    }
+
+    // ---- o. (v174) THE TUNNEL: under a roof all through it (solid over the deck, open over the
+    // road in front of each portal), the mountain solid beside it; and driving through it in every
+    // car the chase camera stays INSIDE the lining (under the roof, between the walls) with his car
+    // in sight -- never up in the rock, never on the other side of a wall
+    const hasTunnel = await page.evaluate((id) => !!(window.__lp.race.venues[id].track.tunnels || []).length, id);
+    if (hasTunnel) {
+      const o = await page.evaluate((id) => {
+        const L = window.__lp, S = L.state, RC = L.RC, out = { cars: {} };
+        L.noRender = true; L.api.skipScreens();
+        const T = L.race.venues[id].track, tn = T.tunnels[0], C = RC.tunnel;
+        const solidAt = (x, y, z) => { let hit = null; L.forEachSolid(b => { if (!hit && L.solidTest(b, x, y, z, 0)) hit = L.solidKind(b); }); return hit; };
+        // (this venue's own samples: out of a race rcPoint answers for the world's track, the oval)
+        const at = (s, lat, up) => { const q = T.S[Math.round(s / T.len * (T.n - 1))]; return [q.x + q.lx * lat, q.gy + q.ly * lat + up, q.z + q.lz * lat]; };
+        let roofed = 0, roofN = 0, frontOpen = 0, side = 0;
+        for (let s = tn.sA + 5; s < tn.sB - 5; s += 10) { roofN++; if (solidAt(...at(s, 0, C.h + 3))) roofed++; if (solidAt(...at(s, C.half + 12, 3))) side++; }
+        for (const s of [tn.sA - 15, tn.sB + 15]) for (const up of [3, C.h + 3, C.h + 15]) if (!solidAt(...at(s, 0, up))) frontOpen++;
+        out.roof = roofed + "/" + roofN; out.side = side + "/" + roofN; out.frontOpen = frontOpen + "/6";
+        // no pad is aimed at while the camera is down under its roof (the monster's camera sits 19 m up so
+        // that its own cab never hides a pad ahead -- v172; here it cannot)
+        const capA = tn.sA - C.camFrom, capB = tn.sB + RC.cam.monster.back + 10 + 80;
+        out.padsUnder = (T.def.pads || []).filter(p => p.m > capA && p.m < capB).map(p => p.m);
+        // the mountain as drawn against its solid, from above: where it is solid, the solid's top is never
+        // above what is drawn (no invisible wall) and never far under it (nothing seen that a plane passes through)
+        const T3 = window.THREE, rc = new T3.Raycaster(), V = L.race.venues[id].venue, mid = T.S[Math.round((tn.sA + tn.sB) / 2 / T.len * (T.n - 1))];
+        let over = 0, under = 0, n = 0, worst = 0, worstAt = null; const bad = [];
+        for (let u = -(tn.sB - tn.sA) / 2 - C.apron; u <= (tn.sB - tn.sA) / 2 + C.apron; u += 7) for (let v = -(C.half + C.foot); v <= C.half + C.foot; v += 7) {
+          if (Math.abs(v) < C.half + 4) continue;                                  // (beside the lining: the roof is checked above)
+          const x = mid.x + mid.tx * u + mid.lx * v, z = mid.z + mid.tz * u + mid.lz * v;
+          rc.set(new T3.Vector3(x, 400, z), new T3.Vector3(0, -1, 0));
+          const hit = rc.intersectObject(V, true)[0]; if (!hit) continue;
+          const drawn = hit.point.y;
+          let top = null; for (let y = drawn + 3; y > L.terrainEff(x, z); y -= 0.25) if (solidAt(x, y, z)) { top = y; break; }
+          if (top === null) continue;
+          n++; if (top > drawn + 0.3) { over++; bad.push(["inv", u, v, +(top - drawn).toFixed(1)]); } const g = drawn - top; if (g > worst) { worst = g; worstAt = [u, v]; } if (g > C.solidGap) { under++; bad.push([u, v, +g.toFixed(1)]); }
+        }
+        out.surface = { n, invisible: over, farUnder: under, worstGap: +worst.toFixed(1), worstAt, bad: bad.slice(0, 40) };
+        // (portrait, the chase view in every car and his seat in two: the views he is really in)
+        for (const [veh, chase] of [["car", true], ["cybertruck", true], ["corvette", true], ["monster", true], ["car", false], ["monster", false]]) {
+          L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.spdReset(); L.api.setView(chase); L.rcStartRace(id, 36);
+          const R = L.race, him = R.him, field = R.racers.slice(); R.racers = [him];
+          for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+          const base = Math.floor(him.s / T.len) * T.len + T.len;
+          L.noRender = false;                   // (the game's own camera, frame by frame)
+          him.s = base + tn.sA - 120; him.lat = 0; him.v = RC.v * L.spdMul() * 0.9;
+          let frames = 0, out1 = 0, hidden = 0, worst = null;
+          while (him.s < base + tn.sB + 10) {
+            S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
+            const c = L.camera.position, u = him.s - base;
+            if (u < tn.sA + 30 || u > tn.sB) continue;
+            frames++;
+            // the camera in the track's frame at its own place along
+            const d = L.rcPoint(u, 0, {}), rel = [c.x - d.x, c.z - d.z], lat = rel[0] * d.lx + rel[1] * d.lz;
+            const deck = L.rcPoint(u + rel[0] * d.tx + rel[1] * d.tz, 0, {}).y;
+            const bad = c.y > deck + C.h - 0.3 || Math.abs(lat) > C.half - 0.3 || solidAt(c.x, c.y, c.z);
+            if (bad) { out1++; if (!worst) worst = { u: Math.round(u), up: +(c.y - deck).toFixed(1), lat: +lat.toFixed(1), in: solidAt(c.x, c.y, c.z) }; }
+            if (chase && window.solidSight(c.x, c.y, c.z, S.x, S.y + 1.5, S.z, 0.3, ["wall", "building", "rock"]) < 0.98) hidden++;
+          }
+          L.noRender = true;
+          out.cars[veh + (chase ? "" : "@seat")] = { frames, outside: out1, hidden, worst };
+          R.racers = field; L.raceReset();
+        }
+        L.api.setView(true);
+        L.noRender = false;
+        return out;
+      }, id);
+      const cs = Object.entries(o.cars);
+      check(`race ${id}: the tunnel is a tunnel -- roofed ${o.roof} along it, the mountain solid beside it ${o.side}, the road in front of each portal open (${o.frontOpen}); the mountain's solid under what is drawn at ${o.surface.n} points (${o.surface.invisible} invisible, ${o.surface.farUnder} more than the allowed gap under it, worst ${o.surface.worstGap} m); no pad aimed at under its lowered camera (${o.padsUnder.join(",") || "none"}); through it the chase camera stays inside the lining with his car in sight (${cs.map(([k, v]) => `${k}: ${v.outside} of ${v.frames} frames outside, ${v.hidden} hidden`).join("; ")})`,
+        o.roof.split("/")[0] === o.roof.split("/")[1] && o.side.split("/")[0] === o.side.split("/")[1] && o.frontOpen === "6/6" && o.padsUnder.length === 0 &&
+        o.surface.n > 50 && o.surface.invisible === 0 && o.surface.farUnder === 0 && cs.every(([k, v]) => v.frames > 100 && v.outside === 0 && v.hidden === 0), J(o));
+    }
+
+    // ---- p. (v174) THE FROZEN LAKE: the crossing's middle is the bed's (to a metre), the deck over
+    // it dead level at the bed's height plus the deck's lift, the bed level and dry under the whole
+    // ice, and the ice is the crossing's surface
+    const lake = await page.evaluate((id) => {
+      const L = window.__lp, RC = L.RC, T = L.race.venues[id].track, B = T.def.lakeBed;
+      if (!T.lakes || !T.lakes.length) return null;
+      const lk = T.lakes[0], mid = T.S.reduce((m, q) => Math.abs(q.s - (lk.a + lk.b) / 2) < Math.abs(m.s - (lk.a + lk.b) / 2) ? q : m, T.S[0]);
+      const on = T.S.filter(q => q.sec === lk.sec), ys = on.map(q => q.gy);
+      let bedLo = Infinity, bedHi = -Infinity, wet = 0;
+      const hd = B.heading * Math.PI / 180, fx = -Math.sin(hd), fz = -Math.cos(hd);
+      for (let u = -B.a; u <= B.a; u += 10) for (let v = -B.b; v <= B.b; v += 10) {
+        if ((u / B.a) ** 2 + (v / B.b) ** 2 > 1) continue;
+        const x = B.x + fx * u - fz * v, z = B.z + fz * u + fx * v, g = L.terrainEff(x, z);
+        bedLo = Math.min(bedLo, g); bedHi = Math.max(bedHi, g); if (g < L.seaLevelAt(x, z)) wet++;
+      }
+      return { off: +Math.hypot(mid.x - B.x, mid.z - B.z).toFixed(2), deck: [+Math.min(...ys).toFixed(3), +Math.max(...ys).toFixed(3)], want: B.y + RC.lift, bed: [+bedLo.toFixed(3), +bedHi.toFixed(3)], wet, sf: [...new Set(on.map(q => q.sf))] };
+    }, id);
+    if (lake) check(`race ${id}: the frozen lake -- its crossing's middle ${lake.off} m from the bed's, the deck over it level at ${lake.deck.join("-")} m (the bed's ${lake.want - 0.25} + its lift), the bed level at ${lake.bed.join("-")} m and dry (${lake.wet} wet points) under all of the ice, the crossing ${lake.sf.join("/")}`,
+      lake.off < 1 && lake.deck[1] - lake.deck[0] < 0.02 && Math.abs(lake.deck[0] - lake.want) < 0.02 && lake.bed[1] - lake.bed[0] < 0.01 && lake.wet === 0 && lake.sf.join() === "ice", J(lake));
 
     // ---- f. the noisy hand, a race in every car
     const f = [];

@@ -10,6 +10,96 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v174 — Snowy Peaks
+
+The third race track, the one he asked for after the dunes. Its card in the track picker
+shows two snowy mountains with a tunnel in the big one and a track coming out of it. It
+stands up on the mountain range east of the motorway, 650 m from where the motorway crosses
+the range; the grandstands face the motorway, so he can see it from the road in normal play.
+A lap is 4.3 km and takes about two minutes (122-125 s alone, in every car); a race is three
+laps.
+
+**What it is made of.** The start straight is cleared asphalt. The rest is packed snow, and
+the icy hairpin and the frozen lake are ice:
+- snow is a little slower (0.9) and ice slower still (0.86), the same for every car;
+- both are **a bit slippery**: on a bend every car swings wide (up to 2.5 m on snow and 3.5 m
+  on ice) and slides back to its line after the bend. With his finger down and no steer, he
+  never reaches a bank, and he is back on his line before the next bend. It is the same for
+  him and the other cars;
+- the snow road is white with grey wheel tracks and the ice road is grey, and both have a
+  blue line down each edge (white on white, the hairpin could not be read from his seat);
+- white puffs from the wheels, a crunch under him on snow and a hiss on ice.
+
+**What is on it.** From the line:
+- an S;
+- a snow jump (the same jump in every car, about a second in the air);
+- a long climb;
+- the frozen lake: a blue lake of ice with white streaks of snow blown across it and the grey
+  ice road over it. Its bed is shaped level into the mountain (`terrain.js` `rcLakeBed`), so
+  the ice lies flat in the ground and not on a bank. It is ice, not water: the ground under
+  it is dry. The banks are low over the lake, so he sees the ice from his seat;
+- round the east end;
+- **the tunnel through the mountain**: 200 m under a snowy mountain heaped over the track,
+  16 m high inside (the monster truck's seat is 11.5 m up), with an arched lining lit by lamps
+  down both walls and a portal at each end. It is lit inside so he can see the cars in it. The
+  chase camera comes down under the roof from 60 m before the portal until it is out of the
+  tunnel. No boost pad is placed where the camera is lowered, because the monster truck's high
+  camera is what lets him see pads (v172);
+- the icy hairpin, down into the infield and out;
+- the long north straight with two boost pads;
+- an S, and home.
+
+The walls are **snowbanks**: a heap of snow at each edge with red-and-white marker poles on
+it, with its crest on the barrier's line and as tall as the barrier's solid. They are the same
+barriers as on the other tracks (a thump on a fresh hit, a quiet glide when he holds into
+one). Where the road stands above the ground, snow runs down from the bank to the ground.
+
+**Solid.** The mountain and its tunnel lining are solid in the world. The mountain's solids
+are built from the surface as drawn, in strips 5 m across: never above it (no invisible
+wall), and at most 8.3 m under it on its steepest slope. Snowy Peaks adds 1,324 solids:
+barriers as on every track, and the mountain. On a headless timing, `solidQuery` costs 23%
+more than on main (309 to 381 µs a call; the registry is one flat list). This is queued in
+`QUEUE.md` to measure on the iPad.
+
+**Who wins.** At full strength the noisy hand won only 25%. The slippery bends cost his
+wobbling line more than theirs, so the opponents here run at `aiMul` 0.988. 20 races per car
+on each of two seeds:
+
+| | noisy hand | wall-hugger |
+|---|---|---|
+| Snowy Peaks | 73/160 (46%) | 36/160 (22%) |
+
+Per car, noisy: SUV 21/40, Cybertruck 20/40, Corvette 18/40, monster truck 14/40. 0 bangs,
+0 stuck. The worst gap is 3.15 s.
+
+**Unchanged.** The oval and Desert Dunes are untouched. Their geometry and 32 pinned races
+(16 per track, every car) are identical before and after.
+
+**Checks.** `race_track_checks`, new:
+- (n) snow and ice swing every car wide by the same amount and back to its line, never into a
+  bank, while nothing on the other tracks swings at all;
+- (o) the tunnel is roofed all through, the mountain is solid beside it and the road in front
+  of each portal is open; the mountain's solid is never above what is drawn and never more
+  than 9 m under it; no pad lies where the camera is lowered; the camera stays inside the
+  tunnel in every car, chase and seat;
+- (p) the frozen lake's crossing sits on the middle of its bed, its deck is dead level and
+  the bed is level and dry;
+- the seat and gauge pitch off a jump is now checked on any track with a jump.
+
+Harness changes:
+- The solidity matrix now flies the helicopter's run 4 m plus its landing tolerance over the
+  ground. Before, a slope rising under it set it down before it reached the solid (a landing,
+  not the cruise the cell measures); the mountain's rock is now reached by the helicopter.
+- The police-chase draw-cost check renders only the last 20 frames of each settle. Under
+  SwiftShader it took about 16 minutes and stopped one full run at the 20-minute stall line.
+
+Law-reviewer: BLOCK in round 2 (the lowered tunnel camera hid a pad from the monster truck;
+the solidity edit), PASS in round 3. Render-critic: BLOCK in round 1 (the icy hairpin was
+white on white from the seat), PASS in rounds 2 and 3. Their standing notes are in
+`QUEUE.md`. Full harness 1136/1136.
+
+---
+
 ## v173 — longer tracks
 
 From his playtest: he wants the tracks LONGER. A lap on either track now takes about two
