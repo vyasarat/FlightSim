@@ -741,7 +741,11 @@ const TUNE = {
     // The rear-view mirror that shows the flames from the seat (the cabin's own is on
     // the car's middle, off a portrait screen): `inboard` of his eye, `drop` under the
     // roof, at `z` (metres, -Z ahead), tipped down `tilt` toward him; the glass w x h.
-    mirror: { w: 0.34, h: 0.09, inboard: 0.14, drop: -0.24, z: -1.0, tilt: -0.12 },
+    // (v178) It is a mirror, not a lamp: the glass gives back `glass` of what it shows,
+    // and its flames are painted `fade` of the way to a deep `ember` red -- still fire
+    // (toward the grey road they went olive), never the brightest or most vivid thing
+    // in the seat (corvette_checks k).
+    mirror: { w: 0.34, h: 0.09, inboard: 0.14, drop: -0.24, z: -1.0, tilt: -0.12, glass: 0.68, fade: 0.5, ember: [100, 45, 35] },
   },
 
   // ---- The palette. Every colour in the game snaps to one of these unless it
