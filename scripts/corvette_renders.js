@@ -16,6 +16,7 @@
 //   cross           the chase view coming up to a junction with a car crossing it, burning (v161)
 //   heldCorner      the chase view on a corner, a full left held through it, burning (v161)
 //   dusk            the chase view on the motorway at dusk (the night sky part-way in), burning
+//   duskSeatOff / nightSeat / nightSeatOff   (v182) the driving seat at dusk (night blend 0.5, held) / at night, burning or out: the mirror's sky
 //   turn            the chase view mid-turn, a full steer held, burning: the flames side-on
 //   side|three      close in, stopped, at wheel height: the body, no lettering, wheels on the road
 // VEH= the car (corvette, car, cybertruck), CITY= ny|ca, LATE= frames on after the scene is found.
@@ -50,11 +51,20 @@ async function render(root, views) {
       document.getElementById("screenVehicle").classList.add("hiddenS");
       for (let i = 0; i < 60 * 10 && S.exploding; i++) L.update(1 / 60);
       L.api.setVehicle(window.__rVeh || "corvette"); L.api.spawnAt(0, 0); L.api.skipScreens();
-      L.api.setView(!["seat", "citySeat", "seatApproach", "seatOff", "duskSeat"].includes(v));
+      L.api.setView(!["seat", "citySeat", "seatApproach", "seatOff", "duskSeat", "duskSeatOff", "nightSeat", "nightSeatOff"].includes(v));
       L.api.clearStick(); for (let i = 0; i < 30; i++) L.update(1 / 60);
       const drive = (n, pitch) => { for (let i = 0; i < n; i++) { S.touching = true; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = pitch; L.update(1 / 60); } };
       const note = { kind: L.vehKind(), imported: L.vehicleModel && L.vehicleModel.userData.imported };
       if (v === "dusk" || v === "duskSeat") { S.sky = 3; window.__hold = () => { S.sky = 3; S.nightF = 0.62; }; }
+      if (v === "duskSeatOff" || v === "nightSeat" || v === "nightSeatOff") {
+        // (v182) the sky held where it is asked for, every frame, so the lights have settled to it
+        const nf = v === "duskSeatOff" ? 0.5 : 1, p = v === "nightSeat" ? 0.8 : 0;
+        S.sky = 3;
+        for (let i = 0; i < 60 * 8; i++) { S.nightF = nf; S.touching = true; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = i > 60 * 4 ? p : 0; L.update(1 / 60); }
+        window.__hold = () => { S.sky = 3; S.nightF = nf; S.touching = true; S.ctrlPitch = p; };
+        note.nightF = nf; note.on = L.cv.on;
+        return note;
+      }
       if (v === "cruise" || v === "seatOff") { drive(60 * 6, 0); window.__hold = () => { S.touching = true; S.ctrlPitch = 0; }; }
       else if (v === "turn") { drive(60 * 3, 0); drive(60 * 3, 0.8); const full = 1 * L.CAR.dragRangeX * innerWidth / (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)); for (let i = 0; i < 50; i++) { S.touching = true; S.ctrlBank = full; S.ctrlPitch = 0.8; L.update(1 / 60); } window.__hold = () => { S.touching = true; S.ctrlBank = full; S.ctrlPitch = 0.8; }; }
       else if (v === "chase" || v === "seat" || v === "dusk" || v === "duskSeat") { drive(60 * 3, 0); drive(60 * 4, 0.8); const h = window.__hold; window.__hold = () => { h(); S.touching = true; S.ctrlPitch = 0.8; }; }

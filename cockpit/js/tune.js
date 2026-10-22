@@ -745,7 +745,7 @@ const TUNE = {
     // and its flames are painted `fade` of the way to a deep `ember` red -- still fire
     // (toward the grey road they went olive), never the brightest or most vivid thing
     // in the seat (corvette_checks k).
-    mirror: { w: 0.34, h: 0.09, inboard: 0.14, drop: -0.24, z: -1.0, tilt: -0.12, glass: 0.68, fade: 0.5, ember: [100, 45, 35] },
+    mirror: { w: 0.34, h: 0.09, inboard: 0.14, drop: -0.24, z: -1.0, tilt: -0.12, glass: 0.68, fade: 0.5, ember: [100, 45, 35], darkest: 0.25 },   // (v182 darkest: the ground in the glass at its dimmest, of its daytime shade)
   },
 
   // ---- The palette. Every colour in the game snaps to one of these unless it

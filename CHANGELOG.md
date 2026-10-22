@@ -10,6 +10,35 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v182 — the Corvette's mirror shows the sky he is under
+
+Found in v178: the Corvette's rear-view mirror painted a daytime sky in every sky mood, so at
+dusk and at night, from the driving seat, the glass was a pale strip across the top of a dark
+screen. Nothing he does changed, and how the car drives is untouched.
+
+- **The glass paints the sky behind him from the sky itself** (corvette.js `cvMirrorLit`): the
+  dome's own top and horizon colours, and the ground and road in the glass shaded by how strong
+  the sky light is against its daytime value -- rain, snow and night all bring it down, never
+  below `TUNE.corvette.mirror.darkest` (0.25). The flames are fire and are not dimmed: at
+  night they still show in the glass when he burns.
+- It repaints when the sky changes, not only when the burn does; at rest it is still one
+  small canvas repainted rarely.
+
+New check (corvette_checks l): from the seat on the motorway, the booster out (asserted at the
+moment the glass is measured), at day, in rain, at dusk (night blend 0.5, held and asserted) and
+at night, the glass is no brighter on average than 1.15 times the world around it (plus a hair),
+and at night its flames still show when he burns. Glass against world on v181: day 99 / 138,
+rain 98 / 95, dusk 99 / 85, night 100 / 23 -- it fails. Here: day 96 / 138, rain 70 / 95, dusk
+57 / 85, night 21 / 23, flames on 27% of the glass at night.
+Check k (the mirror never louder than the world, booster burning) and the chase-view pin are
+unchanged and pass.
+
+Also: the race render script gained the spray's worst cases (`bunch`, `closeSeat`, `puffAt`,
+`puffAtSeat`, and `NIGHTF=` for dusk), used to render the gaps a neutral render-critic listed
+after v181 -- snow before and after, night snow, the closest puffs from the seat, dusk and night
+on the dunes and the beach, and every rival bunched across the track. It passed every one;
+see QUEUE.md for what it would still like to see.
+
 ## v181 — the race spray reads as dust and water, not rocks
 
 The render-critic's note from v175: what a car's wheels throw up in a race -- off sand, dirt,
