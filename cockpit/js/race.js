@@ -1715,7 +1715,7 @@ function rcBurst(b) {
     // its whistle: the place first -- no clear sky, no burst and no sound
     b.p = rcFwSpot(b.side);
     if (!b.p) { b.t = Infinity; flags.raceFireworksHeld = (flags.raceFireworksHeld || 0) + 1; return; }
-    fireworkSound(0); b.t = F.pop;
+    fireworkSound(0, F.pop); b.t = F.pop;            // (one number: the bang is when it opens)
     return;
   }
   b.t = Infinity;

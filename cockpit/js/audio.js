@@ -328,10 +328,12 @@ function chime() {
   [880, 1175, 1760].forEach((f, i) => synthBlip("triangle", f, f, 0.5, 0.22, i * 0.06));
   synthBlip("sine", 3520, 3520, 0.4, 0.06, 0.1);
 }
-function fireworkSound(when) {
+// `pop`: seconds from the whistle to the bang -- the show passes the moment its sky opens (the race's podium,
+// TUNE.race.podium.fw.pop), so the two can never drift apart; the world's shows keep the 0.95 they always had
+function fireworkSound(when, pop = 0.95) {
   synthBlip("sine", 400, 1500, 0.9, 0.08, when);           // whistle up
-  noiseBurst(0.5, 700, 0.4, when + 0.95);                  // pop
-  noiseBurst(0.7, 2500, 0.18, when + 1.0);                 // crackle
+  noiseBurst(0.5, 700, 0.4, when + pop);                   // pop
+  noiseBurst(0.7, 2500, 0.18, when + pop + 0.05);          // crackle
 }
 function boatHorn() {
   synthBlip("sawtooth", 110, 108, 0.7, 0.2, 0);

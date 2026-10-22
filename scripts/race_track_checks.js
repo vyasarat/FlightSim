@@ -1115,6 +1115,15 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       for (const [id, chase] of [["oval", true], [ids[0], true], ["oval", false]]) fwJudge(`${id} 1180x820${chase ? "" : " (seat)"}`, await L2.page.evaluate(rtcFireworksU, [id, chase]));
     } finally { await L2.ctx.close(); }
   }
+  // ---- v. (v186) THE BANG IS WHEN THE SKY OPENS -- ONE NUMBER: each burst's whistle goes up, and `pop` s later its
+  // sparks open (race.js) and its bang sounds (audio.js fireworkSound). Two numbers once, agreeing by luck: retune one
+  // and he hears the bang before or after the sky lights. He wins, and every burst's bang (the sound as scheduled) is
+  // measured against its opening (the frame the sparks are born), at TUNE's pop and at a retuned one: they agree to a frame.
+  {
+    const v = await page.evaluate(rtcFireworksPopV, ["oval"]);
+    const ok = v.runs.length === 2 && v.runs.every(r => r.won && r.pairs >= 4 && r.worst <= 1 / 60 + 1e-6) && v.restored;
+    check(`race oval: a firework's bang is when its sky opens -- ${v.runs.map(r => `pop ${r.pop} s: ${r.pairs} bursts, the bang ${r.sound} s after the whistle, the sparks ${r.sky} s, worst gap ${r.worst.toFixed(3)} s`).join("; ")}`, ok, J(v));
+  }
 };
 
 // (u) run in the page: he wins on that track, and the podium's fireworks are measured
@@ -1193,5 +1202,52 @@ function rtcFireworksU([id, chase]) {
   L.raceReset(); L.api.setView(true);
   const P = L.rcSparks;
   out.leftAfter = P ? (P.pts.visible ? 1 : 0) + Array.from(P.life).filter(x => x > 0).length : L.wakePuffList.filter(p => p.life > 0 && Math.hypot(p.mesh.position.x - C.x, p.mesh.position.z - C.z) < 400).length;
+  return out;
+}
+
+// (v) run in the page: he wins, at a given pop, and each burst's bang (as scheduled) is set against its sparks opening
+// eslint-disable-next-line no-unused-vars
+function rtcFireworksPopV([id]) {
+  const L = window.__lp, S = L.state, F = L.RC.podium.fw, pop0 = F.pop, out = { runs: [] };
+  const nb0 = window.noiseBurst, fs0 = window.fireworkSound;
+  try {
+    for (const pop of [pop0, +(pop0 + 0.45).toFixed(2)]) {
+      const r = { pop };
+      L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens();
+      for (let i = 0; i < 10; i++) L.update(1 / 60);
+      L.spdReset(); L.rcStartRace(id, 36);
+      const R = L.race, him = R.him, len = R.track.len;
+      L.noRender = true;
+      for (let i = 0; i < 60 * 8 && R.phase !== "race"; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+      him.s = 3 * len - 4; him.lapsDone = 2;
+      R.racers.filter(o => !o.isHim).forEach((o, j) => { o.s = 3 * len - 300 - 20 * j; o.lapsDone = 2; });
+      for (let i = 0; i < 60 * 20 && R.phase !== "podium"; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+      r.won = R.phase === "podium" && !!R.podium && R.podium.won;
+      F.pop = pop;
+      // the sound as it is scheduled: each call's whistle time, and the pop's delay after it (the 700 Hz burst)
+      let t = 0, cur = null; const whistles = [], opens = [];
+      window.fireworkSound = function (when) { cur = { at: t + (when || 0), pop: null }; whistles.push(cur); const res = fs0.apply(this, arguments); cur = null; return res; };
+      window.noiseBurst = function (dur, freq, peak, when) { if (cur && freq === 700 && cur.pop === null) cur.pop = (when || 0) - (cur.at - t); return nb0.apply(this, arguments); };
+      let n0 = L.flags.raceFireworks || 0;
+      for (let f = 0; f < 60 * 9 && r.won; f++) {
+        L.update(1 / 60); t += 1 / 60;
+        const n = L.flags.raceFireworks || 0;
+        for (; n0 < n; n0++) opens.push(t);
+      }
+      window.fireworkSound = fs0; window.noiseBurst = nb0;
+      const k = Math.min(whistles.length, opens.length);
+      let worst = 0, sound = 0, sky = 0;
+      for (let i = 0; i < k; i++) {
+        const w = whistles[i], s = w.pop === null ? Infinity : w.pop, o = opens[i] - w.at;
+        worst = Math.max(worst, Math.abs(o - s)); sound = s; sky = o;
+      }
+      r.pairs = k; r.worst = k ? worst : Infinity; r.sound = +sound.toFixed(3); r.sky = +sky.toFixed(3);
+      out.runs.push(r);
+    }
+  } finally {
+    window.fireworkSound = fs0; window.noiseBurst = nb0; F.pop = pop0;
+    L.noRender = false; L.raceReset(); L.api.setView(true);
+  }
+  out.restored = F.pop === pop0 && window.noiseBurst === nb0 && window.fireworkSound === fs0;
   return out;
 }
