@@ -45,6 +45,10 @@
 //   s. (v180) SNOW READS AS SNOW: the ground round a snow venue never green-blotched, the tunnel's mountain
 //      snow in the shade from the side turned from the sun, the snowbanks closed where they change shape and
 //      sloping, never stepping, down to the lake's low bank;
+//   t. (v181) THE SPRAY READS AS SPRAY: soft puffs from the race's own pool (none from the world's lit,
+//      faceted spheres, which read as boulders); on every surface that throws any, the spray shows (it is
+//      not lost in the ground) but covers little of the screen and less than a fifth of his car, no puff is
+//      drawn taller than RC.spray.maxPx of the screen, and the splash's reads WHITE (bright, colourless);
 //   r. (v176) THE SKY ROAD: up as high as its numbers say and never under the ground; where it is
 //      up, a pylon from the ground to its girder every pylonStep, the girder solid across the deck and
 //      the barriers beside it -- a plane and a helicopter flown at it crash, free; its glow on the
@@ -621,16 +625,26 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           let frames = 0, hidden = 0, born = 0, onSplash = 0;
           const seg = new T3.Line3(), cp = new T3.Vector3(), tgt = new T3.Vector3();
           for (let i = 0; i < 60 * 6; i++) {
-            const life0 = L.wakePuffList.map(p => p.life);
+            const P = L.rcPuffs, life0 = P ? Array.from(P.life) : [];   // (v181: the race's own puffs)
             S.touching = true; S.ctrlBank = 0; L.update(1 / 60);
             if (L.rcAt(him.s).sf !== "splash") continue;
-            onSplash++; born += L.wakePuffList.filter((p, k) => p.life > life0[k] + 1e-6).length;   // (a puff born this frame: its life put back up)
+            onSplash++; if (P) for (let k = 0; k < P.n; k++) if (P.life[k] > life0[k] + 1e-6) born++;   // (a puff born this frame: its life put back up)
             // (chase: his car; from his seat, where he looks -- the road 30 m ahead on his line)
             if (chase) { const m = him.mesh || L.vehicleModel; m.updateMatrixWorld(true); tgt.setFromMatrixPosition(m.matrixWorld); tgt.y += 0.8; }
             else { const q = {}; L.rcPoint(him.s + 30, him.lat, q); tgt.set(q.x, q.y + 0.5, q.z); }
             seg.set(L.camera.position.clone(), tgt.clone());
             frames++;
-            if (L.wakePuffList.some(p => p.life > 0 && p.mesh.visible && seg.closestPointToPoint(p.mesh.position, true, cp).distanceTo(p.mesh.position) < p.mesh.scale.x)) hidden++;
+            // (a puff counts where it is drawn: its half-width, at the strength the camera fade leaves it -- under
+            // a tenth it is not there to see; RC.spray.fadeNear is what makes one beside the lens nothing)
+            const F = L.RC.spray.fadeNear, pp = new T3.Vector3(), ss = x => Math.min(1, Math.max(0, (x - F[0]) / (F[1] - F[0])));
+            let hit = false;
+            if (P) for (let k = 0; k < P.n && !hit; k++) {
+              if (P.life[k] <= 0) continue;
+              pp.set(P.pos[k * 3], P.pos[k * 3 + 1], P.pos[k * 3 + 2]);
+              const f = ss(pp.distanceTo(L.camera.position)), a = P.alpha[k] * f * f * (3 - 2 * f);
+              if (a > 0.1 && seg.closestPointToPoint(pp, true, cp).distanceTo(pp) < P.size[k] / 2) hit = true;
+            }
+            if (hit) hidden++;
           }
           out[veh + (chase ? "" : ":seat")] = { frames, hidden, born, onSplash };
           L.raceReset();
@@ -920,5 +934,90 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
     }, id);
     check(`race ${id}: his own car never hides the road he aims at -- from the chase camera on the longest straight, 60 and 80 m ahead in the middle and both pad lanes, hidden: ${Object.entries(m).map(([k, v]) => k + " " + (v.hid.join(",") || "none")).join("; ")}`,
       Object.values(m).every(v => v.hid.length === 0 && v.straight >= 90 && Math.abs(v.camUp - v.tune[1]) < 1.5), J(m));
+  }
+
+  // ---- t. (v181) THE SPRAY READS AS SPRAY, on every track with a surface that throws it: him down
+  // the middle of each such section at racing speed, the chase camera and his seat, each settled, the frame drawn with the
+  // race's spray and without it. What changes is the spray: it must be there (it showed nothing on sand
+  // once the puffs went unlit in the sand's own colour), small (all of it under 3% of the screen and under a
+  // fifth of his car's box; the shader draws no puff taller than maxPx of the screen, reported, not judged), soft (from the
+  // race's own pool of points -- the world's pool is lit, faceted spheres, which read as boulders
+  // rolling after him: none of those born in a race), and over the splash white: its body (the quarter of
+  // its pixels it changes most) bright and colourless.
+  for (const id of ["oval"].concat(ids)) {
+    const t = await page.evaluate((id) => {
+      const L = window.__lp, S = L.state, T3 = window.THREE, RC = L.RC, out = { surf: {} };
+      // (each surface that throws spray, at its longest section on this track, if that is 60 m or more)
+      const T0 = L.race.venues[id].track, per = {}, kinds = [];
+      for (const q of T0.S) { const sf = q.sf; if (!RC.surfaces[sf] || !RC.surfaces[sf].spray) continue; const c = per[q.sec] || (per[q.sec] = { sf, k: q.sec, n: 0 }); c.n++; }
+      for (const c of Object.values(per)) { const L0 = c.n * L.TK.ds, o = kinds.find(x => x.sf === c.sf); if (L0 < 60) continue; if (!o) kinds.push({ ...c, len: L0 }); else if (L0 > o.len) Object.assign(o, c, { len: L0 }); }
+      if (!kinds.length) return null;
+      const gl = L.renderer.getContext(), lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const grab = () => { L.renderer.render(L.scene, L.camera); const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, a = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, a); return { a, w, h }; };
+      const world0 = L.wakePuffList.map(p => p.life);
+      let worldBorn = 0; const worldAt = [];
+      for (const { sf, k } of kinds) for (const chase of [true, false]) {
+        L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens();
+        for (let i = 0; i < 10; i++) L.update(1 / 60);
+        L.spdReset(); L.rcStartRace(id, 36);
+        const R = L.race, him = R.him, Tk = R.track;
+        for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+        const on = Tk.S.filter(q => q.sec === k), a0 = on[0].s;
+        him.s = Math.floor(him.s / Tk.len) * Tk.len + a0 + 5; him.lat = 0; him.v = 30;
+        R.racers.filter(r => !r.isHim).forEach((o, j) => { o.s = him.s + 25 + 12 * j; o.lat = j % 2 ? 4 : -4; o.v = 30; });
+        L.api.setView(chase); L.noRender = false;
+        for (let i = 0; i < 90; i++) {
+          const l0 = L.wakePuffList.map(p => p.life);
+          S.touching = true; S.ctrlBank = 0; L.update(1 / 60);
+          // (one of the world's puffs born at a racer -- within 30 m of one -- is the race's; the world's own
+          // events keep their own clocks and throw theirs far off: the harbour's, 4.7 km from the dunes)
+          L.wakePuffList.forEach((p, j) => { if (p.life > l0[j] + 1e-6 && R.racers.some(r => Math.hypot(r.mesh.position.x - p.mesh.position.x, r.mesh.position.z - p.mesh.position.z) < 30)) { worldBorn++; if (worldAt.length < 6) worldAt.push([Math.round(p.mesh.position.x), Math.round(p.mesh.position.y), Math.round(p.mesh.position.z)]); } });
+        }
+        const here = L.rcAt(him.s).sf;
+        // (the spray: the race's own pool if there is one, else the world's -- so the check reads on v180 too)
+        const P = L.rcPuffs, sprayObjs = P ? [P.pts] : L.wakePuffList.map(p => p.mesh);
+        const was = sprayObjs.map(o => o.visible);
+        const on1 = grab(); sprayObjs.forEach(o => { o.visible = false; }); const off1 = grab(); sprayObjs.forEach((o, j) => { o.visible = was[j]; });
+        // his car's box on the screen
+        const body = him.mesh || L.vehicleModel; body.updateMatrixWorld(true);
+        const bb = new T3.Box3().setFromObject(body), cs = [];
+        for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) cs.push(new T3.Vector3(x, y, z).project(L.camera));
+        const W = on1.w, H = on1.h, bx0 = Math.max(0, Math.floor((Math.min(...cs.map(c => c.x)) + 1) / 2 * W)), bx1 = Math.min(W - 1, Math.ceil((Math.max(...cs.map(c => c.x)) + 1) / 2 * W));
+        const by0 = Math.max(0, Math.floor((Math.min(...cs.map(c => c.y)) + 1) / 2 * H)), by1 = Math.min(H - 1, Math.ceil((Math.max(...cs.map(c => c.y)) + 1) / 2 * H));
+        let changed = 0, inCar = 0, carPx = 0; const PX = [];
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4, d = Math.abs(on1.a[i] - off1.a[i]) + Math.abs(on1.a[i + 1] - off1.a[i + 1]) + Math.abs(on1.a[i + 2] - off1.a[i + 2]);
+          const box = x >= bx0 && x <= bx1 && y >= by0 && y <= by1;
+          if (box) carPx++;
+          if (d < 24) continue;
+          changed++; if (box) inCar++;
+          const r = on1.a[i], g = on1.a[i + 1], b = on1.a[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+          PX.push([d, lum(r, g, b), mx ? (mx - mn) / mx : 0]);
+        }
+        // (its colour is the spray's BODY: the quarter of its pixels it changes most -- its fading edges are mostly the ground under them)
+        PX.sort((a, b) => b[0] - a[0]); const core = PX.slice(0, Math.max(1, Math.ceil(PX.length / 4)));
+        const L0 = core.map(p => p[1]).sort((a, b) => a - b), SAT = core.map(p => p[2]).sort((a, b) => a - b);
+        // the tallest puff as drawn: its size over its depth, under the shader's clamp -- reported, not judged (the
+        // clamp makes it maxPx by construction); what the check holds is what the pixels say, above
+        let tallest = 0;
+        if (P) { const v = new T3.Vector3(), U = P.mat.uniforms;
+          for (let j = 0; j < P.n; j++) if (P.life[j] > 0 && P.size[j] > 0) { v.set(P.pos[j * 3], P.pos[j * 3 + 1], P.pos[j * 3 + 2]).applyMatrix4(L.camera.matrixWorldInverse); const d = Math.max(0.5, -v.z); if (-v.z > 0) tallest = Math.max(tallest, Math.min(U.uMax.value, P.size[j] * U.uScale.value / d) / H); } }
+        else for (const p of L.wakePuffList) if (p.life > 0) { const v = p.mesh.position.clone().applyMatrix4(L.camera.matrixWorldInverse); if (-v.z > 0.5) tallest = Math.max(tallest, 2 * p.mesh.scale.x * (H / (2 * Math.tan(L.camera.fov * Math.PI / 360))) / -v.z / H); }
+        out.surf[sf + (chase ? "" : ":seat")] = { sf, chase, here, pool: !!P, changedPct: +(100 * changed / (W * H)).toFixed(2), carPct: +(100 * inCar / Math.max(1, carPx)).toFixed(1),
+          tallest: +tallest.toFixed(3), lum: Math.round(L0[Math.floor(L0.length / 2)] || 0), sat: +(SAT[Math.floor(SAT.length / 2)] || 0).toFixed(2) };
+        L.raceReset();
+        // (and out of the race, nothing of its spray is left: none alive, none drawn)
+        if (P) out.leftAfter = (out.leftAfter || 0) + (P.pts.visible ? 1 : 0) + Array.from(P.life).filter(x => x > 0).length;
+      }
+      L.noRender = false; L.api.setView(true);
+      out.worldBorn = worldBorn; out.worldAt = worldAt; out.maxPx = RC.spray.maxPx;
+      return out;
+    }, id);
+    if (!t) continue;
+    // (on the surface it says, both views: the chase view's spray shows and stays small; the seat's -- his own
+    // behind him, the cars' ahead -- stays small, and none of it on his car; the splash's body white in the chase view)
+    const ok = t.worldBorn === 0 && !t.leftAfter && Object.values(t.surf).every(v => v.pool && v.here === v.sf && v.changedPct <= 3 && v.carPct <= 20 && (!v.chase || v.changedPct >= 0.05)) &&
+      (!t.surf.splash || (t.surf.splash.lum >= 200 && t.surf.splash.sat <= 0.2));
+    check(`race ${id}: the spray reads as spray -- soft puffs from the race's own pool (${t.worldBorn} of the world's lit spheres born at a racer, ${t.leftAfter || 0} left after it); ${Object.entries(t.surf).map(([k, v]) => `${k}${v.here === v.sf ? "" : " (ON " + v.here + ")"}: ${v.changedPct}% of the screen, ${v.carPct}% of his car, the tallest puff drawn ${Math.round(v.tallest * 100)}% of the screen high` + (k === "splash" ? `, brightness ${v.lum} and colour ${v.sat} (white)` : "")).join("; ")}`, ok, J(t));
   }
 };
