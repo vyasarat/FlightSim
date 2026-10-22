@@ -25,16 +25,20 @@ changed; the races, the tracks and how every car drives are untouched.
 - **Where each one bursts is chosen as it goes off**, in the podium shot the camera settles
   to: a point in its open sky, either side of the middle, whose whole ball and its droop land
   on no button, not the race's HUD, not the trophy, the podium or his car. If no such place
-  is found in 24 tries, there is no burst (in portrait about one in five is held back). The
-  first goes up 1.2 s in, once the camera has swung round on to the podium.
+  is found in 24 tries, there is no burst and no sound (in portrait about one in five is held
+  back). The whole ball stays above the podium's top, so the race-again buttons, which come
+  up three seconds in, are under all of it. The first is chosen 1.2 s in, once the camera has
+  swung round on to the podium; its whistle goes up then, and it opens with the bang.
 - **They draw nothing from the game's random stream** (the arrival show's did, 28 draws a
   burst); only the race's own. And they are put away with the race.
 
-New check u (race_track_checks): he wins, and for eight seconds of the podium the frame is
-drawn with the fireworks and without, every half second, in portrait and landscape on two
-tracks each. On v183 it fails: 196 of the world's lit spheres born over the podium, their body
-dull (brightness 129, colour 0.3) and, in portrait, 81,000 of their pixels on a button. Here:
-none of the world's, brightness 250, colour 0.63, nothing on a button, the trophy or his car.
+New check u (race_track_checks): he wins, and for nine seconds of the podium, every quarter
+second, the frame is drawn with the fireworks and without -- portrait and landscape on two
+tracks each, and once from the driving-seat view -- then he races again from the podium, and
+leaves: nothing is left either way. On v183 it fails: 196 of the world's lit spheres born over
+the podium, their body dull (brightness 129, colour 0.3) and, in portrait, 81,000 of their
+pixels on a button. Here: none of the world's, brightness about 248, colour about 0.6, and not
+one pixel on a button, the trophy or his car.
 
 ## v183 — Snowy Peaks: the ground round it is snow
 

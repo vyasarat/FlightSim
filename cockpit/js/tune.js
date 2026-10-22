@@ -2678,17 +2678,21 @@ const TUNE = {
           shortcutP: 0.3 },   // (v170) how often one takes a shortcut it comes to
     stands: { count: 4, from: -104, step: 64, back: 6, depth: 16, len: 60, rise: 10 },   // (v173) metres along the lap from the line (were fractions of it)
     podium: { m: 43, back: 18, w: 9, d: 12, h: [3.2, 2.2, 1.4], camBack: 48, camUp: 10, buttonsAfter: 3,
-              parade: 60, paradeV: 10, stopPast: 14, giantPast: 4, fit: 0.9, fwClear: 34, fwWide: 30, fwBack: 120, fwUp: 44, fwUpRnd: 16, trophy: 1.8,
+              parade: 60, paradeV: 10, stopPast: 14, giantPast: 4, fit: 0.9, fwBack: 120, trophy: 1.8,
               // (v184) the fireworks: the race's own soft points (rcSparks), not the world's lit spheres -- each
               // burst `n` sparks flung out at `speed` m/s (+/- `speedRnd` of it), slowed by `drag` a second and
               // falling at `grav`, alive `life` s (+ up to `lifeRnd`), `size` m across, never drawn over `maxPx` of the
               // screen's height; `pool` sparks in all. Where each bursts is chosen as it goes off, in the shot on the
               // shot it settles to: at a screen point (x, y: -1..1, x either side of the middle) `back` m behind the podium, its
               // whole ball (and its `droop` m fall) `pad` px clear of every button, the race's HUD, the trophy, the
-              // podium and his car, and `minUp` m up -- `tries` places, and none clear is no burst. The first goes
-              // up `first` s in, once the camera has swung round on to the podium
+              // podium and his car, wholly above the podium's top (the buttons that come up later are all under it), and
+              // `minUp` m up -- `tries` places, and none clear is no burst and no sound. The first is chosen `first` s in,
+              // once the camera has swung round on to the podium; its whistle goes up then and it opens `pop` s later,
+              // with the bang (audio.js fireworkSound). A spark: the glow texture's alpha times `gain`, white at its
+              // core (the texture over `coreFrom`) by up to `core`
               fw: { n: 60, speed: 13, speedRnd: 0.3, drag: 1.3, grav: 4, life: 1.5, lifeRnd: 0.5, size: 3.6, maxPx: 0.035, pool: 640,
-                    x: [0.12, 0.62], y: [0.3, 0.85], droop: 8, pad: 10, minUp: 25, tries: 24, first: 1.2 },
+                    x: [0.12, 0.62], y: [0.3, 0.85], droop: 8, pad: 10, minUp: 25, tries: 24, first: 1.2, pop: 0.95,
+                    gain: 1.8, coreFrom: 0.75, core: 0.5 },
               hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 },
               // (v167) the shot when he lost: the podium and his car inside these screen edges (-1..1), above the buttons by `gap`, his car `clear` of the steps, the camera up to `maxUp` m and slid along the track up to `slide` m
               loseFit: { side: 0.88, top: 0.62, bottom: -0.5, gap: 0.05, clear: 0.08, maxUp: 50, slide: 36, slideStep: 3 } },

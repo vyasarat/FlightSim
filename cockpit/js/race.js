@@ -1615,11 +1615,8 @@ function rcToPodium() {
   el.raceHud.classList.add("podium");
 }
 function rcFireworks(n) {
-  // (where each bursts is chosen as it goes off, in the shot on the screen: rcFwSpot)
-  for (let i = 0; i < n; i++) {
-    race.fwBursts.push({ t: RC.podium.fw.first + i * 0.45, side: i % 2 ? 1 : -1, c: fireworkColors[i % fireworkColors.length] });   // (the arrival show's palette)
-    fireworkSound(RC.podium.fw.first - 0.2 + i * 0.45);
-  }
+  // (where each bursts is chosen as its whistle goes up, in the shot on the screen: rcFwSpot; the sound with it)
+  for (let i = 0; i < n; i++) race.fwBursts.push({ t: RC.podium.fw.first + i * 0.45, side: i % 2 ? 1 : -1, c: fireworkColors[i % fireworkColors.length] });   // (the arrival show's palette)
 }
 // (v184) The podium's fireworks are the race's OWN: soft points on the shared glow texture,
 // in their own bright colours, unfogged. They were the world's arrival show (landmarks.js),
@@ -1640,7 +1637,8 @@ function rcSparkPool() {
   geo.setAttribute("aCol", new THREE.BufferAttribute(col, 3));
   geo.setAttribute("aAlpha", new THREE.BufferAttribute(alpha, 1));
   const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: glowTex }, uSize: { value: F.size }, uScale: { value: 600 }, uMax: { value: 30 } },
+    uniforms: { map: { value: glowTex }, uSize: { value: F.size }, uScale: { value: 1 }, uMax: { value: 1 },   // (uScale, uMax: set every frame, rcSparksUpdate)
+                uGain: { value: F.gain }, uCoreFrom: { value: F.coreFrom }, uCore: { value: F.core } },
     // (the game draws with a logarithmic depth buffer: a shader of its own writes its depth the same way)
     vertexShader: `#include <common>
       #include <logdepthbuf_pars_vertex>
@@ -1650,12 +1648,12 @@ function rcSparkPool() {
         #include <logdepthbuf_vertex>
       }`,
     fragmentShader: `#include <logdepthbuf_pars_fragment>
-      uniform sampler2D map; varying float vA; varying vec3 vC;
+      uniform sampler2D map; uniform float uGain; uniform float uCoreFrom; uniform float uCore; varying float vA; varying vec3 vC;
       void main() {
         #include <logdepthbuf_fragment>
-        float g = texture2D(map, gl_PointCoord).a, a = clamp(g * 1.8, 0.0, 1.0) * vA;
+        float g = texture2D(map, gl_PointCoord).a, a = clamp(g * uGain, 0.0, 1.0) * vA;
         if (a < 0.004) discard;
-        gl_FragColor = vec4(mix(vC, vec3(1.0), smoothstep(0.75, 1.0, g) * 0.5), a); }`,
+        gl_FragColor = vec4(mix(vC, vec3(1.0), smoothstep(uCoreFrom, 1.0, g) * uCore), a); }`,
     transparent: true, depthWrite: false, fog: false,
   });
   const pts = new THREE.Points(geo, mat);
@@ -1679,6 +1677,7 @@ function rcFwSpot(side) {
   const pad = F.pad, push = r => avoid.push({ l: r.left - pad, t: r.top - pad, r: r.right + pad, b: r.bottom + pad });
   if (typeof btnControlRects === "function") for (const r of btnControlRects()) push(r);
   if (typeof btnDrawnRects === "function" && el.raceHud) for (const r of btnDrawnRects(el.raceHud)) push(r);
+  let podTop = Infinity;
   for (const o of [race.trophy, race.trophyStand, race.podiumG, vehicleModel]) {
     if (!o || !o.visible) continue;
     rcBox.setFromObject(o); if (rcBox.isEmpty()) continue;
@@ -1689,6 +1688,7 @@ function rcFwSpot(side) {
       l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y);
     }
     push({ left: l, top: t, right: r, bottom: b });
+    if (o === race.podiumG) podTop = t;
   }
   const D = Math.hypot(C.x - cam.position.x, C.z - cam.position.z) + RC.podium.fwBack;
   const R = F.speed * (1 + F.speedRnd) / F.drag + F.size, tanH = Math.tan(cam.fov * DEG / 2);
@@ -1702,16 +1702,23 @@ function rcFwSpot(side) {
     if (p.y - C.y < F.minUp) continue;
     const sx = (nx + 1) / 2 * W, sy = (1 - ny) / 2 * H, rp = R * ppm;
     const box = { l: sx - rp, t: sy - rp, r: sx + rp, b: sy + rp + F.droop * ppm };
-    if (box.l < 0 || box.r > W || box.t < 0 || box.b > H) continue;
+    if (box.l < 0 || box.r > W || box.t < 0 || box.b > Math.min(H, podTop - pad)) continue;   // (in the sky over the podium: the buttons to come are under it)
     if (avoid.some(a => box.l < a.r && a.l < box.r && box.t < a.b && a.t < box.b)) continue;
     return p;
   }
   return null;
 }
 function rcBurst(b) {
-  const p = rcFwSpot(b.side);
-  if (!p) { flags.raceFireworksHeld = (flags.raceFireworksHeld || 0) + 1; return; }
-  const F = RC.podium.fw, P = rcSparkPool();
+  const F = RC.podium.fw;
+  if (!b.p) {
+    // its whistle: the place first -- no clear sky, no burst and no sound
+    b.p = rcFwSpot(b.side);
+    if (!b.p) { b.t = Infinity; flags.raceFireworksHeld = (flags.raceFireworksHeld || 0) + 1; return; }
+    fireworkSound(0); b.t = F.pop;
+    return;
+  }
+  b.t = Infinity;
+  const p = b.p, P = rcSparkPool();
   const r = ((b.c >> 16) & 255) / 255, g = ((b.c >> 8) & 255) / 255, bl = (b.c & 255) / 255;
   for (let k = 0; k < F.n; k++) {
     const i = P.next; P.next = (P.next + 1) % P.n;
@@ -1729,7 +1736,7 @@ function rcSparksUpdate(dt) {
   if (B.length) {
     for (const b of B) b.t -= dt;
     for (const b of B) if (b.t <= 0) rcBurst(b);
-    race.fwBursts = B.filter(b => b.t > 0);
+    race.fwBursts = B.filter(b => b.t > 0 && b.t !== Infinity);
   }
   const P = rcSparks;
   if (!P) return;
