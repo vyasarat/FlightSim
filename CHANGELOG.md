@@ -10,6 +10,36 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v184 — the podium's fireworks look like fireworks
+
+A render-critic note from v181: when he wins, the fireworks over the podium were the world's
+arrival show (landmarks.js), lit, faceted spheres -- grey-yellow and teal lumps in the sky, and
+in portrait they went up right behind the camera button and the speed buttons. Nothing he does
+changed; the races, the tracks and how every car drives are untouched.
+
+- **The race's own fireworks** (race.js `rcSparks`, `TUNE.race.podium.fw`): each burst flings
+  60 small soft points out in a ball (about 15 m across) that slows, droops and fades, each in its burst's own
+  bright colour from the arrival show's palette, on the shared glow texture. They are laid
+  over the sky, not added to it: added light, the way the game draws its other glows, washes
+  out to white over a day sky, and the first try did exactly that.
+- **Where each one bursts is chosen as it goes off**, in the podium shot the camera settles
+  to: a point in its open sky, either side of the middle, whose whole ball and its droop land
+  on no button, nothing drawn over the game (the race's HUD, the route strip above it, any
+  arrow or numeral), not the trophy, the podium or his car. If no such place is found in 40
+  tries, there is no burst and no sound (in the checks every burst found one). The whole ball stays above the podium's top, so the race-again buttons, which come
+  up three seconds in, are under all of it. The first is chosen 1.2 s in, once the camera has
+  swung round on to the podium; its whistle goes up then, and it opens with the bang.
+- **They draw nothing from the game's random stream** (the arrival show's did, 28 draws a
+  burst); only the race's own. And they are put away with the race.
+
+New check u (race_track_checks): he wins, and for nine seconds of the podium, every quarter
+second, the frame is drawn with the fireworks and without -- portrait and landscape on two
+tracks each, and once from the driving-seat view -- then he races again from the podium, and
+leaves: nothing is left either way. On v183 it fails: 196 of the world's lit spheres born over
+the podium, their body dull (brightness 129, colour 0.3) and, in portrait, 81,000 of their
+pixels on a button. Here: none of the world's, brightness about 248, colour about 0.6, and not
+one pixel on a button, the HUD, the trophy or his car.
+
 ## v183 — Snowy Peaks: the ground round it is snow
 
 A render-critic note from v180: tan and olive patches on the snow beside the Snowy Peaks banks

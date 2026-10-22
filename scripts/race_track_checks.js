@@ -50,6 +50,10 @@
 //      faceted spheres, which read as boulders); on every surface that throws any, the spray shows (it is
 //      not lost in the ground) but covers little of the screen and less than a fifth of his car, no puff is
 //      drawn taller than RC.spray.maxPx of the screen, and the splash's reads WHITE (bright, colourless);
+//   u. (v184) THE PODIUM'S FIREWORKS READ AS FIREWORKS: he wins, and over the podium they burst from the
+//      race's own soft points (none of the world's lit, faceted spheres, which read as grey and teal lumps),
+//      their body bright and coloured, in portrait and landscape; not one of their pixels on a button, the
+//      trophy or his car; none left once the race is put away.
 //   r. (v176) THE SKY ROAD: up as high as its numbers say and never under the ground; where it is
 //      up, a pylon from the ground to its girder every pylonStep, the girder solid across the deck and
 //      the barriers beside it -- a plane and a helicopter flown at it crash, free; its glow on the
@@ -1058,4 +1062,104 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       (!t.surf.splash || (t.surf.splash.lum >= 200 && t.surf.splash.sat <= 0.2));
     check(`race ${id}: the spray reads as spray -- soft puffs from the race's own pool (${t.worldBorn} of the world's lit spheres born at a racer, ${t.leftAfter || 0} left after it); ${Object.entries(t.surf).map(([k, v]) => `${k}${v.here === v.sf ? "" : " (ON " + v.here + ")"}: ${v.changedPct}% of the screen, ${v.carPct}% of his car, the tallest puff drawn ${Math.round(v.tallest * 100)}% of the screen high` + (k === "splash" ? `, brightness ${v.lum} and colour ${v.sat} (white)` : "")).join("; ")}`, ok, J(t));
   }
+  // ---- u. (v184) THE PODIUM'S FIREWORKS READ AS FIREWORKS: he wins (put a few metres short of the line on his
+  // last lap, the field far behind), and for nine seconds of the podium every quarter second the frame is drawn
+  // with them and without: what changes is the fireworks. They must come from the race's own pool (the world's
+  // arrival show is lit, faceted spheres -- none of those born within 400 m of the podium), their body (the
+  // quarter of their pixels they change most) bright and coloured, and not one of their pixels on a button,
+  // the HUD drawn over the game (the race's, the route strip), the trophy or his car (the race-again buttons come up three seconds in: the later frames see them). Portrait (this
+  // page) and landscape (a page of its own), two tracks each, and from his seat once; racing again or EXIT leaves none.
+  const fwJudge = (tag, u) => {
+    const ok = u.won && u.bursts >= 9 && u.worldBorn === 0 && u.ownPool && u.frames >= 8 && u.lum >= 200 && u.sat >= 0.45 &&
+      u.onBtn === 0 && u.onHud === 0 && u.onTrophy === 0 && u.onCar === 0 && u.leftAfter === 0 && u.leftAgain === 0;
+    check(`race ${tag}: the podium's fireworks read as fireworks -- ${u.bursts} bursts (${u.held || 0} held, no clear sky for them) from the race's own soft points (${u.worldBorn} of the world's lit, faceted spheres born over the podium); their body bright (${u.lum}) and coloured (${u.sat}) over ${u.frames} frames; ${u.onBtn} of their pixels on a button, ${u.onHud} on the HUD, ${u.onTrophy} on the trophy, ${u.onCar} on his car; ${u.leftAgain} left racing again, ${u.leftAfter} after EXIT`, ok, J(u));
+  };
+  for (const id of ["oval", ids[ids.length - 1]]) fwJudge(`${id} 820x1180`, await page.evaluate(rtcFireworksU, [id, true]));
+  {
+    const L2 = await newPage(1180, 820);
+    try {
+      await L2.page.waitForFunction(() => window.__lp && window.__lp.race && window.__lp.race.built, null, { timeout: 120000 });
+      // (and the oval from his seat: the podium's shot is the podium's whichever view he had)
+      for (const [id, chase] of [["oval", true], [ids[0], true], ["oval", false]]) fwJudge(`${id} 1180x820${chase ? "" : " (seat)"}`, await L2.page.evaluate(rtcFireworksU, [id, chase]));
+    } finally { await L2.ctx.close(); }
+  }
 };
+
+// (u) run in the page: he wins on that track, and the podium's fireworks are measured
+// eslint-disable-next-line no-unused-vars
+function rtcFireworksU([id, chase]) {
+  const L = window.__lp, S = L.state, T3 = window.THREE, out = { id };
+  const gl = L.renderer.getContext(), lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const grab = () => { L.renderer.render(L.scene, L.camera); const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, a = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, a); return { a, w, h }; };
+  L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens();
+  for (let i = 0; i < 10; i++) L.update(1 / 60);
+  L.spdReset(); L.rcStartRace(id, 36);
+  const R = L.race, him = R.him, len = R.track.len;
+  L.noRender = true;
+  for (let i = 0; i < 60 * 8 && R.phase !== "race"; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+  // him a few metres short of the line on his last lap, the field a long way behind: he wins
+  him.s = 3 * len - 4; him.lapsDone = 2;
+  R.racers.filter(r => !r.isHim).forEach((o, j) => { o.s = 3 * len - 300 - 20 * j; o.lapsDone = 2; });
+  for (let i = 0; i < 60 * 20 && R.phase !== "podium"; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+  out.won = R.phase === "podium" && !!R.podium && R.podium.won;
+  if (!out.won) { L.noRender = false; return out; }
+  L.api.setView(chase); L.noRender = false;
+  const C = R.podiumC, world0 = () => L.wakePuffList.map(p => p.life);
+  let held0 = L.flags.raceFireworksHeld || 0, worldBorn = 0, bursts0 = L.flags.raceFireworks || 0, fw0 = L.flags.fireworks || 0, ownPool = false, frames = 0;
+  let onBtn = 0, onHud = 0, onTrophy = 0, onCar = 0; const PX = [];
+  const cssToBuf = () => { const c = L.renderer.domElement; return gl.drawingBufferWidth / c.clientWidth; };
+  const boxOnScreen = (obj, W, H) => {
+    if (!obj || !obj.visible) return null;
+    obj.updateMatrixWorld(true);
+    const bb = new T3.Box3().setFromObject(obj); if (bb.isEmpty()) return null;
+    const cs = []; for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) cs.push(new T3.Vector3(x, y, z).project(L.camera));
+    return { x0: Math.floor((Math.min(...cs.map(c => c.x)) + 1) / 2 * W), x1: Math.ceil((Math.max(...cs.map(c => c.x)) + 1) / 2 * W),
+             y0: Math.floor((Math.min(...cs.map(c => c.y)) + 1) / 2 * H), y1: Math.ceil((Math.max(...cs.map(c => c.y)) + 1) / 2 * H) };
+  };
+  for (let f = 1; f <= 60 * 9; f++) {
+    const l0 = world0();
+    L.update(1 / 60);
+    L.wakePuffList.forEach((p, j) => { if (p.life > l0[j] + 1e-6 && Math.hypot(p.mesh.position.x - C.x, p.mesh.position.z - C.z) < 400) worldBorn++; });
+    if (f % 15) continue;
+    // the fireworks: the race's own pool if there is one, else the world's puffs (so it reads on v183 too)
+    const P = L.rcSparks, objs = P ? [P.pts] : L.wakePuffList.map(p => p.mesh);
+    if (P) ownPool = true;
+    const was = objs.map(o => o.visible);
+    const on1 = grab(); objs.forEach(o => { o.visible = false; }); const off1 = grab(); objs.forEach((o, j) => { o.visible = was[j]; });
+    const W = on1.w, H = on1.h, k = cssToBuf();
+    const toBuf = r => ({ x0: r.left * k, x1: r.right * k, y0: H - r.bottom * k, y1: H - r.top * k });
+    const btns = (window.btnControlRects ? window.btnControlRects() : []).map(toBuf);
+    // (the HUD drawn over the game: the race's, the route strip, every arrow and numeral -- buttons.js's list)
+    const huds = ["progressStrip"].concat(typeof BTN_HUD_OVERLAY !== "undefined" ? BTN_HUD_OVERLAY : []).flatMap(id => window.btnDrawnRects(document.getElementById(id))).map(toBuf);
+    const trophy = boxOnScreen(R.trophy, W, H), car = boxOnScreen(L.vehicleModel, W, H);
+    const inB = (b, x, y) => b && x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
+    let changed = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4, d = Math.abs(on1.a[i] - off1.a[i]) + Math.abs(on1.a[i + 1] - off1.a[i + 1]) + Math.abs(on1.a[i + 2] - off1.a[i + 2]);
+      if (d < 24) continue;
+      changed++;
+      if (btns.some(b => inB(b, x, y))) onBtn++;
+      if (huds.some(b => inB(b, x, y))) onHud++;
+      if (inB(trophy, x, y)) onTrophy++;
+      if (inB(car, x, y)) onCar++;
+      const r = on1.a[i], g = on1.a[i + 1], b = on1.a[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      PX.push([d, mx, mx ? (mx - mn) / mx : 0]);
+    }
+    if (changed) frames++;
+  }
+  // their BODY: the quarter of their pixels they change most (a glow's soft edge is mostly sky)
+  PX.sort((a, b) => b[0] - a[0]); const core = PX.slice(0, Math.max(1, Math.ceil(PX.length / 4)));
+  const LU = core.map(p => p[1]).sort((a, b) => a - b), SA = core.map(p => p[2]).sort((a, b) => a - b);
+  out.bursts = (L.flags.raceFireworks || 0) - bursts0 + ((L.flags.fireworks || 0) - fw0); out.held = (L.flags.raceFireworksHeld || 0) - held0;
+  out.worldBorn = worldBorn; out.ownPool = ownPool; out.frames = frames;
+  out.lum = Math.round(LU[Math.floor(LU.length / 2)] || 0); out.sat = +(SA[Math.floor(SA.length / 2)] || 0).toFixed(2);
+  out.onBtn = onBtn; out.onHud = onHud; out.onTrophy = onTrophy; out.onCar = onCar;
+  // racing again straight from the podium leaves none of them behind (rcStartRace); and EXIT, none (raceReset)
+  L.raceAgain();
+  const PA = L.rcSparks;
+  out.leftAgain = (PA ? (PA.pts.visible ? 1 : 0) + Array.from(PA.life).filter(x => x > 0).length : 0) + L.race.fwBursts.length;
+  L.raceReset(); L.api.setView(true);
+  const P = L.rcSparks;
+  out.leftAfter = P ? (P.pts.visible ? 1 : 0) + Array.from(P.life).filter(x => x > 0).length : L.wakePuffList.filter(p => p.life > 0 && Math.hypot(p.mesh.position.x - C.x, p.mesh.position.z - C.z) < 400).length;
+  return out;
+}

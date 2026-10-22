@@ -72,7 +72,7 @@ const race = {
   built: false, track: null, on: false, phase: "off", t: 0, racers: [], him: null,
   order: [], finished: 0, podium: null, saved: null, lights: [], venue: null,
   stuckT: 0, stuck: 0, bangs: 0, shoves: 0, wallShoves: 0, padHits: 0, lapT: [],
-  confT: 0, fwT: 0, camShot: null,
+  confT: 0, fwT: 0, fwBursts: [], camShot: null,
 };
 const rcV1 = new THREE.Vector3(), rcV2 = new THREE.Vector3(), rcV3 = new THREE.Vector3(), rcM = new THREE.Matrix4();
 const rcBox = new THREE.Box3(), rcBox2 = new THREE.Box3();
@@ -1134,7 +1134,7 @@ function rcStartRace(trackId, seed) {
   rcClearRacers();
   race.on = true; race.phase = "grid"; race.t = 0; race.finished = 0; race.order = [];
   race.stuckT = 0; race.stuck = 0; race.shoves = 0; race.wallShoves = 0; race.glideT = 0; race.padHits = 0; race.bangs0 = flags.carCrashes || 0;
-  race.podium = null; race.confT = 0; race.fwT = 0;
+  race.podium = null; race.confT = 0; race.fwT = 0; rcSparksClear();   // (v184: none left over from the last podium)
   if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
   race.loseShot = null;
   rcUnscale(vehicleModel);                    // (again, from the podium: measured at his own size, not the step's)
@@ -1208,6 +1208,7 @@ function raceReset() {
   for (const k in RC.surfaces) { const T = RC.surfaces[k].tone; if (T) setTone(T[0], T[1], T[2], 0); }
   if (typeof confetti !== "undefined") confetti.length = 0;   // the podium's confetti stays at the podium
   rcPuffsClear();                              // (v181) and the race's spray with it
+  rcSparksClear();                             // (v184) and its fireworks
   if (vehicleModel) { vehicleModel.visible = true; vehicleModel.quaternion.identity(); rcUnscale(vehicleModel); }
   camera.up.set(0, 1, 0);
   rcUse(RC.tracks[0].id);                       // out of a race, the first track is the one the world asks about
@@ -1614,16 +1615,155 @@ function rcToPodium() {
   el.raceHud.classList.add("podium");
 }
 function rcFireworks(n) {
-  if (typeof fwQueue === "undefined") return;
-  const C = race.podiumC;
-  for (let i = 0; i < n; i++) {
-    // spread sideways behind the podium, in the sky over it -- scattered toward the
-    // camera as well, they burst at the top of the frame as big grey lumps
-    // (to either side of the trophy, never over it)
-    const side = (i % 2 ? 1 : -1) * (RC.podium.fwClear + rcRnd() * RC.podium.fwWide), back = RC.podium.fwBack, up = RC.podium.fwUp + rcRnd() * RC.podium.fwUpRnd;
-    fwQueue.push({ t: 0.2 + i * 0.45, x: C.x - C.fz * side - C.fx * back, y: C.y + up, z: C.z + C.fx * side - C.fz * back, c: fireworkColors[i % fireworkColors.length] });
-    fireworkSound(i * 0.45);
+  // (where each bursts is chosen as its whistle goes up, in the shot on the screen: rcFwSpot; the sound with it)
+  for (let i = 0; i < n; i++) race.fwBursts.push({ t: RC.podium.fw.first + i * 0.45, side: i % 2 ? 1 : -1, c: fireworkColors[i % fireworkColors.length] });   // (the arrival show's palette)
+}
+// (v184) The podium's fireworks are the race's OWN: soft points on the shared glow texture,
+// in their own bright colours, unfogged. They were the world's arrival show (landmarks.js),
+// lit faceted spheres, which over the podium read as grey-yellow and teal lumps in the sky;
+// and added light, as every other glow is drawn, washes out to white over a day sky -- so
+// these are laid over it, each spark held bright and then gone. Each burst flings its sparks
+// out in a ball that slows and droops, somewhere in the open sky of the shot on the screen,
+// never over a button, the HUD (the race's, the route strip), the trophy, the podium or his car (rcFwSpot); and
+// they draw nothing from the game's random stream (the arrival show's did), only the race's.
+let rcSparks = null;
+const rcFwV = new THREE.Vector3(), rcFwF = new THREE.Vector3(), rcFwWH = new THREE.Vector2();
+let rcFwCam = null;
+function rcSparkPool() {
+  if (rcSparks) return rcSparks;
+  const F = RC.podium.fw, n = F.pool, geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), alpha = new Float32Array(n);
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("aCol", new THREE.BufferAttribute(col, 3));
+  geo.setAttribute("aAlpha", new THREE.BufferAttribute(alpha, 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: glowTex }, uSize: { value: F.size }, uScale: { value: 1 }, uMax: { value: 1 },   // (uScale, uMax: set every frame, rcSparksUpdate)
+                uGain: { value: F.gain }, uCoreFrom: { value: F.coreFrom }, uCore: { value: F.core } },
+    // (the game draws with a logarithmic depth buffer: a shader of its own writes its depth the same way)
+    vertexShader: `#include <common>
+      #include <logdepthbuf_pars_vertex>
+      attribute float aAlpha; attribute vec3 aCol; uniform float uSize; uniform float uScale; uniform float uMax; varying float vA; varying vec3 vC;
+      void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vA = aAlpha; vC = aCol;
+        gl_PointSize = aAlpha > 0.0 ? clamp(uSize * uScale / max(0.5, -mv.z), 1.0, uMax) : 0.0; gl_Position = projectionMatrix * mv;
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: `#include <logdepthbuf_pars_fragment>
+      uniform sampler2D map; uniform float uGain; uniform float uCoreFrom; uniform float uCore; varying float vA; varying vec3 vC;
+      void main() {
+        #include <logdepthbuf_fragment>
+        float g = texture2D(map, gl_PointCoord).a, a = clamp(g * uGain, 0.0, 1.0) * vA;
+        if (a < 0.004) discard;
+        gl_FragColor = vec4(mix(vC, vec3(1.0), smoothstep(uCoreFrom, 1.0, g) * uCore), a); }`,
+    transparent: true, depthWrite: false, fog: false,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false; pts.renderOrder = 2; pts.visible = false;
+  scene.add(pts);
+  rcSparks = { n, pts, geo, mat, pos, col, alpha, next: 0, life: new Float32Array(n), max: new Float32Array(n), v: new Float32Array(n * 3) };
+  return rcSparks;
+}
+// Where a burst goes off: a place in the open sky of the shot on the screen, either side of
+// the middle, whose whole ball -- and its droop -- lands on nothing he needs; null if none is clear.
+function rcFwSpot(side) {
+  const F = RC.podium.fw, C = race.podiumC, cv = renderer.domElement;
+  const W = cv.clientWidth || innerWidth, H = cv.clientHeight || innerHeight;
+  if (!C || !W || !H) return null;
+  // (in the shot the camera settles to -- raceCamera's, his win -- not wherever its swing has got to)
+  const cam = rcFwCam || (rcFwCam = camera.clone());
+  cam.copy(camera); cam.up.set(0, 1, 0);
+  cam.position.set(C.x + C.fx * RC.podium.camBack, C.y + RC.podium.camUp, C.z + C.fz * RC.podium.camBack);
+  cam.lookAt(C.x, C.y + 5, C.z); cam.updateMatrixWorld(); cam.updateProjectionMatrix(); cam.getWorldDirection(rcFwF);
+  const avoid = [];
+  const pad = F.pad, push = r => avoid.push({ l: r.left - pad, t: r.top - pad, r: r.right + pad, b: r.bottom + pad });
+  if (typeof btnControlRects === "function") for (const r of btnControlRects()) push(r);
+  // (and everything drawn over the game: the race's HUD, the route strip above it, every arrow and numeral)
+  if (typeof btnDrawnRects === "function") for (const id of ["progressStrip"].concat(BTN_HUD_OVERLAY)) for (const r of btnDrawnRects(document.getElementById(id))) push(r);
+  let podTop = Infinity;
+  for (const o of [race.trophy, race.trophyStand, race.podiumG, vehicleModel]) {
+    if (!o || !o.visible) continue;
+    rcBox.setFromObject(o); if (rcBox.isEmpty()) continue;
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (let k = 0; k < 8; k++) {
+      rcFwV.set(k & 1 ? rcBox.max.x : rcBox.min.x, k & 2 ? rcBox.max.y : rcBox.min.y, k & 4 ? rcBox.max.z : rcBox.min.z).project(cam);
+      const x = (rcFwV.x + 1) / 2 * W, y = (1 - rcFwV.y) / 2 * H;
+      l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y);
+    }
+    push({ left: l, top: t, right: r, bottom: b });
+    if (o === race.podiumG) podTop = t;
   }
+  const D = Math.hypot(C.x - cam.position.x, C.z - cam.position.z) + RC.podium.fwBack;
+  const R = F.speed * (1 + F.speedRnd) / F.drag + F.size, tanH = Math.tan(cam.fov * DEG / 2);
+  for (let k = 0; k < F.tries; k++) {
+    const nx = side * (F.x[0] + (F.x[1] - F.x[0]) * rcRnd()), ny = F.y[0] + (F.y[1] - F.y[0]) * rcRnd();
+    rcFwV.set(nx, ny, 0.5).unproject(cam).sub(cam.position).normalize();
+    const hz = Math.hypot(rcFwV.x, rcFwV.z);
+    if (hz < 0.1) continue;
+    const t = D / hz, depth = t * rcFwV.dot(rcFwF), ppm = (H / 2) / (depth * tanH);
+    const p = { x: cam.position.x + rcFwV.x * t, y: cam.position.y + rcFwV.y * t, z: cam.position.z + rcFwV.z * t };
+    if (p.y - C.y < F.minUp) continue;
+    const sx = (nx + 1) / 2 * W, sy = (1 - ny) / 2 * H, rp = R * ppm;
+    const box = { l: sx - rp, t: sy - rp, r: sx + rp, b: sy + rp + F.droop * ppm };
+    if (box.l < 0 || box.r > W || box.t < 0 || box.b > Math.min(H, podTop - pad)) continue;   // (in the sky over the podium: the buttons to come are under it)
+    if (avoid.some(a => box.l < a.r && a.l < box.r && box.t < a.b && a.t < box.b)) continue;
+    return p;
+  }
+  return null;
+}
+function rcBurst(b) {
+  const F = RC.podium.fw;
+  if (!b.p) {
+    // its whistle: the place first -- no clear sky, no burst and no sound
+    b.p = rcFwSpot(b.side);
+    if (!b.p) { b.t = Infinity; flags.raceFireworksHeld = (flags.raceFireworksHeld || 0) + 1; return; }
+    fireworkSound(0); b.t = F.pop;
+    return;
+  }
+  b.t = Infinity;
+  const p = b.p, P = rcSparkPool();
+  const r = ((b.c >> 16) & 255) / 255, g = ((b.c >> 8) & 255) / 255, bl = (b.c & 255) / 255;
+  for (let k = 0; k < F.n; k++) {
+    const i = P.next; P.next = (P.next + 1) % P.n;
+    // a direction on the sphere, evenly (the race's own stream)
+    const u = rcRnd() * 2 - 1, a = rcRnd() * Math.PI * 2, s = Math.sqrt(1 - u * u), sp = F.speed * (1 - F.speedRnd + 2 * F.speedRnd * rcRnd());
+    P.pos[i * 3] = p.x; P.pos[i * 3 + 1] = p.y; P.pos[i * 3 + 2] = p.z;
+    P.v[i * 3] = s * Math.cos(a) * sp; P.v[i * 3 + 1] = u * sp; P.v[i * 3 + 2] = s * Math.sin(a) * sp;
+    P.col[i * 3] = r; P.col[i * 3 + 1] = g; P.col[i * 3 + 2] = bl;
+    P.life[i] = P.max[i] = F.life + F.lifeRnd * rcRnd();
+  }
+  flags.raceFireworks = (flags.raceFireworks || 0) + 1;
+}
+function rcSparksUpdate(dt) {
+  const B = race.fwBursts;
+  if (B.length) {
+    for (const b of B) b.t -= dt;
+    for (const b of B) if (b.t <= 0) rcBurst(b);
+    race.fwBursts = B.filter(b => b.t > 0 && b.t !== Infinity);
+  }
+  const P = rcSparks;
+  if (!P) return;
+  const F = RC.podium.fw, k = Math.exp(-F.drag * dt);
+  let alive = 0;
+  for (let i = 0; i < P.n; i++) {
+    if (P.life[i] <= 0) { P.alpha[i] = 0; continue; }
+    P.life[i] -= dt;
+    if (P.life[i] <= 0) { P.alpha[i] = 0; continue; }
+    alive++;
+    P.v[i * 3] *= k; P.v[i * 3 + 1] = P.v[i * 3 + 1] * k - F.grav * dt; P.v[i * 3 + 2] *= k;
+    for (let j = 0; j < 3; j++) P.pos[i * 3 + j] += P.v[i * 3 + j] * dt;
+    const u = 1 - P.life[i] / P.max[i];
+    P.alpha[i] = 1 - u * u * u;                  // (held bright, then gone)
+  }
+  for (const a of ["position", "aAlpha", "aCol"]) P.geo.attributes[a].needsUpdate = true;
+  const Hb = renderer.getDrawingBufferSize(rcFwWH).y, U = P.mat.uniforms;
+  U.uScale.value = Hb / (2 * Math.tan(camera.fov * DEG / 2)); U.uMax.value = F.maxPx * Hb;
+  P.pts.visible = alive > 0;
+}
+function rcSparksClear() {
+  race.fwBursts = [];
+  if (!rcSparks) return;
+  rcSparks.life.fill(0); rcSparks.alpha.fill(0);
+  rcSparks.geo.attributes.aAlpha.needsUpdate = true;
+  rcSparks.pts.visible = false;
 }
 // The plinth stands on the board and reaches over his car on the gold step: its
 // cap `over` m above the car's top as it stands there (measured, posed, the hop
@@ -2040,6 +2180,7 @@ function rcPuffsClear() {
 }
 function rcSpray(dt) {
   rcPuffsUpdate(dt);
+  rcSparksUpdate(dt);                          // (v184) the podium's fireworks
   if (race.phase === "grid" || race.phase === "podium") return;
   const SP = RC.spray, cx = camera.position.x, cz = camera.position.z;
   let a = null, b = null, da = SP.near, db = SP.near;
