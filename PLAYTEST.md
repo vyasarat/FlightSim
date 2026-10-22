@@ -59,6 +59,7 @@ entry below.
 | v179 | nothing he notices: every track, the runway and the cities look as before; on the iPad nothing he would call slow or jerky beside a race track or in a race |  open |
 | v180 | nothing he would mention: on Snowy Peaks he calls the mountain with the tunnel "the snowy mountain", not a rock, and says nothing about grass or green on the snow |  open |
 | v181 | nothing he mentions about rocks or stones behind the car in a race; on Beach Splash he calls the white behind the car splashing or water |  open |
+| v182 | nothing he mentions: at night in the Corvette's driving seat the mirror is dark like the sky, and when he holds the booster he still sees the flames in it |  open |
 
 ## Entries
 

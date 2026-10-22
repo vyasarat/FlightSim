@@ -33,6 +33,9 @@
 //   k. the mirror is never the loudest thing in the seat view (v178): drawn, booster
 //      burning, motorway / New York / a race, its glass no brighter and no more vivid
 //      at its top 5% than the world alone, and its flames still there.
+//   l. the mirror shows the sky he is under (v182): at day, in rain, at dusk and night, booster out,
+//      the glass is no brighter on average than the world around it (`MIRROR_SKY_K` of the
+//      world's mean, plus a hair), and at night its flames still show when he burns.
 // On v158 there is no such vehicle: every check FAILs, none throws.
 //
 // Alone: node scripts/run_module.js corvette_checks
@@ -558,6 +561,46 @@ module.exports = async function corvetteChecks({ newPage, check }) {
       const c = mir.chase || {};
       check("corvette: the mirror never reaches the chase view -- it hangs on the cabin, which the chase view hides, and the same burning frame drawn with the mirror shown and hidden is the same picture to the pixel",
         c.on && c.fx && c.cabinHidden && c.mirrorOnCabin && c.again === 0 && c.mirrorOnOff === 0, J(c));
+    }
+
+    // ---- l. the mirror shows the sky he is under (v182): day, dusk, night, motorway, seat
+    const MIRROR_SKY_K = 1.15;
+    const moods = await page.evaluate(() => {
+      const L = window.__lp, S = L.state, T = THREE, out = {};
+      const gl = L.renderer.getContext();
+      const grab = () => { const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, a = new Uint8Array(w * h * 4);
+        L.renderer.render(L.scene, L.camera); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, a); return { a, w, h }; };
+      const mean = (g, box) => { let s = 0, n = 0, o = 0; for (let y = box.y0; y < box.y1; y++) for (let x = box.x0; x < box.x1; x++) { const i = (y * g.w + x) * 4, r = g.a[i], gg = g.a[i + 1], b = g.a[i + 2]; s += 0.2126 * r + 0.7152 * gg + 0.0722 * b; n++; if (r >= gg && r - b > 60) o++; } return { mean: Math.round(s / Math.max(1, n)), orange: +(o / Math.max(1, n)).toFixed(3) }; };
+      const glassBox = (g) => {
+        const glass = L.cv.mirror.children[1], M = L.CORVETTE.mirror, cam = L.camera, v = new T.Vector3();
+        glass.updateWorldMatrix(true, false); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+        let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+        for (const sx of [-0.35, 0.35]) for (const sy of [-0.3, 0.3]) { v.set(sx * M.w, sy * M.h, 0).applyMatrix4(glass.matrixWorld).project(cam);
+          const px = (v.x + 1) / 2 * g.w, py = (v.y + 1) / 2 * g.h; x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); }
+        return { x0: Math.max(0, Math.floor(x0)), x1: Math.min(g.w, Math.ceil(x1)), y0: Math.max(0, Math.floor(y0)), y1: Math.min(g.h, Math.ceil(y1)) };
+      };
+      let nf = 0;
+      const drive = (n, pitch) => { for (let i = 0; i < n; i++) { S.nightF = nf; S.touching = true; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = pitch; L.update(1 / 60); } };
+      L.api.setVehicle("corvette"); L.api.spawnAt(0, 0); L.api.skipScreens(); L.api.setView(false); L.api.clearStick();
+      for (const [name, sky, f] of [["day", 0, 0], ["rain", 1, 0], ["dusk", 3, 0.5], ["night", 3, 1]]) {
+        S.sky = sky; nf = f;
+        drive(60 * 6, 0);                                   // (the lights ease to the mood over a few seconds)
+        const onAtGlass = L.cv.on, nfAtGlass = +S.nightF.toFixed(2);   // (the state the glass is measured in: booster out, the blend asked for)
+        const g = grab(), box = glassBox(g), m = mean(g, box);
+        L.car.cabin.visible = false; const w = grab(); L.car.cabin.visible = true;
+        const world = mean(w, { x0: 0, x1: w.w, y0: 0, y1: w.h });
+        drive(60 * 3, 0.8);
+        const burnOn = L.cv.on, burn = mean(grab(), glassBox(g));
+        drive(60 * 3, 0);
+        out[name] = { glass: m.mean, world: world.mean, burnOrange: burn.orange, onAtGlass: onAtGlass, burnOn: burnOn, sky: S.sky, nightF: nfAtGlass, want: f, px: (box.x1 - box.x0) * (box.y1 - box.y0) };
+      }
+      S.sky = 0; S.nightF = 0; nf = 0; drive(60 * 6, 0); L.api.clearStick();
+      return out;
+    });
+    {
+      const ok = k => { const o = moods[k]; return o && o.px > 400 && !o.onAtGlass && Math.abs(o.nightF - o.want) < 0.05 && o.glass <= o.world * MIRROR_SKY_K + 6; };
+      check(`corvette: the mirror shows the sky he is under -- booster out, from the seat on the motorway, at day, in rain, at dusk (blend 0.5) and at night the glass is no brighter on average than ${MIRROR_SKY_K}x the world around it; at night its flames still show when he burns`,
+        ["day", "rain", "dusk", "night"].every(ok) && moods.night && moods.night.burnOn && moods.night.burnOrange >= 0.04, J(moods));
     }
 
     check("corvette: no browser or frame errors", errors.length === 0, J(errors.slice(0, 5)));

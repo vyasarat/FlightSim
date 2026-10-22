@@ -17,7 +17,11 @@
 //   jump / jumpSeat   (v170) off a dune, near the top of the flight
 //   glide / glideSeat (v171) held full into the left barrier for three seconds: riding along it
 //   cam:<x>,<y>,<z>,<tx>,<ty>,<tz>  (v174) normal play, the camera put there (heights over the ground) looking at that
-//   TRACK=dunes renders that track (the oval if unset); SKY=3 at night (v179)
+//   TRACK=dunes renders that track (the oval if unset); SKY=3 at night (v179); NIGHTF=0.5 holds the night blend there (dusk)
+//   bunch:<kind> / bunchSeat:<kind>   (v181 gaps) that surface, the rivals side by side across the track 12-18 m ahead (the giant at the edge), all spraying
+//   closeSeat:<kind>  (v181 gaps) from his seat, a rival 9 m ahead (tailgating, its tail ~4 m off his nose) in his lane on that surface, spraying at him
+//   puffAt:<kind> / puffAtSeat:<kind>   (v181 gaps) from the chase view / his seat on that surface, a row of the biggest puff that surface makes, white, held at
+//                     1, 2, 3, 4.5, 7, 10 and 15 m straight ahead of the camera: what the 2-7 m fade and the size cap leave on the glass
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
 const path = require("path"), fs = require("fs");
 const { launch, openGame, serve } = require("./art_rig.js");
@@ -30,7 +34,7 @@ async function render(root, views) {
   const port = +(process.env.PORT || 8232), srv = serve(root, port), browser = await launch();
   const [vw, vh] = (process.env.VP || "820x1180").split("x").map(Number);   // VP=1180x820 for landscape
   const page = await openGame(browser, port, { width: vw, height: vh });
-  await page.evaluate(([v, t, k]) => { window.__rVeh = v; window.__rTrack = t; window.__rSky = k; }, [process.env.VEH || "car", process.env.TRACK || "oval", +(process.env.SKY || 0)]);
+  await page.evaluate(([v, t, k, nf]) => { window.__rVeh = v; window.__rTrack = t; window.__rSky = k; window.__rNightF = nf; }, [process.env.VEH || "car", process.env.TRACK || "oval", +(process.env.SKY || 0), process.env.NIGHTF || ""]);
   await page.evaluate(() => { window.__lp.api.skipScreens(); window.__hold = () => {}; for (let i = 0; i < 3; i++) window.__paint(); });
   await page.waitForFunction(() => { const s = window.__lp.modelState; return s && ["car", "cybertruck", "corvette"].every(k => s[k] !== "loading"); }, null, { timeout: 120000 }).catch(() => {});
   await page.screenshot({ timeout: 180000 });
@@ -40,6 +44,7 @@ async function render(root, views) {
       window.__hold = () => {};
       if (window.__carCam0) window.carCamera = window.__carCam0;
       S.sky = window.__rSky; S.nightF = S.sky === 3 ? 1 : 0;   // (v179) SKY=3 renders it at night
+      if (window.__rNightF !== "") S.nightF = +window.__rNightF;   // (v181 gaps) NIGHTF: dusk, held
       L.raceReset();
       L.api.setVehicle(window.__rVeh); L.api.spawnAt(0, 0); L.api.skipScreens();
       for (let i = 0; i < 20; i++) L.update(1 / 60);
@@ -165,6 +170,41 @@ async function render(root, views) {
         note.air = !!him.air; note.vy = +(him.vy || 0).toFixed(2); note.pitchDeg = +S.pitch.toFixed(1); note.over = +(him.y - L.rcPoint(him.s, him.lat, {}).y).toFixed(2);
         return note;
       }
+      if (v.startsWith("bunch") || v.startsWith("closeSeat") || v.startsWith("puffAt")) {
+        // (v181 gaps) the spray's worst cases, on the longest run of that surface, at his speed
+        const kind = v.split(":")[1], T = R.track, S2 = T.S;
+        let best = null, run = null;
+        for (const q of S2) { if (q.sf === kind) { if (!run) run = { a: q.s }; run.b = q.s; if (!best || run.b - run.a > best.b - best.a) best = run; } else run = null; }
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him, base = Math.floor(him.s / T.len) * T.len, mid = (best.a + best.b) / 2 - 40;
+        him.s = base + mid; him.v = L.RC.v; him.lat = 0;
+        const others = R.racers.filter(r => !r.isHim);
+        const place = () => {
+          if (v.startsWith("bunch")) others.slice().sort((a, b) => (b.key === "monster") - (a.key === "monster")).forEach((r, k) => { r.s = him.s + 12 + (k % 2) * 6; r.lat = -7.5 + k * (15 / Math.max(1, others.length - 1)); r.v = him.v; r.line = r.lat; r.aim = null; r.aimGo = false; });
+          else if (v.startsWith("closeSeat")) others.forEach((r, k) => { r.s = k ? him.s + 60 + k * 10 : him.s + 5; r.lat = k ? (k % 2 ? -6 : 6) : him.lat; r.v = him.v; r.line = r.lat; r.aim = null; r.aimGo = false; });
+          else others.forEach((r, k) => { r.s = him.s + 60 + k * 10; r.lat = k % 2 ? -6 : 6; r.v = him.v; });
+        };
+        place();
+        for (let i = 0; i < 90; i++) { if (i % 10 === 0) place(); go(1, 0, 0); }
+        place();
+        window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+        // (closeSeat: the rival is held 9 m ahead -- its tail about 4 m off his nose -- in his lane up to the picture -- a contact shove would move it out)
+        if (v.startsWith("closeSeat")) window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; const r = others[0]; r.s = him.s + 9; r.lat = him.lat; r.v = him.v; };
+        if (v.startsWith("puffAt")) {
+          // the biggest puff this surface makes (its radius at the end of its life), white at full strength, held still
+          const sf = L.RC.surfaces[kind], rMax = sf.size * 1.6 + sf.size * 2.2 * sf.life, ds = [1, 2, 3, 4.5, 7, 10, 15], idx = [];
+          for (const d of ds) { window.rcPuff(0, 0, 0, 0xffffff, rMax, 0, 60, 0.9); idx.push((rcPuffs.next - 1 + rcPuffs.n) % rcPuffs.n); }
+          const C = window.THREE, f = new C.Vector3(), lx = [-1.2, 1.2, -0.6, 0.6, 0, -0.9, 0.9];
+          const put = () => { L.camera.getWorldDirection(f); const c = L.camera.position, sd = new C.Vector3(-f.z, 0, f.x).normalize();
+            ds.forEach((d, k) => { const i = idx[k]; rcPuffs.pos[i * 3] = c.x + f.x * d + sd.x * lx[k] * d * 0.25; rcPuffs.pos[i * 3 + 1] = c.y + f.y * d - 0.35 - 0.02 * d; rcPuffs.pos[i * 3 + 2] = c.z + f.z * d + sd.z * lx[k] * d * 0.25; rcPuffs.r[i] = rMax; rcPuffs.grow[i] = 0; rcPuffs.life[i] = rcPuffs.max[i] = 60; rcPuffs.a0[i] = 0.9; });
+            rcPuffs.geo.attributes.position.needsUpdate = true; };
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; put(); };
+          note.rMax = +rMax.toFixed(2); note.capPx = Math.round(L.RC.spray.maxPx * L.renderer.getDrawingBufferSize(new C.Vector2()).y);
+        }
+        note.sf = L.rcAt(him.s).sf; note.speed = +him.v.toFixed(1); note.alive = rcPuffs ? Array.from(rcPuffs.life).filter(x => x > 0).length : 0;
+        note.ahead = others.map(r => [r.key, +(r.s - him.s).toFixed(1), +r.lat.toFixed(1)]);
+        return note;
+      }
       if (v.startsWith("surface")) {
         // mid-way along the longest run of that surface, at his speed, for a second and a half
         const kind = v.split(":")[1], T = R.track, S2 = T.S;
@@ -251,9 +291,9 @@ async function render(root, views) {
       return out;
     }, process.env.HIDE));
     await page.evaluate(() => { const f = document.getElementById("flash"); f.style.transition = "none"; f.classList.remove("on"); });
-    const shot = await page.evaluate(() => { for (let i = 0; i < 3; i++) { window.__hold(); window.__lp.update(1 / 60); window.__hold(); window.__paint(); }
+    const shot = await page.evaluate((nf) => { const nF = () => { if (nf !== "") window.__lp.state.nightF = +nf; }; for (let i = 0; i < 3; i++) { nF(); window.__hold(); window.__lp.update(1 / 60); nF(); window.__hold(); window.__paint(); }
       const L = window.__lp, h = L.race && L.race.him; const bn = document.getElementById("bigNum");
-      return h ? { atShot: { air: !!h.air, airT: +(h.airT || 0).toFixed(2), pitchDeg: +L.state.pitch.toFixed(1), phase: L.race.phase, raceT: +(L.race.t - L.race.raceT0).toFixed(2), bigNum: bn && [bn.textContent, bn.className, getComputedStyle(bn).opacity] } } : {}; });
+      return h ? { atShot: { air: !!h.air, airT: +(h.airT || 0).toFixed(2), pitchDeg: +L.state.pitch.toFixed(1), phase: L.race.phase, raceT: +(L.race.t - L.race.raceT0).toFixed(2), nightF: +L.state.nightF.toFixed(2), bigNum: bn && [bn.textContent, bn.className, getComputedStyle(bn).opacity] } } : {}; }, process.env.NIGHTF || "");
     Object.assign(info, shot);
     const file = path.join(out, v + ".png");
     await page.screenshot({ path: file, timeout: 180000 });

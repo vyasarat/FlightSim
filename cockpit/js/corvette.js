@@ -34,7 +34,7 @@ const cv = {
   on: false, k: 0, camK: 0, t: 0, seed: 0x2c0be7,
   fx: null, flames: [], nozzles: [], plume: null, road: null, tips: null, tipsFor: null, rear: 0, roadY: 0,
   sparks: null, sparkPos: null, spark: [], sparkDue: 0,
-  mirror: null, mirrorArt: null, mirrorK: -1,
+  mirror: null, mirrorArt: null, mirrorK: -1, mirrorSky: "",
 };
 
 // The booster's speed: well above the top step's.
@@ -357,17 +357,31 @@ function cvMirrorBuild() {
     cv.mirror = m; cv.mirrorArt = { c, cx: c.getContext("2d"), tex };
   }
 }
+// (v182) the sky behind him, as the glass paints it: the dome's top and horizon, and a
+// shade for the ground under it -- the hemisphere light's strength against its daytime
+// value (rain, snow and night all bring it down), never under `CORVETTE.mirror.darkest`
+const cvMirrorC = new THREE.Color();
+function cvMirrorLit() {
+  const hex = c => "#" + cvMirrorC.copy(c).getHexString();
+  const day = lightMood.hemiI || 1, f = clamp(hemiLight.intensity / day, CORVETTE.mirror.darkest, 1);
+  const top = hex(skyUniforms.topColor.value), hor = hex(skyUniforms.horizonColor.value);
+  return { top, hor, key: top + hor + Math.round(f * 40),
+    shade: rgb => `rgb(${Math.round(rgb[0] * f)},${Math.round(rgb[1] * f)},${Math.round(rgb[2] * f)})` };
+}
 function cvMirrorPaint() {
   // repaint when the burn changes, and every few frames while it flickers
-  const k = Math.round(cv.k * 20) / 20;
-  if (k === cv.mirrorK && (k === 0 || frameCount % 3)) return;
-  cv.mirrorK = k;
+  // (v182) and when the sky behind him changes: the glass shows the sky he is under -- the
+  // dome's own two colours, and the ground and road lit as the world is (the sky light's
+  // strength against its daytime), so at dusk and at night it is no pale strip on a dark screen
+  const k = Math.round(cv.k * 20) / 20, lit = cvMirrorLit(), skyKey = lit.key;
+  if (k === cv.mirrorK && skyKey === cv.mirrorSky && (k === 0 || frameCount % 3)) return;
+  cv.mirrorK = k; cv.mirrorSky = skyKey;
   const { cx, tex } = cv.mirrorArt, W = CV_MIRROR_W, H = CV_MIRROR_H;
   const sky = cx.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, "#9fc3e6"); sky.addColorStop(0.5, "#c9dbea"); sky.addColorStop(0.5, "#5a5f66"); sky.addColorStop(1, "#3c4350");
+  sky.addColorStop(0, lit.top); sky.addColorStop(0.5, lit.hor); sky.addColorStop(0.5, lit.shade([90, 95, 102])); sky.addColorStop(1, lit.shade([60, 67, 80]));
   cx.fillStyle = sky; cx.fillRect(0, 0, W, H);
   // the road running away behind him, to a point in the middle
-  cx.fillStyle = `rgb(${CV_MIRROR_ROAD})`;
+  cx.fillStyle = lit.shade(CV_MIRROR_ROAD);
   cx.beginPath(); cx.moveTo(W * 0.5, H * 0.5); cx.lineTo(W * 0.92, H); cx.lineTo(W * 0.08, H); cx.closePath(); cx.fill();
   if (k > 0) {
     const F = CORVETTE.flame, fl = 1 + F.flicker * Math.sin(cv.t * F.hz * 6.283);
