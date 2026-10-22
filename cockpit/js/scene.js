@@ -593,6 +593,24 @@ function vlGroundColor(wx, wz, out, slope) {
   if (rock > 0) out.lerp(cVlRock, rock * 0.72);   // dark grey, not black: readability over realism
   return out;
 }
+// (v183) The ground round a snow venue is snow. Below the snow line the mountains' snow is laid
+// over the grass's colour only part-way (snowFrom..snowFull), and the start straight and the
+// podium of Snowy Peaks sit lower than that: tan and olive patches by the banks and behind the
+// podium. Each snow venue fills a grid here once its track is laid (race.js rcSnowGround, at
+// load, before main.js builds the first chunk): 1 within `near` m of the track's line, easing
+// to 0 by `near + fade`. Colour and tile only -- the ground's shape is not touched.
+const terSnowGrids = [];
+function terSnowAt(x, z) {
+  for (const g of terSnowGrids) {
+    const fx = (x - g.x0) / g.cell, fz = (z - g.z0) / g.cell;
+    if (fx < 0 || fz < 0 || fx >= g.nx - 1 || fz >= g.nz - 1) continue;
+    const ix = Math.floor(fx), iz = Math.floor(fz), tx = fx - ix, tz = fz - iz, k = iz * g.nx + ix, v = g.v;
+    const a = v[k] + (v[k + 1] - v[k]) * tx, b = v[k + g.nx] + (v[k + g.nx + 1] - v[k + g.nx]) * tx;
+    const m = a + (b - a) * tz;
+    if (m > 0) return m;
+  }
+  return 0;
+}
 function terrainColorAt(hy, wx, wz, out, slope) {
   const shoreLo = TUNE.waterLevel - 1.2, shoreHi = TUNE.waterLevel + 1.4;
   if (hy < shoreHi) {
@@ -618,6 +636,9 @@ function terrainColorAt(hy, wx, wz, out, slope) {
   if (dm > 0) out.lerp(cDesert, dm * 0.8);
   // foam: a bright line exactly where the sea meets the land, which is what
   // makes a coast read as a coast rather than as two colours meeting
+  // (v183) round a snow venue the ground is snow whatever its height (terSnowAt)
+  const sg = terSnowAt(wx, wz);
+  if (sg > 0) { out.lerp(cSnow, sg); return out; }
   const foam = 1 - Math.min(1, Math.abs(hy - TUNE.waterLevel) / TUNE.water.foamBand);
   if (foam > 0) out.lerp(cFoam, foam * foam * 0.75);
   return out;

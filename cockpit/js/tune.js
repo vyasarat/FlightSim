@@ -2479,6 +2479,7 @@ const TUNE = {
         pads: [{ m: 150, lat: 5 }, { m: 1150, lat: 5 }, { m: 1300, lat: -5 }, { m: 1830, lat: -5 }, { m: 2950, lat: 5 }, { m: 3300, lat: -5 }],   // (none aimed at under the tunnel's lowered camera: race_track_checks o)
         aiMul: 0.988,                     // (at 1.0 the noisy hand won 25%: the slippery bends cost his wobbling line more than theirs)
         banks: true,                      // snowbanks for barriers (the same solids), red-and-white poles on them
+        snowGround: { near: 150, fade: 150, cell: 15 },   // (v183) the ground snow within `near` m of the line, none past near + fade (scene.js terSnowAt)
         // the frozen lake's bed, shaped into the ground (terrain.js rcLakeBed): level at `y`
         // inside the ellipse -- `a` m along the track's heading either side of its middle,
         // `b` m across -- and back to the mountain over `blend` m. Its middle is the lake

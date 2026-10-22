@@ -44,7 +44,8 @@
 //      chase camera and his car, or his seat and the road 30 m ahead;
 //   s. (v180) SNOW READS AS SNOW: the ground round a snow venue never green-blotched, the tunnel's mountain
 //      snow in the shade from the side turned from the sun, the snowbanks closed where they change shape and
-//      sloping, never stepping, down to the lake's low bank;
+//      sloping, never stepping, down to the lake's low bank; (v183) and the LOW ground round it, under the snow
+//      line, white too -- never tan or olive -- with the motorway under none of the venue's snow;
 //   t. (v181) THE SPRAY READS AS SPRAY: soft puffs from the race's own pool (none from the world's lit,
 //      faceted spheres, which read as boulders); on every surface that throws any, the spray shows (it is
 //      not lost in the ground) but covers little of the screen and less than a fifth of his car, no puff is
@@ -527,6 +528,43 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       }
       gl0.sort((a, b) => a - b);
       out.ground = { pts: pts.length, greenPct: +(100 * green / Math.max(1, px)).toFixed(2), lum: Math.round(gl0[Math.floor(gl0.length / 2)] || 0) };
+      // -- (v183) and the LOW ground round it, under the snow line, where the mountains' snow lay over the
+      // grass only part-way: tan and olive by the banks and behind the podium. Any pixel warmer than the
+      // snow's own grey-blue (red or green over blue by more than `warm`) is a patch; and the motorway,
+      // whose bore lids are coloured before the venue's grid exists, never under any of it
+      const lowPts = [];
+      for (let k = 0; k < 48 && lowPts.length < 8; k++) {
+        const q = T.S[Math.floor(T.n * k / 48)];
+        for (const sd of [-1, 1]) for (const ex of [0, 60]) { const x = q.x + q.lx * sd * (off + ex), z = q.z + q.lz * sd * (off + ex); if (lowPts.length < 8 && L.terrainEff(x, z) < snowAt - 4) lowPts.push([x, z]); }
+      }
+      const warmOf = g => { let w = 0, n = 0; for (let i = 0; i < g.a.length; i += 16) { n++; if (Math.max(g.a[i], g.a[i + 1]) - g.a[i + 2] > 14) w++; } return { w, n }; };
+      let warm = 0, wn = 0, warmHi = 0, wnHi = 0;
+      for (const [set, hi] of [[lowPts, false], [pts, true]]) for (const [x, z] of set) {
+        S.x = x; S.z = z; S.y = L.terrainEff(x, z) + 2; L.updateScenery(x, z, true);
+        L.scene.children.forEach(o => { o.visible = isTer(o) || o.isLight; });
+        const gy = L.terrainEff(x, z); cam.position.set(x - 8, gy + 30, z - 8); cam.lookAt(x, gy, z); cam.updateMatrixWorld();
+        const r = warmOf(grab(cam));
+        L.scene.children.forEach(o => { o.visible = shown.has(o) ? shown.get(o) : o.visible; });
+        if (hi) { warmHi += r.w; wnHi += r.n; } else { warm += r.w; wn += r.n; }
+      }
+      let hwyUnder = 0, hwyNear = 0;
+      if (typeof highway !== "undefined" && typeof terSnowAt === "function") {
+        const xs = T.S.map(q => q.x), zs = T.S.map(q => q.z), x0 = Math.min(...xs) - 800, x1 = Math.max(...xs) + 800, z0 = Math.min(...zs) - 800, z1 = Math.max(...zs) + 800;
+        for (let s = 0; s < highway.length; s += 20) { const h = hwySampleAt(s); if (h.x < x0 || h.x > x1 || h.z < z0 || h.z > z1) continue; hwyNear++;
+          for (const lat of [-45, 0, 45]) if (terSnowAt(h.x - h.fz * lat, h.z + h.fx * lat) > 0) { hwyUnder++; break; } }
+      }
+      // (and nothing else under the venue's snow: no other venue's line, no water -- where the foam line would
+      // have been -- and every node of it that is snow takes the snow's tile, not only its colour)
+      let otherUnder = 0, wetUnder = 0, tileOff = 0, tileN = 0, box = null;
+      if (typeof terSnowGrids !== "undefined") {
+        for (const k in L.race.venues) if (k !== id) for (const q of L.race.venues[k].track.S) if (terSnowAt(q.x, q.z) > 0) otherUnder++;
+        for (const g of terSnowGrids) { if (g.id !== id) continue; box = [Math.round(g.x0), Math.round(g.x0 + g.cell * (g.nx - 1)), Math.round(g.z0), Math.round(g.z0 + g.cell * (g.nz - 1))];
+          for (let iz = 0; iz < g.nz; iz++) for (let ix = 0; ix < g.nx; ix++) { const m = g.v[iz * g.nx + ix]; if (m <= 0) continue;
+            const x = g.x0 + ix * g.cell, z = g.z0 + iz * g.cell, h = L.terrainEff(x, z);
+            if (h < L.seaLevelAt(x, z) + 1.4) wetUnder++;
+            if (m > 0.5) { tileN++; if (artTerrainLayer(h, x, z) !== ART_LAYER.asphalt) tileOff++; } } }
+      }
+      out.low = { pts: lowPts.length, warmPct: +(100 * warm / Math.max(1, wn)).toFixed(2), snowWarmPct: +(100 * warmHi / Math.max(1, wnHi)).toFixed(2), hwyNear, hwyUnder, otherUnder, wetUnder, tileOff, tileN, box };
       // -- the mountain, from the side turned from the sun
       let mtn = []; V.venue.traverse(o => { if (o.isMesh && o.material.vertexColors && o.material.type === "MeshPhongMaterial") mtn.push(o); });
       out.mountain = null;
@@ -575,8 +613,8 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       L.noRender = was.noRender;
       return out;
     }, id);
-    if (snowLook) check(`race ${id}: snow reads as snow -- the ground round it ${snowLook.ground.greenPct}% green pixels at ${snowLook.ground.pts} points (none, it was blotches of grass); the mountain from the side turned from the sun ${snowLook.mountain ? snowLook.mountain.map(m => `median ${m.med}, a quarter under ${m.p25} at ${m.dist} m`).join("; ") : "none"} against the snow's ${snowLook.ground.lum}; the snowbanks closed (${snowLook.banks.open} open edges across the track${snowLook.banks.at.length ? " at " + snowLook.banks.at.join(", ") + " m" : ""}) and their crest never stepping (largest ${snowLook.banks.step} m from one sample to the next)`,
-      snowLook.ground.pts >= 4 && snowLook.ground.greenPct < 0.2 && snowLook.banks.meshes > 0 && snowLook.banks.open === 0 && snowLook.banks.step < 0.25 &&
+    if (snowLook) check(`race ${id}: snow reads as snow -- the ground round it ${snowLook.ground.greenPct}% green pixels at ${snowLook.ground.pts} points (none, it was blotches of grass); the LOW ground round it, under the snow line, ${snowLook.low.warmPct}% tan or olive pixels at ${snowLook.low.pts} points (the snow's own ${snowLook.low.snowWarmPct}%; it was the grass under part-laid snow, v183), the motorway under none of it (${snowLook.low.hwyUnder} of ${snowLook.low.hwyNear} samples near it), nor another venue (${snowLook.low.otherUnder}) nor water (${snowLook.low.wetUnder}), and all ${snowLook.low.tileN} of its snow nodes on the snow's tile (${snowLook.low.tileOff} not); the mountain from the side turned from the sun ${snowLook.mountain ? snowLook.mountain.map(m => `median ${m.med}, a quarter under ${m.p25} at ${m.dist} m`).join("; ") : "none"} against the snow's ${snowLook.ground.lum}; the snowbanks closed (${snowLook.banks.open} open edges across the track${snowLook.banks.at.length ? " at " + snowLook.banks.at.join(", ") + " m" : ""}) and their crest never stepping (largest ${snowLook.banks.step} m from one sample to the next)`,
+      snowLook.ground.pts >= 4 && snowLook.ground.greenPct < 0.2 && snowLook.low.pts >= 4 && snowLook.low.warmPct < 0.5 && snowLook.low.hwyUnder === 0 && snowLook.low.otherUnder === 0 && snowLook.low.wetUnder === 0 && snowLook.low.tileN > 0 && snowLook.low.tileOff === 0 && snowLook.banks.meshes > 0 && snowLook.banks.open === 0 && snowLook.banks.step < 0.25 &&
       (!snowLook.tunnel || snowLook.mountain && snowLook.mountain.every(m => m.n > 2000 && m.med >= 0.75 * snowLook.ground.lum && m.p25 >= 0.62 * snowLook.ground.lum)), J(snowLook));
 
     // ---- q. (v175) THE SPLASH: each splash section's deck is down at the water -- over real

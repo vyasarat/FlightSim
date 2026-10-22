@@ -311,6 +311,7 @@ function rcBuildQuiet() {
     try { rcBuildVenue(def); } finally { if (i > 0) vkSeed = s0; }
     const v = race.venues[def.id] = {};
     for (const k of RC_VENUE) v[k] = race[k];
+    if (def.snowGround) rcSnowGround(race.track, def.snowGround);
   });
   // (v179) cut and culled after every venue is built, on the kit's stream put back after:
   // nothing built before or after draws differently for it
@@ -320,6 +321,26 @@ function rcBuildQuiet() {
   race.padMesh = race.venues[RC.tracks[0].id].padMesh;
   rcCullPrep();
   rcUse(RC.tracks[0].id);
+}
+
+// (v183) the ground round a snow venue is snow (scene.js terSnowAt): a grid over the track's
+// bounds, each node 1 within `near` m of its line, easing to 0 by `near + fade`. Laid once at
+// load, before the first terrain chunk is coloured (main.js); off the lap's samples a few metres
+// apart, which is finer than the fade can show.
+function rcSnowGround(T, G) {
+  const R = G.near + G.fade, step = Math.max(1, Math.round(G.cell / 3 / TK.ds)), pts = [];
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (let i = 0; i < T.n; i += step) { const q = T.S[i]; pts.push(q.x, q.z); x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); z0 = Math.min(z0, q.z); z1 = Math.max(z1, q.z); }
+  x0 -= R + G.cell; z0 -= R + G.cell;
+  const nx = Math.ceil((x1 + R + G.cell - x0) / G.cell) + 1, nz = Math.ceil((z1 + R + G.cell - z0) / G.cell) + 1;
+  const v = new Float32Array(nx * nz);
+  for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) {
+    const x = x0 + ix * G.cell, z = z0 + iz * G.cell;
+    let d2 = Infinity;
+    for (let j = 0; j < pts.length; j += 2) { const dx = pts[j] - x, dz = pts[j + 1] - z, e = dx * dx + dz * dz; if (e < d2) d2 = e; }
+    v[iz * nx + ix] = 1 - smoothstep(G.near, R, Math.sqrt(d2));
+  }
+  terSnowGrids.push({ x0, z0, cell: G.cell, nx, nz, v, id: T.def.id });
 }
 
 // ---- (v179) a venue drawn only where it can be seen ------------------------------------------
