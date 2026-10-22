@@ -57,6 +57,7 @@ entry below.
 | v176 | he picks the sky card, says the road is "in the sky" or "up high" on the climb, steers for the sky jump, and asks for the sky race again; he does not say he is scared of falling off or that the blue road is the sea |  open |
 | v178 | nothing he would mention: in the Corvette's seat with the booster held he looks at the road ahead, not up at the mirror; asked where the flames are, he can still point to them in the mirror |  open |
 | v179 | nothing he notices: every track, the runway and the cities look as before; on the iPad nothing he would call slow or jerky beside a race track or in a race |  open |
+| v180 | nothing he would mention: on Snowy Peaks he calls the mountain with the tunnel "the snowy mountain", not a rock, and says nothing about grass or green on the snow |  open |
 
 ## Entries
 

@@ -42,6 +42,9 @@
 //   q. (v175) THE SPLASH: the deck down at the water over real water (the one definition), never
 //      under the ground or the water; the spray -- his and the cars round him -- never between the
 //      chase camera and his car, or his seat and the road 30 m ahead;
+//   s. (v180) SNOW READS AS SNOW: the ground round a snow venue never green-blotched, the tunnel's mountain
+//      snow in the shade from the side turned from the sun, the snowbanks closed where they change shape and
+//      sloping, never stepping, down to the lake's low bank;
 //   r. (v176) THE SKY ROAD: up as high as its numbers say and never under the ground; where it is
 //      up, a pylon from the ground to its girder every pylonStep, the girder solid across the deck and
 //      the barriers beside it -- a plane and a helicopter flown at it crash, free; its glow on the
@@ -483,6 +486,94 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
     }, id);
     if (lake) check(`race ${id}: the frozen lake -- its crossing's middle ${lake.off} m from the bed's, the deck over it level at ${lake.deck.join("-")} m (the bed's ${lake.want - 0.25} + its lift), the bed level at ${lake.bed.join("-")} m and dry (${lake.wet} wet points) under all of the ice, the crossing ${lake.sf.join("/")}`,
       lake.off < 1 && lake.deck[1] - lake.deck[0] < 0.02 && Math.abs(lake.deck[0] - lake.want) < 0.02 && lake.bed[1] - lake.bed[0] < 0.01 && lake.wet === 0 && lake.sf.join() === "ice", J(lake));
+
+    // ---- s. (v180) SNOW READS AS SNOW, drawn as he sees it in normal play:
+    //   the ground off the track, round the venue, is white with grey mottle -- never green blotches
+    //   (the terrain alone drawn, looking down at it from 30 m, at points round the lap where it is all snow);
+    //   the mountain over the tunnel from the side turned FROM the sun is snow in the shade, not a grey
+    //   dome (its pixels -- what changes when it is hidden -- at least `light` of the snow's own brightness
+    //   at the median, from a far and a near camera);
+    //   and the snowbanks are closed: no hole through one where it changes shape (in from a kerb), which
+    //   showed the undersides lit by the ground's green fill, and no step in one (down to the lake's low bank)
+    const snowLook = await page.evaluate((id) => {
+      const L = window.__lp, T3 = THREE, V = L.race.venues[id], T = V.track, S = L.state;
+      if (!T.def.banks) return null;
+      const out = {}, gl = L.renderer.getContext(), lumOf = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const was = { x: S.x, y: S.y, z: S.z, noRender: L.noRender };   // (put back below: one page, state carries)
+      L.raceReset && L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); L.api.setView(true);
+      const grab = (cam) => { L.noRender = false; L.renderer.render(L.scene, cam); const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, a = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, a); L.noRender = true; return { a, w, h }; };
+      const cam = new T3.PerspectiveCamera(50, 820 / 1180, 0.5, 4000);
+      const isTer = o => o.isMesh && o.geometry && o.geometry.attributes.artLayerA;
+      // -- the ground: terrain alone, looking down
+      const B = L.RC.banks, Wd = L.RC.width / 2 + L.RC.kerbW, off = Wd + B.w + B.skirt + 25, snowAt = L.TUNE.snowFull || 66;   // (66: the snow line before v180 named it)
+      const pts = [];
+      for (let k = 0; k < 24 && pts.length < 8; k++) {
+        const q = T.S[Math.floor(T.n * k / 24)];
+        for (const sd of [-1, 1]) { const x = q.x + q.lx * sd * off, z = q.z + q.lz * sd * off; if (L.terrainEff(x, z) > snowAt + 2) pts.push([x, z]); }
+      }
+      const shown = new Map(); L.scene.children.forEach(o => shown.set(o, o.visible));
+      let green = 0, px = 0; const gl0 = [];
+      for (const [x, z] of pts) {
+        S.x = x; S.z = z; S.y = L.terrainEff(x, z) + 2; L.updateScenery(x, z, true);
+        L.scene.children.forEach(o => { o.visible = isTer(o) || o.isLight; });
+        const gy = L.terrainEff(x, z); cam.position.set(x - 8, gy + 30, z - 8); cam.lookAt(x, gy, z); cam.updateMatrixWorld();
+        const g = grab(cam);
+        L.scene.children.forEach(o => { o.visible = shown.has(o) ? shown.get(o) : o.visible; });
+        for (let i = 0; i < g.a.length; i += 16) { const r = g.a[i], gg = g.a[i + 1], b = g.a[i + 2]; px++; if (gg - Math.max(r, b) > 6) green++; gl0.push(lumOf(r, gg, b)); }
+      }
+      gl0.sort((a, b) => a - b);
+      out.ground = { pts: pts.length, greenPct: +(100 * green / Math.max(1, px)).toFixed(2), lum: Math.round(gl0[Math.floor(gl0.length / 2)] || 0) };
+      // -- the mountain, from the side turned from the sun
+      let mtn = []; V.venue.traverse(o => { if (o.isMesh && o.material.vertexColors && o.material.type === "MeshPhongMaterial") mtn.push(o); });
+      out.mountain = null;
+      if (mtn.length) {
+        const box = new T3.Box3(); mtn.forEach(m => box.expandByObject(m)); const c = box.getCenter(new T3.Vector3());
+        const sd = L.sunDir.clone(); sd.y = 0; sd.normalize();
+        out.mountain = [];
+        for (const [dist, up] of [[260, 90], [150, 35]]) {
+          const x = c.x - sd.x * dist, z = c.z - sd.z * dist;
+          S.x = x; S.z = z; S.y = L.terrainEff(x, z) + 2; L.updateScenery(x, z, true); L.update(1 / 60);
+          cam.position.set(x, Math.max(L.terrainEff(x, z), c.y - 20) + up, z); cam.lookAt(c.x, c.y, c.z); cam.updateMatrixWorld();
+          const a = grab(cam); mtn.forEach(m => m.visible = false); const b = grab(cam); mtn.forEach(m => m.visible = true);
+          const lum = [];
+          for (let i = 0; i < a.a.length; i += 4) if (Math.abs(a.a[i] - b.a[i]) + Math.abs(a.a[i + 1] - b.a[i + 1]) + Math.abs(a.a[i + 2] - b.a[i + 2]) > 30) lum.push(lumOf(a.a[i], a.a[i + 1], a.a[i + 2]));
+          lum.sort((p, q) => p - q);
+          out.mountain.push({ dist, n: lum.length, med: Math.round(lum[Math.floor(lum.length / 2)] || 0), p25: Math.round(lum[Math.floor(lum.length / 4)] || 0) });
+        }
+      }
+      // -- the banks closed: every edge across the track (one end's profile to the other's) in two faces
+      const banks = []; let mat = null, most = 0; const per = new Map();
+      V.venue.traverse(o => { if (o.isMesh && o.name === "rcBanks") banks.push(o); });
+      if (!banks.length) {          // (before v180 the bank had no name: the snow-coloured lambert with the most triangles)
+        V.venue.traverse(o => { if (o.isMesh && o.material.type === "MeshLambertMaterial" && o.material.color.getHex() === L.RC.surfaces.snow.col) per.set(o.material, (per.get(o.material) || 0) + o.geometry.attributes.position.count); });
+        for (const [m, c] of per) if (c > most) { most = c; mat = m; }
+        V.venue.traverse(o => { if (o.isMesh && o.material === mat) banks.push(o); });
+      }
+      const key = (x, y, z) => Math.round(x * 50) + "," + Math.round(y * 50) + "," + Math.round(z * 50), edges = new Map(), P = [];
+      for (const m of banks) { const pa = m.geometry.attributes.position; m.updateMatrixWorld(true); const v = new T3.Vector3();
+        for (let t = 0; t < pa.count; t += 3) { const ks = [], ps = []; for (let j = 0; j < 3; j++) { v.fromBufferAttribute(pa, t + j).applyMatrix4(m.matrixWorld); ks.push(key(v.x, v.y, v.z)); ps.push(v.clone()); }
+          for (let j = 0; j < 3; j++) { const k0 = ks[j], k1 = ks[(j + 1) % 3]; if (k0 === k1) continue; const e = k0 < k1 ? k0 + "|" + k1 : k1 + "|" + k0; const r = edges.get(e); if (r) r.n++; else edges.set(e, { n: 1, a: ps[j], b: ps[(j + 1) % 3] }); } } }
+      const near = (x, z) => { let best = null, bd = Infinity; for (const q of T.S) { const d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < bd) { bd = d; best = q; } } return best; };
+      let across = 0; const where = [];
+      for (const e of edges.values()) { if (e.n !== 1) continue;
+        const dx = e.b.x - e.a.x, dz = e.b.z - e.a.z, l = Math.hypot(dx, dz); if (l < 0.05) continue;
+        const q = near((e.a.x + e.b.x) / 2, (e.a.z + e.b.z) / 2);
+        // (an edge lying ON the deck -- where a kerb's edge and the deck's own meet -- is the bank's foot, not a hole)
+        const onDeck = p => { const lat = (p.x - q.x) * q.lx + (p.z - q.z) * q.lz; return Math.abs(p.y - (q.gy + q.ly * lat)) < 0.12; };
+        if (onDeck(e.a) && onDeck(e.b)) continue;
+        if (Math.abs((dx * q.tx + dz * q.tz) / l) < 0.3) { across++; if (where.length < 6) where.push(Math.round(q.s)); } }
+      // (and its crest never steps: a step's face is turned from the sun somewhere -- the dark wedge at the lake)
+      const bankH = window.rcBankH ? (q => window.rcBankH(T, q)) : (q => T.def.sections[q.sec].lake ? L.RC.banks.lakeH : L.RC.banks.h);
+      let step = 0; for (let i = 0; i < T.n; i++) step = Math.max(step, Math.abs(bankH(T.S[(i + 1) % T.n]) - bankH(T.S[i])));
+      out.banks = { meshes: banks.length, edges: edges.size, open: across, at: [...new Set(where)], step: +step.toFixed(2) };
+      out.tunnel = T.def.sections.some(sc => sc.tunnel);
+      S.x = was.x; S.y = was.y; S.z = was.z; L.updateScenery(S.x, S.z, true); L.update(1 / 60);
+      L.noRender = was.noRender;
+      return out;
+    }, id);
+    if (snowLook) check(`race ${id}: snow reads as snow -- the ground round it ${snowLook.ground.greenPct}% green pixels at ${snowLook.ground.pts} points (none, it was blotches of grass); the mountain from the side turned from the sun ${snowLook.mountain ? snowLook.mountain.map(m => `median ${m.med}, a quarter under ${m.p25} at ${m.dist} m`).join("; ") : "none"} against the snow's ${snowLook.ground.lum}; the snowbanks closed (${snowLook.banks.open} open edges across the track${snowLook.banks.at.length ? " at " + snowLook.banks.at.join(", ") + " m" : ""}) and their crest never stepping (largest ${snowLook.banks.step} m from one sample to the next)`,
+      snowLook.ground.pts >= 4 && snowLook.ground.greenPct < 0.2 && snowLook.banks.meshes > 0 && snowLook.banks.open === 0 && snowLook.banks.step < 0.25 &&
+      (!snowLook.tunnel || snowLook.mountain && snowLook.mountain.every(m => m.n > 2000 && m.med >= 0.75 * snowLook.ground.lum && m.p25 >= 0.62 * snowLook.ground.lum)), J(snowLook));
 
     // ---- q. (v175) THE SPLASH: each splash section's deck is down at the water -- over real
     // water (terrainEff under seaLevelAt, the one definition) for most of it, at the sea plus

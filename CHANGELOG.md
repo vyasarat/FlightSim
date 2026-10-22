@@ -10,6 +10,36 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v180 — Snowy Peaks looks like snow
+
+The three things the render-critic saw on Snowy Peaks in v174, all about how it looks; nothing
+he does changed, and the track is where it was (the race pins and the win rates are untouched).
+
+- **Green blotches on the snow.** Off the track the snow carried the grass-and-scrub detail tile,
+  and a tile is multiplied onto its colour: on white, its green showed as blotches of grass all
+  over the mountains. Snow now takes the same soft grey mottle as the valley's snow (from where
+  the snow is half laid on, `TUNE.snowFrom`/`snowFull`, the numbers the colour already used).
+  This is every mountain's snow in the world, not only round the track: the same tile was on
+  all of it.
+- **The tunnel's mountain was a grey dome from its shaded side**, which is the side the motorway
+  sees. Each of its faces is now lit as if it leaned back toward the sky (`TUNE.race.tunnel.snowUp`):
+  still faceted, but a slope turned from the sun reads as snow in the shade. Its rock faces and the
+  cliff over each portal keep their own light, so the dark mouth still stands out.
+- **Dark-green wedges where the lake's ice road meets the shore.** The snowbank stepped down from
+  1.6 m to the lake's 0.5 m in one sample, and the step left a hole through the bank; down it were
+  the bank's undersides, lit by the ground's green fill. The bank now slopes down to the lake's
+  over 12 m inside the lake's section (`TUNE.race.banks.lakeRamp`), its solid taking the lower end
+  of each piece, so nothing solid stands where nothing is drawn. The same kind of hole, smaller,
+  where the bank comes in from the start straight's kerbs, is closed with a face.
+
+New check (race_track_checks s), which fails on v179 on all three and passes here, drawing the
+game as he sees it:
+- the snow round the track is green on 0.06% of its pixels (22% before), at nine points;
+- the mountain from the side turned from the sun is 213 at the median against the snow's 252 (138
+  before);
+- the snowbanks have no open edge across the track (24 before) and their crest never steps
+  (largest 0.07 m from one sample to the next, 1.1 m before).
+
 ## v179 — the race venues drawn only where they can be seen
 
 Nothing he does changed; a frame got cheaper. Found in v177: every race venue (five tracks of
