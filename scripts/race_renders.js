@@ -201,7 +201,7 @@ async function render(root, views) {
       if (v === "podiumWin" || v === "podiumLose") {
         const win = v === "podiumWin";
         for (const r of R.racers) if (!r.isHim) r.skill = win ? 0.8 : 1.2;
-        for (let i = 0; i < 60 * 400 && R.phase !== "podium"; i++) go(1, 0, 0);
+        for (let i = 0; i < 60 * 900 && R.phase !== "podium"; i++) go(1, 0, 0);   // (v181: a three-lap race on a v173 track runs past 400 s)
         for (let i = 0; i < 60 * (win ? 4.2 : 5.5); i++) { S.touching = false; L.update(1 / 60); }
         // he did not win: on until his car has stopped for its cheer
         for (let i = 0; i < 60 * 15 && !win && !R.podium.onStep && R.him.v > 0.1; i++) { S.touching = false; L.update(1 / 60); }

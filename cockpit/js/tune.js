@@ -2591,7 +2591,7 @@ const TUNE = {
     // his own car). `speed` scales what every racer aims
     // for on it, `grip` how quickly it answers a steer.
     // (v181) a surface's `spray` is a palette colour that reads ON it (`sprayA` its strength): sand throws a pale
-    // haze, dirt throws sand, snow throws steel -- the race's puffs are unlit, so the ground's own colour vanished into it
+    // haze, dirt throws sand, snow throws steel at 0.45, a pale blue-white over it (full steel read as dirt, white vanished) -- the race's puffs are unlit, so the ground's own colour vanished into it
     surfaces: {
       asphalt: { speed: 1, grip: 1, kerbs: true },
       dirt: { speed: 0.9, grip: 0.9, col: 0xb5522e, art: "scrub", spray: 0xd9c27e, every: 0.07, size: 0.35, rise: 1.0, life: 0.4, ruts: true, tone: ["raceDirt", "sawtooth", 55, 0.010] },
@@ -2602,7 +2602,7 @@ const TUNE = {
       // to `slideMax` m (`slide` s^2 times how hard the bend pulls, v^2 times its curvature),
       // eased in and back out at `slideRate`, so hands-off he comes back to his line after
       // it: lane-keep holds. The same for every racer.
-      snow: { speed: 0.9, grip: 0.8, slide: 0.16, slideMax: 2.5, slideRate: 1.2, col: 0xf2f4f7, art: "asphalt", spray: 0xc9ced6, sprayA: 1, every: 0.08, size: 0.28, rise: 0.9, life: 0.4, ruts: true, rutCol: 0x8a93a0, edgeLine: 0x2b4fb0, tone: ["raceSnow", "square", 46, 0.008] },
+      snow: { speed: 0.9, grip: 0.8, slide: 0.16, slideMax: 2.5, slideRate: 1.2, col: 0xf2f4f7, art: "asphalt", spray: 0xc9ced6, sprayA: 0.45, every: 0.08, size: 0.28, rise: 0.9, life: 0.4, ruts: true, rutCol: 0x8a93a0, edgeLine: 0x2b4fb0, tone: ["raceSnow", "square", 46, 0.008] },
       // (ice grey, a shade darker than the snow round it, and both with a blue edge line: the hairpin reads from his seat)
       ice: { speed: 0.86, grip: 0.7, slide: 0.24, slideMax: 3.5, slideRate: 1.0, col: 0x8a93a0, shine: 30, edgeLine: 0x2b4fb0, spray: 0xf2f4f7, every: 0.12, size: 0.22, rise: 0.6, life: 0.3, tone: ["raceIce", "triangle", 620, 0.004] },
       // (v175) the lagoon's shallows: the deck at the water's surface (RC.splash), sand under

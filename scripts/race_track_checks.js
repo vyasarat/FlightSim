@@ -939,8 +939,8 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
   // ---- t. (v181) THE SPRAY READS AS SPRAY, on every track with a surface that throws it: him down
   // the middle of each such section at racing speed, the chase camera and his seat, each settled, the frame drawn with the
   // race's spray and without it. What changes is the spray: it must be there (it showed nothing on sand
-  // once the puffs went unlit in the sand's own colour), small (a puff is never taller than maxPx of
-  // the screen; all of it under 3% of the screen and under a fifth of his car's box), soft (from the
+  // once the puffs went unlit in the sand's own colour), small (all of it under 3% of the screen and under a
+  // fifth of his car's box; the shader draws no puff taller than maxPx of the screen, reported, not judged), soft (from the
   // race's own pool of points -- the world's pool is lit, faceted spheres, which read as boulders
   // rolling after him: none of those born in a race), and over the splash white: its body (the quarter of
   // its pixels it changes most) bright and colourless.
@@ -955,7 +955,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       const gl = L.renderer.getContext(), lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
       const grab = () => { L.renderer.render(L.scene, L.camera); const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight, a = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, a); return { a, w, h }; };
       const world0 = L.wakePuffList.map(p => p.life);
-      let worldBorn = 0;
+      let worldBorn = 0; const worldAt = [];
       for (const { sf, k } of kinds) for (const chase of [true, false]) {
         L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens();
         for (let i = 0; i < 10; i++) L.update(1 / 60);
@@ -969,7 +969,9 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         for (let i = 0; i < 90; i++) {
           const l0 = L.wakePuffList.map(p => p.life);
           S.touching = true; S.ctrlBank = 0; L.update(1 / 60);
-          worldBorn += L.wakePuffList.filter((p, j) => p.life > l0[j] + 1e-6).length;
+          // (one of the world's puffs born at a racer -- within 30 m of one -- is the race's; the world's own
+          // events keep their own clocks and throw theirs far off: the harbour's, 4.7 km from the dunes)
+          L.wakePuffList.forEach((p, j) => { if (p.life > l0[j] + 1e-6 && R.racers.some(r => Math.hypot(r.mesh.position.x - p.mesh.position.x, r.mesh.position.z - p.mesh.position.z) < 30)) { worldBorn++; if (worldAt.length < 6) worldAt.push([Math.round(p.mesh.position.x), Math.round(p.mesh.position.y), Math.round(p.mesh.position.z)]); } });
         }
         const here = L.rcAt(him.s).sf;
         // (the spray: the race's own pool if there is one, else the world's -- so the check reads on v180 too)
@@ -995,7 +997,8 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         // (its colour is the spray's BODY: the quarter of its pixels it changes most -- its fading edges are mostly the ground under them)
         PX.sort((a, b) => b[0] - a[0]); const core = PX.slice(0, Math.max(1, Math.ceil(PX.length / 4)));
         const L0 = core.map(p => p[1]).sort((a, b) => a - b), SAT = core.map(p => p[2]).sort((a, b) => a - b);
-        // the tallest puff as drawn: its size over its depth, the shader's clamp
+        // the tallest puff as drawn: its size over its depth, under the shader's clamp -- reported, not judged (the
+        // clamp makes it maxPx by construction); what the check holds is what the pixels say, above
         let tallest = 0;
         if (P) { const v = new T3.Vector3(), U = P.mat.uniforms;
           for (let j = 0; j < P.n; j++) if (P.life[j] > 0 && P.size[j] > 0) { v.set(P.pos[j * 3], P.pos[j * 3 + 1], P.pos[j * 3 + 2]).applyMatrix4(L.camera.matrixWorldInverse); const d = Math.max(0.5, -v.z); if (-v.z > 0) tallest = Math.max(tallest, Math.min(U.uMax.value, P.size[j] * U.uScale.value / d) / H); } }
@@ -1007,14 +1010,14 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         if (P) out.leftAfter = (out.leftAfter || 0) + (P.pts.visible ? 1 : 0) + Array.from(P.life).filter(x => x > 0).length;
       }
       L.noRender = false; L.api.setView(true);
-      out.worldBorn = worldBorn; out.maxPx = RC.spray.maxPx;
+      out.worldBorn = worldBorn; out.worldAt = worldAt; out.maxPx = RC.spray.maxPx;
       return out;
     }, id);
     if (!t) continue;
     // (on the surface it says, both views: the chase view's spray shows and stays small; the seat's -- his own
     // behind him, the cars' ahead -- stays small, and none of it on his car; the splash's body white in the chase view)
-    const ok = t.worldBorn === 0 && !t.leftAfter && Object.values(t.surf).every(v => v.pool && v.here === v.sf && v.changedPct <= 3 && v.carPct <= 20 && v.tallest <= t.maxPx + 0.002 && (!v.chase || v.changedPct >= 0.05)) &&
+    const ok = t.worldBorn === 0 && !t.leftAfter && Object.values(t.surf).every(v => v.pool && v.here === v.sf && v.changedPct <= 3 && v.carPct <= 20 && (!v.chase || v.changedPct >= 0.05)) &&
       (!t.surf.splash || (t.surf.splash.lum >= 200 && t.surf.splash.sat <= 0.2));
-    check(`race ${id}: the spray reads as spray -- soft puffs from the race's own pool (${t.worldBorn} of the world's lit spheres born in it, ${t.leftAfter || 0} left after it); ${Object.entries(t.surf).map(([k, v]) => `${k}${v.here === v.sf ? "" : " (ON " + v.here + ")"}: ${v.changedPct}% of the screen, ${v.carPct}% of his car, the tallest puff ${Math.round(v.tallest * 100)}% of the screen high` + (k === "splash" ? `, brightness ${v.lum} and colour ${v.sat} (white)` : "")).join("; ")}`, ok, J(t));
+    check(`race ${id}: the spray reads as spray -- soft puffs from the race's own pool (${t.worldBorn} of the world's lit spheres born at a racer, ${t.leftAfter || 0} left after it); ${Object.entries(t.surf).map(([k, v]) => `${k}${v.here === v.sf ? "" : " (ON " + v.here + ")"}: ${v.changedPct}% of the screen, ${v.carPct}% of his car, the tallest puff drawn ${Math.round(v.tallest * 100)}% of the screen high` + (k === "splash" ? `, brightness ${v.lum} and colour ${v.sat} (white)` : "")).join("; ")}`, ok, J(t));
   }
 };
