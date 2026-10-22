@@ -10,6 +10,20 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v186 — the firework's bang and its sparks are one number
+
+A law-reviewer note from v184. When he wins, each firework over the podium whistles up and
+opens `TUNE.race.podium.fw.pop` (0.95 s) later; its bang, in audio.js, was written in as its
+own 0.95 s. They agreed by luck: retune one and he would hear the bang before or after the sky
+lit. Now the race hands the sound its pop (`fireworkSound(when, pop)`), so there is one number.
+Nothing he sees or hears changes at today's value; the world's own shows (the airport arrival,
+the splashdown barrage, the rocket's) keep the 0.95 they always had.
+
+New check, race_track_checks v: he wins on the oval and every burst's bang, as the sound
+schedules it, is set against the frame its sparks are born -- at TUNE's pop and at a pop
+retuned 0.45 s later. On v185 the retuned run is 0.47 s out (the bang stays at 0.95 s, the
+sky opens at 1.42); here both agree to a frame (14 bursts each).
+
 ## v185 — Snowy Peaks: the snow eases into the grass
 
 A render-critic note from v183: where the snow round Snowy Peaks (150-300 m from the track's

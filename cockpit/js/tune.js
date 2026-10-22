@@ -2690,7 +2690,7 @@ const TUNE = {
               // podium and his car, wholly above the podium's top (the buttons that come up later are all under it), and
               // `minUp` m up -- `tries` places, and none clear is no burst and no sound. The first is chosen `first` s in,
               // once the camera has swung round on to the podium; its whistle goes up then and it opens `pop` s later,
-              // with the bang (audio.js fireworkSound). A spark: the glow texture's alpha times `gain`, white at its
+              // with the bang (audio.js fireworkSound is handed this number: v186). A spark: the glow texture's alpha times `gain`, white at its
               // core (the texture over `coreFrom`) by up to `core`
               fw: { n: 60, speed: 11, speedRnd: 0.3, drag: 1.3, grav: 4, life: 1.5, lifeRnd: 0.5, size: 3.6, maxPx: 0.035, pool: 640,
                     x: [0.12, 0.62], y: [0.3, 0.85], droop: 8, pad: 10, minUp: 25, tries: 40, first: 1.2, pop: 0.95,
