@@ -58,6 +58,7 @@ entry below.
 | v178 | nothing he would mention: in the Corvette's seat with the booster held he looks at the road ahead, not up at the mirror; asked where the flames are, he can still point to them in the mirror |  open |
 | v179 | nothing he notices: every track, the runway and the cities look as before; on the iPad nothing he would call slow or jerky beside a race track or in a race |  open |
 | v180 | nothing he would mention: on Snowy Peaks he calls the mountain with the tunnel "the snowy mountain", not a rock, and says nothing about grass or green on the snow |  open |
+| v181 | nothing he can see or feel changes: the monster truck and the car drive, bang and shove exactly as before; on the iPad the monster truck in the cities is no choppier than the car |  open |
 
 ## Entries
 

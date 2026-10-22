@@ -1,0 +1,121 @@
+diff --git a/cockpit/js/solids.js b/cockpit/js/solids.js
+index d8bfd89..1d39cae 100644
+--- a/cockpit/js/solids.js
++++ b/cockpit/js/solids.js
+@@ -265,18 +265,31 @@ function solidTest(b, x, y, z, r, flat) {
+ // THE question. The first solid (in registry order, as resolveSolidWalls always
+ // took) that this class of vehicle cannot pass, or null. The result is a fresh
+ // object, safe to keep.
+-function solidQuery(x, y, z, r, cls, baseY, skip, flat) {
+-  let hit = null;
+-  forEachSolid(b => {
+-    if (hit) return;
+-    if (!solidBlocks(b, cls)) return;
+-    if (isSolidHidden(b)) return;
+-    if (skip && skip(b)) return;
+-    if (baseY !== undefined && baseY >= b.y1 - 1) return;
++// (v181) Each record is asked the cheap thing first: is the sphere inside its
++// box at all? That throws out all but a handful of the ~8,000, and every other
++// filter (who it blocks, hidden, skip, baseY) is a pure function of the record,
++// so the order they are asked in cannot change which record is first. Asked the
++// other way round, the walk was most of a vehicle's simulated frame
++// (solids_walk_checks proves the answers are v180's, bit for bit).
++function solidQueryIn(A, x, y, z, r, cls, baseY, skip, flat) {
++  for (let i = 0; i < A.length; i++) {
++    const b = A[i], rr = b.pad ? Math.max(0.3, r + b.pad) : r, ex = b.hw + rr, ez = b.hd + rr;
++    if (!(x > b.x - ex && x < b.x + ex && z > b.z - ez && z < b.z + ez)) continue;
++    if (!(y > b.y0 - rr && y < b.y1 + rr)) continue;
++    if (!solidBlocks(b, cls) || isSolidHidden(b) || (skip && skip(b))) continue;
++    if (baseY !== undefined && baseY >= b.y1 - 1) continue;
+     const t = solidTest(b, x, y, z, r, flat);
+-    if (t) hit = { b, kind: solidKind(b), d: t.d, nx: t.nx, ny: t.ny, nz: t.nz };
+-  });
+-  return hit;
++    if (t) return { b, kind: solidKind(b), d: t.d, nx: t.nx, ny: t.ny, nz: t.nz };
++  }
++  return null;
++}
++function solidQuery(x, y, z, r, cls, baseY, skip, flat) {
++  let h = solidQueryIn(buildingBoxes, x, y, z, r, cls, baseY, skip, flat) ||
++          solidQueryIn(staticSolids, x, y, z, r, cls, baseY, skip, flat);
++  if (h) return h;
++  for (const arr of streamedSolids.values()) if ((h = solidQueryIn(arr, x, y, z, r, cls, baseY, skip, flat))) return h;
++  return solidQueryIn(trainSolids, x, y, z, r, cls, baseY, skip, flat) ||
++         solidQueryIn(surfSolids, x, y, z, r, cls, baseY, skip, flat);
+ }
+ 
+ // Every hit, counted per vehicle and per kind, for the matrix check and for
+@@ -290,23 +303,21 @@ function solidCount(veh, kind, what) {
+ // The same question for a HULL: a vertical column of radius r from yLo to yHi,
+ // pushed out sideways only. A boat is not a ball -- a sphere of the yacht's 17 m
+ // would snag a deck high over her -- and nothing ever shoves a hull up or down.
+-function solidCol(x, z, yLo, yHi, r, cls, skip) {
+-  let hit = null;
+-  forEachSolid(b => {
+-    if (hit) return;
+-    if (!solidBlocks(b, cls)) return;
+-    if (isSolidHidden(b)) return;
+-    if (skip && skip(b)) return;
+-    if (b.y1 < yLo || b.y0 > yHi) return;
++// (v181) Box first, as solidQuery.
++function solidColIn(A, x, z, yLo, yHi, r, cls, skip) {
++  for (let i = 0; i < A.length; i++) {
++    const b = A[i];
++    if (b.y1 < yLo || b.y0 > yHi) continue;
+     const rr = b.pad ? Math.max(0.3, r + b.pad) : r;
+     const ex = b.hw + rr, ez = b.hd + rr;
+-    if (!(x > b.x - ex && x < b.x + ex && z > b.z - ez && z < b.z + ez)) return;
++    if (!(x > b.x - ex && x < b.x + ex && z > b.z - ez && z < b.z + ez)) continue;
++    if (!solidBlocks(b, cls) || isSolidHidden(b) || (skip && skip(b))) continue;
+     let t = null;
+     if (b.o3 || b.cap || b.ramp) {
+       // sample the exact shape up the column
+       const n = Math.max(1, Math.ceil((yHi - yLo) / Math.max(1, rr)));
+-      for (let i = 0; i <= n && !t; i++) {
+-        const y = yLo + (yHi - yLo) * i / n;
++      for (let j = 0; j <= n && !t; j++) {
++        const y = yLo + (yHi - yLo) * j / n;
+         const q = b.o3 ? solidTestBox3(b.o3, x, y, z, rr) : b.cap ? solidTestCap(b.cap, x, y, z, rr) : solidTestRamp(b.ramp, x, y, z, rr);
+         if (q) { const h = Math.hypot(q.nx, q.nz) || 1; t = { d: q.d, nx: q.nx / h, nz: q.nz / h }; }
+       }
+@@ -317,9 +328,17 @@ function solidCol(x, z, yLo, yHi, r, cls, skip) {
+       if ((q = z - (b.z - ez)) < d) { d = q; nx = 0; nz = -1; }
+       t = { d, nx, nz };
+     }
+-    if (t) hit = { b, kind: solidKind(b), d: t.d, nx: t.nx, ny: 0, nz: t.nz };
+-  });
+-  return hit;
++    if (t) return { b, kind: solidKind(b), d: t.d, nx: t.nx, ny: 0, nz: t.nz };
++  }
++  return null;
++}
++function solidCol(x, z, yLo, yHi, r, cls, skip) {
++  let h = solidColIn(buildingBoxes, x, z, yLo, yHi, r, cls, skip) ||
++          solidColIn(staticSolids, x, z, yLo, yHi, r, cls, skip);
++  if (h) return h;
++  for (const arr of streamedSolids.values()) if ((h = solidColIn(arr, x, z, yLo, yHi, r, cls, skip))) return h;
++  return solidColIn(trainSolids, x, z, yLo, yHi, r, cls, skip) ||
++         solidColIn(surfSolids, x, z, yLo, yHi, r, cls, skip);
+ }
+ 
+ // THE SIGHT LINE (v163): how far a sphere of radius r gets along the line from
+diff --git a/cockpit/sw.js b/cockpit/sw.js
+index baeb93b..8bb63c0 100644
+--- a/cockpit/sw.js
++++ b/cockpit/sw.js
+@@ -1,4 +1,4 @@
+-const CACHE_NAME = "little-pilot-cockpit-v180";
++const CACHE_NAME = "little-pilot-cockpit-v181";
+ const ASSETS = [
+   "./",
+   "./index.html",
+diff --git a/sw.js b/sw.js
+index 727a0a1..92bd29b 100644
+--- a/sw.js
++++ b/sw.js
+@@ -1,4 +1,4 @@
+-const CACHE_NAME = "little-pilot-v67";
++const CACHE_NAME = "little-pilot-v68";
+ const ASSETS = [
+   "./",
+   "./index.html",

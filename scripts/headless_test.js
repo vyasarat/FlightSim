@@ -5642,6 +5642,7 @@ const harnessMain = async () => {
     ["./slot_checks", { newPage, check, shots: SHOTS, viewports: [[1180,820],[1024,768],[844,390],[820,1180],[768,1024],[390,844]] }],
     ["./road_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[768,1024]] }],
     ["./solidity_checks", { newPage, check }],
+    ["./solids_walk_checks", { newPage, check }],  // v181: the registry walk asks the box first, and answers as v180 did
     ["./track_checks", { newPage, check }],
     ["./launchsite_checks", { newPage, check }],
     ["./rocketsled_checks", { newPage, check }],

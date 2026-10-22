@@ -10,6 +10,51 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v181 — the solids walk asks the box first
+
+Nothing he sees or feels changes. Every bang and every shove in the game asks the one solids
+registry the same question -- the first solid, in registry order, this vehicle cannot pass --
+and the registry now answers it in half the time.
+
+**Measured first** (on this Mac, not an iPad: there is no iPad to measure on; the simulated
+frame, rendering apart, alternating main and v181, two runs each):
+
+| scene | main: frame / solids walk | v181 |
+|---|---|---|
+| car in New York | 1.13 ms, 62% of it | 0.85 ms, 45% |
+| car in California | 1.10 ms, 65% | 0.74 ms, 51% |
+| monster truck in New York | 7.7-8.4 ms, 88-89% | 3.1 ms, 71% |
+| monster truck in California | 7.9-8.2 ms, 89% | 3.2 ms, 73% |
+| plane over New York | 1.41 ms, 33% | 1.18 ms, 18-20% |
+| racing (any track) | 0.33-0.46 ms, 43-54% | unchanged |
+
+The walk was most of a simulated frame: about 8,000 records, and each was asked who it blocks
+and whether it is hidden (its mesh, the mesh's parent, its userData) BEFORE the two-line box
+test that throws out all but a handful. The monster truck asks twelve times a frame.
+
+**The change** (`solids.js`, `solidQuery` and `solidCol`): the box test first, and the walk
+stops at the first hit. Every filter on a record is a pure function of it, so the order they
+are asked in cannot change which record is first. No index, no cache: nothing can go stale.
+
+**New check, `solids_walk_checks`** (in the harness, and in the gate for `solids.js` and
+`collision.js`):
+- a. v180's walk, written out in the check, and the game's answer 221,590 questions -- every
+  vehicle's radius, every class, with and without `baseY`, `flat`, and the game's own skip
+  predicates -- at the faces (at the radius, plus or minus a hair), tops, bottoms and insides
+  of the registry's records, in both cities, beside every race venue, at the harbour, in the
+  bore, on the runway, over every record in the world, on Mars and after a toy ball has moved.
+  0 differ (same record, kind, depth and normal, to the bit); 99,502 of them were hits, on
+  every shape and every list the world holds.
+- b. a question asks `isSolidHidden` only of the records whose box it is inside: 0.07 a question
+  with the monster truck in New York, against 7,656 on v180.
+
+**What is left, queued:** a call still walks all 8,000 records (about 190 µs: the records come
+in many shapes, so every property load is slow), and the race camera's `solidSight` is the same
+walk. A grid would make it nearly free, but records move in place without telling the registry
+-- the harbour ferry, the launch site's, rocket sled's and monster track's capsules, the parked
+cars, Mars's toy balls -- so an index first needs every mover to report, and a harness audit
+that proves there is no other. That is in QUEUE.md with its design.
+
 ## v180 — Snowy Peaks looks like snow
 
 The three things the render-critic saw on Snowy Peaks in v174, all about how it looks; nothing
