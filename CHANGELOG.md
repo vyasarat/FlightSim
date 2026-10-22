@@ -10,6 +10,39 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v181 — the race spray reads as dust and water, not rocks
+
+The render-critic's note from v175: what a car's wheels throw up in a race -- off sand, dirt,
+snow and the splash -- was drawn with the world's shared puffs, which are lit, faceted spheres.
+Behind his car in the chase view they read as boulders rolling after him, and over the splash
+as pale blue lumps, never as water. Nothing he does changed; how the cars drive, the tracks and
+the race pins are untouched.
+
+- **The race throws its own puffs now** (race.js `rcPuff`): soft round billows, one cloud of points
+  on one small texture, drawn in one call. They are unlit, in the surface's own spray colour,
+  and dimmed at night with the sky.
+- **Each surface's spray is a palette colour that reads on it.** Unlit, the old colours vanished
+  into their own ground, so sand now throws grassHigh dust, dirt throws sand, snow throws steel,
+  and the splash throws white at nearly full strength (`sprayA`). Ice and the dune landings
+  keep theirs.
+- **Nothing he throws up stands in front of what he looks at.** A puff fades out between 2 and 7 m
+  from the camera and is never drawn taller than 7% of the screen (`TUNE.race.spray`: `fadeNear`,
+  `maxPx`). On v180 the tallest puff behind him on sand was 75% of the screen high.
+- The world's puffs (boats, the desert, the crane, the rover) are not touched.
+
+New check (race_track_checks t), on every track with a surface that throws spray, which fails
+on v180 on all three of them and passes here. It drives the longest section of each such surface
+at racing speed and draws the frame with the spray and without it:
+- none of the world's lit spheres is born in a race (66-85 a track on v180);
+- the spray shows on every surface (at least 0.05% of the screen) but covers under 3% of the
+  screen and under a fifth of his car;
+- no puff is drawn taller than 7% of the screen (v180: 64-75% on sand);
+- over the splash its body is white. That is the quarter of its pixels it changes most, and its
+  brightness and colour are measured there (v180: 156 bright, colour 0.59).
+
+Check q (the splash spray never between the camera and his car, or his seat and the road ahead)
+now reads the race's own puffs, counting a puff as hiding only where the camera fade leaves it.
+
 ## v180 — Snowy Peaks looks like snow
 
 The three things the render-critic saw on Snowy Peaks in v174, all about how it looks; nothing

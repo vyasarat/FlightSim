@@ -2590,23 +2590,25 @@ const TUNE = {
     // -- and has its own look, spray and sound (small, short puffs: never a cloud over
     // his own car). `speed` scales what every racer aims
     // for on it, `grip` how quickly it answers a steer.
+    // (v181) a surface's `spray` is a palette colour that reads ON it (`sprayA` its strength): sand throws a pale
+    // haze, dirt throws sand, snow throws steel -- the race's puffs are unlit, so the ground's own colour vanished into it
     surfaces: {
       asphalt: { speed: 1, grip: 1, kerbs: true },
-      dirt: { speed: 0.9, grip: 0.9, col: 0xb5522e, art: "scrub", spray: 0xb5522e, every: 0.07, size: 0.35, rise: 1.0, life: 0.4, ruts: true, tone: ["raceDirt", "sawtooth", 55, 0.010] },
-      sand: { speed: 0.86, grip: 0.85, col: 0xd9c27e, art: "sand", spray: 0xd9c27e, every: 0.06, size: 0.4, rise: 1.4, life: 0.5, tone: ["raceSand", "triangle", 38, 0.014] },
+      dirt: { speed: 0.9, grip: 0.9, col: 0xb5522e, art: "scrub", spray: 0xd9c27e, every: 0.07, size: 0.35, rise: 1.0, life: 0.4, ruts: true, tone: ["raceDirt", "sawtooth", 55, 0.010] },
+      sand: { speed: 0.86, grip: 0.85, col: 0xd9c27e, art: "sand", spray: 0xf2f4f7, sprayA: 0.6, every: 0.06, size: 0.4, rise: 1.4, life: 0.5, tone: ["raceSand", "triangle", 38, 0.014] },
       // deep dust, the shortcut's: shorter than the road round, and slower over it
       dust: { speed: 0.94, grip: 0.85, col: 0xa8a06b, art: "sand", spray: 0xa8a06b, every: 0.05, size: 0.42, rise: 1.6, life: 0.55, tone: ["raceDust", "triangle", 32, 0.016] },
       // (v174) packed snow and ice: a bit slippery -- on a bend every car swings wide by up
       // to `slideMax` m (`slide` s^2 times how hard the bend pulls, v^2 times its curvature),
       // eased in and back out at `slideRate`, so hands-off he comes back to his line after
       // it: lane-keep holds. The same for every racer.
-      snow: { speed: 0.9, grip: 0.8, slide: 0.16, slideMax: 2.5, slideRate: 1.2, col: 0xf2f4f7, art: "asphalt", spray: 0xf2f4f7, every: 0.08, size: 0.28, rise: 0.9, life: 0.4, ruts: true, rutCol: 0x8a93a0, edgeLine: 0x2b4fb0, tone: ["raceSnow", "square", 46, 0.008] },
+      snow: { speed: 0.9, grip: 0.8, slide: 0.16, slideMax: 2.5, slideRate: 1.2, col: 0xf2f4f7, art: "asphalt", spray: 0xc9ced6, sprayA: 1, every: 0.08, size: 0.28, rise: 0.9, life: 0.4, ruts: true, rutCol: 0x8a93a0, edgeLine: 0x2b4fb0, tone: ["raceSnow", "square", 46, 0.008] },
       // (ice grey, a shade darker than the snow round it, and both with a blue edge line: the hairpin reads from his seat)
       ice: { speed: 0.86, grip: 0.7, slide: 0.24, slideMax: 3.5, slideRate: 1.0, col: 0x8a93a0, shine: 30, edgeLine: 0x2b4fb0, spray: 0xf2f4f7, every: 0.12, size: 0.22, rise: 0.6, life: 0.3, tone: ["raceIce", "triangle", 620, 0.004] },
       // (v175) the lagoon's shallows: the deck at the water's surface (RC.splash), sand under
       // a film of sea with white foam down each edge, and white water off the wheels -- small
       // and low enough never to stand between the camera and his car (race_track_checks q)
-      splash: { speed: 0.82, grip: 0.85, col: 0x5ff1ff, art: "sand", film: 0x2f74b8, edgeLine: 0xf2f4f7, spray: 0xf2f4f7, every: 0.045, size: 0.45, rise: 1.6, life: 0.45, tone: ["raceSplash", "sawtooth", 95, 0.006] },
+      splash: { speed: 0.82, grip: 0.85, col: 0x5ff1ff, art: "sand", film: 0x2f74b8, edgeLine: 0xf2f4f7, spray: 0xf2f4f7, sprayA: 0.95, every: 0.045, size: 0.45, rise: 1.6, life: 0.45, tone: ["raceSplash", "sawtooth", 95, 0.006] },
       // (v176) the sky road's ribbon: a deep blue deck with a white line down each edge and red
       // and white kerbs on its bends, as quick as the asphalt; a soft hum over the wind
       glow: { speed: 1, grip: 1, col: 0x2b4fb0, art: "asphalt", kerbs: true, edgeLine: 0xf2f4f7, tone: ["raceGlow", "sine", 220, 0.004] },
@@ -2638,7 +2640,11 @@ const TUNE = {
     // `glowStep` m (the shared texture, additive: never post-processing, never on a pad)
     sky: { ease: 60, blend: 10, minUp: 3, pylonStep: 40, pylonW: 2.6, girder: 1.6, glowStep: 8, glowSize: 3.2, glowCol: 0xffd23e, glowOpacity: 0.95,
            girderCol: 0xc9ced6, pylonCol: 0xf2f4f7 },
-    spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8 },
+    // (v181) the race's own puffs (race.js rcPuff): `pool` of them, drawn `sizeK` x their radius across (2: the
+    // old sphere's own footprint, which the splash check's sightline holds them to),
+    // at `alpha` (a surface's `sprayA` over it), faded out between fadeNear[0] and [1] m from the camera,
+    // never wider than `maxPx` of the screen's height, and dimmed by `nightDim` at night
+    spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8, pool: 96, sizeK: 2, alpha: 0.9, fadeNear: [2, 7], maxPx: 0.07, nightDim: 0.65 },
     // (v170) dune jumps: a section's `jump` heaps a dune `h` m high on it, its crest
     // `at` of the way along, its face `up` m long and its back `down`. A car leaves
     // the deck where it falls away faster than `g` lets it fall, at no more than

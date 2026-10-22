@@ -1186,6 +1186,7 @@ function raceReset() {
   setTone("raceCrowd", "sawtooth", 120, 0);
   for (const k in RC.surfaces) { const T = RC.surfaces[k].tone; if (T) setTone(T[0], T[1], T[2], 0); }
   if (typeof confetti !== "undefined") confetti.length = 0;   // the podium's confetti stays at the podium
+  rcPuffsClear();                              // (v181) and the race's spray with it
   if (vehicleModel) { vehicleModel.visible = true; vehicleModel.quaternion.identity(); rcUnscale(vehicleModel); }
   camera.up.set(0, 1, 0);
   rcUse(RC.tracks[0].id);                       // out of a race, the first track is the one the world asks about
@@ -1495,7 +1496,7 @@ function rcVertical(r, dt) {
       r.air = false; r.y = yd; r.vyG = 0;
       if (r.isHim) { flags.raceLandings = (flags.raceLandings || 0) + 1; cameraPunch(0.3); synthBlip("sine", 150, 60, 0.22, 0.22, 0); }
       const sf = rcSurfAt(r.s);
-      if (sf.spray && typeof wakePuff === "function") for (const sd of [-1, 1]) { rcPoint(r.s, r.lat + sd * 0.4 * r.wid, rcPV); wakePuff(rcPV.x, rcPV.y + 0.4, rcPV.z, sf.spray, sf.size * 1.6, sf.rise, sf.life); }
+      if (sf.spray) for (const sd of [-1, 1]) { rcPoint(r.s, r.lat + sd * 0.4 * r.wid, rcPV); rcPuff(rcPV.x, rcPV.y + 0.4, rcPV.z, sf.spray, sf.size * 1.6, sf.rise, sf.life, sf.sprayA); }
     }
     return;
   }
@@ -1921,12 +1922,104 @@ function rcSeatPitch(r) { return (r && r.seatP) || 0; }
 
 // ---- the sound ----------------------------------------------------------------------------
 // (v170) What his wheels throw up off the ground they are on: dust off sand, dirt
-// off dirt, nothing off asphalt -- his, and the two others nearest the camera. The
-// world's own puff pool (landmarks.js), and no random in it: the race's stream
-// would make the results hang on the camera, the game's would move the traffic's.
+// off dirt, nothing off asphalt -- his, and the two others nearest the camera. No
+// random in it: the race's stream would make the results hang on the camera, the
+// game's would move the traffic's.
+// (v181) Its OWN puffs, not the world's: soft round billows drawn as one cloud of
+// points on one texture -- the world's pool is lit, faceted spheres, which in the
+// foreground of the chase view read as boulders rolling after him, and over the
+// splash as pale blue lumps, never as water. These are unlit, the surface's own
+// colour (the splash's white), dimmed at night with the sky; they fade out close to
+// the camera and are never drawn bigger than `maxPx` of the screen's height, so
+// nothing he throws up ever stands in front of what he is looking at.
 const rcPS = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
+let rcPuffs = null;
+const rcPuffWH = new THREE.Vector2();
+function rcPuffTex() {
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const x = c.getContext("2d");
+  // a billow: five soft blobs at fixed places round the middle, so it reads as a puff and not a dot
+  for (const [bx, by, br] of [[32, 34, 22], [22, 30, 14], [42, 28, 15], [27, 42, 13], [40, 42, 13]]) {
+    const g = x.createRadialGradient(bx, by, 0, bx, by, br);
+    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.55, "rgba(255,255,255,0.6)"); g.addColorStop(1, "rgba(255,255,255,0)");
+    x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  }
+  return new THREE.CanvasTexture(c);
+}
+function rcPuffPool() {
+  if (rcPuffs) return rcPuffs;
+  const SP = RC.spray, n = SP.pool, geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(n * 3), size = new Float32Array(n), alpha = new Float32Array(n), col = new Float32Array(n * 3);
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
+  geo.setAttribute("aAlpha", new THREE.BufferAttribute(alpha, 1));
+  geo.setAttribute("aCol", new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: rcPuffTex() }, uScale: { value: 600 }, uMax: { value: 80 }, uLit: { value: 1 }, uNear: { value: new THREE.Vector2(SP.fadeNear[0], SP.fadeNear[1]) } },
+    // the game draws with a logarithmic depth buffer: a shader of its own writes its depth the same way
+    vertexShader: `#include <common>
+      #include <logdepthbuf_pars_vertex>
+      attribute float aSize; attribute float aAlpha; attribute vec3 aCol;
+      uniform float uScale; uniform float uMax; varying float vA; varying vec3 vC; varying float vD;
+      void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z; vA = aAlpha; vC = aCol;
+        gl_PointSize = aSize > 0.0 ? clamp(aSize * uScale / max(0.5, -mv.z), 1.0, uMax) : 0.0; gl_Position = projectionMatrix * mv;
+        #include <logdepthbuf_vertex>
+      }`,
+    fragmentShader: `#include <logdepthbuf_pars_fragment>
+      uniform sampler2D map; uniform float uLit; uniform vec2 uNear; varying float vA; varying vec3 vC; varying float vD;
+      void main() {
+        #include <logdepthbuf_fragment>
+        float a = texture2D(map, gl_PointCoord).a * vA * smoothstep(uNear.x, uNear.y, vD);
+        if (a < 0.004) discard;
+        gl_FragColor = vec4(vC * uLit, a); }`,
+    transparent: true, depthWrite: false,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false; pts.renderOrder = 2;
+  scene.add(pts);
+  rcPuffs = { n, pts, geo, mat, pos, size, alpha, col, next: 0, life: new Float32Array(n), max: new Float32Array(n),
+    r: new Float32Array(n), grow: new Float32Array(n), rise: new Float32Array(n), a0: new Float32Array(n) };
+  return rcPuffs;
+}
+// one puff: the old call's numbers (size is a radius, grown by 2.2 x size a second, rising `rise`), its own alpha
+function rcPuff(x, y, z, color, size, rise, life, a0) {
+  const P = rcPuffPool(), i = P.next;
+  P.next = (P.next + 1) % P.n;
+  P.pos[i * 3] = x; P.pos[i * 3 + 1] = y; P.pos[i * 3 + 2] = z;
+  P.life[i] = P.max[i] = life; P.r[i] = size; P.grow[i] = size * 2.2; P.rise[i] = rise; P.a0[i] = a0 === undefined ? RC.spray.alpha : a0;
+  P.col[i * 3] = ((color >> 16) & 255) / 255; P.col[i * 3 + 1] = ((color >> 8) & 255) / 255; P.col[i * 3 + 2] = (color & 255) / 255;
+}
+function rcPuffsUpdate(dt) {
+  const P = rcPuffs;
+  if (!P) return;
+  const SP = RC.spray, H = renderer.getDrawingBufferSize(rcPuffWH).y;
+  let alive = 0;
+  for (let i = 0; i < P.n; i++) {
+    if (P.life[i] <= 0) { P.size[i] = 0; P.alpha[i] = 0; continue; }
+    P.life[i] -= dt;
+    if (P.life[i] <= 0) { P.size[i] = 0; P.alpha[i] = 0; continue; }
+    alive++;
+    P.pos[i * 3 + 1] += P.rise[i] * dt; P.r[i] += P.grow[i] * dt;
+    P.size[i] = P.r[i] * SP.sizeK;
+    const u = 1 - P.life[i] / P.max[i];
+    P.alpha[i] = P.a0[i] * (1 - u * u);            // (held, then gone: a linear fade left most of a puff half there, tinted by the ground)
+  }
+  for (const k of ["position", "aSize", "aAlpha", "aCol"]) P.geo.attributes[k].needsUpdate = true;
+  const U = P.mat.uniforms;
+  U.uScale.value = H / (2 * Math.tan(camera.fov * DEG / 2));
+  U.uMax.value = SP.maxPx * H;
+  U.uLit.value = 1 - SP.nightDim * (state.nightF || 0);
+  P.pts.visible = alive > 0;
+}
+function rcPuffsClear() {
+  if (!rcPuffs) return;
+  rcPuffs.life.fill(0); rcPuffs.size.fill(0); rcPuffs.alpha.fill(0);
+  rcPuffs.geo.attributes.aSize.needsUpdate = rcPuffs.geo.attributes.aAlpha.needsUpdate = true;
+  rcPuffs.pts.visible = false;
+}
 function rcSpray(dt) {
-  if (race.phase === "grid" || race.phase === "podium" || typeof wakePuff !== "function") return;
+  rcPuffsUpdate(dt);
+  if (race.phase === "grid" || race.phase === "podium") return;
   const SP = RC.spray, cx = camera.position.x, cz = camera.position.z;
   let a = null, b = null, da = SP.near, db = SP.near;
   for (const r of race.racers) {
@@ -1944,7 +2037,7 @@ function rcSpray(dt) {
     r.sprayK = (r.sprayK || 0) + 1;
     const back = 0.55 * r.len, la = r.lat + (r.sprayK % 2 ? 0.35 : -0.35) * r.wid;
     if (r.path) rcScPoint(r.path, r.u - back, la, rcPS); else rcPoint(r.s - back, la, rcPS);
-    wakePuff(rcPS.x, rcPS.y + 0.4, rcPS.z, sf.spray, sf.size, sf.rise, sf.life);
+    rcPuff(rcPS.x, rcPS.y + 0.4, rcPS.z, sf.spray, sf.size, sf.rise, sf.life, sf.sprayA);
   }
 }
 
