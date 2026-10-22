@@ -819,6 +819,8 @@ const TUNE = {
   // the mountains' snow: none below snowFrom m, all of it from snowFull m (scene.js), and from
   // half of it up the ground takes the soft grey snow tile, never the scrub's green (art.js, v180)
   snowFrom: 46, snowFull: 66,
+  // (v185) round a snow venue (race.js snowGround) the snow's tile from this much of its snow up
+  snowGroundTile: 0.1,
 
   cloudCount: 14,
   cloudAltitudeMin: 120,

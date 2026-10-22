@@ -611,6 +611,13 @@ function terSnowAt(x, z) {
   }
   return 0;
 }
+// (v185) whether a terrain face (its first vertex at f, chunk origin ox/oz) lies in a snow venue's
+// fade: some corner partly snow, or snow beside a corner that is none
+function terSnowBand(ox, oz, fp, f) {
+  let lo = 1, hi = 0;
+  for (let v = 0; v < 3; v++) { const m = terSnowAt(ox + fp.getX(f + v), oz + fp.getZ(f + v)); if (m < lo) lo = m; if (m > hi) hi = m; }
+  return hi > 0 && lo < 1;
+}
 function terrainColorAt(hy, wx, wz, out, slope) {
   const shoreLo = TUNE.waterLevel - 1.2, shoreHi = TUNE.waterLevel + 1.4;
   if (hy < shoreHi) {
@@ -688,8 +695,13 @@ function buildChunk(cx, cz) {
     layers[f] = layers[f + 1] = layers[f + 2] = artTerrainLayer(hy, wx, wz, fw);
     const j = 1 + (hash2(Math.round(fp.getX(f)), Math.round(fp.getZ(f))) - 0.5) * 2 * TUNE.colorJitter;
     const vlFace = fw > 0;
+    // (v185) in a snow venue's fade (terSnowAt between none and all) each CORNER takes its own
+    // colour, so the white eases into the grass across a face: one colour a face stepped it down
+    // face by face, and from above the steps were a sawtooth of triangles
+    const sgFace = !vlFace && terSnowGrids.length > 0 && terSnowBand(ox, oz, fp, f);
     for (let v = 0; v < 3; v++) {
       if (vlFace) { const k = vlIdx[f + v] * 3; tmpColor.setRGB(vlCol[k], vlCol[k + 1], vlCol[k + 2]); }
+      else if (sgFace) terrainColorAt(fp.getY(f + v), ox + fp.getX(f + v), oz + fp.getZ(f + v), tmpColor);
       colors[(f + v) * 3] = tmpColor.r * j;
       colors[(f + v) * 3 + 1] = tmpColor.g * j;
       colors[(f + v) * 3 + 2] = tmpColor.b * j;

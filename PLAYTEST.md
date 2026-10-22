@@ -62,6 +62,7 @@ entry below.
 | v182 | nothing he mentions: at night in the Corvette's driving seat the mirror is dark like the sky, and when he holds the booster he still sees the flames in it |  open |
 | v183 | nothing he mentions: on Snowy Peaks, the snow beside the track and behind the podium is all white, and he says nothing about mud or brown patches |  open |
 | v184 | when he wins a race he looks up at the fireworks over the podium and points at them or says "fireworks"; nobody calls them rocks or blobs, and he still finds the flag button to race again |  open |
+| v185 | nothing he mentions: flying or driving near Snowy Peaks, the snow round the track fades softly into the grass, with no zig-zag edge anyone points at |  open |
 
 ## Entries
 
