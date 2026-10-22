@@ -1624,7 +1624,7 @@ function rcFireworks(n) {
 // and added light, as every other glow is drawn, washes out to white over a day sky -- so
 // these are laid over it, each spark held bright and then gone. Each burst flings its sparks
 // out in a ball that slows and droops, somewhere in the open sky of the shot on the screen,
-// never over a button, the race's HUD, the trophy, the podium or his car (rcFwSpot); and
+// never over a button, the HUD (the race's, the route strip), the trophy, the podium or his car (rcFwSpot); and
 // they draw nothing from the game's random stream (the arrival show's did), only the race's.
 let rcSparks = null;
 const rcFwV = new THREE.Vector3(), rcFwF = new THREE.Vector3(), rcFwWH = new THREE.Vector2();
@@ -1676,7 +1676,8 @@ function rcFwSpot(side) {
   const avoid = [];
   const pad = F.pad, push = r => avoid.push({ l: r.left - pad, t: r.top - pad, r: r.right + pad, b: r.bottom + pad });
   if (typeof btnControlRects === "function") for (const r of btnControlRects()) push(r);
-  if (typeof btnDrawnRects === "function" && el.raceHud) for (const r of btnDrawnRects(el.raceHud)) push(r);
+  // (and everything drawn over the game: the race's HUD, the route strip above it, every arrow and numeral)
+  if (typeof btnDrawnRects === "function") for (const id of ["progressStrip"].concat(BTN_HUD_OVERLAY)) for (const r of btnDrawnRects(document.getElementById(id))) push(r);
   let podTop = Infinity;
   for (const o of [race.trophy, race.trophyStand, race.podiumG, vehicleModel]) {
     if (!o || !o.visible) continue;

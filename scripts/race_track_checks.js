@@ -1067,12 +1067,12 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
   // with them and without: what changes is the fireworks. They must come from the race's own pool (the world's
   // arrival show is lit, faceted spheres -- none of those born within 400 m of the podium), their body (the
   // quarter of their pixels they change most) bright and coloured, and not one of their pixels on a button,
-  // the trophy or his car (the race-again buttons come up three seconds in: the later frames see them). Portrait (this
+  // the HUD drawn over the game (the race's, the route strip), the trophy or his car (the race-again buttons come up three seconds in: the later frames see them). Portrait (this
   // page) and landscape (a page of its own), two tracks each, and from his seat once; racing again or EXIT leaves none.
   const fwJudge = (tag, u) => {
     const ok = u.won && u.bursts >= 9 && u.worldBorn === 0 && u.ownPool && u.frames >= 8 && u.lum >= 200 && u.sat >= 0.45 &&
-      u.onBtn === 0 && u.onTrophy === 0 && u.onCar === 0 && u.leftAfter === 0 && u.leftAgain === 0;
-    check(`race ${tag}: the podium's fireworks read as fireworks -- ${u.bursts} bursts (${u.held || 0} held, no clear sky for them) from the race's own soft points (${u.worldBorn} of the world's lit, faceted spheres born over the podium); their body bright (${u.lum}) and coloured (${u.sat}) over ${u.frames} frames; ${u.onBtn} of their pixels on a button, ${u.onTrophy} on the trophy, ${u.onCar} on his car; ${u.leftAgain} left racing again, ${u.leftAfter} after EXIT`, ok, J(u));
+      u.onBtn === 0 && u.onHud === 0 && u.onTrophy === 0 && u.onCar === 0 && u.leftAfter === 0 && u.leftAgain === 0;
+    check(`race ${tag}: the podium's fireworks read as fireworks -- ${u.bursts} bursts (${u.held || 0} held, no clear sky for them) from the race's own soft points (${u.worldBorn} of the world's lit, faceted spheres born over the podium); their body bright (${u.lum}) and coloured (${u.sat}) over ${u.frames} frames; ${u.onBtn} of their pixels on a button, ${u.onHud} on the HUD, ${u.onTrophy} on the trophy, ${u.onCar} on his car; ${u.leftAgain} left racing again, ${u.leftAfter} after EXIT`, ok, J(u));
   };
   for (const id of ["oval", ids[ids.length - 1]]) fwJudge(`${id} 820x1180`, await page.evaluate(rtcFireworksU, [id, true]));
   {
@@ -1106,7 +1106,7 @@ function rtcFireworksU([id, chase]) {
   L.api.setView(chase); L.noRender = false;
   const C = R.podiumC, world0 = () => L.wakePuffList.map(p => p.life);
   let held0 = L.flags.raceFireworksHeld || 0, worldBorn = 0, bursts0 = L.flags.raceFireworks || 0, fw0 = L.flags.fireworks || 0, ownPool = false, frames = 0;
-  let onBtn = 0, onTrophy = 0, onCar = 0; const PX = [];
+  let onBtn = 0, onHud = 0, onTrophy = 0, onCar = 0; const PX = [];
   const cssToBuf = () => { const c = L.renderer.domElement; return gl.drawingBufferWidth / c.clientWidth; };
   const boxOnScreen = (obj, W, H) => {
     if (!obj || !obj.visible) return null;
@@ -1127,7 +1127,10 @@ function rtcFireworksU([id, chase]) {
     const was = objs.map(o => o.visible);
     const on1 = grab(); objs.forEach(o => { o.visible = false; }); const off1 = grab(); objs.forEach((o, j) => { o.visible = was[j]; });
     const W = on1.w, H = on1.h, k = cssToBuf();
-    const btns = (window.btnControlRects ? window.btnControlRects() : []).map(r => ({ x0: r.left * k, x1: r.right * k, y0: H - r.bottom * k, y1: H - r.top * k }));
+    const toBuf = r => ({ x0: r.left * k, x1: r.right * k, y0: H - r.bottom * k, y1: H - r.top * k });
+    const btns = (window.btnControlRects ? window.btnControlRects() : []).map(toBuf);
+    // (the HUD drawn over the game: the race's, the route strip, every arrow and numeral -- buttons.js's list)
+    const huds = ["progressStrip"].concat(typeof BTN_HUD_OVERLAY !== "undefined" ? BTN_HUD_OVERLAY : []).flatMap(id => window.btnDrawnRects(document.getElementById(id))).map(toBuf);
     const trophy = boxOnScreen(R.trophy, W, H), car = boxOnScreen(L.vehicleModel, W, H);
     const inB = (b, x, y) => b && x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
     let changed = 0;
@@ -1136,6 +1139,7 @@ function rtcFireworksU([id, chase]) {
       if (d < 24) continue;
       changed++;
       if (btns.some(b => inB(b, x, y))) onBtn++;
+      if (huds.some(b => inB(b, x, y))) onHud++;
       if (inB(trophy, x, y)) onTrophy++;
       if (inB(car, x, y)) onCar++;
       const r = on1.a[i], g = on1.a[i + 1], b = on1.a[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
@@ -1149,7 +1153,7 @@ function rtcFireworksU([id, chase]) {
   out.bursts = (L.flags.raceFireworks || 0) - bursts0 + ((L.flags.fireworks || 0) - fw0); out.held = (L.flags.raceFireworksHeld || 0) - held0;
   out.worldBorn = worldBorn; out.ownPool = ownPool; out.frames = frames;
   out.lum = Math.round(LU[Math.floor(LU.length / 2)] || 0); out.sat = +(SA[Math.floor(SA.length / 2)] || 0).toFixed(2);
-  out.onBtn = onBtn; out.onTrophy = onTrophy; out.onCar = onCar;
+  out.onBtn = onBtn; out.onHud = onHud; out.onTrophy = onTrophy; out.onCar = onCar;
   // racing again straight from the podium leaves none of them behind (rcStartRace); and EXIT, none (raceReset)
   L.raceAgain();
   const PA = L.rcSparks;

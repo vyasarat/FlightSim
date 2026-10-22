@@ -2690,8 +2690,8 @@ const TUNE = {
               // once the camera has swung round on to the podium; its whistle goes up then and it opens `pop` s later,
               // with the bang (audio.js fireworkSound). A spark: the glow texture's alpha times `gain`, white at its
               // core (the texture over `coreFrom`) by up to `core`
-              fw: { n: 60, speed: 13, speedRnd: 0.3, drag: 1.3, grav: 4, life: 1.5, lifeRnd: 0.5, size: 3.6, maxPx: 0.035, pool: 640,
-                    x: [0.12, 0.62], y: [0.3, 0.85], droop: 8, pad: 10, minUp: 25, tries: 24, first: 1.2, pop: 0.95,
+              fw: { n: 60, speed: 11, speedRnd: 0.3, drag: 1.3, grav: 4, life: 1.5, lifeRnd: 0.5, size: 3.6, maxPx: 0.035, pool: 640,
+                    x: [0.12, 0.62], y: [0.3, 0.85], droop: 8, pad: 10, minUp: 25, tries: 40, first: 1.2, pop: 0.95,
                     gain: 1.8, coreFrom: 0.75, core: 0.5 },
               hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 },
               // (v167) the shot when he lost: the podium and his car inside these screen edges (-1..1), above the buttons by `gap`, his car `clear` of the steps, the camera up to `maxUp` m and slid along the track up to `slide` m
