@@ -324,6 +324,7 @@ function artPhong(color, kind, shininess, spec) {
 // Which ground tile a terrain face gets. Same masks as terrainColorAt, so the
 // tile changes where the colour does.
 function artTerrainLayer(hy, wx, wz, vlw) {
+  if (terSnowAt(wx, wz) > 0.5) return ART_LAYER.asphalt;   // (v183) round a snow venue: snow's soft grey mottle
   if (hy < TUNE.waterLevel + 1.4) return ART_LAYER.sand;
   // v147: the valley -- snow and rock alike take the asphalt tile's soft grey mottle (the colour, from the palette, says which)
   if ((vlw === undefined ? vlWeight(wx, wz) : vlw) > 0.5) return ART_LAYER.asphalt;

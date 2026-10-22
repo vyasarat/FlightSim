@@ -10,6 +10,30 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v183 — Snowy Peaks: the ground round it is snow
+
+A render-critic note from v180: tan and olive patches on the snow beside the Snowy Peaks banks
+(far left of the track in the snow chase view) and behind the podium. Nothing he does changed;
+the track, its races and how every car drives are untouched.
+
+- **The cause:** the mountains' snow is laid over the grass's colour by height, fully only
+  above `TUNE.snowFull` (66 m) and part-way from `snowFrom` (46 m). The track sits on ground
+  58-97 m high, but the start straight, the podium and the land off the left bank dip under
+  that: around the venue, a third of the ground was grass with snow laid part-way over it
+  (tan and olive), and it took the scrub tile.
+- **The fix:** each snow venue lays a grid at load (race.js `rcSnowGround`, from
+  `snowGround` on its track in `TUNE.race.tracks`): the ground within 150 m of the track's
+  line is snow, easing to none by 300 m (scene.js `terSnowAt`, read by the terrain's colour
+  and art.js's tile choice, which gives it the snow's grey mottle). Colour and tile only:
+  the ground's shape is not touched. The motorway's nearest point is 369 m away, in a bore,
+  and none of its samples are under the snow.
+
+Check s (race_track_checks) now also looks down on the LOW ground round a snow venue, under
+the snow line, at eight points off the lap: any pixel warmer than the snow's own grey-blue is a
+patch. On v182 65% of those pixels were tan or olive -- it fails; here 0% (the snow's own
+ground, above the line, 0% on both), and none of the 98 motorway samples near the venue is
+under the venue's snow.
+
 ## v182 — the Corvette's mirror shows the sky he is under
 
 Found in v178: the Corvette's rear-view mirror painted a daytime sky in every sky mood, so at
