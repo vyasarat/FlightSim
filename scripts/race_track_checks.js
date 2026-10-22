@@ -613,12 +613,44 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       let step = 0; for (let i = 0; i < T.n; i++) step = Math.max(step, Math.abs(bankH(T.S[(i + 1) % T.n]) - bankH(T.S[i])));
       out.banks = { meshes: banks.length, edges: edges.size, open: across, at: [...new Set(where)], step: +step.toFixed(2) };
       out.tunnel = T.def.sections.some(sc => sc.tunnel);
+      // -- (v185) the snow's edge eases into the grass: in the fade (terSnowAt between none and all)
+      // a corner shared by several faces has ONE colour (the jitter each face multiplies by taken out),
+      // so the white steps down across no face edge -- one colour a face cut a sawtooth of triangles;
+      // and no face there more than a third snow wears the grass's tile (its green on white)
+      out.edge = null;
+      if (typeof terSnowAt === "function" && T.def.snowGround) {
+        const G = T.def.snowGround, mid = G.near + G.fade / 2, at = new Map(); let faces = 0, greenOn = 0, worstSg = 0;
+        for (let k = 0; k < 12; k++) {
+          const q = T.S[Math.floor(T.n * k / 12)];
+          for (const sd of [-1, 1]) { const x = q.x + q.lx * sd * mid, z = q.z + q.lz * sd * mid; S.x = x; S.z = z; S.y = L.terrainEff(x, z) + 2; L.updateScenery(x, z, true);
+            L.scene.traverse(o => { if (!isTer(o) || o.userData.__v185) return; o.userData.__v185 = true;
+              const pa = o.geometry.attributes.position, ca = o.geometry.attributes.color, la = o.geometry.attributes.artLayerA; if (!ca || !la) return;
+              const ox = o.position.x, oz = o.position.z;
+              for (let f = 0; f < pa.count; f += 3) {
+                let lo = 1, hi = 0, sum = 0; const m3 = [];
+                for (let v = 0; v < 3; v++) { const m = terSnowAt(ox + pa.getX(f + v), oz + pa.getZ(f + v)); m3.push(m); sum += m; lo = Math.min(lo, m); hi = Math.max(hi, m); }
+                if (!(hi > 0 && lo < 1)) continue;
+                faces++;
+                if (la.getX(f) !== ART_LAYER.asphalt && sum / 3 > 1 / 3) greenOn++;
+                if (la.getX(f) !== ART_LAYER.asphalt) worstSg = Math.max(worstSg, sum / 3);
+                const j = 1 + (hash2(Math.round(pa.getX(f)), Math.round(pa.getZ(f))) - 0.5) * 2 * L.TUNE.colorJitter;
+                for (let v = 0; v < 3; v++) { if (!(m3[v] > 0 && m3[v] < 1)) continue;
+                  const k = Math.round((ox + pa.getX(f + v)) * 10) + "," + Math.round((oz + pa.getZ(f + v)) * 10);
+                  const lum = lumOf(ca.getX(f + v), ca.getY(f + v), ca.getZ(f + v)) / j;
+                  const r = at.get(k); if (r) { r.lo = Math.min(r.lo, lum); r.hi = Math.max(r.hi, lum); r.n++; } else at.set(k, { lo: lum, hi: lum, n: 1 }); } } }); }
+        }
+        L.scene.traverse(o => { if (o.userData) delete o.userData.__v185; });
+        const steps = []; for (const r of at.values()) if (r.n > 1) steps.push((r.hi - r.lo) / Math.max(1e-6, r.hi));
+        steps.sort((a, b) => a - b);
+        out.edge = { faces, corners: steps.length, stepMax: +(steps[steps.length - 1] || 0).toFixed(4), stepP95: +(steps[Math.floor(steps.length * 0.95)] || 0).toFixed(4), greenOn, worstSg: +worstSg.toFixed(2) };
+      }
       S.x = was.x; S.y = was.y; S.z = was.z; L.updateScenery(S.x, S.z, true); L.update(1 / 60);
       L.noRender = was.noRender;
       return out;
     }, id);
-    if (snowLook) check(`race ${id}: snow reads as snow -- the ground round it ${snowLook.ground.greenPct}% green pixels at ${snowLook.ground.pts} points (none, it was blotches of grass); the LOW ground round it, under the snow line, ${snowLook.low.warmPct}% tan or olive pixels at ${snowLook.low.pts} points (the snow's own ${snowLook.low.snowWarmPct}%; it was the grass under part-laid snow, v183), the motorway under none of it (${snowLook.low.hwyUnder} of ${snowLook.low.hwyNear} samples near it), nor another venue (${snowLook.low.otherUnder}) nor water (${snowLook.low.wetUnder}), and all ${snowLook.low.tileN} of its snow nodes on the snow's tile (${snowLook.low.tileOff} not); the mountain from the side turned from the sun ${snowLook.mountain ? snowLook.mountain.map(m => `median ${m.med}, a quarter under ${m.p25} at ${m.dist} m`).join("; ") : "none"} against the snow's ${snowLook.ground.lum}; the snowbanks closed (${snowLook.banks.open} open edges across the track${snowLook.banks.at.length ? " at " + snowLook.banks.at.join(", ") + " m" : ""}) and their crest never stepping (largest ${snowLook.banks.step} m from one sample to the next)`,
+    if (snowLook) check(`race ${id}: snow reads as snow -- the ground round it ${snowLook.ground.greenPct}% green pixels at ${snowLook.ground.pts} points (none, it was blotches of grass); the LOW ground round it, under the snow line, ${snowLook.low.warmPct}% tan or olive pixels at ${snowLook.low.pts} points (the snow's own ${snowLook.low.snowWarmPct}%; it was the grass under part-laid snow, v183), the motorway under none of it (${snowLook.low.hwyUnder} of ${snowLook.low.hwyNear} samples near it), nor another venue (${snowLook.low.otherUnder}) nor water (${snowLook.low.wetUnder}), and all ${snowLook.low.tileN} of its snow nodes on the snow's tile (${snowLook.low.tileOff} not); the mountain from the side turned from the sun ${snowLook.mountain ? snowLook.mountain.map(m => `median ${m.med}, a quarter under ${m.p25} at ${m.dist} m`).join("; ") : "none"} against the snow's ${snowLook.ground.lum}; the snowbanks closed (${snowLook.banks.open} open edges across the track${snowLook.banks.at.length ? " at " + snowLook.banks.at.join(", ") + " m" : ""}) and their crest never stepping (largest ${snowLook.banks.step} m from one sample to the next)${snowLook.edge ? `; and its edge eases into the grass -- over ${snowLook.edge.faces} faces of the fade, a corner's colour differs from one face to the next by at most ${(100 * snowLook.edge.stepMax).toFixed(2)}% (one colour a face: a sawtooth of triangles, v183), and ${snowLook.edge.greenOn} faces more than a third snow wear the grass's tile (the most snow under it ${snowLook.edge.worstSg})` : ""}`,
       snowLook.ground.pts >= 4 && snowLook.ground.greenPct < 0.2 && snowLook.low.pts >= 4 && snowLook.low.warmPct < 0.5 && snowLook.low.hwyUnder === 0 && snowLook.low.otherUnder === 0 && snowLook.low.wetUnder === 0 && snowLook.low.tileN > 0 && snowLook.low.tileOff === 0 && snowLook.banks.meshes > 0 && snowLook.banks.open === 0 && snowLook.banks.step < 0.25 &&
+      (!snowLook.edge || snowLook.edge.faces > 200 && snowLook.edge.corners > 200 && snowLook.edge.stepMax < 0.01 && snowLook.edge.greenOn === 0) &&
       (!snowLook.tunnel || snowLook.mountain && snowLook.mountain.every(m => m.n > 2000 && m.med >= 0.75 * snowLook.ground.lum && m.p25 >= 0.62 * snowLook.ground.lum)), J(snowLook));
 
     // ---- q. (v175) THE SPLASH: each splash section's deck is down at the water -- over real

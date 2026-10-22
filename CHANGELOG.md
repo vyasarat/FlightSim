@@ -10,6 +10,28 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v185 — Snowy Peaks: the snow eases into the grass
+
+A render-critic note from v183: where the snow round Snowy Peaks (150-300 m from the track's
+line, v183) fades into the grass, it fades in a sawtooth of triangles seen from above, and in
+a blotchy band from the low ground south. Nothing he does changed; the track, its races and
+how every car drives are untouched.
+
+- **The cause:** the ground is coloured one colour a face, taken at the face's first corner,
+  so across the fade the white stepped down a triangle at a time; and the snow's tile came in
+  only past half snow, so the grass's tile -- its green specks -- lay on faces mostly white.
+- **The fix:** in the fade, each corner takes its own colour (scene.js `terSnowBand`, as the
+  dad-mode valley already does), so the white eases across every face; and the snow's tile
+  starts at the first trace of the venue's snow (`TUNE.snowGroundTile`, 0.1). Colour and tile
+  only, and only in the venue's fade: the ground's shape, the height snow line elsewhere and
+  the valley are not touched.
+
+Check s (race_track_checks) now reads the terrain's own colours over the fade: a corner shared
+by several faces must have one colour (the jitter each face multiplies by taken out), and no
+face more than a third snow may wear the grass's tile. On v184, over 11,483 faces of the fade,
+a corner's colour stepped by up to 16% from one face to the next and 726 such faces wore the
+grass's tile -- it fails; here 0.00% and none.
+
 ## v184 — the podium's fireworks look like fireworks
 
 A render-critic note from v181: when he wins, the fireworks over the podium were the world's
