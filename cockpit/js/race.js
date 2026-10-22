@@ -463,7 +463,7 @@ function rcBuildVenue(def) {
       if (T.sc.some(sc => rcOnSc(sc, p0[0], p0[2], 0.5) || rcOnSc(sc, p1[0], p1[2], 0.5))) continue;
       const dx = p1[0] - p0[0], dz = p1[2] - p0[2], L = Math.hypot(dx, dz) || 1;
       // (v174: a snowbank's solid is as tall as the bank drawn over it -- its crest stands on this line)
-      const wh = def.banks ? (def.sections[a.sec].lake ? RC.banks.lakeH : RC.banks.h) : RC.wallH;
+      const wh = def.banks ? Math.min(rcBankH(T, a), rcBankH(T, b)) : RC.wallH;
       solidBox3((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + wh / 2 - 0.25, (p0[2] + p1[2]) / 2,
                 [dx / L, 0, dz / L], [0, 1, 0], [-dz / L, 0, dx / L], L / 2 + 0.3, wh / 2 + 0.25, 0.3, "wall");
     }
@@ -649,6 +649,14 @@ function rcBuildSky(T, mk, g) {
 }
 
 // ---- (v174) the snow track's pieces ------------------------------------------------------
+// (v180) How tall a snowbank stands at a sample: low over the frozen lake, and between the two a
+// slope `lakeRamp` m long inside the lake's section -- a step there was a face turned from the sun,
+// a dark wedge where the ice road meets the shore. Its solid takes the lower end of each piece.
+function rcBankH(T, q) {
+  const B = RC.banks;
+  for (const lk of T.lakes || []) if (q.sec === lk.sec) return lerp(B.h, B.lakeH, smoothstep(0, B.lakeRamp, Math.min(q.s - lk.a, lk.b - q.s)));
+  return B.h;
+}
 const rcQuad = (arr, a, b, c, d) => { arr.push(...a, ...b, ...c, ...a, ...c, ...d); };
 // Snowbanks for barriers: a heap of snow just outside each edge, where the barrier's
 // own solids stand; a red-and-white marker pole on its crest every few metres; and from
@@ -661,13 +669,17 @@ function rcBuildBanks(T, mk) {
   const ground = (q, a) => { const x = q.x + q.lx * a, z = q.z + q.lz * a; return [x, terrainEff(x, z) - 0.3, z]; };
   for (let i = 0; i < n; i++) {
     const a = S[i], b = S[(i + 1) % n];
-    const bh = T.def.sections[a.sec].lake ? B.lakeH : B.h;   // (low over the lake: from his seat he sees the ice)
+    const bh = rcBankH(T, a), bhB = rcBankH(T, b);   // (low over the lake: from his seat he sees the ice)
     for (const sd of [-1, 1]) {
       // (from the kerb's edge where there is one, from the deck's own edge where there is not)
       const e0 = sd * ((RC.surfaces[a.sf] || RC.surfaces.asphalt).kerbs ? W : RC.width / 2), e1 = sd * (W + 0.4), e2 = sd * (W + B.w), e3 = sd * (W + B.w + B.skirt);   // (its crest where the barrier's solid stands)
-      rcQuad(bank, at(a, e0, -0.05), at(b, e0, -0.05), at(b, e1, bh), at(a, e1, bh));
-      rcQuad(bank, at(a, e1, bh), at(b, e1, bh), at(b, e2, -0.05), at(a, e2, -0.05));
+      rcQuad(bank, at(a, e0, -0.05), at(b, e0, -0.05), at(b, e1, bhB), at(a, e1, bh));
+      rcQuad(bank, at(a, e1, bh), at(b, e1, bhB), at(b, e2, -0.05), at(a, e2, -0.05));
       rcQuad(bank, at(a, e2, -0.05), at(b, e2, -0.05), ground(b, e3), ground(a, e3));
+      // (v180) where the bank comes in from a kerb's edge to the deck's own, the face between the
+      // two: open, it was a hole through the bank, and down it the undersides lit by the ground's green fill
+      const f0 = sd * ((RC.surfaces[b.sf] || RC.surfaces.asphalt).kerbs ? W : RC.width / 2);
+      if (f0 !== e0) bank.push(...at(b, e0, -0.05), ...at(b, e1, bhB), ...at(b, f0, -0.05));
     }
   }
   const pole = (p) => {
@@ -681,9 +693,9 @@ function rcBuildBanks(T, mk) {
   const pm = rcPodiumM(T.def);
   for (let i = 0; i < n; i += step) for (const sd of [-1, 1]) {
     if (sd > 0 && Math.abs(S[i].s - pm) < RC.podium.w * 3) continue;          // (nothing between the podium and its camera)
-    pole(at(S[i], sd * (W + 0.4), T.def.sections[S[i].sec].lake ? B.lakeH : B.h));
+    pole(at(S[i], sd * (W + 0.4), rcBankH(T, S[i])));
   }
-  mk(bank, new THREE.MeshLambertMaterial({ color: RC.surfaces.snow.col, side: THREE.DoubleSide }));
+  mk(bank, new THREE.MeshLambertMaterial({ color: RC.surfaces.snow.col, side: THREE.DoubleSide })).name = "rcBanks";
   mk(red, new THREE.MeshLambertMaterial({ color: TUNE.palette.red }));
   mk(white, new THREE.MeshLambertMaterial({ color: TUNE.palette.white }));
 }
@@ -833,8 +845,23 @@ function rcBuildTunnel(T, k, tn, g) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
-  geo.computeVertexNormals();
-  const mt = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 0, specular: 0x000000, side: THREE.DoubleSide }));
+  // (v180) each face lit as if it leaned `snowUp` back toward the sky: faceted still, but a
+  // slope turned from the sun is snow in the shade, not a grey dome (readability over realism)
+  const nrm = new Float32Array(pos.length);
+  for (let t = 0; t < pos.length; t += 9) {
+    const ux = pos[t + 3] - pos[t], uy = pos[t + 4] - pos[t + 1], uz = pos[t + 5] - pos[t + 2];
+    const vx = pos[t + 6] - pos[t], vy = pos[t + 7] - pos[t + 1], vz = pos[t + 8] - pos[t + 2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl;
+    // (on its own winding's side -- the material is two-sided and turns a normal to the side seen --
+    // and the snow faces only: a standing face, rock or a portal's wall, keeps its own)
+    if (Math.abs(ny) >= C.rockBelow) ny += Math.sign(ny) * C.snowUp;
+    const bl = Math.hypot(nx, ny, nz);
+    for (let v = 0; v < 3; v++) { nrm[t + v * 3] = nx / bl; nrm[t + v * 3 + 1] = ny / bl; nrm[t + v * 3 + 2] = nz / bl; }
+  }
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
+  const mt = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: false, shininess: 0, specular: 0x000000, side: THREE.DoubleSide }));   // (its normals are per face: faceted still)
+  mt.name = "rcMountain";
   mt.receiveShadow = true; g.add(mt);   // (it casts no shadow: under it the road and the cars stay as bright as outside)
   // ---- its solids, in the track's frame: the lining's walls, and the mountain in
   // pieces -- over the roof down to it, beside the lining down to the ground (each

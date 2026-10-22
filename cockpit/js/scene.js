@@ -602,7 +602,7 @@ function terrainColorAt(hy, wx, wz, out, slope) {
     if (t < 0.5) out.copy(cLow).lerp(cMid, t * 2);
     else out.copy(cMid).lerp(cHigh, (t - 0.5) * 2);
   }
-  if (mountainGauss(wz) > 0.3 && hy > 46) out.lerp(cSnow, smoothstep(46, 66, hy));
+  if (mountainGauss(wz) > 0.3 && hy > TUNE.snowFrom) out.lerp(cSnow, smoothstep(TUNE.snowFrom, TUNE.snowFull, hy));
   // v147: the valley (terrain.js) is snow with dark rock where it is too steep to hold any
   const vw = vlWeight(wx, wz);
   if (vw > 0) out.lerp(vlGroundColor(wx, wz, tmpVlColor, slope), vw);

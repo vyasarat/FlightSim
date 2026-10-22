@@ -330,6 +330,9 @@ function artTerrainLayer(hy, wx, wz, vlw) {
   if (desertMask(wz) > 0.45) return ART_LAYER.sand;
   if (canyonT(wz) > 0.25) return ART_LAYER.scrub;
   if (plainsMask(wz) > 0.35) return ART_LAYER.scrub;
+  // (v180) snow on the mountains takes the valley's soft grey mottle too: the scrub tile's
+  // green, multiplied onto white, was blotches of grass all over the snow
+  if (mountainGauss(wz) > 0.3 && hy > (TUNE.snowFrom + TUNE.snowFull) / 2) return ART_LAYER.asphalt;
   if (mountainGauss(wz) > 0.3 && hy > 30) return ART_LAYER.scrub;
   const t = (hy - TUNE.colorLowHeight) / (TUNE.colorHighHeight - TUNE.colorLowHeight);
   return t > 0.8 ? ART_LAYER.scrub : ART_LAYER.grass;
