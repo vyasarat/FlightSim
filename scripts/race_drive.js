@@ -114,7 +114,7 @@ async function oneRace(page, veh, seed, opts) {
     if (R.itLog) {
       out.items = Object.assign({ taps }, R.itLog);
       const th = R.things.filter(x => x.t <= me.t), kinds = {};
-      for (const x of th) kinds[x.k] = (kinds[x.k] || 0) + 1;
+      for (const x of th) for (const k of [x.k, ...(x.also || [])]) kinds[k] = (kinds[k] || 0) + 1;
       let gapMax = 0; for (let i = 1; i < th.length; i++) gapMax = Math.max(gapMax, th[i].t - th[i - 1].t);
       out.things = { n: th.length, every_: +(me.t / Math.max(1, th.length)).toFixed(1), perLap: +(th.length / RC.laps).toFixed(1), longestQuiet: +gapMax.toFixed(1), kinds };
     }

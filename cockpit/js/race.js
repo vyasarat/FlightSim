@@ -453,10 +453,13 @@ function rcBuildVenue(def) {
   const quad = (arr, a, b, c, d) => { arr.push(...a, ...b, ...c, ...a, ...c, ...d); };
   for (let i = 0; i < n; i++) {
     const a = S[i], b = S[(i + 1) % n];
-    quad(decks[a.sf] || (decks[a.sf] = []), at(a, -W), at(b, -W), at(b, W), at(a, W));
+    // (v189) where the freight line runs under a dune, an opening: no road surface and no sand under it -- the
+    // road crosses on open beams (raceevents.js), so he sees the train go by beneath him
+    const railGap = !!def.rail && a.sec === def.rail.sec && Math.abs((a.z + b.z) / 2 - def.rail.z) < def.rail.gap;   // (the line runs along x)
+    if (!railGap) quad(decks[a.sf] || (decks[a.sf] = []), at(a, -W), at(b, -W), at(b, W), at(a, W));
     const sf = RC.surfaces[a.sf] || RC.surfaces.asphalt;
     // a dune is ground, not a deck on stilts: its sides run down to the desert
-    if ((a.dune || b.dune) && !def.banks && !(a.up || b.up)) for (const sd of [-1, 1]) {   // (v176: a sky jump has nothing under it but its girder)
+    if ((a.dune || b.dune) && !def.banks && !(a.up || b.up) && !railGap) for (const sd of [-1, 1]) {   // (v176: a sky jump has nothing under it but its girder)
       const e = sd * (W + KW + 0.4), o = sd * (W + KW + 0.4 + RC.jump.skirt);
       const ga = [a.x + a.lx * o, terrainEff(a.x + a.lx * o, a.z + a.lz * o) - 0.3, a.z + a.lz * o];
       const gb = [b.x + b.lx * o, terrainEff(b.x + b.lx * o, b.z + b.lz * o) - 0.3, b.z + b.lz * o];
@@ -466,8 +469,8 @@ function rcBuildVenue(def) {
     // (v174) a snow or ice road has a blue line down each edge: white on white, from his seat a bend could not be read
     if (sf.edgeLine) { const el = ruts[sf.edgeLine] || (ruts[sf.edgeLine] = []); for (const sd of [-1, 1]) { const o = sd * (W - 0.5); quad(el, at(a, o - 0.35, 0.045), at(b, o - 0.35, 0.045), at(b, o + 0.35, 0.045), at(a, o + 0.35, 0.045)); } }
     // (v175) a splash is under a film of the sea: the road's sand seen through shallow water
-    if (sf.film) { const fl = films[sf.film] || (films[sf.film] = []); quad(fl, at(a, -W, RC.splash.filmUp), at(b, -W, RC.splash.filmUp), at(b, W, RC.splash.filmUp), at(a, W, RC.splash.filmUp)); }
-    if (sf.ruts) { const rr = ruts[sf.rutCol || P.slate] || (ruts[sf.rutCol || P.slate] = []); for (const c of RC.rutLat) quad(rr, at(a, c - RC.rutW / 2, 0.04), at(b, c - RC.rutW / 2, 0.04), at(b, c + RC.rutW / 2, 0.04), at(a, c + RC.rutW / 2, 0.04)); }
+    if (sf.film && !railGap) { const fl = films[sf.film] || (films[sf.film] = []); quad(fl, at(a, -W, RC.splash.filmUp), at(b, -W, RC.splash.filmUp), at(b, W, RC.splash.filmUp), at(a, W, RC.splash.filmUp)); }
+    if (sf.ruts && !railGap) { const rr = ruts[sf.rutCol || P.slate] || (ruts[sf.rutCol || P.slate] = []); for (const c of RC.rutLat) quad(rr, at(a, c - RC.rutW / 2, 0.04), at(b, c - RC.rutW / 2, 0.04), at(b, c + RC.rutW / 2, 0.04), at(a, c + RC.rutW / 2, 0.04)); }
     // kerbs on the bends, red and white every few metres, on both edges (asphalt's alone)
     const bend = Math.abs(a.kh) > 0.0015 && sf.kerbs;
     const red = Math.floor(a.s / RC.kerbStep) % 2 === 0;
@@ -1160,6 +1163,7 @@ function rcStartRace(trackId, seed) {
   el.raceHud.classList.remove("hidden");
   rcHudBuild();
   rcItStart();                                     // (v187) the boxes laid, nobody holding anything
+  rceStart();                                      // (v189) the track's events, waiting for him
   rcSyncHim(him);
   rcPoseAll(0);
   rcCamSnap();
@@ -1216,6 +1220,7 @@ function raceReset() {
   rcPuffsClear();                              // (v181) and the race's spray with it
   rcSparksClear();                             // (v184) and its fireworks
   rcItReset();                                 // (v187) and every ball, slick and bubble
+  if (typeof rceReset === "function") rceReset();   // (v189) and the track's events put back
   if (vehicleModel) { vehicleModel.visible = true; vehicleModel.quaternion.identity(); rcUnscale(vehicleModel); }
   camera.up.set(0, 1, 0);
   rcUse(RC.tracks[0].id);                       // out of a race, the first track is the one the world asks about
@@ -1254,6 +1259,7 @@ function rcUpdate(dt) {
     for (const r of race.racers) rcMove(r, dt);
     rcContacts(dt);
     rcItAfter(dt, race.phase === "race");          // (v187) boxes caught, items used, balls and slicks
+    rceUpdate(dt, race.phase === "race");          // (v189) the track's events
     rcLaps();
   }
   // ---- the podium: once all are home (or after a backstop, in the order they stand)
@@ -2041,18 +2047,19 @@ function raceCamera(dt) {
   const mon = !!state.vp.monster;
   // (v187) from the seat a spin-out sways the view, and a giant sits as high as he has grown
   const sway = rcItSeatYaw(him), roll = sway * RC.items.spin.seatRoll / RC.items.spin.seatYaw, seatK = him && him.giantK > 1 ? him.giantK : 1;
+  const tk = rceCamK(him), TC = RC.events.train;      // (v189) over the train, the chase camera looks down at it
   const gPitch = -(seatK - 1) * RC.items.giant.seatPitch;   // (and looks down on the road and the cars, far below)
   if (state.viewChase) {
     const C = rcChaseCam(mon), gk = him && him.giantK > 1 ? him.giantK - 1 : 0, G = RC.items.giant;
     const back = C.back * (1 + gk * (mon ? G.monCam : G.camBack)), up = Math.min(C.up * (1 + gk * (mon ? G.monCam : G.camUp)), rcTunnelCamUp(him, back));   // (v187: a giant's camera stands back a little as he grows -- he LOOKS huge)
     // (v170) off a dune the camera keeps to the ground under him, so he is SEEN to fly
     const yb = him && him.air ? rcPoint(him.s, him.lat, rcPC).y : state.y;
-    camDesired.set(state.x - fx * back, yb + up, state.z - fz * back);
+    camDesired.set(state.x - fx * back * (1 - tk * TC.camIn), yb + up + tk * TC.camLift, state.z - fz * back * (1 - tk * TC.camIn));   // (v189: over the train, up and in, looking down at it)
     camera.position.lerp(camDesired, Math.min(1, RC.cam.lag * dt));
     // never inside the venue: the line back to him clear of its stands, gantry and walls (v163's rule)
     const ey = state.y + C.lookUp, k = solidSight(state.x, ey, state.z, camera.position.x, camera.position.y, camera.position.z, CAR.camClear.r, CAR.camClear.kinds);
     if (k < 1) camera.position.set(state.x + (camera.position.x - state.x) * k, ey + (camera.position.y - ey) * k, state.z + (camera.position.z - state.z) * k);
-    lookV.set(state.x + fx * C.look, yb + C.lookUp, state.z + fz * C.look);
+    lookV.set(state.x + fx * C.look * (1 - tk * TC.camIn), yb + C.lookUp - tk * TC.lookDown, state.z + fz * C.look * (1 - tk * TC.camIn));   // (v189: and down into the opening)
     camera.lookAt(lookV);
     if (typeof carHideCabin === "function") carHideCabin();
   } else if (mon) {

@@ -5658,6 +5658,7 @@ const harnessMain = async () => {
     ["./race_checks", { newPage, check }],         // v164: the race -- his idea; the one place he can lose
     ["./race_track_checks", { newPage, check }],   // v170: the tracks after the oval -- surfaces, dunes, the shortcut
     ["./race_item_checks", { newPage, check }],    // v187: the power-ups -- something happens every few seconds
+    ["./race_event_checks", { newPage, check }],   // v189: the tracks' events -- boulders, the train under the dune
     ["./frame_budget_checks", { newPage, check }], // v179: what a drawn frame costs, and the venues culled past the fog
     ["./dadmode_checks", { newPage, check }],
     ["./dadmissions_checks", { newPage, check }],   // v154: dad mode's historical missions      // v147: dad mode (the parent's, behind a code) and the valley

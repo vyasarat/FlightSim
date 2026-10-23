@@ -22,6 +22,7 @@
 //   closeSeat:<kind>  (v181 gaps) from his seat, a rival 9 m ahead (tailgating, its tail ~4 m off his nose) in his lane on that surface, spraying at him
 //   puffAt:<kind> / puffAtSeat:<kind>   (v181 gaps) from the chase view / his seat on that surface, a row of the biggest puff that surface makes, white, held at
 //                     1, 2, 3, 4.5, 7, 10 and 15 m straight ahead of the camera: what the 2-7 m fade and the size cap leave on the glass
+//   ev:<sign|boulders|hit|far|train|cross|lip|under|sheds> / evSeat:...   (v189) the dunes' events (TRACK=dunes)
 //   boxes / boxesSeat, item:<kind> / itemSeat:<kind>, hold:<kind> / holdSeat:<kind>   (v187) the power-ups: a row of boxes
 //                     ahead; an item at work (boost, shield, ball, hit, oil, spin, giant); the button holding one
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
@@ -142,6 +143,52 @@ async function render(root, views) {
         window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
         return Object.assign(note, { k, spin: +(him.spinT || 0).toFixed(2), aSpin: +(a.spinT || 0).toFixed(2), giant: +(him.giantK || 1).toFixed(2), shield: +(him.shieldT || 0).toFixed(1),
           balls: R.it.balls.filter(b => b.on).length, oils: R.it.oils.filter(o => o.on).length, gapA: +(a.s - him.s).toFixed(1) });
+      }
+      if (/^(ev|evSeat):/.test(v)) {
+        // (v189) the track's events (TRACK=dunes): ev:sign -- the boulder sign coming up; ev:boulders -- the
+        // boulders rolling across, the first ~40 m ahead; ev:hit -- him in a boulder's lane, just spun;
+        // ev:lip -- on the jump's lip, the train in the opening ahead; ev:far -- 250 m from the crest, the train running; ev:train -- the train coming, the booms down, ~80 m from the crest; ev:under -- him in the air over it;
+        // ev:cross -- its engine crossing under the road in front of him; ev:sheds -- from high over the crossing, the line end to end, the train running
+        const T = R.track, k = v.split(":")[1], E = L.rce.cur;
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him, base = Math.max(0, Math.floor(him.s / T.len)) * T.len, B = E && E.boulders, tr = E && E.train;
+        const behind = () => { for (const r of R.racers) if (!r.isHim) { r.s = him.s - 50 - r.i * 14; r.v = him.v * 0.9; r.lat = (r.i % 2 ? -1 : 1) * 6; } };
+        const steer = lat => { const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth); return Math.max(-1, Math.min(1, -(lat - him.lat) * 0.4)) / range; };
+        if (k === "sign" || k === "boulders" || k === "hit") {
+          him.s = base + B.ev.m - (k === "sign" ? 260 : 330); him.lat = 0; him.v = L.RC.v * 0.95; behind();
+          const lane = B.ev.side * L.RC.events.boulders.lanes[0], gap = B.ev.side * (L.RC.events.boulders.lanes[0] + L.RC.events.boulders.lanes[1]) / 2;
+          for (let i = 0; i < 60 * 20; i++) {
+            const first = B.rocks.filter(b => b.on).sort((a, b) => a.s - b.s)[0];
+            if (k === "sign" && him.s > base + B.ev.m - L.RC.events.boulders.sign - 70) break;
+            if (k === "boulders" && first && window.rcGap(first.s, him.s) < 40) break;
+            if (k === "hit" && him.spinT > 0 && him.spinT < 0.55) break;
+            go(1, steer(k === "hit" ? lane : gap), 0);
+          }
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          return Object.assign(note, { k, rocks: B.rocks.filter(b => b.on).map(b => [+(window.rcGap(b.s, him.s)).toFixed(0), +b.lat.toFixed(1)]), lat: +him.lat.toFixed(1), spin: +(him.spinT || 0).toFixed(2) });
+        }
+        if (k === "train" || k === "under" || k === "sheds" || k === "cross" || k === "far" || k === "lip" || k === "top") {
+          him.s = base + tr.crossS - 2200; him.lat = 0; him.v = L.RC.v * 0.95; behind();
+          for (let i = 0; i < 60 * 90; i++) {
+            const to = window.rcAhead(tr.crossS, him.s);
+            if (k === "train" && tr.state === "run" && to < 85) break;
+            if (k === "sheds" && tr.state === "run" && to < 140) break;
+            if (k === "far" && tr.state === "run" && to < 250) break;
+            if (k === "lip" && tr.state === "run" && to < 9) break;   // (on the lip: the opening and the train in front of his nose)
+            if (k === "cross" && tr.state === "run" && (tr.x - tr.crossX) * tr.dir > -8) break;   // (its engine at the road)
+            if ((k === "under" || k === "top") && him.air && Math.abs(window.rcGap(him.s, tr.crossS)) < 3) break;
+            behind(); go(1, 0, 0);
+          }
+          if (k === "top") {   // (the opening from 45 m up, him in the air over it)
+            const r = tr.R;
+            window.__hold = () => { S.touching = true; L.camera.position.set(tr.crossX + 30, tr.deckY + 40, r.z + 30); L.camera.up.set(0, 1, 0); L.camera.lookAt(tr.crossX, tr.deckY - 3, r.z); };
+          } else           if (k === "sheds") {
+            const r = tr.R, cx = (r.x0 + r.x1) / 2;
+            window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.camera.position.set(cx, r.y + 260, r.z + 330); L.camera.up.set(0, 1, 0); L.camera.lookAt(cx, r.y, r.z); };
+          } else window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          return Object.assign(note, { deckH: +(tr.deckY - tr.R.y).toFixed(1), trainTop: +(L.RC.events.train.h + 0.2 + 0.4).toFixed(1), k, train: tr.state, trainToCross: +((tr.crossX - (tr.x - tr.dir * tr.len * 0.4)) * tr.dir).toFixed(0), toCrest: +window.rcAhead(tr.crossS, him.s).toFixed(0), air: !!him.air, booms: +tr.boomA.toFixed(2) });
+        }
+        return note;
       }
       if (v === "glide" || v === "glideSeat") {
         // (v171) on the straight before the first pad, the finger held full left: on the barrier, gliding

@@ -934,6 +934,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           const R = L.race, him = R.him;
           for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
           const field = R.racers.slice(); R.racers = [him];
+          const ev = L.rce.cur; L.rce.cur = null;   // (v189: alone, and no track event in the way either -- race_event_checks has those)
           const Ln = R.track.len, s0 = Math.ceil(him.s / Ln) * Ln + 20;
           him.s = s0 - 200; him.lat = 0; him.v = RC.v * L.spdMul();
           const w0 = R.wallShoves, g0 = R.glideT, b0 = L.flags.carCrashes || 0, p0 = R.padHits, sc0 = L.flags.raceShortcuts || 0;
@@ -957,7 +958,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
             if (t0 !== null && him.s >= s0 + Ln) { t = R.t - t0; break; }
           }
           out[veh][mode] = { t: t && +t.toFixed(2), thumps: R.wallShoves - w0, glide: +(R.glideT - g0).toFixed(1), minV: +minV.toFixed(1), bangs: (L.flags.carCrashes || 0) - b0, sc: (L.flags.raceShortcuts || 0) - sc0, pads: padsOnWall, padsAll: R.padHits - (pT0 === null ? p0 : pT0), stuck: R.stuck, after: w1 === null ? null : R.wallShoves - w1 };
-          R.racers = field; L.raceReset();
+          R.racers = field; L.rce.cur = ev; L.raceReset();
         }
       }
       L.noRender = false;

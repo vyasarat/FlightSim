@@ -10,6 +10,20 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v189 — Desert Dunes: boulders and a freight train
+
+The first of the track events, one track per release. On Desert Dunes, once a lap, three big
+rocks roll down the dune and across the road as he comes -- a warning sign before them, a
+rumble, a spin-out (about a second, never a bang) if he stays in a rock's lane, nothing if he
+steers into a gap; the rivals don't steer round them -- that is his edge. And the road now
+jumps a railway cutting on an open bridge of beams: a freight train with a puffing chimney
+leaves its shed each lap, runs slowly across the desert in front of him, the barrier arms
+come down and the lamps flash, and it passes under him while he is in the air off the jump
+-- the chase camera rises and looks down so he sees the wagons go by beneath him. It never
+stops him and can never touch him. Measured in the noisy-hand race in every car: the train
+under him every lap, the boulders every lap, something happening every 6 seconds; win rates
+over 80 races each: car 51%, Cybertruck 55%, Corvette 61%, monster truck 41%.
+
 ## v188 — a finger in a race is never eaten
 
 Found while building v187. In a race, from the driving seat, the car's map screen is hidden, but

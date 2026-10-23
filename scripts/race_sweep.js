@@ -18,7 +18,7 @@ const ROOT = path.resolve(__dirname, "..");
 // the race itself, and what drives each car in it -- its bodies and widths, its speed steps, the
 // contract that says what he is in (law-reviewer, v177: a car change reached the sweep's checks
 // b and k in every car, and only the sample would have seen it)
-const RACE_FILES = ["cockpit/js/race.js", "cockpit/js/raceitems.js", "cockpit/js/track.js", "cockpit/js/car.js", "cockpit/js/vehicles.js",
+const RACE_FILES = ["cockpit/js/race.js", "cockpit/js/raceitems.js", "cockpit/js/raceevents.js", "cockpit/js/track.js", "cockpit/js/car.js", "cockpit/js/vehicles.js",
   "cockpit/js/vehicle.js", "cockpit/js/speed.js", "cockpit/js/corvette.js", "cockpit/js/monster.js", "cockpit/js/solids.js",
   "scripts/race_track_checks.js", "scripts/race_drive.js", "scripts/race_sweep.js"];
 

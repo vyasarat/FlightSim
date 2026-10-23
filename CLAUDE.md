@@ -231,6 +231,7 @@ a deliberate, stated behaviour change.
 | `track.js` | the giant toy track: its typed sections, the rail, the forks, the net, the lift, its own exit |
 | `race.js` | the race: its tracks as typed sections (`TUNE.race.tracks`), the venue in the world, one speed model for every car, the podium |
 | `raceitems.js` | the power-ups: rows of boxes, the one item button, the five items, spin-outs; every mesh pooled at load |
+| `raceevents.js` | the track events (`TUNE.race.events`): announced, steered round, never a bang; built per track at load |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
 | `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
 

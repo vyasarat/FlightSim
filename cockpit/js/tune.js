@@ -2438,6 +2438,12 @@ const TUNE = {
       { id: "dunes", site: { x: -725, z: -3420, heading: 270 },
         pads: [{ m: 150, lat: 5 }, { m: 800, lat: -5 }, { m: 1850, lat: 5 }, { m: 2960, lat: -5 }, { m: 3180, lat: 5 }, { m: 4380, lat: 5 }],
         aiMul: 1.0,                       // (v173: 0.98 at a 45 s lap; over a two-minute lap his hand gained more -- 85% wins -- so even)
+        // (v189) THE DUNES' EVENTS (raceevents.js). The freight line: a level railway bed `y` m high, `w` m wide,
+        // eased into the ground over `blend` m (terrain.js rcRailBed), from x0 to x1 along z -- under the third
+        // dune's crest (section `sec`), where the road stands on a short bridge `gap` m either side of the rail.
+        // A shed at each end. Boulders roll across the sand straight along the rim (from the inland side).
+        rail: { sec: 14, x0: -2400, x1: -1640, z: -3099, y: -0.8, w: 12, blend: 10, gap: 7 },
+        events: [{ kind: "boulders", m: 760, side: -1 }, { kind: "train" }],
         // the dusty shortcut: the chord across the bulge (sections 5-9), along the canyon's edge
         shortcuts: [{ from: 5, to: 9, side: -1, half: 6, mouth: 5, gore: 15, hold: 40, surface: "dust" }],   // (taken by a full steer held its last `hold` m to the gore)
         sections: [
@@ -2455,7 +2461,7 @@ const TUNE = {
         { type: "turn", angle: 90, radius: 70, surface: "dirt" },
         { type: "straight", len: 80, surface: "dirt", jump: { at: 0.5, up: 28, down: 22, h: 4 } },
         { type: "straight", len: 350, surface: "dirt" },
-        { type: "straight", len: 80, surface: "dirt", jump: { at: 0.5, up: 28, down: 22, h: 4 } },
+        { type: "straight", len: 80, surface: "dirt", jump: { at: 0.5, up: 28, down: 22, h: 6 } },   // (v189: the train jump -- 6 m, the freight line under its crest)
         { type: "straight", len: 100, surface: "dirt" },
         { type: "turn", angle: 90, radius: 90, surface: "dirt" },
         { type: "straight", len: 398.526 },
@@ -2647,7 +2653,7 @@ const TUNE = {
     // old sphere's own footprint, which the splash check's sightline holds them to),
     // at `alpha` (a surface's `sprayA` over it), faded out between fadeNear[0] and [1] m from the camera,
     // never wider than `maxPx` of the screen's height, and dimmed by `nightDim` at night
-    spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8, pool: 96, sizeK: 2, alpha: 0.9, fadeNear: [2, 7], maxPx: 0.07, nightDim: 0.65 },
+    spray: { near: 70, others: 2, otherEvery: 0.15, minV: 8, pool: 128, sizeK: 2, alpha: 0.9, fadeNear: [2, 7], maxPx: 0.07, nightDim: 0.65 },
     // (v170) dune jumps: a section's `jump` heaps a dune `h` m high on it, its crest
     // `at` of the way along, its face `up` m long and its back `down`. A car leaves
     // the deck where it falls away faster than `g` lets it fall, at no more than
@@ -2698,6 +2704,26 @@ const TUNE = {
               hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 },
               // (v167) the shot when he lost: the podium and his car inside these screen edges (-1..1), above the buttons by `gap`, his car `clear` of the steps, the camera up to `maxUp` m and slid along the track up to `slide` m
               loseFit: { side: 0.88, top: 0.62, bottom: -0.5, gap: 0.05, clear: 0.08, maxUp: 50, slide: 36, slideStep: 3 } },
+    // (v189) TRACK EVENTS (raceevents.js): things that happen on a track, seen coming, steered round, never a bang.
+    // BOULDERS: `n` of them `spread` m apart along the road, released as he comes within `lead` s of the first, each
+    // timed to be in its own lane (`lanes`, m across, + toward where they come from) as he gets there -- the gaps
+    // between are his; rolling `v` m/s down the dune and `vRoad` across the road (slow, so a gap stays one), `r` m round. A sign `sign` m before (`signK` times life size). A boulder's spin-out is an item's; the rivals do not
+    // steer round them (he can: it is his edge).
+    // THE TRAIN: `cars` wagons behind the engine, each `carLen` m; it leaves its shed as soon as getting to the crest with him
+    // would need more than `leave` of its top speed, and is timed (between vMin and vMax m/s) to pass under him as he flies -- slow, about a third of his speed, so it stays
+    // in front of him, a little to the side, all the way in (a fast one comes from outside the picture); the booms drop and the lamps flash
+    // while it is within `warn` m of the road; the bell within `bellNear` m of him. It changes speed at `acc` m/s/s at most.
+    events: {
+      boulders: { n: 3, spread: 28, lead: 5, lanes: [9, 0, -9], v: 10, vRoad: 4, r: 1.7, from: 22, sign: 140, signK: 2.4, sinkAfter: 4, colour: 0xb5522e },
+      train: { cars: 3, carLen: 16, engLen: 18, h: 4.2, wid: 3.4, leave: 0.75, vMin: 5, vMax: 14, warn: 70, under: 0.3, colours: [0xe0483e, 0x2b6fd1, 0x36c46a, 0xffd23e],
+               shed: { len: 80, w: 14, h: 9 }, boom: { len: 9, h: 1.1, at: 30 }, lampR: 0.7, bellEvery: 0.55, bellNear: 300, acc: 30,
+               // his chase camera over it: within `camSpan` m of the crossing with the train there, `camLift` m up, `camIn`
+               // of the way in and aimed `lookDown` m lower -- so the train is SEEN going under him (from the seat the bonnet hides under him: he sees it come)
+               camSpan: 40, camLift: 9, camIn: 0.35, lookDown: 9,
+               deck: { beams: 5, w: 0.9, h: 1.3, drop: 0.12 },   // the open bridge: `beams` along the road, `drop` under its line
+               // its chimney: a puff every `every` s, so he sees it coming over the dunes and over the ramp
+               smoke: { every: 0.12, size: 6, rise: 6, life: 4, colour: 0x8f8a86, back: 4, up: 1.2 } },
+    },
     // (v187) THE POWER-UPS (raceitems.js). `rows` rows of glowing boxes a lap, spread evenly and each
     // moved to the nearest place clear of a jump, the grid (`clearGrid` m of the line), a pad (`clearPad`)
     // and a shortcut (`clearSc` beyond its approach and its length); `lats` across the road, `box` m cubes
