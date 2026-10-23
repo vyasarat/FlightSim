@@ -859,8 +859,14 @@
   #raceItemBtn.shuffling { animation: none; border-color: #5ff1ff; }
   /* from his seat the bubble is a soft cyan ring round the edge of the glass (raceitems.js) -- never a veil over the road */
   #raceBubble { position: fixed; inset: 0; pointer-events: none; z-index: 8; border-radius: 28px;
-    box-shadow: inset 0 0 0 6px rgba(95, 241, 255, .55), inset 0 0 60px 18px rgba(95, 241, 255, .35); animation: homePulse 1.4s ease-in-out infinite; }
-  #raceBubble.hidden { display: none; }
+    box-shadow: inset 0 0 0 14px rgba(95, 241, 255, .8), inset 0 0 110px 40px rgba(95, 241, 255, .55); animation: homePulse 1.4s ease-in-out infinite; }
+  /* and his rocket boost: flame-coloured streaks in from the sides of the glass */
+  #raceBoostFx { position: fixed; inset: 0; pointer-events: none; z-index: 8;
+    background: linear-gradient(90deg, rgba(255,122,26,.75) 0%, rgba(255,210,62,.35) 9%, rgba(255,210,62,0) 20%, rgba(255,210,62,0) 80%, rgba(255,210,62,.35) 91%, rgba(255,122,26,.75) 100%),
+                repeating-linear-gradient(0deg, rgba(255,255,255,0) 0 22px, rgba(255,210,62,.35) 22px 26px);
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, transparent 22%, transparent 78%, #000 100%); mask-image: linear-gradient(90deg, #000 0%, transparent 22%, transparent 78%, #000 100%);
+    animation: homePulse .35s ease-in-out infinite; }
+  #raceBubble.hidden, #raceBoostFx.hidden { display: none; }
   #raceHud { position: fixed; top: calc(var(--top-row) + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9;
     pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
   #raceHud.hidden { display: none; }
@@ -1260,10 +1266,11 @@
 <g class="it-boost"><path d="M30 70 L22 92 L40 80 Z" fill="#ff7a1a"/><path d="M36 76 L34 90 L44 82 Z" fill="#ffd23e"/><path d="M34 70 L66 22 Q74 12 84 12 Q86 22 78 32 L44 80 Z" fill="#f2f4f7"/><path d="M84 12 Q86 22 78 32 L72 26 Q76 18 84 12 Z" fill="#e0483e"/><circle cx="64" cy="38" r="6" fill="#5ff1ff"/><path d="M40 60 L26 58 L34 48 Z M50 74 L52 88 L60 78 Z" fill="#e0483e"/></g>
 <g class="it-shield"><circle cx="50" cy="52" r="38" fill="rgba(95,241,255,.18)" stroke="#5ff1ff" stroke-width="7"/><path d="M30 38 Q38 24 54 22" stroke="#f2f4f7" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M28 64 L34 56 Q38 52 46 52 L52 46 L64 46 L70 52 L76 54 Q80 56 80 62 L80 66 L28 66 Z" fill="#8a93a0"/></g>
 <g class="it-ball"><ellipse cx="50" cy="90" rx="20" ry="4" fill="rgba(0,0,0,.35)"/><circle cx="50" cy="48" r="32" fill="#ffd23e"/><path d="M19 40 Q50 52 81 40 L82 50 Q50 62 18 50 Z M24 66 Q50 76 76 66 L72 72 Q50 82 28 72 Z M26 26 Q50 34 74 26 L68 20 Q50 26 32 20 Z" fill="#e0483e"/><circle cx="38" cy="32" r="6" fill="#f2f4f7"/></g>
-<g class="it-oil"><path d="M50 10 Q60 26 60 34 Q60 44 50 44 Q40 44 40 34 Q40 26 50 10 Z" fill="#1f2328" stroke="#5ff1ff" stroke-width="3"/><path d="M14 72 Q14 58 34 58 Q44 52 58 56 Q84 54 86 70 Q88 86 62 86 Q50 92 34 86 Q12 86 14 72 Z" fill="#1f2328" stroke="#2b4fb0" stroke-width="3"/><ellipse cx="50" cy="71" rx="20" ry="7" fill="none" stroke="#5ff1ff" stroke-width="3"/></g>
-<g class="it-giant"><path d="M6 84 L10 70 Q14 64 22 62 L30 48 Q34 42 42 42 L62 42 Q70 43 74 52 L84 56 Q94 60 94 70 L94 84 Z" fill="#e0483e"/><circle cx="26" cy="86" r="9" fill="#1f2328"/><circle cx="76" cy="86" r="9" fill="#1f2328"/><path d="M50 8 L64 26 L56 26 L56 36 L44 36 L44 26 L36 26 Z" fill="#ffd23e"/></g>
+<g class="it-oil"><path d="M50 8 Q62 26 62 35 Q62 46 50 46 Q38 46 38 35 Q38 26 50 8 Z" fill="#1f2328" stroke="#ffd23e" stroke-width="3"/><path d="M44 30 Q44 38 50 40" stroke="#8a93a0" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M12 72 Q12 58 34 58 Q44 52 58 56 Q86 54 88 70 Q90 88 62 88 Q50 94 34 88 Q10 88 12 72 Z" fill="#1f2328" stroke="#ffd23e" stroke-width="4"/><ellipse cx="50" cy="72" rx="20" ry="7" fill="none" stroke="#ffd23e" stroke-width="3"/></g>
+<g class="it-giant"><path d="M30 84 L33 68 Q36 60 46 58 L54 40 Q58 32 68 32 L80 32 Q90 34 93 46 L96 60 Q98 66 98 72 L98 84 Z" fill="#e0483e"/><circle cx="44" cy="86" r="10" fill="#1f2328"/><circle cx="86" cy="86" r="10" fill="#1f2328"/><path d="M2 88 L3 82 Q4 79 8 78 L11 73 L20 73 L23 78 Q26 79 26 82 L26 88 Z" fill="#8a93a0"/><circle cx="8" cy="89" r="3" fill="#1f2328"/><circle cx="21" cy="89" r="3" fill="#1f2328"/><path d="M20 8 L32 22 L25 22 L25 40 L15 40 L15 22 L8 22 Z" fill="#ffd23e"/></g>
 </svg></button>
 <div id="raceBubble" class="hidden" aria-hidden="true"></div>
+<div id="raceBoostFx" class="hidden" aria-hidden="true"></div>
 <div id="raceHud" class="hidden" aria-hidden="true"><div class="raceLaps"></div><div class="racePos"></div></div>
 <button id="vehBtn" class="roundBtn hidden" aria-hidden="true">
   <svg viewBox="0 0 100 100">

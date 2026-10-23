@@ -2706,7 +2706,7 @@ const TUNE = {
     // `odds` by place (first, middle, last; a place between is the nearer two blended): further back,
     // better items, so it stays close. A SPIN-OUT is `spin.time` s, a whole turn of the body, his speed
     // cut to `spin.keep` of it and given back as it always comes back (RC.accel): never a bang, never stuck.
-    items: { rows: 6, lats: [-8, 0, 8], box: 2.4, boxUp: 1.7, rearm: 4, shuffle: 0.7, spinRate: 1.6, bob: 0.25, colStep: 2,
+    items: { rows: 6, lats: [-6.5, 0, 6.5], box: 2.4, boxUp: 1.7, rearm: 4, shuffle: 0.7, spinRate: 1.6, bob: 0.25, colStep: 2,
              clearGrid: 120, clearPad: 30, clearSc: 30, footL: 7.6,   // (footL: the one length a ball or a slick catches, with RC.footW across: the same for every car)
              kinds: ["boost", "shield", "ball", "oil", "giant"],
              odds: { first: { boost: 0.1, shield: 0.4, ball: 0.1, oil: 0.4, giant: 0 },
@@ -2714,10 +2714,10 @@ const TUNE = {
                      last: { boost: 0.35, shield: 0.05, ball: 0.3, oil: 0, giant: 0.3 } },
              boost: { gain: 1.4, time: 2.2 },
              shield: { time: 15, k: 1.25 },                      // (lasts until it takes a hit, or this long; drawn k x the car's length across)
-             ball: { v: 66, r: 1.3, latRate: 14, life: 7, hop: 1.2, hopF: 7, grace: 0.4 },
-             oil: { r: 2.8, behind: 4, life: 30, grace: 1.5 },
-             giant: { time: 6, scale: 2.4, maxWid: 11, grow: 0.5, gain: 1.05, knock: 0.85, bounceV: 8, camBack: 0.35, camUp: 0.6 },   // (camBack/camUp: how much of his growth the chase camera stands back and up for -- all of it and he never looked bigger)
-             spin: { time: 1.0, keep: 0.5, seatYaw: 0.35, seatRoll: 0.12 },
+             ball: { v: 66, r: 1.3, latRate: 14, life: 7, hop: 1.2, hopF: 7, grace: 0.4, overThrower: 1.4, overAir: 1.5 },   // (overThrower: at least this x the thrower's speed; overAir: a car this far up off a dune it misses)
+             oil: { r: 2.8, behind: 4, life: 30, grace: 1.5, catchK: 0.6 },   // (catchK: of its radius, what a car must cross to slide)
+             giant: { time: 6, scale: 2.4, maxWid: 11, grow: 0.5, gain: 1.05, knock: 0.85, bounceV: 8, camBack: 0.5, camUp: 0.6, seatPitch: 0.15, seatUp: 2.5, knockAt: 1.3, knockEvery: 0.5 },   // (seatPitch: rad a growth, from his seat, looking down; seatUp: his seat raised this many times his growth -- as tall as he really is read as nothing from the seat; knockAt: the size from which it knocks cars away, once every knockEvery s each)   // (camBack/camUp: how much of his growth the chase camera stands back and up for -- all of it and he never looked bigger)
+             spin: { time: 1.0, keep: 0.5, seatYaw: 0.35, seatRoll: 0.12, latDamp: 8, burst: 14 },   // (latDamp: how fast its sideways drift dies; burst: puffs round a car that spins)
              ai: { wait: [1.5, 5], holdMax: 12, ballSee: 150, oilSee: 60, boxP: 0.7 },
              near: 60, thingGap: 1.5 },                          // (a rival's item this close to him is something that happened to him; two within thingGap s, one)
     cam: { back: 15, up: 6, lag: 5, look: 18, lookUp: 1.6,

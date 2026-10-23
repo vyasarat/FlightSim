@@ -1426,7 +1426,7 @@ function rcMove(r, dt) {
     const d = rcAhead(pd.s, prevS), dd = r.s - prevS;
     if (d >= 0 && d <= dd + 0.01 && Math.abs(r.lat - pd.lat) < RC.padW / 2 + RC.footW * 0.3) {
       r.padT = RC.padTime;
-      if (r.isHim) { race.padHits++; flags.racePads = (flags.racePads || 0) + 1; whoosh(); cameraPunch(0.4); rcThing("pad"); }
+      if (r.isHim) { race.padHits++; flags.racePads = (flags.racePads || 0) + 1; rcWhoosh(); cameraPunch(0.4); rcThing("pad"); }
     }
   }
   // the heading it shows: along the track, turned by how fast it moves across
@@ -1576,6 +1576,8 @@ function rcContacts(dt) {
 // (its thud is tones only: thunk()'s noise draws the game's Math.random, which a race never touches -- v187's
 // bounces off a giant found it)
 function rcBump(k) { synthBlip("sine", 130, 62, 0.16, 0.30, 0); synthBlip("triangle", 90, 50, 0.1, 0.16, 0); cameraPunch(k); }
+// (and its whoosh, for the same reason: audio.js whoosh() throws noise)
+function rcWhoosh() { synthBlip("sine", 110, 540, 0.28, 0.22, 0); synthBlip("triangle", 300, 900, 0.22, 0.06, 0.02); }
 
 // Laps and the line. Every racer's laps are counted at the line; the third time
 // over it, it is home, and its place is the order it got there.
@@ -2039,6 +2041,7 @@ function raceCamera(dt) {
   const mon = !!state.vp.monster;
   // (v187) from the seat a spin-out sways the view, and a giant sits as high as he has grown
   const sway = rcItSeatYaw(him), roll = sway * RC.items.spin.seatRoll / RC.items.spin.seatYaw, seatK = him && him.giantK > 1 ? him.giantK : 1;
+  const gPitch = -(seatK - 1) * RC.items.giant.seatPitch;   // (and looks down on the road and the cars, far below)
   if (state.viewChase) {
     const C = rcChaseCam(mon), gk = him && him.giantK > 1 ? him.giantK - 1 : 0, G = RC.items.giant;
     const back = C.back * (1 + gk * G.camBack), up = Math.min(C.up * (1 + gk * G.camUp), rcTunnelCamUp(him, back));   // (v187: a giant's camera stands back a little as he grows -- he LOOKS huge)
@@ -2054,16 +2057,16 @@ function raceCamera(dt) {
     if (typeof carHideCabin === "function") carHideCabin();
   } else if (mon) {
     const C = MON.cam;
-    camera.position.set(state.x - fx * C.seatBack * seatK, state.y + C.eye * seatK, state.z - fz * C.seatBack * seatK);
-    camera.rotation.set(-C.seatPitch * DEG + rcSeatPitch(him), state.heading + sway, roll, "YXZ");
+    camera.position.set(state.x - fx * C.seatBack * seatK, state.y + C.eye * (1 + (seatK - 1) * RC.items.giant.seatUp), state.z - fz * C.seatBack * seatK);
+    camera.rotation.set(-C.seatPitch * DEG + rcSeatPitch(him) + gPitch, state.heading + sway, roll, "YXZ");
   } else {
     // the car's own seat (car.js carCamera), on the banked deck
     const K = CAR.cabin, rx = -fz, rz = fx;
     const bodyH = (vehicleModel && vehicleModel.userData.height) || CAR.bodyH * 1.22;
     // (a giant sits up high over the road -- his cabin as it is, lifted with him: the world falls away below)
-    const up = bodyH * CAR.eyeFrac * (seatK - 1);
+    const up = bodyH * CAR.eyeFrac * (seatK - 1) * RC.items.giant.seatUp;
     camera.position.set(state.x + fx * 0.2 + rx * K.seatX, state.y + bodyH * CAR.eyeFrac + up, state.z + fz * 0.2 + rz * K.seatX);
-    camera.rotation.set(-0.05 + rcSeatPitch(him), state.heading + sway, roll, "YXZ");
+    camera.rotation.set(-0.05 + rcSeatPitch(him) + gPitch, state.heading + sway, roll, "YXZ");
     const cab = carBuildCabin();
     cab.visible = true;
     if (car.screen) car.screen.visible = false;      // (its map would hide the car he is racing)
@@ -2072,10 +2075,10 @@ function raceCamera(dt) {
     cab.position.set(state.x, state.y + lift + up, state.z);
     cab.rotation.set(0, state.heading + sway, roll, "YXZ");
     // (in the air the cabin pitches with the car round his eye, so the windscreen stays where he sees it)
-    const ap = rcSeatPitch(him);
+    const ap = rcSeatPitch(him) + gPitch;
     if (ap) {
-      rcEu.set(0, state.heading, 0, "YXZ"); rcQ1.setFromEuler(rcEu).invert();
-      rcEu.set(ap, state.heading, 0, "YXZ"); rcQ2.setFromEuler(rcEu);
+      rcEu.set(0, state.heading + sway, roll, "YXZ"); rcQ1.setFromEuler(rcEu).invert();
+      rcEu.set(ap, state.heading + sway, roll, "YXZ"); rcQ2.setFromEuler(rcEu);
       rcV1.copy(cab.position).sub(camera.position).applyQuaternion(rcQ1).applyQuaternion(rcQ2);
       cab.position.copy(camera.position).add(rcV1);
       cab.rotation.copy(rcEu);

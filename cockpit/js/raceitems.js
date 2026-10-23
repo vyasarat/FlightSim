@@ -67,7 +67,7 @@ function rcItBuild() {
   // oil: a dark pool with a sheen ring, flat on the deck
   const og = rcItMergeGeos([new THREE.CircleGeometry(RCI.oil.r, 20)]), ring = new THREE.RingGeometry(RCI.oil.r * 0.55, RCI.oil.r * 0.75, 20);
   const om = new THREE.MeshBasicMaterial({ color: 0x1f2328, transparent: true, opacity: 0.92, depthWrite: false });
-  const rm = new THREE.MeshBasicMaterial({ color: 0x2b4fb0, transparent: true, opacity: 0.8, depthWrite: false });
+  const rm = new THREE.MeshBasicMaterial({ color: 0xffd23e, transparent: true, opacity: 0.9, depthWrite: false });   // (a warning-yellow sheen: dark on dark asphalt did not read)
   for (let i = 0; i < 8; i++) {
     const g = new THREE.Group(), a = new THREE.Mesh(og, om), b = new THREE.Mesh(ring, rm);
     a.rotation.x = b.rotation.x = -Math.PI / 2; b.position.y = 0.02; g.add(a, b); g.visible = false; g.userData.noSolid = true;
@@ -138,7 +138,7 @@ function rcItReset() {
   for (const b of it.balls) { b.on = false; b.m.visible = false; }
   for (const o of it.oils) { o.on = false; o.m.visible = false; }
   for (const m of it.bubbles) m.visible = false;
-  if (el.raceBubble) el.raceBubble.classList.add("hidden");
+  if (el.raceBubble) { el.raceBubble.classList.add("hidden"); el.raceBoostFx.classList.add("hidden"); }
   it.rows = []; it.used = 0;
   it.boxMesh.count = it.ribbonMesh.count = 0; it.glow.visible = false;
   race.things = []; race.itLog = { got: 0, used: 0, rivalsUsed: 0, hitHim: 0, blocked: 0, spins: 0, bounces: 0 };
@@ -150,7 +150,7 @@ function rcItStart() {
   for (const r of race.racers) rcItRacer(r);
 }
 function rcItRacer(r) {
-  r.item = null; r.itemShuf = 0; r.itemWait = 0; r.itemHeld = 0;
+  r.item = null; r.itemShuf = 0; r.itemQueued = false; r.itemWait = 0; r.itemHeld = 0;
   r.spinT = 0; r.spinA = 0; r.shieldT = 0; r.giantT = 0; r.giantK = 1; r.itBoostT = 0;
   r.wid0 = r.wid; r.len0 = r.len;
 }
@@ -179,13 +179,14 @@ function rcItPlaceF(r) {
 }
 function rcItGive(r, kind) {
   r.item = kind; r.itemHeld = 0;
-  r.itemShuf = 0;
+  r.itemShuf = 0; r.itemQueued = false;
   if (!r.isHim) r.itemWait = lerp(RCI.ai.wait[0], RCI.ai.wait[1], rcRnd());
 }
 // his button's tap
 function raceItemUse() {
   const him = race.him;
-  if (!race.on || !him || !him.item || him.itemShuf > 0 || race.phase !== "race") return false;
+  if (!race.on || !him || !him.item || race.phase !== "race") return false;
+  if (him.itemShuf > 0) { him.itemQueued = true; return true; }   // (tapped while its pictures shuffle: kept, and used as they settle -- a tap is never lost)
   rcItUse(him);
   return true;
 }
@@ -196,7 +197,7 @@ function rcItUse(r) {
   const I = RCI, him = race.him;
   if (r.isHim) { race.it.used++; race.itLog.used++; rcThing("use"); flags.raceItems = (flags.raceItems || 0) + 1; }
   else { race.itLog.rivalsUsed++; if (him && Math.abs(rcGap(r.s, him.s)) < I.near && !him.done) rcThing("near"); }
-  if (k === "boost") { r.itBoostT = I.boost.time; if (r.isHim) { engSurge(1); cameraPunch(0.6); whoosh(); } }
+  if (k === "boost") { r.itBoostT = I.boost.time; if (r.isHim) { engSurge(1); cameraPunch(0.6); rcWhoosh(); } }
   else if (k === "shield") { r.shieldT = I.shield.time; if (r.isHim) synthBlip("sine", 300, 900, 0.35, 0.16, 0); }
   else if (k === "giant") { r.giantT = I.giant.time; if (r.isHim) { synthBlip("sawtooth", 70, 260, 0.9, 0.2, 0); cameraPunch(0.5); } }
   else if (k === "ball") {
@@ -204,7 +205,7 @@ function rcItUse(r) {
     const P = racePlaces(), i = P.indexOf(r);
     let tgt = null;
     for (let j = i - 1; j >= 0; j--) if (!P[j].done) { tgt = P[j]; break; }
-    Object.assign(b, { on: true, s: r.s + r.len / 2 + I.ball.r + 0.5, lat: r.lat, t: 0, from: r, tgt, v: Math.max(I.ball.v, r.v * 1.4), path: r.path });
+    Object.assign(b, { on: true, s: r.s + r.len / 2 + I.ball.r + 0.5, lat: r.lat, t: 0, from: r, tgt, v: Math.max(I.ball.v, r.v * I.ball.overThrower), path: r.path });
     b.m.visible = true;
     if (r.isHim || (him && Math.abs(rcGap(r.s, him.s)) < I.near)) synthBlip("square", 520, 260, 0.18, 0.12, 0);
   } else if (k === "oil") {
@@ -229,18 +230,18 @@ function rcItHit(r, by) {
   r.spinT = RCI.spin.time; r.spinA = 0;
   r.v *= RCI.spin.keep; r.latV = 0;
   r.boosting = false; r.burstT = 0; r.padT = 0; r.itBoostT = 0;
-  rcItBurst(r, 0xf2f4f7, 6);
+  rcItBurst(r, 0xffd23e, RCI.spin.burst, 1);   // (the hero cue: a ring of bright puffs bursting off the car that spins -- seen at 50 m)
   if (r.isHim) {
     race.itLog.spins++; if (by && by !== r) race.itLog.hitHim++;
     rcThing("spin"); flags.raceSpins = (flags.raceSpins || 0) + 1;
     boing(); synthBlip("triangle", 1400, 500, 0.7, 0.1, 0); cameraPunch(0.5);
   } else if (him && Math.abs(rcGap(r.s, him.s)) < RCI.near) { boing(); if (by === him) rcThing("hitThem"); }
 }
-function rcItBurst(r, col, n) {
+function rcItBurst(r, col, n, big) {
   for (let k = 0; k < n; k++) {
-    const a = k / n * Math.PI * 2;
+    const a = k / n * Math.PI * 2, c = big && k % 2 ? 0xf2f4f7 : col;
     rcPoint(r.s + Math.cos(a) * r.len * 0.5, r.lat + Math.sin(a) * r.wid * 0.6, rcItP);
-    rcPuff(rcItP.x, rcItP.y + 0.8, rcItP.z, col, 0.5, 1.6, 0.5, 0.9);
+    rcPuff(rcItP.x, rcItP.y + (big ? 1.4 : 0.8), rcItP.z, c, big ? 1.0 : 0.5, big ? 3 : 1.6, big ? 0.9 : 0.5, 0.95);
   }
 }
 
@@ -252,7 +253,7 @@ function rcItBefore(dt) {
     if (r.wid0 === undefined) rcItRacer(r);
     if (r.itBoostT > 0) r.itBoostT -= dt;
     if (r.shieldT > 0) r.shieldT -= dt;
-    if (r.itemShuf > 0) r.itemShuf -= dt;
+    if (r.itemShuf > 0) { r.itemShuf -= dt; if (r.itemShuf <= 0 && r.itemQueued) { r.itemQueued = false; if (race.phase === "race") rcItUse(r); } }
     if (r.item) r.itemHeld += dt;
     // giant: grows over `grow` s, and back
     if (r.giantT > 0) r.giantT -= dt;
@@ -263,7 +264,7 @@ function rcItBefore(dt) {
     if (r.spinT > 0) {
       r.spinT = Math.max(0, r.spinT - dt);
       r.spinA = Math.PI * 2 * smoothstep(0, 1, 1 - r.spinT / RCI.spin.time);
-      r.latV *= Math.max(0, 1 - 8 * dt);
+      r.latV *= Math.max(0, 1 - RCI.spin.latDamp * dt);
       if (r.spinT === 0) r.spinA = 0;
     }
   }
@@ -338,7 +339,7 @@ function rcItAfter(dt, going) {
     b.lat = clamp(b.lat, -RC.width / 2 + BL.r, RC.width / 2 - BL.r);
     let hit = null;
     for (const r of race.racers) {
-      if ((r === b.from && b.t < BL.grace) || r.path || (r.air && r.y - rcPoint(r.s, r.lat, rcItP).y > 1.5)) continue;
+      if ((r === b.from && b.t < BL.grace) || r.path || (r.air && r.y - rcPoint(r.s, r.lat, rcItP).y > BL.overAir)) continue;
       if (Math.abs(rcGap(r.s, b.s)) < RCI.footL / 2 + BL.r && Math.abs(r.lat - b.lat) < rcItFoot(r) / 2 + BL.r) { hit = r; break; }
     }
     if (hit) { rcItHit(hit, b.from); b.on = false; b.m.visible = false; continue; }
@@ -355,7 +356,7 @@ function rcItAfter(dt, going) {
     if (o.t > OL.life) { o.on = false; o.m.visible = false; continue; }
     for (const r of race.racers) {
       if ((r === o.from && o.t < OL.grace) || r.path || r.air || r.spinT > 0) continue;
-      if (Math.abs(rcGap(r.s, o.s)) < RCI.footL / 2 + OL.r * 0.6 && Math.abs(r.lat - o.lat) < rcItFoot(r) / 2 + OL.r * 0.6) {
+      if (Math.abs(rcGap(r.s, o.s)) < RCI.footL / 2 + OL.r * OL.catchK && Math.abs(r.lat - o.lat) < rcItFoot(r) / 2 + OL.r * OL.catchK) {
         rcItHit(r, o.from); o.on = false; o.m.visible = false; break;
       }
     }
@@ -371,12 +372,12 @@ function rcItAfter(dt, going) {
 }
 // a giant meets a car: the car bounces off, the giant keeps going (race.js rcContacts asks)
 function rcItGiantMeet(A, B, sg, overlap) {
-  const ga = A.giantT > 0 && A.giantK > 1.3, gb = B.giantT > 0 && B.giantK > 1.3;
+  const G = RCI.giant, ga = A.giantT > 0 && A.giantK > G.knockAt, gb = B.giantT > 0 && B.giantK > G.knockAt;
   if (ga === gb) return false;
   const big = ga ? A : B, small = ga ? B : A, side = small === A ? sg : -sg;
   small.lat += side * (overlap + 0.1);
   small.latV = side * RCI.giant.bounceV;
-  if (!small.bounceT || small.bounceT < race.t - 0.5) {
+  if (!small.bounceT || small.bounceT < race.t - G.knockEvery) {
     small.v *= RCI.giant.knock;
     small.bounceT = race.t;
     if (small.isHim) { race.itLog.bounces++; rcThing("bounce"); rcBump(0.45); boing(); }
@@ -465,9 +466,13 @@ function rcItHud() {
   if (him.item && him.itemShuf > 0) show = RCI.kinds[Math.floor(race.t * 12) % RCI.kinds.length];   // (the pictures shuffle, then settle)
   if (b.dataset.item !== show) b.dataset.item = show;
   b.classList.toggle("shuffling", !!(him.item && him.itemShuf > 0));
-  el.raceBubble.classList.toggle("hidden", !(him.shieldT > 0 && !state.viewChase && race.phase === "race"));
+  // (from his seat his own bubble and his own boost are at the edge of the glass: neither is in front of him)
+  const seat = !state.viewChase && race.phase === "race";
+  el.raceBubble.classList.toggle("hidden", !(him.shieldT > 0 && seat));
+  el.raceBoostFx.classList.toggle("hidden", !(him.itBoostT > 0 && seat));
 }
 el.raceItemBtn = document.getElementById("raceItemBtn");
 el.raceBubble = document.getElementById("raceBubble");
+el.raceBoostFx = document.getElementById("raceBoostFx");
 el.raceItemBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); pressFlash(el.raceItemBtn); raceItemUse(); });
 { const s0 = vkSeed; try { vkQuiet(0, rcItBuild); } finally { vkSeed = s0; } }

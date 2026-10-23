@@ -82,6 +82,14 @@ module.exports = async function raceItemChecks({ newPage, check }) {
       him.s = row2.s - 60; him.lat = lane; him.latV = 0; him.v = L.RC.v;
       for (let i = 0; i < 60 * 3; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); }
       for (let i = 0; i < 60 * 1.5; i++) { st.touching = false; L.update(1 / 60); }    // (the shuffle settles)
+      // (and a tap while the pictures shuffle is never lost: kept, and used as they settle)
+      const keep = { item: him.item, used0: R.it.used };
+      L.rcItGive(him, "boost"); him.itemShuf = L.RC.items.shuffle; L.raceItemUse();
+      keep.during = R.it.used - keep.used0;
+      for (let i = 0; i < 60; i++) { st.touching = true; L.update(1 / 60); }
+      keep.after = R.it.used - keep.used0; keep.boost = him.itBoostT > 0 || keep.after > 0;
+      L.rcItGive(him, keep.item); R.it.used = keep.used0;
+      for (let i = 0; i < 2; i++) { st.touching = false; L.update(1 / 60); }   // (the button drawn for what he holds again)
       const b = document.getElementById("raceItemBtn"), rc = b.getBoundingClientRect(), cs = getComputedStyle(b);
       const shows = cs.display !== "none" && !b.classList.contains("hidden");
       const pic = b.dataset.item, item = him.item;
@@ -95,7 +103,7 @@ module.exports = async function raceItemChecks({ newPage, check }) {
       const text = [...document.querySelectorAll("#raceItemBtn, #raceHud")].map(e => e.innerText.trim()).join("");
       const at = document.elementFromPoint(innerWidth * 0.45, innerHeight * 0.4);
       const stickAt = at ? (at.id || at.tagName + "." + at.className) : null;
-      return { stickAt, gap, got: { item, pic, shows, size: Math.round(rc.width), pulse: cs.animationName, x: rc.left + rc.width / 2, y: rc.top + rc.height / 2 },
+      return { keep, stickAt, gap, got: { item, pic, shows, size: Math.round(rc.width), pulse: cs.animationName, x: rc.left + rc.width / 2, y: rc.top + rc.height / 2 },
                clashes: L.btnSlotClashes(), obstructed: L.btnObstructions(), under, text, w: innerWidth, h: innerHeight };
     });
     // a finger holding the stick (drag left), then a second finger taps the item button
@@ -118,8 +126,9 @@ module.exports = async function raceItemChecks({ newPage, check }) {
     const b = await bRun(w, h);
     const ok = b.pre.gap.past && !b.pre.gap.item && b.pre.got.item && b.pre.got.pic === b.pre.got.item && b.pre.got.shows && b.pre.got.size >= 80 &&
       b.pre.got.pulse && b.pre.got.pulse !== "none" && !b.pre.clashes.length && !b.pre.obstructed.length && !b.pre.under.length && b.pre.text === "" &&
+      b.pre.keep.during === 0 && b.pre.keep.after === 1 &&
       b.after.used >= 1 && !b.after.item && b.after.hidden && b.after.touching && b.after.lat > b.before.lat;
-    check(`race items ${w}x${h}: aimed, not timed -- through the gap between two boxes he got ${b.pre.gap.item || "nothing"}; through a box ${b.pre.got.item} (the button shows ${b.pre.got.pic}, ${b.pre.got.size} px, pulsing); a real tap, with another finger on the stick, used it (the button went, the stick kept steering: ${b.before.lat.toFixed(1)} -> ${b.after.lat.toFixed(1)} m); no clash, nothing over it or under it (${b.pre.under.join(",") || "none"}), no text`, ok, J(b));
+    check(`race items ${w}x${h}: aimed, not timed -- through the gap between two boxes he got ${b.pre.gap.item || "nothing"}; through a box ${b.pre.got.item} (the button shows ${b.pre.got.pic}, ${b.pre.got.size} px, pulsing); a real tap, with another finger on the stick, used it (the button went, the stick kept steering: ${b.before.lat.toFixed(1)} -> ${b.after.lat.toFixed(1)} m); no clash, nothing over it or under it (${b.pre.under.join(",") || "none"}), no text; a tap while the pictures shuffle was kept and used as they settled (${b.pre.keep.during} then ${b.pre.keep.after})`, ok, J(b));
   }
 
   // ---- c + d. each item does what it says, in every car; a spin-out is short and never a bang
@@ -182,7 +191,7 @@ module.exports = async function raceItemChecks({ newPage, check }) {
         if (i === 150) vAfter = him.v;
         const k = him.giantK || 1; kMax = Math.max(kMax, k); if (k > 1.5) big += 1 / 60;
       });
-      o.giant = { secs: +big.toFixed(2), k: +kMax.toFixed(2), after: +(him.giantK || 1).toFixed(2), scaleAfter: +((him.mesh && him.mesh.scale.x) || 1 / sc0).toFixed(2), bounced: +bounced.toFixed(1), keep: +(vAfter / vBefore).toFixed(2) };
+      o.giant = { secs: +big.toFixed(2), k: +kMax.toFixed(2), after: +(him.giantK || 1).toFixed(2), scaleAfter: +(((him.mesh && him.mesh.scale.x) || 1) / sc0).toFixed(2), bounced: +bounced.toFixed(1), keep: +(vAfter / vBefore).toFixed(2) };
       o.bangs = (L.flags.carCrashes || 0) - bangs0 + (st.exploding ? 1 : 0);
       L.raceReset();
     }
@@ -193,7 +202,7 @@ module.exports = async function raceItemChecks({ newPage, check }) {
   const cOk = cars.every(k => {
     const o = cd[k];
     return o.boost >= 1.25 && o.ball.hitAfter > 0 && o.ball.spin >= 0.7 && o.ball.minV < 0.8 && o.ball.back >= 0.9 && o.shield.spunWithBubble === 0 && !o.shield.bubbleLeft &&
-      o.oil.inIt > 0.5 && o.oil.round === 0 && o.giant.secs >= 5 && o.giant.secs <= 7.5 && o.giant.after === 1 && o.giant.bounced >= 2 && o.giant.keep >= 0.95 && o.bangs === 0;
+      o.oil.inIt > 0.5 && o.oil.round === 0 && o.giant.secs >= 5 && o.giant.secs <= 7.5 && o.giant.after === 1 && o.giant.scaleAfter === 1 && o.giant.bounced >= 2 && o.giant.keep >= 0.95 && o.bangs === 0;
   });
   check(`race items: each does what it says, in every car -- the boost ${cars.map(k => "x" + cd[k].boost).join("/")}; the ball spun the car ahead after ${cars.map(k => cd[k].ball.hitAfter).join("/")} s (its speed down to ${cars.map(k => cd[k].ball.minV).join("/")}, back to ${cars.map(k => cd[k].ball.back).join("/")}); the bubble took a ball (spun ${cars.map(k => cd[k].shield.spunWithBubble).join("/")} frames) and went; into the oil he spun ${cars.map(k => cd[k].oil.inIt).join("/")} s, round it ${cars.map(k => cd[k].oil.round).join("/")}; GIANT ${cars.map(k => cd[k].giant.secs).join("/")} s at x${cars.map(k => cd[k].giant.k).join("/")}, a car he met bounced ${cars.map(k => cd[k].giant.bounced).join("/")} m and he kept ${cars.map(k => cd[k].giant.keep).join("/")} of his speed; ${cars.map(k => cd[k].bangs).join("/")} bangs`, cOk, J(cd));
   const dOk = cars.every(k => { const s = cd[k].spin; return s.secs >= 0.8 && s.secs <= 1.3 && s.turns >= 0.9 && s.minV >= 0.3 && s.minV < 0.8 && s.back >= 0.9 && s.latMoved <= 1.5 && s.stuck === 0 && s.onRoad; });
@@ -225,6 +234,7 @@ module.exports = async function raceItemChecks({ newPage, check }) {
   const g = await page.evaluate(() => {
     const L = window.__lp, R = L.race, st = L.state;
     L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const scale0 = +L.vehicleModel.scale.x.toFixed(2);           // (his body's own size, before any race)
     L.rcStartRace("oval", 9); R.phase = "race"; R.raceT0 = R.t;
     const him = R.him;
     for (const [r, k] of [[him, "giant"], [R.racers[1], "shield"], [R.racers[2], "oil"], [R.racers[3], "ball"]]) { L.rcItGive(r, k); r.isHim ? L.raceItemUse() : L.rcItUse(r); }
@@ -237,9 +247,9 @@ module.exports = async function raceItemChecks({ newPage, check }) {
     const again = Object.assign(live(), { item: R.him.item });
     L.raceExit(); for (let i = 0; i < 5; i++) { st.touching = false; L.update(1 / 60); }
     const exit = live();
-    return { during, again, exit, scale0: 1 };
+    return { during, again, exit, scale0 };
   });
   const clean = x => x.balls === 0 && x.oils === 0 && x.bubbles === 0 && !x.btn;
   check(`race items: nothing left behind -- during ${J(g.during)}; raced again ${J(g.again)}; after EXIT ${J(g.exit)}`,
-    g.during.balls + g.during.oils + g.during.bubbles >= 2 && clean(g.again) && !g.again.item && clean(g.exit) && g.exit.giant === g.again.giant, J(g));
+    g.during.balls + g.during.oils + g.during.bubbles >= 2 && clean(g.again) && !g.again.item && clean(g.exit) && g.again.giant === g.scale0 && g.exit.giant === g.scale0 && g.during.giant > g.scale0 * 1.5, J(g));
 };
