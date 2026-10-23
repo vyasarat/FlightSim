@@ -22,7 +22,7 @@ every item and event from the chase cam and the seat. Full loop, ship each when 
   an oil slick dropped behind; GIANT MODE (his car grows huge for about 6 s, other cars
   bounce off him). Rivals get items too and use them on him. A spin-out is short (about 1 s),
   dramatic, never a bang, never stuck. Cars further back get better items, so it stays close.
-- [ ] **v188 A finger in a race is never eaten** (found in v187, a STUCK-class bug, so it comes first): in a
+- [x] **v188 A finger in a race is never eaten** (shipped 2026-10-23; 1191/1191) (found in v187, a STUCK-class bug, so it comes first): in a
   race, from the driving seat, the car's map screen is hidden (race.js) but `carScreenTap` (car.js) still
   raycasts against it -- a finger landing where it sits (the middle of a landscape iPad) toggles the hidden
   map and steers nothing. Since v164. Make the tap ask whether the screen is drawn; a check that touches
