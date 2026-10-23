@@ -452,13 +452,15 @@ module.exports = async function raceChecks({ newPage, check }) {
       const k = {};
       for (const [vw, vh] of [[820, 1180], [1180, 820]]) for (const chase of [false, true]) {
         await page.setViewportSize({ width: vw, height: vh });
-        await page.evaluate((chase) => {
+        const at = await page.evaluate((chase) => {
           const L = window.__lp, R = L.race, st = L.state;
           L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); L.api.setView(chase);
           for (let i = 0; i < 10; i++) L.update(1 / 60);
           L.rcStartRace("oval", 5); R.phase = "race"; R.raceT0 = R.t;
           st.touching = false; for (let i = 0; i < 30; i++) L.update(1 / 60);
           window.__paint && window.__paint();
+          // (the state it is about, reached: in the race, and from the seat the map screen hidden)
+          return { race: L.raceOn() && R.phase === "race", screenHidden: typeof car !== "undefined" && car.screen ? !car.screen.visible : null };
         }, chase);
         const eaten = [], tried = [];
         for (let gx = 0; gx < 6; gx++) for (let gy = 0; gy < 6; gy++) {
@@ -473,12 +475,12 @@ module.exports = async function raceChecks({ newPage, check }) {
           await page.evaluate(() => { const L = window.__lp; L.update(1 / 60); });
           if (!(r.t && r.b > 0.05)) eaten.push([x, y]);
         }
-        k[`${vw}x${vh} ${chase ? "chase" : "seat"}`] = { tried: tried.length, eaten };
+        k[`${vw}x${vh} ${chase ? "chase" : "seat"}`] = { tried: tried.length, eaten, race: at.race, screenHidden: at.screenHidden, chase };
       }
       await page.evaluate(() => { const L = window.__lp; L.state.touching = false; L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); });
       await page.setViewportSize({ width: w, height: h });
       check(`race: a finger in a race is never eaten -- put down anywhere on the picture and dragged, it steers: ${Object.entries(k).map(([v, r]) => `${v} ${r.tried - r.eaten.length}/${r.tried}${r.eaten.length ? " (eaten at " + r.eaten.map(p => p.join(",")).join(" ") + ")" : ""}`).join("; ")}`,
-        Object.values(k).every(r => r.tried >= 15 && r.eaten.length === 0), J(k));
+        Object.values(k).every(r => r.tried >= 15 && r.eaten.length === 0 && r.race && (r.chase || r.screenHidden === true)), J(k));
     }
   }
 };
