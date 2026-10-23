@@ -91,6 +91,8 @@ const BUTTONS = {
   raceExitBtn:  { slot: "topLeft1",  when: () => raceExitShows() },
   raceAgainBtn: { slot: "free",      when: () => raceEndShows() },
   raceBackBtn:  { slot: "free",      when: () => raceEndShows() },
+  // (v187) the power-up: up only while he holds one (raceitems.js) -- the parent's exception to "one new button"
+  raceItemBtn:  { slot: "lowLeft",   when: () => raceItemShows() },
 
   // ---- v147: DAD MODE's own (dadmode.js). False everywhere outside it, so nothing
   // of dad mode ever shows in his game; inside it they take the slots his own

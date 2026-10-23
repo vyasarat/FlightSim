@@ -846,6 +846,21 @@
   #raceAgainBtn { left: calc(50% - var(--thr) - 18px); border-color: #ffd23e; }
   #raceBackBtn { left: calc(50% + 18px); border-color: #5ff1ff; }
   #raceBtn.hidden, #raceExitBtn.hidden, #raceAgainBtn.hidden, #raceBackBtn.hidden { display: none; }
+  /* v187: the power-up -- ONE big pulsing button, bottom-left (his other hand: the stick is anywhere), showing the
+     item's picture and nothing else; up only while he holds one (raceitems.js). The parent's exception (CLAUDE.md). */
+  #raceItemBtn { left: calc(var(--edge) + env(safe-area-inset-left)); bottom: calc(var(--stack-bottom) + env(safe-area-inset-bottom));
+    width: calc(var(--thr) * 1.15); height: calc(var(--thr) * 1.15); z-index: 12; border-color: #ffd23e;
+    animation: homePulse .8s ease-in-out infinite; }
+  #raceItemBtn.hidden { display: none; }
+  #raceItemBtn svg { width: 74%; height: 74%; }
+  #raceItemBtn svg g { display: none; }
+  #raceItemBtn[data-item="boost"] .it-boost, #raceItemBtn[data-item="shield"] .it-shield, #raceItemBtn[data-item="ball"] .it-ball,
+  #raceItemBtn[data-item="oil"] .it-oil, #raceItemBtn[data-item="giant"] .it-giant { display: inline; }
+  #raceItemBtn.shuffling { animation: none; border-color: #5ff1ff; }
+  /* from his seat the bubble is a soft cyan ring round the edge of the glass (raceitems.js) -- never a veil over the road */
+  #raceBubble { position: fixed; inset: 0; pointer-events: none; z-index: 8; border-radius: 28px;
+    box-shadow: inset 0 0 0 6px rgba(95, 241, 255, .55), inset 0 0 60px 18px rgba(95, 241, 255, .35); animation: homePulse 1.4s ease-in-out infinite; }
+  #raceBubble.hidden { display: none; }
   #raceHud { position: fixed; top: calc(var(--top-row) + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9;
     pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
   #raceHud.hidden { display: none; }
@@ -1240,6 +1255,15 @@
 <button id="raceExitBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M30 86V30h40v56" stroke="#5ff1ff" stroke-width="8"/><path d="M50 62C50 40 62 26 86 22M74 12l12 10-12 10" stroke="#f2f4f7" stroke-width="8"/></svg></button>
 <button id="raceAgainBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100"><path d="M24 90V12" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round"/><path d="M28 14h56v40H28z" fill="#f2f4f7"/><path d="M28 14h14v10H28zM56 14h14v10H56zM42 24h14v10H42zM70 24h14v10H70zM28 34h14v10H28zM56 34h14v10H56zM42 44h14v10H42zM70 44h14v10H70z" fill="#1f2328"/></svg></button>
 <button id="raceBackBtn" class="roundBtn hidden" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M30 86V30h40v56" stroke="#5ff1ff" stroke-width="8"/><path d="M50 62C50 40 62 26 86 22M74 12l12 10-12 10" stroke="#f2f4f7" stroke-width="8"/></svg></button>
+<!-- v187: the power-up button: the item's picture, no words (raceitems.js) -->
+<button id="raceItemBtn" class="roundBtn hidden" aria-hidden="true" data-item=""><svg viewBox="0 0 100 100">
+<g class="it-boost"><path d="M30 70 L22 92 L40 80 Z" fill="#ff7a1a"/><path d="M36 76 L34 90 L44 82 Z" fill="#ffd23e"/><path d="M34 70 L66 22 Q74 12 84 12 Q86 22 78 32 L44 80 Z" fill="#f2f4f7"/><path d="M84 12 Q86 22 78 32 L72 26 Q76 18 84 12 Z" fill="#e0483e"/><circle cx="64" cy="38" r="6" fill="#5ff1ff"/><path d="M40 60 L26 58 L34 48 Z M50 74 L52 88 L60 78 Z" fill="#e0483e"/></g>
+<g class="it-shield"><circle cx="50" cy="52" r="38" fill="rgba(95,241,255,.18)" stroke="#5ff1ff" stroke-width="7"/><path d="M30 38 Q38 24 54 22" stroke="#f2f4f7" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M28 64 L34 56 Q38 52 46 52 L52 46 L64 46 L70 52 L76 54 Q80 56 80 62 L80 66 L28 66 Z" fill="#8a93a0"/></g>
+<g class="it-ball"><ellipse cx="50" cy="90" rx="20" ry="4" fill="rgba(0,0,0,.35)"/><circle cx="50" cy="48" r="32" fill="#ffd23e"/><path d="M19 40 Q50 52 81 40 L82 50 Q50 62 18 50 Z M24 66 Q50 76 76 66 L72 72 Q50 82 28 72 Z M26 26 Q50 34 74 26 L68 20 Q50 26 32 20 Z" fill="#e0483e"/><circle cx="38" cy="32" r="6" fill="#f2f4f7"/></g>
+<g class="it-oil"><path d="M50 10 Q60 26 60 34 Q60 44 50 44 Q40 44 40 34 Q40 26 50 10 Z" fill="#1f2328" stroke="#5ff1ff" stroke-width="3"/><path d="M14 72 Q14 58 34 58 Q44 52 58 56 Q84 54 86 70 Q88 86 62 86 Q50 92 34 86 Q12 86 14 72 Z" fill="#1f2328" stroke="#2b4fb0" stroke-width="3"/><ellipse cx="50" cy="71" rx="20" ry="7" fill="none" stroke="#5ff1ff" stroke-width="3"/></g>
+<g class="it-giant"><path d="M6 84 L10 70 Q14 64 22 62 L30 48 Q34 42 42 42 L62 42 Q70 43 74 52 L84 56 Q94 60 94 70 L94 84 Z" fill="#e0483e"/><circle cx="26" cy="86" r="9" fill="#1f2328"/><circle cx="76" cy="86" r="9" fill="#1f2328"/><path d="M50 8 L64 26 L56 26 L56 36 L44 36 L44 26 L36 26 Z" fill="#ffd23e"/></g>
+</svg></button>
+<div id="raceBubble" class="hidden" aria-hidden="true"></div>
 <div id="raceHud" class="hidden" aria-hidden="true"><div class="raceLaps"></div><div class="racePos"></div></div>
 <button id="vehBtn" class="roundBtn hidden" aria-hidden="true">
   <svg viewBox="0 0 100 100">
@@ -1632,6 +1656,7 @@
 <script src="js/sledride.js"></script>
 <script src="js/crane.js"></script>
 <script src="js/race.js"></script>
+<script src="js/raceitems.js"></script>
 <script src="js/valley.js"></script>
 <script src="js/dadmode.js"></script>
 <script src="js/dadair.js"></script>

@@ -22,6 +22,8 @@
 //   closeSeat:<kind>  (v181 gaps) from his seat, a rival 9 m ahead (tailgating, its tail ~4 m off his nose) in his lane on that surface, spraying at him
 //   puffAt:<kind> / puffAtSeat:<kind>   (v181 gaps) from the chase view / his seat on that surface, a row of the biggest puff that surface makes, white, held at
 //                     1, 2, 3, 4.5, 7, 10 and 15 m straight ahead of the camera: what the 2-7 m fade and the size cap leave on the glass
+//   boxes / boxesSeat, item:<kind> / itemSeat:<kind>, hold:<kind> / holdSeat:<kind>   (v187) the power-ups: a row of boxes
+//                     ahead; an item at work (boost, shield, ball, hit, oil, spin, giant); the button holding one
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
 const path = require("path"), fs = require("fs");
 const { launch, openGame, serve } = require("./art_rig.js");
@@ -114,6 +116,32 @@ async function render(root, views) {
         window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
         note.s = Math.round(him.s - base); note.air = !!him.air;
         return note;
+      }
+      if (/^(boxes|boxesSeat|item|itemSeat|hold|holdSeat)(:|$)/.test(v)) {
+        // (v187) the power-ups. boxes / boxesSeat: a row of boxes ~70 m ahead, him down the middle.
+        // item:<kind> / itemSeat:<kind>: that item at work -- boost (pushed, flames), shield (the bubble),
+        // ball (thrown at the car 45 m ahead, in flight), hit (that car spinning), oil (a rival's slick
+        // 30 m ahead of him), spin (him spinning, hit by a ball), giant (him huge, a rival alongside).
+        // hold:<kind> / holdSeat:<kind>: he holds it -- the button with its picture
+        const T = R.track, k = v.split(":")[1] || "";
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const him = R.him, base = Math.floor(him.s / T.len) * T.len, row = R.it.rows[1];
+        const at = v.startsWith("boxes") ? row.s - 70 : row.s + 150;
+        him.s = base + at; him.lat = 0; him.v = L.RC.v * 0.95; him.latV = 0;
+        for (const r of R.racers) if (!r.isHim) { r.s = him.s - 60 - r.i * 14; r.v = him.v * 0.9; r.lat = (r.i % 2 ? -1 : 1) * 6; }
+        if (!v.startsWith("boxes")) { R.it.rows.forEach(rw => { rw.off = true; }); for (let i = 0; i < 90; i++) { for (const r of R.racers) if (!r.isHim) r.v = him.v * 0.9; go(1, 0, 0); } }   // (settled behind him, away from the boxes)
+        const a = R.racers.find(r => r.key === "corvette" && !r.isHim) || R.racers[1];
+        if (v.startsWith("boxes")) { go(30, 0, 0); return Object.assign(note, { rowAhead: Math.round(row.s + base - him.s) }); }
+        if (v.startsWith("hold")) { L.rcItGive(him, k); go(20, 0, 0); return Object.assign(note, { item: him.item }); }
+        if (k === "boost") { L.rcItGive(him, "boost"); L.raceItemUse(); go(40, 0, 0); }
+        if (k === "shield") { L.rcItGive(him, "shield"); L.raceItemUse(); go(30, 0, 0); }
+        if (k === "ball" || k === "hit") { a.s = him.s + 45; a.lat = 0; a.v = him.v; L.rcItGive(him, "ball"); L.raceItemUse(); for (let i = 0; i < (k === "ball" ? 25 : 140) && !(k === "hit" && a.spinT > 0 && a.spinT < 0.6); i++) { a.v = him.v; go(1, 0, 0); } }
+        if (k === "oil") { a.s = him.s + 60; a.lat = 0; a.v = him.v; L.rcItGive(a, "oil"); L.rcItUse(a); for (let i = 0; i < 30; i++) { a.v = him.v * 1.4; go(1, 0, 0); } }
+        if (k === "spin") { a.s = him.s - 40; a.lat = 0; a.v = him.v; L.rcItGive(a, "ball"); L.rcItUse(a); for (let i = 0; i < 200 && !(him.spinT > 0 && him.spinT < 0.65); i++) { a.v = him.v * 0.8; go(1, 0, 0); } }
+        if (k === "giant") { const ahead = /Seat/.test(v) ? 28 : 6, lat = /Seat/.test(v) ? -5 : -7; L.rcItGive(him, "giant"); L.raceItemUse(); a.s = him.s + ahead + 4; a.lat = lat; a.v = him.v; for (let i = 0; i < 90; i++) { a.v = him.v; a.s = Math.max(a.s, him.s + ahead); go(1, 0, 0); } }   // (from the seat, a rival in front, small under him)
+        window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+        return Object.assign(note, { k, spin: +(him.spinT || 0).toFixed(2), aSpin: +(a.spinT || 0).toFixed(2), giant: +(him.giantK || 1).toFixed(2), shield: +(him.shieldT || 0).toFixed(1),
+          balls: R.it.balls.filter(b => b.on).length, oils: R.it.oils.filter(o => o.on).length, gapA: +(a.s - him.s).toFixed(1) });
       }
       if (v === "glide" || v === "glideSeat") {
         // (v171) on the straight before the first pad, the finger held full left: on the barrier, gliding

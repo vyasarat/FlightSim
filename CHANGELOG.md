@@ -10,6 +10,24 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v187 — power-ups: something happens every few seconds
+
+He said racing was "just circling the track". Now every track has six rows of glowing gift
+boxes across the road; he steers through one to take it (aimed, never timed: the gap between
+two boxes gets nothing), and one big pulsing button, bottom-left, shows a picture of what he
+got -- a rocket boost, a bubble shield, a bouncing ball that finds the car ahead and spins it
+out, an oil slick dropped behind, or GIANT, which makes his car huge for six seconds so the
+cars bounce off it. The rivals take boxes and use theirs too, sometimes on him. A spin-out is
+one second and one whole turn of the car, never a bang, and the speed comes back by itself;
+cars further back get the better things, so a race stays close. The button is the parent's
+exception to "one new button". Measured with the noisy hand and random taps on the button,
+20 races per car per track: 0 bangs, never stuck (the longest stall 0.43 s), something happens
+to him every 7-8.6 s, and he wins 45% (oval), 55% (Desert Dunes), 48% (Snowy Peaks, rivals'
+strength 0.986, 160 races), 56% (Beach Splash) and 45% (Sky Glow Road, 0.9995, 160 races). New
+check module `race_item_checks`. Found on the way, queued: in a race from the driving seat a
+finger landing on the hidden map screen steers nothing (v188), and Sky Glow Road favoured the
+Corvette before any of this.
+
 ## v186 — the firework's bang and its sparks are one number
 
 A law-reviewer note from v184. When he wins, each firework over the podium whistles up and
