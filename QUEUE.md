@@ -27,13 +27,17 @@ every item and event from the chase cam and the seat. Full loop, ship each when 
   raycasts against it -- a finger landing where it sits (the middle of a landscape iPad) toggles the hidden
   map and steers nothing. Since v164. Make the tap ask whether the screen is drawn; a check that touches
   every part of the screen in a race, both seats, portrait and landscape, and steers from each.
-- [ ] **v189 Track events** -- one or two per track, all machines or nature, never animals;
-  each announced (seen coming) and dodged by steering. Oval: a big loop-the-loop and a stunt
-  ramp. Desert Dunes: rolling boulders, and a freight train crossing with barriers that drop.
-  Snowy Peaks: rolling giant snowballs, an avalanche on lap 3, a ski jump. Beach Splash:
-  waves washing over the road, and a pirate ship firing water cannons. Sky Glow Road: wind
-  gusts and spinning boost rings.
-- [ ] **v190 Big moments** -- hold the drag through 3-2-1 for a rocket start; every jump does
+- Track events (the parent, 2026-10-23: one release per track, the oval's real loop LAST so it holds nothing up) --
+  all machines or nature, never animals; each announced (seen coming) and dodged by steering:
+- [ ] **v189 Desert Dunes events** -- rolling boulders across the road; and the freight train: the road JUMPS a
+  cutting the train runs through below (the parent's choice), its barriers dropping at the cutting's edges with
+  lamps flashing as he comes -- he flies over the train, never stops for it.
+- [ ] **v190 Snowy Peaks events** -- rolling giant snowballs, an avalanche on lap 3, a ski jump.
+- [ ] **v191 Beach Splash events** -- waves that wash over the road, and a pirate ship firing water cannons.
+- [ ] **v192 Sky Glow Road events** -- wind gusts and spinning boost rings.
+- [ ] **v193 Oval events** -- a REAL vertical loop-the-loop every car drives round upside down (the road funnels into
+  it and widens after), and a stunt ramp.
+- [ ] **v194 Big moments** -- hold the drag through 3-2-1 for a rocket start; every jump does
   an automatic flip with a small boost; final lap: the music speeds up, the crowd gets
   louder, and a short cut opens that was not there before; a close finish gets a slow-motion
   photo finish.
