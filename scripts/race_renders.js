@@ -136,7 +136,7 @@ async function render(root, views) {
         if (k === "boost") { L.rcItGive(him, "boost"); L.raceItemUse(); go(40, 0, 0); }
         if (k === "shield") { L.rcItGive(him, "shield"); L.raceItemUse(); go(30, 0, 0); }
         if (k === "ball" || k === "hit") { a.s = him.s + 45; a.lat = 0; a.v = him.v; L.rcItGive(him, "ball"); L.raceItemUse(); for (let i = 0; i < (k === "ball" ? 25 : 140) && !(k === "hit" && a.spinT > 0 && a.spinT < 0.6); i++) { a.v = him.v; go(1, 0, 0); } }
-        if (k === "oil") { a.s = him.s + 60; a.lat = 0; a.v = him.v; L.rcItGive(a, "oil"); L.rcItUse(a); for (let i = 0; i < 30; i++) { a.v = him.v * 1.4; go(1, 0, 0); } }
+        if (k === "oil") { a.s = him.s + 90; a.lat = 0; a.v = him.v; L.rcItGive(a, "oil"); L.rcItUse(a); for (let i = 0; i < 30; i++) { a.v = him.v * 1.4; go(1, 0, 0); } }   // (the slick ~50 m ahead at the shot: on the road in front of him, not under his own car)
         if (k === "spin") { a.s = him.s - 40; a.lat = 0; a.v = him.v; L.rcItGive(a, "ball"); L.rcItUse(a); for (let i = 0; i < 200 && !(him.spinT > 0 && him.spinT < 0.65); i++) { a.v = him.v * 0.8; go(1, 0, 0); } }
         if (k === "giant") { const ahead = /Seat/.test(v) ? 28 : 6, lat = /Seat/.test(v) ? -5 : -7; L.rcItGive(him, "giant"); L.raceItemUse(); a.s = him.s + ahead + 4; a.lat = lat; a.v = him.v; for (let i = 0; i < 90; i++) { a.v = him.v; a.s = Math.max(a.s, him.s + ahead); go(1, 0, 0); } }   // (from the seat, a rival in front, small under him)
         window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };

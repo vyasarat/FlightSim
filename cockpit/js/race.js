@@ -2044,7 +2044,7 @@ function raceCamera(dt) {
   const gPitch = -(seatK - 1) * RC.items.giant.seatPitch;   // (and looks down on the road and the cars, far below)
   if (state.viewChase) {
     const C = rcChaseCam(mon), gk = him && him.giantK > 1 ? him.giantK - 1 : 0, G = RC.items.giant;
-    const back = C.back * (1 + gk * G.camBack), up = Math.min(C.up * (1 + gk * G.camUp), rcTunnelCamUp(him, back));   // (v187: a giant's camera stands back a little as he grows -- he LOOKS huge)
+    const back = C.back * (1 + gk * (mon ? G.monCam : G.camBack)), up = Math.min(C.up * (1 + gk * (mon ? G.monCam : G.camUp)), rcTunnelCamUp(him, back));   // (v187: a giant's camera stands back a little as he grows -- he LOOKS huge)
     // (v170) off a dune the camera keeps to the ground under him, so he is SEEN to fly
     const yb = him && him.air ? rcPoint(him.s, him.lat, rcPC).y : state.y;
     camDesired.set(state.x - fx * back, yb + up, state.z - fz * back);

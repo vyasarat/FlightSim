@@ -859,7 +859,7 @@
   #raceItemBtn.shuffling { animation: none; border-color: #5ff1ff; }
   /* from his seat the bubble is a soft cyan ring round the edge of the glass (raceitems.js) -- never a veil over the road */
   #raceBubble { position: fixed; inset: 0; pointer-events: none; z-index: 8; border-radius: 28px;
-    box-shadow: inset 0 0 0 14px rgba(95, 241, 255, .8), inset 0 0 110px 40px rgba(95, 241, 255, .55); animation: homePulse 1.4s ease-in-out infinite; }
+    box-shadow: inset 0 0 0 1.7vmin rgba(95, 241, 255, .8), inset 0 0 13vmin 4vmin rgba(95, 241, 255, .5);   /* (in vmin: as thin on a phone as on the iPad, by its size) */ animation: homePulse 1.4s ease-in-out infinite; }
   /* and his rocket boost: flame-coloured streaks in from the sides of the glass */
   #raceBoostFx { position: fixed; inset: 0; pointer-events: none; z-index: 8;
     background: linear-gradient(90deg, rgba(255,122,26,.75) 0%, rgba(255,210,62,.35) 9%, rgba(255,210,62,0) 20%, rgba(255,210,62,0) 80%, rgba(255,210,62,.35) 91%, rgba(255,122,26,.75) 100%),
