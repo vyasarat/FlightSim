@@ -245,6 +245,22 @@ for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => /^d
   while ((m = re.exec(src))) if (!m[2].startsWith("dad")) fail("dad", `cockpit/js/${f}: setTone("${m[2]}") -- a dad tone is named "dad..." so dadSoundsOff can find it`);
 }
 
+// ---------- 10b. a shader of our own writes the game's depth (v187) ----------
+// The renderer's depth buffer is logarithmic: a ShaderMaterial without logdepthbuf_vertex is tested
+// at the wrong depth (v187's bubble was hidden by the road under it), and logdepthbuf_vertex without
+// <common> does not compile at all. A backdrop drawn behind everything (depthWrite false, and a
+// BackSide dome or fog-free points) is the one exemption.
+for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => f.endsWith(".js"))) {
+  const src = read("cockpit/js/" + f), re = /new THREE\.ShaderMaterial\(/g; let m;
+  while ((m = re.exec(src))) {
+    const block = src.slice(m.index, m.index + 3000), end = block.indexOf("fragmentShader");
+    const vs = end > 0 ? block.slice(0, end) : block, line = src.slice(0, m.index).split("\n").length;
+    const backdrop = /depthWrite:\s*false/.test(block) && /BackSide|fog:\s*false/.test(block);
+    if (!/logdepthbuf_vertex/.test(vs) && !backdrop) fail("shader", `cockpit/js/${f}:${line}: a ShaderMaterial whose vertex shader has no #include <logdepthbuf_vertex> -- the game's depth is logarithmic, so it is drawn at the wrong depth (v187's bubble vanished under the road)`);
+    else if (/logdepthbuf_vertex/.test(vs) && !/<common>/.test(vs)) fail("shader", `cockpit/js/${f}:${line}: logdepthbuf_vertex needs #include <common> before it, or the shader does not compile`);
+  }
+}
+
 // ---------- 11. a race or track change has been swept (v177) ----------
 // The full harness runs race_track_checks as a sample, one car per track; every car on every
 // track is scripts/race_sweep.js. When the race's content (its files, TUNE.race) differs from

@@ -16,6 +16,7 @@
 //      him huge for about 6 s and a car he meets bounces off him while he keeps his speed;
 //   d. A SPIN-OUT IS SHORT AND NEVER A BANG: about a second, dramatic (a whole turn of the
 //      body), no bang, never stuck, never off the road, his line kept, his speed back;
+//  e2. ONE FOOTPRINT: every car, the monster truck too, takes a box over the same width across the road;
 //   e. IT STAYS CLOSE: further back gets better items -- never a giant at the front, the boost,
 //      giant and ball from the back far more often;
 //   f. THE NOISY HAND AND RANDOM TAPS PLAY A WHOLE RACE on every track: finished, no bang, never
@@ -207,6 +208,30 @@ module.exports = async function raceItemChecks({ newPage, check }) {
   check(`race items: each does what it says, in every car -- the boost ${cars.map(k => "x" + cd[k].boost).join("/")}; the ball spun the car ahead after ${cars.map(k => cd[k].ball.hitAfter).join("/")} s (its speed down to ${cars.map(k => cd[k].ball.minV).join("/")}, back to ${cars.map(k => cd[k].ball.back).join("/")}); the bubble took a ball (spun ${cars.map(k => cd[k].shield.spunWithBubble).join("/")} frames) and went; into the oil he spun ${cars.map(k => cd[k].oil.inIt).join("/")} s, round it ${cars.map(k => cd[k].oil.round).join("/")}; GIANT ${cars.map(k => cd[k].giant.secs).join("/")} s at x${cars.map(k => cd[k].giant.k).join("/")}, a car he met bounced ${cars.map(k => cd[k].giant.bounced).join("/")} m and he kept ${cars.map(k => cd[k].giant.keep).join("/")} of his speed; ${cars.map(k => cd[k].bangs).join("/")} bangs`, cOk, J(cd));
   const dOk = cars.every(k => { const s = cd[k].spin; return s.secs >= 0.8 && s.secs <= 1.3 && s.turns >= 0.9 && s.minV >= 0.3 && s.minV < 0.8 && s.back >= 0.9 && s.latMoved <= 1.5 && s.stuck === 0 && s.onRoad; });
   check(`race items: a spin-out is short and never a bang -- ${cars.map(k => `${k} ${cd[k].spin.secs} s, ${cd[k].spin.turns} turns, speed down to ${cd[k].spin.minV} and back to ${cd[k].spin.back}, ${cd[k].spin.latMoved} m across, stuck ${cd[k].spin.stuck} s`).join("; ")}`, dOk, J(cars.map(k => cd[k].spin)));
+
+  // ---- e2. (v187 retro) ONE FOOTPRINT: every car takes a box over the same width across the road -- by its own
+  // width the monster truck took more boxes and won 80% on Snowy Peaks (35% without items)
+  const e2 = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, I = L.RC.items, out = {};
+    const edge = (I.box + L.RC.footW) / 2;
+    for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+      L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+      const got = [];
+      for (const off of [edge - 0.3, edge + 0.3]) {
+        L.rcStartRace("oval", 3); R.phase = "race"; R.raceT0 = R.t;
+        for (const r of R.racers) if (!r.isHim) r.s -= 2000;
+        const him = R.him, row = R.it.rows[0];
+        him.s = row.s - 30; him.lat = row.boxes[1].lat + off; him.v = L.RC.v;
+        for (let i = 0; i < 60 * 1.5; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; him.latV = 0; him.lat = row.boxes[1].lat + off; L.update(1 / 60); }
+        got.push(!!him.item);
+      }
+      out[veh] = got;
+    }
+    st.touching = false; L.raceReset();
+    return out;
+  });
+  check(`race items: one footprint -- every car takes a box 0.3 m inside the catch and misses it 0.3 m outside (${Object.entries(e2).map(([k, v]) => `${k} ${v[0] ? "took" : "MISSED"}/${v[1] ? "TOOK" : "missed"}`).join(", ")})`,
+    Object.values(e2).every(v => v[0] && !v[1]), J(e2));
 
   // ---- e. it stays close: further back, better items
   const e = await page.evaluate(() => {
