@@ -17,6 +17,11 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
   and reassembles free, *where it happened*; every reward re-arms.
   One exception, the parent's call (v164): in a race (`race.js`) he can lose -- a real
   finishing order, and he can come last. Nothing else goes: no score kept, nothing saved, nothing locked.
+  And the parent's call (v187): a race has power-ups -- he steers through a glowing box to
+  grab one, and ONE big pulsing item button, showing the item's picture, uses it. That
+  button is the approved exception to "at most one new button"; rivals' items may spin him
+  out (about 1 s, never a bang, never stuck). All original: no names, characters, logos or
+  item designs from any other game.
 - **Pointing, not timing**: every control is "aim at it"; assists exist so *coasting in*
   works. **Drag up = nose up**, never inverted; on a surface vehicle it is that vehicle's
   burst, except the yacht, where it is the horn.

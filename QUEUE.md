@@ -7,6 +7,34 @@ in which case it goes to the top.
 
 ## Releases
 
+**Races like a kart game (the parent, 2026-10-23, after "racing is just circling the track"):**
+something happens every few seconds. All original -- no Nintendo names, characters, logos or
+item designs. These three come ahead of every bug except a crash, stuck or text. Checks each
+release: about 50% wins per car with the new things in, 0 bangs, never stuck more than 2 s,
+and the noisy finger plus random taps on the item button can play a full race; count the
+"things that happen" per lap (items, events, jumps) and aim for one every 5-10 s; render
+every item and event from the chase cam and the seat. Full loop, ship each when it passes.
+
+- [ ] **v187 Power-ups** -- rows of glowing boxes across every track; he steers through one
+  to grab it (aiming, not timing). One big pulsing item button shows the item's picture; tap
+  to use -- the only new button (the parent's exception, in CLAUDE.md). Items: rocket boost;
+  bubble shield (blocks one hit); a bouncing ball that chases the car ahead and spins it out;
+  an oil slick dropped behind; GIANT MODE (his car grows huge for about 6 s, other cars
+  bounce off him). Rivals get items too and use them on him. A spin-out is short (about 1 s),
+  dramatic, never a bang, never stuck. Cars further back get better items, so it stays close.
+- [ ] **v188 Track events** -- one or two per track, all machines or nature, never animals;
+  each announced (seen coming) and dodged by steering. Oval: a big loop-the-loop and a stunt
+  ramp. Desert Dunes: rolling boulders, and a freight train crossing with barriers that drop.
+  Snowy Peaks: rolling giant snowballs, an avalanche on lap 3, a ski jump. Beach Splash:
+  waves washing over the road, and a pirate ship firing water cannons. Sky Glow Road: wind
+  gusts and spinning boost rings.
+- [ ] **v189 Big moments** -- hold the drag through 3-2-1 for a rocket start; every jump does
+  an automatic flip with a small boost; final lap: the music speeds up, the crowd gets
+  louder, and a short cut opens that was not there before; a close finish gets a slow-motion
+  photo finish.
+
+**Earlier releases:**
+
 0. [x] **v177 Harness back under 45 minutes** (shipped 2026-10-21, merge 70fdc37; 38.7 and 42.7 min; harness only, no deploy) — v176's full run took 1 h 48 m. Time every module, list the 5 slowest and what grew; move long sweeps into their own script that runs when a race or track file changes, keeping a small sample in the harness; list every check that moved and where it now runs; prove it with two green full runs, both under 45 min.
 1. [x] **v174 Snowy Peaks** (shipped 2026-10-21, merge 43bfa0b) — a race track in the snow mountains: an icy hairpin, a tunnel through the mountain, a frozen-lake crossing, snowbank walls; snow and ice surfaces; laps about 2 minutes, 3 laps.
 2. [x] **v175 Beach Splash** (shipped 2026-10-21, merge 4472501) — a race track along the beach: sand and shallow-water splash sections, a jump; laps about 2 minutes, 3 laps.

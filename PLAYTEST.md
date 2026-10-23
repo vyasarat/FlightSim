@@ -85,3 +85,8 @@ Newest first. Copy the block.
 - Went to first / stayed longest: loved the new set-pieces; the giant toy track was the biggest hit.
 - Did again and again / said out loud: wants to FLY the new rocket (likes the side boosters landing); wants to DRIVE the monster truck.
 - Stuck, lost, bored, or broke: helicopter gets the ground warning near land and blows up most times he tries to land.
+
+### 2026-10-23 — v186 — from his dad
+- Went to first / stayed longest: played all the race tracks.
+- Did again and again / said out loud: says racing is "just circling the track".
+- Stuck, lost, bored, or broke: bored -- nothing happens in a race but driving round.
