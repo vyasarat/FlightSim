@@ -10,6 +10,15 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v188 — a finger in a race is never eaten
+
+Found while building v187. In a race, from the driving seat, the car's map screen is hidden, but
+its tap still listened: a finger put down where the screen would have been -- the middle of a
+landscape iPad, and just above the steering wheel in portrait -- toggled the hidden map and
+steered nothing. Since v164. Now only a screen he can see takes a tap. race_checks k puts a
+real finger down on a 6 x 6 grid over the whole picture, in both seats, portrait and
+landscape, and every one steers (it found four places that did not).
+
 ## v187 — power-ups: something happens every few seconds
 
 He said racing was "just circling the track". Now every track has six rows of glowing gift

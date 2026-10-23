@@ -29,7 +29,8 @@
 //   i. the ways out: EXIT puts him back where he was, in the same car, driving
 //      the world (the flag back up); the menu from a race opens on the VEHICLES
 //      and the race is gone; again is a fresh grid;
-//   j. a noisy race per car (race_drive.js's hand): finished, no bang, no stuck.
+//   j. a noisy race per car (race_drive.js's hand): finished, no bang, no stuck;
+//   k. (v188) a finger in a race is never eaten: anywhere on the picture, both seats, both ways up, it steers.
 //
 // Alone: node scripts/run_module.js race_checks
 // ---------------------------------------------------------------------------
@@ -441,5 +442,45 @@ module.exports = async function raceChecks({ newPage, check }) {
     check(`race ${tag}: a noisy finger in every car finishes on the podium screen, no bang, never stuck ${J(Object.fromEntries(Object.entries(noisy).map(([k, r]) => [k, { place: r.place, gap: r.gap, bangs: r.bangs, stuck: r.stuck, shoves: r.shoves, pads: r.pads }])))}`,
       nz.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.nan === 0));
     await page.evaluate(() => { const L = window.__lp; L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); });
+
+    // ---- k. (v188) A FINGER IN A RACE IS NEVER EATEN: in a race, from both seats, portrait and landscape, a
+    // real finger put down anywhere on the picture (a 6 x 6 grid, wherever no button sits) and dragged takes
+    // the stick and steers. The car's map screen is hidden in a race, and its tap still ate a finger where
+    // the screen would have been -- the middle of a landscape iPad (since v164; found in v187)
+    if (w === 820) {
+      const cdp = await page.context().newCDPSession(page);
+      const k = {};
+      for (const [vw, vh] of [[820, 1180], [1180, 820]]) for (const chase of [false, true]) {
+        await page.setViewportSize({ width: vw, height: vh });
+        const at = await page.evaluate((chase) => {
+          const L = window.__lp, R = L.race, st = L.state;
+          L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); L.api.setView(chase);
+          for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.rcStartRace("oval", 5); R.phase = "race"; R.raceT0 = R.t;
+          st.touching = false; for (let i = 0; i < 30; i++) L.update(1 / 60);
+          window.__paint && window.__paint();
+          // (the state it is about, reached: in the race, and from the seat the map screen hidden)
+          return { race: L.raceOn() && R.phase === "race", screenHidden: typeof car !== "undefined" && car.screen ? !car.screen.visible : null };
+        }, chase);
+        const eaten = [], tried = [];
+        for (let gx = 0; gx < 6; gx++) for (let gy = 0; gy < 6; gy++) {
+          const x = Math.round(vw * (0.08 + 0.84 * gx / 5)), y = Math.round(vh * (0.08 + 0.84 * gy / 5));
+          const on = await page.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return e && e.id === "gl"; }, [x, y]);
+          if (!on) continue;
+          tried.push([x, y]);
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, id: 1 }] });
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x + 60, y, id: 1 }] });
+          const r = await page.evaluate(() => { const L = window.__lp; for (let i = 0; i < 2; i++) L.update(1 / 60); return { t: L.state.touching, b: L.state.ctrlBank }; });
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          await page.evaluate(() => { const L = window.__lp; L.update(1 / 60); });
+          if (!(r.t && r.b > 0.05)) eaten.push([x, y]);
+        }
+        k[`${vw}x${vh} ${chase ? "chase" : "seat"}`] = { tried: tried.length, eaten, race: at.race, screenHidden: at.screenHidden, chase };
+      }
+      await page.evaluate(() => { const L = window.__lp; L.state.touching = false; L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); });
+      await page.setViewportSize({ width: w, height: h });
+      check(`race: a finger in a race is never eaten -- put down anywhere on the picture and dragged, it steers: ${Object.entries(k).map(([v, r]) => `${v} ${r.tried - r.eaten.length}/${r.tried}${r.eaten.length ? " (eaten at " + r.eaten.map(p => p.join(",")).join(" ") + ")" : ""}`).join("; ")}`,
+        Object.values(k).every(r => r.tried >= 15 && r.eaten.length === 0 && r.race && (r.chase || r.screenHidden === true)), J(k));
+    }
   }
 };

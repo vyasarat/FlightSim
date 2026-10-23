@@ -197,6 +197,9 @@ const carTapRay = new THREE.Raycaster(), carTapNdc = new THREE.Vector2();
 function carScreenTap(clientX, clientY) {
   if (!carActive() || state.viewChase || eject.active || state.exploding) return false;
   if (!car.screen || !car.cabin || !car.cabin.visible) return false;
+  // (v188) only a screen he can SEE takes a tap: in a race it is hidden (race.js), and a finger landing where
+  // it would have been steered nothing -- the middle of a landscape iPad, from his seat
+  if (!car.screen.visible) return false;
   const r = renderer.domElement.getBoundingClientRect();
   carTapNdc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   carTapRay.setFromCamera(carTapNdc, camera);
