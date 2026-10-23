@@ -60,6 +60,11 @@
 // solid in the world, and its barriers' tops glow (additive, the shared texture, no post).
 // He cannot fall off it any more than off the ground: he is laid on the track, as everywhere.
 //
+// (v187) THE POWER-UPS are raceitems.js's: rows of boxes he steers through, one item button, the
+// rivals using theirs, and a spin-out that is never a bang. This file asks it at four places only --
+// the start (rcItStart), each frame before and after the cars move, and what an item does to the speed
+// a racer aims for (rcItSpeed) -- and a giant's size is the shoves' (rcItGiantMeet), the pose's and the camera's.
+//
 // THE VENUE STANDS IN THE WORLD, seen in normal play: asphalt, kerbs, barriers,
 // grandstands (solid, as buildings are), flags, the start gantry with its three
 // lamps, the boost pads and the podium. It is built on its own random stream
@@ -1154,6 +1159,7 @@ function rcStartRace(trackId, seed) {
   for (const L of race.lights) L.material.color.setHex(TUNE.palette.ink);
   el.raceHud.classList.remove("hidden");
   rcHudBuild();
+  rcItStart();                                     // (v187) the boxes laid, nobody holding anything
   rcSyncHim(him);
   rcPoseAll(0);
   rcCamSnap();
@@ -1209,6 +1215,7 @@ function raceReset() {
   if (typeof confetti !== "undefined") confetti.length = 0;   // the podium's confetti stays at the podium
   rcPuffsClear();                              // (v181) and the race's spray with it
   rcSparksClear();                             // (v184) and its fireworks
+  rcItReset();                                 // (v187) and every ball, slick and bubble
   if (vehicleModel) { vehicleModel.visible = true; vehicleModel.quaternion.identity(); rcUnscale(vehicleModel); }
   camera.up.set(0, 1, 0);
   rcUse(RC.tracks[0].id);                       // out of a race, the first track is the one the world asks about
@@ -1231,6 +1238,7 @@ function rcUpdate(dt) {
   const him = race.him;
 
   if (race.phase === "grid") rcGrid(dt);
+  if (race.phase !== "podium") rcItBefore(dt);   // (v187) a giant's size, a spin's turn
   const going = race.phase === "race" || race.phase === "done";
   // ---- him: the same speed model as every racer, and his finger
   if (going) {
@@ -1245,6 +1253,7 @@ function rcUpdate(dt) {
     // ---- everyone along and across the track, then the shoves
     for (const r of race.racers) rcMove(r, dt);
     rcContacts(dt);
+    rcItAfter(dt, race.phase === "race");          // (v187) boxes caught, items used, balls and slicks
     rcLaps();
   }
   // ---- the podium: once all are home (or after a backstop, in the order they stand)
@@ -1260,7 +1269,9 @@ function rcUpdate(dt) {
   if (race.phase !== "podium") rcSyncHim(him);
   rcPoseAll(dt);
   rcSpray(dt);
+  rcItDrawFrame();
   rcHud();
+  rcItHud();
   rcSound(him, touching);
   for (const f of race.flags) f.m.rotation.y = Math.sin(race.t * 2.2 + f.ph) * 0.5;
   if (race.padMesh) race.padMesh.material.color.setHSL(0.5, 1, 0.55 + 0.15 * Math.sin(race.t * 8));
@@ -1318,10 +1329,11 @@ function rcHimControl(r, dt, touching, bank, held) {
   const dz = CAR.deadzone || 0.08;
   const steer = Math.abs(bank) < dz ? 0 : (bank - Math.sign(bank) * dz) / (1 - dz);
   // drag right = to his right, which is -left
-  const wantLatV = r.done ? (0 - r.lat) * 0.5 : -steer * A.latRate * clamp(r.v / A.latFull, 0.25, 1);
+  const wantLatV = r.done ? (0 - r.lat) * 0.5 : r.spinT > 0 ? 0 : -steer * A.latRate * clamp(r.v / A.latFull, 0.25, 1);   // (spinning, the steer waits for it)
   r.latV += (wantLatV - r.latV) * Math.min(1, A.latResp * sf.grip * dt);
 }
 function rcSpeedTo(r, want, dt) {
+  want = rcItSpeed(r, want);                    // (v187) an item's push, or a spin's
   if (r.glideHold > 0) { r.glideHold -= dt; if (!r.air) want *= RC.wall.glideSpeed; }   // (riding a barrier: rcEdge)
   const up = RC.accel, down = want > 1 ? RC.brake : RC.coast;
   r.v += clamp(want - r.v, -down * dt, up * dt);
@@ -1370,6 +1382,7 @@ function rcAI(r, dt, going) {
     const ahead = rcAhead(pd.s, r.s);
     if (ahead > 0 && ahead < A.padSee) { if (r.aim !== pd) { r.aim = pd; r.aimGo = rcRnd() < A.padP; } if (r.aimGo) aim = pd.lat; }
   }
+  aim = rcItAim(r, aim);                        // (v187) a box, if it has nothing
   for (const o of race.racers) {
     if (o === r || o.path !== r.path) continue;
     const ds = rcGap(o.s, r.s);
@@ -1381,7 +1394,7 @@ function rcAI(r, dt, going) {
   }
   const lim = (r.path ? r.path.half : RC.width / 2) - r.wid / 2 - 0.3;
   aim = clamp(aim, -lim, lim);
-  const wantLatV = clamp((aim - r.lat) * A.steerK, -RC.latRate, RC.latRate);
+  const wantLatV = r.spinT > 0 ? 0 : clamp((aim - r.lat) * A.steerK, -RC.latRate, RC.latRate);
   r.latV += (wantLatV - r.latV) * Math.min(1, RC.latResp * sf.grip * dt);
 }
 
@@ -1413,7 +1426,7 @@ function rcMove(r, dt) {
     const d = rcAhead(pd.s, prevS), dd = r.s - prevS;
     if (d >= 0 && d <= dd + 0.01 && Math.abs(r.lat - pd.lat) < RC.padW / 2 + RC.footW * 0.3) {
       r.padT = RC.padTime;
-      if (r.isHim) { race.padHits++; flags.racePads = (flags.racePads || 0) + 1; whoosh(); cameraPunch(0.4); }
+      if (r.isHim) { race.padHits++; flags.racePads = (flags.racePads || 0) + 1; rcWhoosh(); cameraPunch(0.4); rcThing("pad"); }
     }
   }
   // the heading it shows: along the track, turned by how fast it moves across
@@ -1434,7 +1447,7 @@ function rcMove(r, dt) {
       r.u = (rcPV.x - sc.ax) * sc.dx + (rcPV.z - sc.az) * sc.dz;
       r.lat = (rcPV.x - sc.ax) * sc.lx + (rcPV.z - sc.az) * sc.lz;
       r.y = rcPV.y; r.vyG = 0;
-      if (r.isHim) { flags.raceShortcuts = (flags.raceShortcuts || 0) + 1; r.spent = -sc.side; r.liftT = 0; }
+      if (r.isHim) { flags.raceShortcuts = (flags.raceShortcuts || 0) + 1; r.spent = -sc.side; r.liftT = 0; rcThing("shortcut"); }
       break;
     }
   }
@@ -1526,7 +1539,7 @@ function rcVertical(r, dt) {
   // (off a dune only: anywhere else the ground's own swells hopped the top step every few metres)
   if (yFree > yd + 0.001 && r.v > J.minV && rcAt(r.s).dune) {         // (a millimetre: the deck curving away faster than g, not its noise)
     r.air = true; r.airT = 0; r.vy = vyL - J.g * dt; r.y = yFree;
-    if (r.isHim) flags.raceJumps = (flags.raceJumps || 0) + 1;
+    if (r.isHim) { flags.raceJumps = (flags.raceJumps || 0) + 1; rcThing("jump"); }
   } else { r.vyG = dt > 0 ? (yd - r.y) / dt : 0; r.y = yd; }
 }
 
@@ -1542,6 +1555,7 @@ function rcContacts(dt) {
     if (A.path !== B.path) continue;                                             // (one on a shortcut, one on the road)
     if (Math.abs(ds) >= needS || Math.abs(dl) >= needL) continue;
     const pushL = (needL - Math.abs(dl)) / 2 + 0.05, sg = dl === 0 ? (A.i < B.i ? 1 : -1) : Math.sign(dl);
+    if (rcItGiantMeet(A, B, sg, needL - Math.abs(dl))) continue;   // (v187) a giant: the other bounces off, it keeps going
     // across, unless they are nose to tail
     if (needL - Math.abs(dl) < (needS - Math.abs(ds)) * 1.2) { A.lat += sg * pushL; B.lat -= sg * pushL; A.latV = sg * Math.abs(A.latV) * 0.5; B.latV = -sg * Math.abs(B.latV) * 0.5; }
     // the follower gives up its extra speed and is put just behind
@@ -1559,7 +1573,11 @@ function rcContacts(dt) {
   const lim = r => (r.path ? r.path.half : RC.width / 2) - r.wid / 2 - 0.2;
   for (const r of R) r.lat = clamp(r.lat, -lim(r), lim(r));
 }
-function rcBump(k) { thunk(); cameraPunch(k); }
+// (its thud is tones only: thunk()'s noise draws the game's Math.random, which a race never touches -- v187's
+// bounces off a giant found it)
+function rcBump(k) { synthBlip("sine", 130, 62, 0.16, 0.30, 0); synthBlip("triangle", 90, 50, 0.1, 0.16, 0); cameraPunch(k); }
+// (and its whoosh, for the same reason: audio.js whoosh() throws noise)
+function rcWhoosh() { synthBlip("sine", 110, 540, 0.28, 0.22, 0); synthBlip("triangle", 300, 900, 0.22, 0.06, 0.02); }
 
 // Laps and the line. Every racer's laps are counted at the line; the third time
 // over it, it is home, and its place is the order it got there.
@@ -1946,14 +1964,17 @@ function rcPose(r) {
   } else {
     rcUnscale(m);
     rcPointR(r, rcP);
-    const c = Math.cos(r.yaw), s = Math.sin(r.yaw);
+    const yw = r.yaw + (r.spinA || 0);           // (v187) a spin-out turns the body, never the road
+    const c = Math.cos(yw), s = Math.sin(yw);
     const F = rcV1.set(rcP.tx * c + rcP.lx * s, 0, rcP.tz * c + rcP.lz * s);
     const N = rcV2.set(rcP.nx, rcP.ny, rcP.nz);
     F.addScaledVector(N, -F.dot(N)).normalize();
     const R = rcV3.crossVectors(F, N).normalize();
     rcM.makeBasis(R, N, F.clone().negate());
     m.quaternion.setFromRotationMatrix(rcM);
-    const lift = r.isHim ? rcHimLift() : (m.userData.rcLift || 0);
+    const gk = r.giantK > 1 ? r.giantK : 1;      // (v187) GIANT: the body scaled up, its wheels still on the deck
+    if (gk > 1) { m.userData.rcS0 = m.scale.clone(); m.scale.multiplyScalar(gk); }
+    const lift = (r.isHim ? rcHimLift() : (m.userData.rcLift || 0)) * gk;
     m.position.set(rcP.x + N.x * lift, rcP.y + N.y * lift, rcP.z + N.z * lift);
   }
   const vk = m.userData.vk;
@@ -2018,8 +2039,12 @@ function raceCamera(dt) {
   }
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
   const mon = !!state.vp.monster;
+  // (v187) from the seat a spin-out sways the view, and a giant sits as high as he has grown
+  const sway = rcItSeatYaw(him), roll = sway * RC.items.spin.seatRoll / RC.items.spin.seatYaw, seatK = him && him.giantK > 1 ? him.giantK : 1;
+  const gPitch = -(seatK - 1) * RC.items.giant.seatPitch;   // (and looks down on the road and the cars, far below)
   if (state.viewChase) {
-    const C = rcChaseCam(mon), back = C.back, up = Math.min(C.up, rcTunnelCamUp(him, back));
+    const C = rcChaseCam(mon), gk = him && him.giantK > 1 ? him.giantK - 1 : 0, G = RC.items.giant;
+    const back = C.back * (1 + gk * (mon ? G.monCam : G.camBack)), up = Math.min(C.up * (1 + gk * (mon ? G.monCam : G.camUp)), rcTunnelCamUp(him, back));   // (v187: a giant's camera stands back a little as he grows -- he LOOKS huge)
     // (v170) off a dune the camera keeps to the ground under him, so he is SEEN to fly
     const yb = him && him.air ? rcPoint(him.s, him.lat, rcPC).y : state.y;
     camDesired.set(state.x - fx * back, yb + up, state.z - fz * back);
@@ -2032,26 +2057,28 @@ function raceCamera(dt) {
     if (typeof carHideCabin === "function") carHideCabin();
   } else if (mon) {
     const C = MON.cam;
-    camera.position.set(state.x - fx * C.seatBack, state.y + C.eye, state.z - fz * C.seatBack);
-    camera.rotation.set(-C.seatPitch * DEG + rcSeatPitch(him), state.heading, 0, "YXZ");
+    camera.position.set(state.x - fx * C.seatBack * seatK, state.y + C.eye * (1 + (seatK - 1) * RC.items.giant.seatUp), state.z - fz * C.seatBack * seatK);
+    camera.rotation.set(-C.seatPitch * DEG + rcSeatPitch(him) + gPitch, state.heading + sway, roll, "YXZ");
   } else {
     // the car's own seat (car.js carCamera), on the banked deck
     const K = CAR.cabin, rx = -fz, rz = fx;
     const bodyH = (vehicleModel && vehicleModel.userData.height) || CAR.bodyH * 1.22;
-    camera.position.set(state.x + fx * 0.2 + rx * K.seatX, state.y + bodyH * CAR.eyeFrac, state.z + fz * 0.2 + rz * K.seatX);
-    camera.rotation.set(-0.05 + rcSeatPitch(him), state.heading, 0, "YXZ");
+    // (a giant sits up high over the road -- his cabin as it is, lifted with him: the world falls away below)
+    const up = bodyH * CAR.eyeFrac * (seatK - 1) * RC.items.giant.seatUp;
+    camera.position.set(state.x + fx * 0.2 + rx * K.seatX, state.y + bodyH * CAR.eyeFrac + up, state.z + fz * 0.2 + rz * K.seatX);
+    camera.rotation.set(-0.05 + rcSeatPitch(him) + gPitch, state.heading + sway, roll, "YXZ");
     const cab = carBuildCabin();
     cab.visible = true;
     if (car.screen) car.screen.visible = false;      // (its map would hide the car he is racing)
     const ownBody = vehicleModel && vehicleModel.userData.imported === state.vehicleKey;
     const lift = (ownBody && TUNE.models[state.vehicleKey] && TUNE.models[state.vehicleKey].cabinLift) || 0;
-    cab.position.set(state.x, state.y + lift, state.z);
-    cab.rotation.set(0, state.heading, 0, "YXZ");
+    cab.position.set(state.x, state.y + lift + up, state.z);
+    cab.rotation.set(0, state.heading + sway, roll, "YXZ");
     // (in the air the cabin pitches with the car round his eye, so the windscreen stays where he sees it)
-    const ap = rcSeatPitch(him);
+    const ap = rcSeatPitch(him) + gPitch;
     if (ap) {
-      rcEu.set(0, state.heading, 0, "YXZ"); rcQ1.setFromEuler(rcEu).invert();
-      rcEu.set(ap, state.heading, 0, "YXZ"); rcQ2.setFromEuler(rcEu);
+      rcEu.set(0, state.heading + sway, roll, "YXZ"); rcQ1.setFromEuler(rcEu).invert();
+      rcEu.set(ap, state.heading + sway, roll, "YXZ"); rcQ2.setFromEuler(rcEu);
       rcV1.copy(cab.position).sub(camera.position).applyQuaternion(rcQ1).applyQuaternion(rcQ2);
       cab.position.copy(camera.position).add(rcV1);
       cab.rotation.copy(rcEu);

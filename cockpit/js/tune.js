@@ -2479,7 +2479,7 @@ const TUNE = {
       // oval, 369 m off the motorway.)
       { id: "snow", site: { x: 900, z: -1380, heading: 270 },
         pads: [{ m: 150, lat: 5 }, { m: 1150, lat: 5 }, { m: 1300, lat: -5 }, { m: 1830, lat: -5 }, { m: 2950, lat: 5 }, { m: 3300, lat: -5 }],   // (none aimed at under the tunnel's lowered camera: race_track_checks o)
-        aiMul: 0.988,                     // (at 1.0 the noisy hand won 25%: the slippery bends cost his wobbling line more than theirs)
+        aiMul: 0.986,                     // (at 1.0 the noisy hand won 25%: the slippery bends cost his wobbling line more than theirs; v187, with the power-ups and random taps, 0.988 won 39%, 0.984 58% (two seeds), 0.98 63%)
         banks: true,                      // snowbanks for barriers (the same solids), red-and-white poles on them
         snowGround: { near: 150, fade: 150, cell: 15 },   // (v183) the ground snow within `near` m of the line, none past near + fade (scene.js terSnowAt)
         // the frozen lake's bed, shaped into the ground (terrain.js rcLakeBed): level at `y`
@@ -2565,7 +2565,7 @@ const TUNE = {
       // ribbon, pylons stand in two ponds -- the ground it flies over is not its to keep dry.)
       { id: "sky", site: { x: 1850, z: 1300, heading: 270 },
         pads: [{ m: 150, lat: 5 }, { m: 640, lat: -5 }, { m: 1500, lat: 5 }, { m: 1950, lat: -5 }, { m: 2950, lat: 5 }, { m: 3450, lat: -5 }],
-        aiMul: 0.992,                     // (at 1.0 the noisy hand won 45%, the Cybertruck 35%; at 0.992, 54%)
+        aiMul: 0.9995,                    // (at 1.0 the noisy hand won 45%, the Cybertruck 35%; at 0.992, 54%; v187, with the power-ups and random taps, 0.992 won 66%, 0.998 66% (one seed), 1.001 41% (two), 1.004 35%: a hair's change flips close finishes)
         sections: [
         { type: "straight", len: 300 },
         { type: "straight", len: 500, surface: "glow", sky: 30 },   // up off the ground: the long climb
@@ -2698,6 +2698,28 @@ const TUNE = {
               hop: { h: 0.5, air: 0.3, every: 1.1 }, stand: { w: 3.2, h: 1.4, d: 1.2, over: 1 },
               // (v167) the shot when he lost: the podium and his car inside these screen edges (-1..1), above the buttons by `gap`, his car `clear` of the steps, the camera up to `maxUp` m and slid along the track up to `slide` m
               loseFit: { side: 0.88, top: 0.62, bottom: -0.5, gap: 0.05, clear: 0.08, maxUp: 50, slide: 36, slideStep: 3 } },
+    // (v187) THE POWER-UPS (raceitems.js). `rows` rows of glowing boxes a lap, spread evenly and each
+    // moved to the nearest place clear of a jump, the grid (`clearGrid` m of the line), a pad (`clearPad`)
+    // and a shortcut (`clearSc` beyond its approach and its length); `lats` across the road, `box` m cubes
+    // `boxUp` m over the deck. A box is caught by a car whose body crosses it -- aimed at, never timed --
+    // and is back `rearm` s later. One item a racer; his shuffles its pictures `shuffle` s first.
+    // `odds` by place (first, middle, last; a place between is the nearer two blended): further back,
+    // better items, so it stays close. A SPIN-OUT is `spin.time` s, a whole turn of the body, his speed
+    // cut to `spin.keep` of it and given back as it always comes back (RC.accel): never a bang, never stuck.
+    items: { rows: 6, lats: [-6.5, 0, 6.5], box: 2.4, boxUp: 1.7, rearm: 4, shuffle: 0.7, spinRate: 1.6, bob: 0.25, colStep: 2,
+             clearGrid: 120, clearPad: 30, clearSc: 30, footL: 7.6,   // (footL: the one length a ball or a slick catches, with RC.footW across: the same for every car)
+             kinds: ["boost", "shield", "ball", "oil", "giant"],
+             odds: { first: { boost: 0.1, shield: 0.4, ball: 0.1, oil: 0.4, giant: 0 },
+                     middle: { boost: 0.3, shield: 0.15, ball: 0.35, oil: 0.15, giant: 0.05 },
+                     last: { boost: 0.35, shield: 0.05, ball: 0.3, oil: 0, giant: 0.3 } },
+             boost: { gain: 1.4, time: 2.2 },
+             shield: { time: 15, k: 1.25 },                      // (lasts until it takes a hit, or this long; drawn k x the car's length across)
+             ball: { v: 66, r: 1.3, latRate: 14, life: 7, hop: 1.2, hopF: 7, grace: 0.4, overThrower: 1.4, overAir: 1.5 },   // (overThrower: at least this x the thrower's speed; overAir: a car this far up off a dune it misses)
+             oil: { r: 2.8, behind: 4, life: 30, grace: 1.5, catchK: 0.6 },   // (catchK: of its radius, what a car must cross to slide)
+             giant: { time: 6, scale: 2.4, maxWid: 11, grow: 0.5, gain: 1.05, knock: 0.85, bounceV: 8, camBack: 0.5, camUp: 0.6, monCam: 1, seatPitch: 0.15, seatUp: 2.5, knockAt: 1.3, knockEvery: 0.5 },   // (monCam: the monster truck's chase camera follows all of its growth -- its own view is tuned to see the road 60 m ahead over its cab (v172), and a part of it hid the whole road; seatPitch: rad a growth, from his seat, looking down; seatUp: his seat raised this many times his growth -- as tall as he really is read as nothing from the seat; knockAt: the size from which it knocks cars away, once every knockEvery s each)   // (camBack/camUp: how much of his growth the chase camera stands back and up for -- all of it and he never looked bigger)
+             spin: { time: 1.0, keep: 0.5, seatYaw: 0.35, seatRoll: 0.12, latDamp: 8, burst: 14 },   // (latDamp: how fast its sideways drift dies; burst: puffs round a car that spins)
+             ai: { wait: [1.5, 5], holdMax: 12, ballSee: 150, oilSee: 60, boxP: 0.7 },
+             near: 60, thingGap: 1.5 },                          // (a rival's item this close to him is something that happened to him; two within thingGap s, one)
     cam: { back: 15, up: 6, lag: 5, look: 18, lookUp: 1.6,
            monster: { back: 26, up: 19, look: 24, lookUp: 4 } },   // (v172) the monster truck's: high enough that its own cab hides no pad 60 m ahead
   },

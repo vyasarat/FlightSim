@@ -58,6 +58,7 @@ entry below.
 | v178 | nothing he would mention: in the Corvette's seat with the booster held he looks at the road ahead, not up at the mirror; asked where the flames are, he can still point to them in the mirror |  open |
 | v179 | nothing he notices: every track, the runway and the cities look as before; on the iPad nothing he would call slow or jerky beside a race track or in a race |  open |
 | v180 | nothing he would mention: on Snowy Peaks he calls the mountain with the tunnel "the snowy mountain", not a rock, and says nothing about grass or green on the snow |  open |
+| v187 | in a race he steers for the glowing boxes on purpose, taps the big button as soon as a picture comes up, and talks about what he got ("giant!", "bubble", the ball); when a rival's ball spins him he laughs or says "again", not that it is unfair; he no longer says racing is just going round |  open |
 | v181 | nothing he mentions about rocks or stones behind the car in a race; on Beach Splash he calls the white behind the car splashing or water |  open |
 | v182 | nothing he mentions: at night in the Corvette's driving seat the mirror is dark like the sky, and when he holds the booster he still sees the flames in it |  open |
 | v183 | nothing he mentions: on Snowy Peaks, the snow beside the track and behind the podium is all white, and he says nothing about mud or brown patches |  open |

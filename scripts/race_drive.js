@@ -23,6 +23,8 @@
 //   node scripts/race_drive.js [races=20] [cars=car,cybertruck,corvette,monster] [seed=1] [root]
 //   RACE_STRENGTH=1.1 ...   the opponents' strength (TUNE.race.ai.strength) for this run
 //   RACE_TRACK=dunes ...    which track (v170; the first, the oval, if unset)
+//   RACE_TAPS=1 ...         (v187) and the other hand taps the item button at random, every 1-6 s,
+//                           whether or not he holds anything (raceItemUse, the button's own call)
 //   RACE_HAND=hug ...       (v171) the wall-hugger: the same lifts, tremor, overshoots and
 //                           bursts, but what it MEANS is a full steer into the inside of the bend
 //                           coming (the last one's on a straight), the whole race -- riding the
@@ -48,6 +50,10 @@ async function oneRace(page, veh, seed, opts) {
     let nextLift = 12 + rnd() * 18, liftLeft = 0, nextOver = 8 + rnd() * 12, overLeft = 0, overDir = 1, overAmt = 0;
     let mood = 0, moodLeft = 2 + rnd() * 4, aimPad = null, aimGo = false, passSide = 0, t = 0, exploded = 0, nan = 0;
     let wob1 = rnd() * 6.28, wob2 = rnd() * 6.28, hugSide = 1;
+    // (v187) the other hand on the item button: its own stream, so the steering hand is the one it was
+    let b = (seed ^ 0x5bd1e995) >>> 0;
+    const rndT = () => { b = (b + 0x6D2B79F5) >>> 0; let t = b; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    let nextTap = 1 + rndT() * 5, taps = 0, stuckRun = 0, stuckMax = 0;
     const log = [];
     for (let f = 0; f < 60 * 60 * 15 && R.phase !== "podium"; f++) {
       const dt = 1 / 60; t += dt;
@@ -89,7 +95,9 @@ async function oneRace(page, veh, seed, opts) {
       if (liftLeft > 0) liftLeft -= dt;
       st.touching = touching; st.touchIsPoint = false;
       st.ctrlBank = touching ? bank / range : 0; st.ctrlPitch = touching ? pitch : 0;
+      if (opts.taps && R.phase === "race") { nextTap -= dt; if (nextTap <= 0) { nextTap = 1 + rndT() * 5; taps++; L.raceItemUse(); } }
       L.update(dt);
+      if (R.phase === "race" && touching && him.v < RC.stuckV) { stuckRun += dt; stuckMax = Math.max(stuckMax, stuckRun); } else stuckRun = 0;
       if (st.exploding) exploded++;
       if (!isFinite(him.s) || !isFinite(him.lat) || !isFinite(st.x)) nan++;
     }
@@ -100,16 +108,25 @@ async function oneRace(page, veh, seed, opts) {
       gap: +(me.t - (him.place === 1 ? order[1].t : win.t)).toFixed(2),   // + seconds behind the winner; - his margin over second
       time: me.t, bangs: (L.flags.carCrashes || 0) - bangs0 + (exploded ? 1 : 0), stuck: R.stuck, nan,
       shoves: R.shoves, walls: R.wallShoves, pads: R.padHits, podium: R.phase === "podium", order: order.map(o => o.key + ":" + o.t),
+      track: opts.track || "oval", stuckMax: +stuckMax.toFixed(2),
     };
+    // (v187) the power-ups, and how often something happened to him: a box, an item, a hit, a pad, a jump, a shortcut
+    if (R.itLog) {
+      out.items = Object.assign({ taps }, R.itLog);
+      const th = R.things.filter(x => x.t <= me.t), kinds = {};
+      for (const x of th) kinds[x.k] = (kinds[x.k] || 0) + 1;
+      let gapMax = 0; for (let i = 1; i < th.length; i++) gapMax = Math.max(gapMax, th[i].t - th[i - 1].t);
+      out.things = { n: th.length, every_: +(me.t / Math.max(1, th.length)).toFixed(1), perLap: +(th.length / RC.laps).toFixed(1), longestQuiet: +gapMax.toFixed(1), kinds };
+    }
     if (R.track.sc && R.track.sc.length || R.track.jumps) { out.shortcuts = (L.flags.raceShortcuts || 0) - sc0; out.jumps = (L.flags.raceJumps || 0) - j0; }
     st.touching = false; st.ctrlBank = 0; st.ctrlPitch = 0;
     return out;
   }, [veh, seed, opts || {}]);
 }
 
-async function races(page, { veh, races: n, seed, strength, step, track, hand }) {
+async function races(page, { veh, races: n, seed, strength, step, track, hand, taps }) {
   const out = [];
-  for (let k = 0; k < n; k++) out.push(await oneRace(page, veh, (seed || 1) * 1000 + k, { strength, step, track, hand }));
+  for (let k = 0; k < n; k++) out.push(await oneRace(page, veh, (seed || 1) * 1000 + k, { strength, step, track, hand, taps }));
   return out;
 }
 
@@ -122,6 +139,9 @@ function summary(list) {
     medianGap: losses.length ? losses.map(r => r.gap).sort((a, b) => a - b)[Math.floor(losses.length / 2)] : 0,
     places: list.map(r => r.place).join(""), bangs: list.reduce((a, r) => a + r.bangs, 0), stuck: list.reduce((a, r) => a + r.stuck, 0),
     nan: list.reduce((a, r) => a + r.nan, 0), noPodium: list.filter(r => !r.podium).length,
+    stuckMax: Math.max(0, ...list.map(r => r.stuckMax || 0)),
+    every_: list[0] && list[0].things ? +(list.reduce((a, r) => a + r.things.every_, 0) / list.length).toFixed(1) : undefined,
+    hitHim: list[0] && list[0].items ? list.reduce((a, r) => a + r.items.hitHim, 0) : undefined,
   };
 }
 module.exports = { oneRace, races, summary };
@@ -140,7 +160,7 @@ if (require.main === module) {
       const list = [];
       for (let k = 0; k < n; k++) {
         const r = await oneRace(page, veh, seed * 1000 + k, { strength: process.env.RACE_STRENGTH ? +process.env.RACE_STRENGTH : undefined,
-                                                             step: process.env.RACE_STEP !== undefined ? +process.env.RACE_STEP : undefined, track: process.env.RACE_TRACK, hand: process.env.RACE_HAND });
+                                                             step: process.env.RACE_STEP !== undefined ? +process.env.RACE_STEP : undefined, track: process.env.RACE_TRACK, hand: process.env.RACE_HAND, taps: !!process.env.RACE_TAPS });
         list.push(r);
         console.log(JSON.stringify(r));
       }

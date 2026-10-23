@@ -22,13 +22,18 @@ every item and event from the chase cam and the seat. Full loop, ship each when 
   an oil slick dropped behind; GIANT MODE (his car grows huge for about 6 s, other cars
   bounce off him). Rivals get items too and use them on him. A spin-out is short (about 1 s),
   dramatic, never a bang, never stuck. Cars further back get better items, so it stays close.
-- [ ] **v188 Track events** -- one or two per track, all machines or nature, never animals;
+- [ ] **v188 A finger in a race is never eaten** (found in v187, a STUCK-class bug, so it comes first): in a
+  race, from the driving seat, the car's map screen is hidden (race.js) but `carScreenTap` (car.js) still
+  raycasts against it -- a finger landing where it sits (the middle of a landscape iPad) toggles the hidden
+  map and steers nothing. Since v164. Make the tap ask whether the screen is drawn; a check that touches
+  every part of the screen in a race, both seats, portrait and landscape, and steers from each.
+- [ ] **v189 Track events** -- one or two per track, all machines or nature, never animals;
   each announced (seen coming) and dodged by steering. Oval: a big loop-the-loop and a stunt
   ramp. Desert Dunes: rolling boulders, and a freight train crossing with barriers that drop.
   Snowy Peaks: rolling giant snowballs, an avalanche on lap 3, a ski jump. Beach Splash:
   waves washing over the road, and a pirate ship firing water cannons. Sky Glow Road: wind
   gusts and spinning boost rings.
-- [ ] **v189 Big moments** -- hold the drag through 3-2-1 for a rocket start; every jump does
+- [ ] **v190 Big moments** -- hold the drag through 3-2-1 for a rocket start; every jump does
   an automatic flip with a small boost; final lap: the music speeds up, the crowd gets
   louder, and a short cut opens that was not there before; a close finish gets a slow-motion
   photo finish.
@@ -56,4 +61,14 @@ Every track: about 50% wins per car, 0 bangs, 0 stuck, wall-hugging slower than 
 - [x] **v185** (shipped 2026-10-22, merge f58e2ed) Snowy Peaks' snow edge (found in v183, render-critic and my own high view): where the venue's snow (150-300 m from the line) fades into the grass, the terrain's per-face colour makes a faceted sawtooth from 450 m up and a slightly blotchy band from the low ground south -- the height snow line elsewhere looks the same; renders the critic would still like: the edge from the north and east, the south edge in rain/snow sky -- readability only.
 - [x] **v186** (shipped 2026-10-22, merge 992e34a; fireworkSound takes the pop, race.js hands it TUNE's) The firework's bang and its opening are two numbers that must agree (law-reviewer note, v184): `TUNE.race.podium.fw.pop` (0.95 s) is when the sparks open; audio.js `fireworkSound` pops 0.95 s after its whistle, written in the function. Retune one and he hears the bang before or after the sky lights. Make `fireworkSound` take the pop delay (the world's arrival show passing its own) and check they agree.
 - [ ] The snow fade's outer ring is not measured (law-reviewer note, v185): check s compares a corner's colour only where the venue's snow is between none and all, so where a fade face (each corner its own colour, at the corner's height) meets a grass face just outside it (one colour a face, at its mean height) a small step may remain -- only the height changes the grass's colour there. Measure it; fix only if a picture shows it.
+- [ ] v187 power-ups, render-critic notes (PASS, nothing failed): the monster truck's boost flames start behind its rear
+  wheels, laid on the road rather than out of the truck; render a slick at 20 m (chase and seat) to show it grows readable;
+  render a giant monster truck with a rival close by, a shield taking a hit, him driving over oil, a rival using boost,
+  shield or giant. `race_renders.js` item:/itemSeat:/hold: views.
+- [ ] Landscape race seat: a big flat black slab across the left of the windscreen (render-critic, v187; there on main
+  too -- `VP=1180x820 race_renders.js overtakeSeat`): cabin geometry (the door or mirror) at the landscape aspect. Readability.
+- [ ] Sky Glow Road favours the Corvette (found in v187, there on main): the noisy hand won 16 of 20 there in the
+  Corvette against 11 in the SUV with no power-ups (v186), and 18 of 20 with them. Every car runs one speed
+  model, so it is the body: find what of the Corvette's (its length, its width, the booster's release) wins
+  it the sky's bends, and make it the same for every car.
 - [ ] v181 spray, renders the critic would still like (not bugs, nothing failed): five rivals 15-25 m ahead of the SEAT camera (beyond the near fade); the staged near-puff row from the chase camera on sand, dirt and snow; his own spray over his car from the chase camera, unstaged; a depth check that a puff just past the bonnet is hidden by it; Desert Dunes sand at dusk/night (the beach's overwrote it); a short sequence of a puff fading as it nears the camera. `scripts/race_renders.js` has the views (bunch, closeSeat, puffAt, puffAtSeat, NIGHTF=).
