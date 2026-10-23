@@ -15,7 +15,7 @@ and the noisy finger plus random taps on the item button can play a full race; c
 "things that happen" per lap (items, events, jumps) and aim for one every 5-10 s; render
 every item and event from the chase cam and the seat. Full loop, ship each when it passes.
 
-- [ ] **v187 Power-ups** -- rows of glowing boxes across every track; he steers through one
+- [x] **v187 Power-ups** (shipped 2026-10-23, merge 604c5ff; 1189/1189, sweep 69/69, win 45-56% per track with random taps) -- rows of glowing boxes across every track; he steers through one
   to grab it (aiming, not timing). One big pulsing item button shows the item's picture; tap
   to use -- the only new button (the parent's exception, in CLAUDE.md). Items: rocket boost;
   bubble shield (blocks one hit); a bouncing ball that chases the car ahead and spins it out;
