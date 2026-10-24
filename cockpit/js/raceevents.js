@@ -41,7 +41,7 @@
 const RCE = TUNE.race.events;
 const rceP = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
 const rceV = new THREE.Vector3();
-const rce = { venues: {}, cur: null };
+const rce = { venues: {}, cur: null, quiet: false };
 
 // ---- built once, at load, for every track that has events ---------------------------------------
 function rceBuild() {
@@ -230,7 +230,7 @@ function rceReset() {
 
 function rceUpdate(dt, going) {
   const v = rce.cur;
-  if (!v || !race.him) return;
+  if (!v || !race.him || rce.quiet) return;   // (quiet: a check of the track alone, race_track_checks c and the splash)
   if (v.boulders) rceBoulders(v.boulders, dt, going);
   if (v.train) rceTrain(v.train, dt, going);
   if (v.av) rceAvalanche(v.av, dt, going);

@@ -153,7 +153,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
     // ---- c. surfaces: the same speed on each, for every car and for them
     const c = await page.evaluate((id) => {
       const L = window.__lp, S = L.state, RC = L.RC, out = {};
-      L.noRender = true; L.api.skipScreens();
+      L.noRender = true; L.api.skipScreens();   L.rce.quiet = true;   // (v191: the surfaces alone -- the beach's ship spun him on the splash; race_event_checks has the events)
       const T = L.race.venues[id].track, kinds = [...new Set(T.S.map(q => q.sf))];
       for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
         out[veh] = {};
@@ -178,7 +178,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           L.raceReset();
         }
       }
-      L.noRender = false;
+      L.noRender = false; L.rce.quiet = false;
       return out;
     }, id);
     const cBad = [];
@@ -684,7 +684,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
     if (sp) {
       const spray = await page.evaluate((id) => {
         const L = window.__lp, S = L.state, T3 = window.THREE, out = {};
-        L.api.skipScreens();
+        L.api.skipScreens();   L.rce.quiet = true;   // (v191: the splash's own spray, no wave or shot over it)
         // (chase and seat, both -- from the seat, what he aims at; the field on the track, two of them just ahead of him on the
         // water and one just behind, throwing their own)
         for (const [veh, chase] of [["car", true], ["cybertruck", true], ["corvette", true], ["monster", true], ["car", false], ["monster", false]]) {
@@ -724,7 +724,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           out[veh + (chase ? "" : ":seat")] = { frames, hidden, born, onSplash };
           L.raceReset();
         }
-        L.api.setView(true);
+        L.api.setView(true); L.rce.quiet = false;
         return out;
       }, id);
       check(`race ${id}: the splash -- ${sp.secs.map(w => `${w.len} m over water ${Math.round(w.wet * 100)}%, its deck at the water on ${w.atWater} of the ${w.low} samples where the ground is under it`).join("; ")}; never under the ground (${sp.underGround}) or the water (${sp.underWater}, lowest ${sp.worstWater} m over the sea); the spray rises off it (${Object.values(spray).map(v => v.born).join("/")} puffs, his and theirs) and never stands between the chase camera and his car, or his seat and the road 30 m ahead (${Object.entries(spray).map(([k, v]) => `${k} ${v.hidden} of ${v.frames} frames`).join(", ")})`,
