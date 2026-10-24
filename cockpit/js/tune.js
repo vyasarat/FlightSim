@@ -2537,7 +2537,9 @@ const TUNE = {
       // motorway, 7.8 km from the oval.)
       { id: "beach", site: { x: -900, z: 6585, heading: 90 },
         pads: [{ m: 150, lat: 5 }, { m: 560, lat: -5 }, { m: 1200, lat: 5 }, { m: 1400, lat: -5 }, { m: 2990, lat: 5 }, { m: 3110, lat: -5 }],   // (none on a splash: cyan on water does not read)
-        aiMul: 1.018,                     // (at 1.0 the noisy hand won 88%: a lap that is mostly long straights gives his hand nothing to lose; 1.02 won 45%)
+        aiMul: 1.015,                     // (at 1.0 the noisy hand won 88%: a lap that is mostly long straights gives his hand nothing to lose; 1.02 won 45%; v191, with the waves and the ship, 1.018 won 46%)
+        // (v191) waves up the beach and the water-cannon ship in the lagoon (raceevents.js); `side` is the sea's
+        events: [{ kind: "waves", m: 1090, side: 1 }, { kind: "ship", m: 2420, side: 1, from: 2190, to: 2660 }],
         sections: [
         { type: "straight", len: 250 },
         { type: "straight", len: 150, surface: "sand" },
@@ -2732,6 +2734,20 @@ const TUNE = {
                    puffEvery: 0.12, puffSize: 14, plough: 4 },   // (about 25 a second, for the slide only: a fifth of the shared pool)
       // (v190) the ski jump's dressing: `board` m boards `boardH` high up its face, flags `flag` m on `pole` m poles at its lip
       ski: { board: 6, boardH: 2.6, pole: 8, flag: 4 },
+      // (v191) the waves: `n` of them `spacing` m apart, `len` m along, each up the sand `out` m past the road's edge to
+      // its `reach` of the road's width (never all of it), over `rise` s as he comes within `lead` s, held `stay`, back
+      // over `fall`; `bow` m further up in its middle; a car in one keeps `drag` of its speed (a splash keeps 0.82)
+      waves: { n: 4, spacing: 120, len: 34, out: 14, reach: [0.5, 0.6, 0.4, 0.55],   // (the most, bowed, 5.6 m past the middle: the inland lane at 9 stays dry)
+               lead: 3, rise: 1.4, stay: 3, fall: 1.6, bow: 3,
+               drag: 0.82, up: 0.1, foam: 1.4, opacity: 0.8, spray: 2.4, tell: 60 },
+      // (v191) the water-cannon ship: `len` x `beam`, anchored `lat` m off the line; a shot every `every` s while he is in
+      // its stretch (and `early` s before), landing `flight` s ahead of him -- every `aimEvery`th in his lane (held within
+      // `laneMax`), the rest at the rival nearest ahead within `rivalNear` m (else `lanes` by turns); a car within `r` of it
+      // when it lands spins out
+      ship: { len: 40, beam: 10, lat: 50, masts: [0.18, -0.2], mastH: 20, sailW: 12, flag: 4.5, bob: 0.25,
+              every: 3.2, flight: 1.9, early: 2, aimEvery: 4, rivalNear: [8, 140], laneMax: 8, lanes: [7, -7, 0], r: 2.6, ringR: 3.8, ringW: 1.2, discA: 0.35,
+              beamR: 0.5, beamH: 9, beamA: 0.55, beamClear: 12,   // (its mark: a red rim and disc, and a glowing beam `beamH` m up out of it)
+              ballR: 1.6, trail: 1.6, trailLife: 0.35, muzzle: 5, arc: 14, burst: 9, pool: 4, tell: 80 },
       train: { cars: 3, carLen: 16, engLen: 18, h: 4.2, wid: 3.4, leave: 0.75, vMin: 5, vMax: 14, warn: 70, under: 0.3, colours: [0xe0483e, 0x2b6fd1, 0x36c46a, 0xffd23e],
                shed: { len: 80, w: 14, h: 9 }, boom: { len: 9, h: 1.1, at: 30 }, lampR: 0.7, bellEvery: 0.55, bellNear: 300, acc: 30,
                // his chase camera over it: within `camSpan` m of the crossing with the train there, `camLift` m up, `camIn`

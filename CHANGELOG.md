@@ -10,6 +10,19 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v191 — Beach Splash: waves and a water-cannon ship
+
+Beach Splash gets two things of its own. Along the beach, waves come up the sand and wash over the
+road as he arrives, each reaching its own way across and never the inland lane: in the water every
+car is slowed, as on a splash, and throws spray, and the dry line is his to steer for. Out in the
+lagoon a wooden sailing ship lies at anchor, no one aboard, and while he crosses the water it lobs
+balls of water through the air; an orange ring blinks on the road where each will land, nearly two
+seconds before it does. Under one when it lands, a car spins out for a moment, never a bang; most
+are aimed at the rival nearest ahead of him, one in four at him. Win rates on the beach with the
+noisy hand and random taps: car 55%, Cybertruck 63%, Corvette 53%, Monster 50% (40 races each), 0 bangs,
+never stuck over 0.43 s, something every 5-6 s.
+
+
 ## v190 — Snowy Peaks: giant snowballs, an avalanche and a ski jump
 
 Snowy Peaks gets three things of its own. On the long climb, giant snowballs roll off the mountain
