@@ -60,6 +60,7 @@ entry below.
 | v180 | nothing he would mention: on Snowy Peaks he calls the mountain with the tunnel "the snowy mountain", not a rock, and says nothing about grass or green on the snow |  open |
 | v187 | in a race he steers for the glowing boxes on purpose, taps the big button as soon as a picture comes up, and talks about what he got ("giant!", "bubble", the ball); when a rival's ball spins him he laughs or says "again", not that it is unfair; he no longer says racing is just going round |  open |
 | v189 | on Desert Dunes he points at the train or says "train!" before the jump, steers round at least one boulder on purpose, and asks for Desert Dunes again |  open |
+| v190 | on Snowy Peaks he shouts or laughs when the avalanche comes down on the last lap, cheers or says "whoa" off the ski jump, and picks Snowy Peaks again |  open |
 | v188 | nothing he would mention: racing from the driving seat, every time he puts his finger down it steers -- no "it's not working" in the middle of the screen |  open |
 | v181 | nothing he mentions about rocks or stones behind the car in a race; on Beach Splash he calls the white behind the car splashing or water |  open |
 | v182 | nothing he mentions: at night in the Corvette's driving seat the mirror is dark like the sky, and when he holds the booster he still sees the flames in it |  open |

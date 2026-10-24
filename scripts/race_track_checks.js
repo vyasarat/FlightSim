@@ -14,7 +14,7 @@
 //   d. A DUNE IS A JUMP, THE SAME FOR EVERY CAR: at his step each car leaves the
 //      deck at every dune and flies the same time (to three frames of 60 Hz); it
 //      is never under the deck, never off it, and never bangs; at the top step it
-//      is a jump, not a flight (under 80 m);
+//      is a jump, not a flight (under 80 m; v190: a ski jump, built to throw him further, under jump.skiFar);
 //   e. A SHORTCUT IS HIS CHOICE, NEVER A TRAP AND NEVER A CHEAT: it is a fork, so the
 //      turn rule -- a full steer held through its approach takes it; hands-off in the
 //      middle, hands-off ON ITS EDGE (a finger left there after a pad) and a light
@@ -218,8 +218,9 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       const t0 = def[0].flights.map(f => f.t);
       const same = def.every(r => r.flights.length === r.dunes && r.flights.every((f, i) => Math.abs(f.t - t0[i]) <= 0.05));   // (three frames: where in a frame it leaves the crest)
       const top = d["corvette@4"];
+      const far = await page.evaluate(id => { const RC = window.__lp.RC; return RC.tracks.find(t => t.id === id).sections.filter(sc => sc.jump).map(sc => sc.jump.ski ? RC.jump.skiFar : 80); }, id);   // (each flight's own jump, in lap order)
       check(`race ${id}: every dune is a jump, the same for every car -- at his step each flies ${def[0].flights.map(f => `${f.t} s, ${f.d} m`).join(" and ")} (the four cars ${def.map(r => r.flights.map(f => f.t).join("/")).join("; ")}); never under the deck (${def.reduce((a, r) => a + r.under, 0)} frames) or off it (${def.reduce((a, r) => a + r.outLat, 0)}), no bang; at the top step ${top.flights.map(f => f.d + " m").join(" and ")} (a jump, not a flight); at the lowest it may roll over`,
-        same && def.every(r => r.under === 0 && r.outLat === 0 && r.bangs === 0) && top.flights.length === top.dunes && top.flights.every(f => f.d < 80) && top.under === 0 && top.bangs === 0 && d["car@0"].bangs === 0 && d["car@0"].under === 0, J(d));
+        same && def.every(r => r.under === 0 && r.outLat === 0 && r.bangs === 0) && top.flights.length === top.dunes && top.flights.every((f, i) => f.d < far[i]) && top.under === 0 && top.bangs === 0 && d["car@0"].bangs === 0 && d["car@0"].under === 0, J(d));
     }
 
     // ---- e. a shortcut: his choice, never a trap, never a cheat

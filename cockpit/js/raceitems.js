@@ -399,6 +399,8 @@ function rcItDrawFrame() {
       if (b.down > 0) continue;
       rcPoint(row.s, b.lat, rcItP);
       const y = rcItP.y + RCI.boxUp + Math.sin(t * 2.4 + b.lat) * RCI.bob;
+      // (v190) never drawn round the camera: a chase camera passing through a box filled the screen with it
+      if (Math.hypot(camera.position.x - rcItP.x, camera.position.y - y, camera.position.z - rcItP.z) < RCI.camClear) continue;
       rcItQ.setFromAxisAngle(rcItV.set(0, 1, 0), t * RCI.spinRate + b.lat);
       rcItM.compose(rcItS.set(rcItP.x, y, rcItP.z), rcItQ, rcItV.set(1, 1, 1));
       it.boxMesh.setMatrixAt(n, rcItM); it.ribbonMesh.setMatrixAt(n, rcItM);
