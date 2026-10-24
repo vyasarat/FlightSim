@@ -18,7 +18,8 @@ him (never a bang), and the gaps between them are his to steer for, with a warni
 On his last lap only, an avalanche roars down the mountain ahead of him and heaps a soft drift
 right across the road: every car ploughs through it, slowed and throwing snow, never stopped. And
 the first jump is now a ski jump: blue-and-white boards up a face that kicks him up, flags at the
-lip, nearly two seconds in the air. Win rates on the snow with the noisy hand and random taps:
+lip, nearly two seconds in the air. (A deliberate change: at the top speed step a ski jump may carry
+a car up to 130 m, where a dune is still held under 80.) Win rates on the snow with the noisy hand and random taps:
 car 53%, Cybertruck 42%, Corvette 57%, Monster 45% (40 races each), 0 bangs, never stuck over 0.43 s, something every 7 s.
 On every track, a power-up box the chase camera passes through is no longer drawn, so it never fills
 the screen with a yellow slab.

@@ -2663,7 +2663,8 @@ const TUNE = {
     // `at` of the way along, its face `up` m long and its back `down`. A car leaves
     // the deck where it falls away faster than `g` lets it fall, at no more than
     // `vyMax` m/s upward, and carries its speed through the air.
-    jump: { g: 14, vyMax: 4.5, minV: 6, ease: 20, pitchMax: 0.35, passOver: 1.5, skirt: 10,
+    jump: { g: 14, vyMax: 4.5, minV: 6, ease: 20, pitchMax: 0.35, passOver: 1.5, skirt: 10, skiFar: 130,   // (skiFar, v190: how far a SKI jump may throw a car at the top step -- a dune's is 80 m; race_track_checks d)
+           
             seatGain: 2.5, seatMax: 0.4, seatEase: 18, seatSettle: 7 },   // (seatSettle: back to level once he lands, a settle not a cut. What the seat and the centre gauge SHOW of his pitch: 6 degrees was too little for him to see; the flight itself is unchanged)   // (`skirt`: how far out its sand sides reach the ground)
     rutLat: [-4.3, -2.5, 2.5, 4.3], rutW: 0.3,   // dirt's ruts, metres across: two cars' wheel tracks, where the lines run   // who throws it: him, and the two nearest the camera within `near` m
     // ONE speed model for every car, his and theirs: base speed times HIS speed
