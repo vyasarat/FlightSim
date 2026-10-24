@@ -53,9 +53,11 @@ const rce = { venues: {}, cur: null, quiet: false };
 // ---- built once, at load, for every track that has events ---------------------------------------
 function rceBuild() {
   for (const def of RC.tracks) {
-    if (!def.events) continue;
     const T = race.venues[def.id] && race.venues[def.id].track;
     if (!T) continue;
+    // a ski jump or a stunt ramp is dressed on any track (v193: the oval's has no events, and stood bare)
+    def.sections.forEach((sc, k) => { if (sc.jump && sc.jump.ski) rceStatic(def.id, "rceSki" + k, rceBuildSki(T, def, k)); });
+    if (!def.events) continue;
     const v = rce.venues[def.id] = { def, T, boulders: null, train: null, av: null, waves: null, ship: null, rings: null, wind: null };
     for (const ev of def.events) {
       if (ev.kind === "boulders" || ev.kind === "snowballs") { v.boulders = rceBuildBoulders(T, ev); rceStatic(def.id, "rceHeap", v.boulders.heap); }
@@ -66,7 +68,6 @@ function rceBuild() {
       if (ev.kind === "avalanche") { v.av = rceBuildAvalanche(T, ev); rceStatic(def.id, "rceAvSign", v.av.sign); }
       if (ev.kind === "train" && def.rail) { v.train = rceBuildTrain(T, def.rail); rceStatic(def.id, "rceRail", v.train.still); }
     }
-    def.sections.forEach((sc, k) => { if (sc.jump && sc.jump.ski) rceStatic(def.id, "rceSki" + k, rceBuildSki(T, def, k)); });
   }
 }
 
@@ -216,6 +217,7 @@ function rcePoseTrain(tr) {
 // ---- a race on a track with events ----------------------------------------------------------------
 function rceStart() {
   rceReset();
+  for (const L of race.track.loops || []) L.told = undefined;     // (v193)
   const v = rce.venues[race.track.def.id];
   rce.cur = v || null;
   if (!v) return;
@@ -241,7 +243,17 @@ function rceReset() {
   rce.cur = null;
 }
 
+// (v193) over the top of a loop, upside down: a thing he did, once a loop a lap (race.js lays the loop)
+function rceLoopWatch(going) {
+  const T = race.track, him = race.him;
+  if (!going || !T.loops || !him || him.path) return;
+  for (const L of T.loops) {
+    const top = (L.a + L.b) / 2, d = rcGap(him.s, top), lap = Math.floor((him.s - top + T.len / 2) / T.len);
+    if (d >= 0 && d < 20 && L.told !== lap) { L.told = lap; rcThing("loop"); flags.raceLoops = (flags.raceLoops || 0) + 1; synthBlip("triangle", 520, 1040, 0.5, 0.12, 0); }
+  }
+}
 function rceUpdate(dt, going) {
+  if (race.him && !rce.quiet) rceLoopWatch(going);
   const v = rce.cur;
   if (!v || !race.him || rce.quiet) return;   // (quiet: a check of the track alone, race_track_checks c and the splash)
   if (v.boulders) rceBoulders(v.boulders, dt, going);
@@ -806,7 +818,7 @@ function rceBuildSki(T, def, k) {
     const s = crest + u + K.board / 2, a = rcAtOn(T, s);
     for (const sd of [-1, 1]) {
       rcPointOn(T, s, sd * (W + 0.3), rceP);
-      boxes.push({ x: rceP.x, y: rceP.y + K.boardH / 2, z: rceP.z, w: 0.3, h: K.boardH, d: K.board * 0.98, ry: Math.atan2(a.tx, a.tz), c: i % 2 ? P.white : P.blue });
+      boxes.push({ x: rceP.x, y: rceP.y + K.boardH / 2, z: rceP.z, w: 0.3, h: K.boardH, d: K.board * 0.98, ry: Math.atan2(a.tx, a.tz), c: i % 2 ? (J.stunt ? P.ink : P.white) : (J.stunt ? P.warning : P.blue) });   // (v193: a stunt ramp's are yellow and black)
     }
   }
   // the lip: a flag on a pole each side, the kind that stands at the top of a real one
@@ -815,7 +827,7 @@ function rceBuildSki(T, def, k) {
     rcPointOn(T, crest, sd * (W + 1.2), rceP);
     boxes.push({ x: rceP.x, y: rceP.y + K.pole / 2, z: rceP.z, w: 0.25, h: K.pole, d: 0.25, c: P.white });
     const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(K.flag, -K.flag * 0.35); sh.lineTo(0, -K.flag * 0.7); sh.closePath();
-    const f = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: sd > 0 ? P.red : P.blue, side: THREE.DoubleSide }));
+    const f = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: J.stunt ? P.fire : sd > 0 ? P.red : P.blue, side: THREE.DoubleSide }));
     f.position.set(rceP.x, rceP.y + K.pole, rceP.z); f.rotation.y = Math.atan2(a.tx, a.tz) + Math.PI / 2; g.add(f);
   }
   g.add(rceMerged(boxes));

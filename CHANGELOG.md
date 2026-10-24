@@ -10,6 +10,18 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v193 — the Oval: a real loop-the-loop and a stunt ramp
+
+The oval's back straight now has a real loop-the-loop. The road funnels down to one lane, goes
+right round in a 36-metre circle -- every car drives it upside down at the top -- and comes out
+one lane over, widening again as an S takes it back to its line. Both cameras go round with him:
+behind the car, the loop is the road ahead and the world turns over; from the seat he looks round
+the curve of the loop. And the far straight has a stunt ramp, yellow and black, that throws him
+nearly two seconds through the air. Win rates on the oval with the noisy hand and random taps (its rivals
+eased to 0.995 of their pace): car 50%, Cybertruck 47%, Corvette 55%, Monster 47% (40 races each), 0 bangs, never
+stuck over 0.43 s, something every 7 s. The loop is solid, as any bridge, to a plane out of a race.
+
+
 ## v192 — Sky Glow Road: boost rings and gusts
 
 Sky Glow Road gets two things of its own, up in the air. Big glowing hoops stand over the road,

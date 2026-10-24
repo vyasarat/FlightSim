@@ -107,7 +107,7 @@ module.exports = async function raceChecks({ newPage, check }) {
         let stands = 0;
         L.forEachSolid(b => { if (L.solidKind(b) === "building" && R.standsG && b.mesh && b.mesh.parent === R.standsG) stands++; });
         const def = L.RC.tracks[0];
-        let want = 0; for (const sc of def.sections) want += sc.type === "turn" ? Math.abs(sc.angle) * Math.PI / 180 * sc.radius : sc.len;   // (what its numbers say)
+        let want = 0; for (const sc of def.sections) want += sc.type === "turn" ? Math.abs(sc.angle) * Math.PI / 180 * sc.radius : sc.type === "loop" ? 2 * Math.PI * sc.radius : sc.type === "sbend" ? ((sc) => { let l = 0; for (let i = 0; i < 200; i++) { const t = (i + 0.5) / 200; l += Math.hypot(sc.len / 200, sc.shift * 6 * t * (1 - t) / 200); } return l; })(sc) : sc.len;   // (v193: a loop is its circle; an S its curve)   // (what its numbers say)
         return { len: +T.len.toFixed(1), want: +want.toFixed(1), gap: +T.gap.toFixed(3), turn: +T.turn.toFixed(4), sections: def.sections.map(s => s.type), wet, nearRoad: Math.round(nearRoad), inCity, stands,
                  venue: !!(R.venue && R.venue.parent), gantry: !!(R.gantry && R.gantry.parent), podium: !!(R.podiumG && R.podiumG.parent) };
       });

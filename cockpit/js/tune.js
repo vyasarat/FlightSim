@@ -2400,11 +2400,19 @@ const TUNE = {
     // it closes. (Surveyed: dry by 2.1 m 15 m past the barriers, 886 m off the motorway.)
     // A later track is another entry here, never an edit to race.js.
     tracks: [
-      { id: "oval", pads: [{ m: 150, lat: 5 }, { m: 620, lat: -5 }, { m: 880, lat: 5 }, { m: 2050, lat: -5 }, { m: 2500, lat: 5 }, { m: 3900, lat: -5 }],
+      // (v193) the back straight's LOOP: the road funnels in, goes right round over itself one lane to the left, and an
+      // S takes it back to its line; the STUNT RAMP on the far straight (a kicker, dressed). The loop adds its own length
+      // to the lap's metres, so every pad past it is moved on by it (113 m) and stands where it stood.
+      { id: "oval", pads: [{ m: 150, lat: 5 }, { m: 440, lat: -5 }, { m: 993, lat: 5 }, { m: 2163, lat: -5 }, { m: 2613, lat: 5 }, { m: 4013, lat: -5 }],
+        aiMul: 0.995,                     // (v193: with the loop and the ramp, the noisy hand won 39% at 1.0)
         sections: [
         { type: "straight", len: 250 },
         { type: "turn", angle: 90, radius: 110, bank: 9 },
-        { type: "straight", len: 600 },
+        { type: "straight", len: 150 },
+        { type: "loop", radius: 18, offset: 12 },                    // THE LOOP (one lane over: it never meets itself)
+        { type: "straight", len: 60 },
+        { type: "sbend", len: 200, shift: -12 },                     // ... and back to the line
+        { type: "straight", len: 190 },
         { type: "turn", angle: 45, radius: 90 },
         { type: "turn", angle: -90, radius: 90 },
         { type: "turn", angle: 45, radius: 90 },
@@ -2416,7 +2424,7 @@ const TUNE = {
         { type: "turn", angle: -30, radius: 60 },
         { type: "straight", len: 250 },
         { type: "turn", angle: 90, radius: 100 },
-        { type: "straight", len: 360 },
+        { type: "straight", len: 360, jump: { at: 0.45, up: 38, down: 54, h: 7, vy: 10, ski: true, stunt: true } },   // THE STUNT RAMP
         { type: "turn", angle: 90, radius: 80 },
         { type: "straight", len: 260 },
         { type: "turn", angle: -180, radius: 80 },
@@ -2669,6 +2677,11 @@ const TUNE = {
     // `at` of the way along, its face `up` m long and its back `down`. A car leaves
     // the deck where it falls away faster than `g` lets it fall, at no more than
     // `vyMax` m/s upward, and carries its speed through the air.
+    // (v193) a loop: the road `w` m wide in it, funnelling over `funnel` m either side; its underside `deckT` deep; the
+    // chase camera rides its deck `camBack` m behind him, `camUp` up, looking `look` m ahead (from `camBack` before it to
+    // `camAfter` past it); from the seat, `seatEye` up
+    loop: { w: 10, funnel: 90, deckT: 0.7, camBack: 11, camUp: 3.2, look: 14, lookUp: 1.2, camAfter: 6, seatEye: 1.25, seatFwd: 0.4, seatLook: 16, camEase: 12, solidPiece: 3, oneWid: 3.4,
+            glow: { deck: 0x2a3038, red: 0x5a1a16, white: 0x6a7280 } },   // (a loop's deck and kerbs, lit a little from themselves)   // (oneWid: the width every car is held to in a loop and its funnel)   // (solidPiece: m of loop deck per solid slab)
     jump: { g: 14, vyMax: 4.5, minV: 6, ease: 20, pitchMax: 0.35, passOver: 1.5, skirt: 10, skiFar: 130,   // (skiFar, v190: how far a SKI jump may throw a car at the top step -- a dune's is 80 m; race_track_checks d)
            
             seatGain: 2.5, seatMax: 0.4, seatEase: 18, seatSettle: 7 },   // (seatSettle: back to level once he lands, a settle not a cut. What the seat and the centre gauge SHOW of his pitch: 6 degrees was too little for him to see; the flight itself is unchanged)   // (`skirt`: how far out its sand sides reach the ground)

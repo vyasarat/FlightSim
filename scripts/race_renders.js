@@ -24,6 +24,7 @@
 //                     1, 2, 3, 4.5, 7, 10 and 15 m straight ahead of the camera: what the 2-7 m fade and the size cap leave on the glass
 //   ev:<sign|boulders|hit|far|train|cross|lip|under|sheds> / evSeat:...   (v189) the dunes' events (TRACK=dunes)
 //   ev:<sign|boulders|hit|avSign|av|drift|ski|skiAir|land> / evSeat:...   (v190) the snow's (TRACK=snow): snowballs, avalanche, ski jump
+//   ev:<loopIn|loopUp|loopTop|stunt|stuntAir> / evSeat:...   (v193) the oval's (TRACK=oval): the loop, the stunt ramp
 //   ev:<ring|ringThrough|gust|gustSock> / evSeat:...   (v192) the sky road's (TRACK=sky): the boost rings, a gust
 //   ev:<wave|inWave|ship|shot|splash> / evSeat:... (the shot and splash: one aimed at him)   (v191) the beach's (TRACK=beach): the waves, the water-cannon ship
 //   boxes / boxesSeat, item:<kind> / itemSeat:<kind>, hold:<kind> / holdSeat:<kind>   (v187) the power-ups: a row of boxes
@@ -183,6 +184,29 @@ async function render(root, views) {
           }
           window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
           return Object.assign(note, { k, av: av.state, grow: +av.grow.toFixed(2), to: +window.rcGap(him.s, last + av.ev.m).toFixed(0), v: +him.v.toFixed(1) });
+        }
+        if (k === "loopIn" || k === "loopUp" || k === "loopTop") {
+          // (v193) ev:loopIn -- the funnel and the loop standing ahead, ~120 m; ev:loopUp -- a quarter of the way round; ev:loopTop -- upside down at its top
+          const lp = T.loops[0], top = (lp.a + lp.b) / 2;
+          him.s = base + lp.a - 300; him.lat = 0; him.v = L.RC.v * 0.95; behind();
+          for (let i = 0; i < 60 * 20; i++) {
+            const to = window.rcGap(him.s, base + lp.a);
+            if (k === "loopIn" && to > -120) break;
+            if (k === "loopUp" && window.rcGap(him.s, base + lp.a + (lp.b - lp.a) * 0.22) > 0) break;
+            if (k === "loopTop" && window.rcGap(him.s, base + top) > 0) break;
+            behind(); go(1, 0, 0);
+          }
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          const p = L.rcPoint(him.s, him.lat, {});
+          return Object.assign(note, { k, ny: +p.ny.toFixed(2), loop: p.loop, hw: +L.rcAt(him.s).hw.toFixed(1) });
+        }
+        if (k === "stunt" || k === "stuntAir") {
+          const ki = T.def.sections.findIndex(sc => sc.jump && sc.jump.stunt), from = T.S.find(q => q.sec === ki).s, J = T.def.sections[ki].jump;
+          him.s = base + from + J.at * T.def.sections[ki].len - J.up - (k === "stunt" ? 60 : 120); him.lat = 0; him.v = L.RC.v * 0.95; behind();
+          if (k === "stunt") for (let i = 0; i < 70; i++) { behind(); go(1, 0, 0); }   // (driven in, so the chase camera has settled behind him)
+          if (k === "stuntAir") for (let i = 0; i < 60 * 10; i++) { behind(); go(1, 0, 0); if (him.air && him.vy < 0.3) break; }
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          return Object.assign(note, { k, air: !!him.air });
         }
         if (k === "ring" || k === "ringThrough" || k === "gust" || k === "gustSock") {
           // (v192) ev:ring -- a ring ~60 m ahead in his lane; ev:ringThrough -- just through it, boosted; ev:gust -- the streaks across the road, being pushed

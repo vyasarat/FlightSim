@@ -139,7 +139,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         if (Math.abs(L.hwyNearest(q.x, q.z).lateral) < 150) corridor++;
       }
       for (const k in L.race.venues) if (k !== id) { const O = L.race.venues[k].track.S; for (let i = 0; i < S.length; i += 20) for (let j = 0; j < O.length; j += 20) other = Math.min(other, Math.hypot(S[i].x - O[j].x, S[i].z - O[j].z)); }
-      let want = 0; for (const sc of T.def.sections) want += sc.type === "turn" ? Math.abs(sc.angle) * Math.PI / 180 * sc.radius : sc.len;
+      let want = 0; for (const sc of T.def.sections) want += sc.type === "turn" ? Math.abs(sc.angle) * Math.PI / 180 * sc.radius : sc.type === "loop" ? 2 * Math.PI * sc.radius : sc.type === "sbend" ? ((sc) => { let l = 0; for (let i = 0; i < 200; i++) { const t = (i + 0.5) / 200; l += Math.hypot(sc.len / 200, sc.shift * 6 * t * (1 - t) / 200); } return l; })(sc) : sc.len;   // (v193: a loop is its circle; an S its curve)
       return { len: +T.len.toFixed(1), want: +want.toFixed(1), gap: +T.gap.toFixed(3), turn: +T.turn.toFixed(4), dry: +dry.toFixed(1), corridor, city, other: Math.round(other) };
     }, id);
     check(`race ${id}: the track closes (${a.gap} m and ${a.turn} rad from its start) at the ${a.want} m its numbers say (${a.len}); dry by ${a.dry} m at its barriers and 15 m past them, ${a.corridor} samples near the motorway, ${a.city} in a city, ${a.other} m from the next venue`,
