@@ -37,6 +37,13 @@
 // THE WATER-CANNON SHIP (Beach Splash, v191): at anchor in the lagoon, no one aboard. While he is on the water it
 // lobs balls of water ahead of him; an orange ring marks each landing spot from the moment it fires, and a car under
 // it when it lands spins out (never a bang). He steers off the ring.
+//
+// THE BOOST RINGS (Sky Glow Road, v192): glowing hoops over the road, spinning and swaying across the lanes; through
+// one, a pad's boost. Aimed at.
+//
+// THE GUSTS (Sky Glow Road, v192): stretches where the wind blows across, announced by streaks flying over the road
+// before it pushes; every car in it is pushed sideways, and he holds his line by steering into it (rceWind, race.js).
+// The barrier holds anyone it pushes all the way: a glide, never a bang.
 // ---------------------------------------------------------------------------
 const RCE = TUNE.race.events;
 const rceP = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
@@ -49,11 +56,13 @@ function rceBuild() {
     if (!def.events) continue;
     const T = race.venues[def.id] && race.venues[def.id].track;
     if (!T) continue;
-    const v = rce.venues[def.id] = { def, T, boulders: null, train: null, av: null, waves: null, ship: null };
+    const v = rce.venues[def.id] = { def, T, boulders: null, train: null, av: null, waves: null, ship: null, rings: null, wind: null };
     for (const ev of def.events) {
       if (ev.kind === "boulders" || ev.kind === "snowballs") { v.boulders = rceBuildBoulders(T, ev); rceStatic(def.id, "rceHeap", v.boulders.heap); }
       if (ev.kind === "waves") v.waves = rceBuildWaves(T, ev);
       if (ev.kind === "ship") v.ship = rceBuildShip(T, ev);
+      if (ev.kind === "rings") v.rings = rceBuildRings(T, ev);
+      if (ev.kind === "wind") v.wind = rceBuildWind(T, ev);
       if (ev.kind === "avalanche") { v.av = rceBuildAvalanche(T, ev); rceStatic(def.id, "rceAvSign", v.av.sign); }
       if (ev.kind === "train" && def.rail) { v.train = rceBuildTrain(T, def.rail); rceStatic(def.id, "rceRail", v.train.still); }
     }
@@ -214,6 +223,8 @@ function rceStart() {
   if (v.av) rceAvOff(v.av);
   if (v.waves) rceWavesOff(v.waves);
   if (v.ship) rceShipOff(v.ship);
+  if (v.rings) rceRingsOff(v.rings);
+  if (v.wind) rceWindOff(v.wind);
   if (v.train) { const tr = v.train; tr.state = "shed"; tr.lap = -1; tr.v = 0; tr.passedHim = false; tr.train.visible = true; }
 }
 function rceReset() {
@@ -223,6 +234,8 @@ function rceReset() {
     if (v.av) rceAvOff(v.av);
     if (v.waves) rceWavesOff(v.waves);
     if (v.ship) rceShipOff(v.ship);
+    if (v.rings) rceRingsOff(v.rings);
+    if (v.wind) rceWindOff(v.wind);
     if (v.train) { const tr = v.train; if (tr.state !== "shed") { tr.state = "shed"; tr.v = 0; tr.x = tr.dir > 0 ? tr.sheds[1].x : tr.sheds[0].x; tr.dir = -tr.dir; } tr.boomA = 0; tr.train.visible = false; rcePoseTrain(tr); rceBooms(tr, 0); for (const l of tr.lamps) l.material.color.setHex(TUNE.palette.ink); }
   }
   rce.cur = null;
@@ -236,6 +249,8 @@ function rceUpdate(dt, going) {
   if (v.av) rceAvalanche(v.av, dt, going);
   if (v.waves) rceWaves(v.waves, dt, going);
   if (v.ship) rceShip(v.ship, dt, going);
+  if (v.rings) rceRings(v.rings, dt, going);
+  if (v.wind) rceWindUpdate(v.wind, dt, going);
 }
 
 // ---- boulders ------------------------------------------------------------------------------------------
@@ -638,6 +653,148 @@ function rceShip(Sh, dt, going) {
     }
   }
 }
+
+// ---- the boost rings (v192) ---------------------------------------------------------------------------------
+// Glowing hoops standing over the sky road, spinning, each swaying slowly across the lanes; a car whose body goes
+// through one gets a pad's boost (the pads' own `padTime`, times `boost`). Aimed at, never timed: it is wide,
+// it is slow, and it is seen from far off. Rivals that happen through them are boosted too.
+function rceBuildRings(T, ev) {
+  const K = RCE.rings, P = TUNE.palette, g = new THREE.Group(), rings = [];
+  const geo = new THREE.TorusGeometry(K.r, K.tube, 8, 32);
+  for (let k = 0; k < ev.at.length; k++) {
+    const [m, lat] = ev.at[k];
+    const ring = new THREE.Group();
+    const hoop = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: K.cols[k % K.cols.length] }));
+    const inner = new THREE.Mesh(new THREE.TorusGeometry(K.r - K.tube * 1.6, K.tube * 0.45, 6, 32), new THREE.MeshBasicMaterial({ color: P.white }));
+    ring.add(hoop, inner);
+    g.add(ring);
+    rings.push({ m, lat0: lat, lat, ring, phase: k * 1.7, hit: new Set(), lap: -1 });
+  }
+  g.traverse(o => { o.userData.noSolid = true; });
+  scene.add(g);
+  return { ev, g, rings, t: 0 };
+}
+function rceRingsOff(B) { B.t = 0; for (const q of B.rings) { q.hit.clear(); q.lap = -1; } }
+function rceRings(B, dt, going) {
+  const K = RCE.rings, him = race.him, L = race.track.len;
+  B.t += dt;
+  for (const q of B.rings) {
+    q.lat = clamp(q.lat0 + Math.sin(B.t * K.sway + q.phase) * K.swayA, -K.latMax, K.latMax);
+    rcPoint(q.m, q.lat, rceP);
+    const a = rcAt(q.m);
+    q.ring.position.set(rceP.x, rceP.y + K.up, rceP.z);
+    q.ring.rotation.set(0, Math.atan2(a.tx, a.tz), B.t * K.spin);      // (facing down the road, spinning in its own plane)
+    // a new lap: everyone may go through it again
+    const lap = Math.floor((him.s - q.m + L / 2) / L);
+    if (lap !== q.lap) { q.lap = lap; q.hit.clear(); }
+    if (!going) continue;
+    for (const r of race.racers) {
+      if (q.hit.has(r) || r.path) continue;
+      const d = rcGap(r.s, q.m);
+      if (d < 0 || d > Math.max(1, r.v * dt * 1.5)) continue;          // (just through its plane this frame)
+      if (Math.abs(r.lat - q.lat) > K.r - K.tube - rcItFoot(r) * 0.25) continue;   // (its body inside the hoop -- a wide hole)
+      if (r.air && r.y - rcPoint(r.s, r.lat, rceP).y > K.up + K.r) continue;
+      q.hit.add(r);
+      r.padT = RC.padTime * K.boost;
+      if (r.isHim) { flags.raceRings = (flags.raceRings || 0) + 1; rcWhoosh(); cameraPunch(0.4); rcThing("ring"); synthBlip("triangle", 660, 1320, 0.3, 0.12, 0); }
+      for (let k = 0; k < K.burst; k++) { const a2 = k / K.burst * Math.PI * 2; rcPoint(q.m, q.lat + Math.cos(a2) * K.r, rceP); rcPuff(rceP.x, rceP.y + K.up + Math.sin(a2) * K.r, rceP.z, k % 2 ? TUNE.palette.white : K.cols[0], 1.6, 0.5, 0.5, 0.95); }
+    }
+  }
+}
+
+// ---- the gusts (v192) ---------------------------------------------------------------------------------------
+// Stretches of the sky road where the wind blows across: as he comes within `lead` s of one, white streaks start
+// flying across the road from the windward side, and `warn` s later the gust pushes every car in the stretch
+// sideways at `push` m/s for `dur` s. His steer is faster than it: he holds his line by steering into it. Hands-off
+// he drifts to the barrier, which holds him (a glide, never a bang). Once a lap each.
+function rceBuildWind(T, ev) {
+  const W = RCE.wind, P = TUNE.palette;
+  const geo = new THREE.BoxGeometry(W.streakL, W.streakT, W.streakT);
+  const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: P.white, transparent: true, opacity: W.streakA, depthWrite: false }), W.streaks);
+  mesh.count = 0; mesh.frustumCulled = false; mesh.userData.noSolid = true;
+  scene.add(mesh);
+  // a windsock at the start of each stretch, on the side the wind comes from, pointing the way it blows: hung limp,
+  // it stands out and flaps while the gust is on (white streaks alone read as planks: the sock says WIND)
+  const socks = new THREE.Group(), H = RC.width / 2 + RC.kerbW;
+  const zones = ev.zones.map(([a, b, dir]) => {
+    rcPointOn(T, a, -dir * (H + 2), rceP);
+    const q = rcAtOn(T, a), sock = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, W.poleH, 6), new THREE.MeshLambertMaterial({ color: P.white }));
+    pole.position.y = W.poleH / 2; sock.add(pole);
+    const arm = new THREE.Group(); arm.position.y = W.poleH;
+    for (let k = 0; k < 4; k++) {
+      const r0 = W.sockR * (1 - k * 0.16), r1 = W.sockR * (1 - (k + 1) * 0.16), seg = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, W.sockL / 4, 10, 1, true), new THREE.MeshLambertMaterial({ color: k % 2 ? P.white : P.fire, side: THREE.DoubleSide }));
+      seg.rotation.z = -Math.PI / 2; seg.position.x = (k + 0.5) * W.sockL / 4; arm.add(seg);
+    }
+    sock.add(arm);
+    sock.position.set(rceP.x, rceP.y, rceP.z);
+    // its arm's +x along the road's left (lx, lz) times the way it blows
+    sock.rotation.y = Math.atan2(-q.lz * dir, q.lx * dir);
+    socks.add(sock);
+    return { a, b, dir, t: -1, lap: -1, told: -1, arm };
+  });
+  socks.traverse(o => { o.userData.noSolid = true; });
+  scene.add(socks);
+  const streaks = []; for (let k = 0; k < W.streaks; k++) streaks.push({ on: false, s: 0, lat: 0, y: 0, v: 0 });
+  return { ev, mesh, socks, zones, streaks, spawn: 0 };
+}
+function rceWindOff(B) { for (const z of B.zones) { z.t = -1; z.lap = -1; z.told = -1; z.arm.rotation.set(0, 0, -1.25); } for (const s of B.streaks) s.on = false; B.mesh.count = 0; }
+// the push on a car now, m/s across (+ to its left): 0 outside a blowing gust
+function rceWind(r) {
+  const v = rce.cur;
+  if (!v || !v.wind || rce.quiet || r.path) return 0;
+  const W = RCE.wind;
+  for (const z of v.wind.zones) {
+    if (z.t < W.warn || z.t > W.warn + W.dur) continue;
+    const d = rcAhead(r.s, z.a);
+    if (d >= 0 && d <= z.b - z.a) { const k = Math.min(1, (z.t - W.warn) / W.ease, (W.warn + W.dur - z.t) / W.ease); return z.dir * W.push * k; }
+  }
+  return 0;
+}
+function rceWindUpdate(B, dt, going) {
+  const W = RCE.wind, him = race.him, L = race.track.len, H = RC.width / 2;
+  let blowing = null;
+  for (const z of B.zones) {
+    const ahead = rcAhead(z.a, him.s), lap = Math.floor((him.s + ahead) / L);
+    if (going && z.t < 0 && lap > z.lap && ahead < W.lead * Math.max(him.v, 20) && !him.done) {
+      z.lap = lap; z.t = 0;
+      synthBlip("sawtooth", 300, 120, 1.6, 0.06, 0);                   // (a rising whoosh: the wind coming)
+      flags.raceGusts = (flags.raceGusts || 0) + 1;
+    }
+    // the sock: limp (hung down) when still, straight out and flapping while it blows
+    const blowK = z.t < 0 ? 0 : Math.min(1, z.t / W.ease, Math.max(0, (W.warn + W.dur - z.t) / W.ease));
+    z.arm.rotation.z = -(1 - blowK) * 1.25 + blowK * Math.sin(race.t * 9) * 0.08;
+    z.arm.rotation.y = blowK * Math.sin(race.t * 6.3) * 0.12;
+    if (z.t < 0) continue;
+    z.t += dt;
+    if (z.t > W.warn + W.dur) { z.t = -1; continue; }
+    blowing = z;
+    if (going && z.t > W.warn && z.told !== z.lap && rcAhead(him.s, z.a) <= z.b - z.a) { z.told = z.lap; rcThing("gust"); }
+  }
+  // the streaks: born on the windward edge round him, flying across the road and beyond, while a gust is on
+  B.spawn -= dt;
+  if (blowing && B.spawn <= 0) {
+    B.spawn = W.every;
+    const s = B.streaks.find(x => !x.on);
+    if (s) {
+      const ds = W.ahead + ((race.t * 53.7) % 1) * W.spread;               // (ahead of him only: behind, they crossed between the chase camera and his car)
+      Object.assign(s, { on: true, s: him.s + ds, lat: blowing.dir * -(H + 10), y: W.streakY[0] + ((race.t * 31.3) % 1) * (W.streakY[1] - W.streakY[0]), v: blowing.dir * W.streakV, dir: blowing.dir });
+    }
+  }
+  let n = 0;
+  for (const s of B.streaks) {
+    if (!s.on) continue;
+    s.lat += s.v * dt;
+    if (Math.abs(s.lat) > H + 14 && Math.sign(s.lat) === s.dir) { s.on = false; continue; }
+    rcPoint(s.s, s.lat, rceP);
+    const a = rcAt(s.s);
+    rceM.makeRotationY(Math.atan2(a.tx, a.tz) + Math.PI / 2);               // (lying across the road, the way it blows)
+    rceM.setPosition(rceP.x, rceP.y + s.y, rceP.z);
+    B.mesh.setMatrixAt(n++, rceM);
+  }
+  B.mesh.count = n; B.mesh.instanceMatrix.needsUpdate = true;
+}
+const rceM = new THREE.Matrix4();
 
 // ---- the ski jump's dressing -------------------------------------------------------------------------------
 function rceBuildSki(T, def, k) {

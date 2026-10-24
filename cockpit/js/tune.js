@@ -2579,6 +2579,10 @@ const TUNE = {
       { id: "sky", site: { x: 1850, z: 1300, heading: 270 },
         pads: [{ m: 150, lat: 5 }, { m: 640, lat: -5 }, { m: 1500, lat: 5 }, { m: 1950, lat: -5 }, { m: 2950, lat: 5 }, { m: 3450, lat: -5 }],
         aiMul: 0.9995,                    // (at 1.0 the noisy hand won 45%, the Cybertruck 35%; at 0.992, 54%; v187, with the power-ups and random taps, 0.992 won 66%, 0.998 66% (one seed), 1.001 41% (two), 1.004 35%: a hair's change flips close finishes)
+        // (v192) boost rings swaying over the road, and gusts across it (raceevents.js): `at` is [metres, lane] each,
+        // `zones` [from, to, which way it blows (+ to his left)]; the rings clear of the pads (a gust may blow over one)
+        events: [{ kind: "rings", at: [[1420, -5], [1590, 4], [2300, 5], [2440, -5], [2820, 0], [3020, -5]] },
+                 { kind: "wind", zones: [[1880, 2100, 1], [3300, 3700, -1]] }],
         sections: [
         { type: "straight", len: 300 },
         { type: "straight", len: 500, surface: "glow", sky: 30 },   // up off the ground: the long climb
@@ -2748,6 +2752,14 @@ const TUNE = {
               every: 3.2, flight: 1.9, early: 2, aimEvery: 4, rivalNear: [8, 140], laneMax: 8, lanes: [7, -7, 0], r: 2.6, ringR: 3.8, ringW: 1.2, discA: 0.35,
               beamR: 0.5, beamH: 9, beamA: 0.55, beamClear: 12,   // (its mark: a red rim and disc, and a glowing beam `beamH` m up out of it)
               ballR: 1.6, trail: 1.6, trailLife: 0.35, muzzle: 5, arc: 14, burst: 9, pool: 4, tell: 80 },
+      // (v192) the boost rings: hoops `r` m round (`tube` thick) standing `up` m over the deck, spinning at `spin`, swaying
+      // `swayA` m either side of their lane at `sway` rad/s (held within `latMax`); through one, `boost` times a pad's time
+      rings: { r: 3.6, tube: 0.38, up: 4.1, spin: 1.2, sway: 0.5, swayA: 3, latMax: 9, boost: 1.4, burst: 10, cols: [0x5ff1ff, 0xffd23e] },
+      // (v192) the gusts: once a lap a stretch, `lead` s before he gets there the streaks start; `warn` s after, a push of `push`
+      // m/s across for `dur` s, eased in and out over `ease`; `streaks` white streaks `streakL` long, one every `every` s,
+      // across the road at `streakV`, born within `spread` m of him
+      wind: { lead: 2.6, warn: 1.4, dur: 3.2, ease: 0.6, push: 3.2, streaks: 64, streakL: 14, streakT: 0.12, streakY: [1.6, 7], streakA: 0.7, every: 0.025, streakV: 40, ahead: 14, spread: 90,
+              poleH: 7, sockL: 5, sockR: 0.9 },   // (low thick slabs read as planks or lane paint: thin, long and up in the air; the windsock says which way)
       train: { cars: 3, carLen: 16, engLen: 18, h: 4.2, wid: 3.4, leave: 0.75, vMin: 5, vMax: 14, warn: 70, under: 0.3, colours: [0xe0483e, 0x2b6fd1, 0x36c46a, 0xffd23e],
                shed: { len: 80, w: 14, h: 9 }, boom: { len: 9, h: 1.1, at: 30 }, lampR: 0.7, bellEvery: 0.55, bellNear: 300, acc: 30,
                // his chase camera over it: within `camSpan` m of the crossing with the train there, `camLift` m up, `camIn`

@@ -1,6 +1,6 @@
 "use strict";
 // ---------------------------------------------------------------------------
-// THE TRACKS' EVENTS (v189: Desert Dunes; v190: Snowy Peaks; v191: Beach Splash). Portrait, iPad.
+// THE TRACKS' EVENTS (v189: Desert Dunes; v190: Snowy Peaks; v191: Beach Splash; v192: Sky Glow Road). Portrait, iPad.
 //
 //   a. THE FREIGHT LINE: its bed level and dry (above the sea by a margin) along its whole length, the road over
 //      it on a bridge with room for the train under the deck (its height and more), nothing of the dune's sand
@@ -31,6 +31,14 @@
 //   l. A WHOLE RACE on the beach with the noisy hand and random taps, every car: no bang, never stuck over 2 s,
 //      waves and shots every lap, something every 5-10 s;
 //   m. NOTHING LEFT: out of the race no shot in the air, no ring, no wave.
+//
+// (v192: Sky Glow Road)
+//   n. THE BOOST RINGS: aiming at each he goes through every one and is boosted; kept off them, none;
+//   o. THE GUSTS: the streaks come at least 1 s before the push; hands-off from the downwind side it carries him on to
+//      the barrier, which holds him (never past it), a rival pushed too, no bang; his finger steering into it holds his line within 2 m;
+//   p. A WHOLE RACE on the sky road with the noisy hand and random taps, every car: no bang, never stuck over 2 s,
+//      the gusts every lap, rings taken, something every 5-10 s;
+//   q. NOTHING LEFT: out of the race no streak, no gust blowing, no push.
 //
 // Alone: node scripts/run_module.js race_event_checks
 // ---------------------------------------------------------------------------
@@ -363,4 +371,90 @@ module.exports = async function raceEventChecks({ newPage, check }) {
   });
   check(`race events: nothing left on the beach -- during ${J(mb.during)}, after EXIT ${J(mb.after)}`,
     mb.during.shots > 0 && mb.during.waves > 0 && mb.after.shots === 0 && mb.after.waves === 0, J(mb));
+
+  // ---- n. the boost rings: through one, a boost; past them all in a lane they are not in, none
+  const n = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const run = aim => {
+      L.rcStartRace("sky", 61); R.phase = "race"; R.raceT0 = R.t;
+      const B = L.rce.cur.rings, him = R.him;
+      for (const r of R.racers) if (!r.isHim) r.s -= 2000;
+      const first = B.rings[0].m, last = B.rings[B.rings.length - 1].m;
+      him.s = first - 200; him.lat = 0; him.v = RC.v; him.latV = 0;
+      const f0 = L.flags.raceRings || 0; let boosted = 0;
+      const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
+      for (let i = 0; i < 60 * 90; i++) {
+        // aiming, with a finger: at the next ring, where it is now (it sways); not aiming: the far side of the road from it
+        const next = B.rings.find(q => L.rcGap(q.m, him.s) > 0) || B.rings[0];
+        const lat = aim ? next.lat : (next.lat > 0 ? -11 : 11);
+        st.touching = true; st.ctrlBank = Math.max(-1, Math.min(1, -(lat - him.lat) * 0.4)) / range; st.ctrlPitch = 0; L.update(1 / 60);
+        if (him.padT > 0) boosted++;
+        if (L.rcGap(him.s, last) > 40) break;
+      }
+      return { through: (L.flags.raceRings || 0) - f0, boostedS: +(boosted / 60).toFixed(1), n: B.rings.length };
+    };
+    const out = { aim: run(true), away: run(false) };
+    L.raceReset(); st.touching = false;
+    return out;
+  });
+  check(`race events: the boost rings -- steering at each with a finger (they sway) he went through ${n.aim.through} of ${n.aim.n} (boosted ${n.aim.boostedS} s); keeping off them ${n.away.through}`,
+    n.aim.through === n.aim.n && n.aim.boostedS > 3 && n.away.through === 0, J(n));
+
+  // ---- o. the gusts: announced before they push; hands-off they push him across (the barrier holds, no bang);
+  //         his finger steering into one holds his line; a rival is pushed too
+  const o = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC, Wd = RC.events.wind;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
+    const run = hold => {
+      L.rcStartRace("sky", 63); R.phase = "race"; R.raceT0 = R.t;
+      const B = L.rce.cur.wind, z = B.zones[0], him = R.him, rival = R.racers.find(r => !r.isHim);
+      for (const r of R.racers) if (!r.isHim && r !== rival) r.s -= 2000;
+      const lat0 = hold ? 0 : z.dir * 6;                                 // (hands-off from the downwind side: it carries him to the barrier)
+      him.s = z.a - 260; him.lat = lat0; him.v = RC.v * 0.9; him.latV = 0;
+      rival.s = him.s + 40; rival.lat = 0; rival.v = him.v;
+      const b0 = L.flags.carCrashes || 0, g0 = L.flags.raceGusts || 0;
+      let firstPush = null, firstStreak = null, drift = 0, rivalDrift = 0, frame = 0, edgeMax = 0, atBarrier = 0;
+      const lim = RC.width / 2 - him.wid / 2 - 0.2;
+      for (let i = 0; i < 60 * 20; i++, frame++) {
+        const bank = hold ? Math.max(-1, Math.min(1, -(0 - him.lat) * 0.4)) / range : 0;   // (his finger, back to the middle)
+        if (!hold && L.rceWind(him) === 0 && firstPush === null) { him.lat = lat0; him.latV = 0; }   // (hands-off: where it was set, until the gust)
+        st.touching = true; st.ctrlBank = bank; st.ctrlPitch = 0; L.update(1 / 60);
+        if (firstStreak === null && B.mesh.count > 0) firstStreak = frame;
+        if (firstPush === null && L.rceWind(him) !== 0) firstPush = frame;
+        drift = Math.max(drift, Math.abs(him.lat - lat0)); rivalDrift = Math.max(rivalDrift, Math.abs(rival.lat)); edgeMax = Math.max(edgeMax, Math.abs(him.lat));
+        if (Math.abs(him.lat) >= lim - 0.05) atBarrier += 1 / 60;
+        if (L.rcGap(him.s, z.b) > 30) break;
+      }
+      return { gusts: (L.flags.raceGusts || 0) - g0, warnS: firstPush === null || firstStreak === null ? null : +((firstPush - firstStreak) / 60).toFixed(2),
+               drift: +drift.toFixed(1), rivalDrift: +rivalDrift.toFixed(1), edgeMax: +edgeMax.toFixed(2), lim: +lim.toFixed(2), atBarrier: +atBarrier.toFixed(1), bangs: (L.flags.carCrashes || 0) - b0 };
+    };
+    const out = { free: run(false), held: run(true), edge: RC.width / 2 };
+    L.raceReset(); st.touching = false;
+    return out;
+  });
+  check(`race events: the gusts -- streaks ${o.free.warnS} s before the push; hands-off from the downwind side it carried him ${o.free.drift} m, on to the barrier for ${o.free.atBarrier} s and never past it (at most ${o.free.edgeMax} of ${o.free.lim} m), and a rival ${o.free.rivalDrift} m; his finger steering into it held him within ${o.held.drift} m of his line; ${o.free.bangs + o.held.bangs} bangs`,
+    o.free.gusts >= 1 && o.free.warnS >= 1 && o.free.drift > 3 && o.free.atBarrier > 0.5 && o.free.edgeMax <= o.free.lim + 0.01 && o.free.rivalDrift > 3 && o.held.drift < 2 && o.free.bangs === 0 && o.held.bangs === 0, J(o));
+
+  // ---- p. a whole race on the sky road: the noisy hand and random taps, in every car
+  const p_ = [];
+  for (const veh of ["car", "cybertruck", "corvette", "monster"]) p_.push(await oneRace(page, veh, 8200 + p_.length, { track: "sky", taps: true }));
+  const pOk = p_.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.gust || 0) >= 5) && p_.reduce((a, r) => a + (r.things.kinds.ring || 0), 0) >= 4;
+  check(`race events: a whole race on the sky road with the noisy hand and random taps -- ${p_.map(r => `${r.veh} came ${r.place}, gusts ${r.things.kinds.gust || 0}x, rings ${r.things.kinds.ring || 0}x, something every ${r.things.every_} s`).join("; ")}; ${p_.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...p_.map(r => r.stuckMax))} s`, pOk, J(p_));
+
+  // ---- q. nothing left on the sky road
+  const q = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    L.rcStartRace("sky", 65); R.phase = "race"; R.raceT0 = R.t;
+    const v = L.rce.cur, z = v.wind.zones[0];
+    R.him.s = z.a - 60; R.him.v = 30;
+    for (let i = 0; i < 60 * 3; i++) { st.touching = true; L.update(1 / 60); }
+    const during = { streaks: v.wind.mesh.count, blowing: v.wind.zones.filter(z => z.t >= 0).length };
+    L.raceExit(); for (let i = 0; i < 10; i++) { st.touching = false; L.update(1 / 60); }
+    return { during, after: { streaks: v.wind.mesh.count, blowing: v.wind.zones.filter(z => z.t >= 0).length, push: L.rceWind(R.him) } };
+  });
+  check(`race events: nothing left on the sky road -- during ${J(q.during)}, after EXIT ${J(q.after)}`,
+    q.during.streaks > 0 && q.during.blowing > 0 && q.after.streaks === 0 && q.after.blowing === 0 && q.after.push === 0, J(q));
 };

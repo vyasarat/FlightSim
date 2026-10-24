@@ -24,6 +24,7 @@
 //                     1, 2, 3, 4.5, 7, 10 and 15 m straight ahead of the camera: what the 2-7 m fade and the size cap leave on the glass
 //   ev:<sign|boulders|hit|far|train|cross|lip|under|sheds> / evSeat:...   (v189) the dunes' events (TRACK=dunes)
 //   ev:<sign|boulders|hit|avSign|av|drift|ski|skiAir|land> / evSeat:...   (v190) the snow's (TRACK=snow): snowballs, avalanche, ski jump
+//   ev:<ring|ringThrough|gust|gustSock> / evSeat:...   (v192) the sky road's (TRACK=sky): the boost rings, a gust
 //   ev:<wave|inWave|ship|shot|splash> / evSeat:... (the shot and splash: one aimed at him)   (v191) the beach's (TRACK=beach): the waves, the water-cannon ship
 //   boxes / boxesSeat, item:<kind> / itemSeat:<kind>, hold:<kind> / holdSeat:<kind>   (v187) the power-ups: a row of boxes
 //                     ahead; an item at work (boost, shield, ball, hit, oil, spin, giant); the button holding one
@@ -182,6 +183,26 @@ async function render(root, views) {
           }
           window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
           return Object.assign(note, { k, av: av.state, grow: +av.grow.toFixed(2), to: +window.rcGap(him.s, last + av.ev.m).toFixed(0), v: +him.v.toFixed(1) });
+        }
+        if (k === "ring" || k === "ringThrough" || k === "gust" || k === "gustSock") {
+          // (v192) ev:ring -- a ring ~60 m ahead in his lane; ev:ringThrough -- just through it, boosted; ev:gust -- the streaks across the road, being pushed
+          if (k === "gust" || k === "gustSock") {
+            const z = E.wind.zones[0];
+            him.s = base + z.a - 200; him.lat = 0; him.v = L.RC.v * 0.95; behind();
+            for (let i = 0; i < 60 * 20; i++) { behind(); go(1, 0, 0); if (/Sock/.test(v) ? E.wind.mesh.count > 6 : (L.rceWind(him) !== 0 && Math.abs(him.lat) > 1.5)) break; }   // (gustSock: the streaks just started, the windsock ahead)
+            window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+            return Object.assign(note, { k, streaks: E.wind.mesh.count, push: L.rceWind(him), lat: +him.lat.toFixed(1) });
+          }
+          const q = E.rings.rings[1];
+          him.s = base + q.m - 300; him.lat = q.lat; him.v = L.RC.v * 0.95; behind();
+          for (let i = 0; i < 60 * 20; i++) {
+            const to = window.rcGap(him.s, base + q.m);
+            if (k === "ring" && to > -60) break;
+            if (k === "ringThrough" && him.padT > 0 && to > 2) { go(6, steer(q.lat), 0); break; }
+            behind(); go(1, steer(q.lat), 0);
+          }
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          return Object.assign(note, { k, ringLat: +q.lat.toFixed(1), lat: +him.lat.toFixed(1), pad: +(him.padT || 0).toFixed(2) });
         }
         if (k === "wave" || k === "inWave") {
           // (v191) ev:wave -- a wave over the road ~50 m ahead, at its reach; ev:inWave -- him driving through one, sea side
