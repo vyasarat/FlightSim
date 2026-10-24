@@ -1531,14 +1531,15 @@ function rcEdge(r, lim, dt, openFn) {
   const side = Math.sign(r.lat);
   r.lat = side * lim;
   if (openFn && openFn()) { r.latV = 0; r.glideHold = 0; r.wallOff = (r.wallOff || 0) + dt; return; }   // (its way in: no thump and no drag)
-  // (v193) a loop's funnel: the road narrowing round him guides him in -- held to it, no thump and no drag, whatever he
-  // drives (a wide car met its edge first and lost half a second a lap gliding: race_checks e2)
-  if (!r.path && rcAt(r.s).hw < RC.width / 2 - 0.01) { if (Math.sign(r.latV) === side) r.latV = 0; r.glideHold = 0; r.wallOff = (r.wallOff || 0) + dt; return; }
   const fresh = r.wallSide !== side || (r.wallOff || 0) > W.fresh || r.wallSide === undefined;
   if (fresh && Math.sign(r.latV) === side && Math.abs(r.latV) > 1) {
     if (r.isHim) { race.wallShoves++; flags.raceWallShoves = (flags.raceWallShoves || 0) + 1; rcBump(0.25); }
     r.v *= RC.wallKeep;
     r.latV = -r.latV * 0.3;
+  } else if (!r.path && rcAt(r.s).hw < RC.width / 2 - 0.01) {
+    // (v193) a loop's funnel narrowing round a car that keeps its lane guides it in: held, no drag (a fresh steer into
+    // its edge still thumps, above). Gliding there, a wide car lost half a second a lap: race_checks e2
+    if (Math.sign(r.latV) === side) r.latV = 0;
   } else {
     if (Math.sign(r.latV) === side) r.latV = 0;
     r.glideHold = W.hold;                       // (rcSpeedTo: aiming at glideSpeed of what it would)
