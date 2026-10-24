@@ -30,11 +30,18 @@
 //
 // THE SKI JUMP (Snowy Peaks, v190): a jump section with `ski` is dressed as one -- blue-and-white boards up its
 // face, a flag each side of the lip -- and its own `vy` lets it throw a car higher than a dune (race.js rcVertical).
+//
+// THE WAVES (Beach Splash, v191): up the sand and over the road from the sea's side as he comes, each reaching
+// its own way across and never the inland lane; a car in one is slowed, as on a splash, and throws spray.
+//
+// THE WATER-CANNON SHIP (Beach Splash, v191): at anchor in the lagoon, no one aboard. While he is on the water it
+// lobs balls of water ahead of him; an orange ring marks each landing spot from the moment it fires, and a car under
+// it when it lands spins out (never a bang). He steers off the ring.
 // ---------------------------------------------------------------------------
 const RCE = TUNE.race.events;
 const rceP = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
 const rceV = new THREE.Vector3();
-const rce = { venues: {}, cur: null };
+const rce = { venues: {}, cur: null, quiet: false };
 
 // ---- built once, at load, for every track that has events ---------------------------------------
 function rceBuild() {
@@ -42,9 +49,11 @@ function rceBuild() {
     if (!def.events) continue;
     const T = race.venues[def.id] && race.venues[def.id].track;
     if (!T) continue;
-    const v = rce.venues[def.id] = { def, T, boulders: null, train: null, av: null };
+    const v = rce.venues[def.id] = { def, T, boulders: null, train: null, av: null, waves: null, ship: null };
     for (const ev of def.events) {
       if (ev.kind === "boulders" || ev.kind === "snowballs") { v.boulders = rceBuildBoulders(T, ev); rceStatic(def.id, "rceHeap", v.boulders.heap); }
+      if (ev.kind === "waves") v.waves = rceBuildWaves(T, ev);
+      if (ev.kind === "ship") v.ship = rceBuildShip(T, ev);
       if (ev.kind === "avalanche") { v.av = rceBuildAvalanche(T, ev); rceStatic(def.id, "rceAvSign", v.av.sign); }
       if (ev.kind === "train" && def.rail) { v.train = rceBuildTrain(T, def.rail); rceStatic(def.id, "rceRail", v.train.still); }
     }
@@ -203,6 +212,8 @@ function rceStart() {
   if (!v) return;
   if (v.boulders) { v.boulders.released = -1; for (const b of v.boulders.rocks) { b.on = false; b.m.visible = false; } }
   if (v.av) rceAvOff(v.av);
+  if (v.waves) rceWavesOff(v.waves);
+  if (v.ship) rceShipOff(v.ship);
   if (v.train) { const tr = v.train; tr.state = "shed"; tr.lap = -1; tr.v = 0; tr.passedHim = false; tr.train.visible = true; }
 }
 function rceReset() {
@@ -210,6 +221,8 @@ function rceReset() {
     const v = rce.venues[id];
     if (v.boulders) for (const b of v.boulders.rocks) { b.on = false; b.m.visible = false; }
     if (v.av) rceAvOff(v.av);
+    if (v.waves) rceWavesOff(v.waves);
+    if (v.ship) rceShipOff(v.ship);
     if (v.train) { const tr = v.train; if (tr.state !== "shed") { tr.state = "shed"; tr.v = 0; tr.x = tr.dir > 0 ? tr.sheds[1].x : tr.sheds[0].x; tr.dir = -tr.dir; } tr.boomA = 0; tr.train.visible = false; rcePoseTrain(tr); rceBooms(tr, 0); for (const l of tr.lamps) l.material.color.setHex(TUNE.palette.ink); }
   }
   rce.cur = null;
@@ -217,10 +230,12 @@ function rceReset() {
 
 function rceUpdate(dt, going) {
   const v = rce.cur;
-  if (!v || !race.him) return;
+  if (!v || !race.him || rce.quiet) return;   // (quiet: a check of the track alone, race_track_checks c and the splash)
   if (v.boulders) rceBoulders(v.boulders, dt, going);
   if (v.train) rceTrain(v.train, dt, going);
   if (v.av) rceAvalanche(v.av, dt, going);
+  if (v.waves) rceWaves(v.waves, dt, going);
+  if (v.ship) rceShip(v.ship, dt, going);
 }
 
 // ---- boulders ------------------------------------------------------------------------------------------
@@ -408,11 +423,220 @@ function rceAvalanche(av, dt, going) {
       if (r.isHim) flags.raceDriftT = (flags.raceDriftT || 0) + 1 / 8;
     }
 }
-// what a car in the drift keeps of its speed: `drag` in it, all of it everywhere else (race.js, his and theirs)
+// what a car keeps of its speed: in the drift or a wave, its `drag`; all of it everywhere else (race.js, his and theirs)
 function rceDrag(r) {
   const v = rce.cur;
-  if (!v || !v.av || v.av.grow < 0.5 || r.air || r.path) return 1;
+  if (!v || r.air || r.path) return 1;
+  if (v.waves) for (const w of v.waves.waves) if (rceInWave(w, r)) return RCE.waves.drag;     // (v191) in a wave
+  if (!v.av || v.av.grow < 0.5) return 1;
   return Math.abs(rcGap(r.s, v.av.ev.m)) < RCE.avalanche.len / 2 ? RCE.avalanche.drag : 1;
+}
+
+// ---- the waves (v191) --------------------------------------------------------------------------------------
+// Fixed places along the beach; each comes up the sand over the road from the sea's side as he nears it, holds,
+// and runs back. It reaches `reach` of the way across (a different reach each), never the inland lane: the dry
+// line is his to steer for. A car in the water keeps `drag` of its speed and throws spray, as on a splash.
+function rceBuildWaves(T, ev) {
+  const E = RCE.waves, P = TUNE.palette, W = RC.width / 2 + RC.kerbW, g = new THREE.Group(), waves = [];
+  const NS = 14, NL = 8;
+  for (let k = 0; k < E.n; k++) {
+    const m = ev.m + k * E.spacing, pos = new Float32Array((NS + 1) * (NL + 1) * 3), idx = [];
+    for (let i = 0; i < NS; i++) for (let j = 0; j < NL; j++) { const a = i * (NL + 1) + j, b = a + NL + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setIndex(idx);
+    const sheet = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: P.cyan, transparent: true, opacity: E.opacity, side: THREE.DoubleSide, depthWrite: false }));
+    sheet.frustumCulled = false; sheet.visible = false; sheet.renderOrder = 1;
+    const fpos = new Float32Array((NS + 1) * 2 * 3), fidx = [];
+    for (let i = 0; i < NS; i++) { const a = i * 2; fidx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    const fgeo = new THREE.BufferGeometry(); fgeo.setAttribute("position", new THREE.BufferAttribute(fpos, 3)); fgeo.setIndex(fidx);
+    const foam = new THREE.Mesh(fgeo, new THREE.MeshBasicMaterial({ color: P.white, side: THREE.DoubleSide }));
+    foam.frustumCulled = false; foam.visible = false; foam.renderOrder = 2;
+    g.add(sheet, foam);
+    waves.push({ m, reach: E.reach[k % E.reach.length], sheet, foam, NS, NL, lap: -1, t: -1, edge: ev.side * (W + E.out), told: -1 });
+  }
+  g.traverse(o => { o.userData.noSolid = true; });
+  scene.add(g);
+  return { ev, g, waves };
+}
+function rceWavesOff(B) { for (const w of B.waves) { w.t = -1; w.lap = -1; w.told = -1; w.sheet.visible = w.foam.visible = false; } }
+// how far up it is: 0 out on the sand past the road's edge, 1 at its reach
+function rceWaveK(w) {
+  const E = RCE.waves;
+  if (w.t < 0) return 0;
+  if (w.t < E.rise) { const k = w.t / E.rise; return k * k * (3 - 2 * k); }
+  if (w.t < E.rise + E.stay) return 1;
+  const k = 1 - (w.t - E.rise - E.stay) / E.fall; return k <= 0 ? 0 : k * k * (3 - 2 * k);
+}
+function rceWaves(B, dt, going) {
+  const E = RCE.waves, him = race.him, L = race.track.len, W = RC.width / 2 + RC.kerbW, side = B.ev.side;
+  for (const w of B.waves) {
+    const ahead = rcAhead(w.m, him.s), lap = Math.floor((him.s + ahead) / L);
+    // up as he comes within `lead` s of it, once a lap
+    if (going && w.t < 0 && lap > w.lap && ahead < E.lead * Math.max(him.v, 20) && !him.done) {
+      w.lap = lap; w.t = 0;
+      synthBlip("sawtooth", 140, 60, 1.3, 0.1, 0);                     // (its rush, coming up the sand)
+      flags.raceWaves = (flags.raceWaves || 0) + 1;
+    }
+    if (w.t < 0) continue;
+    w.t += dt;
+    const k = rceWaveK(w);
+    if (w.t > E.rise + E.stay + E.fall) { w.t = -1; w.sheet.visible = w.foam.visible = false; continue; }
+    const out = side * (W + E.out), reachLat = side * W - side * w.reach * 2 * W;
+    w.edge = out + (reachLat - out) * k;
+    // the water: from out on the sand to its edge, `len` along, a hand's depth over the deck; the foam its edge
+    const sp = w.sheet.geometry.attributes.position.array, fp = w.foam.geometry.attributes.position.array;
+    for (let i = 0; i <= w.NS; i++) {
+      const s = w.m + (i / w.NS - 0.5) * E.len * (1 - 0.25 * Math.abs(i / w.NS - 0.5) * 2 * (1 - k));
+      const bow = Math.sin(Math.PI * i / w.NS) * E.bow * k;              // (its edge bowed: furthest up in the middle)
+      const edge = w.edge - side * bow;
+      for (let j = 0; j <= w.NL; j++) {
+        rcPoint(s, out + (edge - out) * (j / w.NL), rceP);
+        const o = (i * (w.NL + 1) + j) * 3; sp[o] = rceP.x; sp[o + 1] = rceP.y + E.up; sp[o + 2] = rceP.z;
+      }
+      for (let j = 0; j < 2; j++) {
+        rcPoint(s, edge + side * j * E.foam, rceP);
+        const o = (i * 2 + j) * 3; fp[o] = rceP.x; fp[o + 1] = rceP.y + E.up + 0.03; fp[o + 2] = rceP.z;
+      }
+    }
+    w.sheet.geometry.attributes.position.needsUpdate = w.foam.geometry.attributes.position.needsUpdate = true;
+    w.sheet.visible = w.foam.visible = k > 0.01;
+    // he sees it wash over the road ahead of him: a thing, once a wave
+    if (going && k > 0.5 && w.told !== w.lap && Math.abs(rcGap(w.m, him.s)) < E.tell) { w.told = w.lap; rcThing("wave"); }
+    // a car in it throws spray (the ones near the camera)
+    if (going && ((race.t * 10) | 0) !== (((race.t - dt) * 10) | 0))
+      for (const r of race.racers) if (rceInWave(w, r) && Math.abs(rcGap(r.s, him.s)) < RC.spray.near) {
+        rcPoint(r.s, r.lat, rceP); rcPuff(rceP.x, rceP.y + 0.5, rceP.z, ((race.t * 10) | 0) % 2 ? TUNE.palette.white : TUNE.palette.cyan, E.spray, 3, 0.8, 0.95);
+        if (r.isHim) flags.raceWaveT = (flags.raceWaveT || 0) + 0.1;
+      }
+  }
+}
+function rceInWave(w, r) {
+  if (w.t < 0 || r.air || r.path) return false;
+  const side = rce.cur.waves.ev.side, d = rcGap(r.s, w.m);
+  return Math.abs(d) < RCE.waves.len / 2 && (r.lat - rceWaveEdge(w, d)) * side > 0;
+}
+// its edge `d` m along from its middle, as drawn: bowed furthest up the road in the middle (the dry line he sees is
+// the one that counts)
+function rceWaveEdge(w, d) { const side = rce.cur.waves.ev.side; return w.edge - side * Math.sin(Math.PI * (d / RCE.waves.len + 0.5)) * RCE.waves.bow * rceWaveK(w); }
+
+// ---- the water-cannon ship (v191) -------------------------------------------------------------------------
+// A wooden ship at anchor in the lagoon, beside the splash: no one on it -- a machine. While he is on the water
+// it lobs a ball of water every `every` s, to land `flight` s later where a car will be -- him or the rival nearest
+// ahead of him; an orange ring
+// on the water marks the spot from the moment it fires. A car under it when it lands spins out, as an item does
+// (rcItHit: never a bang). One shot in `aimEvery` is aimed at his lane; the others at a lane by turns.
+function rceBuildShip(T, ev) {
+  const S = RCE.ship, P = TUNE.palette, g = new THREE.Group();
+  rcPointOn(T, ev.m, ev.side * S.lat, rceP);
+  const a = rcAtOn(T, ev.m), hd = Math.atan2(a.tx, a.tz), sea = seaLevelAt(rceP.x, rceP.z);
+  const ship = new THREE.Group(), boxes = [];
+  // the hull: a long box, a raised deck at each end, a stripe; then masts, yards and sails, all along local z
+  boxes.push({ x: 0, y: 1.2, z: 0, w: S.beam, h: 2.4, d: S.len, c: P.rust });
+  boxes.push({ x: 0, y: 2.6, z: -S.len * 0.38, w: S.beam, h: 1.6, d: S.len * 0.24, c: P.rust });
+  boxes.push({ x: 0, y: 2.6, z: S.len * 0.4, w: S.beam * 0.8, h: 1.2, d: S.len * 0.16, c: P.rust });
+  boxes.push({ x: 0, y: 2.0, z: 0, w: S.beam + 0.1, h: 0.35, d: S.len * 0.98, c: P.gold });
+  for (const mz of S.masts) {
+    boxes.push({ x: 0, y: 2.4 + S.mastH / 2, z: mz * S.len, w: 0.45, h: S.mastH, d: 0.45, c: P.grey });
+    boxes.push({ x: 0, y: 2.4 + S.mastH * 0.82, z: mz * S.len, w: S.sailW + 1, h: 0.3, d: 0.3, c: P.grey });
+  }
+  // the cannons: three dark tubes along the side toward the road, each a box out of the hull
+  const guns = [];
+  for (let k = 0; k < 3; k++) {
+    const gz = (k - 1) * S.len * 0.22;
+    boxes.push({ x: -ev.side * (S.beam / 2 + 0.5), y: 1.9, z: gz, w: 1.6, h: 0.6, d: 0.6, c: P.slate });
+    guns.push(gz);
+  }
+  ship.add(rceMerged(boxes));
+  const sailM = new THREE.MeshLambertMaterial({ color: P.white, emissive: P.grey, side: THREE.DoubleSide });   // (lit from inside: seen from behind they were black)
+  for (const mz of S.masts) {
+    const sail = new THREE.Mesh(new THREE.PlaneGeometry(S.sailW, S.mastH * 0.6), sailM);
+    sail.position.set(0, 2.4 + S.mastH * 0.5, mz * S.len + 0.3); ship.add(sail);
+  }
+  // a striped flag on the tallest mast, red and white
+  const flag = new THREE.Group();
+  for (let k = 0; k < 3; k++) { const f = new THREE.Mesh(new THREE.PlaneGeometry(S.flag, S.flag * 0.22), new THREE.MeshBasicMaterial({ color: k % 2 ? P.white : P.red, side: THREE.DoubleSide })); f.position.set(0, -k * S.flag * 0.22, -S.flag / 2); f.rotation.y = Math.PI / 2; flag.add(f); }
+  flag.position.set(0, 2.4 + S.mastH + 0.2, S.masts[0] * S.len); ship.add(flag);
+  ship.position.set(rceP.x, sea, rceP.z); ship.rotation.y = hd;
+  g.add(ship);
+  // the shots: a ball of water and the ring that marks where it lands, pooled
+  const shots = [];
+  const ballGeo = new THREE.IcosahedronGeometry(S.ballR, 1), ballM = new THREE.MeshLambertMaterial({ color: P.cyan, emissive: 0x1e5a66, flatShading: true });
+  // the mark: a thick red rim round a see-through red disc on the road, and a glowing beam standing up out of it,
+  // so it is seen from far off and over the bonnet (a thin dull ring read as a stain, and hid behind the pillar)
+  const ringGeo = new THREE.RingGeometry(S.ringR - S.ringW, S.ringR, 28); ringGeo.rotateX(-Math.PI / 2);
+  const discGeo = new THREE.CircleGeometry(S.ringR - S.ringW, 28); discGeo.rotateX(-Math.PI / 2);
+  const beamGeo = new THREE.CylinderGeometry(S.beamR, S.beamR, S.beamH, 10, 1, true); beamGeo.translate(0, S.beamH / 2, 0);
+  for (let k = 0; k < S.pool; k++) {
+    const ball = new THREE.Mesh(ballGeo, ballM); ball.visible = false;
+    const ring = new THREE.Group();
+    const rim = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: P.red, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }));
+    const disc = new THREE.Mesh(discGeo, new THREE.MeshBasicMaterial({ color: P.red, side: THREE.DoubleSide, transparent: true, opacity: S.discA, depthWrite: false }));
+    const beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: P.fire, transparent: true, opacity: S.beamA, depthWrite: false, blending: THREE.AdditiveBlending }));
+    ring.add(rim, disc, beam); ring.visible = false; ring.renderOrder = 3; ring.traverse(o => { o.renderOrder = 3; });
+    g.add(ball, ring); shots.push({ ball, ring, rim, beam, on: false });
+  }
+  g.traverse(o => { o.userData.noSolid = true; });
+  scene.add(g);
+  return { ev, g, ship, guns, hd, shots, fireT: 0, n: 0, bob: 0 };
+}
+function rceShipOff(Sh) { Sh.fireT = 0; Sh.n = 0; for (const s of Sh.shots) { s.on = false; s.ball.visible = s.ring.visible = false; } }
+function rceShip(Sh, dt, going) {
+  const S = RCE.ship, him = race.him, side = Sh.ev.side;
+  Sh.bob += dt; Sh.ship.position.y = seaLevelAt(Sh.ship.position.x, Sh.ship.position.z) + Math.sin(Sh.bob * 1.1) * S.bob;
+  Sh.ship.rotation.z = Math.sin(Sh.bob * 0.8) * 0.03;
+  // fire while he is in the stretch it covers, every `every` s
+  const into = rcGap(him.s, Sh.ev.from), zone = Sh.ev.to - Sh.ev.from;
+  const inZone = into > -S.early * Math.max(him.v, 20) && into < zone;
+  if (going && inZone && !him.done) {
+    Sh.fireT -= dt;
+    const at = him.s + Math.max(him.v, 15) * S.flight, toEnd = rcGap(at, Sh.ev.to), toStart = rcGap(at, Sh.ev.from);
+    if (Sh.fireT <= 0 && toStart > 0 && toEnd < 0) {
+      const s = Sh.shots.find(x => !x.on);
+      if (s) {
+        Sh.fireT = S.every;
+        // his lane one shot in `aimEvery`; otherwise the nearest rival ahead of him in sight, where it will be; else a lane
+        let lat = S.lanes[Sh.n % S.lanes.length], tgt = at;
+        if (Sh.n % S.aimEvery === 0) lat = clamp(him.lat, -S.laneMax, S.laneMax);
+        else {
+          let best = null;
+          for (const r of race.racers) { const d = rcGap(r.s, him.s); if (!r.isHim && d > S.rivalNear[0] && d < S.rivalNear[1] && (!best || d < rcGap(best.s, him.s))) best = r; }
+          const bt = best && best.s + Math.max(best.v, 15) * S.flight;
+          if (best && rcGap(bt, Sh.ev.to) < 0) { tgt = bt; lat = clamp(best.lat, -S.laneMax, S.laneMax); }   // (inside its stretch only)
+        }
+        Sh.n++;
+        // from the middle gun, to the ring
+        const gz = Sh.guns[Sh.n % 3], c = Math.cos(Sh.hd), sn = Math.sin(Sh.hd);
+        const gx = -side * (S.beam / 2 + 1.2);
+        s.from = { x: Sh.ship.position.x + gx * c + gz * sn, y: Sh.ship.position.y + 2, z: Sh.ship.position.z - gx * sn + gz * c };
+        rcPoint(tgt, lat, rceP);
+        Object.assign(s, { on: true, t: 0, s: tgt, lat, to: { x: rceP.x, y: rceP.y, z: rceP.z } });
+        s.ring.position.set(rceP.x, rceP.y + 0.12, rceP.z); s.ring.visible = s.ball.visible = true;
+        for (let q = 0; q < 4; q++) rcPuff(s.from.x + (q - 1.5) * 1.5, s.from.y + (q % 2) * 1.2, s.from.z, q % 2 ? TUNE.palette.white : TUNE.palette.grey, S.muzzle, 1.5, 0.9, 0.95);   // (its puff: he sees which ship -- one small one read as a stray mark in the sky)
+        synthBlip("sine", 90, 50, 0.35, 0.22, 0);                                         // (its boom: a deep pop, not a bang)
+        flags.raceShots = (flags.raceShots || 0) + 1;
+      }
+    }
+  }
+  for (const s of Sh.shots) {
+    if (!s.on) continue;
+    s.t += dt;
+    const k = Math.min(1, s.t / S.flight);
+    s.ball.position.set(s.from.x + (s.to.x - s.from.x) * k, s.from.y + (s.to.y - s.from.y) * k + 4 * S.arc * k * (1 - k), s.from.z + (s.to.z - s.from.z) * k);
+    s.rim.material.opacity = 0.55 + 0.4 * (((s.t * 6) | 0) % 2);                         // (it blinks: here, here)
+    s.beam.visible = Math.hypot(camera.position.x - s.to.x, camera.position.z - s.to.z) > S.beamClear;   // (close to, the beam would wash the screen: the disc says it there)
+    if (going && ((s.t * 12) | 0) !== (((s.t - dt) * 12) | 0)) rcPuff(s.ball.position.x, s.ball.position.y, s.ball.position.z, TUNE.palette.white, S.trail, 0.5, S.trailLife, 0.85);   // (its trail across the sky)
+    if (k < 1) continue;
+    // down: a column of water, and whoever is under it spins
+    s.on = false; s.ball.visible = s.ring.visible = false;
+    for (let q = 0; q < S.burst; q++) rcPuff(s.to.x + (q % 3 - 1) * 1.2, s.to.y + 1 + q * 0.6, s.to.z + ((q >> 1) % 3 - 1) * 1.2, q % 2 ? TUNE.palette.white : TUNE.palette.cyan, 2.6, 4, 1.1, 0.95);
+    synthBlip("sawtooth", 200, 70, 0.5, 0.12, 0);
+    if (Math.abs(rcGap(s.s, him.s)) < S.tell) rcThing("cannon");
+    for (const r of race.racers) {
+      if (r.path || r.air) continue;
+      if (Math.abs(rcGap(r.s, s.s)) < RCI.footL / 2 + S.r && Math.abs(r.lat - s.lat) < rcItFoot(r) / 2 + S.r) {
+        rcItHit(r, null); const f = r.isHim ? "raceShotHits" : "raceShotRivalHits"; flags[f] = (flags[f] || 0) + 1;
+      }
+    }
+  }
 }
 
 // ---- the ski jump's dressing -------------------------------------------------------------------------------

@@ -24,6 +24,7 @@
 //                     1, 2, 3, 4.5, 7, 10 and 15 m straight ahead of the camera: what the 2-7 m fade and the size cap leave on the glass
 //   ev:<sign|boulders|hit|far|train|cross|lip|under|sheds> / evSeat:...   (v189) the dunes' events (TRACK=dunes)
 //   ev:<sign|boulders|hit|avSign|av|drift|ski|skiAir|land> / evSeat:...   (v190) the snow's (TRACK=snow): snowballs, avalanche, ski jump
+//   ev:<wave|inWave|ship|shot|splash> / evSeat:... (the shot and splash: one aimed at him)   (v191) the beach's (TRACK=beach): the waves, the water-cannon ship
 //   boxes / boxesSeat, item:<kind> / itemSeat:<kind>, hold:<kind> / holdSeat:<kind>   (v187) the power-ups: a row of boxes
 //                     ahead; an item at work (boost, shield, ball, hit, oil, spin, giant); the button holding one
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
@@ -181,6 +182,34 @@ async function render(root, views) {
           }
           window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
           return Object.assign(note, { k, av: av.state, grow: +av.grow.toFixed(2), to: +window.rcGap(him.s, last + av.ev.m).toFixed(0), v: +him.v.toFixed(1) });
+        }
+        if (k === "wave" || k === "inWave") {
+          // (v191) ev:wave -- a wave over the road ~50 m ahead, at its reach; ev:inWave -- him driving through one, sea side
+          const B = E.waves, w = B.waves[1], lat = k === "inWave" ? B.ev.side * 8 : 0;
+          him.s = base + w.m - 320; him.lat = lat; him.v = L.RC.v * 0.95; behind();
+          for (let i = 0; i < 60 * 20; i++) {
+            const to = window.rcGap(him.s, w.m), up = window.rceWaveK(w);
+            if (k === "wave" && up > 0.95 && to > -55) break;
+            if (k === "inWave" && L.rceDrag(him) < 1 && to > -4) break;
+            behind(); go(1, steer(lat), 0);
+          }
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          return Object.assign(note, { k, up: +window.rceWaveK(w).toFixed(2), to: +window.rcGap(him.s, w.m).toFixed(0), edge: +w.edge.toFixed(1), lat: +him.lat.toFixed(1) });
+        }
+        if (k === "ship" || k === "shot" || k === "splash") {
+          // (v191) ev:ship -- coming onto the water, the ship off to the side; ev:shot -- a ball in the air, its ring on the road ahead; ev:splash -- it lands
+          const Sh = E.ship;
+          him.s = base + Sh.ev.from - (k === "ship" ? 230 : 160); him.lat = 0; him.v = L.RC.v * 0.9; behind();
+          for (let i = 0; i < 60 * 30; i++) {
+            // (a shot aimed at him: dead ahead, as in play; for the splash he has stepped one lane over)
+            const on = Sh.shots.filter(s => s.on && Math.abs(s.lat - him.lat) < 3).sort((a, b) => b.t - a.t)[0];
+            if (k === "ship" && window.rcGap(him.s, Sh.ev.from) > -170) break;
+            if (k === "shot" && on && on.t > 0.9 && on.t < 1.1) break;
+            if (k === "splash" && on && on.t > (/Seat/.test(v) ? 1.72 : 1.85)) { if (!/Seat/.test(v)) go(4, 0, 0); break; }   // (from the seat: the ball coming down on to the beam over his bonnet -- spray is capped off the camera, RC.spray.maxPx/fadeNear)
+            behind(); go(1, 0, 0);
+          }
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          return Object.assign(note, { k, shots: Sh.shots.filter(s => s.on).map(s => [+window.rcGap(s.s, him.s).toFixed(0), s.lat, +s.t.toFixed(2)]) });
         }
         if (k === "ski" || k === "skiAir" || k === "land") {
           // (v190) ev:ski -- 15 m short of the ski jump's face; ev:skiAir -- him at the top of his flight off it; ev:land -- just down, the snowballs' slope ahead

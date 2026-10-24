@@ -1,6 +1,6 @@
 "use strict";
 // ---------------------------------------------------------------------------
-// THE TRACKS' EVENTS (v189: Desert Dunes; v190: Snowy Peaks). Portrait, iPad.
+// THE TRACKS' EVENTS (v189: Desert Dunes; v190: Snowy Peaks; v191: Beach Splash). Portrait, iPad.
 //
 //   a. THE FREIGHT LINE: its bed level and dry (above the sea by a margin) along its whole length, the road over
 //      it on a bridge with room for the train under the deck (its height and more), nothing of the dune's sand
@@ -22,6 +22,15 @@
 //   h. THE SKI JUMP: half as long again in the air, and half as high, as a dune's jump, and landed, no bang;
 //   i. A WHOLE RACE on the snow with the noisy hand and random taps, every car: no bang, never stuck over 2 s,
 //      snowballs every lap, the avalanche once, the jump every lap, something every 5-10 s.
+//
+// (v191: Beach Splash)
+//   j. THE WAVES: all of them up over the road as he comes, every lap; down the sea's lane he is in the water and
+//      slowed (never stopped), down the inland lane never -- no wave reaches it;
+//   k. THE SHIP: shots while he is on the water, each marked by its ring at least 1.5 s before it lands; holding his
+//      lane he spins, steering off the rings never; the rivals are hit too;
+//   l. A WHOLE RACE on the beach with the noisy hand and random taps, every car: no bang, never stuck over 2 s,
+//      waves and shots every lap, something every 5-10 s;
+//   m. NOTHING LEFT: out of the race no shot in the air, no ring, no wave.
 //
 // Alone: node scripts/run_module.js race_event_checks
 // ---------------------------------------------------------------------------
@@ -255,4 +264,103 @@ module.exports = async function raceEventChecks({ newPage, check }) {
   for (const veh of ["car", "cybertruck", "corvette", "monster"]) i_.push(await oneRace(page, veh, 6200 + i_.length, { track: "snow", taps: true }));
   const iOk = i_.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.snowballs || 0) >= 3 && (r.things.kinds.avalanche || 0) === 1 && (r.things.kinds.jump || 0) >= 3);
   check(`race events: a whole race on the snow with the noisy hand and random taps -- ${i_.map(r => `${r.veh} came ${r.place}, snowballs ${r.things.kinds.snowballs || 0}x, the avalanche ${r.things.kinds.avalanche || 0}x, jumps ${r.things.kinds.jump || 0}x, something every ${r.things.every_} s`).join("; ")}; ${i_.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...i_.map(r => r.stuckMax))} s`, iOk, J(i_));
+
+  // ---- j. the waves: up over the road as he comes, never the inland lane; slowed in one, never stopped
+  const jw = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC, E = RC.events.waves;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const run = lat => {
+      L.rcStartRace("beach", 41); R.phase = "race"; R.raceT0 = R.t;
+      const B = L.rce.cur.waves, him = R.him, side = B.ev.side;
+      for (const r of R.racers) if (!r.isHim) r.s -= 2000;
+      him.s = B.ev.m - 300; him.lat = lat; him.v = RC.v; him.latV = 0;
+      const w0 = L.flags.raceWaves || 0; let wet = 0, vMin = 99, vLow = 99, edgeMax = -99, still = 0, stuck = 0;
+      for (let i = 0; i < 60 * 24; i++) {
+        st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; him.lat = lat; him.latV = 0; L.update(1 / 60);
+        if (L.rceDrag(him) < 1) { wet++; vMin = Math.min(vMin, him.v); }
+        for (const w of B.waves) if (w.t >= 0) edgeMax = Math.max(edgeMax, -L.rceWaveEdge(w, 0) * side);   // (how far inland an edge came, as drawn: its middle, bowed)
+        vLow = Math.min(vLow, him.v);
+        still = him.v < 2 ? still + 1 / 60 : 0; stuck = Math.max(stuck, still);
+        if (L.rcGap(him.s, B.waves[B.waves.length - 1].m) > 60) break;
+      }
+      return { up: (L.flags.raceWaves || 0) - w0, wet: +(wet / 60).toFixed(1), vMin: +vMin.toFixed(1), vLow: +vLow.toFixed(1), edgeIn: +edgeMax.toFixed(1), stuck: +stuck.toFixed(2) };
+    };
+    const side = RC.tracks.find(t => t.id === "beach").events[0].side, W = RC.width / 2;
+    const out = { sea: run(side * 9), land: run(-side * 9), inland: -side * 9, W, n: E.n };
+    L.raceReset(); st.touching = false;
+    return out;
+  });
+  check(`race events: the waves -- ${jw.sea.up} of ${jw.n} up over the road as he came; down the sea's lane he was in the water ${jw.sea.wet} s, slowed to ${jw.sea.vMin} m/s at the least (dry, down the inland lane, never under ${jw.land.vLow}; still ${jw.sea.stuck} s); down the inland lane ${jw.land.wet} s in water; an edge came at most ${jw.sea.edgeIn} m past the middle toward the land (the inland lane is ${Math.abs(jw.inland)} m)`,
+    jw.sea.up === jw.n && jw.land.up === jw.n && jw.sea.wet > 0.5 && jw.sea.vMin > 15 && jw.sea.vMin < jw.land.vLow * 0.95 && jw.sea.stuck === 0 && jw.land.wet === 0 && jw.sea.edgeIn < Math.abs(jw.inland) - 2, J(jw));
+
+  // ---- k. the ship: every shot marked before it lands; under one he spins, off the ring he does not; rivals too
+  const k = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC, S = RC.events.ship;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const run = dodge => {
+      L.rcStartRace("beach", 43); R.phase = "race"; R.raceT0 = R.t;
+      const Sh = L.rce.cur.ship, him = R.him;
+      for (const r of R.racers) if (!r.isHim) r.s -= 2000;
+      him.s = Sh.ev.from - 200; him.lat = 0; him.v = RC.v * 0.9; him.latV = 0;
+      const sp0 = R.itLog.spins, f0 = L.flags.raceShots || 0; let warned = 99, lat = 0, frame = 0;
+      const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
+      const seen = new Map(), was = new Map(); let landed = 0, unseen = 0;   // (ring -> the frame it first showed)
+      for (let i = 0; i < 60 * 30; i++, frame++) {
+        // dodging, with a finger: off any ring that would land on his lane, toward the nearest lane clear of all of them
+        let bank = 0;
+        if (dodge) {
+          const rings = Sh.shots.filter(s => s.on);
+          const hits = l => rings.some(s => Math.abs(l - s.lat) < S.r + 2.2);
+          if (hits(lat)) lat = [0, 8, -8, 4, -4].find(l => !hits(l)) ?? lat;
+          bank = Math.max(-1, Math.min(1, -(lat - him.lat) * 0.4)) / range;
+        }
+        st.touching = true; st.ctrlBank = bank; st.ctrlPitch = 0; if (!dodge) { him.lat = 0; him.latV = 0; } L.update(1 / 60);
+        for (const s of Sh.shots) {
+          if (s.on && s.ring.visible && !seen.has(s.ring)) seen.set(s.ring, frame);
+          if (!s.on && was.get(s)) {                                       // (landed this frame: how long had its ring been up?)
+            landed++;
+            if (seen.has(s.ring)) { warned = Math.min(warned, (frame - seen.get(s.ring)) / 60); seen.delete(s.ring); } else unseen++;
+          }
+          was.set(s, s.on);
+        }
+        if (L.rcGap(him.s, Sh.ev.to) > 80) break;
+      }
+      return { shots: (L.flags.raceShots || 0) - f0, spins: R.itLog.spins - sp0, warned: +warned.toFixed(2), landed, unseen };
+    };
+    const rivals = () => {
+      const h0 = L.flags.raceShotRivalHits || 0;
+      L.rcStartRace("beach", 47);
+      for (let f = 0; f < 60 * 600 && R.phase !== "podium" && R.phase !== "done"; f++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); }
+      L.raceReset();
+      return (L.flags.raceShotRivalHits || 0) - h0;
+    };
+    const out = { held: run(false), dodged: run(true), rivalHits: rivals(), bangs: L.flags.carCrashes || 0 };
+    st.touching = false;
+    return out;
+  });
+  check(`race events: the water-cannon ship -- ${k.held.shots} shots as he crossed the water, each ring up at least ${k.held.warned} s before its ball landed (measured); holding the middle lane he spun ${k.held.spins} time(s), steering off the rings with a finger ${k.dodged.spins}; the rivals spun by it ${k.rivalHits} times in a race`,
+    k.held.shots >= 4 && k.held.landed >= 4 && k.held.unseen === 0 && k.dodged.unseen === 0 && k.held.warned >= 1.5 && k.dodged.warned >= 1.5 && k.held.spins >= 1 && k.dodged.spins === 0 && k.dodged.shots >= 4 && k.rivalHits >= 1, J(k));
+
+  // ---- l. a whole race on the beach: the noisy hand and random taps, in every car
+  const l = [];
+  for (const veh of ["car", "cybertruck", "corvette", "monster"]) l.push(await oneRace(page, veh, 7200 + l.length, { track: "beach", taps: true }));
+  const lOk = l.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.wave || 0) >= 6 && (r.things.kinds.cannon || 0) >= 6);
+  check(`race events: a whole race on the beach with the noisy hand and random taps -- ${l.map(r => `${r.veh} came ${r.place}, waves ${r.things.kinds.wave || 0}x, the ship's shots ${r.things.kinds.cannon || 0}x, something every ${r.things.every_} s`).join("; ")}; ${l.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...l.map(r => r.stuckMax))} s`, lOk, J(l));
+
+  // ---- m. nothing left on the beach
+  const mb = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    L.rcStartRace("beach", 51); R.phase = "race"; R.raceT0 = R.t;
+    const v = L.rce.cur;
+    R.him.s = v.ship.ev.from + 20; R.him.v = 30;
+    for (let i = 0; i < 60; i++) { st.touching = true; L.update(1 / 60); }
+    const shots = v.ship.shots.filter(s => s.on).length;               // (in the air now: one lands 1.9 s after it fires)
+    R.him.s = v.waves.ev.m - 60 + R.track.len; for (let i = 0; i < 60 * 2; i++) { st.touching = true; L.update(1 / 60); }
+    const during = { shots, waves: v.waves.waves.filter(w => w.t >= 0).length };
+    L.raceExit(); for (let i = 0; i < 10; i++) { st.touching = false; L.update(1 / 60); }
+    return { during, after: { shots: v.ship.shots.filter(s => s.on || s.ball.visible || s.ring.visible).length, waves: v.waves.waves.filter(w => w.t >= 0 || w.sheet.visible).length } };
+  });
+  check(`race events: nothing left on the beach -- during ${J(mb.during)}, after EXIT ${J(mb.after)}`,
+    mb.during.shots > 0 && mb.during.waves > 0 && mb.after.shots === 0 && mb.after.waves === 0, J(mb));
 };
