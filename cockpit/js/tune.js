@@ -2493,12 +2493,17 @@ const TUNE = {
         // `b` m across -- and back to the mountain over `blend` m. Its middle is the lake
         // section's, by the planar layout (race_track_checks p says it is, to a metre).
         lakeBed: { x: 2203, z: -1420.19, heading: 270, a: 130, b: 55, y: 97, blend: 50 },
+        // (v190) giant snowballs off the mountain on the long climb, and the avalanche on the last lap down the long
+        // straight home (raceevents.js); `side` is the uphill side, measured
+        events: [{ kind: "snowballs", m: 750, side: 1 }, { kind: "avalanche", m: 2880, side: 1 }],
         sections: [
         { type: "straight", len: 300 },
         { type: "turn", angle: 30, radius: 150, surface: "snow" },
         { type: "turn", angle: -30, radius: 150, surface: "snow" },
-        { type: "straight", len: 80, surface: "snow", jump: { at: 0.5, up: 28, down: 22, h: 4 } },
-        { type: "straight", len: 120, surface: "snow" },
+        // (v190) the SKI JUMP: longer and higher than a dune, its own launch `vy` (a dune's is jump.vyMax) and dressed as
+        // one (raceevents.js rceBuildSki); its length taken from the straight after, so nothing past it moves
+        { type: "straight", len: 130, surface: "snow", jump: { at: 0.45, up: 40, down: 56, h: 8, vy: 11, ski: true } },
+        { type: "straight", len: 70, surface: "snow" },
         { type: "straight", len: 340, surface: "snow" },
         { type: "straight", len: 243, surface: "snow" },
         { type: "straight", len: 140, surface: "ice", lake: true },                         // across the frozen lake (lakeBed)
@@ -2714,7 +2719,18 @@ const TUNE = {
     // in front of him, a little to the side, all the way in (a fast one comes from outside the picture); the booms drop and the lamps flash
     // while it is within `warn` m of the road; the bell within `bellNear` m of him. It changes speed at `acc` m/s/s at most.
     events: {
-      boulders: { n: 3, spread: 28, lead: 5, lanes: [9, 0, -9], v: 10, vRoad: 4, r: 1.7, from: 22, sign: 140, signK: 2.4, sinkAfter: 4, colour: 0xb5522e },
+      boulders: { n: 3, spread: 28, lead: 5, lanes: [9, 0, -9], v: 10, vRoad: 4, r: 1.7, from: 22, sign: 140, signK: 2.4, sinkAfter: 4, colour: 0xb5522e, dust: 0xd9c27e },
+      // (v190) giant snowballs: the boulders' machine, growing from `r0` to `r` (`grow` m of radius a metre rolled),
+      // bursting in `burst` puffs over the far edge. (Lanes 10 apart and r 2.1 keep the boulders' margin in a gap:
+      // at 2.4 and 9 the gap between two spun him)
+      snowballs: { n: 3, spread: 30, lead: 5, lanes: [10, 0, -10], v: 11, vRoad: 4, r: 2.1, r0: 1.0, grow: 0.05, from: 26, sign: 110, signK: 2.4, sinkAfter: 0.8,
+                   burst: 6, colour: 0xf2f4f7, dust: 0xf2f4f7, glow: 0x6a7280, detail: 2 },
+      // (v190) the avalanche, on his last lap: `lumps` of snow `lumpR` big slide `from` m down to the road and heap a
+      // drift `len` m along and `h` high, whole `before` s before he gets there; a car in it keeps `drag` of its speed
+      avalanche: { lead: 6, before: 1.2, from: 60, slideK: 0.6, len: 40, h: 1.5, drag: 0.72, lumps: 11, lumpR: 8, sign: 110, colour: 0xf2f4f7, cloud: 0x8a93a0,   // (palette white and grey)
+                   puffEvery: 0.12, puffSize: 14, plough: 4 },   // (about 25 a second, for the slide only: a fifth of the shared pool)
+      // (v190) the ski jump's dressing: `board` m boards `boardH` high up its face, flags `flag` m on `pole` m poles at its lip
+      ski: { board: 6, boardH: 2.6, pole: 8, flag: 4 },
       train: { cars: 3, carLen: 16, engLen: 18, h: 4.2, wid: 3.4, leave: 0.75, vMin: 5, vMax: 14, warn: 70, under: 0.3, colours: [0xe0483e, 0x2b6fd1, 0x36c46a, 0xffd23e],
                shed: { len: 80, w: 14, h: 9 }, boom: { len: 9, h: 1.1, at: 30 }, lampR: 0.7, bellEvery: 0.55, bellNear: 300, acc: 30,
                // his chase camera over it: within `camSpan` m of the crossing with the train there, `camLift` m up, `camIn`
@@ -2732,7 +2748,8 @@ const TUNE = {
     // `odds` by place (first, middle, last; a place between is the nearer two blended): further back,
     // better items, so it stays close. A SPIN-OUT is `spin.time` s, a whole turn of the body, his speed
     // cut to `spin.keep` of it and given back as it always comes back (RC.accel): never a bang, never stuck.
-    items: { rows: 6, lats: [-6.5, 0, 6.5], box: 2.4, boxUp: 1.7, rearm: 4, shuffle: 0.7, spinRate: 1.6, bob: 0.25, colStep: 2,
+    items: { rows: 6, lats: [-6.5, 0, 6.5], box: 2.4, boxUp: 1.7, camClear: 3,   // (camClear: a box this near the camera is not drawn)
+             rearm: 4, shuffle: 0.7, spinRate: 1.6, bob: 0.25, colStep: 2,
              clearGrid: 120, clearPad: 30, clearSc: 30, footL: 7.6,   // (footL: the one length a ball or a slick catches, with RC.footW across: the same for every car)
              kinds: ["boost", "shield", "ball", "oil", "giant"],
              odds: { first: { boost: 0.1, shield: 0.4, ball: 0.1, oil: 0.4, giant: 0 },

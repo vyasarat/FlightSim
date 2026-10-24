@@ -24,6 +24,7 @@
 //      (a box, an item, a hit, a pad, a jump, a shortcut) every 5-10 s on average;
 //   g. NOTHING LEFT BEHIND: out of a race (EXIT, again) no ball, slick, bubble or giant remains,
 //      and the button is down.
+//   h. (v190) A BOX ROUND THE CAMERA is not drawn: from inside one the screen was a yellow slab.
 //
 // Alone: node scripts/run_module.js race_item_checks
 // ---------------------------------------------------------------------------
@@ -277,4 +278,21 @@ module.exports = async function raceItemChecks({ newPage, check }) {
   const clean = x => x.balls === 0 && x.oils === 0 && x.bubbles === 0 && !x.btn;
   check(`race items: nothing left behind -- during ${J(g.during)}; raced again ${J(g.again)}; after EXIT ${J(g.exit)}`,
     g.during.balls + g.during.oils + g.during.bubbles >= 2 && clean(g.again) && !g.again.item && clean(g.exit) && g.again.giant === g.scale0 && g.exit.giant === g.scale0 && g.during.giant > g.scale0 * 1.5, J(g));
+
+  // ---- h. (v190) a box the camera is inside is not drawn: a chase camera passing through one filled the screen
+  const h = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    L.rcStartRace("snow", 31); R.phase = "race"; R.raceT0 = R.t;
+    for (let i = 0; i < 5; i++) { st.touching = true; L.update(1 / 60); }
+    const row = R.it.rows.find(r => !r.off), b = row.boxes[1], p = {};
+    for (const x of row.boxes) x.down = 0;
+    const draw = () => { window.rcItDrawFrame(); return R.it.boxMesh.count; };
+    L.camera.position.set(0, 1e5, 0); const far = draw();
+    L.rcPoint(row.s, b.lat, p); L.camera.position.set(p.x, p.y + L.RC.items.boxUp, p.z); const inside = draw();
+    L.raceReset(); st.touching = false;
+    return { far, inside };
+  });
+  check(`race items: a box with the camera inside it is not drawn -- ${h.far} drawn with the camera far off, ${h.inside} with it inside one (the rest still drawn)`,
+    h.far > 1 && h.inside === h.far - 1, J(h));
 };

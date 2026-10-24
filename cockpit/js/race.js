@@ -188,7 +188,9 @@ function rcLayTrack(def) {
       if (!J) continue;
       const crest = J.at * def.sections[q.sec].len, u = q.s - from[q.sec] - crest;
       const k = u < 0 ? 1 - Math.min(1, -u / J.up) : 1 - Math.min(1, u / J.down);
-      q.gy += J.h * k * k * (3 - 2 * k);           // smoothstep up the face, smoothstep down the back
+      // smoothstep up the face, smoothstep down the back -- but a ski jump's face steepens all the way to its lip
+      // (v190), so a car leaves it going UP, as off a kicker, where a dune's crest is level
+      q.gy += J.ski && u < 0 ? J.h * k * k : J.h * k * k * (3 - 2 * k);
       q.dune = k > 0;
     }
     for (let i = 0; i < n; i++) S[i].ty = (S[(i + 1) % n].gy - S[i].gy) / TK.ds;
@@ -216,7 +218,7 @@ function rcAt(s) {
   o.lx = a.lx + (b.lx - a.lx) * t; o.ly = a.ly + (b.ly - a.ly) * t; o.lz = a.lz + (b.lz - a.lz) * t;
   o.kh = a.kh + (b.kh - a.kh) * t; o.s = u; o.sf = (t < 0.5 ? a : b).sf;
   o.ty = a.ty === undefined ? 0 : a.ty + (b.ty - a.ty) * t;   // (the slope along: only a track with jumps keeps one)
-  o.dune = (t < 0.5 ? a : b).dune;
+  o.dune = (t < 0.5 ? a : b).dune; o.sec = (t < 0.5 ? a : b).sec;
   return o;
 }
 // The surface s metres along (TUNE.race.surfaces): the same answer for every racer there.
@@ -1329,7 +1331,7 @@ function rcHimControl(r, dt, touching, bank, held) {
   if (cvt) cvUpdate(dt, r.boosting);
   if (race.phase === "done" && r.done) touching = true;          // across the line he rolls on for his cheer
   const sf = rcSurfR(r);                       // (the ground's own speed and grip: the same for every racer on it)
-  const want = (touching ? A.v * step : 0) * (r.boosting ? A.burst : 1) * (r.padT > 0 ? A.pad : 1) * (r.done ? A.coolDown : 1) * sf.speed;
+  const want = (touching ? A.v * step : 0) * (r.boosting ? A.burst : 1) * (r.padT > 0 ? A.pad : 1) * (r.done ? A.coolDown : 1) * sf.speed * rceDrag(r);
   rcSpeedTo(r, r.air ? r.v : want, dt);         // (in the air off a dune it carries what it took off with)
   // across the track: a rate, from the drag, past the car's own deadzone
   const dz = CAR.deadzone || 0.08;
@@ -1368,7 +1370,7 @@ function rcAI(r, dt, going) {
   if (r.wantBurst && Math.abs(q.kh) < 0.002 && r.burstT <= 0 && r.v > RC.v * 0.5) { r.burstT = RC.burstTime; r.wantBurst = false; }
   r.boosting = r.burstT > 0;
   const sf = rcSurfR(r);
-  const want = RC.v * step * r.skill * band * (r.boosting ? RC.burst : 1) * (r.padT > 0 ? RC.pad : 1) * (r.done ? RC.coolDown : 1) * sf.speed;
+  const want = RC.v * step * r.skill * band * (r.boosting ? RC.burst : 1) * (r.padT > 0 ? RC.pad : 1) * (r.done ? RC.coolDown : 1) * sf.speed * rceDrag(r);
   rcSpeedTo(r, r.air ? r.v : want, dt);
   // where across: their line, slowly wandering; a pad ahead, if they go for it;
   // round a car close in front
@@ -1541,7 +1543,8 @@ function rcVertical(r, dt) {
     }
     return;
   }
-  const vyL = Math.min(r.vyG, J.vyMax), yFree = r.y + vyL * dt - 0.5 * J.g * dt * dt;
+  const sj = race.track.def.sections[rcAt(r.s).sec].jump;              // (v190: a ski jump throws higher than a dune)
+  const vyL = Math.min(r.vyG, sj && sj.vy || J.vyMax), yFree = r.y + vyL * dt - 0.5 * J.g * dt * dt;
   // (off a dune only: anywhere else the ground's own swells hopped the top step every few metres)
   if (yFree > yd + 0.001 && r.v > J.minV && rcAt(r.s).dune) {         // (a millimetre: the deck curving away faster than g, not its noise)
     r.air = true; r.airT = 0; r.vy = vyL - J.g * dt; r.y = yFree;

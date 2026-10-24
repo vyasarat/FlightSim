@@ -23,6 +23,7 @@
 //   puffAt:<kind> / puffAtSeat:<kind>   (v181 gaps) from the chase view / his seat on that surface, a row of the biggest puff that surface makes, white, held at
 //                     1, 2, 3, 4.5, 7, 10 and 15 m straight ahead of the camera: what the 2-7 m fade and the size cap leave on the glass
 //   ev:<sign|boulders|hit|far|train|cross|lip|under|sheds> / evSeat:...   (v189) the dunes' events (TRACK=dunes)
+//   ev:<sign|boulders|hit|avSign|av|drift|ski|skiAir|land> / evSeat:...   (v190) the snow's (TRACK=snow): snowballs, avalanche, ski jump
 //   boxes / boxesSeat, item:<kind> / itemSeat:<kind>, hold:<kind> / holdSeat:<kind>   (v187) the power-ups: a row of boxes
 //                     ahead; an item at work (boost, shield, ball, hit, oil, spin, giant); the button holding one
 //   node scripts/race_renders.js [root] [views...]   -> evidence/race/ (OUT=, VEH= to change)
@@ -156,16 +157,39 @@ async function render(root, views) {
         const steer = lat => { const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth); return Math.max(-1, Math.min(1, -(lat - him.lat) * 0.4)) / range; };
         if (k === "sign" || k === "boulders" || k === "hit") {
           him.s = base + B.ev.m - (k === "sign" ? 260 : 330); him.lat = 0; him.v = L.RC.v * 0.95; behind();
-          const lane = B.ev.side * L.RC.events.boulders.lanes[0], gap = B.ev.side * (L.RC.events.boulders.lanes[0] + L.RC.events.boulders.lanes[1]) / 2;
+          const lane = B.ev.side * B.E.lanes[0], gap = B.ev.side * (B.E.lanes[0] + B.E.lanes[1]) / 2;
           for (let i = 0; i < 60 * 20; i++) {
             const first = B.rocks.filter(b => b.on).sort((a, b) => a.s - b.s)[0];
-            if (k === "sign" && him.s > base + B.ev.m - L.RC.events.boulders.sign - 70) break;
+            if (k === "sign" && him.s > base + B.ev.m - B.E.sign - 70) break;
             if (k === "boulders" && first && window.rcGap(first.s, him.s) < 40) break;
             if (k === "hit" && him.spinT > 0 && him.spinT < 0.55) break;
             go(1, steer(k === "hit" ? lane : gap), 0);
           }
           window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
           return Object.assign(note, { k, rocks: B.rocks.filter(b => b.on).map(b => [+(window.rcGap(b.s, him.s)).toFixed(0), +b.lat.toFixed(1)]), lat: +him.lat.toFixed(1), spin: +(him.spinT || 0).toFixed(2) });
+        }
+        if (k === "avSign" || k === "av" || k === "drift") {
+          // (v190) on his last lap: ev:avSign -- its sign coming up; ev:av -- the wave sliding down to the road ahead; ev:drift -- him ploughing through it
+          const av = E.av, A = L.RC.events.avalanche, last = (L.RC.laps - 1) * T.len;
+          him.s = last + av.ev.m - (k === "avSign" ? 300 : 420); him.lat = 0; him.v = L.RC.v * 0.95; behind();
+          for (let i = 0; i < 60 * 30; i++) {
+            const to = window.rcGap(him.s, last + av.ev.m);
+            if (k === "avSign" && to > -A.sign - 55) break;
+            if (k === "av" && av.state === "slide" && av.t > av.eta * A.slideK * 0.85) break;
+            if (k === "drift" && Math.abs(to - (/Seat/.test(v) ? -25 : 0)) < 4) break;   // (from the seat, the bank in front of the bonnet)
+            behind(); go(1, 0, 0);
+          }
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          return Object.assign(note, { k, av: av.state, grow: +av.grow.toFixed(2), to: +window.rcGap(him.s, last + av.ev.m).toFixed(0), v: +him.v.toFixed(1) });
+        }
+        if (k === "ski" || k === "skiAir" || k === "land") {
+          // (v190) ev:ski -- 15 m short of the ski jump's face; ev:skiAir -- him at the top of his flight off it; ev:land -- just down, the snowballs' slope ahead
+          const ki = T.def.sections.findIndex(sc => sc.jump && sc.jump.ski), from = T.S.find(q => q.sec === ki).s, J = T.def.sections[ki].jump;
+          him.s = base + from + J.at * T.def.sections[ki].len - J.up - (k === "ski" ? 15 : 120); him.lat = 0; him.v = L.RC.v * 0.95; behind();
+          if (k === "skiAir") for (let i = 0; i < 60 * 10; i++) { behind(); go(1, 0, 0); if (him.air && him.vy < 0.3) break; }
+          if (k === "land") { let was = false; for (let i = 0; i < 60 * 10; i++) { behind(); go(1, 0, 0); if (was && !him.air) break; was = was || him.air; } go(20, 0, 0); }
+          window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
+          return Object.assign(note, { k, air: !!him.air, airT: +(him.airT || 0).toFixed(2) });
         }
         if (k === "train" || k === "under" || k === "sheds" || k === "cross" || k === "far" || k === "lip" || k === "top") {
           him.s = base + tr.crossS - 2200; him.lat = 0; him.v = L.RC.v * 0.95; behind();

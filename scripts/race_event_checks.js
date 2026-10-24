@@ -1,6 +1,6 @@
 "use strict";
 // ---------------------------------------------------------------------------
-// THE TRACKS' EVENTS (v189: Desert Dunes). Portrait, iPad.
+// THE TRACKS' EVENTS (v189: Desert Dunes; v190: Snowy Peaks). Portrait, iPad.
 //
 //   a. THE FREIGHT LINE: its bed level and dry (above the sea by a margin) along its whole length, the road over
 //      it on a bridge with room for the train under the deck (its height and more), nothing of the dune's sand
@@ -14,6 +14,14 @@
 //   d. A WHOLE RACE with the noisy hand and random taps: no bang, never stuck over 2 s, both events seen every
 //      lap, and something happens to him every 5-10 s;
 //   e. NOTHING LEFT: out of the race the train is back in a shed and the booms up, no boulder on the road.
+//
+// (v190: Snowy Peaks)
+//   f. THE SNOWBALLS: the boulders' rule -- down a snowball's lane a spin, in the gap none -- and they grow;
+//   g. THE AVALANCHE: on his last lap only, its drift whole before he gets there; every car in it slowed (his and
+//      a rival's), none stopped; gone after the race;
+//   h. THE SKI JUMP: half as long again in the air, and half as high, as a dune's jump, and landed, no bang;
+//   i. A WHOLE RACE on the snow with the noisy hand and random taps, every car: no bang, never stuck over 2 s,
+//      snowballs every lap, the avalanche once, the jump every lap, something every 5-10 s.
 //
 // Alone: node scripts/run_module.js race_event_checks
 // ---------------------------------------------------------------------------
@@ -147,4 +155,104 @@ module.exports = async function raceEventChecks({ newPage, check }) {
   });
   check(`race events: nothing left -- during ${J(e.during)}, after EXIT the train ${e.after.train}, the booms ${e.after.booms}, ${e.after.rocks} boulders out`,
     e.during.run === "run" && e.during.rocks > 0 && e.after.train === "shed" && e.after.booms === 0 && e.after.rocks === 0 && !e.after.cur, J(e));
+
+  // ---- f. the snowballs: the boulders' rule on the snow, and they grow
+  const f = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC, E = RC.events.snowballs;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const run = (lat) => {
+      L.rcStartRace("snow", 13); R.phase = "race"; R.raceT0 = R.t;
+      const B = L.rce.cur.boulders, him = R.him;
+      for (const r of R.racers) if (!r.isHim) r.s -= 2000;
+      him.s = B.ev.m - 260; him.lat = lat; him.v = RC.v * 0.86; him.latV = 0;
+      const spins0 = R.itLog.spins; let released = 0, rMin = 99, rMax = 0;
+      for (let i = 0; i < 60 * 14; i++) {
+        st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; him.lat = lat; him.latV = 0; L.update(1 / 60);
+        const on = B.rocks.filter(x => x.on); released = Math.max(released, on.length);
+        for (const b of on) { rMin = Math.min(rMin, b.rr); rMax = Math.max(rMax, b.rr); }
+      }
+      return { spins: R.itLog.spins - spins0, released, rMin: +rMin.toFixed(2), rMax: +rMax.toFixed(2), kind: B.ev.kind };
+    };
+    const side = RC.tracks.find(t => t.id === "snow").events[0].side;
+    const out = { lane: run(side * E.lanes[1]), gap: run(side * (E.lanes[0] + E.lanes[1]) / 2) };
+    L.raceReset(); st.touching = false;
+    return out;
+  });
+  check(`race events: the snowballs -- ${f.lane.released} let go as he comes, growing from ${f.lane.rMin} m to ${f.lane.rMax} m; down a snowball's lane he spun ${f.lane.spins} time(s), in the gap between two ${f.gap.spins}`,
+    f.lane.kind === "snowballs" && f.lane.released === 3 && f.lane.rMax >= f.lane.rMin * 1.6 && f.lane.spins >= 1 && f.gap.spins === 0, J(f));
+
+  // ---- g. the avalanche: once, on his last lap, whole before he gets there, slows every car in it, stops none
+  const g = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC, A = RC.events.avalanche;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    L.rcStartRace("snow", 19); R.phase = "race"; R.raceT0 = R.t;
+    const av = L.rce.cur.av, him = R.him, len = R.track.len, m = av.ev.m;
+    // laps 1 and 2 past it: nothing; then the last lap
+    const out = { early: [], vMin: 99, vIn: 0, stuck: 0, rival: null };
+    for (let lap = 0; lap < RC.laps; lap++) {
+      him.s = lap * len + m - 400; him.lat = 0; him.v = RC.v; him.latV = 0;
+      const a0 = L.flags.raceAvalanche || 0;
+      let wholeAt = null, still = 0;
+      for (let i = 0; i < 60 * 16; i++) {
+        st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60);
+        const d = L.rcGap(him.s, m);
+        if (wholeAt === null && av.grow >= 1) wholeAt = -d;                 // (how far before it he was)
+        if (Math.abs(d) < A.len / 2 && !him.air) { out.vMin = Math.min(out.vMin, him.v); out.vIn = Math.max(out.vIn, L.rceDrag(him) < 1 ? 1 : 0); }
+        still = him.v < 2 ? still + 1 / 60 : 0; out.stuck = Math.max(out.stuck, still);
+        if (d > 60) break;
+      }
+      out.early.push({ lap, fired: (L.flags.raceAvalanche || 0) - a0, wholeAt: wholeAt === null ? null : Math.round(wholeAt) });
+      // a rival in the drift is slowed as he is
+      // a rival driven through the drift by its own model, against one on open road (the same speed going in)
+      if (lap === RC.laps - 1) {
+        const [r, c] = R.racers.filter(x => !x.isHim);
+        r.s = him.s - L.rcGap(him.s, m) - A.len / 2 - 5; c.s = r.s + 300; r.lat = c.lat = 0;
+        for (const x of [r, c]) { x.v = RC.v; x.air = false; x.path = null; x.spinT = 0; }
+        let vr = 99, vc = 99;
+        for (let i = 0; i < 50; i++) { st.touching = true; L.update(1 / 60); vr = Math.min(vr, r.v); vc = Math.min(vc, c.v); }
+        out.rival = +(vr / vc).toFixed(2);
+      }
+    }
+    out.vMin = +out.vMin.toFixed(1); out.stuck = +out.stuck.toFixed(2); out.bangs = L.flags.carCrashes || 0;
+    L.raceReset(); st.touching = false;
+    out.after = { drift: av.drift.visible, state: av.state };
+    return out;
+  });
+  const gLast = g.early[g.early.length - 1];
+  check(`race events: the avalanche -- fired on laps ${J(g.early.map(e => e.fired))} (his last only), its drift whole ${gLast.wholeAt} m before he got there; through it he kept ${g.vMin} m/s at the least (never stopped: still ${g.stuck} s), a rival driven through it kept ${g.rival} of the speed of one on open road; after the race ${J(g.after)}`,
+    g.early.slice(0, -1).every(e => e.fired === 0) && gLast.fired === 1 && gLast.wholeAt >= 20 && g.vIn === 1 && g.vMin > 15 && g.stuck === 0 && g.rival < 0.92 && !g.after.drift && g.after.state === "wait", J(g));
+
+  // ---- h. the ski jump throws higher and longer than a dune does, and he lands it
+  const h = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const fly = (id, k) => {
+      L.rcStartRace(id, 23); R.phase = "race"; R.raceT0 = R.t;
+      const him = R.him, T = R.track; let from = null; for (const q of T.S) if (q.sec === k) { from = q.s; break; }
+      for (const r of R.racers) if (!r.isHim) r.s -= 2000;
+      him.s = from - 120; him.lat = 0; him.v = RC.v; him.latV = 0; him.y = undefined;
+      let air = 0, peak = 0, landed = 0; const l0 = L.flags.raceLandings || 0;
+      for (let i = 0; i < 60 * 10; i++) {
+        st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60);
+        if (him.air) { air = Math.max(air, him.airT); peak = Math.max(peak, him.y - L.rcPoint(him.s, him.lat, {}).y); }
+      }
+      landed = (L.flags.raceLandings || 0) - l0;
+      return { air: +air.toFixed(2), peak: +peak.toFixed(1), landed };
+    };
+    const ski = RC.tracks.find(t => t.id === "snow").sections.findIndex(s => s.jump && s.jump.ski);
+    const dune = RC.tracks.find(t => t.id === "dunes").sections.findIndex(s => s.jump);
+    const b0 = L.flags.carCrashes || 0;
+    const out = { ski: fly("snow", ski), dune: fly("dunes", dune) };
+    out.bangs = (L.flags.carCrashes || 0) - b0;
+    L.raceReset(); st.touching = false;
+    return out;
+  });
+  check(`race events: the ski jump -- ${h.ski.air} s in the air and ${h.ski.peak} m over the snow at the top (a dune: ${h.dune.air} s, ${h.dune.peak} m), landed ${h.ski.landed}x, ${h.bangs} bangs`,
+    h.ski.air >= h.dune.air * 1.5 && h.ski.peak >= h.dune.peak * 1.5 && h.ski.landed >= 1 && h.bangs === 0, J(h));
+
+  // ---- i. a whole race on the snow: the noisy hand and random taps, in every car
+  const i_ = [];
+  for (const veh of ["car", "cybertruck", "corvette", "monster"]) i_.push(await oneRace(page, veh, 6200 + i_.length, { track: "snow", taps: true }));
+  const iOk = i_.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.snowballs || 0) >= 3 && (r.things.kinds.avalanche || 0) === 1 && (r.things.kinds.jump || 0) >= 3);
+  check(`race events: a whole race on the snow with the noisy hand and random taps -- ${i_.map(r => `${r.veh} came ${r.place}, snowballs ${r.things.kinds.snowballs || 0}x, the avalanche ${r.things.kinds.avalanche || 0}x, jumps ${r.things.kinds.jump || 0}x, something every ${r.things.every_} s`).join("; ")}; ${i_.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...i_.map(r => r.stuckMax))} s`, iOk, J(i_));
 };

@@ -10,6 +10,20 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v190 — Snowy Peaks: giant snowballs, an avalanche and a ski jump
+
+Snowy Peaks gets three things of its own. On the long climb, giant snowballs roll off the mountain
+every lap, growing as they come, and burst into powder over the far edge; one in his lane spins
+him (never a bang), and the gaps between them are his to steer for, with a warning sign before.
+On his last lap only, an avalanche roars down the mountain ahead of him and heaps a soft drift
+right across the road: every car ploughs through it, slowed and throwing snow, never stopped. And
+the first jump is now a ski jump: blue-and-white boards up a face that kicks him up, flags at the
+lip, nearly two seconds in the air. Win rates on the snow with the noisy hand and random taps:
+car 53%, Cybertruck 42%, Corvette 57%, Monster 45% (40 races each), 0 bangs, never stuck over 0.43 s, something every 7 s.
+On every track, a power-up box the chase camera passes through is no longer drawn, so it never fills
+the screen with a yellow slab.
+
+
 ## v189 — Desert Dunes: boulders and a freight train
 
 The first of the track events, one track per release. On Desert Dunes, once a lap, three big
