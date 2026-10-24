@@ -278,6 +278,7 @@ function shapedTerrain(x, z) {
     h -= hd * 9;
   }
   h = rcLakeBed(x, z, h);  // v174: the snow race track's frozen lake (see below)
+  h = rcRailBed(x, z, h);  // v189: the dunes' freight line
   return harborHeight(x, z, h);
 }
 
@@ -295,6 +296,22 @@ function rcLakeBed(x, z, h) {
     const u = dx * fx + dz * fz, v = dx * -fz + dz * fx;
     const r = Math.hypot(u / B.a, v / B.b);
     if (r < 1 + B.blend / Math.min(B.a, B.b)) h = lerp(h, B.y, 1 - smoothstep(1, 1 + B.blend / Math.min(B.a, B.b), r));
+  }
+  return h;
+}
+
+// v189: THE DUNES' FREIGHT LINE (TUNE.race.tracks, `rail`): a level bed along z from x0 to x1, cut into the
+// ground where it is higher and laid up where it is lower, eased back over `blend` m -- so the train runs level
+// and passes under the dune's crest. Kept above the sea (the gate of terrain is the one water definition).
+function rcRailBed(x, z, h) {
+  for (const t of TUNE.race.tracks) {
+    const B = t.rail;
+    if (!B) continue;
+    const dz = Math.abs(z - B.z);
+    if (dz > B.w / 2 + B.blend || x < B.x0 - B.blend - 20 || x > B.x1 + B.blend + 20) continue;
+    const along = x < B.x0 ? B.x0 - x : x > B.x1 ? x - B.x1 : 0;   // (past either end, eased out too)
+    const d = Math.max(dz - B.w / 2, along);
+    if (d < B.blend) h = lerp(h, B.y, 1 - smoothstep(0, B.blend, d));
   }
   return h;
 }

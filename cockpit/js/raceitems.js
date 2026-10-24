@@ -162,7 +162,7 @@ function rcItFoot(r) { return RC.footW * (r.giantK || 1); }
 function rcThing(k) {
   if (!race.on || !race.things) return;
   const t = race.t - (race.raceT0 || 0), last = race.things[race.things.length - 1];
-  if (last && t - last.t < RCI.thingGap) return;
+  if (last && t - last.t < RCI.thingGap) { (last.also = last.also || []).push(k); return; }   // (one moment, but what made it counts)
   race.things.push({ t, k });
 }
 

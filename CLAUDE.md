@@ -231,6 +231,7 @@ a deliberate, stated behaviour change.
 | `track.js` | the giant toy track: its typed sections, the rail, the forks, the net, the lift, its own exit |
 | `race.js` | the race: its tracks as typed sections (`TUNE.race.tracks`), the venue in the world, one speed model for every car, the podium |
 | `raceitems.js` | the power-ups: rows of boxes, the one item button, the five items, spin-outs; every mesh pooled at load |
+| `raceevents.js` | the track events (`TUNE.race.events`): announced, steered round, never a bang; built per track at load |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
 | `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
 
@@ -279,12 +280,10 @@ nothing else can — paid for by cutting one.
   `flags.boatCrashes` outright stayed green for two releases while the boat sailed through
   the container ship, on a 1 an earlier check left behind. And check the states he is
   really in: the slot check ran three viewports, all landscape.
-- One page is reused and state carries: reset what you touch, or take a `newPage` —
-  sparingly; the server is single-threaded and a third live page timed a run out.
+- One page is reused and state carries: reset what you touch, or take a `newPage` — sparingly.
 - It stubs rAF (only the *last* queued callback fires) and runs 12 sim-seconds in a sixth of
   a real one, so **game code must never time off `performance.now()`**.
 - **Never A/B perf in blocks** — alternate samples, and report more than one run.
-- Evidence is **never committed** — gitignored `evidence/`.
 
 - `scripts/polish_check.js <tag>` times the heaviest scenes under **SwiftShader, not an
   iPad**: read `calls`/`tris` as the hardware proxy, `cpuMs` only as a bound.
@@ -300,7 +299,9 @@ nothing else can — paid for by cutting one.
    judge milliseconds (`SOLO`, `harness_shards.js`); nothing else may run beside it, its own shards
    are the only exception, and `HARNESS_SHARDS=1` is the old serial run. A race or track change
    also needs `scripts/race_sweep.js` (every car, every track; the gate demands it). Don't edit
-   `cockpit/` while it runs; redirect its output to a file and poll. `UPDATE_VISUAL` /
+   `cockpit/` while it runs. **Run it as a background command, output to a file, and let its
+   exit notify you — never a waiter loop** (`pgrep -f` matches its own command line and hung for
+   hours; gate 13 and the `--bash` hook refuse it). Always keep a 30-minute fallback wake-up. `UPDATE_VISUAL` /
    `UPDATE_VEHICLE` regenerate the baselines; never hand-edit them.
 4. **A check whose expected value you edited is re-run before ship** -- the module alone,
    or the inline check extracted -- and passes. Editing a number to match is not passing.
