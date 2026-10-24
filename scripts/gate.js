@@ -14,6 +14,8 @@
 //                                        under cockpit/ or scripts/ changed; exit 2 with the
 //                                        failures on stderr otherwise, which sends the agent
 //                                        back to work. Never loops: honours stop_hook_active.
+//   node scripts/gate.js --bash          PreToolUse hook on Bash: refuses a command that waits on the
+//                                        harness with pgrep -f (check 13), before it runs
 //
 // A new lesson that a FILE can prove belongs here as a check (see /retro). A
 // lesson that needs the game running belongs in a harness module.
@@ -27,6 +29,23 @@ const args = process.argv.slice(2);
 const flag = n => args.includes("--" + n);
 const opt = n => (args.find(a => a.startsWith("--" + n + "=")) || "").slice(n.length + 3);
 const HOOK = flag("hook");
+
+// A waiter that polls `pgrep -f` for the harness matches its OWN command line, which holds the
+// same words, so it never ends: it stalled the loop for hours, more than once (v188, v189). The
+// harness runs as a background command and its exit is the signal. (Built in pieces, so this
+// file does not match itself.)
+const WAIT_ON_HARNESS = new RegExp("pg" + "rep\\s+(-\\w+\\s+)*-\\w*f\\w*\\s+(-\\w+\\s+)*[\"']?[^\\s\"']*head" + "less_test");
+if (flag("bash")) {
+  let input = {};
+  try { input = JSON.parse(fs.readFileSync(0, "utf8") || "{}"); } catch (e) {}
+  const cmd = (input.tool_input && input.tool_input.command) || "";
+  if (WAIT_ON_HARNESS.test(cmd)) {
+    process.stderr.write("gate 13: this command polls pgrep -f for the harness -- it matches its own command line and never ends. " +
+      "Run the harness itself as a background command (its exit notifies you) and keep a 30-minute fallback wake-up.\n");
+    process.exit(2);
+  }
+  process.exit(0);
+}
 
 const read = f => fs.readFileSync(path.join(ROOT, f), "utf8");
 const git = (...a) => { try { return execFileSync("git", a, { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString(); } catch (e) { return null; } };
@@ -286,6 +305,18 @@ if (fs.existsSync(path.join(ROOT, "scripts", "race_sweep.js"))) {
 // timing file: scripts/harness_shards.js's verdict, driven with made-up shard results
 if (fs.existsSync(path.join(ROOT, "scripts", "harness_shards.js"))) {
   for (const c of require("./harness_shards.js").selftest()) if (!c.ok) fail("harness", `harness_shards.js verdict: ${c.label} -- got exit ${c.code}`);
+}
+
+// ---------- 13. nothing waits on the harness with pgrep -f (it matches itself: see WAIT_ON_HARNESS) ----------
+{
+  const files = new Set();
+  for (const out of [git("ls-files"), git("ls-files", "--others", "--exclude-standard")])
+    if (out) out.split("\n").filter(Boolean).forEach(f => files.add(f));
+  for (const f of files) {
+    if (!/\.(js|sh|md|json|py|txt)$/.test(f) || /^(evidence|docs)\//.test(f)) continue;
+    let src; try { src = read(f); } catch (e) { continue; }
+    src.split("\n").forEach((l, i) => { if (WAIT_ON_HARNESS.test(l)) fail("harness", `${f}:${i + 1}: waits on the harness with pgrep -f, which matches its own command line and never ends -- run the harness as a background command and let its exit notify`); });
+  }
 }
 
 // ---------- which modules the change answers to ----------

@@ -33,10 +33,27 @@ function rceBuild() {
     if (!T) continue;
     const v = rce.venues[def.id] = { def, T, boulders: null, train: null };
     for (const ev of def.events) {
-      if (ev.kind === "boulders") v.boulders = rceBuildBoulders(T, ev);
-      if (ev.kind === "train" && def.rail) v.train = rceBuildTrain(T, def.rail);
+      if (ev.kind === "boulders") { v.boulders = rceBuildBoulders(T, ev); rceStatic(def.id, "rceHeap", v.boulders.heap); }
+      if (ev.kind === "train" && def.rail) { v.train = rceBuildTrain(T, def.rail); rceStatic(def.id, "rceRail", v.train.still); }
     }
   }
+}
+
+// static boxes merged, one mesh per colour (a sleeper each was 305 draw calls: frame_budget_checks)
+function rceMerged(specs) {
+  const g = new THREE.Group(), by = new Map();
+  for (const b of specs) { if (!by.has(b.c)) by.set(b.c, []); by.get(b.c).push(b); }
+  for (const [c, list] of by) g.add(new THREE.Mesh(mergeBoxes(list), new THREE.MeshLambertMaterial({ color: c })));
+  return g;
+}
+// what stands still joins its venue: counted as the venue's (frame_budget_checks) and taken off the camera
+// past the fog by race.js's cull, which was prepared before these were built
+function rceStatic(id, key, o) {
+  const v = race.venues[id];
+  if (!v || !race.cull) return;
+  v[key] = o;
+  o.updateWorldMatrix(true, true);
+  o.traverse(m => { if ((m.isMesh || m.isPoints) && m.material && m.material.fog !== false) race.cull.push({ m, box: new THREE.Box3().setFromObject(m) }); });
 }
 
 function rceBuildBoulders(T, ev) {
@@ -46,21 +63,21 @@ function rceBuildBoulders(T, ev) {
   const rocks = [];
   for (let i = 0; i < B.n * 2; i++) { const m = new THREE.Mesh(geo, mat); m.visible = false; m.castShadow = true; m.userData.noSolid = true; g.add(m); rocks.push({ m, on: false }); }
   // the slope they come off: a heap of the same rocks, still, on the side they roll from
-  const side = ev.side, W = RC.width / 2 + RC.kerbW;
+  const side = ev.side, W = RC.width / 2 + RC.kerbW, heap = new THREE.Group();
   for (let k = 0; k < 7; k++) {
     const s = ev.m - 10 + k * (B.spread * (B.n - 1) + 20) / 6, lat = side * (W + 9 + (k % 3) * 3);
     rcPointOn(T, s, lat, rceP);
     const m = new THREE.Mesh(geo, mat);
     const sc = 1.1 + (k % 3) * 0.35;
     m.scale.set(sc, sc * 0.8, sc); m.position.set(rceP.x, terrainEff(rceP.x, rceP.z) + B.r * sc * 0.5, rceP.z); m.rotation.set(k, k * 2, 0);
-    m.userData.noSolid = true; g.add(m);
+    m.userData.noSolid = true; heap.add(m);
   }
   // the sign: a yellow triangle on a post, a rock falling on it -- no words
   rcPointOn(T, ev.m - B.sign, side * (W + 3 + 1.2 * B.signK), rceP);   // (clear of the barrier, however big)
   const sign = rceSign(rceP, rcAtOn(T, ev.m - B.sign));
-  g.add(sign);
+  heap.add(sign); g.add(heap);
   scene.add(g);
-  return { ev, g, rocks, released: -1 };
+  return { ev, g, heap, rocks, released: -1 };
 }
 // a warning sign: a post, a yellow triangle with a dark edge, and a rock on it
 function rceSign(p, q) {
@@ -93,30 +110,24 @@ function rceBuildTrain(T, R) {
   const boxes = [];
   for (const off of [-0.75, 0.75]) boxes.push({ x: (R.x0 + R.x1) / 2, y: y + 0.25, z: R.z + off, w: R.x1 - R.x0, h: 0.18, d: 0.14, c: P.steel });
   for (let x = R.x0; x <= R.x1; x += 2.5) boxes.push({ x, y: y + 0.08, z: R.z, w: 0.5, h: 0.16, d: 2.6, c: P.slate });
-  const mk = (b) => { const m = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), new THREE.MeshLambertMaterial({ color: b.c })); m.position.set(b.x, b.y, b.z); return m; };
-  const rails = new THREE.Group(); for (const b of boxes) rails.add(mk(b)); g.add(rails);
+  const still = new THREE.Group(); g.add(still);   // (everything that never moves: `boxes`, merged at the end)
   // the bridge: open beams along the road across the opening (the road's surface stops there, race.js), so the
   // train shows between them as he flies over; a wall each side of the rail
   const W = RC.width / 2 + RC.kerbW, deckY = q.gy, D = C.deck;
-  for (let k = 0; k < D.beams; k++) g.add(mk({ x: crossX - W + D.w / 2 + k * (W * 2 - D.w) / (D.beams - 1), y: deckY - D.drop - D.h / 2, z: R.z, w: D.w, h: D.h, d: R.gap * 2 + 1.2, c: P.concrete }));
+  for (let k = 0; k < D.beams; k++) boxes.push({ x: crossX - W + D.w / 2 + k * (W * 2 - D.w) / (D.beams - 1), y: deckY - D.drop - D.h / 2, z: R.z, w: D.w, h: D.h, d: R.gap * 2 + 1.2, c: P.concrete });
   solidBox3(crossX, deckY - 0.9, R.z, [1, 0, 0], [0, 1, 0], [0, 0, 1], W + 0.5, 0.7, R.gap + 0.5, "bridge");
   for (const sd of [-1, 1]) {
-    const wall = mk({ x: crossX, y: (deckY + y) / 2, z: R.z + sd * (R.gap + 0.6), w: W * 2 + 4, h: deckY - y, d: 1.2, c: P.concrete });
-    g.add(wall);
+    boxes.push({ x: crossX, y: (deckY + y) / 2, z: R.z + sd * (R.gap + 0.6), w: W * 2 + 4, h: deckY - y, d: 1.2, c: P.concrete });
     solidBox3(crossX, (deckY + y) / 2, R.z + sd * (R.gap + 0.6), [1, 0, 0], [0, 1, 0], [0, 0, 1], W + 2, (deckY - y) / 2, 0.6, "bridge");
   }
   // a shed at each end, open toward the line
   const S = C.shed, sheds = [];
   for (const [x, dir] of [[R.x0 - S.len / 2 + 6, 1], [R.x1 + S.len / 2 - 6, -1]]) {
-    const sh = new THREE.Group();
-    const roofY = terrainEff(x, R.z);
-    const wallM = new THREE.MeshLambertMaterial({ color: P.rust });
-    for (const sd of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(S.len, S.h, 0.6), wallM); m.position.set(0, S.h / 2, sd * S.w / 2); sh.add(m); }
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.6, S.h, S.w), wallM); back.position.set(-dir * S.len / 2, S.h / 2, 0); sh.add(back);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(S.len + 1, 0.6, S.w + 1.2), new THREE.MeshLambertMaterial({ color: P.slate })); roof.position.y = S.h; sh.add(roof);
-    const dark = new THREE.Mesh(new THREE.PlaneGeometry(S.w - 1, S.h - 1), new THREE.MeshBasicMaterial({ color: P.ink })); dark.position.set(-dir * (S.len / 2 - 0.4), S.h / 2, 0); dark.rotation.y = dir * Math.PI / 2; sh.add(dark);
-    sh.position.set(x, Math.min(y, roofY), R.z);
-    g.add(sh);
+    const roofY = terrainEff(x, R.z), by = Math.min(y, roofY);
+    for (const sd of [-1, 1]) boxes.push({ x, y: by + S.h / 2, z: R.z + sd * S.w / 2, w: S.len, h: S.h, d: 0.6, c: P.rust });
+    boxes.push({ x: x - dir * S.len / 2, y: by + S.h / 2, z: R.z, w: 0.6, h: S.h, d: S.w, c: P.rust });
+    boxes.push({ x, y: by + S.h, z: R.z, w: S.len + 1, h: 0.6, d: S.w + 1.2, c: P.slate });
+    const dark = new THREE.Mesh(new THREE.PlaneGeometry(S.w - 1, S.h - 1), new THREE.MeshBasicMaterial({ color: P.ink })); dark.position.set(x - dir * (S.len / 2 - 0.4), by + S.h / 2, R.z); dark.rotation.y = dir * Math.PI / 2; still.add(dark);
     addSolidBox(x, Math.min(y, roofY), R.z, S.len / 2, S.w / 2, Math.min(y, roofY) + S.h, null, "building");
     sheds.push({ x, dir });
   }
@@ -125,9 +136,10 @@ function rceBuildTrain(T, R) {
   const booms = [], lamps = [];
   for (const ez of [-1, 1]) for (const sd of [-1, 1]) {
     const bx = crossX + sd * (W + 1.2), bz = R.z + ez * (R.gap + 1.2), base = deckY - 0.5;
-    const post = mk({ x: bx, y: base + 1.5, z: bz, w: 0.4, h: 3, d: 0.4, c: P.white }); g.add(post);
+    boxes.push({ x: bx, y: base + 1.5, z: bz, w: 0.4, h: 3, d: 0.4, c: P.white });
     const pivot = new THREE.Group(); pivot.position.set(bx, base + C.boom.h, bz);
-    for (let k = 0; k < 6; k++) { const seg = mk({ x: sd * (0.75 + k * 1.5), y: 0, z: 0, w: 1.5, h: 0.28, d: 0.28, c: k % 2 ? P.white : P.red }); pivot.add(seg); }
+    const segs = []; for (let k = 0; k < 6; k++) segs.push({ x: sd * (0.75 + k * 1.5), y: 0, z: 0, w: 1.5, h: 0.28, d: 0.28, c: k % 2 ? P.white : P.red });
+    pivot.add(rceMerged(segs));
     g.add(pivot); booms.push({ pivot, sd });
     for (const dx of [-0.45, 0.45]) {
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(C.lampR, 10, 8), new THREE.MeshBasicMaterial({ color: P.ink }));
@@ -150,11 +162,13 @@ function rceBuildTrain(T, R) {
     train.add(w); parts.push({ m: w, off }); w.position.x = off; off -= C.carLen + 0.8;
   }
   train.traverse(o => { o.userData.noSolid = true; o.castShadow = true; });
+  train.visible = false;                              // (drawn only in a race here: rceStart)
+  still.add(rceMerged(boxes));
   g.add(train);
   g.traverse(o => { o.userData.noSolid = true; });   // (what is solid here is registered above, by hand)
   scene.add(g);
   const len = C.engLen + C.cars * (C.carLen + 0.8);
-  const tr = { R, g, train, len, crossX, crossS, deckY, booms, lamps, sheds,
+  const tr = { R, g, still, train, len, crossX, crossS, deckY, booms, lamps, sheds,
                x: sheds[0].x, dir: 1, state: "shed", v: 0, lap: -1, boomA: 0, bellT: 0, passedHim: false };
   rcePoseTrain(tr);
   return tr;
@@ -172,13 +186,13 @@ function rceStart() {
   rce.cur = v || null;
   if (!v) return;
   if (v.boulders) { v.boulders.released = -1; for (const b of v.boulders.rocks) { b.on = false; b.m.visible = false; } }
-  if (v.train) { const tr = v.train; tr.state = "shed"; tr.lap = -1; tr.v = 0; tr.passedHim = false; }
+  if (v.train) { const tr = v.train; tr.state = "shed"; tr.lap = -1; tr.v = 0; tr.passedHim = false; tr.train.visible = true; }
 }
 function rceReset() {
   for (const id in rce.venues) {
     const v = rce.venues[id];
     if (v.boulders) for (const b of v.boulders.rocks) { b.on = false; b.m.visible = false; }
-    if (v.train) { const tr = v.train; if (tr.state !== "shed") { tr.state = "shed"; tr.v = 0; tr.x = tr.dir > 0 ? tr.sheds[1].x : tr.sheds[0].x; tr.dir = -tr.dir; } tr.boomA = 0; rcePoseTrain(tr); rceBooms(tr, 0); for (const l of tr.lamps) l.material.color.setHex(TUNE.palette.ink); }
+    if (v.train) { const tr = v.train; if (tr.state !== "shed") { tr.state = "shed"; tr.v = 0; tr.x = tr.dir > 0 ? tr.sheds[1].x : tr.sheds[0].x; tr.dir = -tr.dir; } tr.boomA = 0; tr.train.visible = false; rcePoseTrain(tr); rceBooms(tr, 0); for (const l of tr.lamps) l.material.color.setHex(TUNE.palette.ink); }
   }
   rce.cur = null;
 }
