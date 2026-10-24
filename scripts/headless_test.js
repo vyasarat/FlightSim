@@ -23,6 +23,9 @@ const SHARDS = Math.max(1, Math.floor(+(process.env.HARNESS_SHARDS || 4)));
 const SHARD = process.env.HARNESS_SHARD === undefined ? (SHARDS > 1 ? null : 0) : +process.env.HARNESS_SHARD;
 let inlinePhase = false;
 const PORT = SHARDING.BASE_PORT + SHARD;
+// The parent run keeps the Mac awake while it lives (v190: the machine slept on battery and every shard
+// stalled at once, 20 minutes in). `caffeinate -w` ends with this process; elsewhere this is a no-op.
+if (SHARD === null && process.platform === "darwin") { try { spawn("caffeinate", ["-dims", "-w", String(process.pid)], { stdio: "ignore", detached: true }).unref(); } catch (e) {} }
 const URL = `http://127.0.0.1:${PORT}/cockpit/index.html`;
 const SHELL = process.env.CHROME_HEADLESS_SHELL;
 
