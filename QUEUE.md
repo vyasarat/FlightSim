@@ -35,7 +35,7 @@ every item and event from the chase cam and the seat. Full loop, ship each when 
 - [x] **v190 Snowy Peaks events** (shipped 2026-10-24, merge c8331f7, 1201/1201) -- rolling giant snowballs, an avalanche on lap 3, a ski jump.
 - [x] **v191 Beach Splash events** (shipped 2026-10-24, 1205/1205) -- waves that wash over the road, and a pirate ship firing water cannons.
 - [x] **v192 Sky Glow Road events** (shipped 2026-10-24, 1209/1209) -- wind gusts and spinning boost rings.
-- [ ] **v193 Oval events** -- a REAL vertical loop-the-loop every car drives round upside down (the road funnels into
+- [x] **v193 Oval events** (shipped 2026-10-24, 1212/1212) -- a REAL vertical loop-the-loop every car drives round upside down (the road funnels into
   it and widens after), and a stunt ramp.
 - [ ] **v194 Big moments** -- hold the drag through 3-2-1 for a rocket start; every jump does
   an automatic flip with a small boost; final lap: the music speeds up, the crowd gets
