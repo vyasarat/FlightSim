@@ -32,7 +32,7 @@ every item and event from the chase cam and the seat. Full loop, ship each when 
 - [x] **v189 Desert Dunes events** (shipped 2026-10-23, merge 953c306, 1196/1196) -- rolling boulders across the road; and the freight train: the road JUMPS a
   cutting the train runs through below (the parent's choice), its barriers dropping at the cutting's edges with
   lamps flashing as he comes -- he flies over the train, never stops for it.
-- [ ] **v190 Snowy Peaks events** -- rolling giant snowballs, an avalanche on lap 3, a ski jump.
+- [x] **v190 Snowy Peaks events** (shipped 2026-10-24, merge c8331f7, 1201/1201) -- rolling giant snowballs, an avalanche on lap 3, a ski jump.
 - [ ] **v191 Beach Splash events** -- waves that wash over the road, and a pirate ship firing water cannons.
 - [ ] **v192 Sky Glow Road events** -- wind gusts and spinning boost rings.
 - [ ] **v193 Oval events** -- a REAL vertical loop-the-loop every car drives round upside down (the road funnels into
