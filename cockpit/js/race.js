@@ -1423,6 +1423,7 @@ function rcMove(r, dt) {
   const slipTo = sl.slide && !r.air ? -Math.sign(q.kh) * Math.min(sl.slideMax, sl.slide * r.v * r.v * Math.abs(q.kh)) : 0;
   r.slip = slip0 + (slipTo - slip0) * Math.min(1, (sl.slideRate || RC.surfaces.snow.slideRate) * dt);
   r.lat += r.slip - slip0;
+  r.lat += rceWind(r) * dt;                        // (v192) a gust on the sky road pushes every car across (the barrier below holds it)
   const lim = RC.width / 2 - r.wid / 2 - 0.2;
   // (held to a shortcut's side through its approach, that edge is its way in, not a barrier)
   rcEdge(r, lim, dt, () => r.scw && race.track.sc.some(sc => { const w = r.scw.get(sc); return sc.side === Math.sign(r.lat) && w && w.on && w.ok; }));

@@ -10,6 +10,17 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v192 — Sky Glow Road: boost rings and gusts
+
+Sky Glow Road gets two things of its own, up in the air. Big glowing hoops stand over the road,
+spinning and swaying slowly from lane to lane; steer through one and the car surges, like a boost
+pad. And twice a lap the wind blows across the sky road: white streaks fly across in front of him
+first, then the gust pushes every car sideways for a few seconds -- steering into it holds his
+line, and anyone it pushes all the way slides along the barrier, never off the road and never a
+bang. Win rates on the sky road with the noisy hand and random taps: car 47%, Cybertruck 53%, Corvette
+47%, Monster 53% (40 races each), 0 bangs, never stuck over 0.43 s, something every 6-7 s.
+
+
 ## v191 — Beach Splash: waves and a water-cannon ship
 
 Beach Splash gets two things of its own. Along the beach, waves come up the sand and wash over the
