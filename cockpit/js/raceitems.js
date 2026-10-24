@@ -112,6 +112,7 @@ function rcItOK(T, s) {
   const L = T.len;
   if (s < RCI.clearGrid || s > L - RCI.clearGrid) return false;
   if (rcAt(s).dune) return false;
+  if (rcAt(s).hw < RC.width / 2 - 0.5) return false;          // (v193) not in a loop or the funnel into it: the boxes stand across the whole road
   for (const p of race.pads) { const d = Math.abs(((p.s - s) % L + L * 1.5) % L - L / 2); if (d < RCI.clearPad) return false; }
   for (const sc of T.sc || []) {
     const a = sc.sa + sc.gore - sc.hold - RCI.clearSc, b = Math.max(sc.sb, sc.sa + sc.gore) + RCI.clearSc;

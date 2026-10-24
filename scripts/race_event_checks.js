@@ -1,6 +1,6 @@
 "use strict";
 // ---------------------------------------------------------------------------
-// THE TRACKS' EVENTS (v189: Desert Dunes; v190: Snowy Peaks; v191: Beach Splash; v192: Sky Glow Road). Portrait, iPad.
+// THE TRACKS' EVENTS (v189: Desert Dunes; v190: Snowy Peaks; v191: Beach Splash; v192: Sky Glow Road; v193: the Oval). Portrait, iPad.
 //
 //   a. THE FREIGHT LINE: its bed level and dry (above the sea by a margin) along its whole length, the road over
 //      it on a bridge with room for the train under the deck (its height and more), nothing of the dune's sand
@@ -39,6 +39,14 @@
 //   p. A WHOLE RACE on the sky road with the noisy hand and random taps, every car: no bang, never stuck over 2 s,
 //      the gusts every lap, rings taken, something every 5-10 s;
 //   q. NOTHING LEFT: out of the race no streak, no gust blowing, no push.
+//
+// (v193: the Oval)
+//   r. THE LOOP: the lap still closes; the road narrows into it and opens after; it stands nearly two radii tall and
+//      its deck turns right over, solid to a plane at its top and its side (as any bridge); in a race EVERY car goes round it upside down and out the other side, no bang,
+//      never stuck;
+//   s. THE STUNT RAMP: half as long again in the air, and half as high, as a dune's jump; landed, no bang;
+//   t. A WHOLE RACE on the oval with the noisy hand and random taps, every car: round the loop every lap, the ramp every
+//      lap, something every 5-10 s, no bang, never stuck over 2 s.
 //
 // Alone: node scripts/run_module.js race_event_checks
 // ---------------------------------------------------------------------------
@@ -457,4 +465,72 @@ module.exports = async function raceEventChecks({ newPage, check }) {
   });
   check(`race events: nothing left on the sky road -- during ${J(q.during)}, after EXIT ${J(q.after)}`,
     q.during.streaks > 0 && q.during.blowing > 0 && q.after.streaks === 0 && q.after.blowing === 0 && q.after.push === 0, J(q));
+
+  // ---- r. the loop: a real one -- the lap still closes, the road narrows into it and opens after, the deck turns right
+  //         over (its up straight down at the top), and every car in a race goes round it upside down, no bang, never stuck
+  const rl = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    L.rcStartRace("oval", 71);
+    const T = R.track, lp = T.loops[0], out = { gap: +T.gap.toFixed(2), loops: T.loops.length, R: lp.R };
+    let minNy = 1, top = -1e9, base = 0, hwMin = 99;
+    for (const q of T.S) { if (q.loop) { minNy = Math.min(minNy, q.lny); top = Math.max(top, q.gy); } hwMin = Math.min(hwMin, q.hw); }
+    base = T.S.find(q => q.loop).gy;
+    // solid, as any bridge is, to a plane out of a race: at its top (upside down) and halfway up its side
+    const loopS = T.S.filter(q => q.loop), topQ = loopS.reduce((m, q) => q.lny < m.lny ? q : m), sideQ = loopS.reduce((m, q) => Math.abs(q.lny) < Math.abs(m.lny) ? q : m);
+    out.solid = [topQ, sideQ].map(q => { const b = L.solidQuery(q.x - q.lnx * 0.35, q.gy - q.lny * 0.35, q.z - q.lnz * 0.35, 1, L.SOLID.AIR); return b ? (b.kind || "?") : null; });
+    Object.assign(out, { minNy: +minNy.toFixed(2), height: +(top - base).toFixed(1), hwMin: +hwMin.toFixed(1), hwFull: RC.width / 2 });
+    // a race: every racer's least up while it is in the loop, and whether it came out the other side
+    R.phase = "race"; R.raceT0 = R.t;
+    const seen = new Map(), b0 = L.flags.carCrashes || 0; let still = 0, stuckMax = 0;
+    for (const r of R.racers) { r.s = lp.a - 160 - r.i * 25; r.lat = 0; r.v = RC.v; }
+    for (let f = 0; f < 60 * 25; f++) {
+      st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60);
+      for (const r of R.racers) {
+        const p = L.rcPoint(r.s, r.lat, {}), e = seen.get(r) || { ny: 1, out: false };
+        if (p.loop) e.ny = Math.min(e.ny, p.ny);
+        if (L.rcGap(r.s, lp.b) > 10) e.out = true;
+        seen.set(r, e);
+      }
+      still = R.him.v < 2 ? still + 1 / 60 : 0; stuckMax = Math.max(stuckMax, still);
+    }
+    out.cars = R.racers.map(r => ({ key: r.key, ny: +seen.get(r).ny.toFixed(2), out: seen.get(r).out }));
+    out.bangs = (L.flags.carCrashes || 0) - b0; out.stuck = +stuckMax.toFixed(2); out.told = L.flags.raceLoops || 0;
+    L.raceReset(); st.touching = false;
+    return out;
+  });
+  check(`race events: the oval's loop -- the lap closes (${rl.gap} m), the road narrows to ${rl.hwMin * 2} m into it (from ${rl.hwFull * 2}), it stands ${rl.height} m tall and its deck turns right over (up ${rl.minNy} at the top); solid to a plane at its top and its side (${J(rl.solid)}); every car round it upside down and out (${rl.cars.map(c => `${c.key} ${c.ny}${c.out ? "" : " NOT OUT"}`).join(", ")}); ${rl.bangs} bangs, never stuck (${rl.stuck} s)`,
+    rl.loops === 1 && rl.gap < 1 && rl.solid.every(k => k) && rl.minNy < -0.95 && rl.height > rl.R * 1.8 && rl.hwMin < rl.hwFull * 0.5 && rl.cars.every(c => c.ny < -0.9 && c.out) && rl.bangs === 0 && rl.stuck === 0, J(rl));
+
+  // ---- s. the stunt ramp throws further and higher than a dune does, and he lands it
+  const sr = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const fly = (id, k) => {
+      L.rcStartRace(id, 73); R.phase = "race"; R.raceT0 = R.t;
+      const him = R.him, T = R.track; let from = null; for (const q of T.S) if (q.sec === k) { from = q.s; break; }
+      for (const r of R.racers) if (!r.isHim) r.s -= 2000;
+      const J = T.def.sections[k].jump;
+      him.s = from + J.at * T.def.sections[k].len - J.up - 120; him.lat = 0; him.v = RC.v; him.latV = 0; him.y = undefined;
+      let air = 0, peak = 0; const l0 = L.flags.raceLandings || 0, b0 = L.flags.carCrashes || 0;
+      for (let i = 0; i < 60 * 10; i++) {
+        st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60);
+        if (him.air) { air = Math.max(air, him.airT); peak = Math.max(peak, him.y - L.rcPoint(him.s, him.lat, {}).y); }
+      }
+      return { air: +air.toFixed(2), peak: +peak.toFixed(1), landed: (L.flags.raceLandings || 0) - l0, bangs: (L.flags.carCrashes || 0) - b0 };
+    };
+    const stunt = RC.tracks.find(t => t.id === "oval").sections.findIndex(s => s.jump && s.jump.stunt);
+    const dune = RC.tracks.find(t => t.id === "dunes").sections.findIndex(s => s.jump);
+    const out = { stunt: fly("oval", stunt), dune: fly("dunes", dune) };
+    L.raceReset(); st.touching = false;
+    return out;
+  });
+  check(`race events: the oval's stunt ramp -- ${sr.stunt.air} s in the air and ${sr.stunt.peak} m up (a dune: ${sr.dune.air} s, ${sr.dune.peak} m), landed ${sr.stunt.landed}x, ${sr.stunt.bangs} bangs`,
+    sr.stunt.air >= sr.dune.air * 1.5 && sr.stunt.peak >= sr.dune.peak * 1.5 && sr.stunt.landed >= 1 && sr.stunt.bangs === 0, J(sr));
+
+  // ---- t. a whole race on the oval: the noisy hand and random taps, in every car -- round the loop every lap
+  const t_ = [];
+  for (const veh of ["car", "cybertruck", "corvette", "monster"]) t_.push(await oneRace(page, veh, 9200 + t_.length, { track: "oval", taps: true }));
+  const tOk = t_.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.loop || 0) === 3 && (r.things.kinds.jump || 0) >= 3);
+  check(`race events: a whole race on the oval with the noisy hand and random taps -- ${t_.map(r => `${r.veh} came ${r.place}, the loop ${r.things.kinds.loop || 0}x, jumps ${r.things.kinds.jump || 0}x, something every ${r.things.every_} s`).join("; ")}; ${t_.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...t_.map(r => r.stuckMax))} s`, tOk, J(t_));
 };
