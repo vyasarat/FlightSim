@@ -73,6 +73,10 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
   const { page } = await newPage(820, 1180);
   await page.waitForFunction(() => window.__lp && window.__lp.race && window.__lp.race.built, null, { timeout: 120000 });
   const ids = await page.evaluate(() => window.__lp.RC.tracks.slice(1).map(t => t.id));
+  // (v191/v192) THE TRACKS ALONE: a track's events -- a ship's shot, a gust -- are race_event_checks', and they spun
+  // or pushed him under checks that measure the road itself (its speeds, its slip). Quiet for the whole module but h,
+  // which is about the race in play, events and all.
+  await page.evaluate(() => { window.__lp.rce.quiet = true; });
   // (v177) THE SAMPLE AND THE SWEEP. Three checks drive whole laps or races in every car on every
   // track (b. the lap alone, f. the noisy race, k. the barrier): on five tracks that was most of this
   // module's ten minutes. In the full harness each of them takes ONE car per track, turning through
@@ -153,7 +157,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
     // ---- c. surfaces: the same speed on each, for every car and for them
     const c = await page.evaluate((id) => {
       const L = window.__lp, S = L.state, RC = L.RC, out = {};
-      L.noRender = true; L.api.skipScreens();   L.rce.quiet = true;   // (v191: the surfaces alone -- the beach's ship spun him on the splash; race_event_checks has the events)
+      L.noRender = true; L.api.skipScreens();
       const T = L.race.venues[id].track, kinds = [...new Set(T.S.map(q => q.sf))];
       for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
         out[veh] = {};
@@ -178,7 +182,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           L.raceReset();
         }
       }
-      L.noRender = false; L.rce.quiet = false;
+      L.noRender = false;
       return out;
     }, id);
     const cBad = [];
@@ -684,7 +688,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
     if (sp) {
       const spray = await page.evaluate((id) => {
         const L = window.__lp, S = L.state, T3 = window.THREE, out = {};
-        L.api.skipScreens();   L.rce.quiet = true;   // (v191: the splash's own spray, no wave or shot over it)
+        L.api.skipScreens();
         // (chase and seat, both -- from the seat, what he aims at; the field on the track, two of them just ahead of him on the
         // water and one just behind, throwing their own)
         for (const [veh, chase] of [["car", true], ["cybertruck", true], ["corvette", true], ["monster", true], ["car", false], ["monster", false]]) {
@@ -724,7 +728,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           out[veh + (chase ? "" : ":seat")] = { frames, hidden, born, onSplash };
           L.raceReset();
         }
-        L.api.setView(true); L.rce.quiet = false;
+        L.api.setView(true);
         return out;
       }, id);
       check(`race ${id}: the splash -- ${sp.secs.map(w => `${w.len} m over water ${Math.round(w.wet * 100)}%, its deck at the water on ${w.atWater} of the ${w.low} samples where the ground is under it`).join("; ")}; never under the ground (${sp.underGround}) or the water (${sp.underWater}, lowest ${sp.worstWater} m over the sea); the spray rises off it (${Object.values(spray).map(v => v.born).join("/")} puffs, his and theirs) and never stands between the chase camera and his car, or his seat and the road 30 m ahead (${Object.entries(spray).map(([k, v]) => `${k} ${v.hidden} of ${v.frames} frames`).join(", ")})`,
@@ -887,7 +891,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
     // one shows up too) -- the world around it keeps its own draws -- and the oval beside
     const h = await page.evaluate((id) => {
       const L = window.__lp, S = L.state, out = {};
-      L.noRender = true; L.api.skipScreens();
+      L.noRender = true; L.api.skipScreens(); L.rce.quiet = false;   // (the race in play: its events too)
       for (const tr of [L.RC.tracks[0].id, id]) {
         let draws = 0;
         const wrap = name => { const f = window[name]; window[name] = function () { const R0 = Math.random; Math.random = function () { draws++; return R0.apply(this, arguments); }; try { return f.apply(this, arguments); } finally { Math.random = R0; } }; return f; };
@@ -900,7 +904,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         out[tr] = { draws, laps: R.him.lapsDone };
         L.raceReset();
       }
-      L.noRender = false;
+      L.noRender = false; L.rce.quiet = true;
       return out;
     }, id);
     check(`race ${id}: nothing new in play -- three laps on it, the race's own update and camera make no three.js object and draw ${h[id].draws} times from Math.random (the oval's: ${h.oval.draws})`, h[id].laps >= 3 && h[id].draws === 0 && h.oval.draws === 0, J(h));
