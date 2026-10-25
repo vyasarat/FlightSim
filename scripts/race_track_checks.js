@@ -695,7 +695,9 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           L.api.setVehicle(veh); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
           L.spdReset(); L.rcStartRace(id, 36);
           const R = L.race, him = R.him, Tk = R.track;
-          for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+          // (v194: the finger off through the lamps -- a rocket start put him in the lead, a rival's ball spun him on the
+          // water, and its burst read as spray: this is the splash's own spray, as v181 measured it)
+          for (let i = 0; i < 60 * 5; i++) { S.touching = R.phase !== "grid"; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
           const w = Tk.splashes[0];
           him.s = Math.floor(him.s / Tk.len) * Tk.len + w.a - 60; him.lat = 0; him.v = 30;
           const them = R.racers.filter(r => !r.isHim);
