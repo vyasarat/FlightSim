@@ -702,6 +702,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           him.s = Math.floor(him.s / Tk.len) * Tk.len + w.a - 60; him.lat = 0; him.v = 30;
           const them = R.racers.filter(r => !r.isHim);
           [[18, 5], [30, -5], [-16, 6]].forEach(([ds, lat], k) => { const o = them[k]; o.s = him.s + ds; o.lat = lat; o.v = 30; });
+          for (const o of R.racers) { o.item = null; o.spinT = 0; o.padT = 0; }   // (v194: the splash's own spray -- an item a rival brought from the run-up burst near him and was counted as it)
           L.api.setView(chase); L.noRender = false;
           let frames = 0, hidden = 0, born = 0, onSplash = 0;
           const seg = new T3.Line3(), cp = new T3.Vector3(), tgt = new T3.Vector3();
