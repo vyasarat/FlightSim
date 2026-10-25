@@ -73,7 +73,7 @@ Every track: about 50% wins per car, 0 bangs, 0 stuck, wall-hugging slower than 
   shield or giant. `race_renders.js` item:/itemSeat:/hold: views.
 - [ ] Landscape race seat: a big flat black slab across the left of the windscreen (render-critic, v187; there on main
   too -- `VP=1180x820 race_renders.js overtakeSeat`): cabin geometry (the door or mirror) at the landscape aspect. Readability.
-- [ ] Sky Glow Road favours the Corvette (found in v187, there on main): the noisy hand won 16 of 20 there in the
+- [x] (no longer so, 2026-10-25: measured 40 races a car with the noisy hand and random taps -- v192 car 47%, Cybertruck 53%, Corvette 47%, Monster 53%; v194 63/55/55/55: the Corvette wins no more than the rest) Sky Glow Road favours the Corvette (found in v187, there on main): the noisy hand won 16 of 20 there in the
   Corvette against 11 in the SUV with no power-ups (v186), and 18 of 20 with them. Every car runs one speed
   model, so it is the body: find what of the Corvette's (its length, its width, the booster's release) wins
   it the sky's bends, and make it the same for every car.
