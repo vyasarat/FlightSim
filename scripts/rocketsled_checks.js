@@ -388,7 +388,9 @@ module.exports = async function rocketSledChecks({ newPage, check }) {
     const hold = () => { st.x = q.x - q.fz * off; st.z = q.z + q.fx * off; st.y = q.y; st.speed = 0;
                          st.heading = Math.atan2(-(w.x - st.x), -(w.z - st.z)); };
     const objs = () => [S.g, S.sledG, S.brickMesh, S.puffMesh];
-    const calls = () => { L.renderer.render(L.scene, L.camera); return L.renderer.info.render.calls; };
+    const Rr = L.renderer, gl = Rr.getContext(), sz = new L.camera.position.constructor(), firsts = [];
+    window.__rs = { pr: Rr.getPixelRatio(), size: Rr.getSize(sz).toArray(), dbuf: [gl.drawingBufferWidth, gl.drawingBufferHeight], shadowAuto: Rr.shadowMap.autoUpdate, shadowOn: Rr.shadowMap.enabled, programs: Rr.info.programs.length, canvas: [Rr.domElement.width, Rr.domElement.height], firsts };
+    const calls = () => { const t = performance.now(); L.renderer.render(L.scene, L.camera); const d = performance.now() - t; if (firsts.length < 6) firsts.push(+d.toFixed(1)); return L.renderer.info.render.calls; };
     const frame = () => {
       hold(); L.noRender = false; L.update(1 / 60); L.noRender = true;
       const all = calls();
@@ -404,8 +406,9 @@ module.exports = async function rocketSledChecks({ newPage, check }) {
     let worst = 0;
     for (let i = 0; i < 60 * 25; i++) { if (i % 15 === 0) worst = Math.max(worst, frame()); else { hold(); L.update(1 / 60); } }
     L.sledReset();
-    return { idle, worst };
+    return { idle, worst, rs: window.__rs };
   });
+  console.log("RSTATE " + JSON.stringify(cost.rs));
   check(`rocket sled: the site costs at most 20 draw calls standing and 30 through the run (${cost.idle}, ${cost.worst})`,
     cost.idle > 0 && cost.idle <= 20 && cost.worst <= 30, cost);
 };
