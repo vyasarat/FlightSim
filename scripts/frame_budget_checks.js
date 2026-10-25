@@ -98,7 +98,7 @@ module.exports = async function frameBudgetChecks({ newPage, check }) {
       out["by:" + id] = share(id);
       reset(); L.api.setView(chase); L.api.setVehicle("car"); L.api.spawnAt(0, 0); settle(10);
       L.rcStartRace(id);
-      for (let i = 0; i < 60 * 9; i++) { S.touching = true; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+      for (let i = 0; i < 60 * 9; i++) { S.touching = R.phase !== "grid"; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }   // (v194: finger off through the lamps -- a rocket start would put him further along, a different frame from the one budgeted)
       out["race:" + id] = share(id);
       reset();
     }
@@ -160,7 +160,8 @@ module.exports = async function frameBudgetChecks({ newPage, check }) {
   // 2. every scene inside its budget, shadow pass counted: v179's measure plus 12% (calls 8%)
   const BUDGET = {
     runway: [615, 405000], nyCity: [275, 870000], caCity: [605, 980000],
-    "by:oval": [885, 865000], "race:oval": [810, 940000], "by:dunes": [905, 800000], "race:dunes": [705, 840000],
+    "by:oval": [885, 865000], "race:oval": [830, 940000],   // (v194: race:oval 810 -> 830 -- no new geometry: the race draws six more from its own stream at the green, its rivals' rocket starts, so the field is bunched differently in the 9 s sample, and each car is several calls (807-821 measured))
+    "by:dunes": [905, 800000], "race:dunes": [705, 840000],
     "by:snow": [630, 790000], "race:snow": [420, 935000], "by:beach": [585, 585000], "race:beach": [410, 645000],
     "by:sky": [470, 685000], "race:sky": [360, 690000],
   };
