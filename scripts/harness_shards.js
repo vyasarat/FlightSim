@@ -42,7 +42,9 @@ const COST = {
   "car_feel_checks": 1.4, "event_pool_checks": 1.3, "corvette_checks": 1.3,
 };
 const DEFAULT = 1.0;
-const SOLO = ["events_perf_checks"];                                   // the whole module, alone
+// (v194) launchsite_checks and monstertruck_checks render frame after frame: 38 s and 2 min alone, 12-17 and 9 min
+// beside three busy shards -- in v194's runs past the 20-minute stall line between two checks. Alone, at the end.
+const SOLO = ["events_perf_checks", "launchsite_checks", "monstertruck_checks"];   // the whole module, alone
 const PERF_PARTS = ["boat_checks", "sea_checks", "yacht_checks", "dadmode_checks"];   // their timing part, alone
 const BASE_PORT = 8177;
 
