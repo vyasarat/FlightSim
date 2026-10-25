@@ -246,10 +246,12 @@ function carBuildCabin() {
   // a fat A-pillar a metre from his eye ate a quarter of the frame, and the
   // wheel sat above his sightline instead of under it. He has to see the road.
   const shell = [
-    { w: 0.13, h: 0.80, d: 3.2, x: -HALF, y: 1.80, z: -0.10 },        // door cards, tops below his eye
-    { w: 0.13, h: 0.80, d: 3.2, x:  HALF, y: 1.80, z: -0.10 },
-    { w: 0.24, h: 0.11, d: 1.2, x: -HALF + 0.15, y: 2.00, z: -0.35 }, // armrests
-    { w: 0.24, h: 0.11, d: 1.2, x:  HALF - 0.15, y: 2.00, z: -0.35 },
+    // door cards, tops well below his eye: at 2.2 m they were level with it, and in a landscape seat the
+    // stretch of door ahead of him stood up as a flat black slab across the left of the windscreen (v195)
+    { w: 0.13, h: 0.70, d: 3.2, x: -HALF, y: 1.62, z: -0.10 },
+    { w: 0.13, h: 0.70, d: 3.2, x:  HALF, y: 1.62, z: -0.10 },
+    { w: 0.24, h: 0.11, d: 1.2, x: -HALF + 0.15, y: 1.92, z: -0.35 }, // armrests
+    { w: 0.24, h: 0.11, d: 1.2, x:  HALF - 0.15, y: 1.92, z: -0.35 },
     { w: 0.84, h: 0.55, d: 2.0, x: 0, y: 1.35, z: 0.00 },             // centre console
     { w: 1.10, h: 0.20, d: 1.05, x: 0.88, y: 1.28, z: -0.15 },        // the empty seat beside him
     { w: 1.10, h: 1.10, d: 0.18, x: 0.88, y: 1.88, z: 0.40, rx: -0.16 },

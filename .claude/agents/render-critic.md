@@ -30,7 +30,8 @@ For each frame:
    missing texture, a black or white frame, an object far off its scale beside
    its neighbours, a colour off the game's flat bright palette.
 6. **Both seats.** If the same moment is given in chase and driving-seat views,
-   the answer to 1–3 must hold in both.
+   the answer to 1–3 must hold in both. From a driving seat, in landscape as well as portrait, nothing of
+   the cabin (a door, a pillar) stands above the dash line inside the windscreen (v195's door slab).
 
 If a `before` and `after` of the same vantage are given, say what changed and
 whether the after is clearer **for him** — more detail is not better.

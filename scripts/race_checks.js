@@ -482,5 +482,33 @@ module.exports = async function raceChecks({ newPage, check }) {
       check(`race: a finger in a race is never eaten -- put down anywhere on the picture and dragged, it steers: ${Object.entries(k).map(([v, r]) => `${v} ${r.tried - r.eaten.length}/${r.tried}${r.eaten.length ? " (eaten at " + r.eaten.map(p => p.join(",")).join(" ") + ")" : ""}`).join("; ")}`,
         Object.values(k).every(r => r.tried >= 15 && r.eaten.length === 0 && r.race && (r.chase || r.screenHidden === true)), J(k));
     }
+    // ---- l. (v195) from the driving seat, in landscape and portrait, the doors stand below the dash line as he
+    // sees it: the front top corner of each door card lands on screen no higher than the dash shelf's far edge (at 2.2 m
+    // a door top was level with his eye, and in landscape the door ahead of him stood up as a black slab)
+    if (w === 820) {
+      const dl = {};
+      for (const [vw, vh] of [[1180, 820], [820, 1180]]) {
+        await page.setViewportSize({ width: vw, height: vh });
+        dl[`${vw}x${vh}`] = await page.evaluate(() => {
+          const L = window.__lp, S = L.state, K = L.CAR.cabin, T3 = window.THREE;
+          L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.api.setView(false); L.rcStartRace("oval", 3);
+          for (let i = 0; i < 60 * 6; i++) { S.touching = true; L.update(1 / 60); }
+          L.camera.updateMatrixWorld(); const cab = L.car.cabin; cab.updateMatrixWorld(true);
+          const scr = (x, y, z) => { const v = new T3.Vector3(x, y, z).applyMatrix4(cab.matrixWorld).project(L.camera); return { x: +((v.x + 1) / 2 * innerWidth).toFixed(0), y: +((1 - v.y) / 2 * innerHeight).toFixed(0), z: v.z }; };
+          // the door cards' top: read off the cabin itself (its highest vertex at either side, ahead of his eye)
+          let doorTop = -1e9, front = 0;
+          cab.traverse(o => { if (!o.isMesh || !o.geometry.attributes.position) return; const P = o.geometry.attributes.position; for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i); if (Math.abs(Math.abs(x) - K.halfWidth) < 0.1 && z < -1.0 && y < K.roof - 0.4) { if (y > doorTop) { doorTop = y; front = z; } } } });
+          const out = { doorTop: +doorTop.toFixed(2), shelf: [], door: [] };
+          for (const sd of [-1, 1]) { out.door.push(scr(sd * K.halfWidth, doorTop, front)); out.shelf.push(scr(sd * (K.halfWidth - 0.1), K.dashTop + 0.055, -3.2)); }
+          S.touching = false; L.raceReset(); L.api.setView(true);
+          return out;
+        });
+      }
+      await page.setViewportSize({ width: w, height: h });
+      const bad = Object.entries(dl).filter(([, r]) => r.door.some((d, i) => d.z < 1 && d.y >= 0 && d.y < r.shelf[i].y - 2));
+      check(`race: from the driving seat the doors stand below the dash line as he sees it, landscape and portrait -- door top ${Object.values(dl)[0].doorTop} m; ${Object.entries(dl).map(([v, r]) => `${v}: doors at y ${r.door.map(d => d.y).join("/")}, the dash's far edge at ${r.shelf.map(d => d.y).join("/")}`).join("; ")}`,
+        bad.length === 0, J(dl));
+    }
   }
 };
