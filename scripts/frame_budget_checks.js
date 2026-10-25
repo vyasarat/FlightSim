@@ -98,7 +98,7 @@ module.exports = async function frameBudgetChecks({ newPage, check }) {
       out["by:" + id] = share(id);
       reset(); L.api.setView(chase); L.api.setVehicle("car"); L.api.spawnAt(0, 0); settle(10);
       L.rcStartRace(id);
-      for (let i = 0; i < 60 * 9; i++) { S.touching = true; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+      for (let i = 0; i < 60 * 9; i++) { S.touching = R.phase !== "grid"; S.touchIsPoint = false; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }   // (v194: finger off through the lamps -- a rocket start would put him further along, a different frame from the one budgeted)
       out["race:" + id] = share(id);
       reset();
     }

@@ -21,7 +21,7 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
   grab one, and ONE big pulsing item button, showing the item's picture, uses it. That
   button is the approved exception to "at most one new button"; rivals' items may spin him
   out (about 1 s, never a bang, never stuck). All original: no names, characters, logos or
-  item designs from any other game.
+  item designs from any other game. And (v194) the parent's: a shortcut may stay shut until the last lap.
 - **Pointing, not timing**: every control is "aim at it"; assists exist so *coasting in*
   works. **Drag up = nose up**, never inverted; on a surface vehicle it is that vehicle's
   burst, except the yacht, where it is the horn.

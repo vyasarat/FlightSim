@@ -148,6 +148,40 @@ async function render(root, views) {
         return Object.assign(note, { k, spin: +(him.spinT || 0).toFixed(2), aSpin: +(a.spinT || 0).toFixed(2), giant: +(him.giantK || 1).toFixed(2), shield: +(him.shieldT || 0).toFixed(1),
           balls: R.it.balls.filter(b => b.on).length, oils: R.it.oils.filter(o => o.on).length, gapA: +(a.s - him.s).toFixed(1) });
       }
+      if (/^(big|bigSeat):/.test(v)) {
+        // (v194) big:rocket -- just off the line on a rocket start; big:flip -- mid-somersault off the ski jump (TRACK=snow);
+        // big:gateShut / big:gateOpen -- the oval's last-lap shortcut, its boom down on lap 1 / up on the last;
+        // big:photo -- a photo finish, the camera beside the line (TRACK=oval)
+        const T = R.track, k = v.split(":")[1], him = R.him;
+        const behind = () => { for (const r of R.racers) if (!r.isHim) { r.s = him.s - 50 - r.i * 14; r.v = him.v * 0.9; r.lat = (r.i % 2 ? -1 : 1) * 6; } };
+        if (k === "rocket") { for (let i = 0; i < 60 * 8 && !(R.phase === "race" && R.t - R.raceT0 > (/Seat/.test(v) ? 0.02 : 0.35)); i++) go(1, 0, 0); window.__hold = () => { S.touching = true; }; return Object.assign(note, { k, rocket: R.rocket }); }
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * 3 + 0.5)), 0, 0);
+        const base = Math.max(0, Math.floor(him.s / T.len)) * T.len;
+        if (k === "flip") {
+          const ki = T.def.sections.findIndex(sc => sc.jump && sc.jump.ski), from = T.S.find(q => q.sec === ki).s;
+          him.s = base + from - 100; him.lat = 0; him.v = L.RC.v * 0.95; behind();
+          for (let i = 0; i < 60 * 10; i++) { behind(); go(1, 0, 0); if (him.air && him.flipA > 2.6) break; }
+          window.__hold = () => { S.touching = true; };
+          return Object.assign(note, { k, flipA: +(him.flipA || 0).toFixed(2) });
+        }
+        if (k === "gateShut" || k === "gateOpen") {
+          const sc = T.sc.find(c => c.final), lap = k === "gateOpen" ? L.RC.laps - 1 : 0;
+          him.lapsDone = lap; him.s = lap * T.len + sc.sa - 120; him.lat = sc.side * 6; him.v = L.RC.v * 0.9; behind();
+          for (let i = 0; i < 60 * 4 && window.rcGap(him.s, lap * T.len + sc.sa) < (/Seat/.test(v) ? -18 : -28); i++) { behind(); go(1, 0, 0); }   // (short of its mouth, the boom ahead)
+          window.__hold = () => { S.touching = true; };
+          return Object.assign(note, { k, gate: +sc.gateA.toFixed(2) });
+        }
+        if (k === "photo") {
+          const a = R.racers.find(r => !r.isHim);
+          him.lapsDone = a.lapsDone = L.RC.laps - 1;
+          him.s = L.RC.laps * T.len - 60; him.lat = -4; him.v = L.RC.v; a.s = him.s - 1.5; a.lat = 4; a.v = L.RC.v;
+          for (const r of R.racers) if (!r.isHim && r !== a) r.s -= 400;
+          for (let i = 0; i < 60 * 8 && !(R.photoT > 0 && L.RC.laps * T.len - him.s < 1.5); i++) go(1, 0, 0);   // (his nose at the line, in slow motion)
+          window.__hold = () => { S.touching = true; };
+          return Object.assign(note, { k, photoT: +(R.photoT || 0).toFixed(2), toLine: +(L.RC.laps * T.len - him.s).toFixed(1) });
+        }
+        return note;
+      }
       if (/^(ev|evSeat):/.test(v)) {
         // (v189) the track's events (TRACK=dunes): ev:sign -- the boulder sign coming up; ev:boulders -- the
         // boulders rolling across, the first ~40 m ahead; ev:hit -- him in a boulder's lane, just spun;

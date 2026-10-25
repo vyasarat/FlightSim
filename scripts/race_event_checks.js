@@ -48,6 +48,12 @@
 //   t. A WHOLE RACE on the oval with the noisy hand and random taps, every car: round the loop every lap, the ramp every
 //      lap, something every 5-10 s, no bang, never stuck over 2 s.
 //
+// (v194: the big moments)
+//   v. THE ROCKET START: a finger held through the three lamps goes off with a burst, well ahead of one lifted on the way;
+//   w. THE FLIPS: off a jump long enough every car turns a whole somersault, done before it lands, and lands with a push;
+//   x. THE LAST LAP: the tune quicker, the stands roar once, the shut shortcut taken by a held steer then, never before;
+//   y. THE PHOTO FINISH: nose to nose at the line the race slows for it; a clear win does not.
+//
 // Alone: node scripts/run_module.js race_event_checks
 // ---------------------------------------------------------------------------
 const { oneRace } = require("./race_drive");
@@ -533,4 +539,101 @@ module.exports = async function raceEventChecks({ newPage, check }) {
   for (const veh of ["car", "cybertruck", "corvette", "monster"]) t_.push(await oneRace(page, veh, 9200 + t_.length, { track: "oval", taps: true }));
   const tOk = t_.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.loop || 0) === 3 && (r.things.kinds.jump || 0) >= 3);
   check(`race events: a whole race on the oval with the noisy hand and random taps -- ${t_.map(r => `${r.veh} came ${r.place}, the loop ${r.things.kinds.loop || 0}x, jumps ${r.things.kinds.jump || 0}x, something every ${r.things.every_} s`).join("; ")}; ${t_.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...t_.map(r => r.stuckMax))} s`, tOk, J(t_));
+
+  // ---- v. (v194) the rocket start: his finger down from the first red lamp to green goes off the line ahead of a
+  //         finger that lifted on the way; nothing lost either way
+  const v_ = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const run = lift => {
+      L.rcStartRace("oval", 81); const r0 = L.flags.raceRocketStarts || 0;
+      for (const r of R.racers) if (!r.isHim) r.s -= 500;
+      let s0 = null, t = 0;
+      for (let i = 0; i < 60 * 9; i++) {
+        st.touching = !(lift && R.phase === "grid" && R.t > 2.2 && R.t < 2.5); st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60);
+        if (R.phase === "race") { if (s0 === null) s0 = R.him.s; t += 1 / 60; if (t >= 3) break; }
+      }
+      const out = { rocket: (L.flags.raceRocketStarts || 0) - r0, gone: +(R.him.s - s0).toFixed(1) };
+      L.raceReset(); return out;
+    };
+    const out = { held: run(false), lifted: run(true) }; st.touching = false;
+    return out;
+  });
+  check(`race events: the rocket start -- a finger held through the three lamps went off with it (${v_.held.rocket}) and was ${v_.held.gone} m on in 3 s, one lifted on the way not (${v_.lifted.rocket}, ${v_.lifted.gone} m)`,
+    v_.held.rocket === 1 && v_.lifted.rocket === 0 && v_.held.gone > v_.lifted.gone + 8, J(v_));
+
+  // ---- w. (v194) the flips: off a jump long enough, every car turns one whole somersault, finished before it lands
+  //         (never down on its roof), and lands with a push; a short hop does not flip
+  const w_ = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    L.rcStartRace("snow", 83); R.phase = "race"; R.raceT0 = R.t;
+    const T = R.track, k = T.def.sections.findIndex(sc => sc.jump && sc.jump.ski); let from = null; for (const q of T.S) if (q.sec === k) { from = q.s; break; }
+    const f0 = L.flags.raceFlips || 0;
+    for (const r of R.racers) { r.s = from - 120 - r.i * 30; r.lat = (r.i % 3 - 1) * 5; r.v = RC.v; }
+    const seen = new Map();
+    for (let i = 0; i < 60 * 12; i++) {
+      st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60);
+      for (const r of R.racers) {
+        const e = seen.get(r) || { maxA: 0, landedA: [], flights: 0, boosts: 0, was: false };
+        if (r.air) e.maxA = Math.max(e.maxA, r.flipA || 0);
+        if (e.was && !r.air) { e.landedA.push(+(2 * Math.PI - e.lastA).toFixed(2)); e.flights++; if (r.padT > 0) e.boosts++; }   // (how much of the turn was left at its last frame in the air)
+        e.lastA = r.air ? (r.flipA || 0) : e.lastA; e.was = r.air; seen.set(r, e);
+      }
+    }
+    const out = { cars: R.racers.map(r => { const e = seen.get(r); return { key: r.key, maxA: +e.maxA.toFixed(2), landedA: e.landedA, boosts: e.boosts }; }), told: (L.flags.raceFlips || 0) - f0, minAir: RC.big.flip.minAir };
+    L.raceReset(); st.touching = false;
+    return out;
+  });
+  check(`race events: the flips -- off the ski jump every car turned a whole somersault (${w_.cars.map(c => `${c.key} ${(c.maxA / Math.PI / 2).toFixed(2)}`).join(", ")} of a turn) and came down on its wheels (${J(w_.cars.map(c => c.landedA))} rad left), with a push; he was told ${w_.told}x`,
+    w_.cars.every(c => c.maxA > 6.2 && c.landedA.length >= 1 && c.landedA.every(a => a < 0.15) && c.boosts >= 1) && w_.told >= 1, J(w_));
+
+  // ---- x. (v194) the last lap: the tune quicker, the stands roar once, and the shut shortcut opens -- taken by a held
+  //         steer on the last lap, never before
+  const x_ = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const range = (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight)) / (L.CAR.dragRangeX * innerWidth);
+    const tryIt = lap => {
+      L.rcStartRace("oval", 85); R.phase = "race"; R.raceT0 = R.t;
+      const T = R.track, sc = T.sc.find(c => c.final), him = R.him;
+      for (const r of R.racers) if (!r.isHim) r.s -= 3000;
+      him.s = lap * T.len + sc.sa - 200; him.lat = 0; him.v = RC.v;
+      let took = false, beats0 = R.musBeat, t = 0, finals = L.flags.raceFinalLaps || 0, b0 = L.flags.carCrashes || 0, still = 0, stuck = 0;
+      for (let i = 0; i < 60 * 12; i++) {
+        // a full steer to its side, held through its approach
+        st.touching = true; st.ctrlBank = -sc.side * 1 / range; st.ctrlPitch = 0; L.update(1 / 60); t += 1 / 60;
+        if (him.path === sc) took = true;
+        still = him.v < 2 ? still + 1 / 60 : 0; stuck = Math.max(stuck, still);
+        if (L.rcGap(him.s, lap * T.len + sc.sb) > 20) break;
+      }
+      const out = { took, beatsPerS: +((R.musBeat - beats0) / t).toFixed(2), roars: (L.flags.raceFinalLaps || 0) - finals, gateUp: +sc.gateA.toFixed(2), bangs: (L.flags.carCrashes || 0) - b0, stuck: +stuck.toFixed(2) };
+      L.raceReset(); return out;
+    };
+    const out = { first: tryIt(0), last: tryIt(RC.laps - 1) }; st.touching = false;
+    return out;
+  });
+  check(`race events: the last lap -- the tune ${x_.first.beatsPerS} beats a second, ${x_.last.beatsPerS} on the last lap; the stands roared ${x_.last.roars}x; the shut shortcut taken by a held steer on the first lap: ${x_.first.took} (steered into its boom: ${x_.first.bangs} bangs, stuck ${x_.first.stuck} s), on the last: ${x_.last.took} (its boom ${x_.last.gateUp} up)`,
+    x_.last.beatsPerS >= x_.first.beatsPerS * 1.2 && x_.first.roars === 0 && x_.last.roars === 1 && !x_.first.took && x_.first.bangs === 0 && x_.first.stuck === 0 && x_.last.took && x_.last.gateUp > 0.5, J(x_));
+
+  // ---- y. (v194) the photo finish: nose to nose at the line, the race slows for it; a clear win does not
+  const y_ = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, RC = L.RC;
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const run = gap => {
+      L.rcStartRace("oval", 87); R.phase = "race"; R.raceT0 = R.t;
+      const T = R.track, him = R.him, a = R.racers.find(r => !r.isHim);
+      for (const r of R.racers) if (!r.isHim && r !== a) r.s -= 3000;
+      him.lapsDone = RC.laps - 1; a.lapsDone = RC.laps - 1;
+      him.s = RC.laps * T.len - 120; him.lat = -4; him.v = RC.v; a.s = him.s - gap; a.lat = 4; a.v = RC.v;
+      const p0 = L.flags.racePhotoFinishes || 0; let real = 0, t0 = R.t, slowSeen = 0;
+      for (let i = 0; i < 60 * 8 && !him.done; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; L.update(1 / 60); real += 1 / 60; if (R.slowT > 0) slowSeen += 1 / 60; }
+      const out = { photo: (L.flags.racePhotoFinishes || 0) - p0, slowS: +slowSeen.toFixed(2), place: him.place };
+      L.raceReset(); return out;
+    };
+    const out = { close: run(2), clear: run(60) }; st.touching = false;
+    return out;
+  });
+  check(`race events: the photo finish -- nose to nose, the race slowed for it (${y_.close.photo}, ${y_.close.slowS} s); a clear win, not (${y_.clear.photo})`,
+    y_.close.photo === 1 && y_.close.slowS >= 1 && y_.clear.photo === 0, J(y_));
 };
