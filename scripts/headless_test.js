@@ -185,7 +185,10 @@ const harnessMain = async () => {
     // than closing its pages: closing one runs every frame its measurement queued (boat's 500 took
     // four minutes), work nobody looks at, and on a shared browser it would run under the next
     // module's measurement
-    const solo = SHARDS > 1 && SHARD === SHARDS;
+    // (v196) that is for the TIMING parts alone: a whole module run in the solo phase (SOLO -- launchsite, monstertruck,
+    // rocketsled) closes the pages it is done with as anywhere else; with close() a no-op their queued frames stayed in
+    // the GPU process and every later render in the module waited behind them -- its draw-call check 4 s alone, 15 min here
+    const solo = SHARDS > 1 && SHARD === SHARDS && !SHARDING.SOLO.includes(key);
     // (and a page's own close() is a no-op there: the browser goes, with everything queued in it)
     if (solo) opts = { ...opts, newPage: async (w, h) => { const r = await newPage(w, h); r.page.close = async () => {}; return r; } };
     try { await require(name)(opts); }
