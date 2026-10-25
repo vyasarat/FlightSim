@@ -2810,7 +2810,7 @@ const TUNE = {
              odds: { first: { boost: 0.1, shield: 0.4, ball: 0.1, oil: 0.4, giant: 0 },
                      middle: { boost: 0.3, shield: 0.15, ball: 0.35, oil: 0.15, giant: 0.05 },
                      last: { boost: 0.35, shield: 0.05, ball: 0.3, oil: 0, giant: 0.3 } },
-             boost: { gain: 1.4, time: 2.2 },
+             boost: { gain: 1.4, time: 2.2, flameUp: 0.4 },   // (flameUp: the flames' height, of the drawn body's)
              shield: { time: 15, k: 1.25 },                      // (lasts until it takes a hit, or this long; drawn k x the car's length across)
              ball: { v: 66, r: 1.3, latRate: 14, life: 7, hop: 1.2, hopF: 7, grace: 0.4, overThrower: 1.4, overAir: 1.5 },   // (overThrower: at least this x the thrower's speed; overAir: a car this far up off a dune it misses)
              oil: { r: 2.8, behind: 4, life: 30, grace: 1.5, catchK: 0.6 },   // (catchK: of its radius, what a car must cross to slide)

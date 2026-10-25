@@ -10,6 +10,12 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v196 — The monster truck's boost flames come out of the truck
+
+On a rocket boost the flames now burn from the back of the car's body, part way up it, in every car;
+on the tall monster truck they used to start at its wheel hubs, laid along the road behind it.
+
+
 ## v195 — No black slab in the landscape driving seat
 
 Driving from the seat with the iPad on its side, a big flat black slab stood across the left of the

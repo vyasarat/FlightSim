@@ -25,6 +25,7 @@
 //   g. NOTHING LEFT BEHIND: out of a race (EXIT, again) no ball, slick, bubble or giant remains,
 //      and the button is down.
 //   h. (v190) A BOX ROUND THE CAMERA is not drawn: from inside one the screen was a yellow slab.
+//   i. (v196) A BOOST BURNS OUT OF THE BODY: the monster truck's flames are born at least 0.3 of its height up.
 //
 // Alone: node scripts/run_module.js race_item_checks
 // ---------------------------------------------------------------------------
@@ -279,7 +280,31 @@ module.exports = async function raceItemChecks({ newPage, check }) {
   check(`race items: nothing left behind -- during ${J(g.during)}; raced again ${J(g.again)}; after EXIT ${J(g.exit)}`,
     g.during.balls + g.during.oils + g.during.bubbles >= 2 && clean(g.again) && !g.again.item && clean(g.exit) && g.again.giant === g.scale0 && g.exit.giant === g.scale0 && g.during.giant > g.scale0 * 1.5, J(g));
 
-  // ---- h. (v190) a box the camera is inside is not drawn: a chase camera passing through one filled the screen
+  // ---- i. (v196) a rocket boost burns out of the BODY: the monster truck's flames are born at least 0.3 of its drawn
+  // height over the road (at a fixed 0.7 m they came from its wheel hubs, laid along the road behind it)
+  const fl = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, st = L.state, P0 = () => L.rcPuffs;
+    L.api.setVehicle("monster"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    L.api.setView(true); L.rcStartRace("oval", 33); R.phase = "race"; R.raceT0 = R.t;
+    for (let i = 0; i < 60; i++) { st.touching = true; L.update(1 / 60); }
+    const him = R.him;
+    const box = new window.THREE.Box3().setFromObject(him.mesh), H = box.max.y - box.min.y;
+    L.rcItGive(him, "boost"); L.raceItemUse();
+    const hs = [];
+    for (let f = 0; f < 40; f++) {
+      const P = P0(), life0 = P ? Array.from(P.life) : [];
+      st.touching = true; L.update(1 / 60);
+      if (!P) continue;
+      for (let k = 0; k < P.n; k++) if (P.life[k] > life0[k] + 1e-6 && P.col[k * 3] > 0.99 && P.col[k * 3 + 2] < 0.2) {   // (born this frame, flame-coloured)
+        const q = L.rcAt(him.s); hs.push(P.pos[k * 3 + 1] - q.gy);
+      }
+    }
+    st.touching = false; L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0);
+    return { H: +H.toFixed(2), n: hs.length, minH: hs.length ? +Math.min(...hs).toFixed(2) : null };
+  });
+  check(`race items: a boost burns out of the body -- the monster truck's flames born ${fl.minH} m over the road at the least (it stands ${fl.H} m; ${fl.n} flames)`,
+    fl.n >= 4 && fl.minH >= fl.H * 0.3, J(fl));
+
   const h = await page.evaluate(() => {
     const L = window.__lp, R = L.race, st = L.state;
     L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
