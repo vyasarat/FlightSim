@@ -10,6 +10,14 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v195 — No black slab in the landscape driving seat
+
+Driving from the seat with the iPad on its side, a big flat black slab stood across the left of the
+windscreen -- the inside of the door, whose top was level with his eye, seen ahead of him at the
+wide landscape view. The door tops now sit lower -- below the dash line as he sees it from his seat, in
+landscape and in portrait (race_checks l measures it) -- so the left of the windscreen is road and grass again.
+
+
 ## v194 — Big moments in every race
 
 Every race now has its big moments. Hold your finger down through the three red lamps and the
