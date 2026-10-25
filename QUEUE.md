@@ -37,7 +37,7 @@ every item and event from the chase cam and the seat. Full loop, ship each when 
 - [x] **v192 Sky Glow Road events** (shipped 2026-10-24, 1209/1209) -- wind gusts and spinning boost rings.
 - [x] **v193 Oval events** (shipped 2026-10-24, 1212/1212) -- a REAL vertical loop-the-loop every car drives round upside down (the road funnels into
   it and widens after), and a stunt ramp.
-- [ ] **v194 Big moments** -- hold the drag through 3-2-1 for a rocket start; every jump does
+- [x] **v194 Big moments** (shipped 2026-10-25, 1216/1216) -- hold the drag through 3-2-1 for a rocket start; every jump does
   an automatic flip with a small boost; final lap: the music speeds up, the crowd gets
   louder, and a short cut opens that was not there before; a close finish gets a slow-motion
   photo finish.
