@@ -1389,8 +1389,9 @@ function rcGrid(dt, touching) {
     synthBlip("triangle", 1040, 1040, 0.4, 0.24, 0);
     flags.raceGo = (flags.raceGo || 0) + 1;
     race.revLit = 0;
-    // the rivals get one too, some of them (drawn from the race's own stream): the field goes off as a field
-    for (const r of race.racers) if (!r.isHim && rcRnd() < RC.big.rocket.aiP) { r.padT = RC.padTime * RC.big.rocket.k; r.v = Math.max(r.v, RC.v * RC.big.rocket.launch * r.skill); }
+    // the rivals get one too, every `aiEvery`th grid slot: the field goes off as a field (by slot, not drawn -- a draw
+    // here moved every later choice the race's stream makes, a ball, a line, a spray)
+    for (const r of race.racers) if (!r.isHim && r.i % RC.big.rocket.aiEvery === 0) { r.padT = RC.padTime * RC.big.rocket.k; r.v = Math.max(r.v, RC.v * RC.big.rocket.launch * r.skill); }
     if (race.rocketOK && touching) {
       const him = race.him, B = RC.big.rocket;
       him.padT = RC.padTime * B.k; race.rocket = true;

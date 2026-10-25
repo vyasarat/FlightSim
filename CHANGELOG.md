@@ -13,8 +13,8 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 ## v194 — Big moments in every race
 
 Every race now has its big moments. Hold your finger down through the three red lamps and the
-engine winds up with each one -- on green you shoot off the line in a burst of flame (some of the
-rivals do too). Every jump big enough turns your car right over in a somersault, landed on its
+engine winds up with each one -- on green you shoot off the line in a burst of flame (every other
+rival does too). Every jump big enough turns your car right over in a somersault, landed on its
 wheels with a little push. A tune plays under the race and gets quicker on the last lap, when the
 stands roar and, on the oval, a barrier across a dusty short cut lifts -- it is shut until then.
 And when it is nose to nose at the line, the race goes into slow motion and a camera beside the

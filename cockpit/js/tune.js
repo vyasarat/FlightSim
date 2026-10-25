@@ -2685,7 +2685,7 @@ const TUNE = {
     // `photo`: him within `near` m of the line on the last lap and a rival within `close` m of him -- the race at
     // `scale` speed for `dur` s, a camera `camSide` m beside the line, a white flash `flash` strong; `gate`: a closed
     // shortcut's boom, `at` m into it
-    big: { rocket: { k: 1.6, launch: 0.55, aiP: 0.5, flameFor: 1.2, size: 1.6, along: 5, flash: 0.9, fade: 0.9 }, flip: { minAir: 0.85, of: 0.85, k: 0.6, finish: 18 },
+    big: { rocket: { k: 1.6, launch: 0.55, aiEvery: 2, flameFor: 1.2, size: 1.6, along: 5, flash: 0.9, fade: 0.9 }, flip: { minAir: 0.85, of: 0.85, k: 0.6, finish: 18 },
            music: { bpm: 132, finalK: 1.3, vol: 0.035, notes: [523, 659, 784, 659, 587, 698, 880, 698], bass: [131, 175, 147, 196] },
            crowd: { chord: [392, 494, 587, 784], dur: 1.6, vol: 0.06 },
            photo: { near: 12, close: 7, scale: 0.3, dur: 1.6, camSide: 11, camAhead: 14, camUp: 1.6, flash: 0.85, fade: 0.6 },   // (on the kerb on his side, ahead of the line, inside the gantry's legs: they stood in the shot)
