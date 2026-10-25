@@ -2405,6 +2405,8 @@ const TUNE = {
       // to the lap's metres, so every pad past it is moved on by it (113 m) and stands where it stood.
       { id: "oval", pads: [{ m: 150, lat: 5 }, { m: 440, lat: -5 }, { m: 993, lat: 5 }, { m: 2163, lat: -5 }, { m: 2613, lat: 5 }, { m: 4013, lat: -5 }],
         aiMul: 0.995,                     // (v193: with the loop and the ramp, the noisy hand won 39% at 1.0)
+        // (v194) the LAST-LAP SHORTCUT: straight across the chicane's bulge on the dust, shut by a boom until the last lap
+        shortcuts: [{ from: 7, to: 9, side: -1, half: 6, mouth: 5, gore: 15, hold: 40, surface: "dust", final: true }],
         sections: [
         { type: "straight", len: 250 },
         { type: "turn", angle: 90, radius: 110, bank: 9 },
@@ -2445,7 +2447,7 @@ const TUNE = {
       // the motorway.)
       { id: "dunes", site: { x: -725, z: -3420, heading: 270 },
         pads: [{ m: 150, lat: 5 }, { m: 800, lat: -5 }, { m: 1850, lat: 5 }, { m: 2960, lat: -5 }, { m: 3180, lat: 5 }, { m: 4380, lat: 5 }],
-        aiMul: 1.0,                       // (v173: 0.98 at a 45 s lap; over a two-minute lap his hand gained more -- 85% wins -- so even)
+        aiMul: 1.003,                      // (v173: 0.98 at a 45 s lap; over a two-minute lap his hand gained more -- 85% wins -- so even)
         // (v189) THE DUNES' EVENTS (raceevents.js). The freight line: a level railway bed `y` m high, `w` m wide,
         // eased into the ground over `blend` m (terrain.js rcRailBed), from x0 to x1 along z -- under the third
         // dune's crest (section `sec`), where the road stands on a short bridge `gap` m either side of the rail.
@@ -2545,7 +2547,7 @@ const TUNE = {
       // motorway, 7.8 km from the oval.)
       { id: "beach", site: { x: -900, z: 6585, heading: 90 },
         pads: [{ m: 150, lat: 5 }, { m: 560, lat: -5 }, { m: 1200, lat: 5 }, { m: 1400, lat: -5 }, { m: 2990, lat: 5 }, { m: 3110, lat: -5 }],   // (none on a splash: cyan on water does not read)
-        aiMul: 1.015,                     // (at 1.0 the noisy hand won 88%: a lap that is mostly long straights gives his hand nothing to lose; 1.02 won 45%; v191, with the waves and the ship, 1.018 won 46%)
+        aiMul: 1.011,                     // (at 1.0 the noisy hand won 88%: a lap that is mostly long straights gives his hand nothing to lose; 1.02 won 45%; v191, with the waves and the ship, 1.018 won 46%)
         // (v191) waves up the beach and the water-cannon ship in the lagoon (raceevents.js); `side` is the sea's
         events: [{ kind: "waves", m: 1090, side: 1 }, { kind: "ship", m: 2420, side: 1, from: 2190, to: 2660 }],
         sections: [
@@ -2677,6 +2679,17 @@ const TUNE = {
     // `at` of the way along, its face `up` m long and its back `down`. A car leaves
     // the deck where it falls away faster than `g` lets it fall, at no more than
     // `vyMax` m/s upward, and carries its speed through the air.
+    // (v194) THE BIG MOMENTS. `rocket`: his finger down from the first red lamp to green is a burst of `k` pads' time off
+    // the line, leaving it at `launch` of race speed; `flip`: a flight of `minAir` s or more turns one somersault in the first `of` of it, and lands with `k`
+    // pads' time; `music`: a note a beat (`bpm`, `finalK` quicker on the last lap) at `vol`; `crowd`: the last lap's roar;
+    // `photo`: him within `near` m of the line on the last lap and a rival within `close` m of him -- the race at
+    // `scale` speed for `dur` s, a camera `camSide` m beside the line, a white flash `flash` strong; `gate`: a closed
+    // shortcut's boom, `at` m into it
+    big: { rocket: { k: 1.6, launch: 0.55, aiP: 0.5, flameFor: 1.2, size: 1.6, along: 5, flash: 0.9, fade: 0.9 }, flip: { minAir: 0.85, of: 0.85, k: 0.6, finish: 18 },
+           music: { bpm: 132, finalK: 1.3, vol: 0.035, notes: [523, 659, 784, 659, 587, 698, 880, 698], bass: [131, 175, 147, 196] },
+           crowd: { chord: [392, 494, 587, 784], dur: 1.6, vol: 0.06 },
+           photo: { near: 12, close: 7, scale: 0.3, dur: 1.6, camSide: 11, camAhead: 14, camUp: 1.6, flash: 0.85, fade: 0.6 },   // (on the kerb on his side, ahead of the line, inside the gantry's legs: they stood in the shot)
+           gate: { at: 6, bars: 6, boomH: 1.1, postH: 2.4, y: 1.4, sign: 1.6, rate: 1.5, swing: 1.5708 } },
     // (v193) a loop: the road `w` m wide in it, funnelling over `funnel` m either side; its underside `deckT` deep; the
     // chase camera rides its deck `camBack` m behind him, `camUp` up, looking `look` m ahead (from `camBack` before it to
     // `camAfter` past it); from the seat, `seatEye` up

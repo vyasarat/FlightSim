@@ -64,6 +64,7 @@ entry below.
 | v191 | on Beach Splash he points at the ship or says "boat!", steers off an orange ring on purpose at least once, and drives into a wave to make it splash |  open |
 | v192 | on Sky Glow Road he steers to go through a ring on purpose (says "ring!" or aims at the next one), and leans or steers against a gust |  open |
 | v193 | on the oval he shouts or laughs going upside down round the loop (or says "loop!"), and asks to race the oval again to do it again |  open |
+| v194 | he holds his finger down through the three red lamps on purpose by his second race, and he cheers a flip or the slow-motion finish |  open |
 | v188 | nothing he would mention: racing from the driving seat, every time he puts his finger down it steers -- no "it's not working" in the middle of the screen |  open |
 | v181 | nothing he mentions about rocks or stones behind the car in a race; on Beach Splash he calls the white behind the car splashing or water |  open |
 | v182 | nothing he mentions: at night in the Corvette's driving seat the mirror is dark like the sky, and when he holds the booster he still sees the flames in it |  open |

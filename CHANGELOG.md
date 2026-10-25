@@ -10,6 +10,20 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v194 — Big moments in every race
+
+Every race now has its big moments. Hold your finger down through the three red lamps and the
+engine winds up with each one -- on green you shoot off the line in a burst of flame (some of the
+rivals do too). Every jump big enough turns your car right over in a somersault, landed on its
+wheels with a little push. A tune plays under the race and gets quicker on the last lap, when the
+stands roar and, on the oval, a barrier across a dusty short cut lifts -- it is shut until then.
+And when it is nose to nose at the line, the race goes into slow motion and a camera beside the
+line takes the photo, with a flash. Win rates with the noisy hand and random taps, 40 races a car (the dunes'
+rivals a hair quicker, 1.003, the beach's a hair slower, 1.011): oval 38-65%, dunes 50-57%, snow 47-68%, beach
+42-55%, sky 55-63%; 0 bangs, never stuck. The parent's exception, written into the rules: a short cut may stay shut
+until the last lap.
+
+
 ## v193 — the Oval: a real loop-the-loop and a stunt ramp
 
 The oval's back straight now has a real loop-the-loop. The road funnels down to one lane, goes

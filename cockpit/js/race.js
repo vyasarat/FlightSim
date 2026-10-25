@@ -574,6 +574,27 @@ function rcBuildVenue(def) {
       }
     }
   }
+  // (v194) a shortcut shut until the last lap: a red-and-white boom across its mouth, down; it lifts when it opens
+  for (const sc of T.sc) {
+    if (!sc.final) continue;
+    const G = RC.big.gate, q = sc.S[Math.min(sc.n - 1, Math.round(G.at / TK.ds))], HW = sc.half + 0.4;
+    const frame = new THREE.Group(), pivot = new THREE.Group(), boxes = [];
+    for (let k = 0; k < G.bars; k++) boxes.push({ x: (k + 0.5) * (2 * HW) / G.bars, y: 0, z: 0, w: 2 * HW / G.bars, h: G.boomH, d: G.boomH, c: k % 2 ? P.white : P.red });
+    const boom = new THREE.Group(); for (const [c, list] of [[P.red, boxes.filter(b => b.c === P.red)], [P.white, boxes.filter(b => b.c === P.white)]]) boom.add(new THREE.Mesh(mergeBoxes(list), new THREE.MeshLambertMaterial({ color: c })));
+    // in its middle, a round red sign with a white bar -- "not this way" without a word -- that lifts with it
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(G.sign, 24), new THREE.MeshBasicMaterial({ color: P.red, side: THREE.DoubleSide }));
+    const bar = new THREE.Mesh(new THREE.PlaneGeometry(G.sign * 1.3, G.sign * 0.32), new THREE.MeshBasicMaterial({ color: P.white, side: THREE.DoubleSide }));
+    disc.position.set(HW, G.boomH / 2 + G.sign * 0.9, 0); bar.position.set(HW, G.boomH / 2 + G.sign * 0.9, 0.02);
+    boom.add(disc, bar); sc.gateSign = [disc, bar];
+    pivot.add(boom); frame.add(pivot);
+    for (const sd of [-1, 1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.35, G.postH, 0.35), new THREE.MeshLambertMaterial({ color: P.white })); post.position.set(sd < 0 ? 0 : 2 * HW, G.postH / 2 - G.y, 0); frame.add(post); }
+    // across the shortcut (its left), up, and along it
+    rcM.makeBasis(rcV1.set(-sc.lx, 0, -sc.lz), rcV2.set(0, 1, 0), rcV3.set(-sc.dx, 0, -sc.dz));   // (right-handed: across, up, back toward him -- the disc faces him)
+    frame.quaternion.setFromRotationMatrix(rcM);
+    frame.position.set(q.x + sc.lx * HW, q.gy + G.y, q.z + sc.lz * HW);
+    frame.traverse(o => { o.userData.noSolid = true; });
+    g.add(frame); sc.gate = pivot; sc.gateA = 0;
+  }
   // the start line, chequered across the deck
   const s0 = S[0];
   const sq = RC.width / 12;
@@ -1201,6 +1222,7 @@ function rcStartRace(trackId, seed) {
   rcClearRacers();
   race.on = true; race.phase = "grid"; race.t = 0; race.finished = 0; race.order = [];
   race.stuckT = 0; race.stuck = 0; race.shoves = 0; race.wallShoves = 0; race.glideT = 0; race.padHits = 0; race.bangs0 = flags.carCrashes || 0;
+  race.rocketOK = true; race.rocket = false; race.rocketT = 0; race.musT = 0; race.musBeat = 0; race.finalLap = false; race.slowT = 0; race.photoT = 0; race.photo = false;   // (v194)
   race.podium = null; race.confT = 0; race.fwT = 0; rcSparksClear();   // (v184: none left over from the last podium)
   if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
   race.loseShot = null;
@@ -1263,6 +1285,8 @@ function raceExit() {
 
 // Out of it without going anywhere (the picker, a relaunch): everything put away.
 function raceReset() {
+  for (const id of ["rcGlow", "rcFlash"]) { const f = document.getElementById(id); if (f) f.style.opacity = "0"; }   // (v194: nothing left over the screen)
+  race.rocketT = 0; race.photoT = 0; race.slowT = 0;
   if (!race.on && !race.racers.length) { if (el.screenRace) raceClosePicker(); return; }
   race.on = false; race.phase = "off";
   rcClearRacers();
@@ -1293,6 +1317,8 @@ function raceAgain() {
 // ---- the frame --------------------------------------------------------------------------
 function rcUpdate(dt) {
   if (!race.on) return;
+  // (v194) a photo finish: the race itself slowed for `dur` s of the game's time, the camera at the line (raceCamera)
+  if (race.slowT > 0) { race.slowT -= dt; race.photoT = race.slowT; dt *= RC.big.photo.scale; }
   race.t += dt;
   state.phase = "TAXI";
   const touching = state.touching && !menuOpen();
@@ -1301,7 +1327,7 @@ function rcUpdate(dt) {
   const pitch = touching ? clamp(state.ctrlPitch, -1, 1) : 0;
   const him = race.him;
 
-  if (race.phase === "grid") rcGrid(dt);
+  if (race.phase === "grid") rcGrid(dt, touching);
   if (race.phase !== "podium") rcItBefore(dt);   // (v187) a giant's size, a spin's turn
   const going = race.phase === "race" || race.phase === "done";
   // ---- him: the same speed model as every racer, and his finger
@@ -1320,6 +1346,7 @@ function rcUpdate(dt) {
     rcItAfter(dt, race.phase === "race");          // (v187) boxes caught, items used, balls and slicks
     rceUpdate(dt, race.phase === "race");          // (v189) the track's events
     rcLaps();
+    rcBigMoments(dt);                              // (v194) the music, the last lap, a photo finish
   }
   // ---- the podium: once all are home (or after a backstop, in the order they stand)
   if (race.phase === "done") {
@@ -1344,9 +1371,13 @@ function rcUpdate(dt) {
 
 // the countdown: the gantry's three lamps come on red, one a second, then all
 // green and they go. The numeral is the wind-up counter, as every set-piece's is.
-function rcGrid(dt) {
+function rcGrid(dt, touching) {
   const t = race.t, c = RC.count;
   const lit = Math.floor((t - c.lead) / c.step) + 1;
+  // (v194) THE ROCKET START: his finger down from the first red lamp to the green -- the engine winds up with each lamp,
+  // and he goes off the line with a pad's burst. A finger lifted on the way is a plain start (nothing lost)
+  if (lit >= 1 && lit <= 3 && !touching) race.rocketOK = false;
+  if (lit >= 1 && lit <= 3 && touching && race.revLit !== lit) { race.revLit = lit; synthBlip("sawtooth", 70 + lit * 35, 110 + lit * 45, 0.5, 0.07, 0); }
   for (let k = 0; k < 3; k++) race.lights[k].material.color.setHex(k < lit ? 0xe0483e : TUNE.palette.ink);
   const left = 3 - Math.max(0, lit) + 1;
   if (lit >= 1 && lit <= 3) { setBigNum(4 - lit); if (race.lastLit !== lit) { race.lastLit = lit; synthBlip("triangle", 520, 520, 0.16, 0.18, 0); } }
@@ -1357,6 +1388,16 @@ function rcGrid(dt) {
     el.bigNum.classList.remove("sky", "race");
     synthBlip("triangle", 1040, 1040, 0.4, 0.24, 0);
     flags.raceGo = (flags.raceGo || 0) + 1;
+    race.revLit = 0;
+    // the rivals get one too, some of them (drawn from the race's own stream): the field goes off as a field
+    for (const r of race.racers) if (!r.isHim && rcRnd() < RC.big.rocket.aiP) { r.padT = RC.padTime * RC.big.rocket.k; r.v = Math.max(r.v, RC.v * RC.big.rocket.launch * r.skill); }
+    if (race.rocketOK && touching) {
+      const him = race.him, B = RC.big.rocket;
+      him.padT = RC.padTime * B.k; race.rocket = true;
+      him.v = Math.max(him.v, RC.v * spdMul() * B.launch);   // (off the line already rolling: from rest a pad's aim alone is still the same climb)
+      rcWhoosh(); cameraPunch(0.6); rcThing("rocket"); flags.raceRocketStarts = (flags.raceRocketStarts || 0) + 1;
+      race.rocketT = B.flameFor;                    // (flames along both sides for a moment, and from the seat a glow: rcBigMoments)
+    }
   }
   return left;
 }
@@ -1439,7 +1480,7 @@ function rcAI(r, dt, going) {
   for (const sc of race.track.sc) {
     if (r.path) break;
     const ahead = rcAhead(sc.sa + sc.gore, r.s);
-    if (ahead > 0 && ahead < A.padSee + sc.gore) { if (r.scFor !== sc) { r.scFor = sc; r.scGo = rcRnd() < A.shortcutP; } if (r.scGo) aim = sc.side * (RC.width / 2 - sc.mouth / 2); }
+    if (ahead > 0 && ahead < A.padSee + sc.gore && rcScOpen(sc, r)) { if (r.scFor !== sc) { r.scFor = sc; r.scGo = rcRnd() < A.shortcutP; } if (r.scGo) aim = sc.side * (RC.width / 2 - sc.mouth / 2); }
   }
   if (r.path) aim = Math.sin(r.lineT * A.wander[0] + r.i) * Math.min(A.wander[1], r.path.half / 3);
   for (const pd of race.pads) {
@@ -1483,7 +1524,7 @@ function rcMove(r, dt) {
   r.lat += rceWind(r) * dt;                        // (v192) a gust on the sky road pushes every car across (the barrier below holds it)
   const lim = rcLim(r, 0.2);                           // (v193: narrower in a loop's funnel)
   // (held to a shortcut's side through its approach, that edge is its way in, not a barrier)
-  rcEdge(r, lim, dt, () => r.scw && race.track.sc.some(sc => { const w = r.scw.get(sc); return sc.side === Math.sign(r.lat) && w && w.on && w.ok; }));
+  rcEdge(r, lim, dt, () => r.scw && race.track.sc.some(sc => { const w = r.scw.get(sc); return sc.side === Math.sign(r.lat) && w && w.on && w.ok && rcScOpen(sc, r); }));
   const f = 1 / Math.max(0.6, 1 - q.kh * r.lat);
   const prevS = r.s;
   r.s += r.v * f * dt;
@@ -1506,7 +1547,7 @@ function rcMove(r, dt) {
   for (const sc of race.track.sc) {
     const L = race.track.len, nose = sc.sa + sc.gore, base = Math.floor(prevS / L) * L;
     const w = r.isHim ? rcScHold(r, sc, r.s - base - (nose - sc.hold), dt) : null;
-    const chose = r.isHim ? w.on && w.ok : r.scGo && r.scFor === sc;
+    const chose = rcScOpen(sc, r) && (r.isHim ? w.on && w.ok : r.scGo && r.scFor === sc);   // (v194: a closed one is no choice)
     if (prevS - base < nose && r.s - base >= nose && chose && sc.side * r.lat >= RC.width / 2 - sc.mouth && !r.air && !r.done) {
       rcPoint(r.s, r.lat, rcPV);
       r.path = sc; r.scBase = base; r.wallSide = undefined;
@@ -1590,15 +1631,29 @@ function rcMoveSc(r, dt) {
 // far it flies is its speed's alone, so the same for every car.
 const rcPV = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
 const rcPC = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
+// (v194) how long a car leaving the deck now will be in the air: flown ahead by the same steps it will fly by
+function rcFlightTime(r) {
+  const J = RC.jump, h = 1 / 60;
+  let y = r.y, vy = r.vy, s = r.s;
+  for (let t = 0; t < 6; t += h) { vy -= J.g * h; y += vy * h; s += r.v * h; if (y <= rcPoint(s, r.lat, rcPC).y) return t; }
+  return 6;
+}
 function rcVertical(r, dt) {
   const J = RC.jump, yd = rcPoint(r.s, r.lat, rcPV).y;
+  // (v194) down before its somersault was done (a steer, a gust): it finishes the turn on its wheels, quickly, never snaps
+  if (!r.air && r.flipRest) { r.flipA += RC.big.flip.finish * dt; if (r.flipA >= 2 * Math.PI) { r.flipA = 0; r.flipRest = false; } }
   // (what the seat shows of it: his pitch, made big enough to read, eased so it never snaps)
   if (r.isHim) r.seatP = (r.seatP || 0) + (clamp(rcAirPitch(r) * J.seatGain, -J.seatMax, J.seatMax) - (r.seatP || 0)) * Math.min(1, (r.air ? J.seatEase : J.seatSettle) * dt);
   if (r.y === undefined) { r.y = yd; r.vy = 0; r.vyG = 0; r.air = false; }
   if (r.air) {
     r.vy -= J.g * dt; r.y += r.vy * dt; r.airT += dt;
+    if (r.flipOn) { r.flipT += dt; const k = Math.min(1, r.flipT / (r.flipDur * RC.big.flip.of)); r.flipA = 2 * Math.PI * k * k * (3 - 2 * k); }
     if (r.y <= yd) {
       r.air = false; r.y = yd; r.vyG = 0;
+      if (r.flipOn) {                               // (round and down: a small push for it)
+        r.flipOn = false; r.flipRest = r.flipA > 0.01 && r.flipA < 2 * Math.PI - 0.01; if (!r.flipRest) r.flipA = 0; r.padT = Math.max(r.padT || 0, RC.padTime * RC.big.flip.k);
+        if (r.isHim) { rcThing("flip"); flags.raceFlips = (flags.raceFlips || 0) + 1; synthBlip("triangle", 660, 990, 0.25, 0.12, 0); }
+      }
       if (r.isHim) { flags.raceLandings = (flags.raceLandings || 0) + 1; cameraPunch(0.3); synthBlip("sine", 150, 60, 0.22, 0.22, 0); }
       const sf = rcSurfAt(r.s);
       if (sf.spray) for (const sd of [-1, 1]) { rcPoint(r.s, r.lat + sd * 0.4 * r.wid, rcPV); rcPuff(rcPV.x, rcPV.y + 0.4, rcPV.z, sf.spray, sf.size * 1.6, sf.rise, sf.life, sf.sprayA); }
@@ -1611,6 +1666,9 @@ function rcVertical(r, dt) {
   if (yFree > yd + 0.001 && r.v > J.minV && rcAt(r.s).dune) {         // (a millimetre: the deck curving away faster than g, not its noise)
     r.air = true; r.airT = 0; r.vy = vyL - J.g * dt; r.y = yFree;
     if (r.isHim) { flags.raceJumps = (flags.raceJumps || 0) + 1; rcThing("jump"); }
+    // (v194) a FLIP: where it will come down is known now (the same model it flies by), so a flight long enough turns
+    // one whole somersault and finishes it before the wheels touch -- never a landing on its roof
+    r.flipDur = rcFlightTime(r); r.flipT = 0; r.flipA = 0; r.flipOn = r.flipDur >= RC.big.flip.minAir;
   } else { r.vyG = dt > 0 ? (yd - r.y) / dt : 0; r.y = yd; }
 }
 
@@ -1673,6 +1731,73 @@ function rcLaps() {
   }
 }
 
+// (v194) THE BIG MOMENTS, every frame of a race: a tune under it all, quicker on the last lap; the last lap's start a
+// roar from the stands and the closed shortcut opening (rcScOpen); and a photo finish when it is close at the line.
+// Every sound is a plain tone (synthBlip): a race draws nothing from Math.random (race_track_checks h).
+function rcBigMoments(dt) {
+  const B = RC.big, him = race.him, L = race.track.len;
+  if (!him) return;
+  rcFlashes();
+  // the rocket start's flames: bright, both sides of him from the back wheels to past the front ones -- seen in the
+  // seat's side windows as well as from behind
+  if (race.rocketT > 0) {
+    race.rocketT -= dt;
+    if (((race.t * 30) | 0) !== (((race.t - dt) * 30) | 0)) for (const sd of [-1, 1]) for (let k = 0; k < B.rocket.along; k++) {   // (from his back wheels to past his nose: in the seat's windscreen too)
+      rcPoint(him.s - 2 + k * 2.5, him.lat + sd * (him.wid / 2 + 0.6), rcPV);
+      rcPuff(rcPV.x, rcPV.y + 0.5, rcPV.z, k % 2 ? TUNE.palette.flame : TUNE.palette.fire, B.rocket.size, 1.6, 0.45, 1);
+    }
+  }
+  // the tune: a note on every beat, a bass on every other, quicker by `finalK` on the last lap
+  if (race.phase === "race") {
+    const beat = 60 / (B.music.bpm * (race.finalLap ? B.music.finalK : 1));
+    race.musT += dt;
+    while (race.musT >= beat) {
+      race.musT -= beat;
+      const k = race.musBeat++, f = B.music.notes[k % B.music.notes.length];
+      synthBlip("triangle", f, f, beat * 0.6, B.music.vol, 0);
+      if (k % 2 === 0) synthBlip("sine", B.music.bass[(k >> 1) % B.music.bass.length], B.music.bass[(k >> 1) % B.music.bass.length], beat * 1.2, B.music.vol * 1.4, 0);
+    }
+  }
+  // the last lap: the stands roar, and what was shut opens
+  if (!race.finalLap && Math.floor(him.s / L) >= RC.laps - 1 && !him.done) {
+    race.finalLap = true; flags.raceFinalLaps = (flags.raceFinalLaps || 0) + 1;
+    rcThing("final");
+    B.crowd.chord.forEach((f, i) => { synthBlip("sawtooth", f, f * 1.06, B.crowd.dur, B.crowd.vol, i * 0.04); synthBlip("triangle", f * 2, f * 2.1, B.crowd.dur * 0.8, B.crowd.vol * 0.6, 0.1 + i * 0.05); });
+  }
+  // a photo finish: him within `near` m of the line on the last lap with a rival within `close` m of him
+  if (race.phase === "race" && race.finalLap && !race.photo) {
+    const toLine = RC.laps * L - him.s;
+    if (toLine > 0 && toLine < B.photo.near && race.racers.some(r => !r.isHim && !r.done && Math.abs(r.s - him.s) < B.photo.close)) {
+      race.photo = true; race.slowT = B.photo.dur; race.photoT = B.photo.dur;
+      rcThing("photo"); flags.racePhotoFinishes = (flags.racePhotoFinishes || 0) + 1;
+      synthBlip("sine", 1800, 1800, 0.08, 0.2, 0);
+    }
+  }
+  // the closed shortcut's barrier: up once it is open
+  for (const sc of race.track.sc || []) if (sc.gate) { const up = rcScOpen(sc, him) ? 1 : 0; sc.gateA += clamp(up - sc.gateA, -dt * B.gate.rate, dt * B.gate.rate); sc.gate.rotation.z = sc.gateA * B.gate.swing; for (const m of sc.gateSign) m.visible = sc.gateA < 0.3; }   // (open, it says nothing: red-and-bar means no)
+}
+// (v194) a shortcut marked `final` is shut -- a barrier across its mouth -- until his (or that racer's) last lap
+function rcScOpen(sc, r) { return !sc.final || (r && Math.floor(r.s / race.track.len) >= RC.laps - 1); }
+// the photo's flash: the whole screen white for an instant; the rocket start's from the seat: a warm glow round the
+// edges, the flames he cannot see beside him (spray fades near the camera by design). Plain elements, no words.
+function rcFlash(edge) {
+  const id = edge ? "rcGlow" : "rcFlash";
+  let f = document.getElementById(id);
+  if (!f) {
+    f = document.createElement("div"); f.id = id;
+    f.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;background:" + (edge ? "radial-gradient(ellipse at center, rgba(255,122,26,0) 45%, rgba(255,122,26,0.85) 100%)" : "#fff");
+    document.body.appendChild(f);
+  }
+  return f;
+}
+// both by the race's own clock (a CSS fade ran on the wall's, and was gone before a frame of slowed race had passed)
+function rcFlashes() {
+  const B = RC.big, seat = !state.viewChase;
+  const g = race.rocketT > 0 && seat ? B.rocket.flash * race.rocketT / B.rocket.flameFor : 0;
+  const w = race.photo && race.photoT > 0 ? B.photo.flash * Math.max(0, 1 - (B.photo.dur - race.photoT) / B.photo.fade) : 0;
+  if (g > 0 || document.getElementById("rcGlow")) rcFlash(true).style.opacity = g.toFixed(3);
+  if (w > 0 || document.getElementById("rcFlash")) rcFlash(false).style.opacity = w.toFixed(3);
+}
 // Places as they stand on the road: finished first (in their order), then by how far round.
 function racePlaces() {
   return race.racers.slice().sort((a, b) => (a.done !== b.done) ? (a.done ? -1 : 1) : a.done ? a.place - b.place : b.s - a.s);
@@ -2043,6 +2168,7 @@ function rcPose(r) {
     const R = rcV3.crossVectors(F, N).normalize();
     rcM.makeBasis(R, N, F.clone().negate());
     m.quaternion.setFromRotationMatrix(rcM);
+    if (r.flipA) m.quaternion.multiply(rcQ1.setFromAxisAngle(rcV1.set(1, 0, 0), r.flipA));   // (v194) nose over, round its own right
     const gk = r.giantK > 1 ? r.giantK : 1;      // (v187) GIANT: the body scaled up, its wheels still on the deck
     if (gk > 1) { m.userData.rcS0 = m.scale.clone(); m.scale.multiplyScalar(gk); }
     const lift = (r.isHim ? rcHimLift() : (m.userData.rcLift || 0)) * gk;
@@ -2085,8 +2211,8 @@ function rcPoseAll() { for (const r of race.racers) rcPose(r); }
 function racePoseModel(m) {
   if (!race.him) return;
   race.him.mesh = m;
-  m.visible = state.viewChase || race.phase === "podium";
-  if (m.userData.cab) m.userData.cab.visible = state.viewChase || race.phase === "podium";
+  m.visible = state.viewChase || race.phase === "podium" || race.photoT > 0;   // (v194: the photo finish sees him from beside the line)
+  if (m.userData.cab) m.userData.cab.visible = state.viewChase || race.phase === "podium" || race.photoT > 0;
   rcPose(race.him);
 }
 
@@ -2114,6 +2240,17 @@ function raceCamera(dt) {
   const sway = rcItSeatYaw(him), roll = sway * RC.items.spin.seatRoll / RC.items.spin.seatYaw, seatK = him && him.giantK > 1 ? him.giantK : 1;
   const tk = rceCamK(him), TC = RC.events.train;      // (v189) over the train, the chase camera looks down at it
   const gPitch = -(seatK - 1) * RC.items.giant.seatPitch;   // (and looks down on the road and the cars, far below)
+  // (v194) a photo finish: from beside the line, low, square across it -- the cars go by in slow motion
+  if (race.photoT > 0 && him) {
+    const P = RC.big.photo, sd = him.lat >= 0 ? 1 : -1;                // (his side: a rival on the far side never hides him)
+    rcPoint(RC.laps * race.track.len + P.camAhead, sd * P.camSide, rcPC);
+    camera.position.set(rcPC.x, rcPC.y + P.camUp, rcPC.z);
+    rcPoint(RC.laps * race.track.len, him.lat * 0.5, rcPV);
+    lookV.set(rcPV.x, rcPV.y + 1, rcPV.z); camera.lookAt(lookV);
+    if (typeof carHideCabin === "function") carHideCabin();
+    if (race.him.mesh) race.him.mesh.visible = true;
+    return;
+  }
   // (v193) round a loop, both cameras turn over with him: the chase one rides the loop's own deck behind him, its up
   // the loop's, so the loop is the road ahead and the sky goes round; the seat is his car's own frame
   if (him && rcLoopNear(him)) {
