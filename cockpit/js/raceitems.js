@@ -420,9 +420,18 @@ function rcItDrawFrame() {
   for (const r of race.racers) {
     if (!(r.itBoostT > 0) || !r.mesh || Math.hypot(r.mesh.position.x - cx, r.mesh.position.z - cz) > RC.spray.near) continue;
     r.flameK = (r.flameK || 0) + 1;
+    // out of the back of the body as it is DRAWN, `flameUp` of the way up it: at a fixed 0.7 m the monster truck's
+    // burned at its wheel hubs, laid on the road behind it (v196)
+    // (measured once, the car level, as a height over the road; then laid off the road's own up, which turns with it
+    // round a loop -- a world box there measured the car's length)
+    if (r.flameH === undefined || r.flameGK !== r.giantK) {
+      rcPoint(r.s, r.lat, rcItP);
+      if (rcItP.ny > 0.95) { rcItBodyBox(r.mesh); r.flameH = Math.max(0.7 * r.giantK, rcItBox.min.y + (rcItBox.max.y - rcItBox.min.y) * RCI.boost.flameUp - rcItP.y); r.flameGK = r.giantK; }
+    }
+    const fh = r.flameH === undefined ? 0.7 * r.giantK : r.flameH;
     for (const sd of [-0.25, 0.25]) {
       if (r.path) rcScPoint(r.path, r.u - r.len * 0.55, r.lat + sd * r.wid, rcItP); else rcPoint(r.s - r.len * 0.55, r.lat + sd * r.wid, rcItP);
-      rcPuff(rcItP.x, rcItP.y + 0.7 * r.giantK, rcItP.z, r.flameK % 2 ? 0xff7a1a : 0xffd23e, 0.45 * r.giantK, 0.4, 0.28, 0.95);
+      rcPuff(rcItP.x + rcItP.nx * fh, rcItP.y + rcItP.ny * fh, rcItP.z + rcItP.nz * fh, r.flameK % 2 ? 0xff7a1a : 0xffd23e, 0.45 * r.giantK, 0.4, 0.28, 0.95);
     }
   }
   // bubbles round whoever has one
