@@ -44,7 +44,7 @@ const COST = {
 const DEFAULT = 1.0;
 // (v194) launchsite_checks and monstertruck_checks render frame after frame: 38 s and 2 min alone, 12-17 and 9 min
 // beside three busy shards -- in v194's runs past the 20-minute stall line between two checks. Alone, at the end.
-const SOLO = ["events_perf_checks", "launchsite_checks", "monstertruck_checks"];   // the whole module, alone
+const SOLO = ["events_perf_checks", "launchsite_checks", "monstertruck_checks", "rocketsled_checks"];   // the whole module, alone (v195: the rocket sled's smash-on-screen check at every viewport, 7-18 min in a shard, crossed the line too)
 const PERF_PARTS = ["boat_checks", "sea_checks", "yacht_checks", "dadmode_checks"];   // their timing part, alone
 const BASE_PORT = 8177;
 
