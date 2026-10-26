@@ -653,9 +653,12 @@ function buildAirport(idx, opts) {
   const cart = new THREE.Group();
   part(cart, new THREE.BoxGeometry(2.2, 1.8, 3), 0x36c46a, 0, 1.2, 0);
   for (const dz of [-3.6, -7]) part(cart, new THREE.BoxGeometry(2, 1.4, 2.6), 0x8a93a0, 0, 1, dz);
-  for (const v of [truck, cart]) { v.position.set(m * 180, 0.5, v === truck ? 120 : 160); scene.add(v); }
-  rec.vehicles.push({ mesh: truck, homeX: m * 180, homeZ: 120, x: m * 180, z: 120, tx: m * 180, tz: 120 },
-                    { mesh: cart, homeX: m * 180, homeZ: 160, x: m * 180, z: 160, tx: m * 180, tz: 160 });
+  // (v197) opts.apronHome: their home is THIS airport's apron. The two older airports' trucks rest at
+  // z 120/160 of the world -- mid-country, not by their runways (QUEUE: a bug of its own, not moved here)
+  const hz = O.apronHome ? ap.cz : 0;
+  for (const v of [truck, cart]) { v.position.set(m * 180, 0.5, hz + (v === truck ? 120 : 160)); scene.add(v); }
+  rec.vehicles.push({ mesh: truck, homeX: m * 180, homeZ: hz + 120, x: m * 180, z: hz + 120, tx: m * 180, tz: hz + 120 },
+                    { mesh: cart, homeX: m * 180, homeZ: hz + 160, x: m * 180, z: hz + 160, tx: m * 180, tz: hz + 160 });
   // hangars with arched roofs
   for (const z of [-300, -370]) {
     lmBox(g, 56, 14, 44, 0xb0b6bf, m * 215, 7, z, true, "corrugated");

@@ -26,6 +26,8 @@ helicopter) starts him in New York, California or London. New York and Californi
 show the globe when parked. In it the yacht's resting height also reads -3.5 where it read -3.4:
 the hull is still settling there and sits on the -3.45 rounding line; frame by frame from a fresh
 spawn the two builds differ by at most 0.1 mm. Inside the check's 0.25 m tolerance either way.)
+Dad mode's Doolittle raid now starts its carrier 3.8 km out from New York's north coast, not 7 km:
+Britain stands where she used to steam.
 
 ## v196 — The monster truck's boost flames come out of the truck
 

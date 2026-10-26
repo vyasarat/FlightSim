@@ -2289,7 +2289,8 @@ const TUNE = {
     // `need` of them hit and `outWest` on west of the westmost is a success.
     doolittle: {
       carrier: { x: -3000, len: 250, beam: 26, deckY: 17, speed: 12, line: -2.5, startBack: 108, run: 142, parked: 15 },
-      wind: 4, flagCount: 4, deckBoost: 1.15, gearH: 2.0, flapK: 0.82, flapsUp: 46, flapsUpV: 1.3, sink: 7, stallDrop: 1.5, farOut: 7000, clearR: 1200, coastScan: [8400, 5600],
+      wind: 4, flagCount: 4, deckBoost: 1.15, gearH: 2.0, flapK: 0.82, flapsUp: 46, flapsUpV: 1.3, sink: 7, stallDrop: 1.5, farOut: 3800, clearR: 1200,   // (farOut: was 7000 -- since v197 Britain stands there; 3.8 km keeps her on the open sea, 0.8 km short of its cliffs)
+      coastScan: [8400, 5600],
       // where his north coast is clean and the land runs 900 m inland unbroken (surveyed)
       targets: [
         { kind: "docks", x: -3500, inland: 30, hx: 70, hz: 34 }, { kind: "factory", x: -3200, inland: 330, hx: 64, hz: 40 },
