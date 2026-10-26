@@ -34,6 +34,7 @@
 const BTN_SLOT = {
   topLeft1: "top-left, first",     topLeft2: "top-left, second",
   topRight1: "top-right, first",   topRight2: "top-right, second",  topRight3: "top-right, third",
+  topRow: "top row, beside the view button",
   lowLeft: "bottom-left, low",     highLeft: "bottom-left, high",
   lowRight: "bottom-right, low",   highRight: "bottom-right, high",
   dashLeft: "dash corner, left",   dashRight: "dash corner, right",  dashRight2: "dash corner, inboard",
@@ -88,8 +89,10 @@ const BUTTONS = {
   // in a race its way out (the go button's corner: in a race he is never parked,
   // so the picker button is not there) and, at the podium, again or back.
   raceBtn:      { slot: "lowRight", when: () => raceBtnShows() },
-  // ---- v197: the globe (london.js) -- where to start: New York, California or London
-  globeBtn:     { slot: "topRight3", when: () => typeof ldGlobeShows === "function" && ldGlobeShows() },
+  // ---- v197: the globe (london.js) -- where to start: New York, California or London.
+  // (v198: in the top row, beside the view button: in a car the speed pair stands under
+  // the view button even parked, and in the helicopter the up button reaches up there)
+  globeBtn:     { slot: "topRow", when: () => typeof ldGlobeShows === "function" && ldGlobeShows() },
   raceExitBtn:  { slot: "topLeft1",  when: () => raceExitShows() },
   raceAgainBtn: { slot: "free",      when: () => raceEndShows() },
   raceBackBtn:  { slot: "free",      when: () => raceEndShows() },

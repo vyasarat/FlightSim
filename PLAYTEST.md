@@ -73,6 +73,7 @@ entry below.
 | v185 | nothing he mentions: flying or driving near Snowy Peaks, the snow round the track fades softly into the grass, with no zig-zag edge anyone points at |  open |
 | v186 | nothing he notices: when he wins, each firework still bangs as it opens over the podium |  open |
 | v197 | he taps the globe and picks London more than once; he names at least two landmarks out loud ("Big Ben", "Tower Bridge", "the big wheel") and flies under Tower Bridge on purpose; he hears Big Ben bong and says so; at least once he flies from New York across the sea to London |  open |
+| v198 | he starts the car in London from the globe and drives over Tower Bridge more than once; he points out or names a red bus ("a double-decker", "a London bus") or a black taxi; he notices the cars driving on the other side (says so, or asks why) -- and he never gets stuck or lost driving there |  open |
 
 ## Entries
 

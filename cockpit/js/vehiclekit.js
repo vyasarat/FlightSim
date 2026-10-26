@@ -377,6 +377,63 @@ const VK_SHAPES = {
     for (const sx of [-1, 1]) for (const z of [zF, zR]) vkWheel(B, sx * 1.60, z, 0.62, 0.62, sx, M);
   },
 
+  // v198, LONDON'S (streets.js wears them on the taxi and bus slots in London only).
+  // THE DOUBLE-DECKER: the bus's 13.8 m, 4.35 tall, two rows of windows and a lit
+  // destination strip between the decks with nothing written on it. The doors are on the
+  // LEFT: in London that is the kerb side. Its paint is the instance colour: red.
+  decker(B, M) {
+    const W = 1.62, zF = -4.35, zR = 3.75, ra = 0.80, yc = 0.62, sill = 0.42;
+    const half = (y, z) => W - Math.max(0, Math.abs(z) - 6.60) * 0.6 - Math.max(0, y - 4.05) * 0.5;
+    const prof = [
+      [-6.78, 0.42, "s"], [-6.90, 0.62, "p"], [-6.93, 1.50, "g"], [-6.95, 2.40, "p"], [-6.96, 2.75, "dest"],
+      [-6.96, 3.05, "g"], [-6.93, 3.95, "p"], [-6.75, 4.25, "p"], [-6.40, 4.35, "p"], [6.45, 4.35, "p"],
+      [6.85, 4.20, "p"], [6.92, 0.95, "s"], [6.80, 0.42, "k"],
+      ...vkArch(zR, yc, ra, sill, "k"), ...vkArch(zF, yc, ra, sill, "k"),
+    ];
+    vkExtrude(B, prof, half, M.p, M);
+    const pane = (z0, z1, y0, y1, sides) => vkSideDecal(B, [[z0, y0], [z1, y0], [z1, y1], [z0, y1]], W, M.g, sides);
+    const panes = [[-5.15, -3.85], [-3.65, -2.35], [-2.15, -0.85], [-0.65, 0.65], [0.85, 2.15], [2.35, 3.65], [3.85, 5.15], [5.35, 6.35]];
+    for (const [z0, z1] of panes) {
+      if (z0 === -0.65) { pane(z0, z1, 1.70, 2.40, [1]); pane(z0, z1, 0.70, 2.40, [-1]); }   // the middle door, kerb side
+      else pane(z0, z1, 1.70, 2.40);
+      pane(z0, z1, 3.05, 3.92);                                                  // the top deck
+    }
+    pane(-6.55, -5.35, 3.05, 3.92);
+    pane(-6.55, -5.35, 1.70, 2.40, [1]);                                     // the driver's window
+    pane(-6.55, -5.35, 0.70, 2.40, [-1]);                                    // the front door, kerb side
+    vkEdgeDecal(B, prof, 1, 0.12, 0.40, 1.00, 1.45, M.head);
+    vkEdgeDecal(B, prof, 10, 0.08, 0.30, -1.25, 1.25, M.g, true);           // the rear windows, both decks
+    vkEdgeDecal(B, prof, 10, 0.55, 0.75, -1.25, 1.25, M.g, true);
+    vkEdgeDecal(B, prof, 10, 0.88, 0.95, 1.10, 1.45, M.tail);
+    for (const sx of [-1, 1]) for (const z of [zF, zR]) vkWheel(B, sx * 1.58, z, 0.62, 0.62, sx, M);
+  },
+
+  // THE BLACK CAB: tall and upright -- a short round bonnet, a near-upright screen, a flat
+  // roof high enough for a hat -- with the lamp on its roof lit (a shape, no letters).
+  // Its paint is the instance colour: black.
+  cab(B, M) {
+    const W = 1.62, zF = -2.30, zR = 2.25, ra = 0.64, yc = 0.50, sill = 0.34;
+    const half = (y, z) => W - Math.max(0, Math.abs(z) - 3.20) * 0.5;
+    const prof = [
+      [-3.55, 0.34, "s"], [-3.68, 0.52, "p"], [-3.72, 0.92, "p"], [-3.58, 1.14, "p"], [-3.15, 1.30, "p"],
+      [-1.75, 1.44, "p"], [3.20, 1.44, "p"], [3.58, 1.30, "p"], [3.72, 0.95, "s"],
+      [3.70, 0.52, "k"], [3.58, 0.34, "k"],
+      ...vkArch(zR, yc, ra, sill, "k"), ...vkArch(zF, yc, ra, sill, "k"),
+    ];
+    vkExtrude(B, prof, half, M.p, M);
+    const gh = [[-1.75, 1.44, "g"], [-1.40, 2.42, "p"], [-1.20, 2.50, "p"], [2.70, 2.50, "p"], [3.05, 2.30, "g"], [3.20, 1.44, null]];
+    const ghHalf = (y) => 1.56 - (y - 1.44) * 0.12;
+    vkExtrude(B, gh, ghHalf, null, M);
+    vkBandCap(B, gh, ghHalf, [[-9, -1.35, M.p], [-1.35, 0.15, M.g], [0.15, 0.40, M.p], [0.40, 2.75, M.g], [2.75, 9, M.p]]);
+    const sign = [[-1.10, 2.48, "sign"], [-1.04, 2.72, "sign"], [-0.56, 2.72, "sign"], [-0.50, 2.48, null]];
+    vkExtrude(B, sign, () => 0.42, M.sign, M);
+    vkEdgeDecal(B, prof, 2, 0.15, 0.80, 0.80, 1.30, M.head);
+    vkEdgeDecal(B, prof, 1, 0.25, 0.95, -0.55, 0.55, M.m, true);           // the grille: chrome
+    vkEdgeDecal(B, prof, 7, 0.10, 0.85, 0.85, 1.30, M.tail);
+    for (const sx of [-1, 1]) vkBox(B, sx * 1.55, 1.56, -1.40, 0.26, 0.22, 0.30, M.p);
+    for (const sx of [-1, 1]) for (const z of [zF, zR]) vkWheel(B, sx * 1.60, z, 0.54, 0.58, sx, M);
+  },
+
   // THE BOX LORRY: a bonneted cab with a roof fairing, a white box, a chassis,
   // a fuel tank, a tandem at the back. 14.9 long, 4.2 wide.
   lorry(B, M) {
@@ -519,7 +576,7 @@ function vkCommit(m, n) {
   m.geometry.attributes.vkSpin.needsUpdate = true;
 }
 // wheel radius per shape, for the roll
-const VK_WHEEL_R = { sedan: 0.54, hatch: 0.54, taxi: 0.54, van: 0.58, bus: 0.62, lorry: 0.62 };
+const VK_WHEEL_R = { sedan: 0.54, hatch: 0.54, taxi: 0.54, van: 0.58, bus: 0.62, lorry: 0.62, cab: 0.54, decker: 0.62 };
 
 // Which car a car slot is: a sedan or a hatchback, by its index and nothing else.
 function vkCarShape(i) { return ((i * 11 + 3) % 5) < 2 ? "hatch" : "sedan"; }

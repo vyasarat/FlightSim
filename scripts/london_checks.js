@@ -243,9 +243,9 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
     const tap = el => { el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 9 })); };
     const frame = () => { L.update(1 / 60); L.btnUpdateAll(); };
     o.text = (document.getElementById("globeBtn").textContent + document.getElementById("screenGlobe").textContent).replace(/\s+/g, "");
-    // parked in each thing he might be in: the globe for the ones that fly from a runway
+    // parked in each thing he might be in: the globe for the ones that fly from a runway, and (v198) the cars
     o.shows = {};
-    for (const v of ["prop", "airlinerDelta", "fighter", "helicopter", "car", "speedboat", "rocket", "monster"]) {
+    for (const v of ["prop", "airlinerDelta", "fighter", "helicopter", "car", "cybertruck", "corvette", "speedboat", "rocket", "monster"]) {
       L.api.setVehicle(v); L.api.spawnAt(0, 0); for (let i = 0; i < 20; i++) frame();
       o.shows[v] = vis("globeBtn");
       o.clash = (o.clash || []).concat(L.btnSlotClashes().map(c => v + ":" + JSON.stringify(c)));
@@ -268,21 +268,24 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
     localStorage.setItem("lp.vehicle", "prop"); localStorage.setItem("lp.dir", "0"); localStorage.setItem("lp.start", "ldn");
     L.lpRestoreChoice();
     o.relaunch = { origin: st.originIdx, vehicles: vis("screenVehicle"), dir: vis("screenDir"), globe: vis("screenGlobe"), dest: vis("screenDest") };
-    // ... and a vehicle that cannot start there yet starts where it always did
+    // ... a car (v198) starts there too; a vehicle that cannot start there starts where it always did
     localStorage.setItem("lp.vehicle", "car"); L.lpRestoreChoice();
     o.carRelaunch = st.originIdx;
+    localStorage.setItem("lp.vehicle", "speedboat"); L.lpRestoreChoice();
+    o.boatRelaunch = st.originIdx;
     L.api.skipScreens(); localStorage.clear();
     return o;
   });
   check("london start: the globe and its screen carry no text", globe.text === "", JSON.stringify(globe.text));
-  check("london start: parked, the globe is up for what flies from a runway (planes, the helicopter) and for nothing else; never in flight; never two buttons in a slot",
-    ["prop", "airlinerDelta", "fighter", "helicopter"].every(v => globe.shows[v]) && ["car", "speedboat", "rocket", "monster"].every(v => !globe.shows[v]) && !globe.inFlight && globe.clash.length === 0,
+  check("london start: parked, the globe is up for what flies from a runway (planes, the helicopter) and the cars, and for nothing else; never in flight; never two buttons in a slot",
+    ["prop", "airlinerDelta", "fighter", "helicopter", "car", "cybertruck", "corvette"].every(v => globe.shows[v]) && ["speedboat", "rocket", "monster"].every(v => !globe.shows[v]) && !globe.inFlight && globe.clash.length === 0,
     JSON.stringify({ shows: globe.shows, inFlight: globe.inFlight, clash: globe.clash }));
   check("london start: the globe opens three cities and the way back; London starts him parked on London's runway, bound for New York",
     globe.screen && globe.menuOpen && globe.cards === 4 && globe.ldn.origin === 2 && globe.ldn.dest === 0 && globe.ldn.onRunway && globe.ldn.phase === "TAXI" && globe.ldn.speed === 0 && !globe.ldn.screen && globe.ldn.start === "ldn" &&
     globe.ny.origin === 0 && globe.ny.nearNY && globe.ny.start === null, JSON.stringify(globe));
-  check("london start: a relaunch after a London start puts the world back in London and opens on the vehicle picker; a car starts where it always did",
-    globe.relaunch.origin === 2 && globe.relaunch.vehicles && !globe.relaunch.dir && !globe.relaunch.globe && !globe.relaunch.dest && globe.carRelaunch !== 2, JSON.stringify(globe.relaunch));
+  check("london start: a relaunch after a London start puts the world back in London and opens on the vehicle picker -- for a car too; a boat starts where it always did",
+    globe.relaunch.origin === 2 && globe.relaunch.vehicles && !globe.relaunch.dir && !globe.relaunch.globe && !globe.relaunch.dest && globe.carRelaunch === 2 && globe.boatRelaunch !== 2,
+    JSON.stringify({ relaunch: globe.relaunch, car: globe.carRelaunch, boat: globe.boatRelaunch }));
 
   // the globe never sits on another button: it is DRAWN where it is, whatever the slot table says
   // (on a short landscape screen it first sat on the helicopter's up button, and a finger meant
@@ -293,7 +296,7 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
     overlaps.push(...await p2.evaluate(([w, h]) => {
       const L = window.__lp, out = [];
       L.noRender = true; L.api.skipScreens();
-      for (const [v, at] of [["prop", 0], ["airlinerEmirates", 0], ["fighter", 2], ["helicopter", 0], ["helicopter", 2], ["prop", 2]]) {
+      for (const [v, at] of [["prop", 0], ["airlinerEmirates", 0], ["fighter", 2], ["helicopter", 0], ["helicopter", 2], ["prop", 2], ["car", 0], ["car", 2], ["corvette", 2]]) {
         L.api.setVehicle(v); L.api.spawnAt(at, 0);
         for (let i = 0; i < 20; i++) { L.update(1 / 60); L.btnUpdateAll(); }
         const g = document.getElementById("globeBtn");
@@ -311,7 +314,7 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
     }, [w, h]));
     await p2.close();
   }
-  check("london start: the globe is on the screen and on no other button -- every plane and the helicopter, landscape and portrait, phone and iPad", overlaps.length === 0, JSON.stringify(overlaps));
+  check("london start: the globe is on the screen and on no other button -- every plane, the helicopter and the cars, landscape and portrait, phone and iPad", overlaps.length === 0, JSON.stringify(overlaps));
 
   // ---- the London airport: off for New York, and in, hands-off -------------------------------
   const fly = await page.evaluate(() => {

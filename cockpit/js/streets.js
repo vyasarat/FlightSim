@@ -336,14 +336,16 @@ function stJunctionPath(road, dir, node, arm) {
   const odir = stArmDir(arm), oroad = arm.road;
   const oStart = arm.atStart ? 0 : oroad.len;
   if (oroad === road && odir === -dir) {
-    // a dead end: turn round on a half circle, his lane to the other one
-    const R = road.lo || 4, e = pts[pts.length - 1];
-    const cx = e.x - fin.x * (R + 2) + fin.z * R, cz = e.z - fin.z * (R + 2) - fin.x * R;
+    // a dead end: turn round on a half circle, his lane to the other one -- about
+    // the road's middle, which is on his left where traffic keeps right and on his
+    // right in London (v198: a lane left of the middle is a negative `lo`)
+    const sg = Math.sign(road.lo) || 1, R = Math.abs(road.lo) || 4, e = pts[pts.length - 1];
+    const cx = e.x - fin.x * (R + 2) + fin.z * R * sg, cz = e.z - fin.z * (R + 2) - fin.x * R * sg;
     while (pts.length > 1) {
       const q = pts[pts.length - 1];
       if ((q.x - cx) * fin.x + (q.z - cz) * fin.z > -0.5) pts.pop(); else break;
     }
-    const rx = -fin.z, rz = fin.x;                 // his right; the circle's centre is the road's middle
+    const rx = -fin.z * sg, rz = fin.x * sg;       // from the road's middle out to his lane
     const n = 12;
     let apexI = 0;
     for (let k = 0; k <= n; k++) {
@@ -715,7 +717,8 @@ function stForcedAhead(arm, dist, speed) {
 // ---- the hands-off policy ---------------------------------------------------
 // Worked out once, at load: at every junction where the road ends (no straight
 // on), which way lane-keep turns. Cost is the distance still to drive to an
-// EXIT road -- a road back to the motorway -- when every junction with a
+// EXIT road -- a road back to the motorway, or (v198) a city's `goal`: London has
+// no motorway, and its goal is the road to its airport -- when every junction with a
 // straight on is taken straight on, which is what hands-off does. So a finger
 // held from the off-ramp goes round and out again, and a finger held from
 // anywhere else in the grid finds its way to the same place.
@@ -740,7 +743,8 @@ function stBuildPolicy(city) {
       for (const c of opts) {
         const r = c.arm.road;
         let cost;
-        if (r.kind === "exit") cost = r.out ? r.len : Infinity;   // a way IN is no way out
+        if (r.goal) cost = r.len;
+        else if (r.kind === "exit") cost = r.out ? r.len : Infinity;   // a way IN is no way out
         else if (r.kind === "coast") cost = Infinity;        // the harbour road: see below
         else {
           const nxt = farArm(c.arm);
@@ -1679,24 +1683,35 @@ const ST_TYPES = [
 
 // What each slot is drawn as (vehiclekit.js), in its type's envelope: a car is
 // a sedan or a hatchback by its index; the taxi, bus and van are their own.
-// Mesh k is shape ST_SHAPES[k]; the first four are the four types.
-const ST_SHAPES = ["sedan", "taxi", "bus", "van", "hatch"];
+// Mesh k is shape ST_SHAPES[k], in the envelope of type ST_SHAPE_TYPE[k].
+// v198: in LONDON the same taxi and bus slots wear a black cab and a red
+// double-decker (ST_LONDON_SHAPE): the same types, the same envelopes and rules.
+const ST_SHAPES = ["sedan", "taxi", "bus", "van", "hatch", "cab", "decker"];
+const ST_SHAPE_TYPE = [0, 1, 2, 3, 0, 1, 2];
+const ST_LONDON_SHAPE = { 1: 5, 2: 6 };
 function stShapeOf(i) { const t = stTypeOf(i); return t === 0 && vkCarShape(i) === "hatch" ? 4 : t; }
+// the mesh a slot is drawn in, in the city it is in
+function stShapeIn(v) { const L = v.city === "ldn" ? ST_LONDON_SHAPE[v.shape] : undefined; return L === undefined ? v.shape : L; }
 // a slot's colour: cars from the motorway's tints, taxis yellow, buses blue,
-// and a van is white with its stripe in one of these
+// and a van is white with its stripe in one of these; London's cabs black, its buses red
 const ST_VAN_TINTS = [TUNE.palette.red, TUNE.palette.blue, TUNE.palette.green, TUNE.palette.rust, TUNE.palette.sea];
 function stTintOf(v) {
-  const C = TUNE.palette;
-  return v.type === 1 ? C.gold : v.type === 2 ? C.blue : v.type === 3 ? ST_VAN_TINTS[v.slot % ST_VAN_TINTS.length]
+  const C = TUNE.palette, ldn = v.city === "ldn";
+  return v.type === 1 ? (ldn ? C.ink : C.gold) : v.type === 2 ? (ldn ? C.red : C.blue) : v.type === 3 ? ST_VAN_TINTS[v.slot % ST_VAN_TINTS.length]
     : HWY_CAR_TINTS[(v.slot * 3 + 1) % HWY_CAR_TINTS.length];
 }
 
 function stBuildTrafficMeshes(g) { vkQuiet(VK_V125_DRAWS.stTraffic, () => stBuildTrafficKit(g)); }
 function stBuildTrafficKit(g) {
   const counts = ST_SHAPES.map(() => 0);
-  for (let i = 0; i < STT.count; i++) counts[stShapeOf(i)]++;
+  for (let i = 0; i < STT.count; i++) {
+    const k = stShapeOf(i);
+    counts[k]++;
+    if (ST_LONDON_SHAPE[k] !== undefined) counts[ST_LONDON_SHAPE[k]]++;
+  }
+  // (on the kit's own stream: the real one sees v125's draws whatever is built here)
   stTraffic.meshes = ST_SHAPES.map((name, k) => {
-    const m = vkMesh(name, ST_TYPES[k === 4 ? 0 : k].y, counts[k]);
+    const m = vkMesh(name, ST_TYPES[ST_SHAPE_TYPE[k]].y, counts[k]);
     g.add(m);
     return m;
   });
@@ -1970,15 +1985,15 @@ function stUpdateTraffic(dt) {
       if (!stPlaceVehicle(v, city, px, pz, true)) continue;
     }
     stDriveVehicle(v, dt, him);
-    const m = stTraffic.meshes[v.shape], k = idx[v.shape];
+    const sh = stShapeIn(v), m = stTraffic.meshes[sh], k = idx[sh];
     stDummy.position.set(v.wx, v.wy, v.wz);
     stDummy.rotation.set(0, Math.atan2(-v.hx, -v.hz) + v.spin, 0);
     stDummy.scale.setScalar(1);
     stDummy.updateMatrix();
     if (k < m.userData.cap) {
       m.setMatrixAt(k, stDummy.matrix);
-      vkInstance(m, k, stTraffic.vkRoll, v.slot, stDummy.matrix, stTintOf(v), VK_WHEEL_R[ST_SHAPES[v.shape]]);
-      idx[v.shape]++;
+      vkInstance(m, k, stTraffic.vkRoll, v.slot, stDummy.matrix, stTintOf(v), VK_WHEEL_R[ST_SHAPES[sh]]);
+      idx[sh]++;
     }
   }
   // only the cars that exist are drawn
@@ -2280,18 +2295,19 @@ function stSurfaceAt(x, z) {
 // crash on the boulevard came back 800 m away on the motorway, on the harbour
 // road 1.7 km away, and on a city ramp on the carriageway beside it.
 // ---------------------------------------------------------------------------
-function stReassembleAt(x, z, heading, road) {
+function stReassembleAt(x, z, heading, road, reach) {
   let r = road || null, s0 = 0;
   if (r) s0 = stProject(r, x, z).s;
   else {
-    if (!stCityNear(x, z, 120)) return null;
+    // (`reach`, v198: London asks from anywhere in Britain -- there is no motorway to fall back on)
+    if (!reach && !stCityNear(x, z, 120)) return null;
     let bd = Infinity;
     for (const q of streets.roads) {
       if (q.kind !== "grid" && q.kind !== "link") continue;
       const p = stProject(q, x, z);
       if (p.d < bd) { bd = p.d; r = q; s0 = p.s; }
     }
-    if (!r || bd > ST.reassembleReach) return null;
+    if (!r || bd > (reach || ST.reassembleReach)) return null;
   }
   // Where it happened, only out of a junction's box -- he never comes back in
   // the middle of a crossing -- and never on the motorway end of a ramp.
@@ -2316,6 +2332,7 @@ function stReassembleAt(x, z, heading, road) {
 function stBuildSignals(g, masts, arms, boxes, lampPts) {
   for (const k in streets.cities) {
     const city = streets.cities[k], D = city.data;
+    if (city.noSignals) continue;              // (v198: London has none -- and its grid exists by the time this runs)
     const xs = [...new Set(city.nodes.map(n => n.x))].sort((a, b) => a - b);
     const zs = [...new Set(city.nodes.map(n => n.z))].sort((a, b) => a - b);
     for (const n of city.nodes) {

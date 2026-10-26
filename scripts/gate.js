@@ -54,13 +54,13 @@ const git = (...a) => { try { return execFileSync("git", a, { cwd: ROOT, stdio: 
 // the full harness -- which is the honest default for the plane, the rocket and
 // anything shared (tune, terrain, scene, flight, main).
 const MODULES = {
-  "car.js": ["road_checks", "car_feel_checks", "city_checks", "cybertruck_checks", "corvette_checks", "corner_cam_checks"],
+  "car.js": ["road_checks", "car_feel_checks", "city_checks", "cybertruck_checks", "corvette_checks", "corner_cam_checks", "london_drive_checks"],
   "corvette.js": ["corvette_checks", "slot_checks", "engine_sound_checks"],
   "highway.js": ["road_checks", "car_feel_checks"],
-  "streets.js": ["city_checks", "road_checks", "solidity_checks", "corvette_checks"],
+  "streets.js": ["city_checks", "road_checks", "solidity_checks", "corvette_checks", "london_drive_checks"],
   "city.js": ["city_checks"], "citydata.js": ["city_checks", "solidity_checks"],
   "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks", "cybertruck_checks", "corvette_checks"],
-  "vehiclekit.js": ["road_checks", "city_checks"],
+  "vehiclekit.js": ["road_checks", "city_checks", "london_drive_checks"],
   "solids.js": ["solidity_checks", "corner_cam_checks"], "collision.js": ["solidity_checks"],
   "track.js": ["track_checks", "race_checks"], "race.js": ["race_checks", "race_track_checks", "race_item_checks", "frame_budget_checks", "slot_checks", "vehicle_contract_checks", "state_semantics_checks"], "raceitems.js": ["race_item_checks", "race_checks", "race_track_checks", "slot_checks"], "raceevents.js": ["race_event_checks", "race_track_checks", "race_item_checks", "solidity_checks", "frame_budget_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks"], "crane.js": ["crane_checks", "slot_checks", "solidity_checks", "vehicle_contract_checks", "state_semantics_checks"], "dadmode.js": ["dadmode_checks", "dadmissions_checks", "slot_checks", "vehicle_contract_checks", "state_semantics_checks"], "valley.js": ["dadmode_checks", "solidity_checks"], "dadair.js": ["dadmissions_checks"], "dad_dam.js": ["dadmissions_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks", "corner_cam_checks"],
   "boat.js": ["boat_checks", "sea_checks"], "harbor.js": ["boat_checks", "lock_checks", "sea_checks"],
@@ -76,7 +76,7 @@ const MODULES = {
   "toyworld.js": ["toyworld_checks"], "workshop.js": ["workshop_checks", "workshop_play_checks"],
   "marsbase.js": ["robot_checks", "robot_play_checks"], "rover.js": ["robot_play_checks"],
   "input.js": ["hardening_checks", "slot_checks", "london_checks"],
-  "london.js": ["london_checks", "slot_checks", "solidity_checks", "frame_budget_checks", "dadmissions_checks", "sea_checks"],
+  "london.js": ["london_checks", "london_drive_checks", "city_checks", "slot_checks", "solidity_checks", "frame_budget_checks", "dadmissions_checks", "sea_checks"],
   // the world's shape and what stands on it: v197 moved them and only the full harness saw the
   // Doolittle carrier land in Britain (dadmissions) and a runway drawn from every venue (frame budget)
   "terrain.js": ["dadmissions_checks", "sea_checks", "frame_budget_checks", "london_checks"],
