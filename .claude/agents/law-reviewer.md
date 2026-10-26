@@ -27,6 +27,10 @@ Ask these, in this order, and stop at the first one that blocks:
    asking `solidQuery`. Reading `phase` where `vehParked()`/`vehSolid()` is the
    honest question. A top-level name another file owns. Timing off
    `performance.now()`. A number outside `TUNE`. A post-processing pass.
+   Anything new that reaches the page's random stream: a mesh built outside a
+   quiet stream, or a lazy builder or re-index (`ltBuild`, `hwyIndexCorridor`)
+   that now also sees what was added after load (v198 leaked both ways). Ask
+   for `node scripts/stream_compare.js <main worktree> .` and its SAME.
 3. **Do the checks prove behaviour?** For each new or changed check: does it
    make the thing happen and measure it, or only see that an object exists? Does
    it read a delta, or a total an earlier check could have left behind? Does it

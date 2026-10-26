@@ -48,7 +48,7 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
   it back on exit, and lane-keep follows the corner's curve. On a city ramp a speed-only ramp
   assist holds him under what its bends allow (`TUNE.city.ramp.safe*`). Point at a building
   halfway along a block and nothing saves him. Every strength is `TUNE.city.*`, to be
-  weakened as he improves. **Otherwise the city feels like the motorway, only slower**:
+  weakened as he improves. (v199) So is Tower Bridge's gate: shut, it holds him speed-only to a stop at it (`ldGateCap`) -- never a bang, never trapped. **Otherwise the city feels like the motorway, only slower**:
   same steer rate, deadzone, lookahead and lane-keep law on a straight street
   (`scripts/feel_compare.js` measures the same inputs on both).
 - **Off every road, the road in front of him** (`carRejoinTarget`): the pull-back aims at the
@@ -229,7 +229,7 @@ a deliberate, stated behaviour change.
 | `streets.js` | the cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, the square (no people) |
 | `vehiclekit.js` | the traffic's six low-poly shapes (and the police sedan): wheels spun in the shader, lamps lit per vertex, one instanced call per shape |
 | `track.js` | the giant toy track: its typed sections, the rail, the forks, the net, the lift, its own exit |
-| `london.js` | London across the sea (v197): its landmarks, Big Ben's clock and bong, the wheel, the crossing's ships, lighthouse and whale, its airport (`AIRPORTS[2]`: the per-airport builders stop at `AP_HOME`) and the globe; driven (v198): its grid on streets.js, every lane LEFT (`lo` < 0), the bridges and the airport road its links, the river's edge a rail; all on its own random stream, its solids a region. The ground is terrain.js's `ldShape`, the city the generator's `ldn` |
+| `london.js` | London across the sea (v197): its landmarks, Big Ben's clock and bong, the wheel, the crossing's ships, lighthouse and whale, its airport (`AIRPORTS[2]`: the per-airport builders stop at `AP_HOME`) and the globe; driven (v198): its grid on streets.js, every lane LEFT (`lo` < 0), the bridges and the airport road its links, the river's edge a rail; its river (v199): Tower Bridge opens for the tall ship and his boat, never under his car, and its gate holds him speed-only (`ldGateCap`); all on its own random stream, its solids a region. The ground is terrain.js's `ldShape`, the city the generator's `ldn` |
 | `race.js` | the race: its tracks as typed sections (`TUNE.race.tracks`), the venue in the world, one speed model for every car, the podium |
 | `raceitems.js` | the power-ups: rows of boxes, the one item button, the five items, spin-outs; every mesh pooled at load |
 | `raceevents.js` | the track events (`TUNE.race.events`): announced, steered round, never a bang; built per track at load |

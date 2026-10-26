@@ -651,6 +651,8 @@ function stCarTarget(x, z, heading, speed, steer01, handsOff, dt) {
     if (P.curve) ahead = Math.max(ST.turnAhead, Math.min(ahead, speed * ST.turnLook));
     stPointAt(road, p.s + dir * ahead, dir, road.lo, stAim);
   }
+  // (v199) Tower Bridge shut: the gate holds him there, speed-only (london.js ldGateCap)
+  if (typeof ldGateCap === "function" && road.city === "ldn") P.cap = Math.min(P.cap, ldGateCap(road, dir, p.s, toGo, P.turn));
   // Hands-off, the corner where the road ends may be several junctions on:
   // at the top speed step a block is shorter than the braking. So the assist
   // looks down the straight-on chain to the first one, and starts in time.

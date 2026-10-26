@@ -540,6 +540,7 @@ function ldLondonBridge() {
 function ldTowerBridge() {
   const [x, z] = LD.at.towerBridge, deck = ldDeckY(), B = ldBegin("towerBridge", x, z, deck);
   const S = 0xd6cdb4, BL = LDC.blue, half = 31, tw = 18, td = 26, top = 42, arch = 9;   // (v198: deeper, the arch a street wide)
+  ldn.tbHalf = half;                // each leaf's length: the river code stands its upright wall by it (v199)
   for (const sx of [-1, 1]) {
     const tx = sx * (half + tw / 2);
     ldBox(B, tw + 6, 22, td + 6, LDC.grey, "stone", tx, -22, 0);            // the pier in the river
@@ -917,6 +918,8 @@ function ldBuild() {
     }
     // (v198) its streets, now that every landmark a street must clear stands
     ldStreets();
+    // (v199) the river: Tower Bridge's gates and upright leaves (on its street), the tall ship, the boats
+    ldTbBuild(); ldTallShip(); ldRiverBoats();
     solidRegionClose(ldn.region);
   });
   ldn.added = scene.children.slice(before);   // everything London stood in the scene (its checks ask)
@@ -1151,12 +1154,385 @@ function ldCarStartAt() {
 }
 
 // ===========================================================================================
+// THE THAMES (v199). Tower Bridge OPENS: for the tall ship going up to her berth above it (where a
+// real one is moored) and back down, and for him, sailing up to it in the speedboat. The set-piece
+// loop: giant obvious thing -- the bridge across the river; the wind-up -- bells, the red lamps
+// flashing, the gates coming down; the payoff -- the leaves rising, the ship sliding through with
+// her horn; the free reset -- the leaves down behind her, the gates up.
+//   - NEVER TRAPPED. It does not begin while his car is between the gates, or so close to one that
+//     he could not stop; and while it is not down, the gate holds him -- a speed-only hold, like the
+//     corner assist (`ldGateCap`, asked by streets.js): a held finger stops at the gate and goes on
+//     when it lifts. There is no queue on the bridge to drive into: the traffic stays in the grid.
+//   - A RAISED LEAF IS STILL A WALL: its flat solid goes and an upright one stands at its hinge, for
+//     the aeroplanes and the helicopter. The ship waits below the bridge until it is up.
+//   - The boats on the river are machines and scenery: not solid, as the ships at sea are; they ease
+//     off when his boat is ahead of them, and pass under both bridges.
+// ===========================================================================================
+const LDR = LD.river;
+const ldRv = { x: 0, hw: 0, fx: 0, fz: 1 };
+// The river's middle at z, its half-width and its way upstream: between the mouth and Westminster
+// the Thames runs up z (its points are listed from upstream down).
+function ldRiverMid(z, out) {
+  const P = LD.thames.pts;
+  out = out || ldRv;
+  for (let i = P.length - 1; i > 0; i--) {
+    const a = P[i], b = P[i - 1];
+    if (z < a[1] || z > b[1]) continue;
+    const t = (z - a[1]) / (b[1] - a[1] || 1), dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+    out.x = a[0] + dx * t; out.hw = a[2] + (b[2] - a[2]) * t; out.fx = dx / l; out.fz = dz / l;
+    return out;
+  }
+  const e = P[P.length - 1]; out.x = e[0]; out.hw = e[2]; out.fx = 0; out.fz = 1;
+  return out;
+}
+
+// ---- Tower Bridge: its gates, its upright leaves, its state ---------------------------------
+// Built by ldTowerBridge's caller, on London's stream, inside its solids' region.
+function ldTbBuild() {
+  const [x, z] = LD.at.towerBridge, deck = ldDeckY(), half = ldn.tbHalf;
+  const T = ldn.tb = { state: "down", t: 0, open: 0, gate: 0, x, z, half, lamps: [], arms: [], up: [], asks: "" };
+  // the leaves standing up: a wall at each hinge, there only while they are (isSolidHidden: its
+  // stand-in mesh is invisible while they are down)
+  for (const L of ldn.tbLeaves) {
+    const stand = new THREE.Object3D();
+    stand.visible = false;
+    const hx = x + L.sx * half;
+    const sb = addSolidBox(hx - L.sx * 4.5, deck - 2, z, 4.5, 9, deck + half, stand, "bridge");
+    sb.ld = "towerBridge"; sb.liftWall = true;     // (a wall across the road only while the road is up)
+    T.up.push(stand);
+  }
+  // the gates: out past each shore tower, an arm across each carriageway and a post of red lamps
+  const shore = ldn.decks.towerBridge, r = ldn.roads.towerBridge;
+  if (!r) return;
+  T.gateX = [shore[0] - LDR.gateOut, shore[1] + LDR.gateOut];
+  T.gateS = T.gateX.map(gx => gx - r.pts[0].x);
+  T.gapS = [x - half - r.pts[0].x, x + half - r.pts[0].x];
+  const armMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+  ldn.tbLampOn = new THREE.MeshBasicMaterial({ color: 0xff3b30 });
+  ldn.tbLampOff = new THREE.MeshBasicMaterial({ color: 0x5a1b16 });
+  const W = LDD.bridgeHalfW;
+  for (const gx of T.gateX) {
+    const gy = stRoadY(r, gx, z, gx - r.pts[0].x);
+    for (const sz of [-1, 1]) {
+      // the arm: red and white bands, pivoting at the kerb, standing up when the bridge is down
+      const B = { name: "tbGate", x: 0, y: 0, z: 0, parts: {}, solids: [], tris: 0 };
+      for (let k = 0; k < 6; k++) ldBox(B, 0.35, 0.35, (W - 0.6) / 6, k % 2 ? LC.white : LC.red, "plain", 0, -0.175, -sz * (k + 0.5) * (W - 0.6) / 6);
+      const P = B.parts.plain, geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(P.pos, 3));
+      geo.setAttribute("normal", new THREE.Float32BufferAttribute(P.nor, 3));
+      geo.setAttribute("color", new THREE.Float32BufferAttribute(P.col, 3));
+      const arm = new THREE.Mesh(geo, armMat);
+      arm.userData.noSolid = true; arm.userData.noShatter = true;
+      const piv = new THREE.Group();
+      piv.position.set(gx, gy + 1.1, z + sz * (W + 0.2));
+      piv.add(arm);
+      piv.userData.sz = sz;
+      scene.add(piv);
+      T.arms.push(piv);
+      // its post and two lamps
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.6, 0.4), ldMat("plain"));
+      post.position.set(gx, gy + 1.3, z + sz * (W + 0.7));
+      post.userData.noSolid = true;
+      scene.add(post);
+      for (const k of [0, 1]) {
+        const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), ldn.tbLampOff);
+        lamp.position.set(gx + (k ? 0.35 : -0.35), gy + 2.35, z + sz * (W + 0.7));
+        lamp.userData.noSolid = true;
+        scene.add(lamp);
+        T.lamps.push({ m: lamp, k, post });
+      }
+    }
+  }
+}
+
+// Is the bridge shut to the road? (anything but down: the gates are coming down, down, or going up)
+function ldTbShut() { return !!ldn.tb && ldn.tb.state !== "down"; }
+
+// How far, along his way, to where the gate stops him -- from his road on the bridge, or from the
+// street before it with the bridge as his plan -- or null if the bridge is not on his way.
+function ldGateDist(road, dir, s, toGo, turn) {
+  const T = ldn.tb, r = ldn.roads.towerBridge;
+  if (!T || !r || !T.gateS) return null;
+  const k = LDR.stopShort;
+  if (road === r) {
+    const stop = dir > 0 ? T.gateS[0] - k : T.gateS[1] + k, d = (stop - s) * dir;
+    if (d >= -1) return d;
+    // already past it (he cannot be: it does not begin with him there): stop short of the gap
+    const gap = dir > 0 ? T.gapS[0] - k : T.gapS[1] + k, g = (gap - s) * dir;
+    return g >= -1 ? g : null;
+  }
+  if (turn && turn.arm && turn.arm.road === r) return toGo + (stArmDir(turn.arm) > 0 ? T.gateS[0] - k : r.len - T.gateS[1] - k);
+  return null;
+}
+// THE GATE HOLDS HIM (streets.js asks, on a London street): speed-only, to a stop at the gate, while
+// the bridge is shut. It decides nothing -- not his turn, not his road -- and lets go when it opens.
+function ldGateCap(road, dir, s, toGo, turn) {
+  if (!ldTbShut()) return Infinity;
+  const d = ldGateDist(road, dir, s, toGo, turn);
+  if (d === null) return Infinity;
+  return Math.sqrt(2 * LDR.carBrake * Math.max(0, d));
+}
+// May it begin? Not with his car between the gates, nor coming at a gate too fast to stop for it.
+function ldTbCarClear() {
+  if (typeof carActive !== "function" || !carActive() || state.exploding) return true;
+  const r = ldn.roads.towerBridge, T = ldn.tb;
+  if (!r || !T.gateS || typeof stPlan === "undefined") return true;
+  const p = stProject(r, state.x, state.z);
+  const m = LDR.betweenMargin;
+  if (p.d < r.halfW + m && p.s > T.gateS[0] - LDR.stopShort - m && p.s < T.gateS[1] + LDR.stopShort + m) return false;
+  const road = stPlan.road;
+  if (!road) return true;
+  const q = stProject(road, state.x, state.z), toGo = stPlan.dir > 0 ? road.len - q.s : q.s;
+  const d = ldGateDist(road, stPlan.dir, q.s, toGo, stPlan.turn);
+  if (d === null) return true;
+  return d > state.speed * state.speed / (2 * LDR.carBrake) + LDR.clearMargin;
+}
+
+// Who is asking for it: the ship on her way through, or his boat coming up to it.
+function ldTbAsks() {
+  const T = ldn.tb, S = ldn.tship, why = [];
+  if (S && (S.state === "in" || S.state === "out")) {
+    const bow = S.z + S.dir * LDR.ship.len / 2, stern = S.z - S.dir * LDR.ship.len / 2;
+    const toBridge = (T.z - bow) * S.dir, pastStern = (stern - T.z) * S.dir;
+    if (toBridge < LDR.ship.ask && pastStern < LDR.ship.clearPast) why.push("ship");
+  }
+  if (typeof boatActive === "function" && boatActive() && !state.exploding && boatOnWater()) {
+    const R = ldRiverAt(state.x, state.z), dz = state.z - T.z;
+    const coming = Math.sign(-Math.cos(state.heading)) === -Math.sign(dz) && state.speed > 1;
+    // (far enough out that it is up before he arrives at the speed he is going: bells, gates, the lift)
+    const reach = Math.max(LDR.boatTrigger, state.speed * (LDR.open.warn + LDR.open.rise + LDR.boatLead));
+    // (sitting still beside it, after a while he no longer asks: it never stays up for good, with a car at the gate)
+    T.boatIdle = state.speed < 1 ? (T.boatIdle || 0) + (ldn.dt || 0) : 0;
+    if (R.d < R.hw && Math.abs(dz) < reach && (coming || Math.abs(dz) < LDR.boatClear) && T.boatIdle < LDR.boatLinger) why.push("boat");
+  }
+  T.asks = why.join("+");
+  return why.length > 0;
+}
+
+function ldTbUpdate(dt) {
+  const T = ldn.tb;
+  if (!T) return;
+  ldn.dt = dt;
+  const O = LDR.open, want = ldTbAsks();
+  const was = T.state;
+  if (T.state === "down") {
+    if (want && ldTbCarClear()) { T.state = "warn"; T.t = O.warn; ldTbBells(); flags.tbOpens = (flags.tbOpens || 0) + 1; }
+  } else if (T.state === "warn") {
+    T.gate = Math.min(1, T.gate + dt / O.warn);
+    T.t -= dt;
+    if (!want) T.state = "settle", T.t = 0;
+    else if (T.t <= 0) { T.state = "rise"; ldTbHydraulics(); }
+  } else if (T.state === "rise") {
+    T.open = Math.min(1, T.open + dt / O.rise);
+    if (T.open >= 1) { T.state = "up"; flags.tbUp = (flags.tbUp || 0) + 1; }
+  } else if (T.state === "up") {
+    if (!want) { T.state = "fall"; ldTbHydraulics(); }
+  } else if (T.state === "fall") {
+    if (want) T.state = "rise";
+    T.open = Math.max(0, T.open - dt / O.fall);
+    if (T.open <= 0) { T.state = "settle"; T.t = O.settle; thunk(); noiseBurst(0.4, 130, 0.14, 0); }
+  } else if (T.state === "settle") {
+    T.gate = Math.max(0, T.gate - dt / O.settle);
+    T.t -= dt;
+    if (T.t <= 0 && T.gate <= 0) T.state = "down";
+  }
+  // the leaves, and what is solid of them
+  const a = T.open * O.angle;
+  for (let i = 0; i < ldn.tbLeaves.length; i++) {
+    const L = ldn.tbLeaves[i];
+    L.g.rotation.z = -L.sx * a;
+    // one or the other, never neither: flat while it is low, upright from `wallAt` up (a half-raised
+    // leaf is a wall to the aeroplanes, on one side of the line or the other)
+    L.g.children[0].userData.noSolid = T.open >= O.wallAt;
+    if (T.up[i]) T.up[i].visible = T.open >= O.wallAt;
+  }
+  // the gates: arms from upright (bridge down) to across the road; the lamps flash while shut
+  for (const piv of T.arms) piv.rotation.x = piv.userData.sz * (1 - T.gate) * Math.PI / 2;
+  const flash = T.state !== "down" && Math.sin(ldn.clock * 8) > 0;
+  for (const L of T.lamps) L.m.material = T.state !== "down" && flash === (L.k === 0) ? ldn.tbLampOn : ldn.tbLampOff;
+  if (was !== T.state) flags.tbState = T.state;
+}
+function ldTbBells() {
+  if (Math.hypot(state.x - ldn.tb.x, state.z - ldn.tb.z) > LD.bigBen.hear) return;
+  for (let i = 0; i < 8; i++) synthBlip("triangle", 900, 680, 0.16, 0.05, i * 0.34);
+  for (let i = 0; i < 8; i++) synthBlip("triangle", 1200, 920, 0.13, 0.03, 0.09 + i * 0.34);
+}
+function ldTbHydraulics() {
+  if (Math.hypot(state.x - ldn.tb.x, state.z - ldn.tb.z) > LD.bigBen.hear) return;
+  noiseBurst(1.8, 300, 0.09, 0);
+  synthBlip("sawtooth", 44, 62, 2.2, 0.06, 0.05);
+}
+
+// ---- the tall ship ---------------------------------------------------------------------------
+// Three masts and white sails: far too tall for the bridge closed, which is the whole point. Up the
+// river to her berth above Tower Bridge, a while there, and back down; then away, and again.
+function ldTallShipMesh() {
+  const B = { name: "tallShip", x: 0, y: 0, z: 0, parts: {}, solids: [], tris: 0 };
+  const L = LDR.ship.len, W = LDR.ship.beam;
+  ldBox(B, W, 9, L, LC.night, "plain", 0, -3, 0);                              // the hull, her bow at +z: high-sided
+  ldBox(B, W + 0.2, 1.4, L + 0.2, LC.white, "plain", 0, 3.4, 0);               // the white band
+  ldBox(B, W + 0.3, 1.2, L + 0.3, LC.red, "plain", 0, -3.4, 0);                // the red at the waterline
+  ldAdd(B, new THREE.CylinderGeometry(0.2, W / 2, 12, 4, 1), LC.night, "plain", 0, 0.5, L / 2 + 5.5, Math.PI / 2, Math.PI / 4, 0, 1, 1, 0.7);
+  ldBox(B, W - 1, 0.4, L - 2, 0x9a7b4f, "plain", 0, 6, 0);                     // her deck
+  ldBox(B, 9, 3, 13, 0x9a7b4f, "plain", 0, 6.4, -L / 2 + 10);                  // the deckhouse aft
+  ldCyl(B, 0.35, 0.45, 26, 6, 0x7a5a36, "plain", 0, 6, L / 2 + 1, Math.PI / 2 - 0.35);  // the bowsprit
+  // (her masts clear the high walkways -- 43 m over the water -- with the leaves up: LDR.ship.mastMax)
+  const hm = LDR.ship.mastMax - 6;
+  for (const [mz, h] of [[L * 0.28, hm - 4], [0, hm], [-L * 0.26, hm - 6]]) {
+    ldCyl(B, 0.5, 0.8, h, 8, 0x7a5a36, "plain", 0, 6, mz);
+    for (let k = 0; k < 4; k++) {
+      const y = 12 + k * (h - 12) / 4.2, w = 24 - k * 4;
+      ldBox(B, w, 0.45, 0.45, 0x7a5a36, "plain", 0, y + 7.6, mz);                // the yard
+      ldBox(B, w - 1.4, 7.2, 0.4, 0xf5f2e8, "plain", 0, y + 0.4, mz + 0.5);      // the sail under it
+    }
+    ldBox(B, 2.4, 1.4, 0.15, LC.red, "plain", 0, 6 + h, mz);                      // a pennant
+  }
+  const g = new THREE.Group();
+  for (const kind of Object.keys(B.parts)) {
+    const P = B.parts[kind], geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(P.pos, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(P.nor, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(P.col, 3));
+    geo.computeBoundingSphere();
+    const m = new THREE.Mesh(geo, ldMat(kind)); m.castShadow = true;
+    m.userData.noShatter = true;
+    g.add(m);
+  }
+  g.userData.noShatter = true;
+  return g;
+}
+const ldShipLine = { x: 0, hw: 0, fx: 0, fz: 1 };
+// her own clock and nothing else: game time, never the wall clock, never the page's random stream
+// SHE IS SOLID, in the one registry, as the harbour's ferry is: two boxes that turn and move with her --
+// her hull, and her masts and sails over it -- so the one law meets her (a bang over a vehicle's crawl,
+// a shove under it) and boatReassemble clears him of her.
+function ldTallShip() {
+  const g = ldTallShipMesh(), H = LDR.ship;
+  scene.add(g);
+  // boxes over the water [from, to, half-width, half-length]: her hull, then her rigging in two, the
+  // lower as wide as her lowest yards and the upper as her topsails -- never air that is a wall
+  const solids = H.solids.map(([y0, y1, hw, hl]) => {
+    const b = solidBox3(0, TUNE.waterLevel + (y0 + y1) / 2, H.from, [1, 0, 0], [0, 1, 0], [0, 0, 1], hw, (y1 - y0) / 2, hl, "ship");
+    b.mesh = g.children[0]; b.ld = "tallShip";
+    return b;
+  });
+  ldn.tship = { g, z: H.from, dir: 1, state: "away", t: 4, v: 0, honked: false, solids };
+  ldTallShipPose();
+}
+function ldTallShipPose() {
+  const S = ldn.tship, R = ldRiverMid(S.z);
+  S.x = R.x;
+  S.g.position.set(R.x, TUNE.waterLevel, S.z);
+  S.g.rotation.y = Math.atan2(R.fx * S.dir, R.fz * S.dir);
+  if (S.solids) for (const b of S.solids) hbFerryPose(b, S.x, S.z, S.g.rotation.y);
+}
+function ldTallShipMove(dt) {
+  const S = ldn.tship, H = LDR.ship, T = ldn.tb;
+  if (!S) return;
+  if (S.state === "away" || S.state === "moor") {
+    S.t -= dt; S.v = 0;
+    if (S.t <= 0) { S.state = S.state === "away" ? "in" : "out"; S.dir = S.state === "in" ? 1 : -1; S.honked = false; }
+  } else {
+    // she slows on her way to the bridge and waits below it until it is up; then on
+    const bow = S.z + S.dir * H.len / 2, toBridge = (T.z - bow) * S.dir;
+    let want = H.speed;
+    // and she never sails into his boat: in her path ahead of her bow, she brakes in time to stop
+    // `giveWay` short of him (and goes on when he moves out of her way)
+    const mine = typeof boatActive === "function" && boatActive() && !state.exploding;
+    if (mine) {
+      const ahead = (state.z - bow) * S.dir;
+      // (her line is the river's middle -- measured where HE is: the river bends between them)
+      const line = ldRiverMid(state.z, ldShipLine);
+      if (ahead > -2 && Math.abs(state.x - line.x) < H.beam / 2 + H.giveLane) want = Math.min(want, Math.sqrt(2 * H.decel * Math.max(0, ahead - H.giveWay)));
+    }
+    if (toBridge > 0 && T.open < 1) want = toBridge < H.holdAt ? 0 : Math.min(want, H.speed * clamp((toBridge - H.holdAt) / (H.slowAt - H.holdAt), 0.15, 1));
+    // and in to her berth, and out to sea, slowly at the end
+    const end = S.state === "in" ? H.berth : H.from, left = (end - S.z) * S.dir;
+    want = Math.min(want, Math.max(H.creep, left * H.arrive));
+    S.v += clamp(want - S.v, -H.decel * dt, H.accel * dt);
+    S.z += S.dir * S.v * dt;
+    if (!S.honked && toBridge < H.horn && toBridge > 0) { S.honked = true; if (Math.hypot(state.x - S.x, state.z - S.z) < LD.bigBen.hear) hbHorn(S.x, TUNE.waterLevel + 20, S.z, 120, 1.6); }
+    if (left <= 0.5) { S.z = end; S.state = S.state === "in" ? "moor" : "away"; S.t = S.state === "moor" ? H.moor : H.away; if (S.state === "away") flags.tbShipRoundTrips = (flags.tbShipRoundTrips || 0) + 1; }
+  }
+  ldTallShipPose();
+}
+
+// ---- the boats on the river ------------------------------------------------------------------
+function ldRiverBoatMesh(kind) {
+  const B = { name: "riverBoat", x: 0, y: 0, z: 0, parts: {}, solids: [], tris: 0 };
+  if (kind === "tour") {          // a long white river bus with a blue deckhouse and windows all along it
+    ldBox(B, 6, 2.4, 26, LC.white, "plain", 0, -1.2, 0);
+    ldBox(B, 6.2, 0.5, 26.2, 0x2b4fb0, "plain", 0, -1.4, 0);
+    ldBox(B, 4.8, 2.2, 17, 0x2b4fb0, "plain", 0, 1.2, -1);
+    ldBox(B, 4.9, 1.0, 16, 0x1b2430, "plain", 0, 1.9, -1);
+    ldBox(B, 5.2, 0.3, 18, LC.white, "plain", 0, 3.4, -1);
+  } else if (kind === "tug") {    // a red-and-black tug, its wheelhouse and funnel
+    ldBox(B, 6, 2.6, 15, LC.red, "plain", 0, -1.3, 0);
+    ldBox(B, 6.2, 0.8, 15.2, LC.ink, "plain", 0, -1.5, 0);
+    ldBox(B, 4, 3, 5, LC.white, "plain", 0, 1.3, 2);
+    ldBox(B, 4.1, 0.9, 5.1, 0x1b2430, "plain", 0, 3.1, 2);
+    ldCyl(B, 0.8, 0.9, 2.6, 8, LC.ink, "plain", 0, 1.3, -2.5);
+  } else {                        // a Thames sailing barge: a brown hull and a big red-brown sail
+    ldBox(B, 5, 2.2, 20, 0x5b4a33, "plain", 0, -1.1, 0);
+    ldCyl(B, 0.2, 0.25, 5.4, 6, 0x3a2f22, "plain", 0, 1.1, 1);
+    ldBox(B, 0.2, 4.4, 9, 0xa04a2a, "plain", 0, 1.6, -3.5);
+  }
+  const g = new THREE.Group();
+  for (const k of Object.keys(B.parts)) {
+    const P = B.parts[k], geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(P.pos, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(P.nor, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(P.col, 3));
+    geo.computeBoundingSphere();
+    const m = new THREE.Mesh(geo, ldMat(k)); m.castShadow = true;
+    m.userData.noSolid = true; m.userData.noShatter = true;
+    g.add(m);
+  }
+  g.userData.noSolid = true; g.userData.noShatter = true;
+  return g;
+}
+function ldRiverBoats() {
+  ldn.rboats = LDR.boats.map(([z, side, v, kind], i) => {
+    const g = ldRiverBoatMesh(kind);
+    scene.add(g);
+    return { g, z, side, v, cur: v, dir: i % 2 ? -1 : 1 };
+  });
+}
+function ldRiverBoatsMove(dt) {
+  if (!ldn.rboats) return;
+  const mine = typeof boatActive === "function" && boatActive() && !state.exploding;
+  for (const b of ldn.rboats) {
+    // easing off when his boat is ahead of it on its side of the river
+    let want = b.v;
+    if (mine) {
+      const ahead = (state.z - b.z) * b.dir, R = ldRiverMid(b.z), bx = R.x + b.side * b.dir;
+      if (ahead > 0 && ahead < LDR.boatYield && Math.abs(state.x - bx) < LDR.boatLane) want = 0;
+    }
+    b.cur += clamp(want - b.cur, -LDR.boatDecel * dt, LDR.boatAccel * dt);
+    b.z += b.dir * b.cur * dt;
+    if (b.z > LDR.boatSpan[1]) { b.z = LDR.boatSpan[1]; b.dir = -1; }
+    if (b.z < LDR.boatSpan[0]) { b.z = LDR.boatSpan[0]; b.dir = 1; }
+    const R = ldRiverMid(b.z), x = R.x + b.side * b.dir;   // keeping to its own side going each way, through the bridges' middle spans
+    b.x = x;
+    b.g.position.set(x, TUNE.waterLevel, b.z);
+    b.g.rotation.y = Math.atan2(R.fx * b.dir, R.fz * b.dir);
+  }
+}
+
+// His speedboat, started in London: on the river below Tower Bridge, its bow up the river.
+function ldBoatStart() {
+  const [x, z] = LDR.boatStart, R = ldRiverMid(z, {});
+  return { x, z, heading: Math.atan2(-R.fx, -R.fz) };
+}
+
+// ===========================================================================================
 // STARTING IN LONDON: the globe (input.js) asks this
 // ===========================================================================================
-// Which vehicles can start in London: the ones that fly from a runway, and (v198) the cars.
+// Which vehicles can start in London: the ones that fly from a runway, (v198) the cars and (v199)
+// the speedboat -- on the Thames. (The yacht stays in California: its lock and garage are there.)
 function ldCanStart(vp) {
   vp = vp || state.vp;
-  return !!vp && !vp.rocket && !vp.monster && !vp.boat && !vp.sledRide && !vp.crane && (!vp.car || !!ldn.roads.airport);
+  return !!vp && !vp.rocket && !vp.monster && !vp.bigBoat && !vp.sledRide && !vp.crane && (!vp.car || !!ldn.roads.airport);
 }
 function ldStart() {
   spawnForTakeoff(ldn.airportIdx, 0);
@@ -1176,7 +1552,7 @@ function ldGlobeShows() {
 }
 // Where the globe stands (buttons.js asks; the CSS class says so on the button itself)
 // (portrait: under the view button, or in a car low on the right; landscape: the top row, as index.html draws it)
-function ldGlobeSlot() { return innerHeight <= innerWidth ? "topRow" : state.vp && state.vp.car ? "highRight" : "topRight3"; }
+function ldGlobeSlot() { return innerHeight <= innerWidth ? "topRow" : state.vp && (state.vp.car || state.vp.boat) ? "highRight" : "topRight3"; }
 function ldGlobeOpen() {
   if (!ldGlobeShows()) return;
   releaseThrottle();
@@ -1232,6 +1608,9 @@ function ldUpdate(dt) {
     ldWhaleUpdate(dt);
   }
   if (cz > LD.cityBox.z0 - 2500) { ldEyeTurn(dt); ldClockHands(); }
+  // the river runs whether he is near or not: the ship keeps her own timetable
+  ldTallShipMove(dt); ldTbUpdate(dt);
+  if (cz > LD.cityBox.z0 - 2500) ldRiverBoatsMove(dt);
   if (el.globeBtn) el.globeBtn.classList.toggle("inCar", ldGlobeSlot() === "highRight");
   ldCull(dt);
 }
@@ -1250,6 +1629,9 @@ function ldCull(dt) {
   for (const s of ldn.ships) s.g.visible = near(s.x, s.z, 80);
   if (ldn.beam) ldn.beam.visible = near(ldn.beam.position.x, ldn.beam.position.z, 160);
   for (const t of ldn.tbLeaves) t.g.visible = ldn.landmarks.towerBridge.g.visible;
+  if (ldn.tship) ldn.tship.g.visible = near(ldn.tship.x || 0, ldn.tship.z, 80);
+  if (ldn.rboats) for (const b of ldn.rboats) b.g.visible = near(b.x || 0, b.z, 30);
+  if (ldn.tb) { const v = ldn.landmarks.towerBridge.g.visible; for (const a of ldn.tb.arms) a.visible = v; for (const L of ldn.tb.lamps) { L.m.visible = v; L.post.visible = v; } }
 }
 
 ldBuild();

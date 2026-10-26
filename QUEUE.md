@@ -17,10 +17,7 @@ visual hashes, the existing city checks); the noisy-finger drive in London for v
 ship each when it passes.
 
 - [x] **v197 Across the sea and the landmarks** (shipped 2026-10-26, merge d5c1784, 1247/1247) -- the crossing, the white cliffs, the Thames, every landmark in its place (the critic named them all), London's airport (`AIRPORTS[2]`) and the globe.
-- [ ] **v198 Drive London** -- the street graph like New York's (`streets.js`), red double-decker
-  buses and black taxis as traffic (new `vehiclekit.js` shapes; KEEP the v125 random-draw count,
-  `VK_V125_DRAWS`), a way in from the airport. Same turn rule, same assists. **The parent, 2026-10-26: traffic
-  drives on the LEFT in London** (his own car keeps the same turn rule and lane-keep; New York and California stay on the right). Noisy-finger drive in London (worst of 3 per seed, report the log).
+- [x] **v198 Drive London** (shipped 2026-10-26, merge fa3cabf, 1258/1258) -- the car starts in London from the globe; traffic and he keep LEFT (the parent's call); black cabs and red double-deckers; both bridges are streets; noisy drive in London 3 seeds x 3, all clean.
 - [ ] **v199 The Thames** -- boats on the river. Tower Bridge OPENS when a big ship comes, or when he
   sails up in the boat: road lifts, horn sounds, ship passes, bridge comes down. Wind-up, payoff,
   free reset (the set-piece loop). Cars on the bridge are held back safely, never trapped -- a held
