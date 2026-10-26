@@ -491,12 +491,15 @@ function updateWater(dt) {
   waterMat.normalScale.set(W.normalScale * fade, W.normalScale * fade);
 }
 
-{
-  const asphaltMat = artPaint(mattMat(TUNE.runwaySurfaceColor), "asphalt");
-  const paintMat = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
+// The runway's paint, one per airport. (v197) A function so London's is the same runway:
+// london.js builds its own, on its own random stream, with these materials.
+const scRunwayAsphalt = artPaint(mattMat(TUNE.runwaySurfaceColor), "asphalt");
+const scRunwayPaint = new THREE.MeshBasicMaterial({ color: TUNE.runwayPaintColor });
+function scRunway(ap) {
+  const asphaltMat = scRunwayAsphalt, paintMat = scRunwayPaint;
   const dashCount = Math.floor(TUNE.runwayLength / 95) - 1;
   const stripesPerEnd = 6;
-  for (const ap of AIRPORTS) {
+  {
     const surface = new THREE.Mesh(
       new THREE.BoxGeometry(TUNE.runwayWidth, 0.4, TUNE.runwayLength),
       asphaltMat
@@ -545,12 +548,14 @@ function updateWater(dt) {
     scene.add(centre);
   }
 }
+for (let i = 0; i < AP_HOME; i++) scRunway(AIRPORTS[i]);
 
 const cLow = new THREE.Color(TUNE.colorLow);
 const cMid = new THREE.Color(TUNE.colorMid);
 const cHigh = new THREE.Color(TUNE.colorHigh);
 const cSand = new THREE.Color(TUNE.sandColor);
 const cSnow = new THREE.Color(0xf2f4f7);
+const cChalk = new THREE.Color(0xeeeadf);   // v197: the white cliffs
 const cRock = new THREE.Color(0xb5522e);
 const cFoam = new THREE.Color(TUNE.water.foamColor);
 const cFarmA = new THREE.Color(0x9ec46a);
@@ -641,6 +646,12 @@ function terrainColorAt(hy, wx, wz, out, slope) {
   if (pm > 0 && hy > TUNE.waterLevel + 2) out.lerp(cPlains, pm * 0.55);
   const dm = desertMask(wz);
   if (dm > 0) out.lerp(cDesert, dm * 0.8);
+  // v197: across the sea, Britain is green and its cliffs are white chalk (terrain.js)
+  if (wz > TUNE.london.seaFrom) {
+    const lt = ldGroundTint(wx, wz, hy);
+    if (lt.green > 0 && hy > TUNE.waterLevel + 1.4) out.lerp(cMid, lt.green * smoothstep(5, 14, hy) * 0.85);
+    if (lt.chalk > 0) out.lerp(cChalk, lt.chalk);
+  }
   // foam: a bright line exactly where the sea meets the land, which is what
   // makes a coast read as a coast rather than as two colours meeting
   // (v183) round a snow venue the ground is snow whatever its height (terSnowAt)

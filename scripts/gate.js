@@ -75,7 +75,8 @@ const MODULES = {
   "eject.js": ["eject_framing_checks"], "toyfinish.js": ["toyfinish_checks"],
   "toyworld.js": ["toyworld_checks"], "workshop.js": ["workshop_checks", "workshop_play_checks"],
   "marsbase.js": ["robot_checks", "robot_play_checks"], "rover.js": ["robot_play_checks"],
-  "input.js": ["hardening_checks", "slot_checks"],
+  "input.js": ["hardening_checks", "slot_checks", "london_checks"],
+  "london.js": ["london_checks", "slot_checks", "solidity_checks"],
 };
 const CITY_FILES = new Set(["car.js", "streets.js", "city.js", "citydata.js", "lights.js", "highway.js"]);
 

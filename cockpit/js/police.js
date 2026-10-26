@@ -363,7 +363,7 @@ function plNearSolid(x, y, z) {
     if (hit || isSolidHidden(b)) return;
     if (Math.abs(x - b.x) < b.hw + 3 && Math.abs(z - b.z) < b.hd + 3 &&
         y > b.y0 - 3 && y < b.y1 + 3) hit = true;
-  });
+  }, x, z, 4);
   if (!hit && typeof hwyTrafficNear === "function" && hwyTrafficNear(x, z, 6)) hit = true;
   return hit;
 }

@@ -1,6 +1,10 @@
 "use strict";
-// Survey the two city sites from the live world, for build_city.py:
-//   node scripts/city/site.js   ->  scripts/city/site-ny.json, site-ca.json
+// Survey the city sites from the live world, for build_city.py:
+//   node scripts/city/site.js [ny ca ldn]  ->  scripts/city/site-<name>.json (no names: all three)
+//
+// (v197) London: its landmarks are solids of their own (london.js), so the survey leaves the
+// ground round each of them open -- its squares -- and the Mall and the parks (TUNE.london.parks)
+// are BLOCKED 7: nothing is built on them.
 //
 // A 4 m grid over each district's rectangle. A cell is BLOCKED if it is water
 // (or within a metre and a half of it), in an airport corridor, in the road's
@@ -13,6 +17,7 @@ const { launch, openGame, serve } = require("../art_rig.js");
 const SITES = {
   ny: { anchor: "skyline", x0: -980, x1: -110, z0: 3740, z1: 4470 },
   ca: { anchor: "downtown", x0: 110, x1: 1300, z0: -5520, z1: -4500 },
+  ldn: { anchor: "london", x0: -1560, x1: -150, z0: 13450, z1: 16450 },
 };
 const CELL = 4;
 
@@ -20,7 +25,9 @@ const CELL = 4;
   const srv = serve(path.resolve(__dirname, "..", ".."), 8187);
   const browser = await launch();
   const pg = await openGame(browser, 8187, { width: 400, height: 300 });
+  const only = process.argv.slice(2);
   for (const [name, S] of Object.entries(SITES)) {
+    if (only.length && !only.includes(name)) continue;
     const out = await pg.evaluate(([S, CELL]) => {
       const L = window.__lp;
       const anchor = L.ROUTE_LANDMARKS.find(l => l.name === S.anchor);
@@ -39,6 +46,7 @@ const CELL = 4;
           else if (L.inCorridor(x, z, 20)) b = 2;
           else if (L.hwyInCorridor && L.hwyInCorridor(x, z, 25)) b = 3;
           else if (L.flattenMask(x, z) > 0.02) b = 4;
+          else if (L.ldCovers && (L.ldCovers(x, z, 6) || L.TUNE.london.parks.some(p => x > p[0] && x < p[2] && z > p[1] && z < p[3]))) b = 7;
           else if (Math.abs(x - L.TRAIN_X) < 20 && z > L.TRAIN_ZMIN - 50 && z < L.TRAIN_ZMAX + 50) b = 5;
           else {
             for (const s of solids) {

@@ -630,7 +630,9 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           for (const sd of [-1, 1]) { const x = q.x + q.lx * sd * mid, z = q.z + q.lz * sd * mid; S.x = x; S.z = z; S.y = L.terrainEff(x, z) + 2; L.updateScenery(x, z, true);
             L.scene.traverse(o => { if (!isTer(o) || o.userData.__v185) return; o.userData.__v185 = true;
               const pa = o.geometry.attributes.position, ca = o.geometry.attributes.color, la = o.geometry.attributes.artLayerA; if (!ca || !la) return;
-              const ox = o.position.x, oz = o.position.z;
+              // (v197) where it really is: a city's ground hangs under its group, kilometres from its own origin --
+              // read by its local position, London's landed on this venue's fade
+              const wp = o.getWorldPosition(new THREE.Vector3()), ox = wp.x, oz = wp.z;
               for (let f = 0; f < pa.count; f += 3) {
                 let lo = 1, hi = 0, sum = 0; const m3 = [];
                 for (let v = 0; v < 3; v++) { const m = terSnowAt(ox + pa.getX(f + v), oz + pa.getZ(f + v)); m3.push(m); sum += m; lo = Math.min(lo, m); hi = Math.max(hi, m); }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "little-pilot-cockpit-v196";
+const CACHE_NAME = "little-pilot-cockpit-v197";
 const ASSETS = [
   "./",
   "./index.html",
@@ -80,6 +80,7 @@ const ASSETS = [
   "./js/race.js",
   "./js/raceitems.js",
   "./js/raceevents.js",
+  "./js/london.js",
   "./js/valley.js",
   "./js/dadmode.js",
   "./js/dadair.js",

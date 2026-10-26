@@ -279,7 +279,94 @@ function shapedTerrain(x, z) {
   }
   h = rcLakeBed(x, z, h);  // v174: the snow race track's frozen lake (see below)
   h = rcRailBed(x, z, h);  // v189: the dunes' freight line
+  h = ldShape(x, z, h);    // v197: the crossing, Britain and the Thames (see below)
   return harborHeight(x, z, h);
+}
+
+// ---------------------------------------------------------------------------
+// v197: BRITAIN, ACROSS THE SEA (TUNE.london; london.js furnishes it).
+//
+// Part of the ground for everyone, so it is shaped HERE and every reader agrees -- water is
+// still `terrainEff < seaLevelAt`, and the Thames is water only because the ground under it
+// is cut below the sea. In order, like the harbour: deepen the crossing (past NY's own sea,
+// so none of the world's hills stands out of it), stand the islands out of it, lay the land
+// with its white cliff at the coast and the downs falling to London's level, then cut the
+// river back down through all of it -- cliff and city alike. Everything here is +z of
+// NY's coast: z < seaFrom returns at the first test, so New York and California never change.
+function ldCoastZ(x) {
+  const C = TUNE.london.coast;
+  let z = C.z;
+  for (const w of C.wobble) z += w[0] * Math.sin(2 * Math.PI * x / w[1] + w[2]);
+  return z;
+}
+// The Thames: how far (x, z) is from its centreline, and its half-width there
+const ldRiverOut = { d: 0, hw: 0 };
+function ldRiverAt(x, z) {
+  const P = TUNE.london.thames.pts;
+  let best = Infinity, hw = 0;
+  for (let i = 1; i < P.length; i++) {
+    const a = P[i - 1], b = P[i], ex = b[0] - a[0], ez = b[1] - a[1];
+    const t = clamp(((x - a[0]) * ex + (z - a[1]) * ez) / (ex * ex + ez * ez), 0, 1);
+    const dx = x - a[0] - ex * t, dz = z - a[1] - ez * t, d = dx * dx + dz * dz;
+    if (d < best) { best = d; hw = a[2] + (b[2] - a[2]) * t; }
+  }
+  ldRiverOut.d = Math.sqrt(best); ldRiverOut.hw = hw;
+  return ldRiverOut;
+}
+// 1 inside London's flat ground, easing to 0 by its feather
+function ldCityW(x, z) {
+  const B = TUNE.london.cityBox;
+  const d = Math.max(B.x0 - x, x - B.x1, B.z0 - z, z - B.z1);
+  return d <= 0 ? 1 : 1 - smoothstep(0, B.feather, d);
+}
+// (v197) the ground's colour across the sea, for scene.js: the cliff's face is chalk (1), and
+// Britain's land is green, not the tan the height ramp gives its downs (`green`, 0..1)
+const ldTint = { chalk: 0, green: 0 };
+function ldGroundTint(x, z, hy) {
+  ldTint.chalk = 0; ldTint.green = 0;
+  const C = TUNE.london.coast;
+  if (z < C.z - C.reach) return ldTint;
+  const d = z - ldCoastZ(x);
+  ldTint.green = smoothstep(-10, 60, d);
+  if (d > -C.foot && d < C.cliffRun + 14 && hy > TUNE.waterLevel + 1.8) {
+    ldTint.chalk = 1 - smoothstep(C.cliffRun, C.cliffRun + 14, d);
+  }
+  return ldTint;
+}
+function ldShape(x, z, h) {
+  const LD = TUNE.london;
+  if (z < LD.seaFrom) return h;
+  h -= LD.seaDeep * smoothstep(LD.seaFrom, LD.seaFull, z);
+  for (const I of LD.islands) {
+    const dx = x - I.x, dz = z - I.z;
+    if (Math.abs(dx) > I.r || Math.abs(dz) > I.r) continue;
+    const r = Math.hypot(dx, dz) / I.r;
+    if (r >= 1) continue;
+    const top = I.kind === "rock"
+      ? TUNE.waterLevel + I.h * (1 - smoothstep(0.35, 1, r)) * (0.8 + 0.4 * valueNoise(x / 9 + 1.3, z / 9 + 4.1))
+      : TUNE.waterLevel + I.h * (1 - smoothstep(0.25, 1, r)) + valueNoise(x / 60 + 8.8, z / 60 + 2.2) * 3 * (1 - r);
+    h = Math.max(h, top);
+  }
+  const C = LD.coast;
+  if (z < C.z - C.reach) return h;
+  const d = z - ldCoastZ(x);
+  if (d > -C.foot - 40) {
+    const top = LD.plateau + (C.cliffH + C.cliffJag * (valueNoise(x / 60 + 3.1, 7.7) * 2 - 1)) *
+      (1 - smoothstep(C.cliffRun, C.cliffRun + C.downsRun, d));
+    const cw = ldCityW(x, z);
+    const ground = top + rawHeight(x, z) * lerp(0.55, LD.noise, cw);
+    const shore = TUNE.waterLevel + 0.6;
+    const land = d < 0 ? lerp(C.bed, shore, smoothstep(-C.foot, 0, d)) : lerp(shore, ground, smoothstep(0, C.cliffRun, d));
+    h = lerp(h, land, smoothstep(-C.foot - 40, -C.foot, d));
+  }
+  if (x > -1450 && x < 800) {
+    const T = LD.thames, r = ldRiverAt(x, z);
+    if (r.d < r.hw + T.bank) {
+      const cut = lerp(h, TUNE.waterLevel - T.depth, 1 - smoothstep(r.hw, r.hw + T.bank, r.d));
+      if (cut < h) h = cut;
+    }
+  }
+  return h;
 }
 
 // v174: THE FROZEN LAKE's bed, for the snow race track (TUNE.race.tracks, `lakeBed`):
@@ -316,10 +403,17 @@ function rcRailBed(x, z, h) {
   return h;
 }
 
+// `side`: which side of the runway its apron is on (+1: +x). v197: London's is the third, and
+// NOTHING that was built per airport before it builds at it by itself -- london.js builds what
+// London's has, on its own random stream (apHome says which are the two at the ends of the road).
 const AIRPORTS = [
-  { cz: ROUTE_HALF(), elev: Math.max(shapedTerrain(0, ROUTE_HALF()), TUNE.waterLevel + 2) },
-  { cz: -ROUTE_HALF(), elev: Math.max(shapedTerrain(0, -ROUTE_HALF()), TUNE.waterLevel + 2) }
+  { cz: ROUTE_HALF(), elev: Math.max(shapedTerrain(0, ROUTE_HALF()), TUNE.waterLevel + 2), side: 1 },
+  { cz: -ROUTE_HALF(), elev: Math.max(shapedTerrain(0, -ROUTE_HALF()), TUNE.waterLevel + 2), side: -1 },
+  { cz: TUNE.london.airport.cz, elev: Math.max(shapedTerrain(0, TUNE.london.airport.cz), TUNE.waterLevel + 2), side: 1, london: true }
 ];
+const AP_HOME = 2;                          // AIRPORTS[0..1]: New York and California
+// where a flight from this airport is going: NY <-> California, and London -> New York
+function apDest(idx) { return idx === 0 ? 1 : 0; }
 
 function flattenMask(x, z) {
   let m = 0;

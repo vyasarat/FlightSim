@@ -15,7 +15,7 @@
 const RECOVERY = [];   // per airport: { idx, barge:{x,z,deckY,mesh}, netBoat:{x,z,mesh}, ship, truck }
 
 function buildRecoveryFleet() {
-  for (let idx = 0; idx < AIRPORTS.length; idx++) {
+  for (let idx = 0; idx < AP_HOME; idx++) {   // (v197) no rocket starts in London
     const ap = AIRPORTS[idx];
     const m = idx === 0 ? 1 : -1;           // apron side; the pad is on -m; the sea is beyond the runway's outboard end
     const seaSign = idx === 0 ? 1 : -1;     // NY: sea at +z, CA: sea at -z

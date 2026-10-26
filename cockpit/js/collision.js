@@ -41,7 +41,7 @@ function shatterAround(px, py, pz) {
       buildingInst.setMatrixAt(b.idx, dummyObj.matrix);
       buildingInst.instanceMatrix.needsUpdate = true;
     }
-  });
+  }, px, pz, 71);
   if (hiddenPieces.length) shatterTimer = TUNE.shatterRestoreDelay;
 }
 

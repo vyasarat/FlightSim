@@ -602,9 +602,11 @@ let a_beaconFlash = null;
 const edgeLightMat = new THREE.MeshBasicMaterial({ color: 0xfff2b0, fog: false });
 const greenLightMat = new THREE.MeshBasicMaterial({ color: 0x3fdc6a, fog: false });
 const redLightMat = new THREE.MeshBasicMaterial({ color: 0xe0483e, fog: false });
-function buildAirport(idx) {
+// (v197) opts.noSpot: no sparkle spot over its tower; opts.noPad: no rocket pad (London's)
+function buildAirport(idx, opts) {
+  const O = opts || {};
   const ap = AIRPORTS[idx];
-  const m = idx === 0 ? 1 : -1;                 // apron side
+  const m = AIRPORTS[idx].side;                 // apron side
   const halfL = TUNE.runwayLength / 2, halfW = TUNE.runwayWidth / 2;
   const g = new THREE.Group();
   g.userData.trackSolids = true;
@@ -641,7 +643,7 @@ function buildAirport(idx) {
   blinkers.push(beacon);
   const rec = { idx, cz: ap.cz, m, beacon, cab, doors: [], sock: null, buzz: 0, doorOpen: 0, flyby: 0, vehicles: [] };
   airports.push(rec);
-  addSpot(m * 150, ap.elev + 66, ap.cz + 260);   // sparkle spot above the control tower
+  if (!O.noSpot) addSpot(m * 150, ap.elev + 66, ap.cz + 260);   // sparkle spot above the control tower
   // apron vehicles: a fuel truck and a baggage cart that drive out to the plane
   const part = (parent, geo, color, x, y, z, rx) => { const mm = new THREE.Mesh(geo, lam(color)); mm.position.set(x, y, z); if (rx) mm.rotation.x = rx; parent.add(mm); return mm; };
   const truck = new THREE.Group();
@@ -651,9 +653,12 @@ function buildAirport(idx) {
   const cart = new THREE.Group();
   part(cart, new THREE.BoxGeometry(2.2, 1.8, 3), 0x36c46a, 0, 1.2, 0);
   for (const dz of [-3.6, -7]) part(cart, new THREE.BoxGeometry(2, 1.4, 2.6), 0x8a93a0, 0, 1, dz);
-  for (const v of [truck, cart]) { v.position.set(m * 180, 0.5, v === truck ? 120 : 160); scene.add(v); }
-  rec.vehicles.push({ mesh: truck, homeX: m * 180, homeZ: 120, x: m * 180, z: 120, tx: m * 180, tz: 120 },
-                    { mesh: cart, homeX: m * 180, homeZ: 160, x: m * 180, z: 160, tx: m * 180, tz: 160 });
+  // (v197) opts.apronHome: their home is THIS airport's apron. The two older airports' trucks rest at
+  // z 120/160 of the world -- mid-country, not by their runways (QUEUE: a bug of its own, not moved here)
+  const hz = O.apronHome ? ap.cz : 0;
+  for (const v of [truck, cart]) { v.position.set(m * 180, 0.5, hz + (v === truck ? 120 : 160)); scene.add(v); }
+  rec.vehicles.push({ mesh: truck, homeX: m * 180, homeZ: hz + 120, x: m * 180, z: hz + 120, tx: m * 180, tz: hz + 120 },
+                    { mesh: cart, homeX: m * 180, homeZ: hz + 160, x: m * 180, z: hz + 160, tx: m * 180, tz: hz + 160 });
   // hangars with arched roofs
   for (const z of [-300, -370]) {
     lmBox(g, 56, 14, 44, 0xb0b6bf, m * 215, 7, z, true, "corrugated");
@@ -717,7 +722,7 @@ function buildAirport(idx) {
   // launch complex on the far side (SLC-40 style): concrete pad, launch mount over a
   // flame trench with a deflector, the strongback that swings away at ignition, four
   // lightning towers, a water tower for the deluge, the integration hangar at the base
-  {
+  if (!O.noPad) {
     const P = TUNE.rocketTune.pad, px = -m * P.dx, pz = P.dz, H = P.mountH;
     lmBox(g, 96, 0.3, 96, 0x9a9ea6, px, 0.15, pz, false);                       // pad
     lmBox(g, 14, 0.2, 70, 0x2a2e34, px, 0.45, pz + 22, false);                  // flame trench
@@ -807,7 +812,7 @@ function buildAirport(idx) {
   for (const pnd of g.userData.pending) { pnd.ly0 += 0.5; pnd.y1 += 0.5; }
   addRouteLandmark(g, 0, ap.cz);
 }
-for (let i = 0; i < AIRPORTS.length; i++) buildAirport(i);
+for (let i = 0; i < AP_HOME; i++) buildAirport(i);   // (v197: London's is london.js's)
 // Buzz the airport: low over the apron and the beacon strobes, the windsock
 // whips, the hangar doors slide open. Everything eases back when he leaves.
 let beaconFlashT = 0;

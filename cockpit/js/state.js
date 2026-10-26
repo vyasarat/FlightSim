@@ -172,7 +172,7 @@ function rocketPad(idx) {
   // the booster rocket stands on the launch site's pad, beside the motorway (heavy.js)
   if (state.vp && state.vp.heavy && typeof heavyPad === "function") { const hp = heavyPad(); if (hp) return hp; }
   const ap = AIRPORTS[idx], P = TUNE.rocketTune.pad;
-  const m = idx === 0 ? 1 : -1;
+  const m = AIRPORTS[idx].side;
   return { x: -m * P.dx, z: ap.cz + P.dz, ground: ap.elev + P.mountH };
 }
 function spawnForTakeoff(originIdx, dirIdx) {
@@ -181,7 +181,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   if (typeof raceReset === "function") raceReset();   // v164: every start is out of a race
   state.originIdx = originIdx;
   state.dirIdx = dirIdx;
-  state.destIdx = 1 - originIdx;
+  state.destIdx = apDest(originIdx);
   const ap = AIRPORTS[state.originIdx];
   const sgn = dirIdx === 0 ? 1 : -1;
   state.x = 0;

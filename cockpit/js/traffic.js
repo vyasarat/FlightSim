@@ -190,7 +190,7 @@ function updateMissiles(dt) {
           if (b.car !== undefined) shootTrainCar(b.car, m.x, m.y, m.z);
           else shatterAround(m.x, m.y, m.z);
         }
-      });
+      }, m.x, m.z, 2);
       if (boomed) break;
 
       for (const t of traffic) {

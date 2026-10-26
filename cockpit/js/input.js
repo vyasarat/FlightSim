@@ -99,7 +99,8 @@ window.addEventListener("pagehide", releaseAllInputs);
 let throttlePointerId = null;
 function menuOpen() {
   return !el.screenVehicle.classList.contains("hiddenS") || !el.screenDir.classList.contains("hiddenS") || !el.screenDest.classList.contains("hiddenS") ||
-    !!(el.screenRace && !el.screenRace.classList.contains("hiddenS"));   // v164: the track picker
+    !!(el.screenRace && !el.screenRace.classList.contains("hiddenS")) ||   // v164: the track picker
+    !!(el.screenGlobe && !el.screenGlobe.classList.contains("hiddenS"));   // v197: where to start
 }
 el.throttleBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
@@ -325,7 +326,7 @@ document.querySelectorAll(".dirCard").forEach(card => {
     e.preventDefault();
     e.stopPropagation();
     const d = parseInt(card.dataset.d, 10) === 1 ? 1 : 0;
-    try { localStorage.setItem("lp.dir", String(d)); } catch (err) {}
+    try { localStorage.setItem("lp.dir", String(d)); localStorage.removeItem("lp.start"); } catch (err) {}
     spawnForTakeoff(d === 1 ? 1 : 0, d);
     el.screenDir.classList.add("hiddenS");
     if (state.vp.rocket) el.screenDest.classList.remove("hiddenS");   // the rocket picks where it is going
@@ -496,6 +497,7 @@ function openPickerAnywhere() {
   // has the way back to the vehicles underneath it.
   el.screenDir.classList.add("hiddenS");
   el.screenDest.classList.add("hiddenS");
+  if (el.screenGlobe) el.screenGlobe.classList.add("hiddenS");
   el.screenVehicle.classList.remove("hiddenS");
   unlockAudio();
 }
