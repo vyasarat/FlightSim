@@ -31,7 +31,7 @@ const ldn = {
   clock: 0, bongAt: LD.bigBen.first, strikes: [], bongs: 0,
   eye: null, eyeA: 0, caps: null, hands: null, faces: [],
   ships: [], beam: null, beamA: 0,
-  whale: { g: null, up: 0, next: 12, x: 0, z: 0, heading: 0 },
+  whale: { g: null, up: 0, next: LD.whale.first, x: 0, z: 0, heading: 0 },
   phone: [], tbLeaves: [], airportIdx: 2,
 };
 
@@ -887,7 +887,7 @@ function ldBuild() {
       const has = typeof CITY_DATA !== "undefined" && !!CITY_DATA.ldn;
       if (has) cityRegister("ldn", g, ax, az);
       addRouteLandmark(g, ax, az, "london");
-      if (has) cityLoad(cities.ldn);
+      if (has) cityLoad(cities.ldn, ldRand);
     }
     solidRegionClose(ldn.region);
   });
@@ -974,8 +974,8 @@ function ldHeading(dt) {
   if (vehKind() !== "plane" || state.phase !== "AIRBORNE" || state.exploding) return;
   if (state.z < LD.seaFrom || state.z > LD.coast.z) return;
   const c = Math.cos(state.heading);                 // -1: flying +z, toward London
-  if (c < -0.3 && state.destIdx !== ldn.airportIdx) { state.destIdx = ldn.airportIdx; state.dirIdx = 1; placeRings(); }
-  else if (c > 0.3 && state.destIdx === ldn.airportIdx) { state.destIdx = 0; state.dirIdx = 0; placeRings(); }
+  if (c < -LD.toward && state.destIdx !== ldn.airportIdx) { state.destIdx = ldn.airportIdx; state.dirIdx = 1; placeRings(); }
+  else if (c > LD.toward && state.destIdx === ldn.airportIdx) { state.destIdx = 0; state.dirIdx = 0; placeRings(); }
 }
 
 function ldUpdate(dt) {
@@ -1000,7 +1000,7 @@ let ldCullT = 0;
 function ldCull(dt) {
   ldCullT -= dt;
   if (ldCullT > 0) return;
-  ldCullT = 0.35;
+  ldCullT = LD.cullEvery;
   const max2 = TUNE.fogFar * TUNE.fogFar * 2.1, px = state.x, pz = state.z;
   const near = (x, z, r) => { const dx = x - px, dz = z - pz, d = Math.sqrt(dx * dx + dz * dz) - (r || 0); return d * d < max2 || d < 0; };
   for (const k in ldn.landmarks) { const L = ldn.landmarks[k]; L.g.visible = near(L.x, L.z, k === "phoneBoxes" ? 1600 : 150); }

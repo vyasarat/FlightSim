@@ -276,12 +276,31 @@ function cityBuildMeshes(c, gltf) {
   cityAssign(c);
 }
 
-// (v197) one city at a time: London registers after the other two (london.js) and loads its own
-function cityLoad(c) {
+// (v197) one city at a time: London registers after the other two (london.js) and loads its own.
+// `rand`: a random stream of its own for everything the parse and the build make -- three.js draws
+// a uuid for each, and a city that did not exist in the seeded stream must not move it. The bytes
+// are fetched first and parsed in one go (the GLB has no textures to wait on), so the stream is
+// swapped only while nothing else can run, and put back before the parse's last callback returns.
+function cityLoad(c, rand) {
   if (typeof THREE.GLTFLoader !== "function") { c.failed = true; return; }
-  new THREE.GLTFLoader().load(c.data.glb, (gltf) => {
-    try { cityBuildMeshes(c, gltf); } catch (e) { c.failed = true; console.warn("city: build failed", c.key, e); }
-  }, undefined, () => { c.failed = true; });
+  const loader = new THREE.GLTFLoader();
+  if (!rand) {
+    loader.load(c.data.glb, (gltf) => {
+      try { cityBuildMeshes(c, gltf); } catch (e) { c.failed = true; console.warn("city: build failed", c.key, e); }
+    }, undefined, () => { c.failed = true; });
+    return;
+  }
+  fetch(c.data.glb).then(r => r.arrayBuffer()).then(buf => {
+    const R = Math.random;
+    Math.random = rand;
+    const done = () => { Math.random = R; };
+    try {
+      loader.parse(buf, "", (gltf) => {
+        try { cityBuildMeshes(c, gltf); } catch (e) { c.failed = true; console.warn("city: build failed", c.key, e); }
+        done();
+      }, () => { c.failed = true; done(); });
+    } catch (e) { c.failed = true; done(); }
+  }).catch(() => { c.failed = true; });
 }
 function cityLoadAll() {
   if (typeof THREE.GLTFLoader !== "function") { for (const k in cities) cities[k].failed = true; return; }

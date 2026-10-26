@@ -22,6 +22,9 @@ sentry boxes, St Paul's, the Shard, the Gherkin, Nelson's Column and red phone b
 real bank of the river, in its real order along it, all solid, the flat ones somewhere to land the
 helicopter. A London airport takes every plane, and a new globe button (parked, in a plane or the
 helicopter) starts him in New York, California or London. New York and California are untouched.
+(The vehicle baseline was regenerated for one deliberate change: the planes and the helicopter now
+show the globe when parked. The yacht's resting height reads -3.5 instead of -3.4 there -- the same
+-3.4158 m to four places, the rounding of a hull still settling.)
 
 ## v196 — The monster truck's boost flames come out of the truck
 

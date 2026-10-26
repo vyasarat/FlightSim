@@ -293,8 +293,8 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
     overlaps.push(...await p2.evaluate(([w, h]) => {
       const L = window.__lp, out = [];
       L.noRender = true; L.api.skipScreens();
-      for (const v of ["prop", "airlinerEmirates", "fighter", "helicopter"]) {
-        L.api.setVehicle(v); L.api.spawnAt(0, 0);
+      for (const [v, at] of [["prop", 0], ["airlinerEmirates", 0], ["fighter", 2], ["helicopter", 0], ["helicopter", 2], ["prop", 2]]) {
+        L.api.setVehicle(v); L.api.spawnAt(at, 0);
         for (let i = 0; i < 20; i++) { L.update(1 / 60); L.btnUpdateAll(); }
         const g = document.getElementById("globeBtn");
         if (g.classList.contains("hidden")) { out.push(`${w}x${h} ${v}: no globe`); continue; }
@@ -346,18 +346,41 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
     // with it); turned back, New York -- and his controls are never touched
     L.api.spawnAt(0, 0);
     st.phase = "AIRBORNE"; st.x = 0; st.z = 9000; st.y = 150; st.speed = 60; st.pitch = 0; st.bank = 0;
-    st.heading = Math.PI; L.update(1 / 60);
+    st.heading = Math.PI; L.api.setStick(0.3, -0.2);
+    const flip = () => { const c0 = [st.ctrlBank, st.ctrlPitch, st.heading, st.bank]; L.update(1 / 60); return [st.ctrlBank, st.ctrlPitch].every((v, i) => v === c0[i]); };
+    const kept1 = flip();
     const ringZ = L.ringsGroup.position.z;
     o.toLondon = { dest: st.destIdx, rings: Math.abs(ringZ - (ap.cz - T.runwayLength / 2)) < 1 };
+    // the same frame with and without the flip turns him identically: only the HUD changed
+    const turnOf = (dest) => { st.heading = 0.2; st.bank = 0; st.destIdx = dest; st.dirIdx = dest === 2 ? 1 : 0; st.z = 9000; st.x = 0; st.y = 150; L.api.setStick(0.3, -0.2); L.update(1 / 60); return +st.heading.toFixed(6); };
     st.heading = 0; L.update(1 / 60);
-    o.back = { dest: st.destIdx };
+    o.back = { dest: st.destIdx, kept: kept1 };
+    o.sameTurn = turnOf(2) === turnOf(0);
+    L.api.clearStick();
     L.api.clearStick();
     return o;
   });
   check("london airport: he takes off from London on a held finger, south toward New York, without a bang", fly.off.phase === "AIRBORNE" && fly.off.south && fly.off.dest === 0 && !fly.off.bang, JSON.stringify(fly.off));
   check("london airport: a plane on London's glide slope lands there, celebrates, and comes back to start from London", fly.land.landed && !fly.land.bang && fly.land.originAfter === 2 && fly.land.destAfter === 0, JSON.stringify(fly.land));
   check("london airport: out over the sea, flying toward Britain makes London the destination (its rings waiting), and turning back makes it New York again",
-    fly.toLondon.dest === 2 && fly.toLondon.rings && fly.back.dest === 0, JSON.stringify({ toLondon: fly.toLondon, back: fly.back }));
+    fly.toLondon.dest === 2 && fly.toLondon.rings && fly.back.dest === 0 && fly.back.kept && fly.sameTurn, JSON.stringify({ toLondon: fly.toLondon, back: fly.back, sameTurn: fly.sameTurn }));
+
+  // the crash warning sounds before a landmark, as it does before any building: flying at Big Ben
+  const warn = await page.evaluate(() => {
+    const L = window.__lp, st = L.state, T = L.TUNE, [bx, bz] = T.london.at.bigBen;
+    L.api.setVehicle("prop"); L.api.spawnAt(2, 0); L.api.clearStick();
+    st.phase = "AIRBORNE"; st.x = bx; st.z = bz - 400; st.y = L.terrainEff(bx, bz) + 50; st.heading = Math.PI; st.pitch = 0; st.bank = 0; st.speed = 60;
+    st.liftoffTimer = 0; st.maxAglSinceLiftoff = 1e9; st.alarmOn = false;
+    let warnedAt = null, bangAt = null;
+    for (let i = 0; i < 60 * 10 && bangAt === null; i++) {
+      st.x = bx; st.heading = Math.PI; st.pitch = 0; L.update(1 / 60);
+      if (st.alarmOn && warnedAt === null) warnedAt = Math.round(bz - st.z);
+      if (st.exploding) bangAt = Math.round(bz - st.z);
+    }
+    return { warnedAt, bangAt };
+  });
+  check("london: the crash warning sounds before he flies into Big Ben, as before any building (and the bang comes, free, where it happened)",
+    warn.warnedAt !== null && warn.bangAt !== null && warn.warnedAt > warn.bangAt + 30, JSON.stringify(warn));
 
   // ---- nothing in New York or California moved ----------------------------------------------
   const same = await page.evaluate(() => {

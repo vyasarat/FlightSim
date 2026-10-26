@@ -2857,7 +2857,9 @@ const TUNE = {
     eye: { r: 58, capsules: 32, turn: 0.026 },        // rad/s: once round in four minutes
     ships: { n: 3, speed: 7, lanes: [8000, 9250, 10150], span: 2600 },   // across the crossing, along x
     lighthouse: { h: 30, beam: 0.9 },                  // rad/s
-    whale: { every: [20, 40], dist: [260, 480] },      // a breach off his beam while he crosses
+    whale: { first: 12, every: [20, 40], dist: [260, 480] },   // a breach off his beam while he crosses
+    toward: 0.3,                                      // over the sea, |cos(heading)| past this says which way he is bound
+    cullEvery: 0.35,                                  // s between London's past-the-fog culls
   },
 
   vehicleColors: {
