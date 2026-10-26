@@ -111,6 +111,58 @@ module.exports = async function londonThamesChecks({ newPage, check }) {
   check(`london thames: sailing up in the speedboat, Tower Bridge is open before he reaches it (${boat.run.openAt} m short); he goes through, and it closes behind him; never a bang`,
     boat.run.openAt !== null && boat.run.openAt > 20 && boat.run.through && boat.run.closedAfter && boat.run.b === 0 && boat.run.onWaterShare > 0.95 && boat.run.o === 1, JSON.stringify(boat.run));
 
+  // ---- the ship and his boat: she never sails into him, and he is never inside her ---------------
+  const meet = await page.evaluate(() => {
+    const L = window.__lp, st = L.state, D = window.__ldt, S = L.ldn.tship, H = L.LD.river.ship, o = {};
+    L.api.setVehicle("speedboat"); L.ldStart(); L.api.clearStick();
+    for (let i = 0; i < 10; i++) L.update(1 / 60);
+    // parked in her path, ahead of her bow: she stops short of him
+    S.state = "in"; S.dir = 1; S.z = 12500; S.v = H.speed; D.bridgeDown();
+    const gap0 = 150, R = L.ldRiverMid(12500 + H.len / 2 + gap0, {}), f0 = D.f();
+    let minGap = Infinity, inside = 0;
+    for (let f = 0; f < 60 * 20; f++) {
+      st.x = R.x; st.z = 12500 + H.len / 2 + gap0; st.y = L.seaLevelAt(st.x, st.z); st.speed = 0;
+      L.update(1 / 60);
+      minGap = Math.min(minGap, st.z - (S.z + H.len / 2));
+      if (Math.abs(st.z - S.z) < H.len / 2 && Math.abs(st.x - S.x) < H.beam / 2) inside++;
+    }
+    o.ahead = { minGap: +minGap.toFixed(1), shipV: +S.v.toFixed(2), inside, ...D.delta(f0) };
+    // nosed into her side at a crawl: the one law's shove, never a bang, never inside her
+    S.state = "moor"; S.t = 1e6; S.z = 13000; L.update(1 / 60);
+    st.x = S.x + 25; st.z = S.z; st.y = L.seaLevelAt(st.x, st.z); st.heading = Math.PI / 2; st.speed = 0; L.boat.crashCool = 0;
+    const f1 = D.f();
+    let wasIn = 0;
+    for (let f = 0; f < 60 * 8; f++) { L.api.setStick(0, 0); st.speed = Math.min(st.speed, 3); L.update(1 / 60); if (inHullNow()) wasIn++; }
+    L.api.clearStick();
+    function inHullNow() { const c = Math.cos(S.g.rotation.y), sn = Math.sin(S.g.rotation.y), dx = st.x - S.x, dz = st.z - S.z;
+      return Math.abs(dx * c - dz * sn) < H.beam / 2 - 1 && Math.abs(dx * sn + dz * c) < H.len / 2 - 1; }
+    const inHull = () => { const c = Math.cos(S.g.rotation.y), sn = Math.sin(S.g.rotation.y), dx = st.x - S.x, dz = st.z - S.z;
+      return Math.abs(dx * c - dz * sn) < H.beam / 2 && Math.abs(dx * sn + dz * c) < H.len / 2; };
+    o.crawl = { wasIn, reached: Math.round(Math.abs(st.x - S.x)), ...D.delta(f1) };
+    // rammed at full speed: a bang, and he comes back clear of her
+    st.x = S.x + 60; st.z = S.z; st.heading = Math.PI / 2; st.speed = st.vp.cruiseSpeed; st.exploding = false;
+    const f2 = D.f();
+    for (let f = 0; f < 60 * 8; f++) { L.api.setStick(0, 0.3); L.update(1 / 60); if (st.exploding) { st.explodeTimer = 0; } }
+    L.api.clearStick();
+    for (let f = 0; f < 60 * 4; f++) L.update(1 / 60);
+    o.rammed = { inHull: inHull(), onWater: L.boatOnWater(), ...D.delta(f2) };
+    // a plane flown into her rigging is a wall, like a building's
+    L.api.setVehicle("prop"); L.api.spawnAt(2, 0);
+    const pf = D.f(), pc = L.flags.crashes || 0;
+    let crashed = false;
+    for (let f = 0; f < 60 * 6 && !crashed; f++) {
+      st.phase = "AIRBORNE"; st.x = S.x + 120 - f * 1.2; st.z = S.z; st.y = L.TUNE.waterLevel + 25; st.heading = Math.PI / 2; st.pitch = 0; st.bank = 0; st.speed = 60; st.airVy = 0;
+      L.update(1 / 60);
+      if (st.exploding) crashed = true;
+    }
+    o.plane = { crashed };
+    D.shipAway();
+    return o;
+  });
+  check(`london thames: the tall ship is solid in the one registry and never runs his boat down -- in her path she stops ${meet.ahead.minGap} m short of him; nosed into her side at a crawl, the one law's shove and never a bang; rammed at full speed, a bang and he comes back clear of her on the water; a plane flown into her rigging crashes`,
+    meet.ahead.minGap > 0 && meet.ahead.inside === 0 && meet.ahead.b === 0 && meet.crawl.wasIn === 0 && meet.crawl.b === 0 && meet.crawl.reached < 16 &&
+    meet.rammed.b === 1 && !meet.rammed.inHull && meet.rammed.onWater && meet.plane.crashed, JSON.stringify(meet));
+
   // ---- his boat's ways back: a relaunch, and stranded with nowhere to go ----------------------------
   const home = await page.evaluate(() => {
     const L = window.__lp, st = L.state, D = window.__ldt, o = {};
@@ -132,6 +184,24 @@ module.exports = async function londonThamesChecks({ newPage, check }) {
     o.yield = { moved: +Math.abs(b.z - z0).toFixed(1), cur: +b.cur.toFixed(2) };
     return o;
   });
+  // his boat sitting still beside the bridge does not keep it up for good
+  const linger = await page.evaluate(() => {
+    const L = window.__lp, st = L.state, D = window.__ldt, T = L.ldn.tb;
+    D.shipAway(); D.bridgeDown();
+    L.api.setVehicle("speedboat"); L.ldStart(); L.api.clearStick();
+    const R = L.ldRiverMid(T.z - 60, {});
+    let wasUp = false, downAgain = null;
+    for (let f = 0; f < 60 * 80; f++) {
+      st.x = R.x; st.z = T.z - 60; st.y = L.seaLevelAt(st.x, st.z); st.speed = 0;
+      L.update(1 / 60);
+      if (T.open >= 1) wasUp = true;
+      if (wasUp && downAgain === null && T.state === "down") downAgain = +(f / 60).toFixed(1);
+    }
+    return { wasUp, downAgain };
+  });
+  check("london thames: his boat sitting still beside Tower Bridge has it up, and then -- with nobody moving -- it comes down again; it never stays up for good",
+    linger.wasUp && linger.downAgain !== null && linger.downAgain < 60, JSON.stringify(linger));
+
   check("london thames: a relaunch after a speedboat London start puts him back on the Thames, bow up the river; stranded far inland in Britain, he is put back on the Thames, not sent home to California; a river boat eases off for him ahead of it",
     home.relaunch.origin === 2 && home.relaunch.onWater && home.relaunch.thames && home.relaunch.upRiver && home.stranded.thames && home.stranded.upRiver && home.yield.moved < 10 && home.yield.cur < 0.5, JSON.stringify(home));
 
@@ -229,16 +299,17 @@ module.exports = async function londonThamesChecks({ newPage, check }) {
     L.api.setVehicle("prop"); L.api.spawnAt(2, 0);
     const z0 = B.map(b => b.z);
     // a long while, so each passes under both bridges: never in a pier, never on land
-    const walls = B.map(() => 0), dry = B.map(() => 0);
+    const walls = B.map(() => 0), dry = B.map(() => 0), run = B.map(() => 0), last = B.map(b => b.z);
     for (let f = 0; f < 60 * 300; f++) {
       L.update(1 / 60);
       if (f % 15) continue;
-      B.forEach((b, i) => { if (L.solidQuery(b.x, L.TUNE.waterLevel + 1, b.z, 3, L.SOLID.BOAT)) walls[i]++; if (L.terrainEff(b.x, b.z) >= L.seaLevelAt(b.x, b.z)) dry[i]++; });
+      B.forEach((b, i) => { run[i] += Math.abs(b.z - last[i]); last[i] = b.z; if (L.solidQuery(b.x, L.TUNE.waterLevel + 1, b.z, 3, L.SOLID.BOAT)) walls[i]++; if (L.terrainEff(b.x, b.z) >= L.seaLevelAt(b.x, b.z)) dry[i]++; });
     }
-    return B.map((b, i) => ({ moved: Math.round(Math.abs(b.z - z0[i])), wet: dry[i] === 0, wall: walls[i] > 0, walls: walls[i], dry: dry[i] }));
+    // (the distance each SAILED, not where it ended: one that turned at the end of its run may end near where it began)
+    return B.map((b, i) => ({ moved: Math.round(run[i]), wet: dry[i] === 0, wall: walls[i] > 0, walls: walls[i], dry: dry[i] }));
   });
   check(`london thames: ${rb.length} boats ply the river for five minutes -- under both bridges, every one on the water the whole time, never in a pier, none of them a wall`,
-    rb.length >= 3 && rb.every(b => b.moved > 20 && b.wet && !b.wall), JSON.stringify(rb));
+    rb.length >= 3 && rb.every(b => b.moved > 900 && b.wet && !b.wall), JSON.stringify(rb));
 
   await page.close();
 };

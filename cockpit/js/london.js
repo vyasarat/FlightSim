@@ -1301,7 +1301,9 @@ function ldTbAsks() {
     const coming = Math.sign(-Math.cos(state.heading)) === -Math.sign(dz) && state.speed > 1;
     // (far enough out that it is up before he arrives at the speed he is going: bells, gates, the lift)
     const reach = Math.max(LDR.boatTrigger, state.speed * (LDR.open.warn + LDR.open.rise + LDR.boatLead));
-    if (R.d < R.hw && Math.abs(dz) < reach && (coming || Math.abs(dz) < LDR.boatClear)) why.push("boat");
+    // (sitting still beside it, after a while he no longer asks: it never stays up for good, with a car at the gate)
+    T.boatIdle = state.speed < 1 ? (T.boatIdle || 0) + (ldn.dt || 0) : 0;
+    if (R.d < R.hw && Math.abs(dz) < reach && (coming || Math.abs(dz) < LDR.boatClear) && T.boatIdle < LDR.boatLinger) why.push("boat");
   }
   T.asks = why.join("+");
   return why.length > 0;
@@ -1310,6 +1312,7 @@ function ldTbAsks() {
 function ldTbUpdate(dt) {
   const T = ldn.tb;
   if (!T) return;
+  ldn.dt = dt;
   const O = LDR.open, want = ldTbAsks();
   const was = T.state;
   if (T.state === "down") {
@@ -1392,17 +1395,25 @@ function ldTallShipMesh() {
     geo.setAttribute("color", new THREE.Float32BufferAttribute(P.col, 3));
     geo.computeBoundingSphere();
     const m = new THREE.Mesh(geo, ldMat(kind)); m.castShadow = true;
-    m.userData.noSolid = true; m.userData.noShatter = true;
+    m.userData.noShatter = true;
     g.add(m);
   }
-  g.userData.noSolid = true; g.userData.noShatter = true;
+  g.userData.noShatter = true;
   return g;
 }
+const ldShipLine = { x: 0, hw: 0, fx: 0, fz: 1 };
 // her own clock and nothing else: game time, never the wall clock, never the page's random stream
+// SHE IS SOLID, in the one registry, as the harbour's ferry is: two boxes that turn and move with her --
+// her hull, and her masts and sails over it -- so the one law meets her (a bang over a vehicle's crawl,
+// a shove under it) and boatReassemble clears him of her.
 function ldTallShip() {
-  const g = ldTallShipMesh();
+  const g = ldTallShipMesh(), H = LDR.ship;
   scene.add(g);
-  ldn.tship = { g, z: LDR.ship.from, dir: 1, state: "away", t: 4, v: 0, honked: false };
+  const hull = solidBox3(0, TUNE.waterLevel + 1.5, H.from, [1, 0, 0], [0, 1, 0], [0, 0, 1], H.beam / 2, 4.5, H.len / 2, "ship");
+  const rig = solidBox3(0, TUNE.waterLevel + 6 + H.mastMax / 2, H.from, [1, 0, 0], [0, 1, 0], [0, 0, 1], 12, H.mastMax / 2 - 3, H.len * 0.35, "ship");
+  hull.mesh = rig.mesh = g.children[0];
+  hull.ld = rig.ld = "tallShip";
+  ldn.tship = { g, z: H.from, dir: 1, state: "away", t: 4, v: 0, honked: false, solids: [hull, rig] };
   ldTallShipPose();
 }
 function ldTallShipPose() {
@@ -1410,6 +1421,7 @@ function ldTallShipPose() {
   S.x = R.x;
   S.g.position.set(R.x, TUNE.waterLevel, S.z);
   S.g.rotation.y = Math.atan2(R.fx * S.dir, R.fz * S.dir);
+  if (S.solids) for (const b of S.solids) hbFerryPose(b, S.x, S.z, S.g.rotation.y);
 }
 function ldTallShipMove(dt) {
   const S = ldn.tship, H = LDR.ship, T = ldn.tb;
@@ -1421,11 +1433,14 @@ function ldTallShipMove(dt) {
     // she slows on her way to the bridge and waits below it until it is up; then on
     const bow = S.z + S.dir * H.len / 2, toBridge = (T.z - bow) * S.dir;
     let want = H.speed;
-    // and she never sails into his boat: in her path ahead of her bow, she stops for him
+    // and she never sails into his boat: in her path ahead of her bow, she brakes in time to stop
+    // `giveWay` short of him (and goes on when he moves out of her way)
     const mine = typeof boatActive === "function" && boatActive() && !state.exploding;
     if (mine) {
       const ahead = (state.z - bow) * S.dir;
-      if (ahead > -2 && ahead < H.giveWay && Math.abs(state.x - S.x) < H.beam / 2 + 6) want = 0;
+      // (her line is the river's middle -- measured where HE is: the river bends between them)
+      const line = ldRiverMid(state.z, ldShipLine);
+      if (ahead > -2 && Math.abs(state.x - line.x) < H.beam / 2 + H.giveLane) want = Math.min(want, Math.sqrt(2 * H.decel * Math.max(0, ahead - H.giveWay)));
     }
     if (toBridge > 0 && T.open < 1) want = toBridge < H.holdAt ? 0 : Math.min(want, H.speed * clamp((toBridge - H.holdAt) / (H.slowAt - H.holdAt), 0.15, 1));
     // and in to her berth, and out to sea, slowly at the end
@@ -1434,11 +1449,6 @@ function ldTallShipMove(dt) {
     S.v += clamp(want - S.v, -H.decel * dt, H.accel * dt);
     S.z += S.dir * S.v * dt;
     if (!S.honked && toBridge < H.horn && toBridge > 0) { S.honked = true; if (Math.hypot(state.x - S.x, state.z - S.z) < LD.bigBen.hear) hbHorn(S.x, TUNE.waterLevel + 20, S.z, 120, 1.6); }
-    // alongside her, he is eased out from her side -- a shove, never a bang, and never inside her hull
-    if (mine) {
-      const along = Math.abs(state.z - S.z), lat = state.x - S.x, edge = H.beam / 2 + 3;
-      if (along < H.len / 2 + 4 && Math.abs(lat) < edge) { state.x = S.x + Math.sign(lat || 1) * edge; state.speed *= 0.6; flags.tbShipShoves = (flags.tbShipShoves || 0) + 1; }
-    }
     if (left <= 0.5) { S.z = end; S.state = S.state === "in" ? "moor" : "away"; S.t = S.state === "moor" ? H.moor : H.away; if (S.state === "away") flags.tbShipRoundTrips = (flags.tbShipRoundTrips || 0) + 1; }
   }
   ldTallShipPose();
