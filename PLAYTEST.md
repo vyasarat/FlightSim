@@ -72,6 +72,7 @@ entry below.
 | v184 | when he wins a race he looks up at the fireworks over the podium and points at them or says "fireworks"; nobody calls them rocks or blobs, and he still finds the flag button to race again |  open |
 | v185 | nothing he mentions: flying or driving near Snowy Peaks, the snow round the track fades softly into the grass, with no zig-zag edge anyone points at |  open |
 | v186 | nothing he notices: when he wins, each firework still bangs as it opens over the podium |  open |
+| v197 | he taps the globe and picks London more than once; he names at least two landmarks out loud ("Big Ben", "Tower Bridge", "the big wheel") and flies under Tower Bridge on purpose; he hears Big Ben bong and says so; at least once he flies from New York across the sea to London |  open |
 
 ## Entries
 

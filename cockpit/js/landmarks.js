@@ -602,9 +602,11 @@ let a_beaconFlash = null;
 const edgeLightMat = new THREE.MeshBasicMaterial({ color: 0xfff2b0, fog: false });
 const greenLightMat = new THREE.MeshBasicMaterial({ color: 0x3fdc6a, fog: false });
 const redLightMat = new THREE.MeshBasicMaterial({ color: 0xe0483e, fog: false });
-function buildAirport(idx) {
+// (v197) opts.noSpot: no sparkle spot over its tower; opts.noPad: no rocket pad (London's)
+function buildAirport(idx, opts) {
+  const O = opts || {};
   const ap = AIRPORTS[idx];
-  const m = idx === 0 ? 1 : -1;                 // apron side
+  const m = AIRPORTS[idx].side;                 // apron side
   const halfL = TUNE.runwayLength / 2, halfW = TUNE.runwayWidth / 2;
   const g = new THREE.Group();
   g.userData.trackSolids = true;
@@ -641,7 +643,7 @@ function buildAirport(idx) {
   blinkers.push(beacon);
   const rec = { idx, cz: ap.cz, m, beacon, cab, doors: [], sock: null, buzz: 0, doorOpen: 0, flyby: 0, vehicles: [] };
   airports.push(rec);
-  addSpot(m * 150, ap.elev + 66, ap.cz + 260);   // sparkle spot above the control tower
+  if (!O.noSpot) addSpot(m * 150, ap.elev + 66, ap.cz + 260);   // sparkle spot above the control tower
   // apron vehicles: a fuel truck and a baggage cart that drive out to the plane
   const part = (parent, geo, color, x, y, z, rx) => { const mm = new THREE.Mesh(geo, lam(color)); mm.position.set(x, y, z); if (rx) mm.rotation.x = rx; parent.add(mm); return mm; };
   const truck = new THREE.Group();
@@ -717,7 +719,7 @@ function buildAirport(idx) {
   // launch complex on the far side (SLC-40 style): concrete pad, launch mount over a
   // flame trench with a deflector, the strongback that swings away at ignition, four
   // lightning towers, a water tower for the deluge, the integration hangar at the base
-  {
+  if (!O.noPad) {
     const P = TUNE.rocketTune.pad, px = -m * P.dx, pz = P.dz, H = P.mountH;
     lmBox(g, 96, 0.3, 96, 0x9a9ea6, px, 0.15, pz, false);                       // pad
     lmBox(g, 14, 0.2, 70, 0x2a2e34, px, 0.45, pz + 22, false);                  // flame trench
@@ -807,7 +809,7 @@ function buildAirport(idx) {
   for (const pnd of g.userData.pending) { pnd.ly0 += 0.5; pnd.y1 += 0.5; }
   addRouteLandmark(g, 0, ap.cz);
 }
-for (let i = 0; i < AIRPORTS.length; i++) buildAirport(i);
+for (let i = 0; i < AP_HOME; i++) buildAirport(i);   // (v197: London's is london.js's)
 // Buzz the airport: low over the apron and the beacon strobes, the windsock
 // whips, the hangar doors slide open. Everything eases back when he leaves.
 let beaconFlashT = 0;

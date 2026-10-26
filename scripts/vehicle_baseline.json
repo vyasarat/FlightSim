@@ -14,7 +14,7 @@
   "eyeDx": 0,
   "eyeDy": 0,
   "eyeDz": 0,
-  "buttons": "camBtn,ejectBtn,gearBtn,menuBtn,throttleBtn,vehBtn,viewBtn,washBtn",
+  "buttons": "camBtn,ejectBtn,gearBtn,globeBtn,menuBtn,throttleBtn,vehBtn,viewBtn,washBtn",
   "crash": {
    "exploded": true,
    "backDx": 0,
@@ -37,7 +37,7 @@
   "eyeDx": 0,
   "eyeDy": 0,
   "eyeDz": 0,
-  "buttons": "camBtn,ejectBtn,gearBtn,menuBtn,throttleBtn,vehBtn,viewBtn,washBtn",
+  "buttons": "camBtn,ejectBtn,gearBtn,globeBtn,menuBtn,throttleBtn,vehBtn,viewBtn,washBtn",
   "crash": {
    "exploded": true,
    "backDx": 0,
@@ -60,7 +60,7 @@
   "eyeDx": 0,
   "eyeDy": 0,
   "eyeDz": 0,
-  "buttons": "camBtn,ejectBtn,gearBtn,menuBtn,throttleBtn,vehBtn,viewBtn,washBtn",
+  "buttons": "camBtn,ejectBtn,gearBtn,globeBtn,menuBtn,throttleBtn,vehBtn,viewBtn,washBtn",
   "crash": {
    "exploded": true,
    "backDx": 0,
@@ -83,7 +83,7 @@
   "eyeDx": 0,
   "eyeDy": 0,
   "eyeDz": 0,
-  "buttons": "camBtn,ejectBtn,heliDownBtn,heliUpBtn,menuBtn,speedBtn,vehBtn,viewBtn,washBtn",
+  "buttons": "camBtn,ejectBtn,globeBtn,heliDownBtn,heliUpBtn,menuBtn,speedBtn,vehBtn,viewBtn,washBtn",
   "crash": {
    "exploded": false,
    "crashable": false
@@ -163,8 +163,8 @@
   "z": -6360,
   "heading": -0.858,
   "groundY": -3.5,
-  "aboveGround": 0.1,
-  "y": -3.4,
+  "aboveGround": 0,
+  "y": -3.5,
   "headingAfterStick": -0.061,
   "speedAfterHold": 4,
   "chaseDx": -71.7,

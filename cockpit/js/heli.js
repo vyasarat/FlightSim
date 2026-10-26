@@ -229,7 +229,7 @@ function heliFloorAt(x, z, skidY) {
       top = b.ramp.o[1] + solidRampH(b.ramp, L.a);
     } else if (b.o3 && !solidTestBox3(b.o3, x, top - 0.3, z, 0.01)) return;   // its bounding box, not the thing
     if (top > o.y && top <= reach) { o.y = top; o.water = false; o.solid = b; }
-  });
+  }, x, z, vehSolidR() + 1);
   return o;
 }
 

@@ -276,6 +276,13 @@ function cityBuildMeshes(c, gltf) {
   cityAssign(c);
 }
 
+// (v197) one city at a time: London registers after the other two (london.js) and loads its own
+function cityLoad(c) {
+  if (typeof THREE.GLTFLoader !== "function") { c.failed = true; return; }
+  new THREE.GLTFLoader().load(c.data.glb, (gltf) => {
+    try { cityBuildMeshes(c, gltf); } catch (e) { c.failed = true; console.warn("city: build failed", c.key, e); }
+  }, undefined, () => { c.failed = true; });
+}
 function cityLoadAll() {
   if (typeof THREE.GLTFLoader !== "function") { for (const k in cities) cities[k].failed = true; return; }
   const loader = new THREE.GLTFLoader();

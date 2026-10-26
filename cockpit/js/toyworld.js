@@ -71,8 +71,8 @@ function twMagnetOn() {
 function twBuildWorld() {
   if (toyWorld.yards.length) return; // one owned pool for the lifetime of this scene
   const P = TW.playground, W = TW.wash, C = TUNE.palette;
-  AIRPORTS.forEach((ap, idx) => {
-    const side = idx === 0 ? 1 : -1, x = side * P.x, z = ap.cz + side * P.z;
+  AIRPORTS.slice(0, AP_HOME).forEach((ap, idx) => {   // (v197) the toy yards are at the two ends of the road
+    const side = ap.side, x = side * P.x, z = ap.cz + side * P.z;
     const y = Math.max(terrainEff(x, z), TUNE.waterLevel) + 1;
     const g = new THREE.Group(); g.position.set(x, y, z); toyWorld.root.add(g);
     const yard = { g, x, y, z, side, idx, delivery: null, build: [], built: 0, lightT: 0, danceT: 0, style: 0, greetT: 0, greetNear: false, greetings: 0 };

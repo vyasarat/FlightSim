@@ -806,7 +806,7 @@ function carReassembleOffRoad(x, z, nx, nz) {
   let inside = false;
   forEachSolid(b => {
     if (!inside && Math.abs(px - b.x) < b.hw + 4 && Math.abs(pz - b.z) < b.hd + 4) inside = true;
-  });
+  }, px, pz, 5);
   if (inside) return false;
   state.x = px; state.z = pz;
   state.y = Math.max(terrainEff(px, pz), TUNE.waterLevel);

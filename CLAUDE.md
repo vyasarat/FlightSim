@@ -229,6 +229,7 @@ a deliberate, stated behaviour change.
 | `streets.js` | both cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, the square (no people) |
 | `vehiclekit.js` | the traffic's six low-poly shapes (and the police sedan): wheels spun in the shader, lamps lit per vertex, one instanced call per shape |
 | `track.js` | the giant toy track: its typed sections, the rail, the forks, the net, the lift, its own exit |
+| `london.js` | London across the sea (v197): its landmarks, Big Ben's clock and bong, the wheel, the crossing's ships, lighthouse and whale, its airport (`AIRPORTS[2]`: the per-airport builders stop at `AP_HOME`) and the globe; all on its own random stream, its solids a region. The ground is terrain.js's `ldShape`, the city the generator's `ldn` |
 | `race.js` | the race: its tracks as typed sections (`TUNE.race.tracks`), the venue in the world, one speed model for every car, the podium |
 | `raceitems.js` | the power-ups: rows of boxes, the one item button, the five items, spin-outs; every mesh pooled at load |
 | `raceevents.js` | the track events (`TUNE.race.events`): announced, steered round, never a bang; built per track at load |

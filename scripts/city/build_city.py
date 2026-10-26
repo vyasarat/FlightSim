@@ -273,6 +273,28 @@ def ca_types(rnd):
     return T
 
 
+def ldn_types(rnd):
+    """(v197) London: brick and white-stucco terraces, mansion blocks and stone offices, and
+    the City's glass towers round St Paul's and the Gherkin -- low, mostly; the landmarks are
+    london.js's and stand taller than all of it."""
+    T = []
+    # a terrace is a ROW: one building, long, so a street of them is a few instances, not dozens
+    for fl, w, d in ((4, 30, 15), (5, 36, 15), (4, 24, 18)):
+        T.append(("low", tiered(rnd, [(w, d, fl)], BRICK, f"terrace{fl}_{w}", tank=False), ["rust", "rust", "sand", "white", "grey"]))
+    for fl, w in ((5, 30), (6, 36)):
+        T.append(("low", tiered(rnd, [(w, 18, fl)], CONC, f"stucco{fl}_{w}", tank=False), ["white", "white", "sand", "steel"]))
+    for fl in (7, 9):
+        T.append(("mid", tiered(rnd, [(36, 21, fl)], BRICK, f"mansion{fl}", tank=False), ["rust", "sand", "concrete"]))
+    for fl, fl2 in ((8, 2), (10, 3)):
+        T.append(("mid", tiered(rnd, [(27, 24, fl), (21, 18, fl2)], OFFICE, f"stone{fl}", base_wall=OFFICE), ["sand", "white", "steel"]))
+    T.append(("mid", tiered(rnd, [(30, 21, 12)], GLASS, "glass12", crown="slope"), ["steel", "sea", "grey"]))
+    T.append(("core", tiered(rnd, [(30, 30, 24)], GLASS, "city24", crown="slope"), ["steel", "sea", "grey", "night"]))
+    T.append(("core", tiered(rnd, [(33, 27, 18), (27, 21, 12)], GLASS, "city30", crown="mast"), ["steel", "grey", "sea"]))
+    T.append(("core", round_tower(rnd, 13, 26, "round26"), ["steel", "sea"]))
+    T.append(("core", tiered(rnd, [(30, 27, 12), (24, 21, 8)], OFFICE, "citystone20"), ["white", "sand", "steel"]))
+    return T
+
+
 # ---------------------------------------------------------------------------
 class Site:
     def __init__(self, path):
@@ -323,7 +345,7 @@ def layout(site, types, cfg, rnd):
     xs = [x for x in xs if X0 - cfg["x_step"] < x < X1 + cfg["x_step"]]
     zs = [z for z in zs if Z0 - cfg["z_step"] < z < Z1 + cfg["z_step"]]
     aw, sw = cfg["avenue_w"], cfg["street_w"]
-    SUB = 9.0
+    SUB = cfg.get("sub", 9.0)   # (v197) metres a ground strip is cut into, to drape; London is flat enough for more
 
     def zone(x, z):
         d = math.hypot(x - ax, z - az)
@@ -418,10 +440,14 @@ def layout(site, types, cfg, rnd):
         # the sidewalk pad under the whole block
         n = max(1, int(math.ceil((bx1 - bx0) / SUB)))
         m = max(1, int(math.ceil((bz1 - bz0) / SUB)))
+        ring = cfg.get("pad_ring")
         for a in range(n):
             for b in range(m):
                 x0, x1 = bx0 + (bx1 - bx0) * a / n, bx0 + (bx1 - bx0) * (a + 1) / n
                 z0, z1 = bz0 + (bz1 - bz0) * b / m, bz0 + (bz1 - bz0) * (b + 1) / m
+                # (v197) London paves only a ring round the block: the middle is its back gardens
+                if ring and x0 > bx0 + ring and x1 < bx1 - ring and z0 > bz0 + ring + 22 and z1 < bz1 - ring - 22:
+                    continue
                 if site.free_rect(x0, z0, x1, z1):
                     ground.top(x0, z0, x1, z1, 0.18, CONC)
         # the streets round it (each once)
@@ -449,9 +475,15 @@ def layout(site, types, cfg, rnd):
 
     # ---- buildings, block by block
     inset = cfg["inset"]
+    squares = []
     for (bx0, bz0, bx1, bz1) in blocks:
         cx, cz = (bx0 + bx1) / 2, (bz0 + bz1) / 2
         zn = zone(cx, cz)
+        # (v197) London's garden squares: asked only of a city that has them, so the
+        # others' random streams -- and with them every building -- are untouched
+        if cfg.get("square_p") and zn == "low" and rnd.random() < cfg["square_p"]:
+            squares.append([round(bx0, 1), round(bz0, 1), round(bx1, 1), round(bz1, 1)])
+            continue
         depth = bz1 - bz0 - 2 * inset
         # a core block may take one tower in the middle first
         if zn == "core" and rnd.random() < cfg["tower_p"]:
@@ -498,7 +530,7 @@ def layout(site, types, cfg, rnd):
         if plaza is None:
             print("WARNING: no block under the plaza at", px, pz)
     rects = [[round(b[0] - aw / 2, 1), round(b[1] - sw / 2, 1), round(b[2] + aw / 2, 1), round(b[3] + sw / 2, 1)] for b in blocks]
-    return ground, placed, rects, plaza
+    return ground, placed, rects, plaza, squares
 
 
 # ---------------------------------------------------------------------------
@@ -532,7 +564,7 @@ def build(city, cfg, type_fn, seed):
     rnd = random.Random(seed)
     site = Site(os.path.join(HERE, f"site-{city}.json"))
     types = type_fn(rnd)
-    ground, placed, rects, plaza = layout(site, types, cfg, rnd)
+    ground, placed, rects, plaza, squares = layout(site, types, cfg, rnd)
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     obs = []
@@ -574,6 +606,7 @@ def build(city, cfg, type_fn, seed):
         # north-south ones avenueW wide and east-west ones streetW, and the
         # buildings stand `inset` back from the kerb
         "avenueW": cfg["avenue_w"], "streetW": cfg["street_w"], "inset": cfg["inset"], "plaza": plaza,
+        **({"squares": squares} if cfg.get("square_p") else {}),
         "tris": {"lod0": tris0 + ground.tris, "lod1": tris1, "ground": ground.tris},
     }
     print(f"{city}: {len(placed)} buildings, {len(used)} types, tris lod0 {tris0} + ground {ground.tris}, lod1 {tris1}")
@@ -594,8 +627,28 @@ CA = {
     "inset": 5, "gap": 6, "tower_p": 0.9, "mix": 0.35,
 }
 
-data = {"ny": build("ny", NY, ny_types, 1971), "ca": build("ca", CA, ca_types, 1984)}
+LDN = {
+    # v197: the Mall is an avenue (x = -834) so the palace stands at the end of a street;
+    # the City (round St Paul's and the Gherkin) is the core
+    "anchor": "london", "core": (-1340, 13990), "hero": (0, 0),
+    "x_origin": -834, "x_step": 120, "z_origin": 15700, "z_step": 96,
+    "avenue_w": 18, "street_w": 14, "r_core": 170, "r_mid": 560,
+    "inset": 3, "gap": 4, "tower_p": 0.55, "mix": 0.3, "pad_ring": 4, "sub": 18.0,
+    "square_p": 0.22,                # a London square: a block left as garden, among the low ones
+}
+
+# CITIES=ldn builds only London and keeps the other two exactly as they are in citydata.js
+# (their GLBs untouched): adding a city must not rebuild the ones he already knows.
 js = os.path.join(ROOT, "cockpit", "js", "citydata.js")
+only = [c for c in os.environ.get("CITIES", "").split(",") if c]
+data = {}
+if only:
+    txt = open(js).read()
+    data = json.loads(txt[txt.index("const CITY_DATA = ") + len("const CITY_DATA = "):txt.rindex(";")])
+ALL = {"ny": (NY, ny_types, 1971), "ca": (CA, ca_types, 1984), "ldn": (LDN, ldn_types, 1666)}
+for k, (cfg, fn, seed) in ALL.items():
+    if not only or k in only:
+        data[k] = build(k, cfg, fn, seed)
 with open(js, "w") as f:
     f.write('"use strict";\n// GENERATED by scripts/city/build_city.py -- do not edit by hand.\n')
     f.write("// Each city: its landmark, its GLB, and every building as\n")

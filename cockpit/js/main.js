@@ -152,7 +152,7 @@ function updateHud() {
 // had been flying, the first thing he saw was a question about space. The
 // vehicles come first now and the destination screen is only ever reached by
 // choosing a rocket, which is the only place it means anything.
-(function restoreChoice() {
+function lpRestoreChoice() {
   let v = null, d = null;
   try {
     v = localStorage.getItem("lp.vehicle"); d = localStorage.getItem("lp.dir");
@@ -174,13 +174,18 @@ function updateHud() {
   const di = d === "1" ? 1 : 0;
   applyVehicle(v);
   document.querySelectorAll(".vehCard").forEach(c2 => c2.classList.toggle("sel", c2.dataset.v === v));
-  spawnForTakeoff(di, di);
+  // (v197) a London start, from the globe, comes back as London -- if this vehicle can start there
+  let start = null;
+  try { start = localStorage.getItem("lp.start"); } catch (err) {}
+  if (start === "ldn" && typeof ldCanStart === "function" && ldCanStart()) ldStart();
+  else spawnForTakeoff(di, di);
   // the card he used last is already lit, so carrying on is a tap on the thing
   // that is already highlighted rather than a choice he has to make again
   el.screenVehicle.classList.remove("hiddenS");
   el.screenDir.classList.add("hiddenS");
   el.screenDest.classList.add("hiddenS");
-})();
+}
+lpRestoreChoice();
 updateChunks(state.x, state.z, true);
 updateScenery(state.x, state.z, true);
 for (const c of clouds) respawnCloud(c, state.x, state.z, 0, -1, false);
@@ -254,6 +259,7 @@ window.__lp = {
   bigBoom, catapultSound, fireHiss, updateAmbientAudio,
   get rcPuffs(){return typeof rcPuffs === "undefined" ? null : rcPuffs;}, get rcSparks(){return typeof rcSparks === "undefined" ? null : rcSparks;},
   race, RC, raceOn, rcStartRace, rce, rceDrag, rceWaveEdge, rceWind, rcGap, rcScOpen, raceItemUse, rcItGive, rcItUse, rcItDraw, rcItRows, raceExit, raceReset, raceAgain, raceOpenPicker, racePlaces, raceBtnShows, rcAt, rcPoint, rcLayTrack,
+  ldn, LD, ldCovers, ldInCity, ldShape, ldRiverAt, ldCoastZ, ldGroundTint, ldStart, ldCanStart, ldUpdate, ldCityW, ldClockPhase, ldGlobeShows, ldGlobeOpen, ldGlobePick, lpRestoreChoice, solidRegions, apDest, AP_HOME,
   forEachSolid, roadCrossings, trk, TK, tkAt, tkStep, trackUpdate, trackBoard, trackCanBoard, trackReset, tkRetryFor, tkLiftPad, tkNetY, tkPose, SOLID, SOLID_KINDS, solidQuery, solidTest, solidKind, solidBlocks, get surfSolids(){return surfSolids;}, get staticSolids(){return staticSolids;}, get vehicleModel(){return vehicleModel;}, vehPlayerModels, vehTagPlayer,
   get traffic(){return traffic;},
   get missilesList(){return missiles;},
@@ -292,7 +298,7 @@ window.__lp = {
         const d = Math.abs(state.z - AIRPORTS[i].cz);
         if (d < bd) { bd = d; state.destIdx = i; }
       }
-      state.originIdx = 1 - state.destIdx;
+      state.originIdx = apDest(state.destIdx);
       // Direction follows the heading: flying -z arrives at a runway's +z end (dirIdx 0).
       state.dirIdx = Math.abs(wrapPi(state.heading)) < Math.PI / 2 ? 0 : 1;
       state.maxAglSinceLiftoff = 1e9;

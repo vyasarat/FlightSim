@@ -79,6 +79,32 @@ const SEA_PLANE = evpMember("sea", "seaplane"), SEA_SUB = evpMember("sea", "sub"
 const SEA_FIRE = evpMember("sea", "fireboat");
 
 // ---------------------------------------------------------------------------
+// (v197) The whale's own build, so the crossing to London has the same whale (london.js).
+function seaWhaleBuild() {
+  const C = TUNE.palette;
+  const wh = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 9), mattMat(C.night));
+  body.scale.set(SE.whale.beam, SE.whale.beam * 0.85, SE.whale.len);
+  wh.add(body);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 7), mattMat(C.steel));
+  belly.scale.set(SE.whale.beam * 0.72, SE.whale.beam * 0.42, SE.whale.len * 0.78);
+  belly.position.y = -SE.whale.beam * 0.5; wh.add(belly);
+  const fluke = new THREE.Mesh(new THREE.BoxGeometry(SE.whale.beam * 3.2, 0.5, SE.whale.beam * 1.1), mattMat(C.night));
+  fluke.position.set(0, 0, SE.whale.len * 0.95); wh.add(fluke);
+  for (const sx of [-1, 1]) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(SE.whale.beam * 1.5, 0.4, SE.whale.beam * 0.8), mattMat(C.night));
+    fin.position.set(sx * SE.whale.beam * 1.1, -SE.whale.beam * 0.3, -SE.whale.len * 0.1);
+    fin.rotation.z = sx * 0.4;
+    wh.add(fin);
+  }
+  wh.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.userData.noSolid = true; o.userData.noShatter = true; } });
+  wh.userData.noSolid = true;
+  wh.userData.noShatter = true;
+  wh.visible = false;
+  scene.add(wh);
+  return wh;
+}
+
 function seaBuild() {
   if (sea.built) return;
   const C = TUNE.palette;
@@ -102,27 +128,7 @@ function seaBuild() {
   sea.ski.g = ski;
 
   // ---- the whale. Scenery under the astronaut's rule: nothing can happen to it.
-  const wh = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 9), mattMat(C.night));
-  body.scale.set(SE.whale.beam, SE.whale.beam * 0.85, SE.whale.len);
-  wh.add(body);
-  const belly = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 7), mattMat(C.steel));
-  belly.scale.set(SE.whale.beam * 0.72, SE.whale.beam * 0.42, SE.whale.len * 0.78);
-  belly.position.y = -SE.whale.beam * 0.5; wh.add(belly);
-  const fluke = new THREE.Mesh(new THREE.BoxGeometry(SE.whale.beam * 3.2, 0.5, SE.whale.beam * 1.1), mattMat(C.night));
-  fluke.position.set(0, 0, SE.whale.len * 0.95); wh.add(fluke);
-  for (const sx of [-1, 1]) {
-    const fin = new THREE.Mesh(new THREE.BoxGeometry(SE.whale.beam * 1.5, 0.4, SE.whale.beam * 0.8), mattMat(C.night));
-    fin.position.set(sx * SE.whale.beam * 1.1, -SE.whale.beam * 0.3, -SE.whale.len * 0.1);
-    fin.rotation.z = sx * 0.4;
-    wh.add(fin);
-  }
-  wh.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.userData.noSolid = true; o.userData.noShatter = true; } });
-  wh.userData.noSolid = true;
-  wh.userData.noShatter = true;
-  wh.visible = false;
-  scene.add(wh);
-  sea.whale.g = wh;
+  sea.whale.g = seaWhaleBuild();
 
   // ---- the cruise ship. Machines and structures only, as always.
   const cs = new THREE.Group();

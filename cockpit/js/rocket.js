@@ -612,7 +612,7 @@ function updateRocket(dt) {
   forEachSolid(b => {
     if (isSolidHidden(b) || b.car !== undefined) return;
     if (Math.abs(state.x - b.x) < b.hw && Math.abs(state.z - b.z) < b.hd && state.y - halfLen <= b.y1 + 1.5 && state.y > b.y0) ground = Math.max(ground, b.y1);
-  });
+  }, state.x, state.z, 1);
   rk.groundHere = ground;
   if (state.y - halfLen <= ground && rk.vy <= 0) {
     // Under the canopies it simply arrives -- the parachutes are the capsule's

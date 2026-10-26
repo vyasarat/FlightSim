@@ -252,7 +252,7 @@ function updateCrashWarning(dt) {
             if (warnP.x > b.x - b.hw - 3 && warnP.x < b.x + b.hw + 3 &&
                 warnP.z > b.z - b.hd - 3 && warnP.z < b.z + b.hd + 3 &&
                 warnP.y > b.y0 - 3 && warnP.y < b.y1 + 3) warn = true;
-          });
+          }, warnP.x, warnP.z, 4);
         }
       }
     }
@@ -440,7 +440,7 @@ function update(dt) {
             state.z > b.z - b.hd - 6 && state.z < b.z + b.hd + 6) {
           state.y = Math.max(state.y, b.y1 + 40);
         }
-      });
+      }, state.x, state.z, 7);
       state.speed = state.vp.cruiseSpeed * 0.6;
       state.pitch = 0;
       state.bank = 0;
@@ -523,8 +523,8 @@ function update(dt) {
         if (state.celebrateTimer <= 0) {
           const at = state.landedIdx === undefined ? state.destIdx : state.landedIdx;
           state.originIdx = at;
-          state.destIdx = 1 - at;
-          state.dirIdx = at === 0 ? 0 : 1;   // NY -> fly south, CA -> fly north
+          state.destIdx = apDest(at);
+          state.dirIdx = at === 1 ? 1 : 0;   // NY -> fly south, CA -> fly north, London -> south to NY
           spawnForTakeoff();
         }
       }
@@ -704,6 +704,7 @@ function update(dt) {
   updateShatter(dt);
   cullLandmarks(dt, state.x, state.z);
   cityUpdate(dt);
+  if (typeof ldUpdate === "function") ldUpdate(dt);   // v197: London's clock, wheel, ships and whale
   updateTraffic(dt, state.x, state.y, state.z);
   updateMissiles(dt);
   updateRewards(dt);

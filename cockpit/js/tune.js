@@ -2822,6 +2822,44 @@ const TUNE = {
            monster: { back: 26, up: 19, look: 24, lookUp: 4 } },   // (v172) the monster truck's: high enough that its own cab hides no pad 60 m ahead
   },
 
+  // ---- v197: LONDON, across the sea (terrain.js ldShape, london.js). East of New York is +z:
+  // open sea from NY's coast, Britain's white cliffs, then London on the Thames. The distances
+  // are compressed (the parent's brief: 2-3 minutes from New York at a plane's 60 m/s -- the
+  // runways are 7.3 km apart, NY's spire to Big Ben 11.4 km); the landmarks keep their real
+  // bank of the river and their real order along it, at about half their real spacing:
+  // a real (east, north) offset from Big Ben lands at x = bigBen.x - north/2, z = bigBen.z - east/2,
+  // so real north is -x and downstream (the sea) is -z. Their own sizes are near real.
+  london: {
+    seaFrom: 8200, seaFull: 8700, seaDeep: 9,        // the crossing deepened past NY's own sea, so it is clean water
+    coast: { z: 11400, reach: 900, wobble: [[70, 1900, 0.4], [28, 700, 1.7], [9, 190, 0.2]],
+             cliffH: 34, cliffJag: 6, cliffRun: 26, foot: 14, downsRun: 800, bed: -9 },   // (downsRun: down to London's level well before the runway's approach)
+    plateau: 4,                                       // London's ground, metres: the embankment stands 7.5 m over the water
+    noise: 0.18,                                      // how much of the world's hills it keeps (the city wants it nearly flat)
+    cityBox: { x0: -1560, x1: -150, z0: 13450, z1: 16450, feather: 260 },   // the flat ground, eased out by feather
+    // the Thames, upstream to the sea; its own half-width at each point (an estuary at the mouth)
+    thames: { depth: 9, bank: 10, pts: [
+      [400, 24000, 70], [330, 18400, 70], [300, 17300, 70], [250, 16300, 72], [234, 15583, 75], [-160, 15441, 75], [-505, 15403, 75],
+      [-811, 15340, 75], [-945, 15226, 75], [-1006, 14796, 78], [-928, 14446, 80], [-901, 14221, 82],
+      [-767, 13795, 100], [-740, 13434, 95], [-878, 13018, 100], [-1000, 12600, 110], [-960, 12150, 125],
+      [-880, 11750, 150], [-860, 11300, 190], [-860, 10800, 260]] },
+    islands: [ { x: -1800, z: 8650, r: 230, h: 13, kind: "island" }, { x: 1500, z: 9500, r: 160, h: 9, kind: "island" },
+               { x: 600, z: 10450, r: 30, h: 10, kind: "rock" } ],   // the rock carries the lighthouse
+    airport: { cz: 13300 },                           // AIRPORTS[2]; its apron on +x, the city on -x
+    parks: [[-822, 15722, -560, 16075], [-1130, 15930, -846, 16300]],   // St James's and Green Park: the generator builds nothing there
+    // where each landmark stands (x, z) and which way it faces (deg: 0 faces -z, 90 faces -x)
+    at: {
+      bigBen: [-500, 15505], parliament: [-430, 15497], victoriaTower: [-352, 15520],
+      eye: [-650, 15290], nelson: [-905, 15622], arch: [-834, 15700], mall: [-834, 15712, 16070],
+      memorial: [-834, 16092], palace: [-834, 16175], stPauls: [-1235, 14590], londonBridge: [-901, 14221],
+      shard: [-708, 14190], towerBridge: [-767, 13795], tower: [-1012, 13905], gherkin: [-1250, 14060],
+    },
+    bigBen: { every: 180, first: 25, hear: 3200, strikes: 3, gap: 2.6 },   // game seconds; a bong is heard within `hear` m
+    eye: { r: 58, capsules: 32, turn: 0.026 },        // rad/s: once round in four minutes
+    ships: { n: 3, speed: 7, lanes: [8000, 9250, 10150], span: 2600 },   // across the crossing, along x
+    lighthouse: { h: 30, beam: 0.9 },                  // rad/s
+    whale: { every: [20, 40], dist: [260, 480] },      // a breach off his beam while he crosses
+  },
+
   vehicleColors: {
     prop:             ["#e0483e", "#f2f4f7"],
     helicopter:       ["#20a39e", "#f2f4f7"],

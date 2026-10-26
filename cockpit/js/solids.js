@@ -55,13 +55,36 @@ const SOLID_KINDS = ["building", "wall", "pillar", "tunnel", "portal", "ramp", "
                      "dome", "pad", "parked", "crane", "container", "ship", "bridge"];
 
 const staticSolids = [];   // registered once, at build time
+// (v197) REGIONS: solids kilometres from everything else (London's), kept in their own list
+// with the box round them. Still ONE registry -- forEachSolid walks every region -- but a
+// question asked at a point (forEachSolid's x, z and reach) skips a region it is nowhere near,
+// so a city across the sea costs New York's frame nothing. While `solidInto` names a region,
+// every record registered goes into it.
+const solidRegions = [];
+let solidInto = null;
+function solidRegionOpen(name) {
+  const R = { name, list: [], x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity };
+  solidRegions.push(R);
+  solidInto = R;
+  return R;
+}
+// the box is what its records reach, measured when it closes (and again if one is added later)
+function solidRegionClose(R) {
+  R.x0 = R.z0 = Infinity; R.x1 = R.z1 = -Infinity;
+  for (const b of R.list) {
+    R.x0 = Math.min(R.x0, b.x - b.hw); R.x1 = Math.max(R.x1, b.x + b.hw);
+    R.z0 = Math.min(R.z0, b.z - b.hd); R.z1 = Math.max(R.z1, b.z + b.hd);
+  }
+  if (solidInto === R) solidInto = null;
+}
+function solidList() { return solidInto ? solidInto.list : staticSolids; }
 const trainSolids = [];    // the freight train: rebuilt every frame it runs
 const surfSolids = [];     // on a sphere (Mars, the Moon): built with the base, cleared with it
 
 function solidAdd(b, kind, blocks) {
   if (!b.kind) b.kind = kind || "building";
   if (b.blocks === undefined) b.blocks = blocks === undefined ? SOLID.ALL : blocks;
-  staticSolids.push(b);
+  solidList().push(b);
   return b;
 }
 function addSolidBox(x, y0, z, hw, hd, y1, mesh, kind, blocks) {
@@ -74,7 +97,7 @@ function solidBox3(cx, cy, cz, u, v, w, eu, ev, ew, kind, blocks, list) {
   const b = { o3: { c: [cx, cy, cz], u, v, w, e: [eu, ev, ew] }, kind: kind || "building",
               blocks: blocks === undefined ? SOLID.ALL : blocks };
   solidBound3(b);
-  (list || staticSolids).push(b);
+  (list || solidList()).push(b);
   return b;
 }
 function solidBound3(b) {
@@ -89,18 +112,26 @@ function solidCapsule(a, bb, r, kind, blocks, list) {
   b.x = (a[0] + bb[0]) / 2; b.z = (a[2] + bb[2]) / 2;
   b.hw = Math.abs(a[0] - bb[0]) / 2 + r; b.hd = Math.abs(a[2] - bb[2]) / 2 + r;
   b.y0 = Math.min(a[1], bb[1]) - r; b.y1 = Math.max(a[1], bb[1]) + r;
-  (list || staticSolids).push(b);
+  (list || solidList()).push(b);
   return b;
 }
 
 // Every solid in the world, in one walk. (The harness's copy in main.js calls
 // this; it used to be a second hand-written loop that could drift.)
-function forEachSolid(cb) {
+// (v197) Given a point (x, z) and how far from it the caller looks (`reach`, metres past a
+// record's box), a region whose box is further than that is not walked: nothing in it could
+// answer. Without them, every region is.
+function forEachSolid(cb, x, z, reach) {
   for (const b of buildingBoxes) cb(b);
   for (const b of staticSolids) cb(b);
   for (const arr of streamedSolids.values()) for (const b of arr) cb(b);
   for (const b of trainSolids) cb(b);
   for (const b of surfSolids) cb(b);
+  const near = x !== undefined, m = reach || 0;
+  for (const R of solidRegions) {
+    if (near && (x < R.x0 - m || x > R.x1 + m || z < R.z0 - m || z > R.z1 + m)) continue;
+    for (const b of R.list) cb(b);
+  }
 }
 
 // The kind of a record that predates kinds (a streamed town building, a train
@@ -275,7 +306,7 @@ function solidQuery(x, y, z, r, cls, baseY, skip, flat) {
     if (baseY !== undefined && baseY >= b.y1 - 1) return;
     const t = solidTest(b, x, y, z, r, flat);
     if (t) hit = { b, kind: solidKind(b), d: t.d, nx: t.nx, ny: t.ny, nz: t.nz };
-  });
+  }, x, z, r + 1);
   return hit;
 }
 
@@ -318,7 +349,7 @@ function solidCol(x, z, yLo, yHi, r, cls, skip) {
       t = { d, nx, nz };
     }
     if (t) hit = { b, kind: solidKind(b), d: t.d, nx: t.nx, ny: 0, nz: t.nz };
-  });
+  }, x, z, r + 1);
   return hit;
 }
 
@@ -344,7 +375,7 @@ function solidSight(ax, ay, az, bx, by, bz, r, kinds) {
       if (u > k) return;
       if (solidTest(b, ax + (bx - ax) * u, ay + (by - ay) * u, az + (bz - az) * u, rr)) { k = (j - 1) / n; return; }
     }
-  });
+  }, (ax + bx) / 2, (az + bz) / 2, Math.hypot(bx - ax, bz - az) / 2 + r + 1);
   return k;
 }
 

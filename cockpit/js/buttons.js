@@ -88,6 +88,8 @@ const BUTTONS = {
   // in a race its way out (the go button's corner: in a race he is never parked,
   // so the picker button is not there) and, at the podium, again or back.
   raceBtn:      { slot: "lowRight", when: () => raceBtnShows() },
+  // ---- v197: the globe (london.js) -- where to start: New York, California or London
+  globeBtn:     { slot: "topRight3", when: () => typeof ldGlobeShows === "function" && ldGlobeShows() },
   raceExitBtn:  { slot: "topLeft1",  when: () => raceExitShows() },
   raceAgainBtn: { slot: "free",      when: () => raceEndShows() },
   raceBackBtn:  { slot: "free",      when: () => raceEndShows() },

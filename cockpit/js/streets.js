@@ -2744,7 +2744,7 @@ function rxRoutes() {
 function rxSurfaces() {
   const out = [], hw = TUNE.runwayWidth / 2, hl = TUNE.runwayLength / 2;
   AIRPORTS.forEach((ap, idx) => {
-    const m = idx === 0 ? 1 : -1, y = ap.elev;
+    const m = ap.side, y = ap.elev;
     const rect = (name, cx, cz, hx, hz) => out.push({ name: name + idx, x0: cx - hx, x1: cx + hx, z0: ap.cz + cz - hz, z1: ap.cz + cz + hz, y });
     rect("runway", 0, 0, hw, hl);
     rect("taxiway", m * 88, 0, 9, 450);

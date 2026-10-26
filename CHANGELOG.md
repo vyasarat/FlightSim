@@ -10,6 +10,19 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v197 — London, across the sea
+
+Fly east from New York and the sea opens out: container ships crossing, two islands, a
+lighthouse on a rock with its beam turning, whales breaching off the wing -- then Britain's white
+cliffs, and London on the Thames, about two minutes from New York's runway. Big Ben (clock faces
+with marks, no numbers; it bongs every three minutes and the minute hand is straight up when it
+does), the Houses of Parliament, the big wheel turning slowly, Tower Bridge, the plain London Bridge
+beside it, the Tower of London, Buckingham Palace at the end of the long red Mall with its empty
+sentry boxes, St Paul's, the Shard, the Gherkin, Nelson's Column and red phone boxes -- each on its
+real bank of the river, in its real order along it, all solid, the flat ones somewhere to land the
+helicopter. A London airport takes every plane, and a new globe button (parked, in a plane or the
+helicopter) starts him in New York, California or London. New York and California are untouched.
+
 ## v196 — The monster truck's boost flames come out of the truck
 
 On a rocket boost the flames now burn from the back of the car's body, part way up it, in every car;

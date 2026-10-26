@@ -221,6 +221,7 @@ function rebuildTrees(px, pz) {
         if (typeof mtCovers === "function" && mtCovers(wx, wz, 4)) continue;
         if (typeof crCovers === "function" && crCovers(wx, wz, 4)) continue;   // crane.js: only while he is in the crane
         if (typeof vlCovers === "function" && vlCovers(wx, wz, 4)) continue;   // valley.js (v147): its own pines, on snow
+        if (typeof ldCovers === "function" && ldCovers(wx, wz, 4)) continue;   // london.js (v197): not on a landmark's ground
         // a city street's outer half runs past the edge of its blocks (streets.js)
         if (typeof stNearStreet === "function" && stNearStreet(wx, wz, 4)) continue;
         const gy = terrainEff(wx, wz);
@@ -279,6 +280,7 @@ function rebuildBuildings(px, pz) {
       if (typeof sledCovers === "function" && sledCovers(tcx, tcz, 60)) continue;
       if (typeof mtCovers === "function" && mtCovers(tcx, tcz, 60)) continue;
       if (typeof vlCovers === "function" && vlCovers(tcx, tcz, 60)) continue;   // valley.js (v147)
+      if (typeof ldInCity === "function" && ldInCity(tcx, tcz)) continue;   // london.js (v197): London is its own city
       const n = TUNE.townBuildingsMin + Math.floor(hashSalt(cx, cz, 64) * (TUNE.townBuildingsMax - TUNE.townBuildingsMin + 1));
       for (let k = 0; k < n; k++) {
         if (bi >= TUNE.buildingMaxInstances) break;

@@ -151,7 +151,7 @@ function monGround(x, z, base) {
     if (b.y1 > reach) return;
     if (b.o3 && !solidTestBox3(b.o3, x, b.y1 - 0.3, z, 0.01)) return;
     o.y = b.y1; o.water = false;
-  });
+  }, x, z, 1);
   return o;
 }
 

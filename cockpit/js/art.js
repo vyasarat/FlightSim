@@ -337,6 +337,12 @@ function artTerrainLayer(hy, wx, wz, vlw) {
   // green, multiplied onto white, was blotches of grass all over the snow
   if (mountainGauss(wz) > 0.3 && hy > (TUNE.snowFrom + TUNE.snowFull) / 2) return ART_LAYER.asphalt;
   if (mountainGauss(wz) > 0.3 && hy > 30) return ART_LAYER.scrub;
+  // v197: Britain's chalk cliffs take the concrete tile; its green land the grass, at any height
+  if (wz > TUNE.london.seaFrom) {
+    const lt = ldGroundTint(wx, wz, hy);
+    if (lt.chalk > 0.5) return ART_LAYER.concrete;
+    if (lt.green > 0.5) return ART_LAYER.grass;
+  }
   const t = (hy - TUNE.colorLowHeight) / (TUNE.colorHighHeight - TUNE.colorLowHeight);
   return t > 0.8 ? ART_LAYER.scrub : ART_LAYER.grass;
 }

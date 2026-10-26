@@ -1482,7 +1482,7 @@ const harnessMain = async () => {
     const corridor = await page.evaluate(() => {
       const L = window.__lp, T = L.TUNE, st = L.state;
       const bad = [];
-      for (const destIdx of [0, 1]) {
+      for (const destIdx of L.AIRPORTS.keys()) {   // (v197: London's too)
         const ap = L.AIRPORTS[destIdx];
         for (const sgn of [1, -1]) {
           const th = ap.cz + sgn * T.runwayLength / 2;
@@ -5682,6 +5682,7 @@ const harnessMain = async () => {
     ["./car_feel_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[390,844]] }],
     ["./cleanup_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] }],
     ["./hardening_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] }],
+    ["./london_checks", { newPage, check }],          // v197: London across the sea -- the world, the landmarks, the globe, NY untouched
   ];
   expectedMods = MODULES.map(([n, o]) => modKey(n, o));
   for (const [name, opts] of SHARDS > 1 ? SHARDING.order(MODULES) : MODULES) await runModule(name, opts);
