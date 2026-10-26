@@ -887,11 +887,21 @@ function ldBuild() {
       const has = typeof CITY_DATA !== "undefined" && !!CITY_DATA.ldn;
       if (has) cityRegister("ldn", g, ax, az);
       addRouteLandmark(g, ax, az, "london");
-      if (has) cityLoad(cities.ldn, ldRand);
+      if (has) ldCityLoadWhenAlone();
     }
     solidRegionClose(ldn.region);
   });
   ldn.built = true;
+}
+
+// London's city loads on London's stream (city.js cityLoad's `rand`), and that stream stands in
+// for Math.random through the whole parse -- so it starts only once nothing else is loading: the
+// other two cities and the art atlas settled. Polled on a timer, not a frame: nothing about the
+// game is timed by it, and the harness waits for every city before it runs one.
+function ldCityLoadWhenAlone() {
+  const others = () => Object.keys(cities).every(k => k === "ldn" || cities[k].ready || cities[k].failed);
+  if (others() && (art.ready || art.failed)) { cityLoad(cities.ldn, ldRand); return; }
+  setTimeout(ldCityLoadWhenAlone, 50);
 }
 
 // Where nothing streamed may stand: on a landmark's ground (trees) or anywhere in the city (towns)

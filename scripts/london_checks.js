@@ -346,16 +346,25 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
     // with it); turned back, New York -- and his controls are never touched
     L.api.spawnAt(0, 0);
     st.phase = "AIRBORNE"; st.x = 0; st.z = 9000; st.y = 150; st.speed = 60; st.pitch = 0; st.bank = 0;
-    st.heading = Math.PI; L.api.setStick(0.3, -0.2);
-    const flip = () => { const c0 = [st.ctrlBank, st.ctrlPitch, st.heading, st.bank]; L.update(1 / 60); return [st.ctrlBank, st.ctrlPitch].every((v, i) => v === c0[i]); };
-    const kept1 = flip();
+    st.heading = Math.PI; L.update(1 / 60);
     const ringZ = L.ringsGroup.position.z;
     o.toLondon = { dest: st.destIdx, rings: Math.abs(ringZ - (ap.cz - T.runwayLength / 2)) < 1 };
-    // the same frame with and without the flip turns him identically: only the HUD changed
-    const turnOf = (dest) => { st.heading = 0.2; st.bank = 0; st.destIdx = dest; st.dirIdx = dest === 2 ? 1 : 0; st.z = 9000; st.x = 0; st.y = 150; L.api.setStick(0.3, -0.2); L.update(1 / 60); return +st.heading.toFixed(6); };
     st.heading = 0; L.update(1 / 60);
-    o.back = { dest: st.destIdx, kept: kept1 };
-    o.sameTurn = turnOf(2) === turnOf(0);
+    o.back = { dest: st.destIdx };
+    // ... and only what the HUD points at changed: the same five seconds of the same finger,
+    // bound for London and (the switch held off) not, end in the same place, the same way up
+    const run = (toward) => {
+      const keep = T.london.toward; T.london.toward = toward;
+      L.api.spawnAt(0, 0);
+      st.phase = "AIRBORNE"; st.x = 0; st.z = 9000; st.y = 150; st.speed = 60; st.pitch = 0; st.bank = 0; st.heading = Math.PI + 0.3;
+      st.airVy = null; st.liftoffTimer = 0; st.maxAglSinceLiftoff = 1e9; st.approachLatch = false; st.assistBias = 0;
+      const d = [];
+      for (let i = 0; i < 300; i++) { L.api.setStick(i < 150 ? 0.4 : -0.2, i < 100 ? 0.3 : 0); L.update(1 / 60); d.push(st.destIdx); }
+      T.london.toward = keep;
+      return { x: st.x, y: st.y, z: st.z, h: st.heading, b: st.bank, p: st.pitch, dest: [...new Set(d)] };
+    };
+    const a = run(T.london.toward), b = run(9);
+    o.flight = { bound: a.dest, held: b.dest, apart: +Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.z - b.z), Math.abs(a.h - b.h) * 100, Math.abs(a.b - b.b), Math.abs(a.p - b.p)).toFixed(6) };
     L.api.clearStick();
     L.api.clearStick();
     return o;
@@ -363,7 +372,8 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
   check("london airport: he takes off from London on a held finger, south toward New York, without a bang", fly.off.phase === "AIRBORNE" && fly.off.south && fly.off.dest === 0 && !fly.off.bang, JSON.stringify(fly.off));
   check("london airport: a plane on London's glide slope lands there, celebrates, and comes back to start from London", fly.land.landed && !fly.land.bang && fly.land.originAfter === 2 && fly.land.destAfter === 0, JSON.stringify(fly.land));
   check("london airport: out over the sea, flying toward Britain makes London the destination (its rings waiting), and turning back makes it New York again",
-    fly.toLondon.dest === 2 && fly.toLondon.rings && fly.back.dest === 0 && fly.back.kept && fly.sameTurn, JSON.stringify({ toLondon: fly.toLondon, back: fly.back, sameTurn: fly.sameTurn }));
+    fly.toLondon.dest === 2 && fly.toLondon.rings && fly.back.dest === 0 && fly.flight.bound.includes(2) && !fly.flight.held.includes(2) && fly.flight.apart < 1e-6,
+    JSON.stringify({ toLondon: fly.toLondon, back: fly.back, flight: fly.flight }));
 
   // the crash warning sounds before a landmark, as it does before any building: flying at Big Ben
   const warn = await page.evaluate(() => {

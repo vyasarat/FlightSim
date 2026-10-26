@@ -23,8 +23,9 @@ real bank of the river, in its real order along it, all solid, the flat ones som
 helicopter. A London airport takes every plane, and a new globe button (parked, in a plane or the
 helicopter) starts him in New York, California or London. New York and California are untouched.
 (The vehicle baseline was regenerated for one deliberate change: the planes and the helicopter now
-show the globe when parked. The yacht's resting height reads -3.5 instead of -3.4 there -- the same
--3.4158 m to four places, the rounding of a hull still settling.)
+show the globe when parked. In it the yacht's resting height also reads -3.5 where it read -3.4:
+the hull is still settling there and sits on the -3.45 rounding line; frame by frame from a fresh
+spawn the two builds differ by at most 0.1 mm. Inside the check's 0.25 m tolerance either way.)
 
 ## v196 — The monster truck's boost flames come out of the truck
 
