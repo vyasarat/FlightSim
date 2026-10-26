@@ -9,6 +9,8 @@
 //   node scripts/stream_compare.js <rootA> <rootB>     (a root holds cockpit/; e.g. a worktree of main)
 //
 // Identical counts: the change left the stream alone. Different: find the caller (PROFILE=1).
+// The load itself is a little noisy (a callback's order on the clock: v197's own load read 38618 and
+// 38620; a later spawn moves with it), so each build runs up to three times and any exact match is SAME.
 const path = require("path");
 const { launch, serve } = require("./art_rig.js");
 
@@ -43,9 +45,14 @@ async function count(root, port) {
 if (require.main === module) {
   (async () => {
     const [a, b] = process.argv.slice(2);
-    const A = await count(a, 8211), B = await count(b, 8212);
-    console.log("A", JSON.stringify(A)); console.log("B", JSON.stringify(B));
-    const same = A.load === B.load && A.after.join() === B.after.join();
+    const As = [], Bs = [], key = o => o.load + "|" + o.after.join();
+    let same = false;
+    for (let i = 0; i < 3 && !same; i++) {
+      const A = await count(a, 8211 + 2 * i), B = await count(b, 8212 + 2 * i);
+      As.push(A); Bs.push(B);
+      console.log("A", JSON.stringify(A)); console.log("B", JSON.stringify(B));
+      same = As.some(x => Bs.some(y => key(x) === key(y)));
+    }
     console.log(same ? "SAME: the stream is untouched" : "DIFFERENT: something draws from the page's stream that did not before (PROFILE=1 names the callers)");
     process.exit(same ? 0 : 1);
   })();

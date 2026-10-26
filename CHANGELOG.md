@@ -10,6 +10,19 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v199 — The Thames: Tower Bridge opens
+
+Tower Bridge opens now. A tall ship with three masts and white sails comes up the Thames to her
+berth just above it, waits there a while, and goes back down to the sea -- and each time, the bells
+ring, red lamps flash, the red-and-white gates come down across the road, the two blue leaves of the
+bridge rise up, she slides through with a long blast of her horn, and the leaves come down behind
+her. It opens for him too: the speedboat can start in London now, on the Thames below Tower Bridge
+(the globe offers it), and sailing up to the bridge opens it before he gets there. River boats ply
+the Thames as well: two river buses, a tug and a sailing barge. In a car it never opens under him:
+it waits until he is off the bridge or far enough back to stop, and while it is up the gate holds
+him -- a held finger stops at the gate and drives on when it comes down. Never a bang. (The vehicle
+baseline was regenerated for one deliberate change: the speedboat shows the globe when parked.)
+
 ## v198 — Drive London
 
 London can be driven now. The globe starts the car (and the Cybertruck and the Corvette) in London,

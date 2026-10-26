@@ -81,15 +81,22 @@ function boatWaterDir(x, z) {
 }
 
 // ---------------------------------------------------------------------------
+// (v199) Home: the marina -- or, anywhere across the sea, the Thames below Tower Bridge (london.js)
+function boatHome(x, z) {
+  if (typeof ldNear === "function" && ldNear(x, z) && typeof ldBoatStart === "function") return ldBoatStart();
+  const M = TUNE.harbor.marina, mx = TUNE.harbor.cx, mz = (TUNE.harbor.mouth.z[0] + TUNE.harbor.mouth.z[1]) / 2;
+  return { x: M.spawn[0], z: M.spawn[1], heading: Math.atan2(-(mx - M.spawn[0]), -(mz - M.spawn[1])), marina: true };
+}
 function boatSpawn() {
   const M = TUNE.harbor.marina;
-  state.x = M.spawn[0];
-  state.z = M.spawn[1];
+  const ld = AIRPORTS[state.originIdx] && AIRPORTS[state.originIdx].london && typeof ldBoatStart === "function" ? ldBoatStart() : null;
+  state.x = ld ? ld.x : M.spawn[0];
+  state.z = ld ? ld.z : M.spawn[1];
   state.y = boatSeaY();
   // nose out: pointed at the harbour mouth, worked out rather than written down,
-  // so moving the mouth in TUNE moves the way he is facing with it
+  // so moving the mouth in TUNE moves the way he is facing with it (in London, up the river)
   const mx = TUNE.harbor.cx, mz = (TUNE.harbor.mouth.z[0] + TUNE.harbor.mouth.z[1]) / 2;
-  state.heading = Math.atan2(-(mx - state.x), -(mz - state.z));
+  state.heading = ld ? ld.heading : Math.atan2(-(mx - state.x), -(mz - state.z));
   state.speed = 0; state.pitch = 0; state.bank = 0; state.phase = "TAXI";
   state.airVy = 0;
   boat.steer = 0; boat.burst = 0; boat.plane = 0; boat.air = 0; boat.airT = 0;
@@ -112,7 +119,7 @@ function boatReassemble() {
   if (!boatWaterAt(px, pz)) {
     const d = boatWaterDir(px, pz);
     if (d) { px += d.x * BT.beachProbe * 2; pz += d.z * BT.beachProbe * 2; }
-    else { px = M.spawn[0]; pz = M.spawn[1]; }
+    else { const h = boatHome(px, pz); px = h.x; pz = h.z; }
   }
   // and clear of whatever he hit -- anything in the one registry, not only the
   // harbour's own boxes (the lock's walls were never on that list)
@@ -120,7 +127,8 @@ function boatReassemble() {
   state.x = px; state.z = pz;
   state.y = boatSeaY();
   const mx = TUNE.harbor.cx, mz = (TUNE.harbor.mouth.z[0] + TUNE.harbor.mouth.z[1]) / 2;
-  state.heading = Math.atan2(-(mx - state.x), -(mz - state.z));
+  const home = boatHome(px, pz);
+  state.heading = home.marina ? Math.atan2(-(mx - state.x), -(mz - state.z)) : home.heading;
   state.speed = 0; state.pitch = 0; state.bank = 0;
   boat.steer = 0; boat.burst = 0; boat.air = 0; boat.spin = 0; boat.flip = 0;
   boat.beach = 0; boat.crashX = null;
@@ -134,9 +142,9 @@ function boatReassemble() {
 function boatStranded() {
   const M = TUNE.harbor.marina;
   splashAt(state.x, Math.max(terrainEff(state.x, state.z), boatSeaY()), state.z, 1.4);
-  state.x = M.spawn[0]; state.z = M.spawn[1]; state.y = seaLevelAt(state.x, state.z);
-  const mx = TUNE.harbor.cx, mz = (TUNE.harbor.mouth.z[0] + TUNE.harbor.mouth.z[1]) / 2;
-  state.heading = Math.atan2(-(mx - state.x), -(mz - state.z));
+  const home = boatHome(state.x, state.z);
+  state.x = home.x; state.z = home.z; state.y = seaLevelAt(state.x, state.z);
+  state.heading = home.heading;
   state.speed = 0; boat.beach = 0; boat.steer = 0; boat.burst = 0;
   splashAt(state.x, boatSeaY(), state.z, 1.6);
   whoosh();

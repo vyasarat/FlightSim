@@ -49,6 +49,14 @@ const V = {
   "drive-mall":     { car: 1, x: -954, z: 15800, tx: -954, tz: 16100, warm: 25 },
   "drive-air-over": at(-300, 140, 14700, -700, 0, 14250),
   "tb-east-top":    at(-560, 70, 13740, -615, 0, 13780),
+  // v199: the bridge OPEN with the tall ship going through (the run waits for that moment)
+  "tb-open-air":    Object.assign(at(-560, 60, 13560, -767, 25, 13800), { until: "shipThrough" }),
+  "tb-open-bank":   Object.assign(at(-660, 14, 13650, -767, 22, 13790, "helicopter"), { until: "shipThrough" }),
+  "tb-open-car":    { car: 1, x: -560, z: 13780, tx: -900, tz: 13780, warm: 2, until: "tbUp" },
+  "tb-open-car-gate": { car: 1, x: -594, z: 13780, tx: -900, tz: 13780, warm: 2, until: "tbUp" },
+  "boat-start":     { boatAt: 12950, warm: 4 },
+  "boat-tb-open":   { boatAt: 13680, until: "tbUp" },
+    "thames-boats":   Object.assign(at(0, 18, 0, 0, 2, 0, "helicopter"), { rboat: 0 }),
   "tb-east-down":   at(-575, 45, 13781, -606, 0, 13781),
   // ... and behind one of London's own: a red double-decker, a black cab (the car comes up behind
   // whichever is nearest once the traffic has run)
@@ -60,6 +68,13 @@ const V = {
 
 function hold(v) {
   const L = window.__lp, st = L.state;
+  if (v.boatAt) {
+    L.api.setVehicle("speedboat"); L.ldStart();
+    const R = L.ldRiverMid(v.boatAt, {});
+    const put = () => { st.x = R.x; st.z = v.boatAt; st.y = L.seaLevelAt(st.x, st.z); st.heading = Math.atan2(-R.fx, -R.fz); st.speed = 0; st.exploding = false; };
+    put();
+    return put;
+  }
   if (v.car) {
     L.api.setVehicle(v.veh || "car"); if (v.ny) L.api.spawnAt(0, 0); else L.ldStart();
     const R = L.stReassembleAt(v.x, v.z, Math.atan2(-(v.tx - v.x), -(v.tz - v.z)), null, Infinity);
@@ -97,6 +112,22 @@ function hold(v) {
     const info = await pg.evaluate(([src, v, seat]) => {
       const L = window.__lp;
       window.__hold = eval("(" + src + ")")(v);
+      // (v199) run the river on until the moment the vantage is for: the bridge up, the ship in it
+      // (v199) beside one of the river's boats, wherever it has got to
+      if (v.rboat !== undefined) {
+        for (let i = 0; i < 60 * 3; i++) L.update(1 / 60);
+        const b = L.ldn.rboats[v.rboat], R = L.ldRiverMid(b.z), px = -R.fz, pz = R.fx;
+        Object.assign(v, { x: b.x + px * 45 - R.fx * 50 * b.dir, z: b.z + pz * 45 - R.fz * 50 * b.dir, tx: b.x, tz: b.z });
+        window.__hold = eval("(" + src + ")")(v);
+      }
+      if (v.until) {
+        for (let i = 0; i < 60 * 600; i++) {
+          L.update(1 / 60); window.__hold();
+          const T = L.ldn.tb, S = L.ldn.tship;
+          if (v.until === "tbUp" && T.open >= 1) break;
+          if (v.until === "shipThrough" && T.open >= 1 && Math.abs(S.z - T.z) < 25) break;
+        }
+      }
       L.api.setView(!seat);
       for (let i = 0; i < (v.warm ? v.warm * 60 : 150); i++) { L.update(1 / 60); window.__hold(); }
       if (v.follow !== undefined) {

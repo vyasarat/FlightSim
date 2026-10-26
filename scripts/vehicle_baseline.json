@@ -150,7 +150,7 @@
   "eyeDx": -0.5,
   "eyeDy": 1.4,
   "eyeDz": -0.1,
-  "buttons": "camBtn,ejectBtn,fastBtn,menuBtn,slowBtn,vehBtn,viewBtn",
+  "buttons": "camBtn,ejectBtn,fastBtn,globeBtn,menuBtn,slowBtn,vehBtn,viewBtn",
   "crash": {
    "exploded": true,
    "backDx": 0,
