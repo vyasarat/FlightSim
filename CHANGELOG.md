@@ -26,8 +26,11 @@ London's roads, never across the sea. To make the bridges streets, Tower Bridge 
 London Bridge 39 m along the river on to a street's line; Tower Bridge's towers have real arches a
 street wide, London Bridge is a little narrower to clear the bank's buildings, and the Mall's red
 surface now sits level with the street. Where the generator left a street half paved (the river,
-the parks, the city's edge) London lays its own tarmac under it. The globe moved into the top row
-beside the view button: in a car the speed pair stands under that button even parked.
+the parks, the city's edge) London lays its own tarmac under it. In a car, in portrait, the globe
+stands low on the right where the helicopter's up button would be (the speed pair is under the
+view button even parked); everywhere else it is where v197 put it. The car's centre screen now lies
+back on the dash under the dash line: standing up, it hid the right of the road (the oncoming
+lane, where traffic keeps left) -- in New York too.
 (The vehicle baseline was regenerated for one deliberate change: the cars now show the globe when
 parked.)
 

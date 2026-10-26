@@ -1174,6 +1174,9 @@ function ldGlobeShows() {
   if (typeof eject !== "undefined" && eject.active) return false;
   return pickerCanOpen();
 }
+// Where the globe stands (buttons.js asks; the CSS class says so on the button itself)
+// (portrait: under the view button, or in a car low on the right; landscape: the top row, as index.html draws it)
+function ldGlobeSlot() { return innerHeight <= innerWidth ? "topRow" : state.vp && state.vp.car ? "highRight" : "topRight3"; }
 function ldGlobeOpen() {
   if (!ldGlobeShows()) return;
   releaseThrottle();
@@ -1229,6 +1232,7 @@ function ldUpdate(dt) {
     ldWhaleUpdate(dt);
   }
   if (cz > LD.cityBox.z0 - 2500) { ldEyeTurn(dt); ldClockHands(); }
+  if (el.globeBtn) el.globeBtn.classList.toggle("inCar", ldGlobeSlot() === "highRight");
   ldCull(dt);
 }
 // Like cullLandmarks: what is past the fog is not drawn -- and, hidden, its solids are not
