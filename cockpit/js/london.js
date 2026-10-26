@@ -540,6 +540,7 @@ function ldLondonBridge() {
 function ldTowerBridge() {
   const [x, z] = LD.at.towerBridge, deck = ldDeckY(), B = ldBegin("towerBridge", x, z, deck);
   const S = 0xd6cdb4, BL = LDC.blue, half = 31, tw = 18, td = 26, top = 42, arch = 9;   // (v198: deeper, the arch a street wide)
+  ldn.tbHalf = half;                // each leaf's length: the river code stands its upright wall by it (v199)
   for (const sx of [-1, 1]) {
     const tx = sx * (half + tw / 2);
     ldBox(B, tw + 6, 22, td + 6, LDC.grey, "stone", tx, -22, 0);            // the pier in the river
@@ -1188,7 +1189,7 @@ function ldRiverMid(z, out) {
 // ---- Tower Bridge: its gates, its upright leaves, its state ---------------------------------
 // Built by ldTowerBridge's caller, on London's stream, inside its solids' region.
 function ldTbBuild() {
-  const [x, z] = LD.at.towerBridge, deck = ldDeckY(), half = 31;
+  const [x, z] = LD.at.towerBridge, deck = ldDeckY(), half = ldn.tbHalf;
   const T = ldn.tb = { state: "down", t: 0, open: 0, gate: 0, x, z, half, lamps: [], arms: [], up: [], asks: "" };
   // the leaves standing up: a wall at each hinge, there only while they are (isSolidHidden: its
   // stand-in mesh is invisible while they are down)
@@ -1277,7 +1278,8 @@ function ldTbCarClear() {
   const r = ldn.roads.towerBridge, T = ldn.tb;
   if (!r || !T.gateS || typeof stPlan === "undefined") return true;
   const p = stProject(r, state.x, state.z);
-  if (p.d < r.halfW + 12 && p.s > T.gateS[0] - LDR.stopShort - 2 && p.s < T.gateS[1] + LDR.stopShort + 2) return false;
+  const m = LDR.betweenMargin;
+  if (p.d < r.halfW + m && p.s > T.gateS[0] - LDR.stopShort - m && p.s < T.gateS[1] + LDR.stopShort + m) return false;
   const road = stPlan.road;
   if (!road) return true;
   const q = stProject(road, state.x, state.z), toGo = stPlan.dir > 0 ? road.len - q.s : q.s;
@@ -1336,8 +1338,10 @@ function ldTbUpdate(dt) {
   for (let i = 0; i < ldn.tbLeaves.length; i++) {
     const L = ldn.tbLeaves[i];
     L.g.rotation.z = -L.sx * a;
-    L.g.children[0].userData.noSolid = T.open > 0.02;
-    if (T.up[i]) T.up[i].visible = T.open > 0.4;
+    // one or the other, never neither: flat while it is low, upright from `wallAt` up (a half-raised
+    // leaf is a wall to the aeroplanes, on one side of the line or the other)
+    L.g.children[0].userData.noSolid = T.open >= O.wallAt;
+    if (T.up[i]) T.up[i].visible = T.open >= O.wallAt;
   }
   // the gates: arms from upright (bridge down) to across the road; the lamps flash while shut
   for (const piv of T.arms) piv.rotation.x = piv.userData.sz * (1 - T.gate) * Math.PI / 2;
@@ -1361,7 +1365,7 @@ function ldTbHydraulics() {
 // river to her berth above Tower Bridge, a while there, and back down; then away, and again.
 function ldTallShipMesh() {
   const B = { name: "tallShip", x: 0, y: 0, z: 0, parts: {}, solids: [], tris: 0 };
-  const L = LDR.ship.len, W = 14;
+  const L = LDR.ship.len, W = LDR.ship.beam;
   ldBox(B, W, 9, L, LC.night, "plain", 0, -3, 0);                              // the hull, her bow at +z: high-sided
   ldBox(B, W + 0.2, 1.4, L + 0.2, LC.white, "plain", 0, 3.4, 0);               // the white band
   ldBox(B, W + 0.3, 1.2, L + 0.3, LC.red, "plain", 0, -3.4, 0);                // the red at the waterline
@@ -1369,7 +1373,9 @@ function ldTallShipMesh() {
   ldBox(B, W - 1, 0.4, L - 2, 0x9a7b4f, "plain", 0, 6, 0);                     // her deck
   ldBox(B, 9, 3, 13, 0x9a7b4f, "plain", 0, 6.4, -L / 2 + 10);                  // the deckhouse aft
   ldCyl(B, 0.35, 0.45, 26, 6, 0x7a5a36, "plain", 0, 6, L / 2 + 1, Math.PI / 2 - 0.35);  // the bowsprit
-  for (const [mz, h] of [[L * 0.28, 44], [0, 50], [-L * 0.26, 42]]) {
+  // (her masts clear the high walkways -- 43 m over the water -- with the leaves up: LDR.ship.mastMax)
+  const hm = LDR.ship.mastMax - 6;
+  for (const [mz, h] of [[L * 0.28, hm - 4], [0, hm], [-L * 0.26, hm - 6]]) {
     ldCyl(B, 0.5, 0.8, h, 8, 0x7a5a36, "plain", 0, 6, mz);
     for (let k = 0; k < 4; k++) {
       const y = 12 + k * (h - 12) / 4.2, w = 24 - k * 4;
@@ -1415,13 +1421,24 @@ function ldTallShipMove(dt) {
     // she slows on her way to the bridge and waits below it until it is up; then on
     const bow = S.z + S.dir * H.len / 2, toBridge = (T.z - bow) * S.dir;
     let want = H.speed;
+    // and she never sails into his boat: in her path ahead of her bow, she stops for him
+    const mine = typeof boatActive === "function" && boatActive() && !state.exploding;
+    if (mine) {
+      const ahead = (state.z - bow) * S.dir;
+      if (ahead > -2 && ahead < H.giveWay && Math.abs(state.x - S.x) < H.beam / 2 + 6) want = 0;
+    }
     if (toBridge > 0 && T.open < 1) want = toBridge < H.holdAt ? 0 : Math.min(want, H.speed * clamp((toBridge - H.holdAt) / (H.slowAt - H.holdAt), 0.15, 1));
     // and in to her berth, and out to sea, slowly at the end
     const end = S.state === "in" ? H.berth : H.from, left = (end - S.z) * S.dir;
-    want = Math.min(want, Math.max(0.6, left * 0.2));
-    S.v += clamp(want - S.v, -2 * dt, 1 * dt);
+    want = Math.min(want, Math.max(H.creep, left * H.arrive));
+    S.v += clamp(want - S.v, -H.decel * dt, H.accel * dt);
     S.z += S.dir * S.v * dt;
     if (!S.honked && toBridge < H.horn && toBridge > 0) { S.honked = true; if (Math.hypot(state.x - S.x, state.z - S.z) < LD.bigBen.hear) hbHorn(S.x, TUNE.waterLevel + 20, S.z, 120, 1.6); }
+    // alongside her, he is eased out from her side -- a shove, never a bang, and never inside her hull
+    if (mine) {
+      const along = Math.abs(state.z - S.z), lat = state.x - S.x, edge = H.beam / 2 + 3;
+      if (along < H.len / 2 + 4 && Math.abs(lat) < edge) { state.x = S.x + Math.sign(lat || 1) * edge; state.speed *= 0.6; flags.tbShipShoves = (flags.tbShipShoves || 0) + 1; }
+    }
     if (left <= 0.5) { S.z = end; S.state = S.state === "in" ? "moor" : "away"; S.t = S.state === "moor" ? H.moor : H.away; if (S.state === "away") flags.tbShipRoundTrips = (flags.tbShipRoundTrips || 0) + 1; }
   }
   ldTallShipPose();
@@ -1475,14 +1492,14 @@ function ldRiverBoatsMove(dt) {
     // easing off when his boat is ahead of it on its side of the river
     let want = b.v;
     if (mine) {
-      const ahead = (state.z - b.z) * b.dir, R = ldRiverMid(b.z), bx = R.x + b.side * b.dir * R.hw;
-      if (ahead > 0 && ahead < LDR.boatYield && Math.abs(state.x - bx) < 20) want = 0;
+      const ahead = (state.z - b.z) * b.dir, R = ldRiverMid(b.z), bx = R.x + b.side * b.dir;
+      if (ahead > 0 && ahead < LDR.boatYield && Math.abs(state.x - bx) < LDR.boatLane) want = 0;
     }
-    b.cur += clamp(want - b.cur, -3 * dt, 1.5 * dt);
+    b.cur += clamp(want - b.cur, -LDR.boatDecel * dt, LDR.boatAccel * dt);
     b.z += b.dir * b.cur * dt;
     if (b.z > LDR.boatSpan[1]) { b.z = LDR.boatSpan[1]; b.dir = -1; }
     if (b.z < LDR.boatSpan[0]) { b.z = LDR.boatSpan[0]; b.dir = 1; }
-    const R = ldRiverMid(b.z), x = R.x + b.side * b.dir * R.hw;   // keeping to its own side going each way
+    const R = ldRiverMid(b.z), x = R.x + b.side * b.dir;   // keeping to its own side going each way, through the bridges' middle spans
     b.x = x;
     b.g.position.set(x, TUNE.waterLevel, b.z);
     b.g.rotation.y = Math.atan2(R.fx * b.dir, R.fz * b.dir);

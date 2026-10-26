@@ -259,7 +259,7 @@ window.__lp = {
   bigBoom, catapultSound, fireHiss, updateAmbientAudio,
   get rcPuffs(){return typeof rcPuffs === "undefined" ? null : rcPuffs;}, get rcSparks(){return typeof rcSparks === "undefined" ? null : rcSparks;},
   race, RC, raceOn, rcStartRace, rce, rceDrag, rceWaveEdge, rceWind, rcGap, rcScOpen, raceItemUse, rcItGive, rcItUse, rcItDraw, rcItRows, raceExit, raceReset, raceAgain, raceOpenPicker, racePlaces, raceBtnShows, rcAt, rcPoint, rcLayTrack,
-  ldn, LD, ldCovers, ldInCity, ldStreets, ldEmbank, ldNear, ldCarStartAt, ldDeckY, ldTbUpdate, ldTbAsks, ldTbShut, ldGateCap, ldTbCarClear, ldRiverMid, ldBoatStart, ldTallShipMove, boatHome, ldShape, ldRiverAt, ldCoastZ, ldGroundTint, ldStart, ldCanStart, ldUpdate, ldCityW, ldClockPhase, ldGlobeShows, ldGlobeOpen, ldGlobePick, lpRestoreChoice, solidRegions, apDest, AP_HOME,
+  ldn, LD, ldCovers, ldInCity, ldStreets, ldEmbank, ldNear, ldCarStartAt, ldDeckY, ldTbUpdate, ldTbAsks, ldTbShut, ldGateCap, ldTbCarClear, ldRiverMid, ldBoatStart, ldTallShipMove, boatHome, boatStranded, ldShape, ldRiverAt, ldCoastZ, ldGroundTint, ldStart, ldCanStart, ldUpdate, ldCityW, ldClockPhase, ldGlobeShows, ldGlobeOpen, ldGlobePick, lpRestoreChoice, solidRegions, apDest, AP_HOME,
   forEachSolid, roadCrossings, trk, TK, tkAt, tkStep, trackUpdate, trackBoard, trackCanBoard, trackReset, tkRetryFor, tkLiftPad, tkNetY, tkPose, SOLID, SOLID_KINDS, solidQuery, solidTest, solidKind, solidBlocks, get surfSolids(){return surfSolids;}, get staticSolids(){return staticSolids;}, get vehicleModel(){return vehicleModel;}, vehPlayerModels, vehTagPlayer,
   get traffic(){return traffic;},
   get missilesList(){return missiles;},

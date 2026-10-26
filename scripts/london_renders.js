@@ -51,6 +51,7 @@ const V = {
   "tb-east-top":    at(-560, 70, 13740, -615, 0, 13780),
   // v199: the bridge OPEN with the tall ship going through (the run waits for that moment)
   "tb-open-air":    Object.assign(at(-560, 60, 13560, -767, 25, 13800), { until: "shipThrough" }),
+  "tb-ship-side":   Object.assign(at(-560, 30, 13780, -767, 30, 13782, "helicopter"), { until: "shipThrough" }),
   "tb-open-bank":   Object.assign(at(-660, 14, 13650, -767, 22, 13790, "helicopter"), { until: "shipThrough" }),
   "tb-open-car":    { car: 1, x: -560, z: 13780, tx: -900, tz: 13780, warm: 2, until: "tbUp" },
   "tb-open-car-gate": { car: 1, x: -594, z: 13780, tx: -900, tz: 13780, warm: 2, until: "tbUp" },

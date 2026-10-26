@@ -2870,16 +2870,21 @@ const TUNE = {
     // come down behind her. It never begins with his car between the gates or too close to stop,
     // and a gate holds him (speed-only) while it is not down. Seconds and metres.
     river: {
-      open: { warn: 3, rise: 7, fall: 7, angle: 1.35, settle: 1.5 },   // the leaves stand at 77 degrees
+      open: { warn: 3, rise: 7, fall: 7, angle: 1.35, settle: 1.5, wallAt: 0.3 },   // the leaves stand at 77 degrees; past wallAt the upright wall is the solid one
       gateOut: 18,                                    // each gate this far out past its shore tower, on the approach
       stopShort: 4, carBrake: 18,                     // he stops this short of a gate; the brake its sum assumes
       clearMargin: 25,                                // ... and it opens only with him further than his stop from it, plus this
+      betweenMargin: 12,                              // "between the gates": within this of the road's edge and of either gate
       boatTrigger: 300, boatClear: 120,               // his boat this close (on the river, coming) asks; this far past, it is done
       boatLead: 4,                                    // ... or further, at his speed: up this many seconds before he gets there
       ship: { speed: 12, from: 12000, berth: 14010, moor: 55, away: 35, slowAt: 160, holdAt: 70, ask: 180, clearPast: 60,
-              horn: 120, len: 82 },                   // the tall ship: z where she comes from and moors; when she asks
-      boats: [ [12500, 0.35, 6, "tour"], [13300, -0.4, 5, "tug"], [14600, 0.3, 4.5, "barge"], [15000, -0.35, 6.5, "tour"] ],   // z, side, m/s, kind
+              horn: 120, len: 82, beam: 14,
+              mastMax: 40,                            // her tallest mast's top over the water: the walkways are 43 up
+              giveWay: 40,                            // his boat this far ahead of her bow in her path: she stops for him
+              accel: 1, decel: 2, arrive: 0.2, creep: 0.6 },   // m/s^2; into her berth and out to sea she slows as (metres left) x arrive, to creep                   // the tall ship: z where she comes from and moors; when she asks
+      boats: [ [12500, 16, 6, "tour"], [13300, -16, 5, "tug"], [14600, 16, 4.5, "barge"], [15000, -16, 6.5, "tour"] ],   // z, metres off the middle (through both bridges' middle spans), m/s, kind
       boatSpan: [12300, 15250], boatYield: 45,        // where the river boats ply; they ease off when his boat is this close ahead
+      boatLane: 20, boatAccel: 1.5, boatDecel: 3,     // ... and within this of their line; how fast they slow and go again
       boatStart: [-875, 12950],                       // his speedboat, started in London: below Tower Bridge, bound up the river
     },
     // v198: DRIVING LONDON (london.js, ldStreets). Traffic keeps LEFT here -- the parent, 2026-10-26 --

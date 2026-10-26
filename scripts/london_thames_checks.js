@@ -70,11 +70,18 @@ module.exports = async function londonThamesChecks({ newPage, check }) {
     T.state = "up"; T.open = 1; T.gate = 1; L.ldTbUpdate(0);
     // (held up: the ship is away and nothing asks, so the update would start it down -- probe at once)
     const raised = probe();
+    // either side of the switch from the flat wall to the upright one: never neither
+    const w = L.LD.river.open.wallAt;
+    T.state = "rise"; T.open = w - 0.01; L.ldTbUpdate(0); T.open = w - 0.01; L.ldTbUpdate(0);
+    const below = probe();
+    T.open = w + 0.01; L.ldTbUpdate(0); T.open = w + 0.01; L.ldTbUpdate(0);
+    const above = probe();
     D.bridgeDown();
-    return { down, raised };
+    return { down, raised, below, above };
   });
   check("london thames: down, each leaf is a deck to land on and no upright wall; up, the flat leaf is gone from the registry and the raised one is a wall",
-    leaves.down.flat.every(Boolean) && !leaves.down.up.some(Boolean) && !leaves.raised.flat.some(Boolean) && leaves.raised.up.every(Boolean), JSON.stringify(leaves));
+    leaves.down.flat.every(Boolean) && !leaves.down.up.some(Boolean) && !leaves.raised.flat.some(Boolean) && leaves.raised.up.every(Boolean) &&
+    leaves.below.flat.every(Boolean) && leaves.above.up.every(Boolean), JSON.stringify(leaves));
 
   // ---- his boat ---------------------------------------------------------------------------------
   const boat = await page.evaluate(() => {
@@ -103,6 +110,30 @@ module.exports = async function londonThamesChecks({ newPage, check }) {
     boat.start.onWater && boat.start.origin === 2 && boat.start.upRiver, JSON.stringify(boat.start));
   check(`london thames: sailing up in the speedboat, Tower Bridge is open before he reaches it (${boat.run.openAt} m short); he goes through, and it closes behind him; never a bang`,
     boat.run.openAt !== null && boat.run.openAt > 20 && boat.run.through && boat.run.closedAfter && boat.run.b === 0 && boat.run.onWaterShare > 0.95 && boat.run.o === 1, JSON.stringify(boat.run));
+
+  // ---- his boat's ways back: a relaunch, and stranded with nowhere to go ----------------------------
+  const home = await page.evaluate(() => {
+    const L = window.__lp, st = L.state, D = window.__ldt, o = {};
+    D.shipAway();
+    localStorage.setItem("lp.vehicle", "speedboat"); localStorage.setItem("lp.start", "ldn"); localStorage.setItem("lp.dir", "0");
+    L.lpRestoreChoice(); L.api.skipScreens();
+    for (let i = 0; i < 10; i++) L.update(1 / 60);
+    o.relaunch = { origin: st.originIdx, onWater: L.boatOnWater(), thames: st.z > 11000, upRiver: -Math.cos(st.heading) > 0.9 };
+    localStorage.clear();
+    // run up the bank into London's downs, far from any water: the backstop puts him back on the Thames
+    st.x = 1500; st.z = 12700; st.y = L.terrainEff(1500, 12700); st.speed = 0;
+    L.boatStranded();
+    o.stranded = { thames: st.z > 11000 && L.boatOnWater(), upRiver: -Math.cos(st.heading) > 0.9, x: Math.round(st.x), z: Math.round(st.z) };
+    // his boat ahead of a river boat on its line: it eases off for him
+    const b = L.ldn.rboats[1], R = L.ldRiverMid(b.z), bx = R.x + b.side * b.dir;
+    st.x = bx; st.z = b.z + b.dir * 30; st.y = L.seaLevelAt(st.x, st.z); st.speed = 0;
+    const z0 = b.z;
+    for (let i = 0; i < 60 * 6; i++) { st.x = bx; st.z = z0 + b.dir * 30; st.speed = 0; L.update(1 / 60); }
+    o.yield = { moved: +Math.abs(b.z - z0).toFixed(1), cur: +b.cur.toFixed(2) };
+    return o;
+  });
+  check("london thames: a relaunch after a speedboat London start puts him back on the Thames, bow up the river; stranded far inland in Britain, he is put back on the Thames, not sent home to California; a river boat eases off for him ahead of it",
+    home.relaunch.origin === 2 && home.relaunch.onWater && home.relaunch.thames && home.relaunch.upRiver && home.stranded.thames && home.stranded.upRiver && home.yield.moved < 10 && home.yield.cur < 0.5, JSON.stringify(home));
 
   // ---- his car ----------------------------------------------------------------------------------
   const car = await page.evaluate(() => {
@@ -133,61 +164,81 @@ module.exports = async function londonThamesChecks({ newPage, check }) {
       if (T.state !== "down") { begunAt = Math.round(p.s); if (inGates) between++; }
     }
     out.deck = { begunWhileOn: begunOn, why, begunAt, between, ...D.delta(f0) };
-    // (b) the bridge up, a held finger coming at it at cruise from the street beyond the east junction
-    D.shipAway(); D.bridgeDown();
-    T.state = "up"; T.open = 1; T.gate = 1;
-    shipAsks(); S.z = T.z;            // she is IN it: it stays up while she clears
-    const east = R.b, inArm = east.arms.find(a => a.road !== R && a.road.kind === "grid" && Math.abs(a.dx) > 0.9);
-    const road = inArm.road, dir = inArm.atStart ? -1 : 1;
-    place(road, dir, dir > 0 ? Math.max(5, road.len - 90) : Math.min(road.len - 5, 90), L.CAR.cruise);
-    f0 = D.f();
-    let minToGate = Infinity, passedShut = 0, crossed = false, f = 0, waited = 0;
-    for (; f < 60 * 120; f++) {
-      D.frame(0, 0);
-      const p = L.stProject(R, st.x, st.z);
-      if (p.d < 12) {
-        const toGate = p.s - T.gateS[1];           // westbound: the east gate is his
-        if (T.state !== "down") { minToGate = Math.min(minToGate, toGate); if (toGate < -1) passedShut++; if (st.speed < 0.3) waited++; }
-        if (p.s < T.gateS[0] - 5) { crossed = true; break; }
+    // (b) a held finger coming at it, each way, as the ship asks from far out: the gates come down ahead of
+    // him; he stops at his gate and waits -- the worst case, through her whole passage -- and crosses when it is down
+    out.held = [];
+    for (const side of ["east", "west"]) {
+      D.shipAway(); D.bridgeDown(); noTraffic();
+      const node = side === "east" ? R.b : R.a;
+      const inArm = node.arms.find(a => a.road !== R && a.road.kind === "grid" && Math.abs(a.dx) > 0.9);
+      const road = inArm.road, dir = inArm.atStart ? -1 : 1;
+      place(road, dir, dir > 0 ? Math.max(5, road.len - 90) : Math.min(road.len - 5, 90), 0);
+      S.state = "in"; S.dir = 1; S.z = T.z - 420; S.v = L.LD.river.ship.speed;   // she asks in a few seconds
+      // parked a block back, finger off, until the gates start down; then the finger goes down and stays
+      L.api.clearStick();
+      for (let i = 0; i < 60 * 60 && T.state === "down"; i++) L.update(1 / 60);
+      const f0 = D.f();
+      let minToGate = Infinity, passedShut = 0, crossed = false, f = 0, waited = 0, downAt = T.state !== "down" ? 0 : null, crossAt = null;
+      for (; f < 60 * 150; f++) {
+        D.frame(0, 0);
+        if (downAt === null && T.state !== "down") downAt = f;
+        const p = L.stProject(R, st.x, st.z);
+        if (p.d < 12) {
+          const toGate = side === "east" ? p.s - T.gateS[1] : T.gateS[0] - p.s;
+          if (T.state !== "down") { minToGate = Math.min(minToGate, toGate); if (toGate < -1) passedShut++; if (st.speed < 0.3) waited++; }
+          if (side === "east" ? p.s < T.gateS[0] - 5 : p.s > T.gateS[1] + 5) { crossed = true; crossAt = f; break; }
+        }
       }
+      out.held.push({ side, minToGate: +minToGate.toFixed(1), passedShut, waitedS: +(waited / 60).toFixed(1), crossed,
+                      shutForS: downAt === null || crossAt === null ? null : +((crossAt - downAt) / 60).toFixed(1), ...D.delta(f0) });
     }
-    out.held = { minToGate: +minToGate.toFixed(1), passedShut, waitedS: +(waited / 60).toFixed(1), crossed, s: +(f / 60).toFixed(1), ...D.delta(f0) };
     // (c) coming at it fast, close, as the ship asks: it does not begin under him
     D.shipAway(); D.bridgeDown(); noTraffic();
+    const eArm = R.b.arms.find(a => a.road !== R && a.road.kind === "grid" && Math.abs(a.dx) > 0.9);
+    const road = eArm.road, dir = eArm.atStart ? -1 : 1;
     place(road, dir, dir > 0 ? road.len - 25 : 25, L.CAR.cruise);
     shipAsks(); S.z = T.z - 200;
     f0 = D.f();
-    let underHim = 0, bangAt = null;
-    for (let f = 0; f < 60 * 20; f++) {
+    let underHim = 0, bangAt = null, askedClose = 0, heldBack = 0, crossedIt = false, begunAfter = null;
+    for (let f = 0; f < 60 * 30; f++) {
       const c0 = L.flags.carCrashes || 0, px = st.x, pz = st.z, pv = st.speed, ps = L.stPlan.road && L.stPlan.road.id;
       D.frame(0, 0);
       if ((L.flags.carCrashes || 0) > c0 && !bangAt) bangAt = { f, x: Math.round(px), z: Math.round(pz), v: Math.round(pv), road: ps, bridge: R.id, hit: L.car.dbg };
       const p = L.stProject(R, st.x, st.z);
       if (T.state !== "down" && p.d < 12 && p.s > T.gateS[0] && p.s < T.gateS[1]) underHim++;
+      if (T.asks.includes("ship") && !L.ldTbCarClear()) { askedClose++; if (T.state === "down") heldBack++; }
+      if (p.d < 12 && p.s < T.gateS[0] - 5) crossedIt = true;
+      if (crossedIt && begunAfter === null && T.state !== "down") begunAfter = f;
     }
-    out.fast = { underHim, bangAt, ...D.delta(f0) };
+    out.fast = { underHim, askedClose, heldBack, crossedIt, begunAfter, bangAt, ...D.delta(f0) };
     D.shipAway(); D.bridgeDown();
     for (const v of L.stTraffic.list) v.respawn = 0.5;
     return out;
   });
   check("london thames: parked on Tower Bridge when the ship asks, it does not begin until he has driven off and is clear of the gate; never a bang",
     !car.deck.begunWhileOn && car.deck.begunAt !== null && car.deck.between === 0 && car.deck.c === 0 && car.deck.w === 0, JSON.stringify(car.deck));
-  check(`london thames: a held finger at a raised Tower Bridge stops at the gate (${car.held.minToGate} m short), waits there (${car.held.waitedS} s), and crosses when it is down -- never past a shut gate, never a bang`,
-    car.held.minToGate >= 0 && car.held.passedShut === 0 && car.held.waitedS > 1 && car.held.crossed && car.held.c === 0 && car.held.w === 0, JSON.stringify(car.held));
+  check(`london thames: a held finger at a shut Tower Bridge, from either side, stops at its gate (${car.held.map(h => h.minToGate).join(", ")} m short), waits through the whole passage (${car.held.map(h => h.shutForS).join(", ")} s from the gates coming down to his crossing), and crosses when it is down -- never past a shut gate, never a bang`,
+    car.held.length === 2 && car.held.every(h => h.minToGate >= 0 && h.passedShut === 0 && h.waitedS > 1 && h.crossed && h.shutForS !== null && h.shutForS < 75 && h.c === 0 && h.w === 0), JSON.stringify(car.held));
   check("london thames: coming at the bridge too fast and too close to stop when the ship asks, it does not begin under him; never a bang",
-    car.fast.underHim === 0 && car.fast.c === 0 && car.fast.w === 0, JSON.stringify(car.fast));
+    car.fast.underHim === 0 && car.fast.askedClose > 30 && car.fast.heldBack === car.fast.askedClose && car.fast.crossedIt && car.fast.begunAfter !== null &&
+    car.fast.c === 0 && car.fast.w === 0, JSON.stringify(car.fast));
 
   // ---- the river's boats ------------------------------------------------------------------------
   const rb = await page.evaluate(() => {
     const L = window.__lp, B = L.ldn.rboats;
     L.api.setVehicle("prop"); L.api.spawnAt(2, 0);
     const z0 = B.map(b => b.z);
-    for (let f = 0; f < 60 * 30; f++) L.update(1 / 60);
-    return B.map((b, i) => ({ moved: Math.round(Math.abs(b.z - z0[i])), wet: L.terrainEff(b.x, b.z) < L.seaLevelAt(b.x, b.z),
-                              wall: !!L.solidQuery(b.x, L.TUNE.waterLevel + 1, b.z, 2, L.SOLID.BOAT) }));
+    // a long while, so each passes under both bridges: never in a pier, never on land
+    const walls = B.map(() => 0), dry = B.map(() => 0);
+    for (let f = 0; f < 60 * 300; f++) {
+      L.update(1 / 60);
+      if (f % 15) continue;
+      B.forEach((b, i) => { if (L.solidQuery(b.x, L.TUNE.waterLevel + 1, b.z, 3, L.SOLID.BOAT)) walls[i]++; if (L.terrainEff(b.x, b.z) >= L.seaLevelAt(b.x, b.z)) dry[i]++; });
+    }
+    return B.map((b, i) => ({ moved: Math.round(Math.abs(b.z - z0[i])), wet: dry[i] === 0, wall: walls[i] > 0, walls: walls[i], dry: dry[i] }));
   });
-  check(`london thames: ${rb.length} boats ply the river -- every one moving, on the water, and none of them a wall`,
-    rb.length >= 3 && rb.every(b => b.moved > 50 && b.wet && !b.wall), JSON.stringify(rb));
+  check(`london thames: ${rb.length} boats ply the river for five minutes -- under both bridges, every one on the water the whole time, never in a pier, none of them a wall`,
+    rb.length >= 3 && rb.every(b => b.moved > 20 && b.wet && !b.wall), JSON.stringify(rb));
 
   await page.close();
 };

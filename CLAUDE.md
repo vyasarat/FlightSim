@@ -48,7 +48,7 @@ Per-feature detail lives in a **WORKING RULES** comment atop the file it concern
   it back on exit, and lane-keep follows the corner's curve. On a city ramp a speed-only ramp
   assist holds him under what its bends allow (`TUNE.city.ramp.safe*`). Point at a building
   halfway along a block and nothing saves him. Every strength is `TUNE.city.*`, to be
-  weakened as he improves. **Otherwise the city feels like the motorway, only slower**:
+  weakened as he improves. (v199) So is Tower Bridge's gate: shut, it holds him speed-only to a stop at it (`ldGateCap`) -- never a bang, never trapped. **Otherwise the city feels like the motorway, only slower**:
   same steer rate, deadzone, lookahead and lane-keep law on a straight street
   (`scripts/feel_compare.js` measures the same inputs on both).
 - **Off every road, the road in front of him** (`carRejoinTarget`): the pull-back aims at the
