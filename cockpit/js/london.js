@@ -1409,11 +1409,14 @@ const ldShipLine = { x: 0, hw: 0, fx: 0, fz: 1 };
 function ldTallShip() {
   const g = ldTallShipMesh(), H = LDR.ship;
   scene.add(g);
-  const hull = solidBox3(0, TUNE.waterLevel + 1.5, H.from, [1, 0, 0], [0, 1, 0], [0, 0, 1], H.beam / 2, 4.5, H.len / 2, "ship");
-  const rig = solidBox3(0, TUNE.waterLevel + 6 + H.mastMax / 2, H.from, [1, 0, 0], [0, 1, 0], [0, 0, 1], 12, H.mastMax / 2 - 3, H.len * 0.35, "ship");
-  hull.mesh = rig.mesh = g.children[0];
-  hull.ld = rig.ld = "tallShip";
-  ldn.tship = { g, z: H.from, dir: 1, state: "away", t: 4, v: 0, honked: false, solids: [hull, rig] };
+  // boxes over the water [from, to, half-width, half-length]: her hull, then her rigging in two, the
+  // lower as wide as her lowest yards and the upper as her topsails -- never air that is a wall
+  const solids = H.solids.map(([y0, y1, hw, hl]) => {
+    const b = solidBox3(0, TUNE.waterLevel + (y0 + y1) / 2, H.from, [1, 0, 0], [0, 1, 0], [0, 0, 1], hw, (y1 - y0) / 2, hl, "ship");
+    b.mesh = g.children[0]; b.ld = "tallShip";
+    return b;
+  });
+  ldn.tship = { g, z: H.from, dir: 1, state: "away", t: 4, v: 0, honked: false, solids };
   ldTallShipPose();
 }
 function ldTallShipPose() {

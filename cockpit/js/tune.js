@@ -2881,6 +2881,7 @@ const TUNE = {
       ship: { speed: 12, from: 12000, berth: 14010, moor: 55, away: 35, slowAt: 160, holdAt: 70, ask: 180, clearPast: 60,
               horn: 120, len: 82, beam: 14,
               mastMax: 40,                            // her tallest mast's top over the water: the walkways are 43 up
+              solids: [[-3, 6, 7, 41], [9, 26, 12, 29], [26, 39, 7, 25]],   // her hull, lower and upper rigging: metres over the water, half-width, half-length
               giveWay: 15, giveLane: 6,               // his boat in her path (within giveLane of her side): she stops this short of him
               accel: 1, decel: 2, arrive: 0.2, creep: 0.6 },   // m/s^2; into her berth and out to sea she slows as (metres left) x arrive, to creep                   // the tall ship: z where she comes from and moors; when she asks
       boats: [ [12500, 16, 6, "tour"], [13300, -16, 5, "tug"], [14600, 16, 4.5, "barge"], [15000, -16, 6.5, "tour"] ],   // z, metres off the middle (through both bridges' middle spans), m/s, kind
