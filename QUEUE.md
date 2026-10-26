@@ -7,6 +7,43 @@ in which case it goes to the top.
 
 ## Releases
 
+**London, across the sea (the parent, 2026-10-25: "my son's idea, my yes on all of it"):** a third
+city east of New York. Normal game -- every kid rule applies (no text, nothing living hit, nothing
+taken away). One release each, in this order, ahead of every bug except a crash, stuck or text.
+Checks each release: draw calls and frame budget within limits from the air and the street
+(polish_check); every landmark recognisable in renders -- the render-critic NAMES each one without
+being told what it is; 0 text; everything in New York and California unchanged (vehicle baseline,
+visual hashes, the existing city checks); the noisy-finger drive in London for v198. Full loop,
+ship each when it passes.
+
+- [ ] **v197 Across the sea and the landmarks** -- extend the world east of New York: open ocean,
+  then Britain's coast with WHITE CLIFFS, then London on the Thames. Compress the distance: about
+  2-3 minutes' flying from New York at normal plane speed. Water stays one definition
+  (`terrainEff < seaLevelAt`); no third answer. Things to see on the crossing: ships, a lighthouse
+  on a rock, the existing whales (living, `noSolid`), an island or two. London built with the city
+  generator like the others (`scripts/city/site.js` survey from real map data, compressed if needed),
+  landmarks in their real places relative to the Thames:
+  Big Ben and the Houses of Parliament (clock faces with tick marks, NO numerals; Big Ben bongs every
+  few minutes of game time); the big wheel (no sponsor branding), turning slowly; Tower Bridge, the
+  hero piece, plus the plain London Bridge next to it; the Tower of London, white keep and walls;
+  Buckingham Palace at the end of a long red road, sentry boxes with no people in them; St Paul's
+  dome, the Shard, the Gherkin, Nelson's Column; red phone boxes. Landmarks solid and
+  helicopter-landable like every building; nothing readable anywhere. A London airport he can land
+  the planes at. A GLOBE button after picking a vehicle (like the race flag) to START in New York,
+  California or London, so he need not fly across every time -- the picker still opens on the
+  vehicles; a relaunch restores the start city too.
+- [ ] **v198 Drive London** -- the street graph like New York's (`streets.js`), red double-decker
+  buses and black taxis as traffic (new `vehiclekit.js` shapes; KEEP the v125 random-draw count,
+  `VK_V125_DRAWS`), a way in from the airport. Same turn rule, same assists. **ASK THE PARENT before
+  making traffic drive on the left.** Noisy-finger drive in London (worst of 3 per seed, report the log).
+- [ ] **v199 The Thames** -- boats on the river. Tower Bridge OPENS when a big ship comes, or when he
+  sails up in the boat: road lifts, horn sounds, ship passes, bridge comes down. Wind-up, payoff,
+  free reset (the set-piece loop). Cars on the bridge are held back safely, never trapped -- a held
+  finger never bangs into a raised leaf or a stopped queue.
+- [ ] **v200 A London race track** -- a street circuit past Big Ben, round the palace and over Tower
+  Bridge, built like the other tracks (`TUNE.race.tracks`, typed sections); race_sweep, ~50% wins
+  per car, 0 bangs, 0 stuck.
+
 **Races like a kart game (the parent, 2026-10-23, after "racing is just circling the track"):**
 something happens every few seconds. All original -- no Nintendo names, characters, logos or
 item designs. These three come ahead of every bug except a crash, stuck or text. Checks each
