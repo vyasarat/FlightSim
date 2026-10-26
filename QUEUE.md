@@ -18,10 +18,7 @@ ship each when it passes.
 
 - [x] **v197 Across the sea and the landmarks** (shipped 2026-10-26, merge d5c1784, 1247/1247) -- the crossing, the white cliffs, the Thames, every landmark in its place (the critic named them all), London's airport (`AIRPORTS[2]`) and the globe.
 - [x] **v198 Drive London** (shipped 2026-10-26, merge fa3cabf, 1258/1258) -- the car starts in London from the globe; traffic and he keep LEFT (the parent's call); black cabs and red double-deckers; both bridges are streets; noisy drive in London 3 seeds x 3, all clean.
-- [ ] **v199 The Thames** -- boats on the river. Tower Bridge OPENS when a big ship comes, or when he
-  sails up in the boat: road lifts, horn sounds, ship passes, bridge comes down. Wind-up, payoff,
-  free reset (the set-piece loop). Cars on the bridge are held back safely, never trapped -- a held
-  finger never bangs into a raised leaf or a stopped queue.
+- [x] **v199 The Thames** (shipped 2026-10-26, merge 578969a, 1269/1269) -- Tower Bridge opens for the tall ship and his speedboat (now startable in London); never under his car (the gate holds him); the ship solid; river boats.
 - [ ] **v200 A London race track** -- a street circuit past Big Ben, round the palace and over Tower
   Bridge, built like the other tracks (`TUNE.race.tracks`, typed sections); race_sweep, ~50% wins
   per car, 0 bangs, 0 stuck.
