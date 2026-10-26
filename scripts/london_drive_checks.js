@@ -95,10 +95,14 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
       return { k, dryEnds: L.terrainEff(p[0].x, p[0].z) >= L.seaLevelAt(p[0].x, p[0].z) && L.terrainEff(p[p.length - 1].x, p[p.length - 1].z) >= L.seaLevelAt(p[p.length - 1].x, p[p.length - 1].z), wetMiddle: L.terrainEff(m.x, m.z) < L.seaLevelAt(m.x, m.z) }; });
     // and every grid street is dry and clear (streets.js measured it; the river split none)
     o.grid = C.roads.every(r => r.kind === "grid");
+    // (v198) no signals in London: lights.js builds the junctions lazily, on the first frame -- after
+    // London's grid exists -- and they and their masts drew from the page's random stream
+    L.update(1 / 60);
+    o.signals = L.lights.junctions.filter(j => j.city === "ldn").length + C.nodes.filter(n => n.signal).length;
     return o;
   });
-  check(`london drive: ${g.roads} streets and ${g.nodes} junctions read off the generated layout, ONE network -- the two banks joined by Tower Bridge and London Bridge, the airport road into it -- every lane left of its road's middle, and the only dead end the airport road's turnaround`,
-    !g.none && g.roads > 300 && g.comps === 1 && g.left && g.deadEnds.length === 1 && g.deadEnds[0].goal &&
+  check(`london drive: ${g.roads} streets and ${g.nodes} junctions read off the generated layout, ONE network -- the two banks joined by Tower Bridge and London Bridge, the airport road into it -- every lane left of its road's middle, no signals, and the only dead end the airport road's turnaround`,
+    !g.none && g.roads > 300 && g.comps === 1 && g.left && g.signals === 0 && g.deadEnds.length === 1 && g.deadEnds[0].goal &&
     ["towerBridge", "londonBridge", "airport"].every(k => g.links[k] && g.links[k].a && g.links[k].b) && g.banks.every(b => b.dryEnds && b.wetMiddle), JSON.stringify(g));
 
   // ---- the start, and hands-off ---------------------------------------------------------------

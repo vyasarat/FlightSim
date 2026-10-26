@@ -14,7 +14,17 @@ const { launch, serve } = require("./art_rig.js");
   const rootArg = args.filter(a => !a.startsWith("--"))[1];
   const vpArg = (args.find(a => a.startsWith("--vp=")) || "").slice(5);
   const perf = (args.find(a => a.startsWith("--perf=")) || "").slice(7) || undefined;   // (v177) only | skip: a module's timing part
-  const viewports = vpArg ? vpArg.split(",").map(s => s.split("x").map(Number)) : [[1024, 768]];
+  // (v198) no --vp: the viewports the HARNESS gives this module, read from headless_test.js -- run at
+  // 1024x768 alone, slot_checks passed and then failed in the full run at 390x844 (the globe under the HUD)
+  const harnessVp = (() => {
+    try {
+      const src = require("fs").readFileSync(path.join(__dirname, "headless_test.js"), "utf8");
+      const m = src.match(new RegExp('\\["\\./' + name + '",[^\\n]*?viewports:\\s*(\\[\\[[\\d,\\[\\]\\s]*\\]\\])'));
+      return m ? JSON.parse(m[1]) : null;
+    } catch (e) { return null; }
+  })();
+  const viewports = vpArg ? vpArg.split(",").map(s => s.split("x").map(Number)) : harnessVp || [[1024, 768]];
+  if (!vpArg && harnessVp) console.log("INFO  the harness's viewports for " + name + ": " + JSON.stringify(harnessVp));
   const root = path.resolve(rootArg || path.join(__dirname, ".."));
   const port = +(process.env.PORT || 8191), srv = serve(root, port), browser = await launch();
   const URL = `http://127.0.0.1:${port}/cockpit/index.html`;
