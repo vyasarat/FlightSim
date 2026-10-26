@@ -123,7 +123,7 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     if (vi === 0) {
       const g = await page.evaluate(() => {
         const L = window.__lp, out = {};
-        for (const k in L.streets.cities) {
+        for (const k of ["ny", "ca"]) {          // (London has no motorway way in: london_drive_checks walks its graph)
           const C = L.streets.cities[k];
           const deadEnds = C.nodes.filter(n => n.arms.length < 2).map(n => ({ x: Math.round(n.x), z: Math.round(n.z),
             road: n.arms[0] && n.arms[0].road.kind }));

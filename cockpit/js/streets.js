@@ -2433,7 +2433,7 @@ function stBuildPaint(city, g) {
     const x0 = b[0] + aw, x1 = b[2] - aw, z0 = b[1] + sw, z1 = b[3] - sw;
     const edges = [[x0, z0, x1, z0, 0, -1], [x1, z0, x1, z1, 1, 0], [x1, z1, x0, z1, 0, 1], [x0, z1, x0, z0, -1, 0]];
     for (const [ax, az, bx, bz, ox, oz] of edges) {
-      const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / ST.kerbStep));
+      const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / (city.kerbStep || ST.kerbStep)));
       for (let i = 0; i < n; i++) {
         const t0 = i / n, t1 = (i + 1) / n;
         const px0 = lerp(ax, bx, t0), pz0 = lerp(az, bz, t0), px1 = lerp(ax, bx, t1), pz1 = lerp(az, bz, t1);

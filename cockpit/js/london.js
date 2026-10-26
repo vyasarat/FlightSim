@@ -977,6 +977,7 @@ function ldStreets() {
   for (const r of city.roads) r.lo = -Math.abs(r.lo);
   city.left = true;
   city.noSignals = true;      // no traffic lights in this release: nothing queues, nothing is run, no chase across London
+  city.kerbStep = LDD.kerbStep;   // its ground is flat: the kerbs in longer runs (three times New York's blocks)
   ldn.city = city;
   const g = new THREE.Group();
   const tarmac = artPaint(mattMat(TUNE.runwaySurfaceColor), "road");

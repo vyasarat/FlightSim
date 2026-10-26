@@ -110,6 +110,8 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
     // a held finger, nothing else, for four minutes
     const f0 = D.flags();
     let off = 0, bangs = 0, still = 0, stuckMax = 0, minX = Infinity, airport = 0, city = 0, bridgeSeen = 0, laneSum = 0, laneN = 0;
+    // the loop, as it happens: out to the city, back down the airport road to its end, round, and in again
+    const legs = []; let leg = null, apronMin = Infinity;
     const was = { x: st.x, z: st.z };
     for (let f = 0; f < 60 * 240; f++) {
       if (D.frame(0)) bangs++;
@@ -118,12 +120,16 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
       minX = Math.min(minX, st.x);
       const r = L.stPlan.road;
       if (r === R) airport++; else if (r && r.kind === "grid") city++;
+      const now = r === R ? (L.stPlan.dir > 0 ? "in" : "out") : r && r.kind === "grid" ? "city" : leg;
+      if (now !== leg) { legs.push(now); leg = now; }
+      if (r === R) apronMin = Math.min(apronMin, Math.hypot(st.x - R.pts[0].x, st.z - R.pts[0].z));
       // on a straight grid street, out of the junctions: which side of its middle is he?
       if (r && r.kind === "grid" && !L.stPlan.turn?.committed && f % 30 === 0) {
         const q = L.stProject(r, st.x, st.z), toEnd = Math.min(q.s, r.len - q.s);
         if (toEnd > 25) { laneSum += q.lat * L.stPlan.dir; laneN++; }
       }
     }
+    o.legs = legs.join(">"); o.apronMin = Math.round(apronMin);
     o.drive = { bangs, off, stuckS: +(stuckMax / 60).toFixed(1), deepestWest: Math.round(minX), airportS: Math.round(airport / 60), cityS: Math.round(city / 60), lane: laneN ? +(laneSum / laneN).toFixed(2) : null, laneN, ...D.delta(f0) };
     return o;
   });
@@ -131,7 +137,8 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
     ho.start.origin === 2 && ho.start.onAirportRoad && ho.start.lat < -2 && ho.start.facingCity && ho.start.speed === 0, JSON.stringify(ho.start));
   check(`london drive: hands-off for four minutes from the airport he drives into the city and back to the airport and in again (${ho.drive.cityS} s in the grid, ${ho.drive.airportS} s on the airport road), on the LEFT (${ho.drive.lane} m), never a bang, never a touch, never off the road, never stuck`,
     ho.drive.bangs === 0 && ho.drive.c === 0 && ho.drive.w === 0 && ho.drive.t === 0 && ho.drive.off === 0 && ho.drive.stuckS < 3 &&
-    ho.drive.cityS > 60 && ho.drive.airportS > 20 && ho.drive.lane < -2.5 && ho.drive.laneN > 20, JSON.stringify(ho.drive));
+    ho.drive.cityS > 60 && ho.drive.airportS > 20 && ho.drive.lane < -2.5 && ho.drive.laneN > 20 &&
+    /in>city>out>in>city/.test(ho.legs) && ho.apronMin < 15, JSON.stringify({ ...ho.drive, legs: ho.legs, apronMin: ho.apronMin }));
 
   // ---- the bridges ----------------------------------------------------------------------------
   const br = await page.evaluate(() => {
@@ -205,6 +212,29 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
     tr.ldn.cabs > 0 && tr.ldn.buses > 0 && S.cab === tr.ldn.cabs && S.decker === tr.ldn.buses && S.taxi === 0 && S.bus === 0 &&
     N.cab === 0 && N.decker === 0 && N.taxi > 0 && N.bus > 0 && tr.tints.ldnBus !== tr.tints.nyBus && tr.tints.ldnCab !== tr.tints.nyCab,
     JSON.stringify(tr));
+
+  // ---- the Mall: driven up its red surface, never sunk in it ----------------------------------
+  const mall = await page.evaluate(() => {
+    const L = window.__lp, st = L.state, D = window.__ldd, [mx, mz0, mz1] = L.LD.at.mall;
+    D.london();
+    for (const v of L.stTraffic.list) v.alive = false;
+    const R = L.stReassembleAt(mx, mz0 + 40, Math.PI, null, Infinity);       // heading +z, up the Mall toward the palace
+    const dir = R.dir;
+    D.placeOn(R.road, dir, L.stProject(R.road, R.x, R.z).s, 10);
+    const f0 = D.flags();
+    let onMall = 0, sunk = 0, worst = 0, bangs = 0;
+    for (let f = 0; f < 60 * 12; f++) {
+      if (D.frame(0)) bangs++;
+      if (Math.abs(st.x - mx) < 10 && st.z > mz0 && st.z < mz1) {
+        onMall++;
+        const red = L.terrainMeshY(mx, st.z) + 0.3 + 0.03;     // its top: a few centimetres over the street's
+        const d = st.y - red; worst = Math.min(worst, d); if (d < -0.15) sunk++;
+      }
+    }
+    return { onMall, sunk, worst: +worst.toFixed(2), bangs, ...D.delta(f0) };
+  });
+  check("london drive: up the Mall's red road hands-off, on it and never sunk in it, never a bang",
+    mall.onMall > 60 && mall.sunk === 0 && mall.bangs === 0 && mall.c === 0 && mall.w === 0, JSON.stringify(mall));
 
   // ---- the river and the far pull -------------------------------------------------------------
   const rv = await page.evaluate(() => {

@@ -55,12 +55,13 @@ const V = {
   "drive-decker":   { car: 1, x: -400, z: 14356, tx: -700, tz: 14356, warm: 20, follow: 2, back: 32 },
   "drive-cab":      { car: 1, x: -1100, z: 15000, tx: -1100, tz: 14700, warm: 20, follow: 1, back: 22 },
   "drive-bigben2":  { car: 1, x: -760, z: 15604, tx: -500, tz: 15604, warm: 4 },
+  "drive-ny":       { car: 1, ny: 1, x: -400, z: 4300, tx: -400, tz: 4100, warm: 4 },
 };
 
 function hold(v) {
   const L = window.__lp, st = L.state;
   if (v.car) {
-    L.api.setVehicle(v.veh || "car"); L.ldStart();
+    L.api.setVehicle(v.veh || "car"); if (v.ny) L.api.spawnAt(0, 0); else L.ldStart();
     const R = L.stReassembleAt(v.x, v.z, Math.atan2(-(v.tx - v.x), -(v.tz - v.z)), null, Infinity);
     const put = () => { st.x = R.x; st.z = R.z; st.y = R.y; st.heading = R.heading; st.speed = 0; st.exploding = false; L.stPlan.road = R.road; L.stPlan.dir = R.dir; };
     put();

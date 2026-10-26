@@ -313,7 +313,7 @@ function carBuildCabin() {
   // and the centre screen, standing on the dash where it belongs
   const sc = carBuildScreen();
   sc.position.set(K.screen[0], K.screen[1], K.screen[2]);
-  sc.rotation.x = -0.22;
+  sc.rotation.x = K.screenTilt;
   sc.visible = true;
   g.add(sc);
 
@@ -1065,9 +1065,9 @@ function updateCar(dt) {
   state.x += fx * state.speed * dt;
   state.z += fz * state.speed * dt;
   forward.set(fx, 0, fz);
-  // (v198) in London the river's edge holds him off the water as a rail would -- except on a
-  // bridge, which is a road over it (london.js ldEmbank)
-  if (typeof ldEmbank === "function" && !(car.onRoad && road && road.street && !road.street.drape)) ldEmbank(prevX, prevZ);
+  // (v198) in London, off the road, the river's edge holds him off the water as a rail would
+  // (london.js ldEmbank; a bridge is a road over it)
+  if (typeof ldEmbank === "function" && !car.onRoad) ldEmbank(prevX, prevZ);
 
   // ---- height.
   //

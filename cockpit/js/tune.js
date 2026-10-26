@@ -660,7 +660,9 @@ const TUNE = {
     cabin: {
       halfWidth: 1.92, dashTop: 1.72, roof: 3.00, floor: 1.02,
       seatX: -0.85,                // he sits this far off centre
-      screen: [-0.18, 1.98, -1.90],// centre screen, standing on the dash
+      // centre screen, lying back on the dash with its top under the dash line from his eye (v198:
+      // standing up it hid the right of the road -- the oncoming lane where traffic keeps left)
+      screen: [-0.18, 1.88, -1.75], screenTilt: -1.15,
       wheelTurn: 2.4,              // the wheel turns further than the road wheels, as a real one does
     },
     wheelR: 0.95,             // fallback only: the imported body measures its own
@@ -2870,6 +2872,7 @@ const TUNE = {
       bridges: { towerBridge: [-954, -594, 13780], londonBridge: [-1074, -714, 14260] },   // the junction each end lands at, and the line
       bridgeHalfW: 7,                                 // a street's own two lanes
       kerbFrom: 10, rise: 12,                         // ... rising off the junction to the deck's height over `rise`, centred this far out
+      kerbStep: 18,                                   // London's kerbstones in runs this long (TUNE.city.kerbStep is New York's 6): its plateau is flat
       step: 8,                                        // metres between a link road's points
       // the way in from the airport: north from the apron's end, round the runway's far end on a
       // curve of r, and west into the grid at its corner (no road crosses a runway: roadCrossings)
