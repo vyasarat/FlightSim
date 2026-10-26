@@ -33,6 +33,7 @@ const ldn = {
   ships: [], beam: null, beamA: 0,
   whale: { g: null, up: 0, next: LD.whale.first, x: 0, z: 0, heading: 0 },
   phone: [], tbLeaves: [], airportIdx: 2,
+  decks: {}, city: null, roads: {}, corridor: [],    // v198: the bridges' decks, London's street city, its links and the ground they claim
 };
 
 // ---- the random streams ------------------------------------------------------------------
@@ -405,9 +406,10 @@ function ldPalace() {
   const n = Math.ceil((mz1 - mz0) / 9);
   for (let k = 0; k < n; k++) {
     const za = mz0 + (mz1 - mz0) * k / n, zb = mz0 + (mz1 - mz0) * (k + 1) / n;
-    // draped piece by piece on the ground the chunks draw, a hand above it
+    // draped piece by piece on the ground the chunks draw, its top a few centimetres over the
+    // street's (v198: he drives up it, and the car stands at the street's height)
     const ya = terrainMeshY(mx, za), yb = terrainMeshY(mx, zb), ym = Math.max(ya, yb);
-    ldBox(M, 20, 0.5, zb - za + 0.05, 0xb5443a, "plain", 0, ym + 0.1 - M.y, (za + zb) / 2 - M.z);
+    ldBox(M, 20, 0.4, zb - za + 0.05, 0xb5443a, "plain", 0, ym + CITY.groundLift + 0.03 - 0.4 - M.y, (za + zb) / 2 - M.z);
   }
   for (const sx of [-1, 1]) for (let k = 0; k < 14; k++) {
     const tz = mz0 + 14 + k * (mz1 - mz0 - 28) / 13 - M.z, tx = sx * 15;
@@ -517,9 +519,12 @@ function ldStPauls() {
 function ldDeckY() { return TUNE.waterLevel + 9; }
 function ldLondonBridge() {
   const [x, z] = LD.at.londonBridge, B = ldBegin("londonBridge", x, z, ldDeckY());
-  const L = 236, W = 26;
+  // (v198: 20 wide, not 26 -- it carries the street at z 14260, and the bank's buildings stand
+  // 10 m off that street's line)
+  const L = 236, W = 20;
+  ldn.decks.londonBridge = [x - L / 2, x + L / 2];
   ldBox(B, L, 2.4, W, LDC.concrete, "stone", 0, -2.4, 0);
-  ldBox(B, L, 0.3, W - 7, 0x5e636b, "plain", 0, 0, 0);                        // the carriageway
+  ldBox(B, L, 0.3, W - 6, 0x5e636b, "plain", 0, 0, 0);                        // the carriageway
   for (const sz of [-1, 1]) ldBox(B, L, 1.1, 0.5, LDC.grey, "stone", 0, 0, sz * (W / 2 - 0.3));
   for (const px of [-36, 36]) {
     ldBox(B, 8, 20, W - 2, LDC.concrete, "stone", px, -22.4, 0);
@@ -534,26 +539,30 @@ function ldLondonBridge() {
 // next release opens them), and the blue suspension chains down to the shore towers.
 function ldTowerBridge() {
   const [x, z] = LD.at.towerBridge, deck = ldDeckY(), B = ldBegin("towerBridge", x, z, deck);
-  const S = 0xd6cdb4, BL = LDC.blue, half = 31, tw = 18, td = 22, top = 42;
+  const S = 0xd6cdb4, BL = LDC.blue, half = 31, tw = 18, td = 26, top = 42, arch = 9;   // (v198: deeper, the arch a street wide)
   for (const sx of [-1, 1]) {
     const tx = sx * (half + tw / 2);
     ldBox(B, tw + 6, 22, td + 6, LDC.grey, "stone", tx, -22, 0);            // the pier in the river
-    ldBox(B, tw, top, td, S, "stone", tx, 0, 0);
+    // (v198: two columns and the stone over a real arch -- he drives through it now)
+    for (const sz of [-1, 1]) ldBox(B, tw, top, td / 2 - arch, S, "stone", tx, 0, sz * (td / 2 + arch) / 2);
+    ldBox(B, tw, top - 9, 2 * arch, S, "stone", tx, 9, 0);
+    ldBox(B, tw, 0.3, 2 * arch - 1, 0x5e636b, "plain", tx, 0, 0);              // the road through it
     for (const cx of [-1, 1]) for (const cz of [-1, 1]) {
       ldBox(B, 4.4, top + 4, 4.4, 0xe6dec8, "stone", tx + cx * (tw / 2 - 1.6), 0, cz * (td / 2 - 1.6));
       ldPyr(B, 5.2, 5.2, 9, LDC.slate, "plain", tx + cx * (tw / 2 - 1.6), top + 4, cz * (td / 2 - 1.6));
       ldCyl(B, 0, 0.3, 3, 4, LDC.gold, "plain", tx + cx * (tw / 2 - 1.6), top + 13, cz * (td / 2 - 1.6));
     }
     ldPyr(B, tw - 2, td - 2, 7, LDC.slate, "plain", tx, top, 0);
-    // the great arch the road goes through, and the gothic windows
-    ldBox(B, tw + 0.2, 9, 9, LDC.slate, "plain", tx, 0, 0);
+    // the arch's lining, dark, so it reads as a way through (v198: a street's two lanes wide), and the gothic windows
+    for (const sz of [-1, 1]) ldBox(B, tw + 0.2, 9, 0.3, LDC.slate, "plain", tx, 0, sz * (arch + 0.1));
+    ldBox(B, tw + 0.2, 0.4, 2 * arch, LDC.slate, "plain", tx, 8.6, 0);
     for (let k = 0; k < 3; k++) for (const sz of [-1, 1]) {
       ldBox(B, 2.4, 6, 0.3, LDC.slate, "plain", tx - 4 + k * 4, 14 + 9, sz * (td / 2 + 0.05));
       ldBox(B, 2.4, 5, 0.3, LDC.slate, "plain", tx - 4 + k * 4, 14, sz * (td / 2 + 0.05));
     }
     ldSolid(B, tx, -22, 0, tw / 2 + 3, td / 2 + 3, 0, "pillar");
     // a tower stands either side of the road, which goes through its arch: two solids, not one
-    for (const sz of [-1, 1]) ldSolid(B, tx, 0, sz * (td / 2 - 3.25), tw / 2, 3.25, top, "pillar");
+    for (const sz of [-1, 1]) ldSolid(B, tx, 0, sz * (td / 2 + arch) / 2, tw / 2, (td / 2 - arch) / 2, top, "pillar");
     ldSolid(B, tx, 9, 0, tw / 2, td / 2, top + 4);
   }
   // the high walkways, between the towers' tops
@@ -570,9 +579,19 @@ function ldTowerBridge() {
     ldBox(B, len, 2, 22, LDC.grey, "stone", (x0 + x1) / 2, -2, 0);
     ldBox(B, len, 0.3, 15, 0x5e636b, "plain", (x0 + x1) / 2, 0, 0);
     ldSolid(B, (x0 + x1) / 2, -2, 0, len / 2, 11, 0.3, "bridge");
-    ldBox(B, 14, 16, 24, S, "stone", x1 + sx * 7, -6, 0);                      // the shore tower
-    ldPyr(B, 14, 24, 5, LDC.slate, "plain", x1 + sx * 7, 10, 0);
-    ldSolid(B, x1 + sx * 7, -6, 0, 7, 12, 10);
+    // the shore tower: the road goes through it under an arch (v198: the street runs on to the bank)
+    const sxc = x1 + sx * 7;
+    for (const sz of [-1, 1]) {
+      ldBox(B, 14, 16, 12 - arch, S, "stone", sxc, -6, sz * (12 + arch) / 2);
+      ldSolid(B, sxc, -6, sz * (12 + arch) / 2, 7, (12 - arch) / 2, 10);
+    }
+    ldBox(B, 14, 4, 2 * arch, S, "stone", sxc, 6, 0);                           // over the arch
+    for (const sz of [-1, 1]) ldBox(B, 14.2, 6, 0.3, LDC.slate, "plain", sxc, 0, sz * (arch + 0.1));   // its lining
+    ldBox(B, 14, 1.8, 2 * arch, LDC.grey, "stone", sxc, -1.5, 0);              // the road through it
+    ldBox(B, 14.1, 0.3, 2 * arch - 1, 0x5e636b, "plain", sxc, 0, 0);
+    ldSolid(B, sxc, 6, 0, 7, arch, 10);
+    ldSolid(B, sxc, -1.5, 0, 7, arch, 0.3, "bridge");
+    ldPyr(B, 14, 24, 5, LDC.slate, "plain", sxc, 10, 0);
     // the chain: down in a curve from the tower's shoulder to the shore tower
     const n = 10;
     for (const sz of [-1, 1]) for (let k = 0; k < n; k++) {
@@ -584,6 +603,7 @@ function ldTowerBridge() {
       if (k % 2 === 1) ldBox(B, 0.3, (y0 + y1) / 2, 0.3, BL, "plain", (cx0 + cx1) / 2, 0, sz * 11);
     }
   }
+  ldn.decks.towerBridge = [x - shore - 14, x + shore + 14];
   const g = ldFinish(B);
   // the bascules: two leaves, each hinged at its tower; blue, white-edged, the road on top
   for (const sx of [-1, 1]) {
@@ -895,6 +915,8 @@ function ldBuild() {
       addRouteLandmark(g, ax, az, "london");
       if (has) ldCityLoadWhenAlone();
     }
+    // (v198) its streets, now that every landmark a street must clear stands
+    ldStreets();
     solidRegionClose(ldn.region);
   });
   ldn.added = scene.children.slice(before);   // everything London stood in the scene (its checks ask)
@@ -931,12 +953,210 @@ function ldCovers(x, z, m) {
 function ldInCity(x, z) { return ldCityW(x, z) > 0.5 && z > LD.cityBox.z0; }
 
 // ===========================================================================================
+// DRIVING LONDON (v198). The street graph is New York's (streets.js), read off the generated
+// layout; London adds what it has that they have not:
+//   - TRAFFIC KEEPS LEFT (the parent, 2026-10-26), and so does he: a London road's lane is
+//     LEFT of its middle (a negative `lo`), and everything that asks a lane -- his lane-keep,
+//     the corner's path, the traffic, a reassembly -- asks `lo`. The turn rule and every assist
+//     are New York's, unchanged.
+//   - THE TWO BRIDGES ARE STREETS: each stands on a street's own line and carries it over the
+//     river, junction to junction, up on to the deck and down again. They are his: the traffic
+//     stays in the grid, as it stays off every link.
+//   - THE WAY IN IS FROM THE AIRPORT, round the runway's far end (no road crosses a runway).
+//     It is London's `goal`: hands-off, the loop goes back to it, as New York's goes out on to
+//     the motorway. At the apron it ends, and lane-keep turns him round.
+//   - THE RIVER'S EDGE HOLDS HIM LIKE A RAIL: off the road he can never drive into the Thames.
+//   - London has no motorway, so off every road the pull is to London's nearest road, never
+//     back across the sea (car.js asks ldNear).
+// Built on London's own stream, after its landmarks (whose solids a street must clear).
+// ===========================================================================================
+const LDD = LD.drive;
+function ldStreets() {
+  if (typeof stBuildGrid !== "function" || !streets.built || streets.cities.ldn || typeof CITY_DATA === "undefined" || !CITY_DATA.ldn) return;
+  const city = stBuildGrid("ldn");
+  for (const r of city.roads) r.lo = -Math.abs(r.lo);
+  city.left = true;
+  city.noSignals = true;      // no traffic lights in this release: nothing queues, nothing is run, no chase across London
+  city.kerbStep = LDD.kerbStep;   // its ground is flat: the kerbs in longer runs (three times New York's blocks)
+  ldn.city = city;
+  const g = new THREE.Group();
+  const tarmac = artPaint(mattMat(TUNE.runwaySurfaceColor), "road");
+  const skirt = artPaint(mattMat(LDC.concrete), "concrete");
+  const sk = [];
+  ldPave(city, g);
+  for (const k in LDD.bridges) ldn.roads[k] = ldBridgeRoad(city, g, tarmac, sk, k);
+  ldn.roads.airport = ldAirportRoad(city, g, tarmac, sk);
+  if (sk.length) g.add(new THREE.Mesh(ldSkirtGeo(sk), skirt));
+  stBuildPolicy(city);
+  stBuildPaint(city, g);
+  streets.g.add(g);
+  streets.paths = null;
+  hwyIndexAdd(ldn.corridor);
+  if (typeof car !== "undefined") car.rejoinPts = null;
+}
+
+// THE PAVING UNDER THE STREETS AT THE EDGES. The generator paves what lies in its blocks, half a
+// street from each side; where one side is the river, a park or the city's edge -- a block with
+// nothing built on it, or no block at all -- that half (and the corner of the junction) was never
+// laid, and a bus drove on the grass. So those streets get a sheet of tarmac their whole width, a
+// few centimetres UNDER the city's own: where that exists it covers this, and this shows only
+// where it does not. One mesh, one draw; only the streets that need it, for the triangles.
+function ldPave(city, g) {
+  const pos = [], uv = [], idx = [], P = LDD.pave, D = city.data;
+  const built = D.blocks.map(b => D.buildings.some(q => q[1] > b[0] && q[1] < b[2] && q[2] > b[1] && q[2] < b[3]));
+  const near = (u, v) => Math.abs(u - v) < 0.5;
+  // is the block on this side of the street there, with something on it?
+  const side = (r, sgn) => {
+    const a = r.pts[0], b = r.pts[r.pts.length - 1], mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+    const ew = near(a.z, b.z);
+    return D.blocks.some((k, i) => built[i] && (ew ? near(sgn > 0 ? k[1] : k[3], a.z) && mx > k[0] && mx < k[2]
+                                                   : near(sgn > 0 ? k[0] : k[2], a.x) && mz > k[1] && mz < k[3]));
+  };
+  ldn.paved = 0;
+  for (const r of city.roads) {
+    if (r.kind !== "grid" || (side(r, 1) && side(r, -1))) continue;
+    ldn.paved++;
+    const a = r.pts[0], b = r.pts[r.pts.length - 1], L = r.len, fx = (b.x - a.x) / L, fz = (b.z - a.z) / L;
+    const w = r.halfW + P.over, n = Math.max(1, Math.ceil(L / P.step)), cols = P.cols;
+    const o0 = pos.length / 3;
+    for (let i = 0; i <= n; i++) for (let j = 0; j <= cols; j++) {
+      const u = -w + 2 * w * j / cols, x = a.x + fx * L * i / n - fz * u, z = a.z + fz * L * i / n + fx * u;
+      pos.push(x, terrainMeshY(x, z) + CITY.groundLift - P.under, z);
+      uv.push(u / 17.5, L * i / n / 12);
+    }
+    for (let i = 0; i < n; i++) for (let j = 0; j < cols; j++) {
+      const q = o0 + i * (cols + 1) + j;
+      idx.push(q, q + cols + 1, q + 1, q + 1, q + cols + 1, q + cols + 2);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const mat = artPaint(mattMat(TUNE.runwaySurfaceColor), "road");
+  mat.polygonOffset = true; mat.polygonOffsetFactor = 2; mat.polygonOffsetUnits = 2;
+  mat.side = THREE.DoubleSide;
+  const m = new THREE.Mesh(geo, mat);
+  m.receiveShadow = true;
+  g.add(m);
+  ldn.pave = m;
+}
+
+// A link's height off the ground at each end: the street's own, draped (stRoadY).
+function ldStreetY(x, z) { return terrainMeshY(x, z) + CITY.groundLift; }
+
+// A bridge: from the junction on one bank, up on to the deck, across, and down to the
+// junction on the other. On the deck the bridge's own carriageway is the road surface; on
+// the land each side, a strip of tarmac with a skirt down to the ground.
+function ldBridgeRoad(city, g, tarmac, sk, key) {
+  const [x0, x1, z] = LDD.bridges[key], deck = ldn.decks[key];
+  const a = city.nodeMap.get(stKey(x0, z)), b = city.nodeMap.get(stKey(x1, z));
+  if (!a || !b || !deck) return null;
+  const top = ldDeckY() + 0.3, ya = ldStreetY(x0, z), yb = ldStreetY(x1, z);
+  const n = Math.ceil((x1 - x0) / LDD.step), pts = [];
+  for (let k = 0; k <= n; k++) {
+    const x = lerp(x0, x1, k / n);
+    // Off the junction it climbs straight to the deck's height and stays there across the bank:
+    // the city's lawns are draped only at their corners, and one spanning the bank's slope stands
+    // well over the ground between them -- but never over its highest corner, which is under the deck
+    const out = Math.min(x - x0, x1 - x);
+    const y = lerp(x - x0 < x1 - x ? ya : yb, top, smoothstep(LDD.kerbFrom - LDD.rise / 2, LDD.kerbFrom + LDD.rise / 2, out));
+    pts.push({ x, z, y });
+  }
+  stDirs(pts);
+  for (const part of [pts.filter(p => p.x <= deck[0] + LDD.step), pts.filter(p => p.x >= deck[1] - LDD.step)]) {
+    if (part.length < 2) continue;
+    stStrip(part.map(p => ({ ...p, y: p.y + 0.04 })), part.map(() => LDD.bridgeHalfW), tarmac, g);
+    sk.push(part);
+  }
+  ldn.corridor.push(...pts);
+  const r = stRoad({ city: "ldn", kind: "link", pts, halfW: LDD.bridgeHalfW, lo: -ST.laneNarrow, drape: false, railed: true });
+  r.bridge = key;
+  stAttach(a, r, true); stAttach(b, r, false);
+  city.links.push(r);
+  return r;
+}
+
+// The way in from the airport: north from the apron's end, round the runway's far end, west
+// into the grid's corner. Its apron end is a dead end, with a turnaround.
+function ldAirportRoad(city, g, tarmac, sk) {
+  const A = LDD.airport, [tx, tz] = A.to, node = city.nodeMap.get(stKey(tx, tz));
+  if (!node) return null;
+  const pts = [];
+  const zArc = tz - A.r, cx = A.x - A.r;
+  for (let z = A.z0; z < zArc; z += LDD.step) pts.push({ x: A.x, z });
+  const na = Math.ceil(A.r * Math.PI / 2 / LDD.step);
+  for (let k = 0; k <= na; k++) { const th = (k / na) * Math.PI / 2; pts.push({ x: cx + A.r * Math.cos(th), z: zArc + A.r * Math.sin(th) }); }
+  const nx = Math.ceil((cx - tx) / LDD.step);
+  for (let k = 1; k <= nx; k++) pts.push({ x: lerp(cx, tx, k / nx), z: tz });
+  stDirs(pts);
+  const L = pts[pts.length - 1].s, yEnd = ldStreetY(tx, tz);
+  for (const p of pts) p.y = lerp(Math.max(terrainEff(p.x, p.z), TUNE.waterLevel) + ST.linkLift, yEnd, smoothstep(L - A.ease, L, p.s));
+  stStrip(pts, pts.map(() => A.halfW), tarmac, g);
+  sk.push(pts);
+  ldn.corridor.push(...pts);
+  const r = stRoad({ city: "ldn", kind: "link", pts, halfW: A.halfW, lo: -ST.laneNarrow, drape: false });
+  r.goal = true;
+  stAttach(stNodeAt(city, pts[0].x, pts[0].z), r, true);
+  stAttach(node, r, false);
+  city.links.push(r);
+  return r;
+}
+
+// The skirt under a raised strip: its two edges down to the ground, one merged mesh.
+function ldSkirtGeo(parts) {
+  const pos = [], idx = [];
+  for (const pts of parts) for (const side of [-1, 1]) {
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i], w = side * LDD.bridgeHalfW;
+      const x = p.x - p.fz * w, z = p.z + p.fx * w;
+      const o = pos.length / 3;
+      pos.push(x, p.y + 0.04, z, x, Math.min(p.y, Math.max(terrainEff(x, z), TUNE.waterLevel)) - 0.6, z);
+      if (i > 0) idx.push(o - 2, o - 1, o, o - 1, o + 1, o);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// Is this somewhere London answers for -- the far side of the crossing? (car.js: the
+// pull back on to a road, a reassembly with nowhere else to go)
+function ldNear(x, z) { return ldn.built && z > LD.coast.z - LD.coast.reach; }
+
+// THE RIVER'S EDGE. A car off every road that would roll on to the water is held at the
+// edge as a rail holds him: it slides along it, never a bang, never in. (On a bridge he
+// is on a road and over the water by design.)
+function ldEmbank(px, pz) {
+  if (!ldNear(state.x, state.z)) return false;
+  const wet = (x, z) => terrainEff(x, z) < seaLevelAt(x, z) + LDD.embank;
+  if (!wet(state.x, state.z) || wet(px, pz)) return false;
+  if (!wet(state.x, pz)) state.z = pz;                 // along the edge, x-wise
+  else if (!wet(px, state.z)) state.x = px;            // ... or z-wise
+  else { state.x = px; state.z = pz; }
+  flags.ldEmbankHolds = (flags.ldEmbankHolds || 0) + 1;
+  return true;
+}
+
+// A car started in London: on the way in from the airport, in its lane, bound for the city.
+function ldCarStartAt() {
+  const r = ldn.roads.airport;
+  if (!r) return null;
+  const q = {};
+  stPointAt(r, LDD.startS, 1, r.lo, q);
+  return { x: q.x, z: q.z, y: stRoadY(r, q.x, q.z, LDD.startS), heading: Math.atan2(-q.fx, -q.fz), road: r };
+}
+
+// ===========================================================================================
 // STARTING IN LONDON: the globe (input.js) asks this
 // ===========================================================================================
-// Which vehicles can start in London in this release: the ones that fly from a runway.
+// Which vehicles can start in London: the ones that fly from a runway, and (v198) the cars.
 function ldCanStart(vp) {
   vp = vp || state.vp;
-  return !!vp && !vp.rocket && !vp.car && !vp.monster && !vp.boat && !vp.sledRide && !vp.crane;
+  return !!vp && !vp.rocket && !vp.monster && !vp.boat && !vp.sledRide && !vp.crane && (!vp.car || !!ldn.roads.airport);
 }
 function ldStart() {
   spawnForTakeoff(ldn.airportIdx, 0);
@@ -954,6 +1174,9 @@ function ldGlobeShows() {
   if (typeof eject !== "undefined" && eject.active) return false;
   return pickerCanOpen();
 }
+// Where the globe stands (buttons.js asks; the CSS class says so on the button itself)
+// (portrait: under the view button, or in a car low on the right; landscape: the top row, as index.html draws it)
+function ldGlobeSlot() { return innerHeight <= innerWidth ? "topRow" : state.vp && state.vp.car ? "highRight" : "topRight3"; }
 function ldGlobeOpen() {
   if (!ldGlobeShows()) return;
   releaseThrottle();
@@ -1009,6 +1232,7 @@ function ldUpdate(dt) {
     ldWhaleUpdate(dt);
   }
   if (cz > LD.cityBox.z0 - 2500) { ldEyeTurn(dt); ldClockHands(); }
+  if (el.globeBtn) el.globeBtn.classList.toggle("inCar", ldGlobeSlot() === "highRight");
   ldCull(dt);
 }
 // Like cullLandmarks: what is past the fog is not drawn -- and, hidden, its solids are not

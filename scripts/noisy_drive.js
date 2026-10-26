@@ -30,6 +30,9 @@
 //   NOISY_STEP=4 ...                       at that speed step (0 is the slowest)
 //   NOISY_VEH=corvette NOISY_BOOST=1 ...   (v159) the finger also dragged UP the whole way, so the
 //                                          Corvette's booster burns -- wobble and lifts as ever
+//   NOISY_CITY=ldn ...                     (v198) through LONDON instead, keeping left: started on the
+//                                          way in from its airport, the same five held turns, and the
+//                                          way out is back on to the airport road (London's goal)
 // or, from the harness: require("./noisy_drive")({ newPage, check }).
 const fs = require("fs"), path = require("path");
 
@@ -47,6 +50,17 @@ function install() {
   L.noRender = true;
   window.__nd = {
     setup(where) {
+      if (window.__ndCity === "ldn") {
+        // (v198) London: on the way in from its airport, as a car started there stands
+        L.api.skipScreens(); L.api.setVehicle(window.__ndVeh || "car"); L.ldStart();
+        for (let i = 0; i < 10; i++) L.update(1 / 60);
+        L.spdReset(); L.api.setView(false);
+        if (window.__ndStep !== undefined) st.speedStep = window.__ndStep;
+        window.__nd.prev = null;
+        return { width: innerWidth, height: innerHeight, dragPx: L.CAR.dragRangeX * innerWidth,
+                 dragYPx: L.TUNE.dragRangeY * Math.min(innerWidth, innerHeight), gantryS: 0, c: 1, fullSteer: L.CAR.fullSteer,
+                 liftGrace: L.CAR.liftGrace, centreBelow: L.CAR.centreBelow, ldn: true };
+      }
       L.api.skipScreens(); L.api.setVehicle(window.__ndVeh || "car"); L.api.spawnAt(0, 0);   // NOISY_VEH=cybertruck (v146) drives it in the Cybertruck
       for (let i = 0; i < 10; i++) L.update(1 / 60);
       L.spdReset(); L.api.setView(false);
@@ -69,7 +83,9 @@ function install() {
     step() {
       L.update(1 / 60);
       if (st.exploding) { st.explodeTimer = 0; L.update(1 / 60); }
-      const P = L.stPlan, R = L.streets.cities.ny.ramps, road = P.road;
+      const P = L.stPlan, road = P.road;
+      // the way out of the city: New York's on-ramp, or (v198) London's road to its airport
+      const OUT = window.__ndCity === "ldn" ? L.ldn.roads.airport : L.streets.cities.ny.ramps.out;
       const n = L.hwyNearest(st.x, st.z);
       const out = {
         x: st.x, z: st.z, v: st.speed, h: st.heading, bank: st.ctrlBank, touching: st.touching,
@@ -78,7 +94,7 @@ function install() {
         hwyLat: n.lateral, hwyS: n.s, hwyDir: Math.sign(-Math.sin(st.heading) * n.fx + -Math.cos(st.heading) * n.fz),
         crashes: L.flags.carCrashes || 0, walls: L.flags.wallHits || 0,
         ct: L.flags.cityTrafficHit || 0, ht: L.flags.hwyTrafficHit || 0, reds: L.flags.redsRun || 0,
-        burning: !!(L.cv && L.cv.on), spent: L.car.spent || 0, relatch: +(L.car.relatch || 0).toFixed(2),
+        burning: !!(L.cv && L.cv.on), spent: L.car.spent || 0, relatch: +(L.car.relatch || 0).toFixed(2), onOut: road === OUT,
         onLine: !!P.onLine, holding: !!(L.car.road && L.car.road.holding), plan: P.turn ? (P.turn.held ? "held" : P.turn.forced ? "forced" : "straight") : null,
         steerIn: +(L.car.dbgSteer || 0).toFixed(2), cap: L.car.road && L.car.road.cap < 999 ? +L.car.road.cap.toFixed(1) : null,
       };
@@ -92,7 +108,7 @@ function install() {
         out.jn = { id: node.id, toGo, left: ch.some(c => c.ang < -45 * Math.PI / 180 && c.ang > -135 * Math.PI / 180),
                    right: ch.some(c => c.ang > 45 * Math.PI / 180 && c.ang < 135 * Math.PI / 180),
                    straight: !!L.stStraight(ch), plan: P.turn.held ? "held" : P.turn.forced ? "forced" : "straight",
-                   leadsOut: P.turn.arm.road === R.out };
+                   leadsOut: P.turn.arm.road === OUT };
       }
       // a junction passed: the road changed across a node -- which way did he go?
       if (window.__nd.prev && road && window.__nd.prev.road && road !== window.__nd.prev.road) {
@@ -187,6 +203,7 @@ function makeHand(rand, geo) {
 
 async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
   await page.evaluate((v) => { window.__ndVeh = v; }, process.env.NOISY_VEH || "car");
+  await page.evaluate((c) => { window.__ndCity = c; }, process.env.NOISY_CITY || "ny");
   if (process.env.NOISY_STEP !== undefined) await page.evaluate((k) => { window.__ndStep = k; }, +process.env.NOISY_STEP);
   await page.evaluate(install);
   const cdp = await page.context().newCDPSession(page);
@@ -210,7 +227,8 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
     if (e.type === "touchEnd") return cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     return cdp.send("Input.dispatchTouchEvent", { type: e.type, touchPoints: [{ x: Math.round(e.x), y: Math.round(e.y), id: 1, radiusX: 8, radiusY: 8, force: 1 }] });
   };
-  L("start", { seed, seconds, where: "motorway, 800 m before New York's far gantry, inner lane" });
+  if (geo.ldn) S.phase = "airport";
+  L("start", { seed, seconds, where: geo.ldn ? "London, on the way in from its airport, its left lane" : "motorway, 800 m before New York's far gantry, inner lane" });
   const frames = seconds * FPS;
   for (let f = 0; f < frames; f++) {
     // real-clock pacing: frame f is due at t0 + f/60 s
@@ -226,7 +244,10 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
     else { S.hr.lift = 0; S.hr.minDrag = Math.min(S.hr.minDrag, Math.abs(hand.lastDrag || 0)); }
     const o = await page.evaluate(() => window.__nd.step());
     // ---- what the hand means next
-    if (S.phase === "motorway") {
+    if (S.phase === "airport") {
+      // (v198) London: finger down meaning straight, along the airport road and into the grid
+      if (o.onStreet && o.kind === "grid") { S.phase = "city"; L("way in", { took: "the airport road", road: o.road }); }
+    } else if (S.phase === "motorway") {
       const along = (o.hwyS - geo.gantryS) * geo.c;
       if (along > -260 && hand.intent === 0 && !o.spur) { hand.intent = 1; L("hold", { side: "right", why: "New York's way in: the gantry", gantryIn: Math.round(-along) }); }
       if (o.spur === "nyCityInFar" && o.onStreet === false && hand.intent === 1 && S.inRampSince === undefined) S.inRampSince = t;
@@ -300,6 +321,7 @@ async function drive(page, { seconds = 300, seed = 1, onLog } = {}) {
         hand.intent = S.turn.side === "right" ? 1 : -1;
         L("hold", { side: S.turn.side, why: `turn ${S.turnsDone + 1} of ${S.turnsWanted}`, junctionIn: Math.round(o.jn.toGo) });
       }
+      if (geo.ldn && o.onOut && S.turnsDone >= S.turnsWanted && !S.reachedOut) { S.reachedOut = true; L("way out", { after: `${S.turnsDone} turns`, to: "the airport road" }); S.phase = "after"; }
       if (o.spur === "nyCityOut" || (!o.onStreet && S.turnsDone >= S.turnsWanted && o.kind === null && Math.abs(o.hwyLat) < 22 && o.spur === null)) {
         if (!S.reachedOut && o.spur === "nyCityOut") { S.reachedOut = true; L("way out", { after: `${S.turnsDone} turns` }); S.phase = "after"; }
       }

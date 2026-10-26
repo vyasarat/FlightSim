@@ -173,6 +173,7 @@ function hwyNearest(x, z) {
   const rx = -nz, rz = nx;                      // road's right-hand vector
   hwyTmp.s = lerp(a.s, b.s, bt);
   hwyTmp.lateral = (x - px) * rx + (z - pz) * rz;
+  hwyTmp.d = Math.hypot(x - px, z - pz);       // (v198) how far, all told: past either end the lateral says little
   hwyTmp.y = lerp(a.y, b.y, bt);
   hwyTmp.fx = nx; hwyTmp.fz = nz;
   hwyTmp.type = bt < 0.5 ? a.type : b.type;
@@ -290,6 +291,25 @@ function hwyIndexCorridor() {
         if (!list) hwyCorridorIndex.set(k, list = []);
         list.push(n);
       }
+    }
+  }
+}
+
+// (v198) Claim and index a road laid after the index was built (London's links) -- these points
+// only: indexing everything again would also index what others claimed since and never indexed,
+// and move the streamed scenery (and the random stream it draws) a world away.
+function hwyIndexAdd(pts) {
+  const reach = HW.clearHalf + HW.clearMaxExtra + HW.clearCell;
+  const span = Math.ceil(reach / HW.clearCell);
+  for (const p of pts) {
+    const n = { x: p.x, z: p.z };
+    hwyCorridorNodes.push(n);
+    const cx = Math.floor(n.x / HW.clearCell), cz = Math.floor(n.z / HW.clearCell);
+    for (let dx = -span; dx <= span; dx++) for (let dz = -span; dz <= span; dz++) {
+      const k = (cx + dx) + "," + (cz + dz);
+      let list = hwyCorridorIndex.get(k);
+      if (!list) hwyCorridorIndex.set(k, list = []);
+      list.push(n);
     }
   }
 }

@@ -633,7 +633,8 @@ const TUNE = {
     // with nothing ahead the nearest road is the answer, as it always was. Within
     // `near` of it the ordinary lane-keep has him. Re-picked every `every`
     // seconds, and a new pick must beat the old by `stick` to replace it.
-    rejoin: { cone: 0.5, turnCost: 1.5, reach: 1500, near: 40, every: 0.25, stick: 1.25, sample: 15 },
+    rejoin: { cone: 0.5, turnCost: 1.5, reach: 1500, near: 40, every: 0.25, stick: 1.25, sample: 15,
+              far: 2500 },       // v198: nothing ahead and the motorway this far off (London): the nearest road there is
     // A bang off-road comes back where it happened, this far back from the wall,
     // bounced off it -- the same rule as everything else, not the motorway.
     reassembleBack: 7,
@@ -659,7 +660,9 @@ const TUNE = {
     cabin: {
       halfWidth: 1.92, dashTop: 1.72, roof: 3.00, floor: 1.02,
       seatX: -0.85,                // he sits this far off centre
-      screen: [-0.18, 1.98, -1.90],// centre screen, standing on the dash
+      // centre screen, lying back on the dash with its top under the dash line from his eye (v198:
+      // standing up it hid the right of the road -- the oncoming lane where traffic keeps left)
+      screen: [-0.18, 1.88, -1.75], screenTilt: -1.15,
       wheelTurn: 2.4,              // the wheel turns further than the road wheels, as a real one does
     },
     wheelR: 0.95,             // fallback only: the imported body measures its own
@@ -2851,8 +2854,8 @@ const TUNE = {
     at: {
       bigBen: [-500, 15505], parliament: [-430, 15497], victoriaTower: [-352, 15520],
       eye: [-650, 15290], nelson: [-905, 15622], arch: [-834, 15700], mall: [-834, 15712, 16070],
-      memorial: [-834, 16092], palace: [-834, 16175], stPauls: [-1235, 14590], londonBridge: [-901, 14221],
-      shard: [-708, 14190], towerBridge: [-767, 13795], tower: [-1012, 13905], gherkin: [-1250, 14060],
+      memorial: [-834, 16092], palace: [-834, 16175], stPauls: [-1235, 14590], londonBridge: [-901, 14260],
+      shard: [-708, 14190], towerBridge: [-767, 13780], tower: [-1012, 13905], gherkin: [-1250, 14060],
     },
     bigBen: { every: 180, first: 25, hear: 3200, strikes: 3, gap: 2.6 },   // game seconds; a bong is heard within `hear` m
     eye: { r: 58, capsules: 32, turn: 0.026 },        // rad/s: once round in four minutes
@@ -2861,6 +2864,23 @@ const TUNE = {
     whale: { first: 12, every: [20, 40], dist: [260, 480] },   // a breach off his beam while he crosses
     toward: 0.3,                                      // over the sea, |cos(heading)| past this says which way he is bound
     cullEvery: 0.35,                                  // s between London's past-the-fog culls
+    // v198: DRIVING LONDON (london.js, ldStreets). Traffic keeps LEFT here -- the parent, 2026-10-26 --
+    // and so does he: every London road's lane is left of its middle. The turn rule and the assists are
+    // New York's, unchanged. The two bridges stand on a street's own line (v198 moved them 15 m and
+    // 39 m along the river to meet one), so each is that street carried over the water.
+    drive: {
+      bridges: { towerBridge: [-954, -594, 13780], londonBridge: [-1074, -714, 14260] },   // the junction each end lands at, and the line
+      bridgeHalfW: 7,                                 // a street's own two lanes
+      kerbFrom: 10, rise: 12,                         // ... rising off the junction to the deck's height over `rise`, centred this far out
+      kerbStep: 18,                                   // London's kerbstones in runs this long (TUNE.city.kerbStep is New York's 6): its plateau is flat
+      step: 8,                                        // metres between a link road's points
+      // the way in from the airport: north from the apron's end, round the runway's far end on a
+      // curve of r, and west into the grid at its corner (no road crosses a runway: roadCrossings)
+      airport: { x: 170, z0: 13700, r: 150, to: [-114, 14356], halfW: 7, ease: 40 },
+      startS: 40,                                     // a car started in London stands this far along it, bound for the city
+      embank: 0.6,                                    // the river's edge holds him this far above the water line, as a rail would
+      pave: { step: 8, cols: 2, over: 0.5, under: 0.05 },   // the tarmac under every street: m along, columns across, past the kerb, under the city's
+    },
   },
 
   vehicleColors: {

@@ -123,7 +123,7 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     if (vi === 0) {
       const g = await page.evaluate(() => {
         const L = window.__lp, out = {};
-        for (const k in L.streets.cities) {
+        for (const k of ["ny", "ca"]) {          // (London has no motorway way in: london_drive_checks walks its graph)
           const C = L.streets.cities[k];
           const deadEnds = C.nodes.filter(n => n.arms.length < 2).map(n => ({ x: Math.round(n.x), z: Math.round(n.z),
             road: n.arms[0] && n.arms[0].road.kind }));
@@ -483,7 +483,7 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     // straight on. Nothing latches.
     const turns = await page.evaluate(() => {
       const L = window.__lp, st = L.state, D = window.__city, out = [];
-      for (const k of ["ny", "ca"]) {
+      for (const k of ["ny", "ca", "ldn"]) {      // (v198: London too -- the same rule, keeping left)
         const C = D.city(k);
         // a four-way junction away from the edge, on a long enough street
         const node = C.nodes.filter(n => n.arms.length === 4 && n.arms.every(a => a.road.kind === "grid") && !n.signal)
@@ -536,7 +536,7 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     const badTurns = turns.filter(t => t.crashes || t.walls ||
       (t.how === "full" || t.how === "blip" ? (!t.turned || t.cornerV > 12 || t.after < 25) : t.ended !== "straight"));
     check(`city ${tag}: turning is deliberate -- a full steer held through the approach turns him (${turns.filter(t => t.how === "full").map(t => `${t.city} ${t.side} at ${t.cornerV} m/s`).join(", ")}) -- even with the finger off the glass for 0.3 s just short of the corner -- a light steer held through the junction and a full steer let go of before it are both straight on, never a bang`,
-      turns.length === 14 && badTurns.length === 0, JSON.stringify(badTurns.length ? badTurns : turns));
+      turns.length === 21 && badTurns.length === 0, JSON.stringify(badTurns.length ? badTurns : turns));
 
     // ---- 2b. A TURN DONE IS SPENT. Held on after a corner, the full steer that
     // took it holds him on the new street -- straight through the next junction,
@@ -544,7 +544,7 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
     const spent = await page.evaluate(() => {
       const L = window.__lp, st = L.state, D = window.__city, out = [];
       const far = (arm) => { const r = arm.road, n = arm.atStart ? r.b : r.a; return { n, inArm: n.arms.find(a => a.road === r && a.atStart !== arm.atStart) }; };
-      for (const k of ["ny", "ca"]) {
+      for (const k of ["ny", "ca", "ldn"]) {      // (v198: London too -- the same rule, keeping left)
         const C = D.city(k);
         // a four-way junction whose cross street, one block on, meets another four-way
         let pick = null;
@@ -600,13 +600,13 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
       // the lifted run's own corner was done while the finger was off, and it landed spent
       (t.how === "lifted" && (!t.doneInLift || t.spentOnLand !== -1)));
     check(`city ${tag}: a turn done is spent -- held on after the corner he goes straight through the next junction, even when the corner was done while his finger was off the glass for 0.25 s and it came back and dragged to full again, and only centred and steered full again does he turn there; never a bang`,
-      spent.length === 6 && badSpent.length === 0, JSON.stringify(badSpent.length ? badSpent : spent));
+      spent.length === 9 && badSpent.length === 0, JSON.stringify(badSpent.length ? badSpent : spent));
 
     // ---- 3. A BUILDING AT SPEED: a bang, and he is back on the street, in his
     // lane, facing along it -- not wherever the last aeroplane crashed
     const bang = await page.evaluate(() => {
       const L = window.__lp, st = L.state, D = window.__city, out = [];
-      for (const k of ["ny", "ca"]) {
+      for (const k of ["ny", "ca", "ldn"]) {      // (v198: London too -- the same rule, keeping left)
         const C = D.city(k);
         D.start(2);
         // the middle of a long street with buildings on it, far from either end
@@ -829,7 +829,7 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
       const clear = await page.evaluate(() => {
         const L = window.__lp, st = L.state, D = window.__city;
         const out = { samples: 0, solidHits: [], treeHits: [], trees: 0 };
-        for (const k of ["ny", "ca"]) {
+        for (const k of ["ny", "ca", "ldn"]) {      // (v198: London too -- the same rule, keeping left)
           const C = D.city(k), b = C.data.bounds;
           D.start();
           st.x = (b[0] + b[2]) / 2; st.z = (b[1] + b[3]) / 2;

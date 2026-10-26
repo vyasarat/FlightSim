@@ -10,6 +10,30 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v198 — Drive London
+
+London can be driven now. The globe starts the car (and the Cybertruck and the Corvette) in London,
+on a road from its airport round the end of the runway into the city -- and London drives on the
+LEFT, the parent's call: he keeps left, and so does every car, taxi and bus. Its taxis are black
+cabs with a lamp on the roof and its buses red double-deckers with their doors on the kerb side;
+New York keeps its yellow taxis and blue buses. Both bridges are streets now: drive over Tower
+Bridge, through the arches of its towers, or over London Bridge to the other bank. The turn rule
+and every assist are New York's, unchanged: a full steer held through the approach is the turn,
+anything less is straight on, and hands-off the loop always finds its way back to the airport road
+(where the road ends at the apron, it turns him round). Off the road he can never drive into the
+Thames -- its edge holds him like a guard rail -- and anywhere in Britain the pull back is to
+London's roads, never across the sea. To make the bridges streets, Tower Bridge moved 15 m and
+London Bridge 39 m along the river on to a street's line; Tower Bridge's towers have real arches a
+street wide, London Bridge is a little narrower to clear the bank's buildings, and the Mall's red
+surface now sits level with the street. Where the generator left a street half paved (the river,
+the parks, the city's edge) London lays its own tarmac under it. In a car, in portrait, the globe
+stands low on the right where the helicopter's up button would be (the speed pair is under the
+view button even parked); everywhere else it is where v197 put it. The car's centre screen now lies
+back on the dash under the dash line: standing up, it hid the right of the road (the oncoming
+lane, where traffic keeps left) -- in New York too.
+(The vehicle baseline was regenerated for one deliberate change: the cars now show the globe when
+parked.)
+
 ## v197 — London, across the sea
 
 Fly east from New York and the sea opens out: container ships crossing, two islands, a

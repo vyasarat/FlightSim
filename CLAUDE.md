@@ -146,7 +146,7 @@ a deliberate, stated behaviour change.
   in `citydata.js` is a street centreline, avenues `avenueW` and streets `streetW` wide — both
   written by the generator. An edge is kept only if it is dry (the generator's 1.5 m margin)
   and clear of every solid; a stub left by a dropped edge is pruned, so the grid has no dead
-  end (the bridge deck's turnaround is the one kept on purpose). Hands-off goes straight on;
+  end (the turnarounds kept on purpose: New York's bridge deck, London's airport road). Hands-off goes straight on;
   where the road ends, `policy` is a value iteration toward the way out. City traffic keeps
   the motorway's promises three ways — behind him holds his speed, ahead of him in his lane
   outruns him, nothing enters a junction he will reach before it could clear — and under all
@@ -226,10 +226,10 @@ a deliberate, stated behaviour change.
 | `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship, buggy, per-launch event |
 | `setpieces.js` `marsbase.js` `toyworld.js` `workshop.js` `toyfinish.js` | demolition, tower-catch, fire rig, carrier, Mars and its toys / the airport magnet yards, ramp and toy-fleet finish |
 | `highway.js` `car.js` `lights.js` `police.js` | the coast-to-coast road and its traffic / the SUV and lane-keep / the junctions / the chase |
-| `streets.js` | both cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, the square (no people) |
+| `streets.js` | the cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, the square (no people) |
 | `vehiclekit.js` | the traffic's six low-poly shapes (and the police sedan): wheels spun in the shader, lamps lit per vertex, one instanced call per shape |
 | `track.js` | the giant toy track: its typed sections, the rail, the forks, the net, the lift, its own exit |
-| `london.js` | London across the sea (v197): its landmarks, Big Ben's clock and bong, the wheel, the crossing's ships, lighthouse and whale, its airport (`AIRPORTS[2]`: the per-airport builders stop at `AP_HOME`) and the globe; all on its own random stream, its solids a region. The ground is terrain.js's `ldShape`, the city the generator's `ldn` |
+| `london.js` | London across the sea (v197): its landmarks, Big Ben's clock and bong, the wheel, the crossing's ships, lighthouse and whale, its airport (`AIRPORTS[2]`: the per-airport builders stop at `AP_HOME`) and the globe; driven (v198): its grid on streets.js, every lane LEFT (`lo` < 0), the bridges and the airport road its links, the river's edge a rail; all on its own random stream, its solids a region. The ground is terrain.js's `ldShape`, the city the generator's `ldn` |
 | `race.js` | the race: its tracks as typed sections (`TUNE.race.tracks`), the venue in the world, one speed model for every car, the podium |
 | `raceitems.js` | the power-ups: rows of boxes, the one item button, the five items, spin-outs; every mesh pooled at load |
 | `raceevents.js` | the track events (`TUNE.race.events`): announced, steered round, never a bang; built per track at load |

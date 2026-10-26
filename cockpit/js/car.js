@@ -313,7 +313,7 @@ function carBuildCabin() {
   // and the centre screen, standing on the dash where it belongs
   const sc = carBuildScreen();
   sc.position.set(K.screen[0], K.screen[1], K.screen[2]);
-  sc.rotation.x = -0.22;
+  sc.rotation.x = K.screenTilt;
   sc.visible = true;
   g.add(sc);
 
@@ -361,7 +361,7 @@ function carRejoinPoints() {
   return car.rejoinPts;
 }
 
-function carRejoinTarget(dt) {
+function carRejoinTarget(dt, far) {
   const R = CAR.rejoin;
   car.rejoinT -= dt || 0;
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
@@ -377,6 +377,15 @@ function carRejoinTarget(dt) {
   for (let i = 0; i < P.xs.length; i++) {
     const sc = score(P.xs[i], P.zs[i]);
     if (sc < bs) { bs = sc; bi = i; }
+  }
+  // Nothing in front of him, and the nearest road is not the motorway beside him
+  // (v198: in London there is no motorway this side of the sea): the nearest road there is.
+  if (bi === -1 && far) {
+    let bd = Infinity;
+    for (let i = 0; i < P.xs.length; i++) {
+      const d = (P.xs[i] - state.x) ** 2 + (P.zs[i] - state.z) ** 2;
+      if (d < bd) { bd = d; bi = i; }
+    }
   }
   // the old pick holds unless the new one is clearly better: no dithering
   // between two roads at about the same distance
@@ -574,7 +583,7 @@ function carRoadTarget(steer01, dt) {
   // road, full stop -- so driving across the fields at a city, every time he
   // let go the car swung round and took him back to the motorway behind him.
   const offRoad = best.spur ? best.dist > HW.spurW + 4 : Math.abs(best.lateral) > CAR.onRoadHalf + 4;
-  const T = offRoad ? carRejoinTarget(dt) : null;
+  const T = offRoad ? carRejoinTarget(dt, n.d > CAR.rejoin.far) : null;
   if (!offRoad) car.rejoin = null;
   if (T && T.d > CAR.rejoin.near) { best.aimX = T.x; best.aimZ = T.z; best.rejoin = T; }
   return best;
@@ -640,15 +649,21 @@ function carSpawn(originIdx) {
   // in a parking bay 34 m off the road, which is outside onRoadHalf -- so he
   // started off-road, at 45% speed, with only the weak off-road assist to find
   // his way on. Never start him somewhere he has to get himself out of.
-  const fromCA = idx === 1;
-  const end = hwySampleAt(fromCA ? highway.length - 140 : 140);
-  const dir = fromCA ? -1 : 1;               // CA end drives back up the road
-  const rx = -end.fz, rz = end.fx;
-  const off = dir * (HW.medianW / 2 + HW.laneW * 0.5);
-  state.x = end.x + rx * off;
-  state.z = end.z + rz * off;
-  state.y = end.y;
-  state.heading = Math.atan2(-end.fx * dir, -end.fz * dir);
+  // (v198) In London: on the way in from its airport, bound for the city (london.js).
+  const ld = AIRPORTS[idx] && AIRPORTS[idx].london && typeof ldCarStartAt === "function" ? ldCarStartAt() : null;
+  if (ld) {
+    state.x = ld.x; state.z = ld.z; state.y = ld.y; state.heading = ld.heading;
+  } else {
+    const fromCA = idx === 1;
+    const end = hwySampleAt(fromCA ? highway.length - 140 : 140);
+    const dir = fromCA ? -1 : 1;               // CA end drives back up the road
+    const rx = -end.fz, rz = end.fx;
+    const off = dir * (HW.medianW / 2 + HW.laneW * 0.5);
+    state.x = end.x + rx * off;
+    state.z = end.z + rz * off;
+    state.y = end.y;
+    state.heading = Math.atan2(-end.fx * dir, -end.fz * dir);
+  }
   state.speed = 0; state.pitch = 0; state.bank = 0; state.phase = "TAXI";
   car.steer = 0; car.boost = 0; car.offRoad = 0; car.charging = 0; car.chargedAt = null;
   car.yield = 1; car.assistOff = 0;      // the assist is back the moment he is
@@ -728,10 +743,15 @@ function carReassemble() {
   // A city street -- or a city ramp, which is the planner's road near the grid
   // and a highway spur further out: either way the same road. Off the street
   // in a city (the square, a pavement), the nearest street.
-  const street = typeof stReassembleAt !== "function" ? null
+  let street = typeof stReassembleAt !== "function" ? null
     : on.street ? stReassembleAt(fromX, fromZ, state.heading, on.street)
     : on.spur && on.spur.street ? stReassembleAt(fromX, fromZ, state.heading, on.spur.street)
     : on.off ? stReassembleAt(fromX, fromZ, state.heading) : null;
+  // (v198) Across the sea there is no motorway to come back on: off every road in London, at
+  // the spot -- and failing that (the river, inside something), London's nearest road.
+  const inLondon = !street && typeof ldNear === "function" && ldNear(fromX, fromZ);
+  if (inLondon && on.off && carReassembleOffRoad(fromX, fromZ, nx, nz)) { settle(); flags.carReassemblesOffRoad = (flags.carReassemblesOffRoad || 0) + 1; return; }
+  if (inLondon) street = stReassembleAt(fromX, fromZ, state.heading, null, Infinity);
   if (street) {
     state.x = street.x; state.z = street.z; state.y = street.y; state.heading = street.heading;
     stPlan.road = street.road; stPlan.dir = street.dir; stPlan.turn = null;
@@ -1041,9 +1061,13 @@ function updateCar(dt) {
 
   // ---- move
   const fx = -Math.sin(state.heading), fz = -Math.cos(state.heading);
+  const prevX = state.x, prevZ = state.z;
   state.x += fx * state.speed * dt;
   state.z += fz * state.speed * dt;
   forward.set(fx, 0, fz);
+  // (v198) in London, off the road, the river's edge holds him off the water as a rail would
+  // (london.js ldEmbank; a bridge is a road over it)
+  if (typeof ldEmbank === "function" && !car.onRoad) ldEmbank(prevX, prevZ);
 
   // ---- height.
   //

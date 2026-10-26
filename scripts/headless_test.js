@@ -5683,6 +5683,7 @@ const harnessMain = async () => {
     ["./cleanup_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] }],
     ["./hardening_checks", { newPage, check, shots: SHOTS, viewports: [[1024,768],[820,1180]] }],
     ["./london_checks", { newPage, check }],          // v197: London across the sea -- the world, the landmarks, the globe, NY untouched
+    ["./london_drive_checks", { newPage, check }],    // v198: driving London -- the graph, left-hand lanes, the bridges, cabs and double-deckers, the river
   ];
   expectedMods = MODULES.map(([n, o]) => modKey(n, o));
   for (const [name, opts] of SHARDS > 1 ? SHARDING.order(MODULES) : MODULES) await runModule(name, opts);

@@ -597,6 +597,12 @@
   @media (orientation: landscape) {
     #globeBtn { top: calc(var(--top-row) + env(safe-area-inset-top)); right: calc(var(--edge) + var(--btn) + 16px + env(safe-area-inset-right)); }
   }
+  /* v198: in a car, in portrait, the speed pair stands under the view button even parked, so the
+     globe takes the helicopter's up button's place, low on the right, which no car has (in
+     landscape it stays in the top row, where the speed pair is not) */
+  @media (orientation: portrait) {
+    #globeBtn.inCar { top: auto; bottom: calc(var(--stack-bottom) + var(--thr) + 12px + env(safe-area-inset-bottom)); right: calc(var(--edge) + env(safe-area-inset-right)); }
+  }
   .card.cityCard { width: clamp(180px, 30vmin, 270px); height: clamp(140px, 23vmin, 215px); }
   .card.cityCard.back { width: clamp(120px, 18vmin, 170px); height: clamp(120px, 18vmin, 170px); }
   /* the water bucket: the helicopter has no gear, so that row is free for it */

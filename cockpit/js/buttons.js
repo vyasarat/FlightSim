@@ -34,6 +34,7 @@
 const BTN_SLOT = {
   topLeft1: "top-left, first",     topLeft2: "top-left, second",
   topRight1: "top-right, first",   topRight2: "top-right, second",  topRight3: "top-right, third",
+  topRow: "top row, beside the view button (landscape)",
   lowLeft: "bottom-left, low",     highLeft: "bottom-left, high",
   lowRight: "bottom-right, low",   highRight: "bottom-right, high",
   dashLeft: "dash corner, left",   dashRight: "dash corner, right",  dashRight2: "dash corner, inboard",
@@ -88,8 +89,11 @@ const BUTTONS = {
   // in a race its way out (the go button's corner: in a race he is never parked,
   // so the picker button is not there) and, at the podium, again or back.
   raceBtn:      { slot: "lowRight", when: () => raceBtnShows() },
-  // ---- v197: the globe (london.js) -- where to start: New York, California or London
-  globeBtn:     { slot: "topRight3", when: () => typeof ldGlobeShows === "function" && ldGlobeShows() },
+  // ---- v197: the globe (london.js) -- where to start: New York, California or London.
+  // Its slot is the slow button's, which is up only in flight -- except in a car, where the
+  // speed pair stands even parked: there (v198) it is the helicopter's up button's, which a car
+  // never has. (london.js ldGlobeSlot; a slot may be a function of what he is in.)
+  globeBtn:     { slot: () => typeof ldGlobeSlot === "function" ? ldGlobeSlot() : "topRight3", when: () => typeof ldGlobeShows === "function" && ldGlobeShows() },
   raceExitBtn:  { slot: "topLeft1",  when: () => raceExitShows() },
   raceAgainBtn: { slot: "free",      when: () => raceEndShows() },
   raceBackBtn:  { slot: "free",      when: () => raceEndShows() },
@@ -335,10 +339,11 @@ function btnSlotClashes() {
   const bySlot = {};
   for (const id in BUTTONS) {
     const e = el[id];
-    if (!e || BUTTONS[id].slot === "free") continue;
+    const slot = typeof BUTTONS[id].slot === "function" ? BUTTONS[id].slot() : BUTTONS[id].slot;
+    if (!e || slot === "free") continue;
     const cs = getComputedStyle(e);
     if (cs.display === "none" || cs.visibility === "hidden") continue;
-    (bySlot[BUTTONS[id].slot] = bySlot[BUTTONS[id].slot] || []).push(id);
+    (bySlot[slot] = bySlot[slot] || []).push(id);
   }
   const bad = [];
   for (const slot in bySlot) if (bySlot[slot].length > 1) bad.push(slot + ": " + bySlot[slot].join(" + "));

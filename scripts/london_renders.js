@@ -38,10 +38,35 @@ const V = {
   "palace":         at(-834, 45, 15760, -834, 15, 16175),
   "overview":       at(-200, 420, 13000, -850, 0, 14700),
   "overview-west":  at(-1700, 380, 16600, -850, 0, 14900),
+  // v198: DRIVING London -- a car parked in its lane (the nearest road to x, z, facing tx, tz),
+  // the traffic left to run round it for `warm` seconds first
+  "drive-airport":  { car: 1, x: 170, z: 13760, tx: 170, tz: 14100, warm: 6 },
+  "drive-street":   { car: 1, x: -400, z: 14356, tx: -700, tz: 14356, warm: 25 },
+  "drive-tower":    { car: 1, x: -560, z: 13780, tx: -900, tz: 13780, warm: 4 },
+  "drive-tbdeck":   { car: 1, x: -700, z: 13780, tx: -900, tz: 13780, warm: 4 },
+  "drive-lbridge":  { car: 1, x: -760, z: 14260, tx: -1000, tz: 14260, warm: 4 },
+  "drive-bigben":   { car: 1, x: -594, z: 15700, tx: -594, tz: 15500, warm: 25 },
+  "drive-mall":     { car: 1, x: -954, z: 15800, tx: -954, tz: 16100, warm: 25 },
+  "drive-air-over": at(-300, 140, 14700, -700, 0, 14250),
+  "tb-east-top":    at(-560, 70, 13740, -615, 0, 13780),
+  "tb-east-down":   at(-575, 45, 13781, -606, 0, 13781),
+  // ... and behind one of London's own: a red double-decker, a black cab (the car comes up behind
+  // whichever is nearest once the traffic has run)
+  "drive-decker":   { car: 1, x: -400, z: 14356, tx: -700, tz: 14356, warm: 20, follow: 2, back: 32 },
+  "drive-cab":      { car: 1, x: -1100, z: 15000, tx: -1100, tz: 14700, warm: 20, follow: 1, back: 22 },
+  "drive-bigben2":  { car: 1, x: -760, z: 15604, tx: -500, tz: 15604, warm: 4 },
+  "drive-ny":       { car: 1, ny: 1, x: -400, z: 4300, tx: -400, tz: 4100, warm: 4 },
 };
 
 function hold(v) {
   const L = window.__lp, st = L.state;
+  if (v.car) {
+    L.api.setVehicle(v.veh || "car"); if (v.ny) L.api.spawnAt(0, 0); else L.ldStart();
+    const R = L.stReassembleAt(v.x, v.z, Math.atan2(-(v.tx - v.x), -(v.tz - v.z)), null, Infinity);
+    const put = () => { st.x = R.x; st.z = R.z; st.y = R.y; st.heading = R.heading; st.speed = 0; st.exploding = false; L.stPlan.road = R.road; L.stPlan.dir = R.dir; };
+    put();
+    return put;
+  }
   if (v.ship !== undefined) {
     const sh = L.ldn.ships[v.ship], ox = v.x, oz = v.z;
     const h0 = () => { v.x = sh.x + ox; v.z = sh.z + oz; v.tx = sh.x; v.tz = sh.z; };
@@ -73,7 +98,22 @@ function hold(v) {
       const L = window.__lp;
       window.__hold = eval("(" + src + ")")(v);
       L.api.setView(!seat);
-      for (let i = 0; i < 150; i++) { L.update(1 / 60); window.__hold(); }
+      for (let i = 0; i < (v.warm ? v.warm * 60 : 150); i++) { L.update(1 / 60); window.__hold(); }
+      if (v.follow !== undefined) {
+        // up behind the nearest of that kind on a London street, in its lane
+        const st = L.state, list = L.stTraffic.list.filter(t => t.alive && !t.path && !t.spin && t.city === "ldn" && t.type === v.follow);
+        list.sort((a, b) => Math.hypot(a.wx - st.x, a.wz - st.z) - Math.hypot(b.wx - st.x, b.wz - st.z));
+        const t = list[0];
+        if (t) {
+          // (kept there frame by frame while it drives, so the chase camera has caught up)
+          window.__hold = () => {
+            const R = L.stReassembleAt(t.wx - t.hx * v.back, t.wz - t.hz * v.back, Math.atan2(-t.hx, -t.hz), t.path ? t.path.arm.road : t.road);
+            if (!R) return;
+            st.x = R.x; st.z = R.z; st.y = R.y; st.heading = R.heading; st.speed = 0; st.exploding = false; L.stPlan.road = R.road; L.stPlan.dir = R.dir;
+          };
+          for (let i = 0; i < 90; i++) { L.update(1 / 60); window.__hold(); }
+        }
+      }
       const r = L.renderer; r.info.autoReset = false; r.info.reset();
       for (let i = 0; i < 3; i++) { r.info.reset(); window.__paint(); window.__hold(); }
       const out = { calls: r.info.render.calls, tris: r.info.render.triangles };

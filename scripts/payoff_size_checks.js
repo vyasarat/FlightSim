@@ -109,7 +109,7 @@ module.exports = async function payoffSizeChecks({ newPage, check }) {
     // the measure's own sanity: the pillars, the dash and a button are not glass; the middle of the windscreen is
     L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60); L.api.setView(false); L.update(1 / 60);
     L.scene.updateMatrixWorld(); L.camera.updateMatrixWorld();
-    out.selfTest = { frames: frameRects().map(r => [Math.round(r.left), Math.round(r.right)]), cabinVisible: !!(L.car.cabin && L.car.cabin.visible), pillarL: glassAt(30, 420), pillarR: glassAt(800, 470), dash: glassAt(410, 700), button: glassAt(752, 300), map: glassAt(650, 640), middle: glassAt(410, 300) };
+    out.selfTest = { frames: frameRects().map(r => [Math.round(r.left), Math.round(r.right)]), cabinVisible: !!(L.car.cabin && L.car.cabin.visible), pillarL: glassAt(30, 420), pillarR: glassAt(800, 470), dash: glassAt(410, 700), button: glassAt(752, 300), map: glassAt(650, 760), middle: glassAt(410, 300) };
     try {
       for (const k of ["ls", "sled", "fb", "mt"]) for (const north of [false, true]) {
         holdAllBut(k);
