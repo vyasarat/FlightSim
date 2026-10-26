@@ -76,7 +76,11 @@ const MODULES = {
   "toyworld.js": ["toyworld_checks"], "workshop.js": ["workshop_checks", "workshop_play_checks"],
   "marsbase.js": ["robot_checks", "robot_play_checks"], "rover.js": ["robot_play_checks"],
   "input.js": ["hardening_checks", "slot_checks", "london_checks"],
-  "london.js": ["london_checks", "slot_checks", "solidity_checks"],
+  "london.js": ["london_checks", "slot_checks", "solidity_checks", "frame_budget_checks", "dadmissions_checks", "sea_checks"],
+  // the world's shape and what stands on it: v197 moved them and only the full harness saw the
+  // Doolittle carrier land in Britain (dadmissions) and a runway drawn from every venue (frame budget)
+  "terrain.js": ["dadmissions_checks", "sea_checks", "frame_budget_checks", "london_checks"],
+  "scene.js": ["frame_budget_checks", "london_checks"], "landmarks.js": ["frame_budget_checks", "london_checks", "toyworld_checks"],
 };
 const CITY_FILES = new Set(["car.js", "streets.js", "city.js", "citydata.js", "lights.js", "highway.js"]);
 
