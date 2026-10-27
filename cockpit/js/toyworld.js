@@ -461,7 +461,7 @@ function twWelcome(idx) {
   a.twWelcome = TW.welcome.duration;
   apronVehiclesTo(idx, true);
   for (const [i, v] of a.vehicles.entries()) {
-    // Existing vehicles are decorative, not solids; remain outside every wing
+    // The apron vehicles are solids (v206, landmarks.js); they park outside every wing
     // and outside the runway itself even when the player starts the next roll.
     v.x = a.m * 95; v.z = state.z + (i ? -40 : 40);
     v.tx = a.m * TW.welcome.clearance; v.tz = state.z + (i ? -18 : 18);

@@ -349,6 +349,7 @@ function generate() {
           if (L.solidBlocks && !L.solidBlocks(b, CLS[veh])) continue;
           if (b.mesh && (b.mesh.visible === false)) continue;
           if (b.park && !b.park.drawn) continue;
+          if (b.moving) continue;   // (v206: a solid that drives off -- the airport trucks, called out when a vehicle spawns -- has its own check above)
           for (const fc of faces(b)) {
             const r = R[veh], stand = r + Math.max(10, v * 0.4);
             const sx = fc.x + fc.nx * stand, sz = fc.z + fc.nz * stand;
@@ -471,6 +472,50 @@ async function sweep(page) {
 module.exports = async function solidityChecks({ newPage, check }) {
   const { page, errors } = await newPage(1024, 768);
   await page.evaluate(install);
+
+  // ---- (v206) the airports' apron fuel truck and baggage cart are solid where they stand, and stay so
+  // as they drive out to him: his car into one at cruise is a bang (and a free reassembly), at a crawl a shove
+  {
+    const at = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, out = { rest: [], follow: null, carSpawn: null, cruise: null, crawl: null };
+      const boxAt = (v) => { let hit = null; L.forEachSolid(b => { if (b === v.solid && L.solidTest(b, v.mesh.position.x, v.mesh.position.y + 1, v.mesh.position.z, 0.3)) hit = b; }, v.mesh.position.x, v.mesh.position.z, 8); return hit; };
+      for (const a of L.airports) for (const v of a.vehicles) out.rest.push({ idx: a.idx, solid: !!boxAt(v), kind: v.solid && L.solidKind(v.solid) });
+      // California's, called out to his PLANE: the box goes with it
+      L.api.setVehicle("prop"); L.api.spawnAt(1, 0);
+      const A = L.airports.find(r => r.idx === 1), tk = A.vehicles[0];
+      for (let i = 0; i < 60 * 6; i++) { st.touching = false; L.update(1 / 60); }
+      out.follow = { moved: Math.round(Math.hypot(tk.mesh.position.x - tk.homeX, tk.mesh.position.z - tk.homeZ)), solid: !!boxAt(tk) };
+      // a CAR's spawn leaves them at home (v206: called out to a car they parked in his motorway lane)
+      L.api.setVehicle("car"); L.api.spawnAt(1, 0);
+      const homeOff = () => Math.max(...A.vehicles.map(v => Math.hypot(v.mesh.position.x - v.homeX, v.mesh.position.z - v.homeZ)));
+      for (let i = 0; i < 60 * 40 && homeOff() > 1; i++) { st.touching = false; L.update(1 / 60); }   // (the plane had them out: they drive home)
+      L.api.spawnAt(1, 0);
+      for (let i = 0; i < 60 * 6; i++) { st.touching = false; L.update(1 / 60); }   // (and a car's spawn, from home, leaves them there)
+      out.carSpawn = A.vehicles.map(v => Math.round(Math.hypot(v.mesh.position.x - v.homeX, v.mesh.position.z - v.homeZ)));
+      // his car aimed at the waiting truck's middle along the apron, from the runway's side, at cruise and at a crawl
+      const ram = (v) => {
+        L.api.setVehicle("car"); L.api.spawnAt(1, 0);
+        for (let i = 0; i < 60 * 2; i++) { st.touching = false; L.update(1 / 60); }
+        const c = tk.solid.o3.c, hx = -A.m, hz = 0, d = 1;
+        const from = v < 5 ? 12 : 40;   // (a crawl from 12 m: from 40 it does not get there in the time)
+        st.x = c[0] + hx / d * from; st.z = c[2] + hz / d * from; st.y = L.terrainEff(st.x, st.z);
+        st.heading = Math.atan2(hx / d, hz / d); st.speed = v;
+        const c0 = L.flags.carCrashes || 0, s0 = L.flags.solidShoves || 0;
+        let inside = false, reached = false, near = 1e9, vmax = 0;
+        let at0 = null;
+        for (let i = 0; i < 60 * 6 && (L.flags.carCrashes || 0) === c0; i++) { st.touching = true; st.ctrlBank = 0; st.ctrlPitch = 0; if (v < 5) st.speed = Math.min(st.speed, v); L.update(1 / 60); if (L.solidTest(tk.solid, st.x, st.y + 1, st.z, 0)) inside = true; if (L.solidTest(tk.solid, st.x, st.y + 1, st.z, L.TUNE.solid.r.car + 0.5)) reached = true; near = Math.min(near, Math.hypot(st.x - c[0], st.z - c[2])); vmax = Math.max(vmax, st.speed); }
+        // (where the bang happened: at the truck's side, not at a median, a rail or a car)
+        if ((L.flags.carCrashes || 0) > c0) at0 = L.solidTest(tk.solid, st.x, st.y + 1, st.z, L.TUNE.solid.r.car + 3);
+        st.touching = false; st.exploding = false;
+        return { atTruck: at0, bangs: (L.flags.carCrashes || 0) - c0, shoves: (L.flags.solidShoves || 0) - s0, inside, reached, near: +near.toFixed(1), vmax: +vmax.toFixed(1) };
+      };
+      out.crawl = ram(3); out.cruise = ram(L.CAR.cruise);   // (the crawl first: a cruise bang leaves a reassembly pending)
+      return out;
+    });
+    check(`solid: every airport's fuel truck and baggage cart is a solid where it stands (${at.rest.filter(r => r.solid).length}/${at.rest.length}), it goes with them when they drive out to his plane (moved ${at.follow.moved} m), a car's spawn leaves them at home (${at.carSpawn.join('/')} m off it), and his car into the truck is a bang at cruise, at the truck (${at.cruise.bangs}, ${at.cruise.atTruck}), a shove at a crawl (it reached its side ${at.crawl.reached}, ${at.crawl.bangs} bangs, inside ${at.crawl.inside}) -- the car's own shove (carWallHit) pushes it out`,
+      at.rest.length >= 6 && at.rest.every(r => r.solid && r.kind === "parked") && at.follow.moved > 50 && at.follow.solid &&
+      at.cruise.bangs >= 1 && at.cruise.atTruck && at.carSpawn.every(d => d < 2) && at.crawl.bangs === 0 && at.crawl.reached && !at.crawl.inside, JSON.stringify(at));
+  }
 
   // ---- 1. the registry
   const reg = await page.evaluate(() => {
