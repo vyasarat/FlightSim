@@ -3,6 +3,7 @@
 //   picker      the track picker: one big card and the way back
 //   grid        the start grid from the chase view, the gantry's lamps coming on
 //   gridSeat    the same from his seat
+//   countSeat:<1-4>  (v201) the start from his seat with that many lamps red (4: all green)
 //   overtake    mid-race, chase view, him coming past a car
 //   overtakeSeat  the same moment from his seat
 //   podiumWin   he won: the podium, his car on the top step, the trophy, fireworks
@@ -433,6 +434,15 @@ async function render(root, views) {
         go(90, 0, 0);
         window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
         note.sf = L.rcAt(him.s).sf; note.speed = +him.v.toFixed(1);
+        return note;
+      }
+      if (v.startsWith("countSeat:")) {
+        // (v201) the start from his seat at each lamp: countSeat:1, :2, :3 (that many red), :4 (all green)
+        const k = +v.split(":")[1];
+        go(Math.round(60 * (L.RC.count.lead + L.RC.count.step * (k - 1) + (k >= 4 ? 0.05 : 0.4))), 0, 0);   // (green: the instant it comes on, before he rolls)
+        window.__hold = () => { S.touching = false; S.ctrlBank = 0; S.ctrlPitch = 0; };
+        note.phase = R.phase; note.lit = R.lights.filter(m => m.material.color.getHex() === L.TUNE.palette.red).length;
+        note.green = R.lights.every(m => m.material.color.getHex() === L.TUNE.palette.green);
         return note;
       }
       if (v === "grid" || v === "gridSeat") {

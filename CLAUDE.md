@@ -276,7 +276,7 @@ nothing else can — paid for by cutting one.
 
 - **A check that passes alone and fails in the full run is a harness bug, not an
   intermittent**: something it depends on was carried in from what ran before it on the
-  page (the random stream, an event's clock, a flag). Find it and reset it in the check.
+  page (the random stream, an event's clock, a flag). Find it and reset it in the check. A module that THROWS is a bug, never load (v200).
 - **Behaviour over existence, and deltas not totals** — a check reading
   `flags.boatCrashes` outright stayed green for two releases while the boat sailed through
   the container ship, on a 1 an earlier check left behind. And check the states he is

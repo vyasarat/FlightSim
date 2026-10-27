@@ -2387,6 +2387,7 @@ const TUNE = {
     width: 26, kerbW: 1.8, kerbStep: 4, wallH: 1.1,
     lift: 0.25, smooth: 40,            // the deck this far over the ground under it, its height smoothed over this many metres
     gantryH: 15, flagStep: 45, wallPiece: 12,
+    lampH: 7.5,                        // (v201) the start lamps' height, on a board hung from the beam: about 14 deg up (under the race's position strip in landscape too) from his grid slot, inside every car's windscreen (the beam's 15 m was 31 deg, over its top)
     // (v179) a venue is drawn only where it can be seen: its long ribbons cut into `cell` m squares
     // (any over `chunkMin` triangles), and a piece whose nearest corner is deeper than the fog's
     // far edge plus `margin` (view depth, as the fog counts) is off the camera's layer -- the fog

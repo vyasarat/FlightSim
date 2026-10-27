@@ -19,9 +19,9 @@ ship each when it passes.
 - [x] **v197 Across the sea and the landmarks** (shipped 2026-10-26, merge d5c1784, 1247/1247) -- the crossing, the white cliffs, the Thames, every landmark in its place (the critic named them all), London's airport (`AIRPORTS[2]`) and the globe.
 - [x] **v198 Drive London** (shipped 2026-10-26, merge fa3cabf, 1258/1258) -- the car starts in London from the globe; traffic and he keep LEFT (the parent's call); black cabs and red double-deckers; both bridges are streets; noisy drive in London 3 seeds x 3, all clean.
 - [x] **v199 The Thames** (shipped 2026-10-26, merge 578969a, 1269/1269) -- Tower Bridge opens for the tall ship and his speedboat (now startable in London); never under his car (the gate holds him); the ship solid; river boats.
-- [ ] **v200 A London race track** -- a street circuit past Big Ben, round the palace and over Tower
-  Bridge, built like the other tracks (`TUNE.race.tracks`, typed sections); race_sweep, ~50% wins
-  per car, 0 bangs, 0 stuck.
+- [x] **v200 A London race track** (shipped 2026-10-26, merge b1349ce, 1283/1283, sweep 79/0) -- a street circuit
+  past the palace, Big Ben, over Westminster and Tower Bridges, through the City; race day only; noisy races 46/80
+  wins (SUV 13, Cybertruck 16, Corvette 13, monster 4 -- 6 m wide on a 13 m street), 0 bangs, 0 stuck.
 
 **Races like a kart game (the parent, 2026-10-23, after "racing is just circling the track"):**
 something happens every few seconds. All original -- no Nintendo names, characters, logos or
