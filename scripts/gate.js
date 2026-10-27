@@ -285,6 +285,24 @@ for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => f.e
   }
 }
 
+// ---------- 10b. the page's random stream is untouched (v201 retro) ----------
+// Three leaks in four releases (v198 twice, v201): a builder made at load drew from Math.random and every
+// seeded thing after it moved. When the game's files differ from the base, the change is not done until
+// scripts/stream_compare.js has said SAME on exactly what is on disk (or DELIBERATE="<why>" said it means to).
+if (fs.existsSync(path.join(ROOT, "scripts", "stream_compare.js"))) {
+  const { streamHash } = require("./stream_compare.js");
+  const readAt = f => { try { return fs.readFileSync(path.join(ROOT, f), "utf8"); } catch (e) { return null; } };
+  const now = streamHash(readAt, ROOT);
+  const baseFiles = (git("ls-tree", "--name-only", base, "cockpit/js/") || "").split("\n").filter(f => f.endsWith(".js"));
+  const nowFiles = fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => f.endsWith(".js")).map(f => "cockpit/js/" + f);
+  const changed = nowFiles.length !== baseFiles.length || nowFiles.concat(["cockpit/index.html"]).some(f => readAt(f) !== git("show", `${base}:${f}`));
+  if (changed) {
+    let r = null; try { r = JSON.parse(readAt("evidence/stream-compare.json")); } catch (e) {}
+    if (!r || r.hash !== now) fail("stream", "the game's files changed and the random stream has not been compared as they stand -- run node scripts/stream_compare.js <a worktree of the base> . (SAME, or DELIBERATE=\"<why>\" if the change means to move it)");
+    else if (!r.same && !r.deliberate) fail("stream", "stream_compare said DIFFERENT on this content -- evidence/stream-compare.json");
+  }
+}
+
 // ---------- 11. a race or track change has been swept (v177) ----------
 // The full harness runs race_track_checks as a sample, one car per track; every car on every
 // track is scripts/race_sweep.js. When the race's content (its files, TUNE.race) differs from

@@ -250,7 +250,7 @@ one turn, `/retro` closes it.
 At the start of every session, and after every release ships, read QUEUE.md and start the top item. Never stop while QUEUE.md has items unless a stop rule applies.
 
 1. **The gate** — `node scripts/gate.js` (a second, no browser): syntax, one owner per
-   global name, files wired, version bumped and written up, nothing binary. It is the Stop
+   global name, files wired, version bumped and written up, nothing binary, the random stream compared (`stream_compare.js`). It is the Stop
    hook, so a turn cannot end on a failing one. **Fix the change, never the gate.**
    `--run` then runs the harness modules the changed files answer to.
 2. **Fresh eyes** — `law-reviewer` on the diff, `render-critic` on the frames
