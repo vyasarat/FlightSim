@@ -138,7 +138,11 @@ const harnessMain = async () => {
 
   const launchBrowser = () => chromium.launch({
     executablePath: SHELL,
-    args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+    // (v207) art_rig's flags (run_module's): the solo phase 537/538 s against 752/725 s with --use-angle,
+    // alternated (B A, then A B), every check passing either way -- the harness-booted page's slow renders
+    // (QUEUE, "the harness is 55 min") were the ANGLE path. HARNESS_GLFLAGS=angle puts the old ones back.
+    args: process.env.HARNESS_GLFLAGS === "angle" ? ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+                                                  : ["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--disable-dev-shm-usage", "--js-flags=--max-old-space-size=1024"]
   });
   let browser = await launchBrowser();
 

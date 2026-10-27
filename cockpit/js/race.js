@@ -1205,6 +1205,15 @@ function rcRaceDay(on) {
     if (v.standsG) { v.standsG.userData.dayOff = !show; v.standsG.visible = show; }
   }
   if (on && race.track && race.track.def.street && typeof ldTbDown === "function") ldTbDown();
+  // (v208) the flier's targets in the sky -- the flight rings, the toy world's colour clouds and rainbow over
+  // the airports -- are kilometres off from a race track, and the haze turns them into white glyphs (a hoop
+  // edge-on a streak, a rainbow an arch: QUEUE, found in v191 over Beach Splash's lagoon). Hidden while a race
+  // is on, given back after -- only what the race hid (as heavy.js does with the rings)
+  // (the colour clouds keep their own rule, every frame: twUpdateTrails shows them only out of a race)
+  if (on && !race.hidSky) {
+    race.hidSky = [];
+    if (typeof ringsGroup !== "undefined" && ringsGroup.visible) { ringsGroup.visible = false; race.hidSky.push(ringsGroup); }
+  } else if (!on && race.hidSky) { for (const g of race.hidSky) g.visible = true; race.hidSky = null; }
 }
 function rcStreetRace() { return !!(race.on && race.track && race.track.def.street); }
 

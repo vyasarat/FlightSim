@@ -495,7 +495,8 @@ async function render(root, views) {
       rc.setFromCamera(new T.Vector2(x, y), L.camera);
       const hit = rc.intersectObjects(L.scene.children, true).slice(0, 3);
       const path = o => { const n = []; for (let p = o; p && n.length < 6; p = p.parent) n.push((p.name || p.type) + (p.userData && Object.keys(p.userData).length ? "{" + Object.keys(p.userData).slice(0, 4).join(",") + "}" : "")); return n.join("<"); };
-      return { ray: hit.map(h => [+h.distance.toFixed(1), path(h.object), h.object.material && h.object.material.color ? h.object.material.color.getHexString() : ""]), cam: [L.camera.position.x, L.camera.position.y, L.camera.position.z].map(v => Math.round(v)) };
+      const top = o => { let t = o; while (t.parent && t.parent.type !== "Scene") t = t.parent; return (t.name || (t.userData && t.userData.name) || t.type) + "@" + [t.position.x, t.position.z].map(Math.round); };
+      return { ray: hit.map(h => [+h.distance.toFixed(1), path(h.object), h.object.material && h.object.material.color ? h.object.material.color.getHexString() : "", [h.point.x, h.point.y, h.point.z].map(Math.round), top(h.object)]), cam: [L.camera.position.x, L.camera.position.y, L.camera.position.z].map(v => Math.round(v)) };
     }, process.env.RAY));
     if (process.env.PROBE) Object.assign(info, await page.evaluate(() => {
       const L = window.__lp, S = L.state, c = L.camera.position, ey = S.y + 1.6, near = [];
