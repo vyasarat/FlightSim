@@ -311,8 +311,8 @@ module.exports = async function raceChecks({ newPage, check }) {
       L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens();
       return out;
     });
-    const lifts = Object.values(e2.lift), lights = Object.values(e2.light), fields = Object.values(e2.field);
-    check(`race ${tag}: the same rules whatever he drives -- a lifting finger's bursts go round in the same time in all four (${J(e2.lift)}, under ${e2.none} with none), a light held pull bursts in none of them (${J(e2.light)}), the pad catches the SUV and the monster truck as far off its middle (${J(e2.pad)} m), and the field he meets has the same skill and line in each grid slot whatever he drives ${J(e2.field)}`,
+    const lifts = Object.values(e2.lift), lights = Object.values(e2.light), fields = Object.entries(e2.field).filter(([v]) => v !== "monster").map(([, f]) => f);   // (v202, the parent's call: the monster truck meets its own pace -- check n)
+    check(`race ${tag}: the same rules whatever he drives -- a lifting finger's bursts go round in the same time in all four (${J(e2.lift)}, under ${e2.none} with none), a light held pull bursts in none of them (${J(e2.light)}), the pad catches the SUV and the monster truck as far off its middle (${J(e2.pad)} m), and the field he meets has the same skill and line in each grid slot in the three cars (the monster truck's own pace: below) ${J(e2.field)}`,
       Math.max(...lifts) - Math.min(...lifts) < 0.6 && Math.min(...lifts) < e2.none - 1 && lights.every(t => Math.abs(t - e2.none) < 0.3) &&
       e2.pad.car > 0 && e2.pad.car === e2.pad.monster && fields.every(f => f === fields[0]));
 
@@ -481,6 +481,27 @@ module.exports = async function raceChecks({ newPage, check }) {
       await page.setViewportSize({ width: w, height: h });
       check(`race: a finger in a race is never eaten -- put down anywhere on the picture and dragged, it steers: ${Object.entries(k).map(([v, r]) => `${v} ${r.tried - r.eaten.length}/${r.tried}${r.eaten.length ? " (eaten at " + r.eaten.map(p => p.join(",")).join(" ") + ")" : ""}`).join("; ")}`,
         Object.values(k).every(r => r.tried >= 15 && r.eaten.length === 0 && r.race && (r.chase || r.screenHidden === true)), J(k));
+    }
+    // ---- n. (v202) the field's pace per car he drives: on every track the monster truck's rivals are the SUV's
+    // times that track's `aiCar.monster`, and the SUV, Cybertruck and Corvette meet exactly the same field
+    if (w === 820) {
+      const pc = await page.evaluate(() => {
+        const L = window.__lp, R = L.race, out = [];
+        for (const t of L.RC.tracks) {
+          const sk = {};
+          for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+            L.api.setVehicle(veh); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 5; i++) L.update(1 / 60);
+            L.rcStartRace(t.id, 3);
+            sk[veh] = R.racers.filter(r => !r.isHim).map(r => r.skill).sort((a, b) => a - b);
+            L.raceReset();
+          }
+          const m = (t.aiCar && t.aiCar.monster) || 1, eq = (a, b, k) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i] * k) < 1e-9);
+          out.push({ id: t.id, m, others: eq(sk.cybertruck, sk.car, 1) && eq(sk.corvette, sk.car, 1), monster: eq(sk.monster, sk.car, m) });
+        }
+        return out;
+      });
+      check(`race: the field's pace for the car he drives -- on every track the monster truck meets the SUV's field times its own factor (${pc.map(r => r.id + " " + r.m).join(", ")}), and the SUV, Cybertruck and Corvette meet exactly the same field`,
+        pc.length === 6 && pc.every(r => r.others && r.monster && r.m < 1), J(pc));
     }
     // ---- m. (v201) from his SEAT on the grid, on every track, in every car he drives, portrait and landscape:
     // the three start lamps over his column are inside the windscreen (on the beam they were over its top on all six) and nothing

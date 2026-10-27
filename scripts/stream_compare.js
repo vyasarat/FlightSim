@@ -54,7 +54,22 @@ if (require.main === module) {
       same = As.some(x => Bs.some(y => key(x) === key(y)));
     }
     console.log(same ? "SAME: the stream is untouched" : "DIFFERENT: something draws from the page's stream that did not before (PROFILE=1 names the callers)");
+    // (v201 retro) the receipt the gate asks for: the B side's game files as they stand, and the verdict.
+    // A change that MEANS to move the stream says why: DELIBERATE="<reason>" writes a receipt for it.
+    const deliberate = process.env.DELIBERATE || "";
+    if (same || deliberate) {
+      const fs = require("fs"), root = path.resolve(b);
+      fs.mkdirSync(path.join(root, "evidence"), { recursive: true });
+      fs.writeFileSync(path.join(root, "evidence", "stream-compare.json"), JSON.stringify({ hash: streamHash(f => { try { return fs.readFileSync(path.join(root, f), "utf8"); } catch (e) { return null; } }, root), same, deliberate, at: new Date().toISOString() }, null, 1));
+    }
     process.exit(same ? 0 : 1);
   })();
 }
-module.exports = { count };
+// what the comparison is a receipt for: every game script and the page, as they are on disk
+function streamHash(read, root) {
+  const fs = require("fs"), crypto = require("crypto"), h = crypto.createHash("sha256");
+  const files = fs.readdirSync(path.join(root || path.resolve(__dirname, ".."), "cockpit", "js")).filter(f => f.endsWith(".js")).sort().map(f => "cockpit/js/" + f).concat(["cockpit/index.html"]);
+  for (const f of files) h.update(f + "\0" + (read(f) || "") + "\0");
+  return h.digest("hex").slice(0, 16);
+}
+module.exports = { count, streamHash };

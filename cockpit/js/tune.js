@@ -2410,6 +2410,7 @@ const TUNE = {
       // to the lap's metres, so every pad past it is moved on by it (113 m) and stands where it stood.
       { id: "oval", pads: [{ m: 150, lat: 5 }, { m: 440, lat: -5 }, { m: 993, lat: 5 }, { m: 2163, lat: -5 }, { m: 2613, lat: 5 }, { m: 4013, lat: -5 }],
         aiMul: 0.995,                     // (v193: with the loop and the ramp, the noisy hand won 39% at 1.0)
+        aiCar: { monster: 0.99 },       // (v202) the field when HE drives the monster truck (it won 15-30% at 1)
         // (v194) the LAST-LAP SHORTCUT: straight across the chicane's bulge on the dust, shut by a boom until the last lap
         shortcuts: [{ from: 7, to: 9, side: -1, half: 6, mouth: 5, gore: 15, hold: 40, surface: "dust", final: true }],
         sections: [
@@ -2453,6 +2454,7 @@ const TUNE = {
       { id: "dunes", site: { x: -725, z: -3420, heading: 270 },
         pads: [{ m: 150, lat: 5 }, { m: 800, lat: -5 }, { m: 1850, lat: 5 }, { m: 2960, lat: -5 }, { m: 3180, lat: 5 }, { m: 4380, lat: 5 }],
         aiMul: 1.003,                      // (v173: 0.98 at a 45 s lap; over a two-minute lap his hand gained more -- 85% wins -- so even)
+        aiCar: { monster: 0.988 },       // (v202) the field when HE drives the monster truck (it won 15-30% at 1)
         // (v189) THE DUNES' EVENTS (raceevents.js). The freight line: a level railway bed `y` m high, `w` m wide,
         // eased into the ground over `blend` m (terrain.js rcRailBed), from x0 to x1 along z -- under the third
         // dune's crest (section `sec`), where the road stands on a short bridge `gap` m either side of the rail.
@@ -2501,6 +2503,7 @@ const TUNE = {
       { id: "snow", site: { x: 900, z: -1380, heading: 270 },
         pads: [{ m: 150, lat: 5 }, { m: 1150, lat: 5 }, { m: 1300, lat: -5 }, { m: 1830, lat: -5 }, { m: 2950, lat: 5 }, { m: 3300, lat: -5 }],   // (none aimed at under the tunnel's lowered camera: race_track_checks o)
         aiMul: 0.986,                     // (at 1.0 the noisy hand won 25%: the slippery bends cost his wobbling line more than theirs; v187, with the power-ups and random taps, 0.988 won 39%, 0.984 58% (two seeds), 0.98 63%)
+        aiCar: { monster: 0.985 },       // (v202) the field when HE drives the monster truck (it won 15-30% at 1)
         banks: true,                      // snowbanks for barriers (the same solids), red-and-white poles on them
         snowGround: { near: 150, fade: 150, cell: 15 },   // (v183) the ground snow within `near` m of the line, none past near + fade (scene.js terSnowAt)
         // the frozen lake's bed, shaped into the ground (terrain.js rcLakeBed): level at `y`
@@ -2553,6 +2556,7 @@ const TUNE = {
       { id: "beach", site: { x: -900, z: 6585, heading: 90 },
         pads: [{ m: 150, lat: 5 }, { m: 560, lat: -5 }, { m: 1200, lat: 5 }, { m: 1400, lat: -5 }, { m: 2990, lat: 5 }, { m: 3110, lat: -5 }],   // (none on a splash: cyan on water does not read)
         aiMul: 1.011,                     // (at 1.0 the noisy hand won 88%: a lap that is mostly long straights gives his hand nothing to lose; 1.02 won 45%; v191, with the waves and the ship, 1.018 won 46%)
+        aiCar: { monster: 0.988 },       // (v202) the field when HE drives the monster truck (it won 15-30% at 1)
         // (v191) waves up the beach and the water-cannon ship in the lagoon (raceevents.js); `side` is the sea's
         events: [{ kind: "waves", m: 1090, side: 1 }, { kind: "ship", m: 2420, side: 1, from: 2190, to: 2660 }],
         sections: [
@@ -2594,6 +2598,7 @@ const TUNE = {
       { id: "sky", site: { x: 1850, z: 1300, heading: 270 },
         pads: [{ m: 150, lat: 5 }, { m: 640, lat: -5 }, { m: 1500, lat: 5 }, { m: 1950, lat: -5 }, { m: 2950, lat: 5 }, { m: 3450, lat: -5 }],
         aiMul: 0.9995,                    // (at 1.0 the noisy hand won 45%, the Cybertruck 35%; at 0.992, 54%; v187, with the power-ups and random taps, 0.992 won 66%, 0.998 66% (one seed), 1.001 41% (two), 1.004 35%: a hair's change flips close finishes)
+        aiCar: { monster: 0.985 },       // (v202) the field when HE drives the monster truck (it won 15-30% at 1)
         // (v192) boost rings swaying over the road, and gusts across it (raceevents.js): `at` is [metres, lane] each,
         // `zones` [from, to, which way it blows (+ to his left)]; the rings clear of the pads (a gust may blow over one)
         events: [{ kind: "rings", at: [[1420, -5], [1590, 4], [2300, 5], [2440, -5], [2820, 0], [3020, -5]] },
@@ -2636,6 +2641,7 @@ const TUNE = {
       { id: "london", site: { x: -834, z: 15900, heading: 180 }, width: 13, laps: 2, lift: 0.55, street: true, bendA: 10, bendBrake: 6, padW: 3.5, itemRows: 10,
         pads: [{ m: 60, lat: 0 }, { m: 900, lat: 0 }, { m: 2200, lat: 0 }, { m: 2700, lat: 0 }, { m: 4300, lat: 0 }, { m: 5200, lat: 0 }, { m: 6050, lat: 0 }],   // (down the middle, and `padW` narrow: on a street 13 m wide a wider pad, or one off the middle, is under a car riding a barrier)
         aiMul: 0.978,
+        aiCar: { monster: 0.975 },       // (v202) the field when HE drives the monster truck (it won 15-30% at 1)
         stands: { count: 3, from: -40, step: 60, back: 4 },
         podiumM: 900,                     // (on the open south bank: on the Mall its lamps and plane trees stood between the camera and the steps)
         sections: [

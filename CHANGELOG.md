@@ -10,6 +10,14 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v202 — A fair race in the monster truck
+
+In the monster truck he won only 15 to 30 races in a hundred, on every track -- it is 6 m wide and
+slow to turn, so it rarely got past -- while the other cars win about half. Now each track sets the
+other racers' pace for the monster truck on its own, a little gentler (1 to 2.5 percent), and nothing
+else: in the SUV, the Cybertruck and the Corvette the field is exactly as it was. Twenty noisy races
+on each track in the monster truck: 11, 12, 11, 11, 11 and 11 wins in 20, never a bang, never stuck.
+
 ## v201 — The start lamps from the driving seat
 
 From the driving seat on the start grid he could not see the start lamps: they hung on the gantry's

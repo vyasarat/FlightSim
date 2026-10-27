@@ -1260,10 +1260,14 @@ function rcMakeRacer(key, isHim, i) {
 }
 // An opponent's skill and line go with its place on the grid (the i-th behind
 // him), never with which car it is: the field he meets is the same whatever he
-// drives, and only the giant's place at the back moves who sits where.
+// drives -- except (v202, the parent's call) a track's `aiCar` pace for the car he
+// drives, the monster truck's -- and only the giant's place at the back moves who sits where.
+// (v202) the field's pace for the car HE drives, a track's own: the monster truck (6 m wide, slow to turn)
+// won 15-30% where the others win about half. A car not listed is 1 -- the others' rates do not move.
+function rcCarMul() { const t = race.track && race.track.def.aiCar; return (t && t[state.vehicleKey]) || 1; }
 function rcSkillFor(r, i) {
   const A = RC.ai, k = (i - 1) / Math.max(1, RC.field - 1);
-  r.skill = lerp(A.skill[0], A.skill[1], k) * A.strength * (race.track.def.aiMul || 1);   // (a track's own: its bends favour a clean line more than his hand)
+  r.skill = lerp(A.skill[0], A.skill[1], k) * A.strength * (race.track.def.aiMul || 1) * rcCarMul();   // (a track's own: its bends favour a clean line more than his hand)
   r.line = (k - 0.5) * rcW() * 0.5;
 }
 function rcClearRacers() {
