@@ -80,6 +80,7 @@ entry below.
 | v202 | he races the monster truck and wins some -- says "I won" in it, and picks it for a race again |  open |
 | v203 | nothing he can see changes: no sign of it in play (a regression would be a boat or yacht that looks stuck or jittery) |  open |
 | v204 | he notices the yellow fuel truck and the green cart waiting by the terminal and drives or taxis over to them |  open |
+| v205 | nothing he can see changes (a regression would be runway lights that blink out as he turns towards them) |  open |
 
 ## Entries
 

@@ -195,10 +195,11 @@ module.exports = async function frameBudgetChecks({ newPage, check }) {
       for (const v of a.vehicles) { const mz = v.mesh.position.z; out.trucks.push({ idx: a.idx, dz: Math.round(mz - A.cz), ok: Math.abs(mz - A.cz) < L.TUNE.runwayLength / 2 && Math.abs(v.homeZ - A.cz) < L.TUNE.runwayLength / 2 }); }   // (where the mesh stands, and its home)
     }
     const m4 = new T3.Matrix4(), p = new T3.Vector3();
-    out.paintUnculled = 0;
+    out.unculled = 0;
     L.scene.traverse(o => {
       // (the runways' paint: culled like everything that stays put -- never drawn from every venue)
-      if (o.isInstancedMesh && o.userData.runwayPaint) { out.paint = (out.paint || 0) + 1; if (o.frustumCulled === false) out.paintUnculled++; }
+      if (o.isInstancedMesh && o.userData.runwayPaint) { out.paint = (out.paint || 0) + 1; if (o.frustumCulled === false) out.unculled++; }
+      if (o.isInstancedMesh && o.userData.runwayLights) { out.lights = (out.lights || 0) + 1; if (o.frustumCulled === false) out.unculled++; }   // (v205: the edge lights and threshold bars too)
       if (!o.isInstancedMesh || o.frustumCulled === false || !o.count) return;
       const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere();
       const sp = g.boundingSphere.clone().applyMatrix4(o.matrixWorld);
@@ -208,7 +209,7 @@ module.exports = async function frameBudgetChecks({ newPage, check }) {
     });
     return out;
   });
-  check(`frame budget: every airport's apron trucks rest on its own apron (${ap.trucks.map(t => t.idx + ":" + t.dz).join(", ")} m from its middle), and the runways' paint is culled (${ap.paintUnculled} not), every culled instanced mesh's sphere holding all its instances`,
-    ap.trucks.length >= 6 && ap.trucks.every(t => t.ok) && ap.badCull.length === 0 && ap.paint === 6 && ap.paintUnculled === 0, JSON.stringify(ap));
+  check(`frame budget: every airport's apron trucks rest on its own apron (${ap.trucks.map(t => t.idx + ":" + t.dz).join(", ")} m from its middle), and the runways' paint, edge lights and threshold bars are culled (${ap.unculled} not), every culled instanced mesh's sphere holding all its instances`,
+    ap.trucks.length >= 6 && ap.trucks.every(t => t.ok) && ap.badCull.length === 0 && ap.paint === 6 && ap.lights === 15 && ap.unculled === 0, JSON.stringify(ap));
   await apPage.close();
 };

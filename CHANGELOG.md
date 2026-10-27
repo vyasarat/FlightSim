@@ -10,6 +10,13 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v205 — The runway lights are drawn only when he can see them
+
+Every airport's runway edge lights and the green and red bars at each end were drawn whenever he was
+near an airport, even facing away from it (the 3D library builds that kind of object never to be
+skipped). Now they are skipped when they are out of view, as the runway's paint has been since v204:
+about ten fewer things for the iPad to draw near the cities. He sees the same lights.
+
 ## v204 — The airport trucks live at their airports
 
 New York's and California's yellow fuel truck and green baggage cart used to wait in the middle of the
