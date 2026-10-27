@@ -97,7 +97,7 @@ function rceBuildBoulders(T, ev) {
   const rocks = [];
   for (let i = 0; i < B.n * 2; i++) { const m = new THREE.Mesh(geo, mat); m.visible = false; m.castShadow = true; m.userData.noSolid = true; g.add(m); rocks.push({ m, on: false }); }
   // the slope they come off: a heap of the same rocks, still, on the side they roll from
-  const side = ev.side, W = RC.width / 2 + RC.kerbW, heap = new THREE.Group();
+  const side = ev.side, W = rcW() / 2 + RC.kerbW, heap = new THREE.Group();
   for (let k = 0; k < 7; k++) {
     const s = ev.m - 10 + k * (B.spread * (B.n - 1) + 20) / 6, lat = side * (W + 9 + (k % 3) * 3);
     rcPointOn(T, s, lat, rceP);
@@ -148,7 +148,7 @@ function rceBuildTrain(T, R) {
   const still = new THREE.Group(); g.add(still);   // (everything that never moves: `boxes`, merged at the end)
   // the bridge: open beams along the road across the opening (the road's surface stops there, race.js), so the
   // train shows between them as he flies over; a wall each side of the rail
-  const W = RC.width / 2 + RC.kerbW, deckY = q.gy, D = C.deck;
+  const W = rcW() / 2 + RC.kerbW, deckY = q.gy, D = C.deck;
   for (let k = 0; k < D.beams; k++) boxes.push({ x: crossX - W + D.w / 2 + k * (W * 2 - D.w) / (D.beams - 1), y: deckY - D.drop - D.h / 2, z: R.z, w: D.w, h: D.h, d: R.gap * 2 + 1.2, c: P.concrete });
   solidBox3(crossX, deckY - 0.9, R.z, [1, 0, 0], [0, 1, 0], [0, 0, 1], W + 0.5, 0.7, R.gap + 0.5, "bridge");
   for (const sd of [-1, 1]) {
@@ -267,7 +267,7 @@ function rceUpdate(dt, going) {
 
 // ---- boulders ------------------------------------------------------------------------------------------
 function rceBoulders(B, dt, going) {
-  const E = B.E, him = race.him, L = race.track.len, W = RC.width / 2;
+  const E = B.E, him = race.him, L = race.track.len, W = rcW() / 2;
   const lap = Math.floor((him.s - B.ev.m + E.lead * RC.v) / L);
   // let go as he comes within `lead` s of the first, once a lap
   const ahead = rcAhead(B.ev.m, him.s);
@@ -369,7 +369,7 @@ function rceBooms(tr, a) { for (const b of tr.booms) b.pivot.rotation.z = b.sd *
 
 // ---- the avalanche ---------------------------------------------------------------------------------------
 function rceBuildAvalanche(T, ev) {
-  const A = RCE.avalanche, P = TUNE.palette, W = RC.width / 2 + RC.kerbW, g = new THREE.Group();
+  const A = RCE.avalanche, P = TUNE.palette, W = rcW() / 2 + RC.kerbW, g = new THREE.Group();
   const mat = new THREE.MeshLambertMaterial({ color: A.colour, flatShading: true });   // (unlit from inside: its shadow side is what shows it on the snow)
   // the wave: lumps along the road's line, which slide down to it together, each on the ground under it
   const geo = new THREE.IcosahedronGeometry(1, 1), lumps = [];
@@ -402,10 +402,10 @@ function rceBuildAvalanche(T, ev) {
 }
 function rceAvOff(av) { av.state = "wait"; av.grow = 0; av.drift.visible = false; for (const l of av.lumps) l.m.visible = false; }
 function rceAvalanche(av, dt, going) {
-  const A = RCE.avalanche, him = race.him, L = race.track.len, W = RC.width / 2 + RC.kerbW, side = av.ev.side;
+  const A = RCE.avalanche, him = race.him, L = race.track.len, W = rcW() / 2 + RC.kerbW, side = av.ev.side;
   const ahead = rcAhead(av.ev.m - A.len / 2, him.s), lap = Math.floor((him.s + ahead) / L);
   // once, on his last lap: let go `lead` s before he gets there, timed to have its drift whole `before` s ahead of him
-  if (av.state === "wait" && going && lap === RC.laps - 1 && ahead < A.lead * Math.max(him.v, 20) && !him.done) {
+  if (av.state === "wait" && going && lap === rcLapsN() - 1 && ahead < A.lead * Math.max(him.v, 20) && !him.done) {
     av.state = "slide"; av.t = 0; av.lat = side * (W + A.from); av.grow = 0;
     av.eta = Math.max(1.5, ahead / Math.max(him.v, 20) - A.before);
     for (const l of av.lumps) l.m.visible = true;
@@ -464,7 +464,7 @@ function rceDrag(r) {
 // and runs back. It reaches `reach` of the way across (a different reach each), never the inland lane: the dry
 // line is his to steer for. A car in the water keeps `drag` of its speed and throws spray, as on a splash.
 function rceBuildWaves(T, ev) {
-  const E = RCE.waves, P = TUNE.palette, W = RC.width / 2 + RC.kerbW, g = new THREE.Group(), waves = [];
+  const E = RCE.waves, P = TUNE.palette, W = rcW() / 2 + RC.kerbW, g = new THREE.Group(), waves = [];
   const NS = 14, NL = 8;
   for (let k = 0; k < E.n; k++) {
     const m = ev.m + k * E.spacing, pos = new Float32Array((NS + 1) * (NL + 1) * 3), idx = [];
@@ -494,7 +494,7 @@ function rceWaveK(w) {
   const k = 1 - (w.t - E.rise - E.stay) / E.fall; return k <= 0 ? 0 : k * k * (3 - 2 * k);
 }
 function rceWaves(B, dt, going) {
-  const E = RCE.waves, him = race.him, L = race.track.len, W = RC.width / 2 + RC.kerbW, side = B.ev.side;
+  const E = RCE.waves, him = race.him, L = race.track.len, W = rcW() / 2 + RC.kerbW, side = B.ev.side;
   for (const w of B.waves) {
     const ahead = rcAhead(w.m, him.s), lap = Math.floor((him.s + ahead) / L);
     // up as he comes within `lead` s of it, once a lap
@@ -727,7 +727,7 @@ function rceBuildWind(T, ev) {
   scene.add(mesh);
   // a windsock at the start of each stretch, on the side the wind comes from, pointing the way it blows: hung limp,
   // it stands out and flaps while the gust is on (white streaks alone read as planks: the sock says WIND)
-  const socks = new THREE.Group(), H = RC.width / 2 + RC.kerbW;
+  const socks = new THREE.Group(), H = rcW() / 2 + RC.kerbW;
   const zones = ev.zones.map(([a, b, dir]) => {
     rcPointOn(T, a, -dir * (H + 2), rceP);
     const q = rcAtOn(T, a), sock = new THREE.Group();
@@ -764,7 +764,7 @@ function rceWind(r) {
   return 0;
 }
 function rceWindUpdate(B, dt, going) {
-  const W = RCE.wind, him = race.him, L = race.track.len, H = RC.width / 2;
+  const W = RCE.wind, him = race.him, L = race.track.len, H = rcW() / 2;
   let blowing = null;
   for (const z of B.zones) {
     const ahead = rcAhead(z.a, him.s), lap = Math.floor((him.s + ahead) / L);
@@ -810,7 +810,7 @@ const rceM = new THREE.Matrix4();
 
 // ---- the ski jump's dressing -------------------------------------------------------------------------------
 function rceBuildSki(T, def, k) {
-  const K = RCE.ski, P = TUNE.palette, sc = def.sections[k], J = sc.jump, W = RC.width / 2 + RC.kerbW;
+  const K = RCE.ski, P = TUNE.palette, sc = def.sections[k], J = sc.jump, W = rcW() / 2 + RC.kerbW;
   let from = null; for (const q of T.S) if (q.sec === k) { from = q.s; break; }
   const crest = from + J.at * sc.len, boxes = [], g = new THREE.Group();
   // boards up the face each side, blue and white, standing on the deck's edge: the face is a ski jump's in-run

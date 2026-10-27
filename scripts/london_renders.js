@@ -33,7 +33,8 @@ const V = {
   "clock":          at(-560, 64, 15420, -500, 66, 15505),
   "mall":           at(-834, 30, 15650, -834, 12, 16100),
   "parliament":     at(-420, 40, 15250, -430, 20, 15520),
-  "eye":            at(-640, 60, 15560, -650, 60, 15290),
+  "eye":            at(-680, 60, 15560, -690, 60, 15290),
+  "westminster":    at(-420, 45, 15330, -594, 8, 15384),   // (v200) Westminster Bridge, Big Ben at its end, the Eye beside it
   "trafalgar":      at(-980, 45, 15500, -905, 30, 15622),
   "palace":         at(-834, 45, 15760, -834, 15, 16175),
   "overview":       at(-200, 420, 13000, -850, 0, 14700),
@@ -63,6 +64,7 @@ const V = {
   // whichever is nearest once the traffic has run)
   "drive-decker":   { car: 1, x: -400, z: 14356, tx: -700, tz: 14356, warm: 20, follow: 2, back: 32 },
   "drive-cab":      { car: 1, x: -1100, z: 15000, tx: -1100, tz: 14700, warm: 20, follow: 1, back: 22 },
+  "drive-westminster": { car: 1, x: -594, z: 15200, tx: -594, tz: 15520, warm: 4 },   // (v200) over Westminster Bridge, north to Big Ben
   "drive-bigben2":  { car: 1, x: -760, z: 15604, tx: -500, tz: 15604, warm: 4 },
   "drive-ny":       { car: 1, ny: 1, x: -400, z: 4300, tx: -400, tz: 4100, warm: 4 },
 };

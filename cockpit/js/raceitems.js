@@ -112,7 +112,7 @@ function rcItOK(T, s) {
   const L = T.len;
   if (s < RCI.clearGrid || s > L - RCI.clearGrid) return false;
   if (rcAt(s).dune) return false;
-  if (rcAt(s).hw < RC.width / 2 - 0.5) return false;          // (v193) not in a loop or the funnel into it: the boxes stand across the whole road
+  if (rcAt(s).hw < rcW() / 2 - 0.5) return false;          // (v193) not in a loop or the funnel into it: the boxes stand across the whole road
   for (const p of race.pads) { const d = Math.abs(((p.s - s) % L + L * 1.5) % L - L / 2); if (d < RCI.clearPad) return false; }
   for (const sc of T.sc || []) {
     const a = sc.sa + sc.gore - sc.hold - RCI.clearSc, b = Math.max(sc.sb, sc.sa + sc.gore) + RCI.clearSc;
@@ -121,14 +121,14 @@ function rcItOK(T, s) {
   return true;
 }
 function rcItRows() {
-  const it = race.it, T = race.track, L = T.len, n = Math.min(RCI_MAXROWS, RCI.rows);
+  const it = race.it, T = race.track, L = T.len, n = Math.min(RCI_MAXROWS, T.def.itemRows || RCI.rows), k0 = rcW() / RC.width;   // (v200: a long street lap has more rows, and a narrow one its boxes closer in)
   it.rows = [];
   for (let k = 0; k < n; k++) {
     const want = L * (k + 0.5) / n;
     let s = null;
     for (let d = 0; d < L / (2 * n); d += 5) { if (rcItOK(T, want + d)) { s = want + d; break; } if (rcItOK(T, want - d)) { s = want - d; break; } }
     if (s === null) continue;
-    it.rows.push({ s, off: false, boxes: RCI.lats.map(lat => ({ lat, down: 0 })) });
+    it.rows.push({ s, off: false, boxes: RCI.lats.map(lat => ({ lat: lat * k0, down: 0 })) });
   }
 }
 
@@ -337,7 +337,7 @@ function rcItAfter(dt, going) {
     b.t += dt;
     if (b.tgt && !b.tgt.done && !b.tgt.path) b.lat += clamp(b.tgt.lat - b.lat, -BL.latRate * dt, BL.latRate * dt);
     b.s += b.v * dt;
-    b.lat = clamp(b.lat, -RC.width / 2 + BL.r, RC.width / 2 - BL.r);
+    b.lat = clamp(b.lat, -rcW() / 2 + BL.r, rcW() / 2 - BL.r);
     let hit = null;
     for (const r of race.racers) {
       if ((r === b.from && b.t < BL.grace) || r.path || (r.air && r.y - rcPoint(r.s, r.lat, rcItP).y > BL.overAir)) continue;

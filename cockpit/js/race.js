@@ -84,6 +84,9 @@ const rcBox = new THREE.Box3(), rcBox2 = new THREE.Box3();
 const rcEu = new THREE.Euler(), rcQ1 = new THREE.Quaternion(), rcQ2 = new THREE.Quaternion();
 
 function raceOn() { return race.on; }
+// (v200) the track in use's width and laps: its own, or every track's
+function rcW() { return (race.track && race.track.width) || RC.width; }
+function rcLapsN() { return (race.track && race.track.laps) || RC.laps; }
 // The race draws from its OWN stream, seeded at the grid: the same seed is the
 // same race (race_drive.js reports per seed), and the game's seeded stream --
 // which the traffic checks read -- is never touched by a race.
@@ -96,17 +99,19 @@ function raceCarOK() { return !!(state.vp && (state.vp.car || state.vp.monster))
 // samples every TK.ds with position, tangent, the left vector across the deck
 // (banked), the ground height for it and the bend's horizontal curvature (+ left)
 function rcLayTrack(def) {
+  // (v200) a track may have its own width, laps and lift (London's street circuit is a street wide)
+  const WD = def.width || RC.width, LIFT = def.lift !== undefined ? def.lift : RC.lift;
   const site = def.site || RC.site, h = site.heading * DEG;
   const start = { p: new THREE.Vector3(site.x, 0, site.z), f: new THREE.Vector3(-Math.sin(h), 0, -Math.cos(h)), u: new THREE.Vector3(0, 1, 0) };
   const laid = tkLay(start, def.sections, "race:" + def.id);
-  const pc = laid.pieces[0], S = pc.S, n = S.length, W = RC.width / 2 + RC.kerbW;
+  const pc = laid.pieces[0], S = pc.S, n = S.length, W = WD / 2 + RC.kerbW;
   for (const q of S) {
     const L = tkFrameAt(q);                   // left = N x T, tilted by the bank
     q.lx = L[0]; q.ly = L[1]; q.lz = L[2];
     // the deck stands clear of the ground under all of it, at either edge
     let g = -Infinity;
     for (const a of [-W, -W / 2, 0, W / 2, W]) g = Math.max(g, terrainEff(q.x + L[0] * a, q.z + L[2] * a) - L[1] * a);
-    q.g = g + RC.lift;
+    q.g = g + LIFT;
     q.sf = def.sections[q.sec].surface || "asphalt";   // what it is made of (v170)
   }
   // smoothed along it, so a bump in the ground is never a step in the road
@@ -132,6 +137,19 @@ function rcLayTrack(def) {
       if (d < E) q.gy = lerp(q.gy, y, 1 - smoothstep(0, E, d));
     }
     lakes.push({ sec: k, a, b, y });
+  });
+  // (v200) a BRIDGE: a section's `deck` is the road's height over the sea there -- a real bridge's
+  // carriageway, London's -- its own lift on top, never under the ground, eased in over `deckEase` m
+  // either side. (Over the water the ground under it is the river's bed: without this the deck dipped.)
+  def.sections.forEach((sc, k) => {
+    if (sc.deck === undefined) return;
+    let a = Infinity, b = -Infinity;
+    for (const q of S) if (q.sec === k) { a = Math.min(a, q.s); b = Math.max(b, q.s); }
+    const y = TUNE.waterLevel + sc.deck + LIFT, E = RC.deckEase;
+    for (const q of S) {
+      const d = q.s < a ? a - q.s : q.s > b ? q.s - b : 0;
+      if (d < E) q.gy = Math.max(q.gy, lerp(q.gy, y, 1 - smoothstep(0, E, d)));
+    }
   });
   // (v170) a track with jumps rides its slopes: the deck eased once more (the
   // highest-under-it pass leaves corners a car at speed would leave the deck on),
@@ -159,7 +177,7 @@ function rcLayTrack(def) {
       let a = 0; for (let j = -B; j <= B; j++) a += raw[(i + j + n) % n];
       const q = S[i], h = a / (2 * B + 1);
       q.gy = Math.max(q.gy, q.g, lerp(q.gy, base + h, Math.min(1, h / RC.sky.blend)));   // (off the ground over the first `blend` m: no step where it leaves it)
-      q.up = q.gy - q.g + RC.lift > RC.sky.minUp;              // (up in the air: over the ground under it, not its lift)
+      q.up = q.gy - q.g + LIFT > RC.sky.minUp;              // (up in the air: over the ground under it, not its lift)
     }
   }
   // (v175) a splash is the deck down AT the water: over each splash section it stands
@@ -182,9 +200,9 @@ function rcLayTrack(def) {
   });
   // (v193) a LOOP: the deck goes right round over itself, at its own laid height over the deck it leaves (it comes
   // back down to it), its up the loop's own -- upside down at the top. The road FUNNELS to `RC.loop.w` into it and
-  // widens again after (`hw`, every sample's half-width: RC.width / 2 everywhere else, so no other road moves).
+  // widens again after (`hw`, every sample's half-width: WD / 2 everywhere else, so no other road moves).
   const loops = [];
-  for (const q of S) q.hw = RC.width / 2;
+  for (const q of S) q.hw = WD / 2;
   def.sections.forEach((sc, k) => {
     if (sc.type !== "loop") return;
     let a = Infinity, b = -Infinity, i0 = -1;
@@ -193,7 +211,7 @@ function rcLayTrack(def) {
     for (const q of S) {
       if (q.sec === k) { q.gy = gy0 + q.y - y0; q.loop = true; q.ltx = q.tx; q.lty = q.ty; q.ltz = q.tz; q.lnx = q.nx; q.lny = q.ny; q.lnz = q.nz; }
       const d = q.s < a ? a - q.s : q.s > b ? q.s - b : 0;
-      q.hw = Math.min(q.hw, lerp(RC.width / 2, RC.loop.w / 2, 1 - smoothstep(0, RC.loop.funnel, d)));
+      q.hw = Math.min(q.hw, lerp(WD / 2, RC.loop.w / 2, 1 - smoothstep(0, RC.loop.funnel, d)));
     }
     loops.push({ sec: k, a, b, R: sc.radius });
   });
@@ -220,17 +238,19 @@ function rcLayTrack(def) {
   S[n - 1].kh = S[n - 2].kh;
   const gap = Math.hypot(laid.end.p.x - start.p.x, laid.end.p.z - start.p.z);
   const turn = Math.abs(wrapPi(Math.atan2(laid.end.f.x, laid.end.f.z) - Math.atan2(start.f.x, start.f.z)));
-  return { def, S, len: pc.len, n, gap, turn, jumps, lakes, splashes, sky, loops };
+  return { def, S, len: pc.len, n, gap, turn, jumps, lakes, splashes, sky, loops, width: WD, laps: def.laps || RC.laps, lift: LIFT };
 }
 
 // (v193) him in a loop, or so near it the cameras ride it: in it, or within `camBack` m before or `camAfter` after it
 function rcLoopNear(r) { if (!race.track.loops || !race.track.loops.length || r.path) return false; for (const d of [0, -RC.loop.camBack, RC.loop.camAfter]) if (rcAt(r.s + d).loop) return true; return false; }
-// (v193) the road's half-width under a racer: a shortcut's own, the funnel's into a loop, RC.width / 2 elsewhere
+// (v193) the road's half-width under a racer: a shortcut's own, the funnel's into a loop, rcW() / 2 elsewhere
 function rcHW(r) { return r.path ? r.path.half : rcAt(r.s).hw; }
 // how far off the middle a racer may be: its own half-width in from the edge -- but narrowed into a loop, ONE car's for
 // every car (a 5.8 m monster held nearer the middle came out of the funnel on another line, and lapped half a second
 // slower hands-off: race_checks e2); a wide body hangs over the kerb there instead
-function rcLim(r, pad) { const hw = rcHW(r); return hw - (!r.path && hw < RC.width / 2 - 0.01 ? RC.loop.oneWid : r.wid) / 2 - pad; }
+// (v200) a pad's width: the track's own on a narrow street, so none lies under a car riding a barrier
+function rcPadW() { return (race.track && race.track.def && race.track.def.padW) || RC.padW; }
+function rcLim(r, pad) { const hw = rcHW(r); return hw - (!r.path && hw < rcW() / 2 - 0.01 ? RC.loop.oneWid : r.wid) / 2 - pad; }
 // Where s metres along it is (s wraps by the lap): one sample's worth, interpolated.
 const rcAtOut = { x: 0, gy: 0, z: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0, s: 0, sf: "asphalt", ty: 0, hw: 13, loop: false, ltx: 0, lty: 0, ltz: 1, lnx: 0, lny: 1, lnz: 0 };
 function rcAt(s) {
@@ -244,7 +264,7 @@ function rcAt(s) {
   o.kh = a.kh + (b.kh - a.kh) * t; o.s = u; o.sf = (t < 0.5 ? a : b).sf;
   o.ty = a.ty === undefined ? 0 : a.ty + (b.ty - a.ty) * t;   // (the slope along: only a track with jumps keeps one)
   o.dune = (t < 0.5 ? a : b).dune; o.sec = (t < 0.5 ? a : b).sec;
-  o.hw = a.hw === undefined ? RC.width / 2 : a.hw + (b.hw - a.hw) * t;      // (v193) the funnel into a loop
+  o.hw = a.hw === undefined ? rcW() / 2 : a.hw + (b.hw - a.hw) * t;      // (v193) the funnel into a loop
   const c = t < 0.5 ? a : b; o.loop = !!c.loop;
   if (o.loop) { o.ltx = c.ltx; o.lty = c.lty; o.ltz = c.ltz; o.lnx = c.lnx; o.lny = c.lny; o.lnz = c.lnz; }
   return o;
@@ -289,7 +309,7 @@ function rcLayShortcut(sc) {
   const T = race.track, from = {}, to = {};
   for (const q of T.S) { if (from[q.sec] === undefined) from[q.sec] = q.s; to[q.sec] = q.s; }
   const sa = from[sc.from], sb = sc.to + 1 < T.def.sections.length ? from[sc.to + 1] : T.len;
-  const latC = sc.side * (RC.width / 2 - sc.half);
+  const latC = sc.side * (rcW() / 2 - sc.half);
   const A = rcPoint(sa, latC, {}), B = rcPoint(sb, latC, {});
   const Ls = Math.hypot(B.x - A.x, B.z - A.z), dx = (B.x - A.x) / Ls, dz = (B.z - A.z) / Ls, lx = dz, lz = -dx;
   const n = Math.max(2, Math.round(Ls / TK.ds) + 1), S = [], W = sc.half + RC.kerbW;
@@ -297,7 +317,7 @@ function rcLayShortcut(sc) {
     const u = Ls * i / (n - 1), x = A.x + dx * u, z = A.z + dz * u;
     let g = -Infinity;
     for (const a of [-W, 0, W]) g = Math.max(g, terrainEff(x + lx * a, z + lz * a));
-    S.push({ u, x, z, g: g + RC.lift });
+    S.push({ u, x, z, g: g + race.track.lift });
   }
   const K = Math.max(1, Math.round(RC.smooth / TK.ds));
   for (let i = 0; i < n; i++) { let m = -Infinity; for (let j = Math.max(0, i - K); j <= Math.min(n - 1, i + K); j++) m = Math.max(m, S[j].g); S[i].gy = m; }
@@ -321,7 +341,7 @@ function rcOnSc(sc, x, z, pad) {
 }
 function rcOnMain(T, sc, x, z, pad) {
   const i0 = Math.floor((sc.sa - 30) / T.len * (T.n - 1)), i1 = Math.ceil((sc.sb + 30) / T.len * (T.n - 1));
-  for (let i = Math.max(0, i0); i <= Math.min(T.n - 1, i1); i += 2) if (Math.hypot(T.S[i].x - x, T.S[i].z - z) < RC.width / 2 + RC.kerbW + pad) return true;
+  for (let i = Math.max(0, i0); i <= Math.min(T.n - 1, i1); i += 2) if (Math.hypot(T.S[i].x - x, T.S[i].z - z) < rcW() / 2 + RC.kerbW + pad) return true;
   return false;
 }
 
@@ -339,7 +359,7 @@ function rcBuild() {
 // stream with its seed put back after, so the oval and everything built after the
 // venues draw what they drew before there was more than one.
 const RC_VENUE = ["track", "pads", "padMesh", "venue", "lights", "gantry", "stands", "standsG", "podiumG", "podiumSpots",
-                  "podiumFace", "podiumC", "trophy", "trophyStand", "flags"];
+                  "podiumFace", "podiumC", "trophy", "trophyStand", "flags", "flagsG", "dayMark"];
 function rcBuildQuiet() {
   race.venues = {};
   RC.tracks.forEach((def, i) => {
@@ -474,9 +494,13 @@ function rcPodiumM(def) { return (def && def.podiumM !== undefined ? def.podiumM
 function rcBuildVenue(def) {
   race.track = rcLayTrack(def);
   race.track.sc = (def.shortcuts || []).map(rcLayShortcut);
-  const T = race.track, S = T.S, n = T.n, P = TUNE.palette, W = RC.width / 2, KW = RC.kerbW;
+  const T = race.track, S = T.S, n = T.n, P = TUNE.palette, W = rcW() / 2, KW = RC.kerbW;
   const g = new THREE.Group();
   g.userData.noSolid = false;
+  // (v200) a STREET track's deck, kerbs, barriers and flags stand on race day only: hidden, and its
+  // barriers' solids on a marker that is invisible (isSolidHidden) until a race on it begins (rcRaceDay)
+  const day = def.street ? new THREE.Object3D() : null;
+  if (day) { day.visible = false; day.userData.raceDay = true; g.visible = false; race.dayMark = day; } else race.dayMark = null;   // (`raceDay`: a street's graph is read without it -- streets.js)
   // ---- the deck, the kerbs and the barriers: three ribbons and a wall, one mesh each
   const deck = [], kerbR = [], kerbW = [], wall = [], line = [];
   const decks = { asphalt: deck }, ruts = {}, films = {}, skirt = [];   // (films: v175's splash)   // (ruts: one mesh per colour, v174)   // (v170) a deck per surface, asphalt's the one there always was
@@ -532,8 +556,9 @@ function rcBuildVenue(def) {
       const dx = p1[0] - p0[0], dz = p1[2] - p0[2], L = Math.hypot(dx, dz) || 1;
       // (v174: a snowbank's solid is as tall as the bank drawn over it -- its crest stands on this line)
       const wh = def.banks ? Math.min(rcBankH(T, a), rcBankH(T, b)) : RC.wallH;
-      solidBox3((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + wh / 2 - 0.25, (p0[2] + p1[2]) / 2,
+      const wb = solidBox3((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + wh / 2 - 0.25, (p0[2] + p1[2]) / 2,
                 [dx / L, 0, dz / L], [0, 1, 0], [-dz / L, 0, dx / L], L / 2 + 0.3, wh / 2 + 0.25, 0.3, "wall");
+      if (day) wb.mesh = day;
     }
   }
   // (v193) a loop is solid all the way round, as the sky road's girder is: its deck a slab turned with it, piece by
@@ -597,7 +622,7 @@ function rcBuildVenue(def) {
   }
   // the start line, chequered across the deck
   const s0 = S[0];
-  const sq = RC.width / 12;
+  const sq = rcW() / 12;
   for (let r = 0; r < 2; r++) for (let c = 0; c < 12; c++) {
     if ((r + c) % 2) continue;
     const a0 = -W + c * sq, along = r * sq;
@@ -651,7 +676,7 @@ function rcBuildVenue(def) {
         const ds0 = -RC.padLen / 2 + k * RC.padLen / 3;
         const q = rcAt(pd.s + ds0);
         const tip = (a, ds) => [q.x + q.lx * (pd.lat + a) + q.tx * ds, q.gy + q.ly * (pd.lat + a) + 0.08, q.z + q.lz * (pd.lat + a) + q.tz * ds];
-        const hw = RC.padW / 2, d = RC.padLen / 3;
+        const hw = rcPadW() / 2, d = RC.padLen / 3;
         quad(chev, tip(-hw, 0), tip(0, d * 0.6), tip(0, d), tip(-hw, d * 0.4));
         quad(chev, tip(0, d * 0.6), tip(hw, 0), tip(hw, d * 0.4), tip(0, d));
       }
@@ -662,7 +687,7 @@ function rcBuildVenue(def) {
   race.venue = g;
   // ---- the start gantry over the line: two legs, a beam, three lamps facing the grid
   const gan = new THREE.Group();
-  const legH = RC.gantryH, span = RC.width + 2 * KW + 4;
+  const legH = RC.gantryH, span = rcW() + 2 * KW + 4;
   const grey = mattMat(TUNE.palette.slate);
   for (const sd of [-1, 1]) {
     const leg = new THREE.Mesh(new THREE.BoxGeometry(1.2, legH, 1.2), grey);
@@ -687,14 +712,17 @@ function rcBuildVenue(def) {
   scene.add(gan);
   race.gantry = gan;
   // its beam and its legs are solid (the legs stand outside the barriers)
-  solidBox3(s0.x, s0.gy + legH, s0.z, [-s0.lx, 0, -s0.lz], [0, 1, 0], [s0.tx, 0, s0.tz], span / 2, 1.3, 0.8, "wall");
+  const gBeam = solidBox3(s0.x, s0.gy + legH, s0.z, [-s0.lx, 0, -s0.lz], [0, 1, 0], [s0.tx, 0, s0.tz], span / 2, 1.3, 0.8, "wall");
+  if (def.street) { gBeam.mesh = gan; gan.visible = false; gan.userData.raceDay = true; }   // (v200: a street's gantry stands on race day only, its legs and beam with it)
   for (const sd of [-1, 1]) {
     const lx = s0.x + s0.lx * sd * span / 2, lz = s0.z + s0.lz * sd * span / 2;
     addSolidBox(lx, s0.gy - 1, lz, 0.8, 0.8, s0.gy + legH + 1.3, gan.children[sd < 0 ? 0 : 1], "pillar");
   }
   // ---- grandstands along the outside of the main straight, a podium on the infield
   rcBuildStands();
+  if (def.street) { race.standsG.visible = false; race.standsG.userData.raceDay = true; race.standsG.userData.dayOff = true; }   // (and its stands: the landmark cull leaves them off)
   rcBuildPodium();
+  if (def.street) race.podiumG.visible = false;            // (its podium too)
   rcBuildFlags();
   // the ground it stands on is claimed, as every road's is: nothing streamed in it
   const claim = [];
@@ -716,7 +744,7 @@ function rcBuildVenue(def) {
 // draw call, the shared texture, additive (glowField) -- never post-processing, and never
 // on a pad (the pads are his to aim at: plain cyan, as on every track).
 function rcBuildSky(T, mk, g) {
-  const S = T.S, n = T.n, K = RC.sky, W = RC.width / 2 + RC.kerbW + 0.4, girder = [], pylon = [];
+  const S = T.S, n = T.n, K = RC.sky, W = rcW() / 2 + RC.kerbW + 0.4, girder = [], pylon = [];
   const at = (q, a, up) => [q.x + q.lx * a, q.gy + q.ly * a + (up || 0), q.z + q.lz * a];
   for (let i = 0; i < n; i++) {
     const a = S[i], b = S[(i + 1) % n];
@@ -772,7 +800,7 @@ const rcQuad = (arr, a, b, c, d) => { arr.push(...a, ...b, ...c, ...a, ...c, ...
 // its foot snow down to the ground, so a deck raised off it (a jump, a hollow) stands on
 // a snow embankment, never on nothing.
 function rcBuildBanks(T, mk) {
-  const S = T.S, n = T.n, B = RC.banks, W = RC.width / 2 + RC.kerbW;
+  const S = T.S, n = T.n, B = RC.banks, W = rcW() / 2 + RC.kerbW;
   const bank = [], red = [], white = [];
   const at = (q, a, up) => [q.x + q.lx * a, q.gy + q.ly * a + (up || 0), q.z + q.lz * a];
   const ground = (q, a) => { const x = q.x + q.lx * a, z = q.z + q.lz * a; return [x, terrainEff(x, z) - 0.3, z]; };
@@ -781,13 +809,13 @@ function rcBuildBanks(T, mk) {
     const bh = rcBankH(T, a), bhB = rcBankH(T, b);   // (low over the lake: from his seat he sees the ice)
     for (const sd of [-1, 1]) {
       // (from the kerb's edge where there is one, from the deck's own edge where there is not)
-      const e0 = sd * ((RC.surfaces[a.sf] || RC.surfaces.asphalt).kerbs ? W : RC.width / 2), e1 = sd * (W + 0.4), e2 = sd * (W + B.w), e3 = sd * (W + B.w + B.skirt);   // (its crest where the barrier's solid stands)
+      const e0 = sd * ((RC.surfaces[a.sf] || RC.surfaces.asphalt).kerbs ? W : rcW() / 2), e1 = sd * (W + 0.4), e2 = sd * (W + B.w), e3 = sd * (W + B.w + B.skirt);   // (its crest where the barrier's solid stands)
       rcQuad(bank, at(a, e0, -0.05), at(b, e0, -0.05), at(b, e1, bhB), at(a, e1, bh));
       rcQuad(bank, at(a, e1, bh), at(b, e1, bhB), at(b, e2, -0.05), at(a, e2, -0.05));
       rcQuad(bank, at(a, e2, -0.05), at(b, e2, -0.05), ground(b, e3), ground(a, e3));
       // (v180) where the bank comes in from a kerb's edge to the deck's own, the face between the
       // two: open, it was a hole through the bank, and down it the undersides lit by the ground's green fill
-      const f0 = sd * ((RC.surfaces[b.sf] || RC.surfaces.asphalt).kerbs ? W : RC.width / 2);
+      const f0 = sd * ((RC.surfaces[b.sf] || RC.surfaces.asphalt).kerbs ? W : rcW() / 2);
       if (f0 !== e0) bank.push(...at(b, e0, -0.05), ...at(b, e1, bhB), ...at(b, f0, -0.05));
     }
   }
@@ -1018,7 +1046,7 @@ function rcBuildTunnel(T, k, tn, g) {
 function rcBuildStands() {
   const T = race.track, St = Object.assign({}, RC.stands, T.def.stands);
   const seat = [TUNE.palette.blue, TUNE.palette.red, TUNE.palette.warning, TUNE.palette.green];
-  const off = RC.width / 2 + RC.kerbW + St.back, D = St.depth, L = St.len, H = St.rise;
+  const off = rcW() / 2 + RC.kerbW + St.back, D = St.depth, L = St.len, H = St.rise;
   race.stands = [];
   for (let k = 0; k < St.count; k++) {
     const q = rcAt(St.from + k * St.step);   // (v173: metres from the line)
@@ -1051,7 +1079,7 @@ function rcBuildStands() {
 // (the tallest), silver to its left, bronze to its right, facing the track.
 function rcBuildPodium() {
   const q = rcAt(rcPodiumM(race.track.def));
-  const off = RC.width / 2 + RC.kerbW + RC.podium.back;
+  const off = rcW() / 2 + RC.kerbW + RC.podium.back;
   const cx = q.x + q.lx * off, cz = q.z + q.lz * off, gy = terrainEff(cx, cz);
   const g = new THREE.Group();
   const face = Math.atan2(q.lx, q.lz);          // its front faces the track (-left)
@@ -1121,14 +1149,32 @@ function rcBuildFlags() {
     if (Math.abs(s - rcPodiumM(T.def)) < 60) continue;          // nothing between the podium and the camera
     if (T.S[Math.min(T.n - 1, Math.round(s / T.len * (T.n - 1)))].up) continue;   // (v176: in the sky, no flag on a pole from the ground)
     const side = q.kh > 0 ? -1 : 1;               // the outside of the bend
-    const off = side * (RC.width / 2 + RC.kerbW + 3);
+    const off = side * (rcW() / 2 + RC.kerbW + 3);
     const x = q.x + q.lx * off, z = q.z + q.lz * off, y = terrainEff(x, z);
     const pole = new THREE.Mesh(poleGeo, mattMat(TUNE.palette.steel)); pole.position.set(x, y + 4.5, z); g.add(pole);
     const fl = new THREE.Mesh(flagGeo, new THREE.MeshLambertMaterial({ color: cols[k++ % cols.length], side: THREE.DoubleSide }));
     fl.position.set(x, y + 8, z); g.add(fl); race.flags.push({ m: fl, ph: k * 1.7 });
   }
   scene.add(g);
+  race.flagsG = g;
+  if (T.def.street) g.visible = false;            // (v200) race day only
 }
+// (v200) RACE DAY on a street track: its deck, kerbs, barriers and flags out (and solid) while a race is
+// run on it, and away again after -- the streets are the city's the rest of the time. London keeps Tower
+// Bridge down and its traffic off the streets for it (london.js, streets.js ask raceOn()).
+function rcRaceDay(on) {
+  for (const id in race.venues || {}) {
+    const v = race.venues[id];
+    if (!v.dayMark) continue;
+    const show = on && race.track === v.track;
+    v.dayMark.visible = show; v.venue.visible = show; if (v.flagsG) v.flagsG.visible = show;
+    if (v.gantry) v.gantry.visible = show;
+    if (v.podiumG) v.podiumG.visible = show;
+    if (v.standsG) { v.standsG.userData.dayOff = !show; v.standsG.visible = show; }
+  }
+  if (on && race.track && race.track.def.street && typeof ldTbDown === "function") ldTbDown();
+}
+function rcStreetRace() { return !!(race.on && race.track && race.track.def.street); }
 
 // ---- the racers --------------------------------------------------------------------------
 // The roster: the other cars he can drive, then the traffic's taxi and hatchback.
@@ -1186,7 +1232,7 @@ function rcMakeRacer(key, isHim, i) {
 function rcSkillFor(r, i) {
   const A = RC.ai, k = (i - 1) / Math.max(1, RC.field - 1);
   r.skill = lerp(A.skill[0], A.skill[1], k) * A.strength * (race.track.def.aiMul || 1);   // (a track's own: its bends favour a clean line more than his hand)
-  r.line = (k - 0.5) * RC.width * 0.5;
+  r.line = (k - 0.5) * rcW() * 0.5;
 }
 function rcClearRacers() {
   for (const r of race.racers) if (!r.isHim && r.mesh) { rcUnscale(r.mesh); scene.remove(r.mesh); }
@@ -1206,6 +1252,7 @@ function raceClosePicker() { el.screenRace.classList.add("hiddenS"); }
 function rcStartRace(trackId, seed) {
   rcBuild();
   rcUse(trackId);
+  rcRaceDay(true);                                  // (v200) a street track's race day
   race.seedN = (race.seedN || 0) + 1;
   rcSeed = (seed === undefined ? race.seedN * 7919 : seed) >>> 0;
   raceClosePicker();
@@ -1289,6 +1336,7 @@ function raceReset() {
   race.rocketT = 0; race.photoT = 0; race.slowT = 0;
   if (!race.on && !race.racers.length) { if (el.screenRace) raceClosePicker(); return; }
   race.on = false; race.phase = "off";
+  rcRaceDay(false);
   rcClearRacers();
   if (race.trophy) race.trophy.visible = race.trophyStand.visible = false;
   race.loseShot = null;
@@ -1439,8 +1487,22 @@ function rcHimControl(r, dt, touching, bank, held) {
   const wantLatV = r.done ? (0 - r.lat) * 0.5 : r.spinT > 0 ? 0 : -steer * A.latRate * clamp(r.v / A.latFull, 0.25, 1);   // (spinning, the steer waits for it)
   r.latV += (wantLatV - r.latV) * Math.min(1, A.latResp * sf.grip * dt);
 }
+// (v200) A STREET CIRCUIT'S BENDS are slow ones: every racer -- him included, the same sum -- held to
+// the speed each bend ahead allows (`bendA` across it), braking for it at `bendBrake` from as far back as
+// it needs. On the open tracks there is none: they have no `bendA`.
+function rcBendCap(r) {
+  const D = race.track && race.track.def;
+  if (!D || !D.bendA || r.path) return Infinity;
+  const b = D.bendBrake, reach = r.v * r.v / (2 * b) + 8;
+  let cap = Infinity;
+  for (let d = 0; d <= reach; d += 2) {
+    const kh = Math.abs(rcAt(r.s + d).kh);
+    if (kh > 0.004) cap = Math.min(cap, Math.sqrt(D.bendA / kh + 2 * b * d));
+  }
+  return cap;
+}
 function rcSpeedTo(r, want, dt) {
-  want = rcItSpeed(r, want);                    // (v187) an item's push, or a spin's
+  want = Math.min(rcItSpeed(r, want), rcBendCap(r));   // (v187) an item's push, or a spin's; (v200) a street bend's
   if (r.glideHold > 0) { r.glideHold -= dt; if (!r.air) want *= RC.wall.glideSpeed; }   // (riding a barrier: rcEdge)
   const up = RC.accel, down = want > 1 ? RC.brake : RC.coast;
   r.v += clamp(want - r.v, -down * dt, up * dt);
@@ -1476,12 +1538,12 @@ function rcAI(r, dt, going) {
   r.lineT += dt;
   let aim = r.line + Math.sin(r.lineT * A.wander[0] + r.i) * A.wander[1];
   // the inside of a bend is shorter, and the good ones know it
-  if (Math.abs(q.kh) > 0.002 && !r.path) aim = lerp(aim, Math.sign(q.kh) * RC.width * 0.3, A.inside);
+  if (Math.abs(q.kh) > 0.002 && !r.path) aim = lerp(aim, Math.sign(q.kh) * rcW() * 0.3, A.inside);
   // a shortcut, now and then (its own choice once per pass); on one, down its middle
   for (const sc of race.track.sc) {
     if (r.path) break;
     const ahead = rcAhead(sc.sa + sc.gore, r.s);
-    if (ahead > 0 && ahead < A.padSee + sc.gore && rcScOpen(sc, r)) { if (r.scFor !== sc) { r.scFor = sc; r.scGo = rcRnd() < A.shortcutP; } if (r.scGo) aim = sc.side * (RC.width / 2 - sc.mouth / 2); }
+    if (ahead > 0 && ahead < A.padSee + sc.gore && rcScOpen(sc, r)) { if (r.scFor !== sc) { r.scFor = sc; r.scGo = rcRnd() < A.shortcutP; } if (r.scGo) aim = sc.side * (rcW() / 2 - sc.mouth / 2); }
   }
   if (r.path) aim = Math.sin(r.lineT * A.wander[0] + r.i) * Math.min(A.wander[1], r.path.half / 3);
   for (const pd of race.pads) {
@@ -1532,7 +1594,7 @@ function rcMove(r, dt) {
   // a pad under him: caught by ONE width, whatever he drives (by its own, the giant caught more)
   for (const pd of race.pads) {
     const d = rcAhead(pd.s, prevS), dd = r.s - prevS;
-    if (d >= 0 && d <= dd + 0.01 && Math.abs(r.lat - pd.lat) < RC.padW / 2 + RC.footW * 0.3) {
+    if (d >= 0 && d <= dd + 0.01 && Math.abs(r.lat - pd.lat) < rcPadW() / 2 + RC.footW * 0.3) {
       r.padT = RC.padTime;
       if (r.isHim) { race.padHits++; flags.racePads = (flags.racePads || 0) + 1; rcWhoosh(); cameraPunch(0.4); rcThing("pad"); }
     }
@@ -1549,7 +1611,7 @@ function rcMove(r, dt) {
     const L = race.track.len, nose = sc.sa + sc.gore, base = Math.floor(prevS / L) * L;
     const w = r.isHim ? rcScHold(r, sc, r.s - base - (nose - sc.hold), dt) : null;
     const chose = rcScOpen(sc, r) && (r.isHim ? w.on && w.ok : r.scGo && r.scFor === sc);   // (v194: a closed one is no choice)
-    if (prevS - base < nose && r.s - base >= nose && chose && sc.side * r.lat >= RC.width / 2 - sc.mouth && !r.air && !r.done) {
+    if (prevS - base < nose && r.s - base >= nose && chose && sc.side * r.lat >= rcW() / 2 - sc.mouth && !r.air && !r.done) {
       rcPoint(r.s, r.lat, rcPV);
       r.path = sc; r.scBase = base; r.wallSide = undefined;
       r.u = (rcPV.x - sc.ax) * sc.dx + (rcPV.z - sc.az) * sc.dz;
@@ -1578,7 +1640,7 @@ function rcEdge(r, lim, dt, openFn) {
     if (r.isHim) { race.wallShoves++; flags.raceWallShoves = (flags.raceWallShoves || 0) + 1; rcBump(0.25); }
     r.v *= RC.wallKeep;
     r.latV = -r.latV * 0.3;
-  } else if (!r.path && rcAt(r.s).hw < RC.width / 2 - 0.01) {
+  } else if (!r.path && rcAt(r.s).hw < rcW() / 2 - 0.01) {
     // (v193) a loop's funnel narrowing round a car that keeps its lane guides it in: held, no drag (a fresh steer into
     // its edge still thumps, above). Gliding there, a wide car lost half a second a lap: race_checks e2
     if (Math.sign(r.latV) === side) r.latV = 0;
@@ -1693,7 +1755,7 @@ function rcContacts(dt) {
     if (needL - Math.abs(dl) >= (needS - Math.abs(ds)) * 1.2) {
       back.s = front.s - needS - 0.05 - (front.s - back.s > race.track.len / 2 ? race.track.len : 0);
     }
-    if (back.v > front.v) { const m = (back.v + front.v) / 2; back.v = m * RC.shoveKeep; front.v = Math.max(front.v, m); }
+    if (back.v > front.v) { const m = (back.v + front.v) / 2; back.v = m * RC.shoveKeep; front.v = Math.max(front.v, Math.min(m, rcBendCap(front))); }   // (v200: a shove never carries a car past what its bend allows)
     if (A.isHim || B.isHim) {
       race.shoves++; flags.raceShoves = (flags.raceShoves || 0) + 1;
       if ((race.bumpCool || 0) <= 0) { rcBump(0.35); race.bumpCool = 0.4; }
@@ -1717,8 +1779,8 @@ function rcLaps() {
     const laps = Math.floor(r.s / L);
     if (laps > r.lapsDone && !r.done) {
       r.lapsDone = laps;
-      if (r.isHim && laps < RC.laps) { chime(); flags.raceLaps = (flags.raceLaps || 0) + 1; }
-      if (laps >= RC.laps) {
+      if (r.isHim && laps < rcLapsN()) { chime(); flags.raceLaps = (flags.raceLaps || 0) + 1; }
+      if (laps >= rcLapsN()) {
         r.done = true; r.place = ++race.finished; r.finishT = race.t - race.raceT0;
         race.order.push(r);
         if (r.isHim) {
@@ -1760,14 +1822,14 @@ function rcBigMoments(dt) {
     }
   }
   // the last lap: the stands roar, and what was shut opens
-  if (!race.finalLap && Math.floor(him.s / L) >= RC.laps - 1 && !him.done) {
+  if (!race.finalLap && Math.floor(him.s / L) >= rcLapsN() - 1 && !him.done) {
     race.finalLap = true; flags.raceFinalLaps = (flags.raceFinalLaps || 0) + 1;
     rcThing("final");
     B.crowd.chord.forEach((f, i) => { synthBlip("sawtooth", f, f * 1.06, B.crowd.dur, B.crowd.vol, i * 0.04); synthBlip("triangle", f * 2, f * 2.1, B.crowd.dur * 0.8, B.crowd.vol * 0.6, 0.1 + i * 0.05); });
   }
   // a photo finish: him within `near` m of the line on the last lap with a rival within `close` m of him
   if (race.phase === "race" && race.finalLap && !race.photo) {
-    const toLine = RC.laps * L - him.s;
+    const toLine = rcLapsN() * L - him.s;
     if (toLine > 0 && toLine < B.photo.near && race.racers.some(r => !r.isHim && !r.done && Math.abs(r.s - him.s) < B.photo.close)) {
       race.photo = true; race.slowT = B.photo.dur; race.photoT = B.photo.dur;
       rcThing("photo"); flags.racePhotoFinishes = (flags.racePhotoFinishes || 0) + 1;
@@ -1778,7 +1840,7 @@ function rcBigMoments(dt) {
   for (const sc of race.track.sc || []) if (sc.gate) { const up = rcScOpen(sc, him) ? 1 : 0; sc.gateA += clamp(up - sc.gateA, -dt * B.gate.rate, dt * B.gate.rate); sc.gate.rotation.z = sc.gateA * B.gate.swing; for (const m of sc.gateSign) m.visible = sc.gateA < 0.3; }   // (open, it says nothing: red-and-bar means no)
 }
 // (v194) a shortcut marked `final` is shut -- a barrier across its mouth -- until his (or that racer's) last lap
-function rcScOpen(sc, r) { return !sc.final || (r && Math.floor(r.s / race.track.len) >= RC.laps - 1); }
+function rcScOpen(sc, r) { return !sc.final || (r && Math.floor(r.s / race.track.len) >= rcLapsN() - 1); }
 // the photo's flash: the whole screen white for an instant; the rocket start's from the seat: a warm glow round the
 // edges, the flames he cannot see beside him (spray fades near the camera by design). Plain elements, no words.
 function rcFlash(edge) {
@@ -1818,7 +1880,7 @@ function rcToPodium() {
   if (!race.podium.onStep) {
     const L = race.track.len, ps = rcPodiumM(race.track.def);
     const base = Math.floor(him.s / L) * L;
-    him.s = base + ps - RC.podium.parade; him.lat = RC.width / 2 - 2.5; him.latV = 0; him.v = RC.podium.paradeV; him.yaw = 0; him.path = null; him.air = false;
+    him.s = base + ps - RC.podium.parade; him.lat = rcW() / 2 - 2.5; him.latV = 0; him.v = RC.podium.paradeV; him.yaw = 0; him.path = null; him.air = false;
     race.paradeStop = base + ps + RC.podium.stopPast + (state.vp.monster ? RC.podium.giantPast : 0);   // (the giant stops further on, or it hides the steps)
   }
   confettiBurst(); cheer();
@@ -2244,9 +2306,9 @@ function raceCamera(dt) {
   // (v194) a photo finish: from beside the line, low, square across it -- the cars go by in slow motion
   if (race.photoT > 0 && him) {
     const P = RC.big.photo, sd = him.lat >= 0 ? 1 : -1;                // (his side: a rival on the far side never hides him)
-    rcPoint(RC.laps * race.track.len + P.camAhead, sd * P.camSide, rcPC);
+    rcPoint(rcLapsN() * race.track.len + P.camAhead, sd * P.camSide, rcPC);
     camera.position.set(rcPC.x, rcPC.y + P.camUp, rcPC.z);
-    rcPoint(RC.laps * race.track.len, him.lat * 0.5, rcPV);
+    rcPoint(rcLapsN() * race.track.len, him.lat * 0.5, rcPV);
     lookV.set(rcPV.x, rcPV.y + 1, rcPV.z); camera.lookAt(lookV);
     if (typeof carHideCabin === "function") carHideCabin();
     if (race.him.mesh) race.him.mesh.visible = true;
@@ -2494,7 +2556,7 @@ function rcHudBuild() {
   h.classList.remove("podium");
   const laps = h.querySelector(".raceLaps"), strip = h.querySelector(".racePos");
   laps.innerHTML = ""; strip.innerHTML = "";
-  for (let k = 0; k < RC.laps; k++) { const d = document.createElement("i"); laps.appendChild(d); }
+  for (let k = 0; k < rcLapsN(); k++) { const d = document.createElement("i"); laps.appendChild(d); }
   for (const r of race.racers) {
     const d = document.createElement("b");
     d.innerHTML = rcSilSvg(r.key);
@@ -2506,7 +2568,7 @@ function rcHudBuild() {
 function rcHud() {
   const h = el.raceHud, him = race.him;
   const lights = h.querySelectorAll(".raceLaps i");
-  const on = Math.min(RC.laps, him.lapsDone + (race.phase === "race" ? 1 : 0));
+  const on = Math.min(rcLapsN(), him.lapsDone + (race.phase === "race" ? 1 : 0));
   lights.forEach((d, k) => { d.className = k < him.lapsDone ? "done" : (k < on ? "now" : ""); });
   const order = racePlaces();
   const key = order.map(r => r.i).join(",");

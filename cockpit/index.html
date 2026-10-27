@@ -909,6 +909,8 @@
     #raceHud .racePos b { width: 22px; height: 12px; }
     #raceHud .racePos b.him { width: 32px; height: 17px; box-shadow: 0 0 0 2px #ffd23e; }
   }
+  /* v200: six tracks are taller than a phone held upright -- centred only when they fit, or the first card is pushed above the top, out of reach */
+  #screenRace { align-content: safe center; }
   .card.trackCard { width: clamp(220px, 42vmin, 400px); height: clamp(160px, 30vmin, 290px); }
   .card.trackCard.back { width: clamp(120px, 18vmin, 170px); height: clamp(120px, 18vmin, 170px); }
   .screen.hiddenS, .card.hiddenS { display: none; }
@@ -1577,6 +1579,25 @@
       <path d="M6 155 Q50 147 80 119 Q110 93 140 81 Q160 73 172 69 Q182 59 192 69 L218 67" fill="none" stroke="#ffd23e" stroke-width="3" stroke-dasharray="3 7"/>
       <path d="M20 132 h6 v6 h-6z M26 138 h6 v6 h-6z M20 144 h6 v6 h-6z" fill="#f2f4f7"/>
       <path d="M26 132 h6 v6 h-6z M20 138 h6 v6 h-6z M26 144 h6 v6 h-6z" fill="#1f2328"/>
+    </svg>
+  </button>
+  <button class="card trackCard" data-track="london">
+    <svg viewBox="0 0 220 160">
+      <!-- track 6 (v200): london -- Tower Bridge's two towers over the blue river, the road across it, Big Ben standing by, a red bus on the road, the chequered line -->
+      <rect x="0" y="0" width="220" height="160" rx="10" fill="#5ff1ff" opacity="0.7"/>
+      <path d="M0 118 L220 118 L220 160 L0 160 Z" fill="#2f74b8"/>
+      <path d="M58 118 V54 H82 V118 Z M138 118 V54 H162 V118 Z" fill="#d6cdb4" stroke="#23282f" stroke-width="3"/>
+      <path d="M52 56 L70 30 L88 56 Z M132 56 L150 30 L168 56 Z" fill="#3c4350"/>
+      <path d="M82 62 H138 M82 70 H138" stroke="#5d9bd5" stroke-width="5"/>
+      <path d="M10 106 Q40 70 58 64 M162 64 Q180 70 210 106" fill="none" stroke="#5d9bd5" stroke-width="4"/>
+      <path d="M0 106 H220" stroke="#3c4350" stroke-width="12"/>
+      <path d="M0 106 H220" stroke="#f2f4f7" stroke-width="2" stroke-dasharray="8 10"/>
+      <path d="M190 106 V40 H202 V106 Z" fill="#d9c27e" stroke="#23282f" stroke-width="3"/>
+      <path d="M188 40 L196 20 L204 40 Z" fill="#3c4350"/><circle cx="196" cy="50" r="4" fill="#f2f4f7" stroke="#23282f" stroke-width="1.5"/>
+      <rect x="100" y="90" width="26" height="14" rx="2" fill="#e0483e" stroke="#23282f" stroke-width="2"/>
+      <path d="M103 94 H123" stroke="#1b2430" stroke-width="3"/>
+      <path d="M20 96 h6 v6 h-6z M26 102 h6 v6 h-6z M20 108 h6 v6 h-6z" fill="#f2f4f7"/>
+      <path d="M26 96 h6 v6 h-6z M20 102 h6 v6 h-6z M26 108 h6 v6 h-6z" fill="#1f2328"/>
     </svg>
   </button>
   <button class="card trackCard back" data-track="back"><svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M30 86V30h40v56" stroke="#5ff1ff" stroke-width="8"/><path d="M50 62C50 40 62 26 86 22M74 12l12 10-12 10" stroke="#f2f4f7" stroke-width="8"/></svg></button>

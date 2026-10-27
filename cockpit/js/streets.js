@@ -187,6 +187,7 @@ function stEdgeClear(x0, z0, x1, z1, half) {
   forEachSolid(b => {
     if (b.mesh && b.mesh.isCityProxy) return;
     if (b.park) return;                         // the city's own parked cars stand on its streets
+    if (b.mesh && (b.mesh.userData.raceDay || (b.mesh.parent && b.mesh.parent.userData.raceDay))) return;   // (v200) a street race's barriers stand on race day only: never a street's absence
     const cx = Math.max(Math.min(x0, x1) - half - pad, Math.min(Math.max(x0, x1) + half + pad, b.x));
     const cz = Math.max(Math.min(z0, z1) - half - pad, Math.min(Math.max(z0, z1) + half + pad, b.z));
     if (Math.abs(cx - b.x) < b.hw + half + pad && Math.abs(cz - b.z) < b.hd + half + pad) solids.push(b);
@@ -1976,8 +1977,10 @@ function stUpdateTraffic(dt) {
   const him = stHim();
   stPlaceHim = him;
   const idx = ST_SHAPES.map(() => 0);
+  // (v200) on race day the streets are the race's: no traffic in any city while one is run
+  const racing = typeof raceOn === "function" && raceOn();
   for (const v of stTraffic.list) {
-    if (!city) { v.alive = false; continue; }
+    if (!city || racing) { v.alive = false; continue; }
     if (!v.alive || v.city !== city.key) {
       v.respawn -= dt;
       if (v.respawn > 0 && v.city === city.key) continue;
