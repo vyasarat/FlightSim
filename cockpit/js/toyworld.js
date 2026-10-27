@@ -542,7 +542,8 @@ const twTrailTint = new THREE.Color();
 function twUpdateTrails(dt) {
   const T = TW.trails, flying = state.phase === 'AIRBORNE' && !state.exploding && !state.vp.rocket && !menuOpen();
   for (const c of toyWorld.clouds) {
-    c.g.visible = Math.hypot(state.x - c.x, state.z - c.z) < TW.visibleRange;
+    // (v208) and not in a race's sky: from a track kilometres off the haze made them white glyphs (race.js rcRaceDay)
+    c.g.visible = !(typeof raceOn === "function" && raceOn()) && Math.hypot(state.x - c.x, state.z - c.z) < TW.visibleRange;
     const inside = flying && Math.hypot(state.x - c.x, state.y - c.y, state.z - c.z) < (c.rainbow ? T.rainbowR : T.cloudR);
     if (inside && !c.inside) {
       toyWorld.trailColor = c.color; toyWorld.rainbow = c.rainbow;

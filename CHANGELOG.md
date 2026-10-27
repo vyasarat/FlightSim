@@ -10,6 +10,19 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v208 — No ghosts in a race's sky
+
+Racing round Beach Splash's lagoon he could see a white arch and a white streak hanging in the sky over
+the land. They were the toy world's rainbow and colour clouds over the New York airport, two kilometres
+off, which the haze turned white -- a rainbow from far away is an arch, a hoop seen edge-on is a line.
+During a race now, the flying rings and the colour clouds are put away; they are back the moment the race
+is over.
+
+## v207 — The tests run faster (no change to the game)
+
+The automatic checks that run before every release took about 55 minutes; a change in how they start
+the browser brings them to about 44.
+
 ## v206 — The airport trucks are solid
 
 The fuel truck and the baggage cart at every airport were ghosts: his car, or his plane on the ground,

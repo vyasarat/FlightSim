@@ -82,6 +82,7 @@ entry below.
 | v204 | he notices the yellow fuel truck and the green cart waiting by the terminal and drives or taxis over to them |  open |
 | v205 | nothing he can see changes (a regression would be runway lights that blink out as he turns towards them) |  open |
 | v206 | he drives into the fuel truck on purpose to see what happens, and does it again |  open |
+| v208 | nothing he notices (a regression would be the rainbow or the rings missing after a race, when he flies again) |  open |
 
 ## Entries
 

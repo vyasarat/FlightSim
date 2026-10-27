@@ -482,6 +482,25 @@ module.exports = async function raceChecks({ newPage, check }) {
       check(`race: a finger in a race is never eaten -- put down anywhere on the picture and dragged, it steers: ${Object.entries(k).map(([v, r]) => `${v} ${r.tried - r.eaten.length}/${r.tried}${r.eaten.length ? " (eaten at " + r.eaten.map(p => p.join(",")).join(" ") + ")" : ""}`).join("; ")}`,
         Object.values(k).every(r => r.tried >= 15 && r.eaten.length === 0 && r.race && (r.chase || r.screenHidden === true)), J(k));
     }
+    // ---- o. (v208) the flight rings are not in a race's sky (from a track the haze made them white glyphs),
+    // and they are back after it
+    if (w === 820) {
+      const rg = await page.evaluate(() => {
+        const L = window.__lp, st = L.state, out = {};
+        L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 5; i++) L.update(1 / 60);
+        const sky = () => [L.ringsGroupVisible() ? 1 : 0].concat(L.toyWorld.clouds.map(c => c.g.visible ? 1 : 0)).join("");   // (each: 1 shown)
+        out.clouds = L.toyWorld.clouds.length;
+        out.before = sky();
+        L.rcStartRace("beach", 3); for (let i = 0; i < 60; i++) L.update(1 / 60);
+        out.during = sky();
+        // (and some were in range of him, so the old distance rule alone would have shown them: the race hid them)
+        out.inRange = L.toyWorld.clouds.filter(c => Math.hypot(st.x - c.x, st.z - c.z) < L.TW.visibleRange).length;
+        L.raceReset(); for (let i = 0; i < 5; i++) L.update(1 / 60);
+        out.after = sky();
+        return out;
+      });
+      check(`race: the flier's targets -- the flight rings and the toy world's colour clouds and rainbow -- are not in a race's sky, and are back after it as they were (${J(rg)})`, rg.clouds > 0 && rg.inRange > 0 && rg.before.includes("1") && !rg.during.includes("1") && rg.after === rg.before, J(rg));
+    }
     // ---- n. (v202) the field's pace per car he drives: on every track the monster truck's rivals are the SUV's
     // times that track's `aiCar.monster`, and the SUV, Cybertruck and Corvette meet exactly the same field
     if (w === 820) {
