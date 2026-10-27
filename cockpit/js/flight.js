@@ -364,6 +364,7 @@ function updateFlightTones() {
 
 function update(dt) {
   frameCount++;
+  state.gameT += dt;   // (v203) the game's own clock: every bob and pulse times off it
   // v147: dad mode's pad lockout and, inside dad mode, its sortie (dadmode.js)
   if (typeof dadTick === "function") dadTick(dt);
   updateEjectControl();
@@ -720,9 +721,9 @@ function update(dt) {
     }
   }
 
-  const pulse = 1 + Math.sin(performance.now() * 0.001 * TUNE.ringPulseRate) * 0.07;
+  const pulse = 1 + Math.sin(gameMs() * 0.001 * TUNE.ringPulseRate) * 0.07;
   for (const r of rings) r.scale.setScalar(pulse);
-  const blinkOn = Math.sin(performance.now() * 0.004) > -0.3;
+  const blinkOn = Math.sin(gameMs() * 0.004) > -0.3;
   for (const b of blinkers) if (!b.userData.override) b.visible = blinkOn;
 
   updateHighway(dt);

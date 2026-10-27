@@ -55,6 +55,22 @@ module.exports = async function boatChecks({ newPage, check, shots, perf }) {
   const { page } = await newPage(1180, 820);
   await page.evaluate(() => { window.__lp.noRender = true; });
 
+  // ---- (v203) at rest the speedboat and the yacht bob on the GAME's clock: their height moves as
+  // sim-time passes (a clock that stopped would freeze every bob and pulse), and state.gameT is what moved it
+  const bob = await page.evaluate(() => {
+    const L = window.__lp, st = L.state, out = {};
+    for (const [veh, at] of [["speedboat", [1, 1]], ["yacht", [1, 1]]]) {
+      L.api.setVehicle(veh); L.api.spawnAt(at[0], at[1]); L.api.skipScreens();
+      for (let i = 0; i < 120; i++) { st.touching = false; L.update(1 / 60); }
+      const t0 = st.gameT, ys = [], ms = [];
+      for (let i = 0; i < 60 * 6; i++) { st.touching = false; L.update(1 / 60); if (i % 10 === 0) { ys.push(veh === "yacht" ? L.yacht.bob : st.y); ms.push(st.gameT * 1000); } }
+      out[veh] = { range: +(Math.max(...ys) - Math.min(...ys)).toFixed(3), gameT: +(st.gameT - t0).toFixed(2), msMoved: ms[ms.length - 1] - ms[0] };
+    }
+    return out;
+  });
+  check(`boat: at rest the speedboat and the yacht bob on the game's own clock -- over 6 sim-seconds the clock moved ${bob.speedboat.gameT} s and they rose and fell ${bob.speedboat.range} / ${bob.yacht.range} m`,
+    ["speedboat", "yacht"].every(k => bob[k].range > 0.02 && Math.abs(bob[k].gameT - 6) < 0.05 && bob[k].msMoved > 5000), JSON.stringify(bob));
+
   // ---- the harbour is built, and it is built where the terrain says ---------
   const built = await page.evaluate(() => {
     const L = window.__lp, HB = L.HB, W = L.TUNE.waterLevel;

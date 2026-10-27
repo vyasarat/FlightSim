@@ -42,8 +42,13 @@
 //                where it crashed records that itself (boat.crashX, car.crashX)
 //                and uses it in its own reassemble slot. The car not doing this
 //                is why it used to come back at the far end of the last flight.
+//   gameT        (v203) seconds of GAME time: update(dt) adds dt. Every bob, pulse and
+//                blink times off it (gameMs()), never performance.now() -- the
+//                harness runs 12 sim-seconds in a sixth of a real one, so a wall-clock
+//                bob left the boat's resting height to how long the page took.
 // ---------------------------------------------------------------------------
 const state = {
+  gameT: 0,
   x: 0, y: 0, z: 0,
   pitch: 0, bank: 0, heading: 0,
   ctrlBank: 0, ctrlPitch: 0,
@@ -93,6 +98,8 @@ const state = {
   destIdx: 1,
   dest: "moon"   // where the rocket's landing button aims in space: moon | mars | station
 };
+// (v203) game time in milliseconds, for the sin() of a bob or a pulse
+function gameMs() { return state.gameT * 1000; }
 
 const flags = { liftoff: 0, touchdown: 0, missed: 0, repositioned: 0, exploded: 0, gear: 0, missiles: 0, missileHits: 0, shootdowns: 0, midairs: 0, ringsEaten: 0, gates: 0, wingman: 0, alarms: 0, targets: 0 };
 const safePos = { x: 0, y: 0, z: 0 };

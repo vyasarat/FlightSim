@@ -315,7 +315,7 @@ function updateYacht(dt) {
   state.x += fx * state.speed * dt;
   state.z += fz * state.speed * dt;
   forward.set(fx, 0, fz);
-  yacht.bob = Math.sin(performance.now() * 0.0009) * YT.bob;
+  yacht.bob = Math.sin(gameMs() * 0.0009) * YT.bob;
   state.y = yachtSeaY() + yacht.bob;
   state.airVy = 0;
   state.pitch += (state.speed / YT.cruise * 0.8 - state.pitch) * Math.min(1, 2 * dt);
@@ -564,7 +564,7 @@ function yachtLate(dt) {
   }
   yacht.lastX = yacht.x; yacht.lastZ = yacht.z;
   if (yacht.padRing) {
-    const k = 0.9 + 0.1 * Math.sin(performance.now() * 0.003);
+    const k = 0.9 + 0.1 * Math.sin(gameMs() * 0.003);
     yacht.padRing.scale.setScalar(k);
   }
 }
