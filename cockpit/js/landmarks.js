@@ -649,7 +649,7 @@ function buildAirport(idx, opts) {
   beacon.position.set(m * 150, 50.5, 260);
   g.add(beacon);
   blinkers.push(beacon);
-  const rec = { idx, cz: ap.cz, m, beacon, cab, doors: [], sock: null, buzz: 0, doorOpen: 0, flyby: 0, vehicles: [] };
+  const rec = { idx, cz: ap.cz, m, beacon, cab, doors: [], sock: null, buzz: 0, doorOpen: 0, flyby: 0, vehicles: [], runwayLights: [] };
   airports.push(rec);
   if (!O.noSpot) addSpot(m * 150, ap.elev + 66, ap.cz + 260);   // sparkle spot above the control tower
   // apron vehicles: a fuel truck and a baggage cart that drive out to the plane
@@ -734,7 +734,12 @@ function buildAirport(idx, opts) {
     const inner = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), redLightMat, 12);
     for (let k = 0; k < 12; k++) { d.position.set(-halfW + 2.5 + k * (TUNE.runwayWidth - 5) / 11, 0.45, endZ - Math.sign(endZ) * 6); d.updateMatrix(); inner.setMatrixAt(k, d.matrix); }
     g.add(inner);
+    rec.runwayLights.push(bar, inner);
   }
+  // (v205) culled at the runway's own bounds: three.js r128 builds every InstancedMesh unculled, so every
+  // airport's edge lights and threshold bars were drawn from everywhere -- the race tracks, the far coast
+  rec.runwayLights.push(lights);
+  for (const im of rec.runwayLights) { im.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), halfL + 40); im.frustumCulled = true; im.userData.runwayLights = true; }
   // launch complex on the far side (SLC-40 style): concrete pad, launch mount over a
   // flame trench with a deflector, the strongback that swings away at ignition, four
   // lightning towers, a water tower for the deluge, the integration hangar at the base
