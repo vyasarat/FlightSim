@@ -482,6 +482,53 @@ module.exports = async function raceChecks({ newPage, check }) {
       check(`race: a finger in a race is never eaten -- put down anywhere on the picture and dragged, it steers: ${Object.entries(k).map(([v, r]) => `${v} ${r.tried - r.eaten.length}/${r.tried}${r.eaten.length ? " (eaten at " + r.eaten.map(p => p.join(",")).join(" ") + ")" : ""}`).join("; ")}`,
         Object.values(k).every(r => r.tried >= 15 && r.eaten.length === 0 && r.race && (r.chase || r.screenHidden === true)), J(k));
     }
+    // ---- m. (v201) from his SEAT on the grid, on every track, in every car he drives, portrait and landscape:
+    // the three start lamps over his column are inside the windscreen (on the beam they were over its top on all six) and nothing
+    // stands between his eye and any of them -- the car ahead, a pillar, the gantry
+    if (w === 820) {
+      const lm = {};
+      for (const [vw, vh] of [[820, 1180], [1180, 820]]) {
+        await page.setViewportSize({ width: vw, height: vh });
+        lm[`${vw}x${vh}`] = await page.evaluate(() => {
+          const L = window.__lp, S = L.state, R = L.race, T3 = window.THREE, out = [];
+          for (const id of L.RC.tracks.map(t => t.id)) for (const veh of ["car", "cybertruck", "corvette", "monster"]) {
+            L.api.setVehicle(veh); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
+            L.api.setView(false); L.rcStartRace(id, 3);
+            for (let i = 0; i < Math.round(60 * (L.RC.count.lead + L.RC.count.step * 1.6)); i++) { S.touching = false; L.update(1 / 60); }
+            const cam = L.camera; cam.updateMatrixWorld();
+            const rc = new T3.Raycaster(); rc.camera = cam;
+            // (the board over his column: each column has its own, lit as one)
+            const sets = (R.lampSets || [R.lights]).map(set => set.map(m => { const p = new T3.Vector3(); m.getWorldPosition(p); return Math.abs(p.clone().project(cam).x); }));
+            const mine = (R.lampSets || [R.lights])[sets.map(a => Math.max(...a)).reduce((b, v, i, a) => v < a[b] ? i : b, 0)];
+            const lamps = mine.map(m => {
+              const p = new T3.Vector3(); m.getWorldPosition(p);
+              const n = p.clone().project(cam), d = cam.position.distanceTo(p);
+              rc.set(cam.position, p.clone().sub(cam.position).normalize()); rc.far = d + 2;
+              const hit = rc.intersectObjects(L.scene.children, true).find(h => h.object.visible !== false && h.distance > 0.3);
+              const clear = !hit || hit.object === m || hit.distance > d - 1.2;
+              // (and the big 3-2-1 is not on top of it: its glyph's box, a fifth in from each side)
+              const nb = document.getElementById("bigNum").getBoundingClientRect(), px = (n.x + 1) / 2 * innerWidth, py = (1 - n.y) / 2 * innerHeight;
+              const underNum = nb.width > 0 && px > nb.left + nb.width * 0.2 && px < nb.right - nb.width * 0.2 && py > nb.top + nb.height * 0.2 && py < nb.bottom - nb.height * 0.2;
+              return { y: +n.y.toFixed(2), x: +n.x.toFixed(2), clear: clear && !underNum, by: underNum ? "the numeral" : clear ? null : (hit.object.name || hit.object.type) + "@" + hit.distance.toFixed(1) };
+            });
+            // (the frame really is the countdown, and both boards show the same lamps)
+            const col = set => set.map(m => m.material.color.getHex()).join();
+            const all = R.lampSets || [R.lights], red = R.lights.filter(m => m.material.color.getHex() === L.TUNE.palette.red).length;
+            out.push({ id, veh, lamps, phase: R.phase, red, same: all.every(st => col(st) === col(all[0])) });
+            L.raceReset();
+          }
+          L.api.setView(true);
+          return out;
+        });
+      }
+      await page.setViewportSize({ width: w, height: h });
+      const bad = [];
+      for (const [vp, rows] of Object.entries(lm)) for (const r of rows) for (const l of r.lamps) if (!(l.y > -0.1 && l.y < 0.7 && Math.abs(l.x) < 0.8 && l.clear)) bad.push({ vp, id: r.id, veh: r.veh, ...l });
+      for (const [vp, rows] of Object.entries(lm)) for (const r of rows) if (r.phase !== "grid" || r.red !== 2 || !r.same) bad.push({ vp, id: r.id, veh: r.veh, phase: r.phase, red: r.red, same: r.same });
+      const ys = Object.values(lm).flat().flatMap(r => r.lamps.map(l => l.y));
+      check(`race: from his seat on the grid, on every track (${lm["820x1180"].map(r => r.id).filter((v, i, a) => a.indexOf(v) === i).join(", ")}) in all four cars, portrait and landscape, the three start lamps are inside the windscreen (screen height ${Math.min(...ys)} to ${Math.max(...ys)}, -1..1) and nothing stands between his eye and any of them, the big 3-2-1 included`,
+        bad.length === 0 && ys.length > 0, J(bad.slice(0, 12)));
+    }
     // ---- l. (v195) from the driving seat, in landscape and portrait, the doors stand below the dash line as he
     // sees it: the front top corner of each door card lands on screen no higher than the dash shelf's far edge (at 2.2 m
     // a door top was level with his eye, and in landscape the door ahead of him stood up as a black slab)

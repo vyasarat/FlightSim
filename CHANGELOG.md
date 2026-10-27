@@ -10,6 +10,16 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v201 — The start lamps from the driving seat
+
+From the driving seat on the start grid he could not see the start lamps: they hung on the gantry's
+beam, 15 m up, above the top of the windscreen, on every track. Now they hang lower, on a board under
+the beam, one board straight ahead of each side of the grid, lit together -- so from his seat, in
+every car and on all six tracks, he watches them come on red, red, red, then green, right there in
+the windscreen, under the race's position strip. The big 3-2-1 moved down a little so it sits under
+the lamps, not on them. A check now looks from his seat on every track in all four cars, upright and
+sideways.
+
 ## v200 — A London race track
 
 A sixth race track, a street circuit through London: from the start on the Mall up to Buckingham

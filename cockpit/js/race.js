@@ -358,8 +358,16 @@ function rcBuild() {
 // oval is built first, exactly as it always was; each later one on the kit's
 // stream with its seed put back after, so the oval and everything built after the
 // venues draw what they drew before there was more than one.
-const RC_VENUE = ["track", "pads", "padMesh", "venue", "lights", "gantry", "stands", "standsG", "podiumG", "podiumSpots",
+const RC_VENUE = ["track", "pads", "padMesh", "venue", "lights", "lampSets", "gantry", "stands", "standsG", "podiumG", "podiumSpots",
                   "podiumFace", "podiumC", "trophy", "trophyStand", "flags", "flagsG", "dayMark"];
+// (v201) a builder's own random stream (three.js draws Math.random for every object's id): what it makes
+// is not seen by the kit's stream or the page's. One stream for the whole page, so no two ids repeat.
+let rcOwnSeed = 0x2012c0de;
+function rcOwnStream(fn) {
+  const R = Math.random;
+  Math.random = () => { rcOwnSeed = (rcOwnSeed * 1664525 + 1013904223) >>> 0; return rcOwnSeed / 4294967296; };
+  try { return fn(); } finally { Math.random = R; }
+}
 function rcBuildQuiet() {
   race.venues = {};
   RC.tracks.forEach((def, i) => {
@@ -700,11 +708,35 @@ function rcBuildVenue(def) {
     const t = new THREE.Mesh(new THREE.BoxGeometry(span / 16, 0.9, 0.1), new THREE.MeshBasicMaterial({ color: c % 2 ? 0x1f2328 : 0xf2f4f7 }));
     t.position.set(-span / 2 + span / 32 + c * span / 16, legH + 0.85, 0.85); gan.add(t);
   }
-  race.lights = [];
+  // (v201) the lamps hang on boards BELOW the beam, at `lampH`, one board straight ahead of each column of
+  // the grid: up on the beam they were over the top of his windscreen from the grid, on every track, and one
+  // set in the middle ran off the side of an upright screen from a column 5 m over. The two boards' lamps share
+  // their materials, so they light as one; `race.lights` is the first board's three
+  const lampY = RC.lampH, lane = Math.min(RC.grid.lat, rcW() / 2 - 1.9);
+  // the first board's three lamps are made exactly as the beam's three were (the kit's stream sees the
+  // same draws); the boards, rods and second set on a stream of their own (rcOwnStream), so nothing
+  // built after them -- every later venue, the Corvette, the traffic -- draws differently for them
+  race.lights = []; race.lampSets = [];
   for (let k = 0; k < 3; k++) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 8), new THREE.MeshBasicMaterial({ color: TUNE.palette.ink, fog: false }));
-    m.position.set((k - 1) * 2.6, legH - 0.2, 0.9); gan.add(m); race.lights.push(m);
+    m.position.set(-lane + (k - 1) * 2.6, lampY, 0.9); gan.add(m); race.lights.push(m);
   }
+  rcOwnStream(() => {
+    for (const sd of [-1, 1]) {
+      const cx = sd * lane, set = sd < 0 ? race.lights.slice() : [];
+      const board = new THREE.Mesh(new THREE.BoxGeometry(8.2, 3.2, 0.6), mattMat(TUNE.palette.ink));
+      board.position.set(cx, lampY, 0.5); gan.add(board);
+      for (const sx of [-3.2, 3.2]) {
+        const rodH = (legH - 1.3) - (lampY + 1.6), rod = new THREE.Mesh(new THREE.BoxGeometry(0.35, rodH, 0.35), grey);
+        rod.position.set(cx + sx, lampY + 1.6 + rodH / 2, 0.5); gan.add(rod);
+      }
+      if (sd > 0) for (let k = 0; k < 3; k++) {
+        const twin = race.lights[k], m = new THREE.Mesh(twin.geometry, twin.material);   // (the same material: they light as one)
+        m.position.set(cx + (k - 1) * 2.6, lampY, 0.9); gan.add(m); set.push(m);
+      }
+      race.lampSets.push(set);
+    }
+  });
   // facing the grid (the cars come at it along +T): its +z face toward -T
   const yaw = Math.atan2(-s0.tx, -s0.tz);
   gan.position.set(s0.x, s0.gy, s0.z); gan.rotation.y = yaw;
