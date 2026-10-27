@@ -2382,6 +2382,12 @@ const TUNE = {
 
   // ---- v164: THE RACE (race.js) -- his idea. The one place he can lose (CLAUDE.md,
   // the parent's exception): a real finishing order. Nothing else is taken away.
+  // (v206) the airport's apron fuel truck and baggage cart, as solids: half-sizes in metres, and how far along
+  // its length (+z, the truck's cab) the box's middle sits from the mesh's origin
+  airport: {
+    truck: { halfW: 1.7, halfH: 2.4, halfL: 4.5, zOff: 0.95 },
+    cart: { halfW: 1.15, halfH: 1.1, halfL: 4.9, zOff: -3.4 },
+  },
   race: {
     site: { x: 1050, z: -3150, heading: 180 },   // (surveyed: flat to 4 m, 500 m off the motorway, nothing near) the start line's middle; heading as the game's (forward = -sin, -cos): the main straight (v173: raced south, along +z; it ran north)
     width: 26, kerbW: 1.8, kerbStep: 4, wallH: 1.1,

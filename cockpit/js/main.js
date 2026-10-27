@@ -193,7 +193,7 @@ grabWakeLock();
 
 window.__lp = {
   toyWorld, TW, twRelease, twWashStart, twWashCan, twWelcome, twHorn, updateToyWorld,
-  TUNE, state, flags, update, terrainEff, shapedTerrain, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,
+  TUNE, state, flags, update, terrainEff, shapedTerrain, apronVehiclesTo, flattenMask, AIRPORTS, ROUTE_LANDMARKS, wrapPi,
   get safePos(){return safePos;}, get blinkers(){return blinkers;}, get hiddenPieces(){return hiddenPieces;},
   get trainHead(){return trainHead;}, get trainSolids(){return trainSolids;}, resolveSolidWalls,
   TRAIN_X, TRAIN_ZMIN, TRAIN_ZMAX,

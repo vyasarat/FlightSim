@@ -567,9 +567,23 @@ function lmOwnStream(fn) {
   Math.random = () => { lmOwnSeed = (lmOwnSeed * 1664525 + 1013904223) >>> 0; return lmOwnSeed / 4294967296; };
   try { return fn(); } finally { Math.random = R; }
 }
+// (v206) an apron truck's solid where its mesh stands: centred along its length (`zOff` from the mesh's
+// origin), turned with it, its bottom on the ground
+function apPoseTruck(v) {
+  if (!v.solid) return;
+  const o = v.solid.o3, h = v.mesh.rotation.y, c = Math.cos(h), s = Math.sin(h), D = v.box;
+  o.c[0] = v.mesh.position.x + s * D.zOff; o.c[2] = v.mesh.position.z + c * D.zOff; o.c[1] = v.mesh.position.y - 0.5 + D.halfH;
+  o.u[0] = c; o.u[1] = 0; o.u[2] = -s;
+  o.w[0] = s; o.w[1] = 0; o.w[2] = c;
+  solidBound3(v.solid);
+}
 function apronVehiclesTo(idx, toPlane) {
   const a = airports.find(r => r.idx === idx);
   if (!a) return;
+  // (v206) they come out to what stands on the apron -- a plane, the helicopter, the rocket on its pad -- and
+  // nothing else: called for a car's spawn they parked in his lane on the motorway (and for a boat's, on the
+  // water), harmless as ghosts, a bang once they were solid. Anything else: home.
+  if (toPlane && typeof vehKind === "function" && !["plane", "heli", "rocket"].includes(vehKind())) toPlane = false;
   a.vehicles.forEach((v, i) => {
     if (toPlane) {
       // start on the parallel taxiway abeam the plane so the drive-in is short
@@ -675,6 +689,14 @@ function buildAirport(idx, opts) {
   for (const v of [truck, cart]) { v.position.set(m * 180, 0.5, hz + (v === truck ? 120 : 160)); scene.add(v); }
   rec.vehicles.push({ mesh: truck, homeX: m * 180, homeZ: hz + 120, x: m * 180, z: hz + 120, tx: m * 180, tz: hz + 120 },
                     { mesh: cart, homeX: m * 180, homeZ: hz + 160, x: m * 180, z: hz + 160, tx: m * 180, tz: hz + 160 });
+  // (v206) solid, in the one registry: a turning box each (as the ferry's), posed where it stands every frame
+  // (apPoseTruck) -- he drove and taxied through them on the apron. Over his crawl a bang, under it a shove.
+  for (const v of rec.vehicles) {
+    const D = v.mesh === truck ? TUNE.airport.truck : TUNE.airport.cart;
+    v.box = D; v.solid = solidBox3(v.x, 0, v.z, [1, 0, 0], [0, 1, 0], [0, 0, 1], D.halfW, D.halfH, D.halfL, "parked");
+    v.solid.mesh = v.mesh; v.solid.moving = true;   // (it drives: the matrix judges what stays put; solidity_checks has its own)
+    apPoseTruck(v);
+  }
   // hangars with arched roofs
   for (const z of [-300, -370]) {
     lmBox(g, 56, 14, 44, 0xb0b6bf, m * 215, 7, z, true, "corrugated");
@@ -868,6 +890,7 @@ function updateAirports(dt) {
         v.mesh.rotation.y = Math.atan2(dx, dz);
       }
       v.mesh.position.set(v.x, terrainEff(v.x, v.z) + 0.5, v.z);
+      apPoseTruck(v);
     }
   }
   if (lightsChase > 0) {

@@ -10,6 +10,15 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v206 — The airport trucks are solid
+
+The fuel truck and the baggage cart at every airport were ghosts: his car, or his plane on the ground,
+went straight through them. Now they are solid, like every other machine -- bump one gently and it
+nudges him aside; hit it fast and it is a bang, and he is put back together on the spot, free.
+They drive out to what stands on the apron -- a plane, the helicopter, the rocket on its pad -- as they
+always did; started in a car or a boat they now stay at home (called out to a car, they used to park in
+his lane on the motorway; to a boat, on the water). (A plane on the ground keeps to its runway's middle, so it never meets them.)
+
 ## v205 — The runway lights are drawn only when he can see them
 
 Every airport's runway edge lights and the green and red bars at each end were drawn whenever he was
