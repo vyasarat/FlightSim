@@ -411,7 +411,7 @@ function updateTowerCatch(dt) {
     tcatch.glowT += (want - tcatch.glowT) * Math.min(1, 3 * dt);
     a.catchZone.visible = tcatch.glowT > 0.01;
     if (a.catchZone.visible) {
-      a.catchZone.material.opacity = tcatch.glowT * (0.75 + 0.25 * Math.sin(performance.now() * 0.006));
+      a.catchZone.material.opacity = tcatch.glowT * (0.75 + 0.25 * Math.sin(gameMs() * 0.006));
     }
   }
   if (inbound) {

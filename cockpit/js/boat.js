@@ -268,10 +268,10 @@ function updateBoat(dt) {
   }
 
   // ---- the hull sits on the water, and bobs when it is not driving
-  const bob = state.speed < BT.planeAt * 0.3 ? Math.sin(performance.now() * 0.0016) * BT.bob : 0;
+  const bob = state.speed < BT.planeAt * 0.3 ? Math.sin(gameMs() * 0.0016) * BT.bob : 0;
   state.y = boatSeaY() + bob + boat.plane * BT.planeLift;
   state.airVy = 0;
-  if (state.speed < BT.planeAt * 0.3) state.bank += Math.sin(performance.now() * 0.0012) * 0.02;
+  if (state.speed < BT.planeAt * 0.3) state.bank += Math.sin(gameMs() * 0.0012) * 0.02;
 
   boatWake(dt, fx, fz);
   boatPlume(dt, fx, fz);   // outside boatWake: that returns early below 3 m/s, which is the idle this wisp is for

@@ -78,6 +78,7 @@ entry below.
 | v200 | he picks the London track card more than any other track for a while; he names something he races past ("Big Ben", "the bridge", "the palace"); he races it more than once though he may come last, and never gets stuck on a corner |  open |
 | v201 | from the driving seat he watches the lamps and goes on green -- counts "three, two, one" with them or says "green!" |  open |
 | v202 | he races the monster truck and wins some -- says "I won" in it, and picks it for a race again |  open |
+| v203 | nothing he can see changes: no sign of it in play (a regression would be a boat or yacht that looks stuck or jittery) |  open |
 
 ## Entries
 

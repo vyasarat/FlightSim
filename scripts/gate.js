@@ -285,6 +285,19 @@ for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => f.e
   }
 }
 
+// ---------- 10a. game code never times off the wall clock (v203) ----------
+// The harness runs 12 sim-seconds in a sixth of a real one: a bob or a pulse off performance.now() is
+// a different picture, and a different resting height, every run. Game time is state.gameT (gameMs()).
+// The frame loop, the audio retry and the zoom guard are real time by nature, and only they may ask it.
+{
+  const WALL_OK = new Set(["cockpit/js/main.js", "cockpit/js/audio.js", "cockpit/js/nozoom.js"]);
+  for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => f.endsWith(".js")).map(f => "cockpit/js/" + f)) {
+    if (WALL_OK.has(f)) continue;
+    const lines = fs.readFileSync(path.join(ROOT, f), "utf8").split("\n");
+    lines.forEach((ln, i) => { const code = ln.replace(/\/\/.*$/, ""); if (/performance\.now\(\)/.test(code)) fail("wall-clock", `${f}:${i + 1} times off performance.now() -- game code uses gameMs() (state.gameT), the game's own clock`); });
+  }
+}
+
 // ---------- 10b. the page's random stream is untouched (v201 retro) ----------
 // Three leaks in four releases (v198 twice, v201): a builder made at load drew from Math.random and every
 // seeded thing after it moved. When the game's files differ from the base, the change is not done until

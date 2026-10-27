@@ -90,7 +90,7 @@ function updateTraffic(dt, px, py, pz) {
       spawnTraffic(t, true);
       continue;
     }
-    t.bank = Math.sin(performance.now() * 0.0003 + t.phase) * 0.14;
+    t.bank = Math.sin(gameMs() * 0.0003 + t.phase) * 0.14;
     t.mesh.position.set(t.x, t.y, t.z);
     t.mesh.rotation.set(0, t.heading, t.bank);
   }

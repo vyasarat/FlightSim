@@ -1158,7 +1158,7 @@ function updateCar(dt) {
   if (vehicleModel) {
     const lb = vehicleModel.userData.lightBar, tb = vehicleModel.userData.tailBar;
     if (lb) {
-      const pulse = car.charging > 0 ? (0.35 + 0.65 * Math.abs(Math.sin(performance.now() * 0.004))) : 1;
+      const pulse = car.charging > 0 ? (0.35 + 0.65 * Math.abs(Math.sin(gameMs() * 0.004))) : 1;
       lb.material.color.setScalar(0.55 + 0.45 * pulse);
       if (tb) tb.material.color.setRGB(0.6 + 0.4 * (touching ? 0.2 : 1), 0.12, 0.1);
     }

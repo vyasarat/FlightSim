@@ -10,6 +10,16 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v203 — Everything that bobs keeps the game's time
+
+The speedboat and the yacht bobbing on the water, the fire rig's catch glow, the rings' pulse, the
+charging car's glow, the heat shimmer and the airliners' gentle bank all kept time by the wall clock
+instead of the game's own. Nothing looks different to him; it means the game is the same game on a
+slow iPad as on a fast one, and the tests see what he sees. The gate now refuses any new one.
+The vehicle baseline (scripts/vehicle_baseline.json) was regenerated for it, on purpose: the speedboat's
+and the yacht's resting heights used to depend on how long the page took to load (they flipped between
+runs); now they are the same every time, 0.1-0.2 m from where they last landed.
+
 ## v202 — A fair race in the monster truck
 
 In the monster truck he won only 15 to 30 races in a hundred, on every track -- it is 6 m wide and

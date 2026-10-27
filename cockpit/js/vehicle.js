@@ -286,11 +286,11 @@ function updateVehicleModel(dt) {
     const heat = vehicleModel.userData.padHeat;
     const low = state.vp.rocket && f.visible && state.spaceF < 0.3 &&
       (state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel)) < 260;
-    const wantHeat = low ? TUNE.sky.heatOpacity * (0.7 + 0.3 * Math.sin(performance.now() * 0.001 * TUNE.sky.heatRate)) : 0;
+    const wantHeat = low ? TUNE.sky.heatOpacity * (0.7 + 0.3 * Math.sin(gameMs() * 0.001 * TUNE.sky.heatRate)) : 0;
     heat.material.opacity += (wantHeat - heat.material.opacity) * Math.min(1, 5 * dt);
     heat.visible = heat.material.opacity > 0.005;
     if (heat.visible) {
-      heat.scale.setScalar(TUNE.sky.heatSize * (0.9 + 0.2 * Math.sin(performance.now() * 0.0013 * TUNE.sky.heatRate)));
+      heat.scale.setScalar(TUNE.sky.heatSize * (0.9 + 0.2 * Math.sin(gameMs() * 0.0013 * TUNE.sky.heatRate)));
       heat.position.z = f.position.z + TUNE.sky.heatSize * 0.25;
     }
   }
