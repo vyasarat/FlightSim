@@ -559,6 +559,14 @@ const airportSpinners = [];
 let lightsChase = 0;        // runway edge lights chase during the arrival show
 function L_elev(a) { return AIRPORTS[a.idx].elev; }
 // Send the apron vehicles out to the plane (after a landing) or home (takeoff roll).
+// (v204) a builder's own random stream (three.js draws Math.random for every object's id), so what it adds
+// is not seen by the page's stream or a quiet stream round it; one seed for the page, so no id repeats
+let lmOwnSeed = 0x2040a9e1;
+function lmOwnStream(fn) {
+  const R = Math.random;
+  Math.random = () => { lmOwnSeed = (lmOwnSeed * 1664525 + 1013904223) >>> 0; return lmOwnSeed / 4294967296; };
+  try { return fn(); } finally { Math.random = R; }
+}
 function apronVehiclesTo(idx, toPlane) {
   const a = airports.find(r => r.idx === idx);
   if (!a) return;
@@ -653,9 +661,17 @@ function buildAirport(idx, opts) {
   const cart = new THREE.Group();
   part(cart, new THREE.BoxGeometry(2.2, 1.8, 3), 0x36c46a, 0, 1.2, 0);
   for (const dz of [-3.6, -7]) part(cart, new THREE.BoxGeometry(2, 1.4, 2.6), 0x8a93a0, 0, 1, dz);
-  // (v197) opts.apronHome: their home is THIS airport's apron. The two older airports' trucks rest at
-  // z 120/160 of the world -- mid-country, not by their runways (QUEUE: a bug of its own, not moved here)
-  const hz = O.apronHome ? ap.cz : 0;
+  // (v204) wheels, and shadows: they wait by the terminal now, and without them they read as a box and some
+  // slabs dropped on the apron. Made on a stream of their own (lmOwnStream): nothing built after them moves
+  lmOwnStream(() => {
+    const tyre = 0x1f2328, wheel = (parent, r, x, y, z) => part(parent, new THREE.CylinderGeometry(r, r, 0.5, 10), tyre, x, y, z).rotation.set(0, 0, Math.PI / 2);
+    for (const sx of [-1.65, 1.65]) for (const z of [-2.4, 2.4, 4.3]) wheel(truck, 0.75, sx, 0.25, z);
+    for (const sx of [-1.1, 1.1]) for (const z of [0, -3.6, -7]) wheel(cart, 0.45, sx, -0.05, z);
+  });
+  castsShadow(truck); castsShadow(cart);
+  // their home is THIS airport's apron (v204: New York's and California's rested at z 120/160 of the
+  // world, mid-country by the race venues, until a landing called them over)
+  const hz = ap.cz;
   for (const v of [truck, cart]) { v.position.set(m * 180, 0.5, hz + (v === truck ? 120 : 160)); scene.add(v); }
   rec.vehicles.push({ mesh: truck, homeX: m * 180, homeZ: hz + 120, x: m * 180, z: hz + 120, tx: m * 180, tz: hz + 120 },
                     { mesh: cart, homeX: m * 180, homeZ: hz + 160, x: m * 180, z: hz + 160, tx: m * 180, tz: hz + 160 });

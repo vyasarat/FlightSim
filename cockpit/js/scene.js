@@ -528,6 +528,9 @@ function scRunway(ap) {
       }
     }
     scene.add(stripes);
+    // (v204) an instanced mesh is culled by its geometry's sphere -- for these, a 20 m box at the world's
+    // origin, so they were drawn from every race venue: their true bounds, the runway's own (as London's)
+    for (const im of [dashes, stripes]) { im.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, ap.elev, ap.cz), TUNE.runwayLength / 2 + 40); im.frustumCulled = true; im.userData.runwayPaint = true; }
 
     // Edge lines down both sides. Real runways have them and they make the strip
     // read as a strip from the air; numerals and letters are of course out.

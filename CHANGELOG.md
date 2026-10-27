@@ -10,6 +10,15 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v204 — The airport trucks live at their airports
+
+New York's and California's yellow fuel truck and green baggage cart used to wait in the middle of the
+country, near the race tracks, and only came to the airport when he landed. Now they wait on their own
+apron beside the terminal, as London's always have, and drive out to his plane from there -- and they
+have wheels now, and shadows, so they read as a truck and a cart, not a box and some slabs. And the two
+runways' painted dashes and stripes are no longer drawn from the other side of the country -- a little
+less work for the iPad at the race tracks.
+
 ## v203 — Everything that bobs keeps the game's time
 
 The speedboat and the yacht bobbing on the water, the fire rig's catch glow, the rings' pulse, the

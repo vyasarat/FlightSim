@@ -183,4 +183,32 @@ module.exports = async function frameBudgetChecks({ newPage, check }) {
     !!ch && ch.before === ch.after && ch.into > ch.from, JSON.stringify(ch));
   check("frame budget: a start gantry culled off the camera is still a wall -- the solids registry asks `visible`, never the layer",
     res.solid.culled > 0 && res.solid.hidden === 0, JSON.stringify(res.solid));
+
+  // ---- (v204) each airport's apron trucks rest on ITS apron (New York's and California's rested at z 120/160 of
+  // the world, mid-country by the race venues), and no culled instanced mesh is culled by a sphere that does not
+  // hold its instances (the two runways' paint was bounded at the world's origin: drawn from everywhere)
+  const { page: apPage } = await newPage(1180, 820);
+  const ap = await apPage.evaluate(() => {
+    const L = window.__lp, T3 = window.THREE, out = { trucks: [], badCull: [] };
+    for (const a of L.airports) {
+      const A = L.AIRPORTS[a.idx];
+      for (const v of a.vehicles) { const mz = v.mesh.position.z; out.trucks.push({ idx: a.idx, dz: Math.round(mz - A.cz), ok: Math.abs(mz - A.cz) < L.TUNE.runwayLength / 2 && Math.abs(v.homeZ - A.cz) < L.TUNE.runwayLength / 2 }); }   // (where the mesh stands, and its home)
+    }
+    const m4 = new T3.Matrix4(), p = new T3.Vector3();
+    out.paintUnculled = 0;
+    L.scene.traverse(o => {
+      // (the runways' paint: culled like everything that stays put -- never drawn from every venue)
+      if (o.isInstancedMesh && o.userData.runwayPaint) { out.paint = (out.paint || 0) + 1; if (o.frustumCulled === false) out.paintUnculled++; }
+      if (!o.isInstancedMesh || o.frustumCulled === false || !o.count) return;
+      const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere();
+      const sp = g.boundingSphere.clone().applyMatrix4(o.matrixWorld);
+      let worst = 0;
+      for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, m4); p.setFromMatrixPosition(m4).applyMatrix4(o.matrixWorld); worst = Math.max(worst, p.distanceTo(sp.center) - sp.radius); }
+      if (worst > 1 && out.badCull.length < 10) out.badCull.push({ name: o.name || o.material.type, count: o.count, outBy: Math.round(worst) });
+    });
+    return out;
+  });
+  check(`frame budget: every airport's apron trucks rest on its own apron (${ap.trucks.map(t => t.idx + ":" + t.dz).join(", ")} m from its middle), and the runways' paint is culled (${ap.paintUnculled} not), every culled instanced mesh's sphere holding all its instances`,
+    ap.trucks.length >= 6 && ap.trucks.every(t => t.ok) && ap.badCull.length === 0 && ap.paint === 6 && ap.paintUnculled === 0, JSON.stringify(ap));
+  await apPage.close();
 };

@@ -927,7 +927,7 @@ function ldBuild() {
     // at the world's origin, so from every race venue they were "in view" (QUEUE: the other two's are too)
     const ap = AIRPORTS[ldn.airportIdx];
     for (const o of scene.children.slice(n0)) if (o.isInstancedMesh) { o.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, ap.elev, ap.cz), TUNE.runwayLength / 2 + 40); o.frustumCulled = true; }
-    buildAirport(ldn.airportIdx, { noSpot: true, noPad: true, apronHome: true });
+    buildAirport(ldn.airportIdx, { noSpot: true, noPad: true });
     // the generated city, if the generator has made one (city.js; scripts/city/)
     // (its anchor, "london", stands whether or not: the survey looks for it to know what is London's own)
     {
