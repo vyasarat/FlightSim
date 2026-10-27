@@ -10,6 +10,26 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v200 — A London race track
+
+A sixth race track, a street circuit through London: from the start on the Mall up to Buckingham
+Palace and round it, south past Big Ben, over the new Westminster Bridge to the south bank, down the
+river to Tower Bridge and over it, back up through the City past the Tower of London, the Gherkin and
+St Paul's, and along by Trafalgar Square to the line. On race day the barriers and kerbs come out
+on the streets, Tower Bridge stays down and the city's traffic stays home; the rest of the time
+London's streets are as they were. Two laps, 6.3 km each, 13 m wide. Its corners are a city's, so
+every car on it -- his the same as theirs -- slows for the tight ones and speeds up out of them, and a
+bump from behind never carries anyone round faster. Westminster Bridge is new, green with lamps, next
+to Big Ben, and the London Eye has moved along the south bank to stand beside it. The London track
+has its own card in the picker: Tower Bridge, a red bus and Big Ben. On a street the boost pads run
+down the middle and are narrower, the item boxes sit closer in and come round more often, and the start
+gantry and grandstands on the Mall, like the barriers, are only there on race day, and so is the podium,
+which stands on the open south bank where he can see his car on the top step. A race that starts
+with the tall ship between Tower Bridge's towers puts her through first. Westminster Bridge is a road
+in normal play too, driven like the other two. The track picker no longer pushes its first card off the
+top of an upright phone. Noisy races round it (20 per car): 46 wins in 80, no bangs, nobody stuck --
+the Cybertruck 16, the SUV and the Corvette 13, the monster truck 4 (it is 6 m wide on a 13 m street).
+
 ## v199 — The Thames: Tower Bridge opens
 
 Tower Bridge opens now. A tall ship with three masts and white sails comes up the Thames to her

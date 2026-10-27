@@ -62,6 +62,15 @@ async function render(root, views) {
         // normal play: his car on the open ground outside the oval, facing it, his own chase camera
         L.api.setView(true);
         const T = R.venues[window.__rTrack].track, q = T.S[Math.floor(T.n * 0.55)];
+        if (T.def.street) {
+          // (v200) a street circuit: on its own start straight, 40 m short of the line, looking down it -- where race day stands
+          const g = T.S[Math.floor(T.n * (1 - 40 / T.len))];
+          S.x = g.x; S.z = g.z; S.heading = Math.atan2(-g.tx, -g.tz);
+          L.updateScenery(S.x, S.z, true);
+          S.y = L.terrainEff(S.x, S.z); S.speed = 0;
+          for (let i = 0; i < 90; i++) { S.touching = false; L.update(1 / 60); }
+          return note;
+        }
         const cx = T.S.reduce((a, p) => a + p.x, 0) / T.n, cz = T.S.reduce((a, p) => a + p.z, 0) / T.n;
         const dx = q.x - cx, dz = q.z - cz, d = Math.hypot(dx, dz);
         S.x = q.x + dx / d * 45; S.z = q.z + dz / d * 45; S.heading = Math.atan2(dx, dz);

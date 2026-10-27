@@ -91,7 +91,7 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
     o.deadEnds = C.nodes.filter(n => n.arms.length === 1).map(n => ({ x: Math.round(n.x), z: Math.round(n.z), goal: !!n.arms[0].road.goal }));
     o.links = Object.fromEntries(Object.entries(L.ldn.roads).map(([k, r]) => [k, r ? { len: Math.round(r.len), a: !!r.a, b: !!r.b, arms: [r.a && r.a.arms.length, r.b && r.b.arms.length] } : null]));
     // the bridges cross from one bank to the other: dry at both ends, water under the middle
-    o.banks = ["towerBridge", "londonBridge"].map(k => { const r = L.ldn.roads[k], p = r.pts, m = p[p.length >> 1];
+    o.banks = ["towerBridge", "londonBridge", "westminsterBridge"].map(k => { const r = L.ldn.roads[k], p = r.pts, m = p[p.length >> 1];
       return { k, dryEnds: L.terrainEff(p[0].x, p[0].z) >= L.seaLevelAt(p[0].x, p[0].z) && L.terrainEff(p[p.length - 1].x, p[p.length - 1].z) >= L.seaLevelAt(p[p.length - 1].x, p[p.length - 1].z), wetMiddle: L.terrainEff(m.x, m.z) < L.seaLevelAt(m.x, m.z) }; });
     // and every grid street is dry and clear (streets.js measured it; the river split none)
     o.grid = C.roads.every(r => r.kind === "grid");
@@ -101,9 +101,9 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
     o.signals = L.lights.junctions.filter(j => j.city === "ldn").length + C.nodes.filter(n => n.signal).length;
     return o;
   });
-  check(`london drive: ${g.roads} streets and ${g.nodes} junctions read off the generated layout, ONE network -- the two banks joined by Tower Bridge and London Bridge, the airport road into it -- every lane left of its road's middle, no signals, and the only dead end the airport road's turnaround`,
+  check(`london drive: ${g.roads} streets and ${g.nodes} junctions read off the generated layout, ONE network -- the two banks joined by Tower Bridge, London Bridge and (v200) Westminster Bridge, the airport road into it -- every lane left of its road's middle, no signals, and the only dead end the airport road's turnaround`,
     !g.none && g.roads > 300 && g.comps === 1 && g.left && g.signals === 0 && g.deadEnds.length === 1 && g.deadEnds[0].goal &&
-    ["towerBridge", "londonBridge", "airport"].every(k => g.links[k] && g.links[k].a && g.links[k].b) && g.banks.every(b => b.dryEnds && b.wetMiddle), JSON.stringify(g));
+    ["towerBridge", "londonBridge", "westminsterBridge", "airport"].every(k => g.links[k] && g.links[k].a && g.links[k].b) && g.banks.every(b => b.dryEnds && b.wetMiddle), JSON.stringify(g));
 
   // ---- the start, and hands-off ---------------------------------------------------------------
   const ho = await page.evaluate(() => {
@@ -148,7 +148,7 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
   const br = await page.evaluate(() => {
     const L = window.__lp, st = L.state, D = window.__ldd, out = [];
     const top = L.ldn.decks && L.TUNE.waterLevel + 9 + 0.3;
-    for (const k of ["towerBridge", "londonBridge"]) for (const dir of [1, -1]) {
+    for (const k of ["towerBridge", "londonBridge", "westminsterBridge"]) for (const dir of [1, -1]) {
       D.london();
       for (const v of L.stTraffic.list) v.alive = false;
       const r = L.ldn.roads[k];
@@ -187,7 +187,7 @@ module.exports = async function londonDriveChecks({ newPage, check, perf }) {
     return { out, turnOn: { found: !!pick, side: pick && pick.side, turned, bangs } };
   });
   check(`london drive: each bridge driven both ways hands-off, up on to its deck over the water and across -- through Tower Bridge's arches -- in the LEFT lane, never a bang, never a shove, never off it`,
-    br.out.length === 4 && br.out.every(b => b.across && b.bangs === 0 && b.c === 0 && b.w === 0 && b.shoves === 0 && b.off === 0 && b.overWater > 60 && Math.abs(b.deck) < 0.6 && b.lane < -2.5), JSON.stringify(br.out));
+    br.out.length === 6 && br.out.every(b => b.across && b.bangs === 0 && b.c === 0 && b.w === 0 && b.shoves === 0 && b.off === 0 && b.overWater > 60 && Math.abs(b.deck) < 0.6 && b.lane < -2.5), JSON.stringify(br.out));
   check("london drive: a full steer held through the approach to Tower Bridge's junction turns him on to the bridge, as at any junction",
     br.turnOn.found && br.turnOn.turned === "bridge" && br.turnOn.bangs === 0, JSON.stringify(br.turnOn));
 

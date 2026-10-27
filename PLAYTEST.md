@@ -75,6 +75,7 @@ entry below.
 | v197 | he taps the globe and picks London more than once; he names at least two landmarks out loud ("Big Ben", "Tower Bridge", "the big wheel") and flies under Tower Bridge on purpose; he hears Big Ben bong and says so; at least once he flies from New York across the sea to London |  open |
 | v198 | he starts the car in London from the globe and drives over Tower Bridge more than once; he points out or names a red bus ("a double-decker", "a London bus") or a black taxi; he notices the cars driving on the other side (says so, or asks why) -- and he never gets stuck or lost driving there |  open |
 | v199 | he waits at the gates (or hovers, or sails up) to watch Tower Bridge open for the tall ship, says "it's opening" or "the bridge goes up", and sails the speedboat up to it to make it open again |  open |
+| v200 | he picks the London track card more than any other track for a while; he names something he races past ("Big Ben", "the bridge", "the palace"); he races it more than once though he may come last, and never gets stuck on a corner |  open |
 
 ## Entries
 

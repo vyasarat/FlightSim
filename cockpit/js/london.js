@@ -534,6 +534,29 @@ function ldLondonBridge() {
   ldFinish(B);
 }
 
+// WESTMINSTER BRIDGE (v200): the low stone bridge beside Big Ben, its parapets green, lamps along
+// it -- the third way over the river, and the race's way to the south bank. Along z, on the
+// avenue's line, a street carried over the water like the other two.
+function ldWestminsterBridge() {
+  const [x, z] = LD.at.westminsterBridge, B = ldBegin("westminsterBridge", x, z, ldDeckY());
+  const L = 216, W = 20;
+  ldn.decks.westminsterBridge = [z - L / 2, z + L / 2];
+  ldBox(B, W, 2.4, L, LDC.concrete, "stone", 0, -2.4, 0);
+  ldBox(B, W - 6, 0.3, L, 0x5e636b, "plain", 0, 0, 0);                        // the carriageway
+  for (const sx of [-1, 1]) {
+    ldBox(B, 0.5, 1.1, L, LDC.green, "plain", sx * (W / 2 - 0.3), 0, 0);       // the green parapets
+    for (let k = 0; k < 7; k++) {
+      const lz = -L / 2 + 18 + k * (L - 36) / 6;
+      ldCyl(B, 0.12, 0.16, 5, 6, LDC.ink, "plain", sx * (W / 2 - 0.3), 1.1, lz);
+      ldSph(B, 0.45, 0xfff2c4, "lamp", sx * (W / 2 - 0.3), 6.3, lz, 1, 1, 1, 8, 6);
+    }
+  }
+  for (const pz of [-54, 0, 54]) ldBox(B, W - 2, 20, 8, LDC.concrete, "stone", 0, -22.4, pz);   // its piers
+  ldSolid(B, 0, -2.4, 0, W / 2, L / 2, 0.3, "bridge");
+  for (const pz of [-54, 0, 54]) ldSolid(B, 0, -22.4, pz, W / 2 - 1, 4, -2.4, "pillar");
+  ldFinish(B);
+}
+
 // TOWER BRIDGE, the hero: two stone towers standing in the river with their pointed turrets,
 // the high walkways between them, the blue bascules (in two leaves, their own meshes: the
 // next release opens them), and the blue suspension chains down to the shore towers.
@@ -895,7 +918,7 @@ function ldBuild() {
   ldQuiet(() => {
     ldn.region = solidRegionOpen("london");
     ldBigBen(); ldParliament(); ldEye(); ldNelson(); ldPalace(); ldStPauls();
-    ldLondonBridge(); ldTowerBridge(); ldTower(); ldShard(); ldGherkin(); ldPhoneBoxes();
+    ldLondonBridge(); ldTowerBridge(); ldWestminsterBridge(); ldTower(); ldShard(); ldGherkin(); ldPhoneBoxes();
     ldShips(); ldLighthouse(); ldWhaleBuild();
     // London's airport: the same runway, terminal, tower and hangars as the other two
     const n0 = scene.children.length;
@@ -1052,23 +1075,27 @@ function ldStreetY(x, z) { return terrainMeshY(x, z) + CITY.groundLift; }
 // A bridge: from the junction on one bank, up on to the deck, across, and down to the
 // junction on the other. On the deck the bridge's own carriageway is the road surface; on
 // the land each side, a strip of tarmac with a skirt down to the ground.
+// (v200: along either axis -- `[from, to, line, axis]`: Tower and London Bridges run along x on a
+// street's z, Westminster Bridge along z on an avenue's x)
 function ldBridgeRoad(city, g, tarmac, sk, key) {
-  const [x0, x1, z] = LDD.bridges[key], deck = ldn.decks[key];
-  const a = city.nodeMap.get(stKey(x0, z)), b = city.nodeMap.get(stKey(x1, z));
+  const [u0, u1, c, axis] = LDD.bridges[key], deck = ldn.decks[key], alongZ = axis === "z";
+  const P = (u) => alongZ ? { x: c, z: u } : { x: u, z: c };
+  const A = P(u0), Bp = P(u1);
+  const a = city.nodeMap.get(stKey(A.x, A.z)), b = city.nodeMap.get(stKey(Bp.x, Bp.z));
   if (!a || !b || !deck) return null;
-  const top = ldDeckY() + 0.3, ya = ldStreetY(x0, z), yb = ldStreetY(x1, z);
-  const n = Math.ceil((x1 - x0) / LDD.step), pts = [];
+  const top = ldDeckY() + 0.3, ya = ldStreetY(A.x, A.z), yb = ldStreetY(Bp.x, Bp.z);
+  const n = Math.ceil((u1 - u0) / LDD.step), pts = [];
   for (let k = 0; k <= n; k++) {
-    const x = lerp(x0, x1, k / n);
+    const u = lerp(u0, u1, k / n);
     // Off the junction it climbs straight to the deck's height and stays there across the bank:
     // the city's lawns are draped only at their corners, and one spanning the bank's slope stands
     // well over the ground between them -- but never over its highest corner, which is under the deck
-    const out = Math.min(x - x0, x1 - x);
-    const y = lerp(x - x0 < x1 - x ? ya : yb, top, smoothstep(LDD.kerbFrom - LDD.rise / 2, LDD.kerbFrom + LDD.rise / 2, out));
-    pts.push({ x, z, y });
+    const out = Math.min(u - u0, u1 - u);
+    const y = lerp(u - u0 < u1 - u ? ya : yb, top, smoothstep(LDD.kerbFrom - LDD.rise / 2, LDD.kerbFrom + LDD.rise / 2, out));
+    pts.push({ ...P(u), y, u });
   }
   stDirs(pts);
-  for (const part of [pts.filter(p => p.x <= deck[0] + LDD.step), pts.filter(p => p.x >= deck[1] - LDD.step)]) {
+  for (const part of [pts.filter(p => p.u <= deck[0] + LDD.step), pts.filter(p => p.u >= deck[1] - LDD.step)]) {
     if (part.length < 2) continue;
     stStrip(part.map(p => ({ ...p, y: p.y + 0.04 })), part.map(() => LDD.bridgeHalfW), tarmac, g);
     sk.push(part);
@@ -1169,12 +1196,11 @@ function ldCarStartAt() {
 //     off when his boat is ahead of them, and pass under both bridges.
 // ===========================================================================================
 const LDR = LD.river;
-const ldRv = { x: 0, hw: 0, fx: 0, fz: 1 };
 // The river's middle at z, its half-width and its way upstream: between the mouth and Westminster
 // the Thames runs up z (its points are listed from upstream down).
 function ldRiverMid(z, out) {
   const P = LD.thames.pts;
-  out = out || ldRv;
+  out = out || {};            // (a caller keeping the answer passes its own; none shares one by accident -- v199)
   for (let i = P.length - 1; i > 0; i--) {
     const a = P[i], b = P[i - 1];
     if (z < a[1] || z > b[1]) continue;
@@ -1288,9 +1314,21 @@ function ldTbCarClear() {
   return d > state.speed * state.speed / (2 * LDR.carBrake) + LDR.clearMargin;
 }
 
+// (v200) a London race is run over it: down, now, and held down (the ship waits below it)
+function ldTbDown() {
+  const T = ldn.tb;
+  if (!T) return;
+  T.state = "down"; T.open = 0; T.gate = 0; T.t = 0; T.asks = "";
+  // (v200) a race starting with the tall ship between the towers: she is put through, clear on her
+  // way -- never her masts up through the leaves he races over
+  const S = ldn.tship, H = LDR.ship;
+  if (S && (S.state === "in" || S.state === "out") && Math.abs(S.z - T.z) < H.len / 2 + H.raceClear) S.z = T.z + S.dir * (H.len / 2 + H.raceClear);
+  ldTbUpdate(0);
+}
 // Who is asking for it: the ship on her way through, or his boat coming up to it.
 function ldTbAsks() {
   const T = ldn.tb, S = ldn.tship, why = [];
+  if (typeof rcStreetRace === "function" && rcStreetRace()) { T.asks = ""; return false; }   // (v200: race day)
   if (S && (S.state === "in" || S.state === "out")) {
     const bow = S.z + S.dir * LDR.ship.len / 2, stern = S.z - S.dir * LDR.ship.len / 2;
     const toBridge = (T.z - bow) * S.dir, pastStern = (stern - T.z) * S.dir;

@@ -854,6 +854,9 @@ module.exports = async function cityChecks({ newPage, check, viewports }) {
                   // (v199: Tower Bridge's raised leaves stand across its road -- only while they are up, and
                   // the gate holds him back then; down, the wall is not there: london_thames_checks)
                   if (o.liftWall) continue;
+                  // (v200: a London race's barriers close the side streets the circuit passes -- on race day only,
+                  // when he is on the circuit and no traffic runs; off it they are not there: london_race_checks)
+                  if (o.mesh && (o.mesh.userData.raceDay || (o.mesh.parent && o.mesh.parent.userData.raceDay))) continue;
                   if (Math.abs(q.x - o.x) < o.hw && Math.abs(q.z - o.z) < o.hd && y + 2 > o.y0 && y + 0.5 < o.y1) {
                     if (out.solidHits.length < 8) out.solidHits.push({ road: r.kind + r.id, x: Math.round(q.x), z: Math.round(q.z), city: !!(o.mesh && o.mesh.isCityProxy) });
                   }

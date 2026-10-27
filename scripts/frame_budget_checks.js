@@ -124,6 +124,7 @@ module.exports = async function frameBudgetChecks({ newPage, check }) {
       const eye = new THREE.PerspectiveCamera(72, 1.33, 0.6, 6000);
       for (const id in R.venues) {
         const gn = R.venues[id].gantry;
+        if (gn.userData.raceDay) continue;       // (v200: a street circuit's gantry stands on race day only -- london_race_checks)
         eye.position.set(L.state.x, L.state.y + 3, L.state.z); eye.lookAt(gn.position); eye.updateMatrixWorld();
         rcCull(L.renderer, L.scene, eye);
         L.forEachSolid(b => {

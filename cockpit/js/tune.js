@@ -2618,6 +2618,48 @@ const TUNE = {
         { type: "turn", angle: 90, radius: 150, surface: "glow", sky: 0 },   // ... and round on to the ground
         { type: "straight", len: 330 },
       ] },
+      // TRACK 6 (v200): LONDON, a STREET CIRCUIT on London's own streets (london.js's grid), a street wide
+      // (`width`), two laps (`laps`: 6.3 km), its deck a hand over the street and pavement (`lift`). Counter-
+      // clockwise from the line on the Mall: up to the Palace and round its front and east side, east behind
+      // it, SOUTH past Big Ben (x -594, 90 m west of the tower), over Westminster Bridge (`deck`: on the
+      // bridge's carriageway, over the water), down the south bank to Tower Bridge, WEST over it (through
+      // its arches, on its leaves), along past the Tower of London, NORTH up the City past the Gherkin and
+      // St Paul's, east by Trafalgar Square and up on to the Mall. Every corner is a junction's, so the lap
+      // closes on the grid: 36 m arcs where the corner is open (the Palace, the parks, the river's edge), 12 m
+      // where a city block stands in it (a wider arc's middle is in the block), 24 m at Tower Bridge's west
+      // end. A street circuit's corners are slow ones: `bendA` (m/s^2 across) holds every racer, his car
+      // the same as theirs, to the speed each bend allows, braking for it at `bendBrake` (well under RC.brake, so the brake keeps up with the plan).
+      // `street`: RACE DAY -- its deck, kerbs, barriers, flags, gantry and stands stand only while a London
+      // race is on, and only then are they solid; a street's graph is read without them. Nothing new across
+      // a street he drives in normal play. `padW` and `itemRows`: a 13 m street's own pads and box rows.
+      { id: "london", site: { x: -834, z: 15900, heading: 180 }, width: 13, laps: 2, lift: 0.55, street: true, bendA: 10, bendBrake: 6, padW: 3.5, itemRows: 10,
+        pads: [{ m: 60, lat: 0 }, { m: 900, lat: 0 }, { m: 2200, lat: 0 }, { m: 2700, lat: 0 }, { m: 4300, lat: 0 }, { m: 5200, lat: 0 }, { m: 6050, lat: 0 }],   // (down the middle, and `padW` narrow: on a street 13 m wide a wider pad, or one off the middle, is under a car riding a barrier)
+        aiMul: 0.978,
+        stands: { count: 3, from: -40, step: 60, back: 4 },
+        podiumM: 900,                     // (on the open south bank: on the Mall its lamps and plane trees stood between the camera and the steps)
+        sections: [
+        { type: "straight", len: 104 },                          // the Mall, up to the Palace
+        { type: "turn", angle: 90, radius: 36 },
+        { type: "straight", len: 48 },
+        { type: "turn", angle: -90, radius: 36 },
+        { type: "straight", len: 188 },                          // its east side
+        { type: "turn", angle: 90, radius: 12 },
+        { type: "straight", len: 72 },
+        { type: "turn", angle: 90, radius: 36 },
+        { type: "straight", len: 700 },                          // south, Big Ben on the left
+        { type: "straight", len: 352, deck: 9.3 },               // Westminster Bridge
+        { type: "straight", len: 1384 },                         // the south bank
+        { type: "turn", angle: 90, radius: 24 },
+        { type: "straight", len: 4 },
+        { type: "straight", len: 290, deck: 9.3 },               // Tower Bridge
+        { type: "straight", len: 390 },                          // past the Tower
+        { type: "turn", angle: 90, radius: 12 },
+        { type: "straight", len: 1992 },                         // north up the City
+        { type: "turn", angle: 90, radius: 12 },
+        { type: "straight", len: 432 },                          // by Trafalgar Square
+        { type: "turn", angle: -90, radius: 36 },
+        { type: "straight", len: 68 },                           // on to the Mall, home
+      ] },
     ],
     // (v170) WHAT THE TRACK IS MADE OF, per section (asphalt where it says nothing).
     // Each changes speed and grip a little -- the same for every car, his and theirs
@@ -2661,6 +2703,7 @@ const TUNE = {
               camFrom: 60, camUnder: 3.5 },   // (the chase camera at most h - camUnder up from camFrom m before the portal until it is out)   // (rockBelow: a face whose normal is this far from up, or more, is rock; the rest snow)
     // (v174) a frozen lake: the ice sheet `over` m above its bed (the deck stands RC.lift over it,
     // so the road reads on it), and the deck eased on to its level over `along` m either side
+    deckEase: 30,                      // (v200) a section's `deck` (a bridge's carriageway) is eased into over this many metres either side
     lake: { over: 0.03, segs: 48, along: 50,
             drifts: [[-0.8, -0.6, 0.5, 0.05], [-0.3, 0.45, 0.6, 0.04], [0.2, -0.75, 0.45, 0.05], [0.45, 0.6, 0.35, 0.06], [-0.6, 0.15, 0.25, 0.03], [0.05, -0.3, 0.3, 0.03]] },   // (snow blown across the ice: along, across, length -- fractions of the lake -- and width)
     // (v175) a splash section's deck: `over` m above the water where the ground under it is
@@ -2853,8 +2896,8 @@ const TUNE = {
     // where each landmark stands (x, z) and which way it faces (deg: 0 faces -z, 90 faces -x)
     at: {
       bigBen: [-500, 15505], parliament: [-430, 15497], victoriaTower: [-352, 15520],
-      eye: [-650, 15290], nelson: [-905, 15622], arch: [-834, 15700], mall: [-834, 15712, 16070],
-      memorial: [-834, 16092], palace: [-834, 16175], stPauls: [-1235, 14590], londonBridge: [-901, 14260],
+      eye: [-690, 15290], nelson: [-905, 15622], arch: [-834, 15700], mall: [-834, 15712, 16070],
+      memorial: [-834, 16092], palace: [-834, 16175], westminsterBridge: [-594, 15384], stPauls: [-1235, 14590], londonBridge: [-901, 14260],
       shard: [-708, 14190], towerBridge: [-767, 13780], tower: [-1012, 13905], gherkin: [-1250, 14060],
     },
     bigBen: { every: 180, first: 25, hear: 3200, strikes: 3, gap: 2.6 },   // game seconds; a bong is heard within `hear` m
@@ -2883,6 +2926,7 @@ const TUNE = {
               mastMax: 40,                            // her tallest mast's top over the water: the walkways are 43 up
               solids: [[-3, 6, 7, 41], [9, 26, 12, 29], [26, 39, 7, 25]],   // her hull, lower and upper rigging: metres over the water, half-width, half-length
               giveWay: 15, giveLane: 6,               // his boat in her path (within giveLane of her side): she stops this short of him
+              raceClear: 20,                          // (v200) a London race starting with her between the towers: she is put this far past them, on her way
               accel: 1, decel: 2, arrive: 0.2, creep: 0.6 },   // m/s^2; into her berth and out to sea she slows as (metres left) x arrive, to creep                   // the tall ship: z where she comes from and moors; when she asks
       boats: [ [12500, 16, 6, "tour"], [13300, -16, 5, "tug"], [14600, 16, 4.5, "barge"], [15000, -16, 6.5, "tour"] ],   // z, metres off the middle (through both bridges' middle spans), m/s, kind
       boatSpan: [12300, 15250], boatYield: 45,        // where the river boats ply; they ease off when his boat is this close ahead
@@ -2894,7 +2938,7 @@ const TUNE = {
     // New York's, unchanged. The two bridges stand on a street's own line (v198 moved them 15 m and
     // 39 m along the river to meet one), so each is that street carried over the water.
     drive: {
-      bridges: { towerBridge: [-954, -594, 13780], londonBridge: [-1074, -714, 14260] },   // the junction each end lands at, and the line
+      bridges: { towerBridge: [-954, -594, 13780], londonBridge: [-1074, -714, 14260], westminsterBridge: [15220, 15508, -594, "z"] },   // [from, to] the junctions each end lands at, on the line (along x, or "z")
       bridgeHalfW: 7,                                 // a street's own two lanes
       kerbFrom: 10, rise: 12,                         // ... rising off the junction to the deck's height over `rise`, centred this far out
       kerbStep: 18,                                   // London's kerbstones in runs this long (TUNE.city.kerbStep is New York's 6): its plateau is flat

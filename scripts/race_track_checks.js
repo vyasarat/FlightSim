@@ -105,15 +105,19 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         if (him.lapsDone > last) { laps.push(+(R.t - t0).toFixed(1)); t0 = R.t; last = him.lapsDone; }
       }
       out[veh] = laps;
+      out.__laps = R.track.laps;
       R.racers = field; L.raceReset();
     }
     L.noRender = false;
     return out;
   }, [id, carsFor(id, 0)]);
   const lapCheck = async (id) => {
-    const b = await lapsAlone(id), allLaps = Object.values(b).flat();
-    check(`race ${id}: finger down at his own step, every car laps it in about two minutes -- ${Object.entries(b).map(([k, v]) => `${k} ${v.join("/")} s`).join(", ")}${tag(id, 0)}`,
-      Object.values(b).every(v => v.length === 3) && allLaps.every(t => t >= 90 && t <= 150), J(b));
+    const b = await lapsAlone(id), n = b.__laps; delete b.__laps;
+    const allLaps = Object.values(b).flat();
+    // (v200) a track of three laps: each about two minutes; a track of its own count (London's two, a
+    // street circuit's slow corners): the RACE as long as three of those, 270 to 450 s
+    check(`race ${id}: finger down at his own step, every car laps it in about two minutes (or, on a track of ${n} laps, races it in about six) -- ${Object.entries(b).map(([k, v]) => `${k} ${v.join("/")} s`).join(", ")}${tag(id, 0)}`,
+      Object.values(b).every(v => v.length === n) && (n === 3 ? allLaps.every(t => t >= 90 && t <= 150) : Object.values(b).every(v => { const sum = v.reduce((a, c) => a + c, 0); return sum >= 270 && sum <= 450; })), J(b));
   };
   await lapCheck("oval");
 
@@ -129,21 +133,25 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       // (v175) a splash is in the water on purpose, and its shore with it: within 1.5 times
       // its easing of one, the dryness is q's to check, not this
       const shore = q => (T.splashes || []).some(w => q.s > w.a - 1.5 * RC.splash.along && q.s < w.b + 1.5 * RC.splash.along);
+      // (v200) a bridge's `deck` section crosses water on purpose, and its banks with it
+      const bridge = q => T.def.sections[q.sec].deck !== undefined || T.def.sections.some((sc, k) => sc.deck !== undefined && S.some(p => p.sec === k && Math.abs(p.s - q.s) < RC.deckEase + 30));
       for (let i = 0; i < S.length; i += 6) {
         const q = S[i];
         for (const k of [-W - 15, -W, W, W + 15]) {
           const x = q.x + q.lx * k, z = q.z + q.lz * k;
-          if (!shore(q) && !q.up) dry = Math.min(dry, L.terrainEff(x, z) - L.seaLevelAt(x, z));   // (v176: a sky road's ribbon stands on pylons -- the ground it flies over is not its to keep dry)
+          if (!shore(q) && !q.up && !bridge(q)) dry = Math.min(dry, L.terrainEff(x, z) - L.seaLevelAt(x, z));   // (v176: a sky road's ribbon stands on pylons -- the ground it flies over is not its to keep dry)
           if (L.cityCovers && L.cityCovers(x, z, 40)) city++;
         }
         if (Math.abs(L.hwyNearest(q.x, q.z).lateral) < 150) corridor++;
       }
       for (const k in L.race.venues) if (k !== id) { const O = L.race.venues[k].track.S; for (let i = 0; i < S.length; i += 20) for (let j = 0; j < O.length; j += 20) other = Math.min(other, Math.hypot(S[i].x - O[j].x, S[i].z - O[j].z)); }
       let want = 0; for (const sc of T.def.sections) want += sc.type === "turn" ? Math.abs(sc.angle) * Math.PI / 180 * sc.radius : sc.type === "loop" ? 2 * Math.PI * sc.radius : sc.type === "sbend" ? ((sc) => { let l = 0; for (let i = 0; i < 200; i++) { const t = (i + 0.5) / 200; l += Math.hypot(sc.len / 200, sc.shift * 6 * t * (1 - t) / 200); } return l; })(sc) : sc.len;   // (v193: a loop is its circle; an S its curve)
-      return { len: +T.len.toFixed(1), want: +want.toFixed(1), gap: +T.gap.toFixed(3), turn: +T.turn.toFixed(4), dry: +dry.toFixed(1), corridor, city, other: Math.round(other) };
+      return { len: +T.len.toFixed(1), want: +want.toFixed(1), gap: +T.gap.toFixed(3), turn: +T.turn.toFixed(4), dry: +dry.toFixed(1), corridor, city, other: Math.round(other), street: !!T.def.street };
     }, id);
     check(`race ${id}: the track closes (${a.gap} m and ${a.turn} rad from its start) at the ${a.want} m its numbers say (${a.len}); dry by ${a.dry} m at its barriers and 15 m past them, ${a.corridor} samples near the motorway, ${a.city} in a city, ${a.other} m from the next venue`,
-      a.gap < 0.5 && a.turn < 0.01 && Math.abs(a.len - a.want) < 1 && a.dry >= 1 && a.corridor === 0 && a.city === 0 && a.other > 300, J(a));
+      // (v200) a STREET circuit is in a city by design: what keeps it clear there is london_race_checks
+      // (nothing solid and standing across its width), not open ground
+      a.gap < 0.5 && a.turn < 0.01 && Math.abs(a.len - a.want) < 1 && a.dry >= 1 && a.corridor === 0 && (a.street || a.city === 0) && a.other > 300, J(a));
   };
   await siteCheck("oval");
 
@@ -155,7 +163,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
     await lapCheck(id);
 
     // ---- c. surfaces: the same speed on each, for every car and for them
-    const c = await page.evaluate((id) => {
+    const cs = await page.evaluate((id) => {
       const L = window.__lp, S = L.state, RC = L.RC, out = {};
       L.noRender = true; L.api.skipScreens();
       const T = L.race.venues[id].track, kinds = [...new Set(T.S.map(q => q.sf))];
@@ -168,13 +176,15 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           for (let i = 0; i < 60 * 5; i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
           // the longest run of that surface away from dunes and pads, from its start
           let best = null, run = null;
-          for (const q of T.S) { if (q.sf === kind && !q.dune) { if (!run) run = { a: q.s }; run.b = q.s; if (!best || run.b - run.a > best.b - best.a) best = run; } else run = null; }
+          // (v200: on a track with slow bends, a straight's run -- the bend's speed is the bend's, checked in london_race_checks)
+          for (const q of T.S) { if (q.sf === kind && !q.dune && (!T.def.bendA || Math.abs(q.kh) < 0.002)) { if (!run) run = { a: q.s }; run.b = q.s; if (!best || run.b - run.a > best.b - best.a) best = run; } else run = null; }
+          const tail = T.def.bendA ? 130 : 10;      // (and ended before the braking for the bend after it)
           const base = Math.floor(him.s / T.len) * T.len + T.len, step = L.spdMul(), v0 = RC.v * step * RC.surfaces[kind].speed;
           const o = R.racers.find(r => !r.isHim);
           for (const r of R.racers) if (!r.isHim && r !== o) { r.s = base - 900; r.skill = 0; }
           him.s = base + best.a + 2; him.lat = 3; him.v = v0; him.padT = 0; him.burstT = 0;
           o.s = him.s + 14; o.lat = 9; o.v = v0; o.skill = 1; o.padT = 0; o.burstT = 0; o.aiBurst = 1e9; o.wantBurst = false; o.line = 9; o.aim = null;
-          for (let i = 0; i < 60 * 2.2 && him.s < base + best.b - 10; i++) {
+          for (let i = 0; i < 60 * 2.2 && him.s < base + best.b - tail; i++) {
             S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
             o.padT = 0; o.burstT = 0;
           }
@@ -183,12 +193,12 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         }
       }
       L.noRender = false;
-      return out;
+      return { out, street: !!L.race.venues[id].track.def.street };
     }, id);
-    const cBad = [];
+    const c = cs.out, cBad = [];
     for (const veh in c) for (const k in c[veh]) { const r = c[veh][k]; if (r.on !== k || Math.abs(r.him - r.want) > 0.3 || Math.abs(r.them - r.want) > 0.6) cBad.push(veh + ":" + k); }
     check(`race ${id}: every surface sets the same speed for every car and for them -- ${Object.entries(c.car).map(([k, r]) => `${k} ${r.want} m/s`).join(", ")} (his, in the four cars, ${Object.keys(c.car).map(k => ["car", "cybertruck", "corvette", "monster"].map(v => c[v][k].him).join("/")).join("; ")}; an opponent's ${Object.keys(c.car).map(k => c.car[k].them).join("/")})`,
-      cBad.length === 0 && Object.keys(c.car).length >= 2, J({ cBad, c }));
+      cBad.length === 0 && Object.keys(c.car).length >= (cs.street ? 1 : 2), J({ cBad, c }));   // (v200: a street circuit is all asphalt)
 
     // ---- d. jumps: the same for every car; never under or off the deck; a jump at the top step
     const hasJumps = await page.evaluate((id) => !!window.__lp.race.venues[id].track.jumps, id);
@@ -906,13 +916,13 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         try {
           for (let f = 0; f < 60 * 600 && R.phase !== "done" && R.phase !== "podium"; f++) { S.touching = true; S.ctrlBank = Math.sin(f / 40) * 0.4; S.ctrlPitch = f % 600 < 200 ? 0.8 : 0; L.update(1 / 60); }
         } finally { window.rcUpdate = u0; window.raceCamera = c0; }
-        out[tr] = { draws, laps: R.him.lapsDone };
+        out[tr] = { draws, laps: R.him.lapsDone, trackLaps: R.track.laps };
         L.raceReset();
       }
       L.noRender = false; L.rce.quiet = true;
       return out;
     }, id);
-    check(`race ${id}: nothing new in play -- three laps on it, the race's own update and camera make no three.js object and draw ${h[id].draws} times from Math.random (the oval's: ${h.oval.draws})`, h[id].laps >= 3 && h[id].draws === 0 && h.oval.draws === 0, J(h));
+    check(`race ${id}: nothing new in play -- a whole race on it, the race's own update and camera make no three.js object and draw ${h[id].draws} times from Math.random (the oval's: ${h.oval.draws})`, h[id].laps >= h[id].trackLaps && h[id].draws === 0 && h.oval.draws === 0, J(h));
   }
 
   // ---- k. (v171) THE BARRIER, ON EVERY TRACK (the oval too): one whole lap alone, in every car,
@@ -924,11 +934,11 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
   for (const id of ["oval"].concat(ids)) {
     // (the barrier is no way to a pad: no car riding either barrier has its middle in any pad's catch)
     const pg = await page.evaluate((id) => {
-      const L = window.__lp, RC = L.RC, V = L.race.venues[id], catchW = RC.padW / 2 + RC.footW * 0.3, out = [];
+      const L = window.__lp, RC = L.RC, V = L.race.venues[id], catchW = (V.track.def.padW || RC.padW) / 2 + RC.footW * 0.3, out = [];
       // (every body on a grid: his two, and the opponents' own widths off their meshes)
       L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
       L.rcStartRace(id, 34); const wids = Array.from(new Set(L.race.racers.map(r => r.wid).concat([3.4, 5.8]))); L.raceReset();
-      for (const wid of wids) for (const side of [-1, 1]) for (const pd of V.pads) out.push(+(Math.abs(side * (RC.width / 2 - wid / 2 - 0.2) - pd.lat) - catchW).toFixed(2));
+      for (const wid of wids) for (const side of [-1, 1]) for (const pd of V.pads) out.push(+(Math.abs(side * ((V.track.width || RC.width) / 2 - wid / 2 - 0.2) - pd.lat) - catchW).toFixed(2));   // (v200: the track's own width)
       return { clear: Math.min(...out), pads: V.pads.map(p => p.lat), wids };
     }, id);
     check(`race ${id}: no pad lies under the line along either barrier, in any car on the grid (widths ${pg.wids.map(w => +w.toFixed(1)).join(", ")} m) -- the nearest catch is ${pg.clear} m off it (pads at ${pg.pads.join(", ")} m)`, pg.clear >= 0.5, J(pg));
@@ -953,7 +963,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           for (let f = 0; f < 60 * 300; f++) {
             let bank;
             if (mode === "line") {
-              const q = L.rcAt(him.s + 40), side = Math.abs(q.kh) > 0.002 ? Math.sign(q.kh) : 0, err = side * RC.width * 0.3 - (him.path ? 99 : him.lat);
+              const q = L.rcAt(him.s + 40), side = Math.abs(q.kh) > 0.002 ? Math.sign(q.kh) : 0, err = side * R.track.width * 0.3 - (him.path ? 99 : him.lat);   // (v200: the track's own width)
               bank = Math.abs(err) < 0.3 ? 0 : Math.max(-1, Math.min(1, -err * 0.4));
             } else bank = mode === "heldR" ? 1 : -1;
             // (again: on the left barrier half a lap, then a second of full right, then full left again)
@@ -972,12 +982,13 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
         }
       }
       L.noRender = false;
+      out.bendA = !!L.race.venues[id].track.def.bendA;
       return out;
     }, [id, carsFor(id, 2)]);
-    const wids = k.wids; delete k.wids;
+    const wids = k.wids, bendA = k.bendA; delete k.wids; delete k.bendA;
     const cars = Object.keys(k), held = m => cars.map(c => `${k[c][m].t} s/${k[c][m].thumps}`).join(", ");
     check(`race ${id}: held into the barrier a whole lap he glides along it -- one thump on the first touch, then quiet (left: ${held("heldL")}; right: ${held("heldR")}, lap s/thumps per car), no pad on the way (${cars.map(c => k[c].heldL.pads + k[c].heldR.pads).join("/")}), never a bang, never stuck; never quicker than the racing line (${cars.map(c => k[c].line.t).join("/")} s); off it a second and back, a fresh hit (${cars.map(c => k[c].again.after).join("/")} more)${tag(id, 2)}`,
-      cars.every(c => { const K = k[c]; return ["heldL", "heldR"].every(m => K[m].t !== null && K[m].thumps === 1 && (K[m].sc > 0 ? K[m].glide > 10 : K[m].glide > K[m].t * 0.4)   /* (a held lap that took the shortcut: its steer is spent there, hands-off after -- the turn rule) */ && K[m].bangs === 0 && K[m].pads === 0 && (K[m].sc > 0 || K[m].padsAll === 0) && K[m].stuck === 0 && K[m].minV > 15 && K[m].t >= K.line.t) && K.line.t !== null && K.again.after === 1 && K.again.bangs === 0; }), J(k));
+      cars.every(c => { const K = k[c]; return ["heldL", "heldR"].every(m => K[m].t !== null && K[m].thumps === 1 && (K[m].sc > 0 ? K[m].glide > 10 : K[m].glide > K[m].t * 0.4)   /* (a held lap that took the shortcut: its steer is spent there, hands-off after -- the turn rule) */ && K[m].bangs === 0 && K[m].pads === 0 && (K[m].sc > 0 || K[m].padsAll === 0) && K[m].stuck === 0 && K[m].minV > (bendA ? Math.min(15, 0.9 * K.line.minV) : 15) /* (v200: only a street circuit's slow bends slow the line too) */ && K[m].t >= K.line.t) && K.line.t !== null && K.again.after === 1 && K.again.bangs === 0; }), J(k));
   }
 
   // ---- m. (v172) HIS OWN CAR NEVER HIDES WHAT HE AIMS AT: from the chase camera (the game's

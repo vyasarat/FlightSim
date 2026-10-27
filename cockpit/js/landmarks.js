@@ -1270,6 +1270,6 @@ function cullLandmarks(dt, px, pz) {
   const maxD2 = TUNE.fogFar * TUNE.fogFar * 2.1;
   for (const L of ROUTE_LANDMARKS) {
     const dx = L.x - px, dz = L.z - pz;
-    L.g.visible = dx * dx + dz * dz < maxD2;
+    L.g.visible = !L.g.userData.dayOff && dx * dx + dz * dz < maxD2;   // (`dayOff`: a street race's stands, up on race day only -- race.js)
   }
 }
