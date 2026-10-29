@@ -1053,7 +1053,7 @@ function marsBuildPalQuiet(g) {
       state: "sleep", t: 0, k: 0, clock: 0, puffN: 0,
       x: p.x, y: p.y, z: p.z, n: p.dir.clone(), f, speed: 0, spin: 0, hop: 0, roll: 0,
       home: { x: p.x, y: p.y, z: p.z, f: f.clone() },
-      yaw: 0, pitch: -0.5, stillT: 0, restT: 0, awayT: 0, stallT: 0, watch: null,
+      yaw: 0, pitch: -0.5, stillT: 0, restT: 0, awayT: 0, stallT: 0, stallFrom: undefined, watch: null,
     };
     const L = MP.ballLift;
     mars.pal.solid = solidToyBall(p.x + p.dir.x * L, p.y + p.dir.y * L, p.z + p.dir.z * L, MP.r, "mars", body);
@@ -1130,7 +1130,7 @@ function updateMarsPal(dt) {
     pl.roll = Math.sin(k * Math.PI * 4) * 0.12 * (1 - k);     // a shake, the dust coming off
     if (pl.t <= 0) { pl.state = "awake"; pl.roll = 0; }
   } else if (pl.state === "awake" || pl.state === "dance") {
-    if (!present) { pl.awayT += dt; if (pl.awayT > MP.leaveAfter) { pl.state = "homing"; pl.awayT = 0; pl.stallT = 0; chirp(); } }
+    if (!present) { pl.awayT += dt; if (pl.awayT > MP.leaveAfter) { pl.state = "homing"; pl.awayT = 0; pl.stallT = 0; pl.stallFrom = undefined; chirp(); } }
     else pl.awayT = 0;
     if (pl.restT > 0) pl.restT -= dt;
     if (pl.state === "dance") {
@@ -1172,10 +1172,12 @@ function updateMarsPal(dt) {
       goal = H;
       const dHome = marsPalGround(pl.x, pl.y, pl.z, H.x, H.y, H.z);
       want = dHome > MP.arriveR ? Math.min(MP.cruise, dHome * MP.taper + 1) : 0;
-      // never wedged for ever against a dome's face on the way: if it stops getting anywhere it naps there
-      if (want > 0 && pl.speed < 0.5) pl.stallT += dt; else pl.stallT = 0;
-      if ((dHome <= MP.arriveR && pl.speed < 0.3) || pl.stallT > MP.stallTime) {
-        pl.state = "nap"; pl.t = MP.napTime; pl.stallT = 0; pl.speed = 0;
+      // never wedged for ever against a dome's face on the way: its speed is only what it asks for,
+      // so it is PROGRESS that is measured -- no nearer home for stallTime and it naps there
+      pl.stallT += dt;
+      if (pl.stallFrom === undefined || pl.stallFrom - dHome >= MP.arriveR) { pl.stallFrom = dHome; pl.stallT = 0; }
+      if ((dHome <= MP.arriveR && pl.speed < MP.settled) || pl.stallT > MP.stallTime) {
+        pl.state = "nap"; pl.t = MP.napTime; pl.stallT = 0; pl.stallFrom = undefined; pl.speed = 0;
         synthBlip("sine", 440, 220, 0.5, 0.16, 0);
       }
     }

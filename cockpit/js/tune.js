@@ -2086,13 +2086,13 @@ const TUNE = {
       leaveR: 160,                    // he is this far from its spot (rover and drone both): it goes home
       gapBack: 5, gapSide: 7,         // where it likes to trundle: beside him and a little behind, so
                                       // he sees it from the seat and it stays out of the chase camera's line
-      closeEnough: 11,                // this near him and it waits rather than chasing
-      arriveR: 1.5,                   // ... and this near a goal it has got there
+      closeEnough: 6,                 // this near him and it waits rather than chasing (inside its spot beside him)
+      arriveR: 1.5, settled: 0.3,     // ... this near a goal it has got there, and this slow it has stopped
       taper: 0.8,                     // it slows by this per metre still to go, so it never overshoots
       cruise: 11, accel: 2.4, turnRate: 140,   // a little slower than his rover's 14
       r: 1.5, ballLift: 1.1,          // its ball in the one registry (a toy: the rover shoves it), this far up
       leaveAfter: 1,                  // he has been gone this long before it heads home
-      stallTime: 4,                   // wedged on the way home (a dome's face): it naps where it is
+      stallTime: 4,                   // no nearer home for this long (wedged on a dome's face): it naps where it is
       wakeTime: 1.8, napTime: 1.6,    // waking up, and nodding off again
       danceAfter: 1.2, danceTime: 1.8, danceRest: 5,   // stop beside it and it does a happy spin
       danceR: 18, stillRover: 0.5, stillDrone: 1,   // how still "stopped beside it" is
