@@ -4606,7 +4606,9 @@ const harnessMain = async () => {
       // under the curve: the ground between the pad and it stands higher than a line
       // from a rover's camera at the pad (about 5 m up) to its antenna tip
       const padEye = V(L.mars.x, L.mars.y, L.mars.z).addScaledVector(L.mars.n, 5);
+      pl.g.updateWorldMatrix(true, false);      // nothing renders here, so nothing else has filled it in
       const tipW = pl.g.localToWorld(V(-0.7, 4.7, 1.2));
+      o.tipNear = Math.hypot(tipW.x - pl.x, tipW.y - pl.y, tipW.z - pl.z) < 8;
       const mid = padEye.clone().lerp(tipW, 0.5);
       o.underCurve = Math.hypot(mid.x - b.x, mid.y - b.y, mid.z - b.z) < b.r;
       // and nothing about it is a button: the buttons beside it are the buttons 60 m off
@@ -4668,7 +4670,7 @@ const harnessMain = async () => {
       put(at(P.wakeR - 6), toward); step(P.wakeTime + 1);
       o.wokeAgain = (L.flags.marsPalWakes || 0) === o.wakes + 1 && pl.state !== "sleep";
 
-      // ---- 6. drive straight through it asleep: it is nudged aside, he never bangs
+      // ---- 6. drive straight through it (it wakes as he comes, and the nudge holds in any state): it is nudged aside, he never bangs
       put(at(P.leaveR + 40), toward.clone().negate());
       for (let i = 0; i < 60 * 60 && pl.state !== "sleep"; i++) { hold(); L.update(1 / 60); }
       let ramMin = 1e9;
@@ -4711,7 +4713,7 @@ const harnessMain = async () => {
       return o;
     });
     check("mars: the sleepy rover -- out past the dunes and under the curve from the pad, asleep, its only clue a slow amber blink; no button anywhere near it",
-      o.homeFromPad > 180 && o.homeFromPad < 260 && o.asleep && o.blinks && o.underCurve && o.still60 && o.btnsSame, JSON.stringify(o));
+      o.homeFromPad > 180 && o.homeFromPad < 260 && o.asleep && o.blinks && o.tipNear && o.underCurve && o.still60 && o.btnsSame, JSON.stringify(o));
     check("mars: drive up to the sleepy rover and it wakes -- the dust comes off, its panels open, its eyes light and its blink stops",
       o.waking && o.awake && o.wakes === 1 && o.panelsOpen && o.eyesLit && o.blinkOff && o.clean, JSON.stringify(o));
     check("mars: awake, it trundles after him, never further than its leash from its spot and never into him",

@@ -753,7 +753,8 @@ function marsDroneSolid(b) {
   const dr = mars.drone;
   const hit = solidQuery(dr.x, dr.y, dr.z, TUNE.solid.r.drone, SOLID.ROVER);
   if (!hit) return false;
-  const crawl = dr.home || dr.speed <= TUNE.solid.crawl.drone;
+  // the sleepy rover is a friend, not a wall: the drone taking off beside it only ever nudges off it
+  const crawl = dr.home || dr.speed <= TUNE.solid.crawl.drone || (!!mars.pal && hit.b === mars.pal.solid);
   solidCount("drone", hit.kind, crawl ? "shove" : "crash");
   flags.wallHits = (flags.wallHits || 0) + 1;
   if (!crawl) {
@@ -994,7 +995,12 @@ function marsDroneCamera(dt) {
 // ---------------------------------------------------------------------------
 const MP = MB.pal;
 function marsBuildPal(g) {
-  vkQuiet(0, () => {
+  // and the kit's own seed put back, as raceitems does, so every later lazy kit builder is unmoved
+  const s0 = vkSeed;
+  try { vkQuiet(0, () => marsBuildPalQuiet(g)); } finally { vkSeed = s0; }
+}
+function marsBuildPalQuiet(g) {
+  {
     const pg = new THREE.Group();
     const dark = lam(0x1f2328), steel = lam(0xc9ced6), gold = lam(0xd4a72c);
     const coat = new THREE.MeshLambertMaterial({ color: 0xc98a5a });      // dusty while it sleeps
@@ -1047,11 +1053,12 @@ function marsBuildPal(g) {
       state: "sleep", t: 0, k: 0, clock: 0, puffN: 0,
       x: p.x, y: p.y, z: p.z, n: p.dir.clone(), f, speed: 0, spin: 0, hop: 0, roll: 0,
       home: { x: p.x, y: p.y, z: p.z, f: f.clone() },
-      yaw: 0, pitch: -0.5, stillT: 0, restT: 0, awayT: 0, watch: null,
+      yaw: 0, pitch: -0.5, stillT: 0, restT: 0, awayT: 0, stallT: 0, watch: null,
     };
-    mars.pal.solid = solidToyBall(p.x + p.dir.x * 1.1, p.y + p.dir.y * 1.1, p.z + p.dir.z * 1.1, MP.r, "mars", body);
+    const L = MP.ballLift;
+    mars.pal.solid = solidToyBall(p.x + p.dir.x * L, p.y + p.dir.y * L, p.z + p.dir.z * L, MP.r, "mars", body);
     marsPalPose(0);
-  });
+  }
 }
 
 // Along the ground, never through the air: the drone's hover height is not distance.
@@ -1123,7 +1130,7 @@ function updateMarsPal(dt) {
     pl.roll = Math.sin(k * Math.PI * 4) * 0.12 * (1 - k);     // a shake, the dust coming off
     if (pl.t <= 0) { pl.state = "awake"; pl.roll = 0; }
   } else if (pl.state === "awake" || pl.state === "dance") {
-    if (!present) { pl.awayT += dt; if (pl.awayT > 1) { pl.state = "homing"; pl.awayT = 0; chirp(); } }
+    if (!present) { pl.awayT += dt; if (pl.awayT > MP.leaveAfter) { pl.state = "homing"; pl.awayT = 0; pl.stallT = 0; chirp(); } }
     else pl.awayT = 0;
     if (pl.restT > 0) pl.restT -= dt;
     if (pl.state === "dance") {
@@ -1133,8 +1140,12 @@ function updateMarsPal(dt) {
       pl.hop = Math.sin(clamp(k, 0, 1) * Math.PI * 3) * 0.35;
       if (pl.t <= 0) { pl.state = "awake"; pl.spin = 0; pl.hop = 0; pl.restT = MP.danceRest; }
     } else if (!flying && roverHome < MP.leaveR) {
-      // a little way behind him, held inside its leash
-      const gx = rover.x - rover.f.x * MP.gap, gy = rover.y - rover.f.y * MP.gap, gz = rover.z - rover.f.z * MP.gap;
+      // beside him and a little behind, on whichever side it already is, held inside its leash
+      mbT4.copy(rover.f).cross(rover.n);                           // his right
+      const side = ((pl.x - rover.x) * mbT4.x + (pl.y - rover.y) * mbT4.y + (pl.z - rover.z) * mbT4.z) < 0 ? -MP.gapSide : MP.gapSide;
+      const gx = rover.x - rover.f.x * MP.gapBack + mbT4.x * side;
+      const gy = rover.y - rover.f.y * MP.gapBack + mbT4.y * side;
+      const gz = rover.z - rover.f.z * MP.gapBack + mbT4.z * side;
       goal = { x: gx, y: gy, z: gz };
       const fromHome = marsPalGround(gx, gy, gz, H.x, H.y, H.z);
       if (fromHome > MP.leash) {
@@ -1144,10 +1155,10 @@ function updateMarsPal(dt) {
         goal = { x: b.x + mbT2.x * b.r, y: b.y + mbT2.y * b.r, z: b.z + mbT2.z * b.r };
       }
       const dGoal = marsPalGround(pl.x, pl.y, pl.z, goal.x, goal.y, goal.z);
-      if (dWho > MP.gap * 1.3 && dGoal > 2) want = Math.min(MP.cruise, dGoal * 0.8);
+      if (dWho > MP.closeEnough && dGoal > MP.arriveR) want = Math.min(MP.cruise, dGoal * MP.taper);
     }
     // stop beside it (or hover the drone over it) and it does a happy spin
-    const still = flying ? dr.speed < 1 : Math.abs(rover.speed) < 0.5;
+    const still = flying ? dr.speed < MP.stillDrone : Math.abs(rover.speed) < MP.stillRover;
     if (pl.state === "awake" && want === 0 && still && dWho < MP.danceR && low) pl.stillT += dt; else pl.stillT = 0;
     if (pl.state === "awake" && pl.stillT > MP.danceAfter && pl.restT <= 0) {
       pl.state = "dance"; pl.t = MP.danceTime; pl.stillT = 0;
@@ -1160,8 +1171,13 @@ function updateMarsPal(dt) {
     else {
       goal = H;
       const dHome = marsPalGround(pl.x, pl.y, pl.z, H.x, H.y, H.z);
-      want = dHome > 1.5 ? Math.min(MP.cruise, dHome * 0.8 + 1) : 0;
-      if (dHome <= 1.5 && pl.speed < 0.3) { pl.state = "nap"; pl.t = MP.napTime; synthBlip("sine", 440, 220, 0.5, 0.16, 0); }
+      want = dHome > MP.arriveR ? Math.min(MP.cruise, dHome * MP.taper + 1) : 0;
+      // never wedged for ever against a dome's face on the way: if it stops getting anywhere it naps there
+      if (want > 0 && pl.speed < 0.5) pl.stallT += dt; else pl.stallT = 0;
+      if ((dHome <= MP.arriveR && pl.speed < 0.3) || pl.stallT > MP.stallTime) {
+        pl.state = "nap"; pl.t = MP.napTime; pl.stallT = 0; pl.speed = 0;
+        synthBlip("sine", 440, 220, 0.5, 0.16, 0);
+      }
     }
   } else if (pl.state === "nap") {
     pl.t -= dt;
@@ -1198,7 +1214,7 @@ function updateMarsPal(dt) {
   if (pl.speed < 0.05) pl.speed = 0;
   pl.x += pl.f.x * pl.speed * dt; pl.y += pl.f.y * pl.speed * dt; pl.z += pl.f.z * pl.speed * dt;
   // the one registry: a dome or a mast slides it round (it is never fast enough to bang)
-  const hit = solidQuery(pl.x + pl.n.x * 1.1, pl.y + pl.n.y * 1.1, pl.z + pl.n.z * 1.1, MP.r, SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp);
+  const hit = solidQuery(pl.x + pl.n.x * MP.ballLift, pl.y + pl.n.y * MP.ballLift, pl.z + pl.n.z * MP.ballLift, MP.r, SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp);
   if (hit) { pl.x += hit.nx * (hit.d + 0.2); pl.y += hit.ny * (hit.d + 0.2); pl.z += hit.nz * (hit.d + 0.2); }
   // and the rover nudges it aside, never through it: the rover skips toys, so this is the rule
   const near = TUNE.solid.r.rover + MP.r + 0.3;
@@ -1235,7 +1251,7 @@ function updateMarsPal(dt) {
   // eyes: dark asleep, lit awake, with a blink now and then
   const blink = (pl.clock % 3.1) < 0.12;
   pl.eyeMat.color.setHex(pl.k > 0.6 && !blink ? 0x5ff1ff : 0x3c4350);
-  solidFollow(pl.solid, pl.x + pl.n.x * 1.1, pl.y + pl.n.y * 1.1, pl.z + pl.n.z * 1.1);
+  solidFollow(pl.solid, pl.x + pl.n.x * MP.ballLift, pl.y + pl.n.y * MP.ballLift, pl.z + pl.n.z * MP.ballLift);
 }
 
 // ---- the four of them, driven from the base's own update
