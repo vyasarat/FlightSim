@@ -2075,7 +2075,26 @@ const TUNE = {
       // cap and leaves the approach taper alone.
       speedSteps: [0.6, 0.8, 1.0, 1.5, 2.0],
     },
-    boost: 6,                       // ... and it keeps his throttle in this long after lift-off,
+    // v209: an old little rover, asleep out past the dunes -- found, never shown. Only a
+    // slow amber blink on its antenna gives it away over the horizon (Mars is 680 m round:
+    // from the pad it is under the curve). Drive or fly the drone up and it wakes.
+    pal: {
+      homeDist: 220, homeAngle: 1.385,  // between the first two jumps, 150 m clear of both
+      wakeR: 30,                      // the rover, or the drone low enough, this close wakes it
+      droneWakeH: 60,
+      leash: 80,                      // it follows him, but never further than this from its spot
+      leaveR: 160,                    // he is this far from its spot (rover and drone both): it goes home
+      gap: 9,                         // how far behind him it likes to trundle
+      cruise: 11, accel: 2.4, turnRate: 140,   // a little slower than his rover's 14
+      r: 1.5,                         // its ball in the one registry (a toy: the rover shoves it)
+      wakeTime: 1.8, napTime: 1.6,    // waking up, and nodding off again
+      danceAfter: 1.2, danceTime: 1.8, danceRest: 5,   // stop beside it and it does a happy spin
+      danceR: 18,
+      blinkEvery: 2.2,                // the asleep blink: slow, so it reads as sleeping
+      glowSize: 9,
+      dust: 14, dustLife: 1.8,
+    },
+    boost: 6,                      // ... and it keeps his throttle in this long after lift-off,
                                     // or Mars simply pulls him straight back down onto the pad
     cargoDelay: 12,                 // once he is out driving, the cargo ship is announced
     cargoCount: 5,

@@ -83,6 +83,7 @@ entry below.
 | v205 | nothing he can see changes (a regression would be runway lights that blink out as he turns towards them) |  open |
 | v206 | he drives into the fuel truck on purpose to see what happens, and does it again |  open |
 | v208 | nothing he notices (a regression would be the rainbow or the rings missing after a race, when he flies again) |  open |
+| v209 | on Mars he spots the blinking light (or flies the drone over it), drives up to the sleepy rover, laughs or says "it woke up" when it beeps; drives round to make it follow him and stops to watch it spin; goes back to find it again on a later Mars visit |  open |
 
 ## Entries
 

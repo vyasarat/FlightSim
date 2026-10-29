@@ -7,6 +7,11 @@ in which case it goes to the top.
 
 ## Releases
 
+**Space, found not shown (the parent, 2026-10-29: "my son really enjoys the space themed things ... the little drone on mars was super cool, we didn't even know it was there and discovered it"):**
+small hidden discoveries in space, one release each, no new buttons, every kid rule applies.
+
+- [ ] **v209 The sleepy rover** (built 2026-10-29 on claude/project-thread-7o0kxh; the harness, the stream compare and the renders still to run on the Mac) -- an old little rover asleep out past Mars's dunes, under the curve from the pad, only a slow amber blink on its antenna; the rover or the drone close by wakes it (dust off, panels open, eyes lit, a beep), it follows him inside a leash, spins when he stops beside it, and goes home to nap when he leaves. Inline harness block T-SP8 (5 checks).
+
 **London, across the sea (the parent, 2026-10-25: "my son's idea, my yes on all of it"):** a third
 city east of New York. Normal game -- every kid rule applies (no text, nothing living hit, nothing
 taken away). One release each, in this order, ahead of every bug except a crash, stuck or text.

@@ -10,6 +10,16 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v209 — A sleepy rover on Mars
+
+Out past the dunes on Mars, an old little rover is asleep -- dusty, its solar panels folded shut and its
+head down. Nothing points the way to it: Mars is so small that from the pad it is over the horizon, and
+the only clue is a slow amber blink on its antenna. Drive up to it, or fly the little drone down to it,
+and it wakes: the dust shakes off, the panels open like wings, its eyes light up and it beeps hello.
+Then it trundles after his rover (never far from its own spot), and if he stops beside it, it does a
+happy spin. Drive away and it goes home and nods off again, ready to be found next time. No button, and
+he cannot bump into it: the rover just nudges it aside.
+
 ## v208 — No ghosts in a race's sky
 
 Racing round Beach Splash's lagoon he could see a white arch and a white streak hanging in the sky over

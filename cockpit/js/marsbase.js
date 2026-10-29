@@ -39,7 +39,7 @@ const mars = {
   wentOut: false, clock: 0,
   boostT: 0,         // survives marsClear: the pad's hand stays on the throttle after lift-off
   // things to do out there
-  jumps: [], rocks: [], rocksAway: false, drone: null, flag: null, dustT: 0,
+  jumps: [], rocks: [], rocksAway: false, drone: null, pal: null, flag: null, dustT: 0,
   jump: { air: false, peaked: false, t: 0, roll: 0, spin: 0, flipT: 0, flipFrom: 0 },
 };
 const mbTmp = new THREE.Vector3();
@@ -976,20 +976,285 @@ function marsDroneCamera(dt) {
   camera.lookAt(lookV);
 }
 
-// ---- the three of them, driven from the base's own update
+// ---------------------------------------------------------------------------
+// 4. THE SLEEPY ROVER (v209). An old little rover, asleep out past the dunes,
+// dusty, its panels folded and its head down. Nothing points at it: Mars is so
+// small that from the pad it is under the curve, and only a slow amber blink on
+// its antenna gives it away over the horizon. Drive up to it -- or fly the drone
+// down to it -- and it wakes: the dust shakes off, the panels open, its eyes
+// light and it beeps hello. Then it trundles after him, never far from its own
+// spot; stop beside it and it does a happy spin. Drive away and it goes home and
+// nods off again, ready to be found the next time. No button, no job, nothing
+// to lose. It is a machine, and it is solid the way a boulder is: the rover
+// nudges it aside, never bangs into it.
+//
+// It draws no rnd(): its puffs are jittered by hashSalt, so every random number
+// the boulders and the jumps see is the one they always saw. Its meshes are made
+// on vkQuiet's own stream for the same reason (three.js draws for every id).
+// ---------------------------------------------------------------------------
+const MP = MB.pal;
+function marsBuildPal(g) {
+  vkQuiet(0, () => {
+    const pg = new THREE.Group();
+    const dark = lam(0x1f2328), steel = lam(0xc9ced6), gold = lam(0xd4a72c);
+    const coat = new THREE.MeshLambertMaterial({ color: 0xc98a5a });      // dusty while it sleeps
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 2.2), coat); body.position.y = 1.05; pg.add(body);
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.12, 2.3), gold); deck.position.y = 1.46; pg.add(deck);
+    const wheels = [];
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 2.0), dark); arm.position.set(sx * 1.0, 0.78, 0); pg.add(arm);
+      for (const sz of [-0.85, 0, 0.85]) {
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.3, 10), dark);
+        w.rotation.z = Math.PI / 2; w.position.set(sx * 1.0, 0.38, sz); pg.add(w); wheels.push(w);
+      }
+    }
+    // the panels lie folded shut over its back while it sleeps and open out like wings when
+    // it wakes (one hinge a little higher, so shut they lie one on the other)
+    const panels = [];
+    const blue = new THREE.MeshLambertMaterial({ color: 0x2b4fb0, emissive: 0x0d1a44 });
+    for (const sx of [-1, 1]) {
+      const hinge = new THREE.Group(); hinge.position.set(sx * 0.85, sx > 0 ? 1.52 : 1.64, 0.3); pg.add(hinge);
+      const pn = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.06, 1.5), blue); pn.position.x = sx * 0.65; hinge.add(pn);
+      hinge.userData.side = sx; panels.push(hinge);
+    }
+    // the neck and the head: two round eyes on a camera box, the thing a four-year-old reads as a face
+    const neck = new THREE.Group(); neck.position.set(0, 1.5, -0.75); pg.add(neck);
+    const mastGeo = new THREE.CylinderGeometry(0.08, 0.08, 1, 6); mastGeo.translate(0, 0.5, 0);   // it grows from its foot
+    const mast = new THREE.Mesh(mastGeo, steel); neck.add(mast);
+    const head = new THREE.Group(); head.rotation.order = "YXZ"; neck.add(head);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.45, 0.5), steel); head.add(box);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x3c4350, fog: false });
+    for (const sx of [-0.23, 0.23]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), eyeMat); eye.position.set(sx, 0.02, -0.26); head.add(eye);
+    }
+    const dish = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.22, 10, 1, true), steel);
+    dish.position.set(0.5, 1.72, 1.25); dish.rotation.x = -0.6; pg.add(dish);
+    // the whip antenna and its blink: one glow, one draw call, the only thing that gives it away
+    const whip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 3.2, 4), steel); whip.position.set(-0.7, 3.05, 1.2); pg.add(whip);
+    const tipMat = new THREE.MeshBasicMaterial({ color: 0xffd23e, fog: false });
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), tipMat); tip.position.set(-0.7, 4.7, 1.2); pg.add(tip);
+    const glow = glowField([tip.position], TUNE.sky.padLightColor, MP.glowSize, TUNE.sky.padLightOpacity);
+    pg.add(glow);
+    pg.traverse(o => { o.userData.noShatter = true; });
+    g.add(pg);
+    const p = surfacePoint(mars.body, mars.n, MP.homeDist, MP.homeAngle);
+    // asleep it faces away from the base: he comes up behind it, and it turns round to see him
+    mbT2.set(p.x - mars.x, p.y - mars.y, p.z - mars.z);
+    if (mbT2.lengthSq() < 1e-4) mbT2.set(1, 0, 0);
+    const f = marsAim(pg, p.dir, mbT2);
+    mars.pal = {
+      g: pg, coat, eyeMat, tipMat, glow, neck, mast, head, panels, wheels,
+      state: "sleep", t: 0, k: 0, clock: 0, puffN: 0,
+      x: p.x, y: p.y, z: p.z, n: p.dir.clone(), f, speed: 0, spin: 0, hop: 0, roll: 0,
+      home: { x: p.x, y: p.y, z: p.z, f: f.clone() },
+      yaw: 0, pitch: -0.5, stillT: 0, restT: 0, awayT: 0, watch: null,
+    };
+    mars.pal.solid = solidToyBall(p.x + p.dir.x * 1.1, p.y + p.dir.y * 1.1, p.z + p.dir.z * 1.1, MP.r, "mars", body);
+    marsPalPose(0);
+  });
+}
+
+// Along the ground, never through the air: the drone's hover height is not distance.
+function marsPalGround(ax, ay, az, bx, by, bz) {
+  const b = mars.body;
+  mbT3.set(ax - b.x, ay - b.y, az - b.z).normalize();
+  mbT4.set(bx - b.x, by - b.y, bz - b.z).normalize();
+  return b.r * Math.acos(clamp(mbT3.dot(mbT4), -1, 1));
+}
+
+function marsPalPuffs(n, spread) {
+  const pl = mars.pal;
+  for (let i = 0; i < n; i++) {
+    const s = pl.puffN++;
+    const jx = hashSalt(s, 209, 1) - 0.5, up = 0.5 + hashSalt(s, 209, 2) * 2, jz = hashSalt(s, 209, 3) - 0.5;
+    wakePuff(pl.x + jx * spread + pl.n.x * up, pl.y + pl.n.y * up, pl.z + jz * spread + pl.n.z * up,
+             0xc98a5a, 1.2 + up * 0.3, 3, MP.dustLife);
+  }
+}
+
+// How awake it LOOKS, 0 asleep to 1 awake: the mast, the panels, the eyes, the dust.
+function marsPalPose(k) {
+  const pl = mars.pal;
+  pl.k = k;
+  pl.mast.scale.y = 0.35 + k * 0.85;
+  pl.head.position.y = pl.mast.scale.y;
+  for (const h of pl.panels) h.rotation.z = h.userData.side * (Math.PI - 0.04) * (1 - k);
+  pl.coat.color.setHex(0xc98a5a).lerp(mbCleanCol, k);
+}
+const mbCleanCol = new THREE.Color(0xf2f4f7);
+
+function marsPalWakeUp() {
+  const pl = mars.pal;
+  pl.state = "wake"; pl.t = MP.wakeTime; pl.stillT = 0; pl.restT = 0;
+  marsPalPuffs(MP.dust, 5);
+  noiseBurst(0.3, 500, 0.16, 0);
+  synthBlip("sine", 520, 520, 0.12, 0.22, 0.25);
+  synthBlip("sine", 660, 660, 0.12, 0.22, 0.4);
+  synthBlip("sine", 880, 1320, 0.24, 0.24, 0.55);
+  flags.marsPalWakes = (flags.marsPalWakes || 0) + 1;
+}
+
+function updateMarsPal(dt) {
+  const pl = mars.pal, b = mars.body;
+  if (!pl) return;
+  pl.clock += dt;
+  const dr = mars.drone, flying = marsDroneActive();
+  // who it can see: the drone while he flies it, otherwise the rover
+  const who = flying ? dr : rover;
+  const dWho = marsPalGround(pl.x, pl.y, pl.z, who.x, who.y, who.z);
+  const low = !flying || dr.h < MP.droneWakeH;
+  const found = dWho < MP.wakeR && low;
+  const H = pl.home;
+  const roverHome = marsPalGround(rover.x, rover.y, rover.z, H.x, H.y, H.z);
+  const present = roverHome < MP.leaveR || (flying && marsPalGround(dr.x, dr.y, dr.z, H.x, H.y, H.z) < MP.leaveR);
+  pl.watch = who;
+
+  let goal = null, want = 0;
+  if (pl.state === "sleep") {
+    // the blink is the whole lure: slow, amber, and only while it sleeps
+    const on = (pl.clock % MP.blinkEvery) < 0.5;
+    pl.tipMat.color.setHex(on ? 0xffd23e : 0x5a4a18);
+    pl.glow.visible = on;
+    if (found) marsPalWakeUp();
+  } else if (pl.state === "wake") {
+    pl.t -= dt;
+    const k = clamp(1 - pl.t / MP.wakeTime, 0, 1);
+    marsPalPose(k);
+    pl.roll = Math.sin(k * Math.PI * 4) * 0.12 * (1 - k);     // a shake, the dust coming off
+    if (pl.t <= 0) { pl.state = "awake"; pl.roll = 0; }
+  } else if (pl.state === "awake" || pl.state === "dance") {
+    if (!present) { pl.awayT += dt; if (pl.awayT > 1) { pl.state = "homing"; pl.awayT = 0; chirp(); } }
+    else pl.awayT = 0;
+    if (pl.restT > 0) pl.restT -= dt;
+    if (pl.state === "dance") {
+      pl.t -= dt;
+      const k = 1 - pl.t / MP.danceTime;
+      pl.spin = k * Math.PI * 2;
+      pl.hop = Math.sin(clamp(k, 0, 1) * Math.PI * 3) * 0.35;
+      if (pl.t <= 0) { pl.state = "awake"; pl.spin = 0; pl.hop = 0; pl.restT = MP.danceRest; }
+    } else if (!flying && roverHome < MP.leaveR) {
+      // a little way behind him, held inside its leash
+      const gx = rover.x - rover.f.x * MP.gap, gy = rover.y - rover.f.y * MP.gap, gz = rover.z - rover.f.z * MP.gap;
+      goal = { x: gx, y: gy, z: gz };
+      const fromHome = marsPalGround(gx, gy, gz, H.x, H.y, H.z);
+      if (fromHome > MP.leash) {
+        // as far as the leash goes, along the line from its spot towards him
+        const s = MP.leash / fromHome;
+        mbT2.set(H.x + (gx - H.x) * s - b.x, H.y + (gy - H.y) * s - b.y, H.z + (gz - H.z) * s - b.z).normalize();
+        goal = { x: b.x + mbT2.x * b.r, y: b.y + mbT2.y * b.r, z: b.z + mbT2.z * b.r };
+      }
+      const dGoal = marsPalGround(pl.x, pl.y, pl.z, goal.x, goal.y, goal.z);
+      if (dWho > MP.gap * 1.3 && dGoal > 2) want = Math.min(MP.cruise, dGoal * 0.8);
+    }
+    // stop beside it (or hover the drone over it) and it does a happy spin
+    const still = flying ? dr.speed < 1 : Math.abs(rover.speed) < 0.5;
+    if (pl.state === "awake" && want === 0 && still && dWho < MP.danceR && low) pl.stillT += dt; else pl.stillT = 0;
+    if (pl.state === "awake" && pl.stillT > MP.danceAfter && pl.restT <= 0) {
+      pl.state = "dance"; pl.t = MP.danceTime; pl.stillT = 0;
+      synthBlip("triangle", 700, 1100, 0.18, 0.2, 0);
+      synthBlip("triangle", 1100, 700, 0.18, 0.2, 0.2);
+      flags.marsPalDances = (flags.marsPalDances || 0) + 1;
+    }
+  } else if (pl.state === "homing") {
+    if (present && found) { pl.state = "awake"; chirp(); }
+    else {
+      goal = H;
+      const dHome = marsPalGround(pl.x, pl.y, pl.z, H.x, H.y, H.z);
+      want = dHome > 1.5 ? Math.min(MP.cruise, dHome * 0.8 + 1) : 0;
+      if (dHome <= 1.5 && pl.speed < 0.3) { pl.state = "nap"; pl.t = MP.napTime; synthBlip("sine", 440, 220, 0.5, 0.16, 0); }
+    }
+  } else if (pl.state === "nap") {
+    pl.t -= dt;
+    marsPalPose(clamp(pl.t / MP.napTime, 0, 1));
+    if (found && present && pl.t < MP.napTime * 0.5) { marsPalWakeUp(); }
+    else if (pl.t <= 0) {
+      marsPalPose(0);
+      pl.state = "sleep";
+      flags.marsPalNaps = (flags.marsPalNaps || 0) + 1;
+    }
+  }
+  if (pl.state !== "sleep") { pl.glow.visible = false; pl.tipMat.color.setHex(0x5a4a18); }
+
+  // ---- drive: turn towards the goal, or towards whoever it is looking at
+  pl.n.set(pl.x - b.x, pl.y - b.y, pl.z - b.z).normalize();
+  pl.f.addScaledVector(pl.n, -pl.f.dot(pl.n)).normalize();
+  let face = null;
+  if (goal && want > 0) face = goal;
+  else if (pl.state === "awake" && dWho > 3) face = who;
+  else if (pl.state === "nap" || pl.state === "sleep") face = null;
+  if (pl.state === "homing" && want === 0) { pl.f.lerp(H.f, Math.min(1, 3 * dt)).normalize(); }
+  if (face) {
+    mbT2.set(face.x - pl.x, face.y - pl.y, face.z - pl.z);
+    mbT2.addScaledVector(pl.n, -mbT2.dot(pl.n));
+    if (mbT2.lengthSq() > 1e-4) {
+      mbT2.normalize();
+      mbT3.copy(pl.f).cross(mbT2);
+      const ang = Math.atan2(mbT3.dot(pl.n), pl.f.dot(mbT2));
+      const step = clamp(ang, -MP.turnRate * DEG * dt, MP.turnRate * DEG * dt);
+      pl.f.applyAxisAngle(pl.n, step).normalize();
+    }
+  }
+  pl.speed += (want - pl.speed) * Math.min(1, MP.accel * dt);
+  if (pl.speed < 0.05) pl.speed = 0;
+  pl.x += pl.f.x * pl.speed * dt; pl.y += pl.f.y * pl.speed * dt; pl.z += pl.f.z * pl.speed * dt;
+  // the one registry: a dome or a mast slides it round (it is never fast enough to bang)
+  const hit = solidQuery(pl.x + pl.n.x * 1.1, pl.y + pl.n.y * 1.1, pl.z + pl.n.z * 1.1, MP.r, SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp);
+  if (hit) { pl.x += hit.nx * (hit.d + 0.2); pl.y += hit.ny * (hit.d + 0.2); pl.z += hit.nz * (hit.d + 0.2); }
+  // and the rover nudges it aside, never through it: the rover skips toys, so this is the rule
+  const near = TUNE.solid.r.rover + MP.r + 0.3;
+  const dx = pl.x - rover.x, dy = pl.y - rover.y, dz = pl.z - rover.z, dd = Math.hypot(dx, dy, dz);
+  if (!flying && dd < near && dd > 1e-4) {
+    const k = (near - dd) / dd;
+    pl.x += dx * k; pl.y += dy * k; pl.z += dz * k;
+    flags.marsPalNudges = (flags.marsPalNudges || 0) + 1;
+  }
+  mbT3.set(pl.x - b.x, pl.y - b.y, pl.z - b.z).normalize();
+  pl.x = b.x + mbT3.x * b.r; pl.y = b.y + mbT3.y * b.r; pl.z = b.z + mbT3.z * b.r;
+  pl.n.copy(mbT3);
+  if (pl.speed > 0) flags.marsPalMetres = (flags.marsPalMetres || 0) + pl.speed * dt;
+
+  // ---- what he sees
+  for (const w of pl.wheels) w.rotation.x -= pl.speed * dt / 0.38;
+  pl.g.position.set(pl.x + pl.n.x * pl.hop, pl.y + pl.n.y * pl.hop, pl.z + pl.n.z * pl.hop);
+  marsAim(pl.g, pl.n, pl.f);
+  if (pl.spin) pl.g.rotateY(pl.spin);
+  if (pl.roll) pl.g.rotateZ(pl.roll);
+  // the head looks at him (or up at the drone) once it is awake, and droops asleep
+  let yaw = 0, pitch = -0.5;
+  if (pl.k > 0.5 && pl.state !== "nap") {
+    mbT2.set(who.x - pl.x, who.y - pl.y, who.z - pl.z);
+    mbT4.copy(pl.f).cross(pl.n);                                 // its right
+    const fw = mbT2.dot(pl.f), rt = mbT2.dot(mbT4), up = mbT2.dot(pl.n) - 2.4;
+    yaw = clamp(Math.atan2(-rt, fw), -2.2, 2.2);
+    pitch = clamp(Math.atan2(up, Math.hypot(fw, rt)), -0.4, 1.1);
+    if (pl.spin) yaw = 0;
+  } else pitch = -0.5 * (1 - pl.k);
+  pl.yaw += (yaw - pl.yaw) * Math.min(1, 6 * dt);
+  pl.pitch += (pitch - pl.pitch) * Math.min(1, 6 * dt);
+  pl.head.rotation.y = pl.yaw; pl.head.rotation.x = pl.pitch;
+  // eyes: dark asleep, lit awake, with a blink now and then
+  const blink = (pl.clock % 3.1) < 0.12;
+  pl.eyeMat.color.setHex(pl.k > 0.6 && !blink ? 0x5ff1ff : 0x3c4350);
+  solidFollow(pl.solid, pl.x + pl.n.x * 1.1, pl.y + pl.n.y * 1.1, pl.z + pl.n.z * 1.1);
+}
+
+// ---- the four of them, driven from the base's own update
 function marsToysBuild(g) {
   marsToysClear();          // a rebuild must not leave the old drone in the scene
   marsBuildJumps(g);
   marsBuildBoulders(g);
   marsBuildDrone(g);
+  marsBuildPal(g);          // last, and on its own stream: what came before sees what it always saw
 }
 function marsToysClear() {
   if (mars.drone) { disposeSurfaceObjects([mars.drone.g]); mars.drone = null; }
+  mars.pal = null;          // it lives in the base group, which goes with it
   mars.jumps = []; mars.rocks = []; mars.rocksAway = false;
   mars.jump.air = false; mars.jump.peaked = false; mars.jump.t = 0; mars.jump.roll = 0; mars.jump.flipT = 0;
 }
 function updateMarsToys(dt) {
   if (!roverActive() || !mars.body) return;
+  updateMarsPal(dt);        // before the drone: flying it down to the sleepy rover wakes it too
   if (marsDroneActive()) { updateMarsDrone(dt); return; }   // the rover waits where he left it
   marsJumpCheck(dt);
   marsUpdateBoulders(dt, mars.body);
