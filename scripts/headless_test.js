@@ -4648,6 +4648,21 @@ const harnessMain = async () => {
       o.followed = Math.round((L.flags.marsPalMetres || 0) - m0);
       o.minGap = +minD.toFixed(2);
       o.leashHeld = maxHome <= P.leash + 2;
+      // (render-critic, v209) and where he can SEE it: driving straight across in front of its spot, it
+      // rides ahead of him, inside the portrait driving seat's view -- beside-and-behind was in no view
+      const side0 = hn.clone().cross(fromBase).normalize();
+      for (let i = 0; i < 60 * 8; i++) {
+        const p = hn.clone().multiplyScalar(b.r).addScaledVector(fromBase, 12).addScaledVector(side0, -50 + 8 * i / 60)
+          .normalize().multiplyScalar(b.r).add(V(b.x, b.y, b.z));
+        put(p, side0); L.rover.speed = 8; hold(); L.update(1 / 60);
+      }
+      {
+        const rel = V(pl.x - L.rover.x, pl.y - L.rover.y, pl.z - L.rover.z), rt = L.rover.f.clone().cross(L.rover.n);
+        const fw = rel.dot(L.rover.f) - 1.2, sd = Math.abs(rel.dot(rt));   // from the driving seat
+        const asp = 820 / 1180, half = Math.atan(Math.tan(L.TUNE.fov / 2 * Math.PI / 180) * asp);
+        o.aheadFw = +fw.toFixed(1); o.aheadDeg = +(Math.atan2(sd + 1.75, fw) * 180 / Math.PI).toFixed(1);
+        o.inView = fw > 4 && Math.atan2(sd + 1.75, fw) < half;     // its far edge, inside the portrait seat's half-view
+      }
       // and straight away from its spot: it stops at the end of its leash
       for (let d = 30; d < 150; d += 0.2) { put(at(-d), toward); L.rover.speed = 12; hold(); L.update(1 / 60); maxHome = Math.max(maxHome, ground(pl, H)); }
       o.maxHome = Math.round(maxHome);
@@ -4716,8 +4731,8 @@ const harnessMain = async () => {
       o.homeFromPad > 180 && o.homeFromPad < 260 && o.asleep && o.blinks && o.tipNear && o.underCurve && o.still60 && o.btnsSame, JSON.stringify(o));
     check("mars: drive up to the sleepy rover and it wakes -- the dust comes off, its panels open, its eyes light and its blink stops",
       o.waking && o.awake && o.wakes === 1 && o.panelsOpen && o.eyesLit && o.blinkOff && o.clean, JSON.stringify(o));
-    check("mars: awake, it trundles after him, never further than its leash from its spot and never into him",
-      o.followed > 100 && o.minGap >= o.gapNeed && o.leashHeld && o.leashHeldOut, JSON.stringify(o));
+    check("mars: awake, it trundles along with him -- ahead and to one side, where every view sees it -- never further than its leash from its spot and never into him",
+      o.followed > 100 && o.minGap >= o.gapNeed && o.leashHeld && o.leashHeldOut && o.inView, JSON.stringify(o));
     check("mars: stop beside it and it does a happy spin; drive away and it goes home and nods off, blinking again; come back and it wakes again",
       o.danced && o.sleptAfter > 0 && o.backHome <= 2 && o.naps >= 1 && o.blinkingAgain && o.wokeAgain, JSON.stringify(o));
     check("mars: drive straight through it and it is nudged aside -- no bang, ever; fly the drone down to it and it wakes and looks up at it, and the drone still comes home",

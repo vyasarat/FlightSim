@@ -1053,7 +1053,7 @@ function marsBuildPalQuiet(g) {
       state: "sleep", t: 0, k: 0, clock: 0, puffN: 0,
       x: p.x, y: p.y, z: p.z, n: p.dir.clone(), f, speed: 0, spin: 0, hop: 0, roll: 0,
       home: { x: p.x, y: p.y, z: p.z, f: f.clone() },
-      yaw: 0, pitch: -0.5, stillT: 0, restT: 0, awayT: 0, stallT: 0, stallFrom: undefined, watch: null,
+      yaw: 0, pitch: -0.5, nudged: false, stillT: 0, restT: 0, awayT: 0, stallT: 0, stallFrom: undefined, watch: null,
     };
     const L = MP.ballLift;
     mars.pal.solid = solidToyBall(p.x + p.dir.x * L, p.y + p.dir.y * L, p.z + p.dir.z * L, MP.r, "mars", body);
@@ -1073,9 +1073,9 @@ function marsPalPuffs(n, spread) {
   const pl = mars.pal;
   for (let i = 0; i < n; i++) {
     const s = pl.puffN++;
-    const jx = hashSalt(s, 209, 1) - 0.5, up = 0.5 + hashSalt(s, 209, 2) * 2, jz = hashSalt(s, 209, 3) - 0.5;
+    const jx = hashSalt(s, 209, 1) - 0.5, up = 0.3 + hashSalt(s, 209, 2) * 0.8, jz = hashSalt(s, 209, 3) - 0.5;
     wakePuff(pl.x + jx * spread + pl.n.x * up, pl.y + pl.n.y * up, pl.z + jz * spread + pl.n.z * up,
-             0xc98a5a, 1.2 + up * 0.3, 3, MP.dustLife);
+             0xc98a5a, 0.5 + up * 0.2, 1.2, MP.dustLife);
   }
 }
 
@@ -1093,7 +1093,7 @@ const mbCleanCol = new THREE.Color(0xf2f4f7);
 function marsPalWakeUp() {
   const pl = mars.pal;
   pl.state = "wake"; pl.t = MP.wakeTime; pl.stillT = 0; pl.restT = 0;
-  marsPalPuffs(MP.dust, 5);
+  marsPalPuffs(MP.dust, 3);      // low round its wheels: the panels and the eyes are the payoff, not the dust
   noiseBurst(0.3, 500, 0.16, 0);
   synthBlip("sine", 520, 520, 0.12, 0.22, 0.25);
   synthBlip("sine", 660, 660, 0.12, 0.22, 0.4);
@@ -1122,6 +1122,8 @@ function updateMarsPal(dt) {
     const on = (pl.clock % MP.blinkEvery) < 0.5;
     pl.tipMat.color.setHex(on ? 0xffd23e : 0x5a4a18);
     pl.glow.visible = on;
+    // the same size on screen however far off he is: a sprite that shrinks with distance is no lure
+    if (on) pl.glow.material.size = Math.max(MP.glowSize, camera.position.distanceTo(pl.g.position) * MP.glowPerM);
     if (found) marsPalWakeUp();
   } else if (pl.state === "wake") {
     pl.t -= dt;
@@ -1140,22 +1142,26 @@ function updateMarsPal(dt) {
       pl.hop = Math.sin(clamp(k, 0, 1) * Math.PI * 3) * 0.35;
       if (pl.t <= 0) { pl.state = "awake"; pl.spin = 0; pl.hop = 0; pl.restT = MP.danceRest; }
     } else if (!flying && roverHome < MP.leaveR) {
-      // beside him and a little behind, on whichever side it already is, held inside its leash
+      // a little ahead of him and to one side, whichever it already is, held inside its leash
       mbT4.copy(rover.f).cross(rover.n);                           // his right
       const side = ((pl.x - rover.x) * mbT4.x + (pl.y - rover.y) * mbT4.y + (pl.z - rover.z) * mbT4.z) < 0 ? -MP.gapSide : MP.gapSide;
-      const gx = rover.x - rover.f.x * MP.gapBack + mbT4.x * side;
-      const gy = rover.y - rover.f.y * MP.gapBack + mbT4.y * side;
-      const gz = rover.z - rover.f.z * MP.gapBack + mbT4.z * side;
+      const gx = rover.x + rover.f.x * MP.gapAhead + mbT4.x * side;
+      const gy = rover.y + rover.f.y * MP.gapAhead + mbT4.y * side;
+      const gz = rover.z + rover.f.z * MP.gapAhead + mbT4.z * side;
       goal = { x: gx, y: gy, z: gz };
-      const fromHome = marsPalGround(gx, gy, gz, H.x, H.y, H.z);
-      if (fromHome > MP.leash) {
+      const fromHome = marsPalGround(gx, gy, gz, H.x, H.y, H.z), leashed = fromHome > MP.leash;
+      if (leashed) {
         // as far as the leash goes, along the line from its spot towards him
         const s = MP.leash / fromHome;
         mbT2.set(H.x + (gx - H.x) * s - b.x, H.y + (gy - H.y) * s - b.y, H.z + (gz - H.z) * s - b.z).normalize();
         goal = { x: b.x + mbT2.x * b.r, y: b.y + mbT2.y * b.r, z: b.z + mbT2.z * b.r };
       }
       const dGoal = marsPalGround(pl.x, pl.y, pl.z, goal.x, goal.y, goal.z);
-      if (dWho > MP.closeEnough && dGoal > MP.arriveR) want = Math.min(MP.cruise, dGoal * MP.taper);
+      // his own speed plus the gap: a follower on the gap alone sits one gap behind its spot, which put it
+      // trailing at his shoulder, in no view. Near him it waits only while he is stopped; at the end
+      // of its leash his speed is not its own (it would carry it past)
+      const his = leashed ? 0 : Math.max(0, rover.speed);
+      if (dWho > MP.closeEnough || his > MP.stillRover) want = Math.min(MP.cruise, his + (dGoal > MP.arriveR ? dGoal * MP.taper : 0));
     }
     // stop beside it (or hover the drone over it) and it does a happy spin
     const still = flying ? dr.speed < MP.stillDrone : Math.abs(rover.speed) < MP.stillRover;
@@ -1215,15 +1221,21 @@ function updateMarsPal(dt) {
   pl.speed += (want - pl.speed) * Math.min(1, MP.accel * dt);
   if (pl.speed < 0.05) pl.speed = 0;
   pl.x += pl.f.x * pl.speed * dt; pl.y += pl.f.y * pl.speed * dt; pl.z += pl.f.z * pl.speed * dt;
-  // the one registry: a dome or a mast slides it round (it is never fast enough to bang)
-  const hit = solidQuery(pl.x + pl.n.x * MP.ballLift, pl.y + pl.n.y * MP.ballLift, pl.z + pl.n.z * MP.ballLift, MP.r, SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp);
-  if (hit) { pl.x += hit.nx * (hit.d + 0.2); pl.y += hit.ny * (hit.d + 0.2); pl.z += hit.nz * (hit.d + 0.2); }
+  // the one registry: a dome or a mast slides it round (it is never fast enough to bang).
+  // Asked only when it has moved: a query walks every solid in the world (9,347 of them, the
+  // cities' too), +0.6 ms a frame on Mars, and what can move into it -- a toy, a ramp -- it skips
+  if (pl.speed > 0 || pl.nudged) {
+    const hit = solidQuery(pl.x + pl.n.x * MP.ballLift, pl.y + pl.n.y * MP.ballLift, pl.z + pl.n.z * MP.ballLift, MP.r, SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp);
+    if (hit) { pl.x += hit.nx * (hit.d + 0.2); pl.y += hit.ny * (hit.d + 0.2); pl.z += hit.nz * (hit.d + 0.2); }
+  }
+  pl.nudged = false;
   // and the rover nudges it aside, never through it: the rover skips toys, so this is the rule
   const near = TUNE.solid.r.rover + MP.r + 0.3;
   const dx = pl.x - rover.x, dy = pl.y - rover.y, dz = pl.z - rover.z, dd = Math.hypot(dx, dy, dz);
   if (!flying && dd < near && dd > 1e-4) {
     const k = (near - dd) / dd;
     pl.x += dx * k; pl.y += dy * k; pl.z += dz * k;
+    pl.nudged = true;          // ... and next frame it is asked whether that pushed it into a dome
     flags.marsPalNudges = (flags.marsPalNudges || 0) + 1;
   }
   mbT3.set(pl.x - b.x, pl.y - b.y, pl.z - b.z).normalize();
