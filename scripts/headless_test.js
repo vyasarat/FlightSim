@@ -4559,6 +4559,188 @@ const harnessMain = async () => {
     await page.close();
   }
 
+  // ---------- T-SP8 Mars: the sleepy rover (v209) -- found, never shown ----------
+  {
+    const { page } = await newPage(1180, 820);
+    const o = await page.evaluate(() => {
+      const L = window.__lp, st = L.state, P = L.MB.pal;
+      L.noRender = true;
+      const o = {};
+      const b = L.BODIES[1];
+      const V = (x, y, z) => new THREE.Vector3(x, y, z);
+      const put = (p, f) => {      // stand the rover on the ground here, facing f
+        const n = V(p.x - b.x, p.y - b.y, p.z - b.z).normalize(), R = b.r + 0.9;
+        L.rover.x = b.x + n.x * R; L.rover.y = b.y + n.y * R; L.rover.z = b.z + n.z * R;
+        L.rover.n.copy(n); L.rover.f.copy(f).addScaledVector(n, -f.dot(n)).normalize();
+        L.rover.h = 0; L.rover.vh = 0; L.rover.speed = 0;
+      };
+      const ground = (a, c) => {
+        const u = V(a.x - b.x, a.y - b.y, a.z - b.z).normalize(), v = V(c.x - b.x, c.y - b.y, c.z - b.z).normalize();
+        return b.r * Math.acos(Math.min(1, u.dot(v)));
+      };
+      // the pad never takes him home in the middle of this: it is the base's own check
+      const hold = () => { if (L.mars.phase === "armed") L.mars.phase = "idle"; L.mars.wentOut = false; };
+      const step = s => { for (let i = 0; i < s * 60; i++) { hold(); L.update(1 / 60); } };
+      L.api.setVehicle("starship"); L.api.placeOnRunway();
+      st.dest = "mars"; st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 1;
+      const n0 = V(0.62, 0.5, 0.6).normalize();
+      st.x = b.x + n0.x * (b.r + 12); st.y = b.y + n0.y * (b.r + 12); st.z = b.z + n0.z * (b.r + 12);
+      L.update(1 / 60);
+      L.roverDeploy(); L.update(1 / 60);
+      const pl = L.mars.pal, H = pl.home;
+      const hn = V(H.x - b.x, H.y - b.y, H.z - b.z).normalize();
+      const fromBase = V(L.mars.x - H.x, L.mars.y - H.y, L.mars.z - H.z);
+      fromBase.addScaledVector(hn, -fromBase.dot(hn)).normalize();
+      const at = d => {            // d metres from its spot, on the base's side
+        const p = hn.clone().multiplyScalar(b.r).addScaledVector(fromBase, d).normalize().multiplyScalar(b.r).add(V(b.x, b.y, b.z));
+        return p;
+      };
+      const toward = fromBase.clone().negate();
+
+      // ---- 1. asleep out past the dunes, under the curve from the pad, a slow blink the only clue
+      o.homeFromPad = Math.round(ground(H, L.mars));
+      o.asleep = pl.state === "sleep" && pl.k === 0;
+      let lit = 0;
+      for (let i = 0; i < 300; i++) { hold(); L.update(1 / 60); if (pl.glow.visible) lit++; }
+      o.blinks = lit > 30 && lit < 200;
+      // under the curve: the ground between the pad and it stands higher than a line
+      // from a rover's camera at the pad (about 5 m up) to its antenna tip
+      const padEye = V(L.mars.x, L.mars.y, L.mars.z).addScaledVector(L.mars.n, 5);
+      pl.g.updateWorldMatrix(true, false);      // nothing renders here, so nothing else has filled it in
+      const tipW = pl.g.localToWorld(V(-0.7, 4.7, 1.2));
+      o.tipNear = Math.hypot(tipW.x - pl.x, tipW.y - pl.y, tipW.z - pl.z) < 8;
+      const mid = padEye.clone().lerp(tipW, 0.5);
+      o.underCurve = Math.hypot(mid.x - b.x, mid.y - b.y, mid.z - b.z) < b.r;
+      // and nothing about it is a button: the buttons beside it are the buttons 60 m off
+      const btns = () => [...document.querySelectorAll("button, .btn, [id$=Btn]")]
+        .filter(e => !e.classList.contains("hidden") && e.getBoundingClientRect().width > 0).map(e => e.id).sort().join(",");
+      put(at(60), toward); hold(); L.update(1 / 60);
+      const far = btns();
+      o.still60 = pl.state === "sleep";
+
+      // ---- 2. drive up to it and it wakes: dust, panels open, eyes lit, a hello
+      put(at(P.wakeR - 4), toward); step(0.3);
+      o.btnsSame = btns() === far;
+      o.waking = pl.state === "wake";
+      step(P.wakeTime + 0.5);
+      o.awake = pl.state === "awake" && pl.k === 1;
+      // the rover moves after it in the same frame, so the gap it keeps may read a frame's travel short
+      o.gapNeed = +(L.TUNE.solid.r.rover + P.r - 0.5).toFixed(2);
+      o.wakes = L.flags.marsPalWakes || 0;
+      o.panelsOpen = pl.panels.every(h => Math.abs(h.rotation.z) < 0.01);
+      o.eyesLit = (() => { let lit = 0; for (let i = 0; i < 60; i++) { L.rover.speed = 0; hold(); L.update(1 / 60); if (pl.eyeMat.color.getHex() === 0x5ff1ff) lit++; } return lit > 40; })();   // (it blinks)
+      o.blinkOff = !pl.glow.visible;
+      o.clean = pl.coat.color.getHex() === 0xf2f4f7;
+
+      // ---- 3. it follows him round, inside its leash, never into him, never a bang
+      const e1 = V(1, 0, 0).cross(hn).normalize(), e2 = hn.clone().cross(e1);
+      let minD = 1e9, maxHome = 0;
+      const m0 = L.flags.marsPalMetres || 0, x0 = L.flags.exploded || 0;
+      for (let i = 0; i < 60 * 30; i++) {
+        const a = (i / 60) * 10 / 30;
+        const p = hn.clone().multiplyScalar(b.r).addScaledVector(e1, Math.cos(a) * 30).addScaledVector(e2, Math.sin(a) * 30)
+          .normalize().multiplyScalar(b.r).add(V(b.x, b.y, b.z));
+        put(p, e1.clone().multiplyScalar(-Math.sin(a)).addScaledVector(e2, Math.cos(a)));
+        L.rover.speed = 10; hold(); L.update(1 / 60);
+        minD = Math.min(minD, Math.hypot(pl.x - L.rover.x, pl.y - L.rover.y, pl.z - L.rover.z));
+        maxHome = Math.max(maxHome, ground(pl, H));
+      }
+      o.followed = Math.round((L.flags.marsPalMetres || 0) - m0);
+      o.minGap = +minD.toFixed(2);
+      o.leashHeld = maxHome <= P.leash + 2;
+      // (render-critic, v209) and where he can SEE it: driving straight across in front of its spot, it
+      // rides ahead of him, inside the portrait driving seat's view -- beside-and-behind was in no view
+      const side0 = hn.clone().cross(fromBase).normalize();
+      for (let i = 0; i < 60 * 8; i++) {
+        const p = hn.clone().multiplyScalar(b.r).addScaledVector(fromBase, 12).addScaledVector(side0, -50 + 8 * i / 60)
+          .normalize().multiplyScalar(b.r).add(V(b.x, b.y, b.z));
+        put(p, side0); L.rover.speed = 8; hold(); L.update(1 / 60);
+      }
+      {
+        const rel = V(pl.x - L.rover.x, pl.y - L.rover.y, pl.z - L.rover.z), rt = L.rover.f.clone().cross(L.rover.n);
+        const fw = rel.dot(L.rover.f) - 1.2, sd = Math.abs(rel.dot(rt));   // from the driving seat
+        const asp = 820 / 1180, half = Math.atan(Math.tan(L.TUNE.fov / 2 * Math.PI / 180) * asp);
+        o.aheadFw = +fw.toFixed(1); o.aheadDeg = +(Math.atan2(sd + 1.75, fw) * 180 / Math.PI).toFixed(1);
+        o.inView = fw > 4 && Math.atan2(sd + 1.75, fw) < half;     // its far edge, inside the portrait seat's half-view
+      }
+      // and straight away from its spot: it stops at the end of its leash
+      for (let d = 30; d < 150; d += 0.2) { put(at(-d), toward); L.rover.speed = 12; hold(); L.update(1 / 60); maxHome = Math.max(maxHome, ground(pl, H)); }
+      o.maxHome = Math.round(maxHome);
+      o.leashHeldOut = maxHome <= P.leash + 2;
+
+      // ---- 4. stop beside it and it does a happy spin
+      put(at(8), toward); step(0.1);
+      const d0 = L.flags.marsPalDances || 0;
+      for (let i = 0; i < 60 * 25 && (L.flags.marsPalDances || 0) === d0; i++) { L.rover.speed = 0; hold(); L.update(1 / 60); }
+      o.danced = (L.flags.marsPalDances || 0) > d0;
+
+      // ---- 5. drive away and it goes home and nods off; come back and it wakes again
+      put(at(P.leaveR + 40), toward.clone().negate());
+      let slept = -1;
+      for (let i = 0; i < 60 * 60; i++) { hold(); L.update(1 / 60); if (pl.state === "sleep") { slept = i / 60; break; } }
+      o.sleptAfter = slept;
+      o.backHome = Math.round(ground(pl, H) * 10) / 10;
+      o.naps = L.flags.marsPalNaps || 0;
+      o.blinkingAgain = (() => { let n = 0; for (let i = 0; i < 300; i++) { hold(); L.update(1 / 60); if (pl.glow.visible) n++; } return n > 30; })();
+      put(at(P.wakeR - 6), toward); step(P.wakeTime + 1);
+      o.wokeAgain = (L.flags.marsPalWakes || 0) === o.wakes + 1 && pl.state !== "sleep";
+
+      // ---- 6. drive straight through it (it wakes as he comes, and the nudge holds in any state): it is nudged aside, he never bangs
+      put(at(P.leaveR + 40), toward.clone().negate());
+      for (let i = 0; i < 60 * 60 && pl.state !== "sleep"; i++) { hold(); L.update(1 / 60); }
+      let ramMin = 1e9;
+      const nudge0 = L.flags.marsPalNudges || 0, bang0 = L.rover.bangT || 0;
+      for (let d = 14; d > -14; d -= 0.25) {
+        put(at(d), toward); L.rover.speed = L.TUNE.rover.cruise; hold(); L.update(1 / 60);
+        ramMin = Math.min(ramMin, Math.hypot(pl.x - L.rover.x, pl.y - L.rover.y, pl.z - L.rover.z));
+      }
+      o.ramMin = +ramMin.toFixed(2);
+      o.nudged = (L.flags.marsPalNudges || 0) > nudge0;
+      o.noBang = !(L.rover.bangT > bang0) && (L.flags.exploded || 0) === x0;
+
+      // ---- 7. fly the drone down to it and it wakes and looks up
+      put(at(P.leaveR + 40), toward.clone().negate());
+      for (let i = 0; i < 60 * 60 && pl.state !== "sleep"; i++) { hold(); L.update(1 / 60); }
+      const dr = L.mars.drone;
+      dr.x = L.rover.x; dr.y = L.rover.y; dr.z = L.rover.z;
+      o.droneUp = L.marsDronePress() && L.marsDroneActive();
+      const w0 = L.flags.marsPalWakes || 0;
+      for (let i = 0; i < 60 * 4; i++) {
+        const p = at(10), n = V(p.x - b.x, p.y - b.y, p.z - b.z).normalize();
+        dr.x = b.x + n.x * (b.r + 12); dr.y = b.y + n.y * (b.r + 12); dr.z = b.z + n.z * (b.r + 12);
+        dr.h = 12; dr.vh = 0; dr.speed = 0; dr.home = false; dr.grace = 1;
+        hold(); L.update(1 / 60);
+      }
+      o.droneWoke = (L.flags.marsPalWakes || 0) > w0;
+      o.looksUp = pl.pitch > 0.3;
+      L.marsDronePress();
+      for (let i = 0; i < 60 * 60 && L.marsDroneActive(); i++) { hold(); L.update(1 / 60); }
+      o.droneHome = !L.marsDroneActive();
+
+      // ---- nothing about it is breakable, a target, or alive
+      let shatter = 0;
+      pl.g.traverse(m => { if (m.isMesh && !m.userData.noShatter) shatter++; });
+      o.shatter = shatter;
+      o.solidToy = !!pl.solid && pl.solid.toy === true;
+      o.noTargets = L.targets.every(t2 => Math.hypot(t2.x - H.x, t2.z - H.z) > 200);
+      o.exploded = (L.flags.exploded || 0) - x0;
+      o.frameErrors = L.frameErrors || 0;
+      return o;
+    });
+    check("mars: the sleepy rover -- out past the dunes and under the curve from the pad, asleep, its only clue a slow amber blink; no button anywhere near it",
+      o.homeFromPad > 180 && o.homeFromPad < 260 && o.asleep && o.blinks && o.tipNear && o.underCurve && o.still60 && o.btnsSame, JSON.stringify(o));
+    check("mars: drive up to the sleepy rover and it wakes -- the dust comes off, its panels open, its eyes light and its blink stops",
+      o.waking && o.awake && o.wakes === 1 && o.panelsOpen && o.eyesLit && o.blinkOff && o.clean, JSON.stringify(o));
+    check("mars: awake, it trundles along with him -- ahead and to one side, where every view sees it -- never further than its leash from its spot and never into him",
+      o.followed > 100 && o.minGap >= o.gapNeed && o.leashHeld && o.leashHeldOut && o.inView, JSON.stringify(o));
+    check("mars: stop beside it and it does a happy spin; drive away and it goes home and nods off, blinking again; come back and it wakes again",
+      o.danced && o.sleptAfter > 0 && o.backHome <= 2 && o.naps >= 1 && o.blinkingAgain && o.wokeAgain, JSON.stringify(o));
+    check("mars: drive straight through it and it is nudged aside -- no bang, ever; fly the drone down to it and it wakes and looks up at it, and the drone still comes home",
+      o.nudged && o.ramMin >= o.gapNeed && o.noBang && o.droneUp && o.droneWoke && o.looksUp && o.droneHome &&
+      o.shatter === 0 && o.solidToy && o.noTargets && o.exploded === 0 && o.frameErrors === 0, JSON.stringify(o));
+    await page.close();
+  }
+
   // ---------- T-CAR the highway and the car ----------
   {
     const { page } = await newPage(1180, 820);
