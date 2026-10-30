@@ -4,7 +4,8 @@
 //
 //   node scripts/stars_renders.js [root]
 //
-//   falling      two seconds into a shower: the stars coming down out of the sky, slanting in
+//   falling      3.4 s into a shower: the first star in its last, slow stretch down in front of him
+//                (above that it is higher than either view looks), the others still coming in
 //   landed       all seven down: the first right in front of him, glowing, its beam up
 //   beams-far    facing the two furthest: under the curve, only their beams over it
 //   ring         four caught: the ring of stars spinning over his rover
@@ -60,7 +61,7 @@ const SCENES = {
   "falling": () => {
     const P = window.__P;
     window.__hold = () => { P.put(P.at, P.f); };
-    P.shower(); window.__step(120);
+    P.shower(); window.__step(175);              // + the 30 every scene steps: 3.4 s
   },
   "landed": () => {
     const P = window.__P;

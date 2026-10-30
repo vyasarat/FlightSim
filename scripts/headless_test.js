@@ -4864,7 +4864,30 @@ const harnessMain = async () => {
         M.catchR = 0;              // (only so this drive picks up no other star on its way)
         for (let i = 0; i < 60 * 4; i++) { const p = marsWalk(c0.x, c0.y, c0.z, f0.clone().negate(), i * 0.2); put(p, f0.clone().negate()); L.rover.speed = 12; hold(); L.update(1 / 60); }
         M.catchR = catchR;
+        // (7: the tipped ring's furthest star is 7.4 m from him -- sqrt(h^2 + R^2 + 2hR sin(tilt)) -- so moving crownH or crownTilt moves this)
         o.ringRides = Math.round(c0.cur.distanceTo(V(L.rover.x, L.rover.y, L.rover.z))) <= 7 && rup(c0) > 3;
+        // and he can see it from either seat, either way up: over him from the chase camera, in the windscreen from the seat
+        const rideAt = V(L.rover.x, L.rover.y, L.rover.z), rideF = L.rover.f.clone();
+        o.ringSeen = {};
+        o.seatLowDeg = 90;
+        for (const chase of [true, false]) {
+          L.api.setView(chase);
+          for (let i = 0; i < 60; i++) { put(rideAt, rideF); hold(); L.update(1 / 60); }
+          // from the seat, over a whole turn of the ring: never down across his eye line, where the star he steers at is
+          if (!chase) for (let i = 0; i < 60 * 4; i++) {
+            put(rideAt, rideF); hold(); L.update(1 / 60);
+            const v = c0.cur.clone().sub(L.camera.position);
+            o.seatLowDeg = Math.min(o.seatLowDeg, +(Math.asin(v.dot(L.rover.n) / v.length()) * 180 / Math.PI).toFixed(1));
+          }
+          for (const [w, h] of [[1180, 820], [820, 1180]]) {
+            const cam = L.camera.clone(); cam.aspect = w / h; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
+            const p = c0.cur.clone().project(cam);
+            o.ringSeen[(chase ? "chase" : "seat") + "-" + (w > h ? "land" : "port")] =
+              Math.abs(p.x) < 0.9 && Math.abs(p.y) < 0.9 && p.z < 1 ? "in" : [+p.x.toFixed(2), +p.y.toFixed(2)].join(" ");
+          }
+        }
+        L.api.setView(true);
+        for (let i = 0; i < 30; i++) { put(rideAt, rideF); hold(); L.update(1 / 60); }
         // the drone, flying over one, catches it
         const c1 = S.list[1], dr = L.mars.drone;
         dr.x = L.rover.x; dr.y = L.rover.y; dr.z = L.rover.z;
@@ -4924,6 +4947,15 @@ const harnessMain = async () => {
         o.again = (L.flags.marsStarShowers || 0) === 2 && S.phase !== "rest" && S.phase !== "wait";
         o.bigStays = S.big.visible;
         o.caughtAfter = S.caught;      // the new shower starts at none: nothing was taken, the last show was his
+        // and never before the cargo ship: one due while it is still to come waits for it to land
+        const sh0 = L.flags.marsStarShowers || 0, cargo0 = L.mars.cargoPhase, cargoT0 = L.mars.cargoT;
+        L.mars.cargoPhase = "waiting"; L.mars.cargoT = 1e9; S.phase = "rest"; S.t = 0;
+        for (let i = 0; i < 60 * 2; i++) { hold7(); L.update(1 / 60); }
+        o.waitsForCargo = (L.flags.marsStarShowers || 0) === sh0;
+        L.mars.cargoPhase = "down";
+        for (let i = 0; i < 5; i++) { hold7(); L.update(1 / 60); }
+        o.afterCargo = (L.flags.marsStarShowers || 0) === sh0 + 1;
+        L.mars.cargoPhase = cargo0; L.mars.cargoT = cargoT0;
 
         // ---- nothing breakable, nothing under the drone's finger, few draw calls, nothing alive
         let shatter = 0, drawn = 0;
@@ -4947,13 +4979,13 @@ const harnessMain = async () => {
       o.padClear >= o.padNeed - 2 && o.inSolid === 0, JSON.stringify(o));
     check("mars: the furthest stars land under the curve from him, and every star's beam of light stands over it, so he can find them all",
       o.underCurve >= 1 && o.beamsSeen === 7 && o.beamsUp, JSON.stringify(o));
-    check("mars: drive into a star and it is caught -- it flies up into a ring of stars spinning over his rover and rides with him; a jump clean over one is not a catch; the drone flying over one catches it too",
-      o.jumpNotCatch && o.caughtOne && o.inRing && o.noBeam && o.ringRides && o.droneUp && o.droneCaught && o.droneHome && o.slots === "0,1", JSON.stringify(o));
+    check("mars: drive into a star and it is caught -- it flies up into a ring of stars spinning over his rover and rides with him, in sight from either seat; a jump clean over one is not a catch; the drone flying over one catches it too",
+      o.jumpNotCatch && o.caughtOne && o.inRing && o.noBeam && o.ringRides && Object.values(o.ringSeen).every(v => v === "in") && o.seatLowDeg >= 4 && o.droneUp && o.droneCaught && o.droneHome && o.slots === "0,1", JSON.stringify(o));
     check("mars: catch the seventh and the ring spins up and lifts, the stars shoot up in front of him and burst into seven fireworks, and a big star opens there -- all inside the frame from the chase camera and the seat, portrait and landscape",
       o.caughtAll && o.ringRose > 2 && o.launched && o.burstAhead > 80 && o.burstUp > 10 && o.bursts === 7 && o.payoffs === 1 &&
       o.bigOpen && o.bigScale > 0.85 && o.bigScale < 1.2 && Object.values(o.frame).every(v => v === "in"), JSON.stringify(o));
-    check("mars: a while after the show another shower comes and the big star stays in the sky; nothing breakable, nothing under the drone's finger, six draw calls at most, no bang, and the shower draws nothing from either random stream",
-      o.again && o.bigStays && o.caughtAfter === 0 && o.shatter === 0 && o.drawn <= 6 && o.onStars === 0 && o.noTargets &&
+    check("mars: a while after the show another shower comes and the big star stays in the sky, never before the cargo ship; nothing breakable, nothing under the drone's finger, six draw calls at most, no bang, and the shower draws nothing from either random stream",
+      o.again && o.bigStays && o.caughtAfter === 0 && o.waitsForCargo && o.afterCargo && o.shatter === 0 && o.drawn <= 6 && o.onStars === 0 && o.noTargets &&
       o.mathDraws === 0 && o.rndMoved === 0 && o.exploded === 0 && o.frameErrors === 0, JSON.stringify(o));
     await page.close();
   }

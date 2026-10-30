@@ -1291,6 +1291,7 @@ const MS = MB.stars;
 const MS_Y = new THREE.Vector3(0, 1, 0);
 const msQ = new THREE.Quaternion(), msQ2 = new THREE.Quaternion(), msM = new THREE.Matrix4();
 const msV = new THREE.Vector3(), msU = new THREE.Vector3(), msT = new THREE.Vector3(), msR = new THREE.Vector3(), msScl = new THREE.Vector3();
+const msS = new THREE.Vector3();
 const MS_NOTES = [523, 587, 659, 784, 880, 1047, 1175, 1319];   // up the scale, one per star
 const MS_FW = [0xff3b6b, 0xffd23e, 0x3ad1ff, 0x7cff5a, 0xff7ab8, 0xb388ff, 0xff9a3a, 0xf2f4f7];
 const MS_GOLD = 0xffd23e;
@@ -1320,11 +1321,11 @@ function marsBuildStarsQuiet(g) {
   starMesh.frustumCulled = false;        // one bounding sphere at the origin would cull it all
   sg.add(starMesh);
   // each landed star's beam: open, additive, fading to nothing at its top (black is clear)
-  const pgeo = new THREE.CylinderGeometry(MS.pillarR * 0.35, MS.pillarR, MS.pillarH, 10, 1, true);
+  const pgeo = new THREE.CylinderGeometry(MS.pillarR * 0.35, MS.pillarR, MS.pillarH, 10, 4, true);
   pgeo.translate(0, MS.pillarH / 2, 0);
   const pos = pgeo.attributes.position, col = new Float32Array(pos.count * 3);
   for (let i = 0; i < pos.count; i++) {
-    const k = 1 - pos.getY(i) / MS.pillarH;
+    const y = pos.getY(i), k = Math.min(1, y / MS.pillarFoot) * (1 - y / MS.pillarH);
     col[i * 3] = k; col[i * 3 + 1] = 0.82 * k; col[i * 3 + 2] = 0.25 * k;
   }
   pgeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
@@ -1367,7 +1368,7 @@ function marsBuildStarsQuiet(g) {
   mars.stars = {
     g: sg, starMesh, pillarMesh, glow, sparks, big, list,
     phase: "wait", t: MS.first, clock: 0, caught: 0, showers: 0, bursts: 0, sparkN: 0, trailT: 0, rainT: 0, bigT: 0,
-    cx: rover.x, cy: rover.y, cz: rover.z, cf: new THREE.Vector3(1, 0, 0), centre,
+    cx: rover.x, cy: rover.y, cz: rover.z, cf: new THREE.Vector3(1, 0, 0), centre, seat: state.viewChase ? 0 : 1,
     burstAt: new THREE.Vector3(),
     sp: { life: new Float32Array(SN), max: new Float32Array(SN), v: new Float32Array(SN * 3), c: new Float32Array(SN * 3), cur: 0, dirty: true },
   };
@@ -1505,10 +1506,13 @@ function updateMarsStars(dt) {
   S.clock += dt;
   const flying = marsDroneActive(), who = flying ? mars.drone : rover;
   const calm = mars.phase === "idle" || mars.phase === "armed";
-  // ---- the shower's clock: out driving, never while the cargo ship has the sky, never on the way home
+  // ---- the shower's clock: out driving, never while the cargo ship has the sky, never on the way home.
+  // Never before the cargo ship either: nothing but MS.first outlasting cargoDelay + cargoCount keeps
+  // them in order, and a retune of either would bring the cargo ship down in the middle of his hunt.
   if (S.phase === "wait" || S.phase === "rest") {
     S.t -= dt;
-    if (S.t <= 0 && calm && mars.cargoPhase !== "count" && mars.cargoPhase !== "falling") marsStarShower(who);
+    const cargoBusy = mars.cargoPhase === "waiting" || mars.cargoPhase === "count" || mars.cargoPhase === "falling";
+    if (S.t <= 0 && calm && !cargoBusy) marsStarShower(who);
   } else if (S.phase === "fall") {
     if (S.list.every(s => s.st !== "fall")) S.phase = "hunt";
   } else if (S.phase === "windup") {
@@ -1519,6 +1523,7 @@ function updateMarsStars(dt) {
   const fk = Math.min(1, 8 * dt);
   S.cx += (who.x - S.cx) * fk; S.cy += (who.y - S.cy) * fk; S.cz += (who.z - S.cz) * fk;
   S.cf.lerp(who.f, fk).normalize();
+  S.seat += ((state.viewChase ? 0 : 1) - S.seat) * fk;
 
   S.trailT -= dt;
   const trail = S.trailT <= 0;
@@ -1550,9 +1555,12 @@ function updateMarsStars(dt) {
       msR.copy(msT).cross(msU);
       const wk = S.phase === "windup" ? clamp(1 - S.t / MS.windup, 0, 1) : 0;
       const a = s.slot / MS.count * Math.PI * 2 + S.clock * MS.crownSpin * (1 + wk * wk * 5);
-      const h = MS.crownH + wk * MS.windupRise;
-      msV.set(S.cx, S.cy, S.cz).addScaledVector(msU, h)
-        .addScaledVector(msT, Math.cos(a) * MS.crownR).addScaledVector(msR, Math.sin(a) * MS.crownR);
+      // over him and tipped back at the chase camera; from the seat, standing up in the windscreen
+      const sk = S.seat, tilt = MS.crownTilt + (Math.PI / 2 - MS.crownTilt) * sk;
+      const h = MS.crownH + (MS.seatUp - MS.crownH) * sk + wk * MS.windupRise * (1 - (1 - MS.seatRise) * sk);
+      msS.copy(msT).multiplyScalar(Math.cos(tilt)).addScaledVector(msU, Math.sin(tilt));
+      msV.set(S.cx, S.cy, S.cz).addScaledVector(msU, h).addScaledVector(msT, MS.seatAhead * sk)
+        .addScaledVector(msS, Math.cos(a) * MS.crownR).addScaledVector(msR, Math.sin(a) * MS.crownR);
       if (s.st === "fly") {
         s.t += dt;
         const k = clamp(s.t / MS.flyTime, 0, 1), e = 1 - (1 - k) * (1 - k);

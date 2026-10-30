@@ -2122,11 +2122,15 @@ const TUNE = {
       hover: 2.6, bob: 0.3, spin: 1.6,
       size: 1.6,                      // a star's radius: 3.2 m across, against his 4.9 m rover
       pillarH: 70, pillarR: 1.6, pillarOpacity: 0.5, pillarGrow: 0.6,   // its beam: over the horizon from 300 m
+      pillarFoot: 7,                  // ... faint at its foot, so the star there stands out of it, not lost in it
       glowSize: 9,
       catchR: 6, roverCatchH: 8,      // aim at it: within this, along the ground (a jump over it is not a catch)
       droneCatchR: 8, droneCatchH: 24,   // the drone flying over it counts (it hovers at 14)
       flyTime: 0.6,                   // caught, it flies to the ring over him
-      crownR: 2.6, crownH: 4.6, crownSpin: 1.8, crownScale: 0.5,
+      crownR: 2.6, crownH: 5.4, crownSpin: 1.8, crownScale: 0.5,
+      crownTilt: 0.75,                // radians up off flat, facing back at the chase camera: flat, it read as a row on the skyline
+      seatAhead: 16, seatUp: 7.2, seatRise: 0,   // from the seat the ring over him is out of sight: there it stands up in the windscreen,
+                                      // its lowest star still over his eye line, never across the star he is steering at
       windup: 1.6, windupRise: 5,     // the seventh: the ring spins up and lifts ...
       launchTime: 1.2, launchStagger: 0.14,   // ... and they go up, one after another
       burstAhead: 110, burstUp: 24, fan: 9,   // where the show opens: in front of him and up, inside both views and both ways up
