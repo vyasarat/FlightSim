@@ -530,10 +530,10 @@ function marsJumpLate(dt) {
 // dome, and a cairn laid against one could not be reached without hitting it.
 // Walked straight out of whatever is in the way; no random numbers drawn, so
 // the stream everything after it sees is the one it always saw.
-function marsClearSpot(p, clearR) {
+function marsClearSpot(p, clearR, skip) {
   const b = mars.body, q = { x: p.x, y: p.y, z: p.z, dir: p.dir.clone() };
   for (let i = 0; i < 12; i++) {
-    const hit = solidQuery(q.x + q.dir.x * 1.5, q.y + q.dir.y * 1.5, q.z + q.dir.z * 1.5, clearR, SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp);
+    const hit = solidQuery(q.x + q.dir.x * 1.5, q.y + q.dir.y * 1.5, q.z + q.dir.z * 1.5, clearR, SOLID.ROVER, undefined, skip || (sb => !!sb.toy || !!sb.ramp));
     if (!hit) break;
     const dn = hit.nx * q.dir.x + hit.ny * q.dir.y + hit.nz * q.dir.z;
     let tx = hit.nx - q.dir.x * dn, ty = hit.ny - q.dir.y * dn, tz = hit.nz - q.dir.z * dn;
@@ -1434,7 +1434,7 @@ function marsStarShower(who) {
       if (fromPad < 1) msV.copy(fwd);
       p = marsWalk(mars.x, mars.y, mars.z, msV.clone(), MS.padClear);
     }
-    p = marsClearSpot(p, MS.clearR);                           // and off anything solid
+    p = marsClearSpot(p, MS.clearR, sb => !!sb.toy);           // and off anything solid, a ramp too (inside one it is hidden)
     s.x = p.x; s.y = p.y; s.z = p.z; s.n.copy(p.dir);
     s.to.set(p.x + p.dir.x * MS.hover, p.y + p.dir.y * MS.hover, p.z + p.dir.z * MS.hover);
     s.from.copy(s.to).addScaledVector(s.n, MS.fallH).addScaledVector(slant, -MS.fallSlant);
@@ -1599,7 +1599,6 @@ function marsSparksUpdate(dt) {
   const p = S.sparks.geometry.attributes.position.array, c = S.sparks.geometry.attributes.color.array;
   if (!sp.dirty) return;
   let alive = 0;
-  const gx = -mars.n.x * MS.sparkG, gy = -mars.n.y * MS.sparkG, gz = -mars.n.z * MS.sparkG;
   const drag = Math.max(0, 1 - MS.drag * dt);
   for (let k = 0; k < n; k++) {
     if (sp.life[k] <= 0) { c[k * 3] = c[k * 3 + 1] = c[k * 3 + 2] = 0; continue; }
@@ -1611,6 +1610,10 @@ function marsSparksUpdate(dt) {
     }
     alive++;
     const v = sp.v;
+    // down is down where the spark is: 190 m out on a 680 m planet, the pad's down is slanted
+    let gx = b.x - p[k * 3], gy = b.y - p[k * 3 + 1], gz = b.z - p[k * 3 + 2];
+    const gl = MS.sparkG / (Math.hypot(gx, gy, gz) || 1);
+    gx *= gl; gy *= gl; gz *= gl;
     v[k * 3] = (v[k * 3] + gx * dt) * drag; v[k * 3 + 1] = (v[k * 3 + 1] + gy * dt) * drag; v[k * 3 + 2] = (v[k * 3 + 2] + gz * dt) * drag;
     p[k * 3] += v[k * 3] * dt; p[k * 3 + 1] += v[k * 3 + 1] * dt; p[k * 3 + 2] += v[k * 3 + 2] * dt;
     const f = Math.min(1, sp.life[k] / sp.max[k] * 1.6);

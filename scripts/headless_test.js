@@ -4824,7 +4824,7 @@ const harnessMain = async () => {
         for (let i = 0; i < bear.length; i++) gap = Math.max(gap, (i + 1 < bear.length ? bear[i + 1] : bear[0] + Math.PI * 2) - bear[i]);
         o.widestGapDeg = Math.round(gap * 180 / Math.PI);
         o.padClear = Math.round(Math.min(...S.list.map(s => ground(s, L.mars)))); o.padNeed = M.padClear;
-        o.inSolid = S.list.filter(s => L.solidQuery(s.x + s.n.x * 1.5, s.y + s.n.y * 1.5, s.z + s.n.z * 1.5, 2, L.SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp)).length;
+        o.inSolid = S.list.filter(s => L.solidQuery(s.x + s.n.x * 1.5, s.y + s.n.y * 1.5, s.z + s.n.z * 1.5, 2, L.SOLID.ROVER, undefined, sb => !!sb.toy)).length;   // a ramp counts: inside one a star is hidden
 
         // ---- 2. the far ones under the curve from him, their beams over it
         const eye = V(L.rover.x, L.rover.y, L.rover.z).addScaledVector(L.rover.n, 5), C = V(b.x, b.y, b.z);
