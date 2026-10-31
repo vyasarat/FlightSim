@@ -39,7 +39,7 @@ const mars = {
   wentOut: false, clock: 0,
   boostT: 0,         // survives marsClear: the pad's hand stays on the throttle after lift-off
   // things to do out there
-  jumps: [], rocks: [], rocksAway: false, drone: null, pal: null, flag: null, dustT: 0,
+  jumps: [], rocks: [], rocksAway: false, drone: null, pal: null, stars: null, flag: null, dustT: 0,
   jump: { air: false, peaked: false, t: 0, roll: 0, spin: 0, flipT: 0, flipFrom: 0 },
 };
 const mbTmp = new THREE.Vector3();
@@ -222,6 +222,7 @@ function marsBuild() {
   }
   marsToysBuild(g);
   castsAndReceives(g);
+  if (mars.stars) { castsShadow(mars.stars.g, false); receivesShadow(mars.stars.g, false); }   // light has no shadow
   scene.add(g);
   mars.g = g;
   mars.phase = "idle";
@@ -328,13 +329,17 @@ function updateMarsBase(dt) {
     }
   }
 
-  // the pad lights: a steady amber, hurrying once it is taking him home
+  // the pad lights: a steady amber, hurrying once it is taking him home. While a star shower is
+  // on they go down to their dull resting colour: they are the same gold and bigger in frame, and
+  // he drove at them, not the stars. Only for MB.stars.padDimFor after the shower or his last catch:
+  // a hunt he has wandered off from gets its pad back. Taking him home still blinks white -- his way out.
   if (mars.padMat) {
     const counting = mars.phase === "count" || mars.phase === "launch";
-    const on = counting ? (Math.floor(mars.clock * 9) % 2 === 0) : (Math.sin(mars.clock * 2.2) > -0.3);
-    mars.padMat.color.setHex(on ? (counting ? 0xf2f4f7 : 0xffd23e) : 0x5a4a18);
+    const dim = !counting && marsPadDimmed();
+    const on = !dim && (counting ? (Math.floor(mars.clock * 9) % 2 === 0) : (Math.sin(mars.clock * 2.2) > -0.3));
+    mars.padMat.color.setHex(on ? (counting ? 0xf2f4f7 : 0xffd23e) : TUNE.sky.padLightDull);
     if (mars.padGlow) {
-      mars.padGlow.material.opacity = on ? TUNE.sky.padLightOpacity : TUNE.sky.padLightOpacity * 0.15;
+      mars.padGlow.material.opacity = on ? TUNE.sky.padLightOpacity : TUNE.sky.padLightOpacity * (dim ? MB.stars.padDim : TUNE.sky.padLightRest);
       mars.padGlow.material.color.setHex(counting ? 0xf2f4f7 : TUNE.sky.padLightColor);
     }
   }
@@ -529,10 +534,10 @@ function marsJumpLate(dt) {
 // dome, and a cairn laid against one could not be reached without hitting it.
 // Walked straight out of whatever is in the way; no random numbers drawn, so
 // the stream everything after it sees is the one it always saw.
-function marsClearSpot(p, clearR) {
+function marsClearSpot(p, clearR, skip) {
   const b = mars.body, q = { x: p.x, y: p.y, z: p.z, dir: p.dir.clone() };
   for (let i = 0; i < 12; i++) {
-    const hit = solidQuery(q.x + q.dir.x * 1.5, q.y + q.dir.y * 1.5, q.z + q.dir.z * 1.5, clearR, SOLID.ROVER, undefined, sb => !!sb.toy || !!sb.ramp);
+    const hit = solidQuery(q.x + q.dir.x * 1.5, q.y + q.dir.y * 1.5, q.z + q.dir.z * 1.5, clearR, SOLID.ROVER, undefined, skip || (sb => !!sb.toy || !!sb.ramp));
     if (!hit) break;
     const dn = hit.nx * q.dir.x + hit.ny * q.dir.y + hit.nz * q.dir.z;
     let tx = hit.nx - q.dir.x * dn, ty = hit.ny - q.dir.y * dn, tz = hit.nz - q.dir.z * dn;
@@ -1268,23 +1273,436 @@ function updateMarsPal(dt) {
   solidFollow(pl.solid, pl.x + pl.n.x * MP.ballLift, pl.y + pl.n.y * MP.ballLift, pl.z + pl.n.z * MP.ballLift);
 }
 
+// ---------------------------------------------------------------------------
+// 5. THE STAR SHOWER (v210). A while after the cargo ship is down, seven golden
+// stars drift down out of the sky round wherever he is: the first right in
+// front of him, each next one further out and all the way round, so the last
+// few land under the curve and only their beams of light show over it. Drive
+// into one (or fly the drone over it) and it is caught: it plays the next note
+// up and flies to a ring of stars spinning over him. Catch the seventh and the
+// ring spins up, lifts, and they shoot up in front of him one after another --
+// seven fireworks -- and a big star opens where they burst and stays in the sky.
+// A while later another shower comes. No button, no countdown numerals, nothing
+// to lose: a star that is not caught simply waits where it landed.
+//
+// Like the sleepy rover it draws no rnd(): where they land and every spark's
+// scatter come from hashSalt, and its meshes are made on vkQuiet's own stream,
+// so everything else on Mars sees the stream it always saw. One InstancedMesh
+// for the stars, one for their beams, one glow field, one spark cloud and the
+// big star: six draw calls in all, whatever is happening.
+// ---------------------------------------------------------------------------
+const MS = MB.stars;
+const MS_Y = new THREE.Vector3(0, 1, 0);
+const msQ = new THREE.Quaternion(), msQ2 = new THREE.Quaternion(), msM = new THREE.Matrix4();
+const msV = new THREE.Vector3(), msU = new THREE.Vector3(), msT = new THREE.Vector3(), msR = new THREE.Vector3(), msScl = new THREE.Vector3();
+const msS = new THREE.Vector3();
+const MS_NOTES = [523, 587, 659, 784, 880, 1047, 1175, 1319];   // up the scale, one per star
+const MS_FW = [0xff3b6b, 0xffd23e, 0x3ad1ff, 0x7cff5a, 0xff7ab8, 0xb388ff, 0xff9a3a, 0xf2f4f7];
+const MS_GOLD = 0xffd23e;
+
+// A five-pointed star, standing in its XY plane, a little thick so it turns solidly.
+function marsStarGeo(r) {
+  const sh = new THREE.Shape();
+  for (let i = 0; i < 10; i++) {
+    const a = Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r;
+    if (i) sh.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else sh.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: r * 0.32, bevelEnabled: false });
+  geo.translate(0, 0, -r * 0.16);
+  return geo;
+}
+
+function marsBuildStars(g) {
+  // on the kit's own stream, and its seed put back after, as the sleepy rover's is
+  const s0 = vkSeed;
+  try { vkQuiet(0, () => marsBuildStarsQuiet(g)); } finally { vkSeed = s0; }
+}
+function marsBuildStarsQuiet(g) {
+  const N = MS.count, b = mars.body;
+  const sg = new THREE.Group();
+  // nothing he acts on is painted: plain bright gold, lit by nothing
+  const starMesh = new THREE.InstancedMesh(marsStarGeo(MS.size), new THREE.MeshBasicMaterial({ color: 0xffe45c, fog: false }), N);
+  starMesh.frustumCulled = false;        // one bounding sphere at the origin would cull it all
+  sg.add(starMesh);
+  // each landed star's beam: open, additive, fading to nothing at its top (black is clear)
+  const pgeo = new THREE.CylinderGeometry(MS.pillarR * 0.35, MS.pillarR, MS.pillarH, 10, 4, true);
+  pgeo.translate(0, MS.pillarH / 2, 0);
+  const pos = pgeo.attributes.position, col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i), k = Math.min(1, y / MS.pillarFoot) * (1 - y / MS.pillarH);
+    col[i * 3] = k; col[i * 3 + 1] = 0.82 * k; col[i * 3 + 2] = 0.25 * k;
+  }
+  pgeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  const pillarMesh = new THREE.InstancedMesh(pgeo, new THREE.MeshBasicMaterial({
+    vertexColors: true, transparent: true, opacity: MS.pillarOpacity, blending: THREE.AdditiveBlending,
+    depthWrite: false, side: THREE.DoubleSide, fog: false }), N);
+  pillarMesh.frustumCulled = false;
+  sg.add(pillarMesh);
+  // one glow per star, wherever it is; one not in play sits at Mars's centre, inside the ground
+  const centre = new THREE.Vector3(b.x, b.y, b.z), pts = [];
+  for (let i = 0; i < N; i++) pts.push(centre);
+  const glow = glowField(pts, MS_GOLD, MS.glowSize, 0.85);
+  glow.frustumCulled = false;
+  sg.add(glow);
+  // the sparks: trails, the catch, the fireworks and the gold rain, one cloud
+  const SN = MS.sparks;
+  const spPos = new Float32Array(SN * 3), spCol = new Float32Array(SN * 3);
+  for (let i = 0; i < SN; i++) { spPos[i * 3] = b.x; spPos[i * 3 + 1] = b.y; spPos[i * 3 + 2] = b.z; }
+  const sgeo = new THREE.BufferGeometry();
+  sgeo.setAttribute("position", new THREE.BufferAttribute(spPos, 3).setUsage(THREE.DynamicDrawUsage));
+  sgeo.setAttribute("color", new THREE.BufferAttribute(spCol, 3).setUsage(THREE.DynamicDrawUsage));
+  const sparks = new THREE.Points(sgeo, new THREE.PointsMaterial({
+    map: glowTex, size: MS.sparkSize, sizeAttenuation: true, vertexColors: true, transparent: true,
+    blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  sparks.frustumCulled = false;
+  sg.add(sparks);
+  // the big star the show leaves in the sky
+  const big = new THREE.Mesh(marsStarGeo(MS.bigSize), new THREE.MeshBasicMaterial({ color: 0xffe45c, fog: false }));
+  big.add(glowSprite(MS_GOLD, MS.bigSize * 3.6, 0.6));   // a child, so it grows with the star
+  big.visible = false;
+  sg.add(big);
+  // never breakable, and never under his finger: the drone's pick must land on the ground, not on a beam or a spark
+  sg.traverse(o => { o.userData.noShatter = true; o.raycast = () => {}; });
+  g.add(sg);
+  const list = [];
+  for (let i = 0; i < N; i++) {
+    list.push({ i, st: "off", t: 0, slot: -1, grow: 0,
+      x: 0, y: 0, z: 0, n: new THREE.Vector3(), from: new THREE.Vector3(), to: new THREE.Vector3(), cur: new THREE.Vector3() });
+  }
+  mars.stars = {
+    g: sg, starMesh, pillarMesh, glow, sparks, big, list,
+    phase: "wait", t: MS.first, clock: 0, dimT: 0, caught: 0, showers: 0, bursts: 0, sparkN: 0, trailT: 0, rainT: 0, bigT: 0,
+    cx: rover.x, cy: rover.y, cz: rover.z, cf: new THREE.Vector3(1, 0, 0), centre, seat: state.viewChase ? 0 : 1,
+    burstAt: new THREE.Vector3(),
+    sp: { life: new Float32Array(SN), max: new Float32Array(SN), v: new Float32Array(SN * 3), c: new Float32Array(SN * 3), cur: 0, dirty: true },
+  };
+  marsStarsDraw();
+}
+
+// A spark from the one cloud: the next dead one, or (all alive) the oldest.
+function marsSpark(x, y, z, vx, vy, vz, hex, life) {
+  const S = mars.stars, sp = S.sp, n = sp.life.length;
+  let k = -1;
+  for (let j = 0; j < n; j++) { const q = (sp.cur + j) % n; if (sp.life[q] <= 0) { k = q; break; } }
+  if (k < 0) k = sp.cur;
+  sp.cur = (k + 1) % n;
+  const p = S.sparks.geometry.attributes.position.array;
+  p[k * 3] = x; p[k * 3 + 1] = y; p[k * 3 + 2] = z;
+  sp.v[k * 3] = vx; sp.v[k * 3 + 1] = vy; sp.v[k * 3 + 2] = vz;
+  sp.c[k * 3] = ((hex >> 16) & 255) / 255; sp.c[k * 3 + 1] = ((hex >> 8) & 255) / 255; sp.c[k * 3 + 2] = (hex & 255) / 255;
+  sp.life[k] = sp.max[k] = life;
+  sp.dirty = true;
+}
+// A direction for a burst's spark, off hashSalt: no rnd(), ever.
+function marsSparkDir(out) {
+  const S = mars.stars, s = S.sparkN++;
+  const a = hashSalt(s, 210, 1) * Math.PI * 2, z = hashSalt(s, 210, 2) * 2 - 1, r = Math.sqrt(1 - z * z);
+  return out.set(Math.cos(a) * r, z, Math.sin(a) * r);
+}
+function marsSparkBurst(x, y, z, n, speed, hex, life) {
+  for (let i = 0; i < n; i++) {
+    marsSparkDir(msV);
+    const s = speed * (0.6 + hashSalt(mars.stars.sparkN, 210, 3) * 0.4);
+    marsSpark(x, y, z, msV.x * s, msV.y * s, msV.z * s, hex, life);
+  }
+}
+
+// From a point on the ground, `dist` metres along the surface towards `dir`.
+function marsWalk(px, py, pz, dir, dist) {
+  const b = mars.body;
+  msU.set(px - b.x, py - b.y, pz - b.z).normalize();
+  msT.copy(dir).addScaledVector(msU, -dir.dot(msU));
+  if (msT.lengthSq() < 1e-8) msT.set(1, 0, 0).addScaledVector(msU, -msU.x);
+  msT.normalize();
+  const th = dist / b.r;
+  const d = msU.clone().multiplyScalar(Math.cos(th)).addScaledVector(msT, Math.sin(th)).normalize();
+  return { x: b.x + d.x * b.r, y: b.y + d.y * b.r, z: b.z + d.z * b.r, dir: d };
+}
+
+// The shower: seven stars, laid out round him and dropped from high up, slanting in.
+function marsStarShower(who) {
+  const S = mars.stars, b = mars.body, N = MS.count;
+  S.phase = "fall"; S.caught = 0; S.showers++;
+  const up = new THREE.Vector3(who.x - b.x, who.y - b.y, who.z - b.z).normalize();
+  const fwd = who.f.clone().addScaledVector(up, -who.f.dot(up)).normalize();
+  const gx = b.x + up.x * b.r, gy = b.y + up.y * b.r, gz = b.z + up.z * b.r;
+  const slant = fwd.clone().cross(up).normalize();           // they all come in from his left
+  for (const s of S.list) {
+    const salt = S.showers * 16 + s.i;
+    const ang = s.i === 0 ? 0 : s.i * MS.turn + (hashSalt(salt, 210, 4) - 0.5) * 0.5;
+    const dist = MS.firstDist + s.i * MS.stepDist + hashSalt(salt, 210, 5) * MS.jitter;
+    let p = marsWalk(gx, gy, gz, fwd.clone().applyAxisAngle(up, ang), dist);
+    // never on or near the lit pad: driving onto it takes him home
+    const fromPad = marsPalGround(p.x, p.y, p.z, mars.x, mars.y, mars.z);
+    if (fromPad < MS.padClear) {
+      msV.set(p.x - mars.x, p.y - mars.y, p.z - mars.z);
+      if (fromPad < 1) msV.copy(fwd);
+      p = marsWalk(mars.x, mars.y, mars.z, msV.clone(), MS.padClear);
+    }
+    p = marsClearSpot(p, MS.clearR, sb => !!sb.toy);           // and off anything solid, a ramp too (inside one it is hidden)
+    s.x = p.x; s.y = p.y; s.z = p.z; s.n.copy(p.dir);
+    s.to.set(p.x + p.dir.x * MS.hover, p.y + p.dir.y * MS.hover, p.z + p.dir.z * MS.hover);
+    s.from.copy(s.to).addScaledVector(s.n, MS.fallH).addScaledVector(slant, -MS.fallSlant);
+    s.cur.copy(s.from);
+    s.st = "fall"; s.t = -s.i * MS.stagger; s.slot = -1; s.grow = 0;
+  }
+  // a shimmer coming down the scale: something is coming out of the sky
+  [1760, 1568, 1319, 1175, 1047].forEach((f, i) => synthBlip("triangle", f, f, 0.3, 0.12, i * 0.09));
+  synthBlip("sine", 2400, 900, 1.2, 0.08, 0);
+  S.dimT = 0;
+  flags.marsStarShowers = (flags.marsStarShowers || 0) + 1;
+}
+
+// a shower is on: from the first star falling to the end of the show
+function marsStarsLive() {
+  const S = mars.stars;
+  return !!S && S.phase !== "wait" && S.phase !== "rest";
+}
+// ... and the pad's lights are down for it: a shower on, and a star fallen or caught lately
+function marsPadDimmed() {
+  return marsStarsLive() && mars.stars.dimT < MS.padDimFor;
+}
+
+function marsStarCatch(s, flying) {
+  const S = mars.stars;
+  s.st = "fly"; s.t = 0; s.slot = S.caught++; s.from.copy(s.cur);
+  S.dimT = 0;                       // he is hunting: the pad stays down
+  const f = MS_NOTES[s.slot % MS_NOTES.length];
+  synthBlip("triangle", f, f, 0.32, 0.3, 0);
+  synthBlip("sine", f * 2, f * 2, 0.24, 0.1, 0.02);
+  marsSparkBurst(s.cur.x, s.cur.y, s.cur.z, 14, 9, MS_GOLD, 0.7);
+  flags.marsStarsCaught = (flags.marsStarsCaught || 0) + 1;
+  if (flying) flags.marsStarDroneCatches = (flags.marsStarDroneCatches || 0) + 1;
+  if (S.caught >= MS.count) {
+    S.phase = "windup"; S.t = MS.windup;
+    synthBlip("sine", 300, 1600, MS.windup, 0.16, 0.1);
+  }
+}
+
+// Up they go: each to its own burst point, fanned across in front of him.
+function marsStarLaunch(who) {
+  const S = mars.stars, b = mars.body, N = MS.count;
+  msU.set(who.x - b.x, who.y - b.y, who.z - b.z).normalize();
+  msT.copy(who.f).addScaledVector(msU, -who.f.dot(msU)).normalize();
+  msR.copy(msT).cross(msU).normalize();
+  S.burstAt.set(who.x, who.y, who.z).addScaledVector(msT, MS.burstAhead).addScaledVector(msU, MS.burstUp);
+  for (const s of S.list) {
+    if (s.st !== "crown") continue;
+    s.st = "launch"; s.t = -s.slot * MS.launchStagger; s.from.copy(s.cur);
+    s.to.copy(S.burstAt).addScaledVector(msR, (s.slot - (N - 1) / 2) * MS.fan)
+      .addScaledVector(msU, (hashSalt(S.showers * 16 + s.i, 210, 6) - 0.5) * 14);
+    synthBlip("sine", 400, 1500, 0.9, 0.07, Math.max(0, -s.t));
+  }
+  S.phase = "payoff";
+  whoosh();
+}
+
+function marsStarBurst(s) {
+  const S = mars.stars;
+  s.st = "gone";
+  marsSparkBurst(s.cur.x, s.cur.y, s.cur.z, MS.burstSparks, MS.burst, MS_FW[s.slot % MS_FW.length], MS.sparkLife);
+  noiseBurst(0.5, 700, 0.3, 0);
+  noiseBurst(0.6, 2500, 0.14, 0.05);
+  S.bursts++;
+  flags.marsStarBursts = (flags.marsStarBursts || 0) + 1;
+  if (S.list.every(q => q.st === "gone")) {
+    // the big star opens where they burst, and stays
+    S.big.position.copy(S.burstAt);
+    S.big.visible = true; S.bigT = 0; S.rainT = MS.rain;
+    cheer();
+    flags.marsStarPayoffs = (flags.marsStarPayoffs || 0) + 1;
+    S.phase = "rest"; S.t = MS.again;
+    for (const q of S.list) { q.st = "off"; q.slot = -1; }
+  }
+}
+
+function updateMarsStars(dt) {
+  const S = mars.stars, b = mars.body;
+  if (!S) return;
+  S.clock += dt; S.dimT += dt;
+  const flying = marsDroneActive(), who = flying ? mars.drone : rover;
+  const calm = mars.phase === "idle" || mars.phase === "armed";
+  // ---- the shower's clock: out driving, never while the cargo ship has the sky, never on the way home.
+  // Never before the cargo ship either: nothing but MS.first outlasting cargoDelay + cargoCount keeps
+  // them in order, and a retune of either would bring the cargo ship down in the middle of his hunt.
+  if (S.phase === "wait" || S.phase === "rest") {
+    S.t -= dt;
+    const cargoBusy = mars.cargoPhase === "waiting" || mars.cargoPhase === "count" || mars.cargoPhase === "falling";
+    if (S.t <= 0 && calm && !cargoBusy) marsStarShower(who);
+  } else if (S.phase === "fall") {
+    if (S.list.every(s => s.st !== "fall")) S.phase = "hunt";
+  } else if (S.phase === "windup") {
+    S.t -= dt;
+    if (S.t <= 0 && S.list.every(s => s.st === "crown")) marsStarLaunch(who);
+  }
+  // the ring follows whoever he is driving, and glides across when he swaps
+  const fk = Math.min(1, 8 * dt);
+  S.cx += (who.x - S.cx) * fk; S.cy += (who.y - S.cy) * fk; S.cz += (who.z - S.cz) * fk;
+  S.cf.lerp(who.f, fk).normalize();
+  S.seat += ((state.viewChase ? 0 : 1) - S.seat) * fk;
+
+  S.trailT -= dt;
+  const trail = S.trailT <= 0;
+  if (trail) S.trailT = MS.trailEvery;
+  for (const s of S.list) {
+    if (s.st === "fall") {
+      s.t += dt;
+      const k = clamp(s.t / MS.fallTime, 0, 1), e = 1 - (1 - k) * (1 - k);   // it slows as it comes in: it settles, never lands hard
+      s.cur.lerpVectors(s.from, s.to, e);
+      if (s.t > 0 && trail) marsSpark(s.cur.x, s.cur.y, s.cur.z, 0, 0, 0, MS_GOLD, 0.8);
+      if (k >= 1) {
+        s.st = "landed"; s.t = 0; s.grow = 0;
+        marsSparkBurst(s.to.x, s.to.y, s.to.z, 10, 5, MS_GOLD, 0.8);
+        synthBlip("triangle", 1568, 1568, 0.14, 0.05, 0);
+        flags.marsStarsLanded = (flags.marsStarsLanded || 0) + 1;
+      }
+    } else if (s.st === "landed") {
+      s.t += dt;
+      s.grow = Math.min(1, s.t / MS.pillarGrow);
+      s.cur.copy(s.to).addScaledVector(s.n, Math.sin(S.clock * 2 + s.i) * MS.bob);
+      // caught: aim at it. Along the ground, and low -- a jump clean over it is not a catch
+      const d = marsPalGround(who.x, who.y, who.z, s.x, s.y, s.z);
+      const got = flying ? (d < MS.droneCatchR && mars.drone.h < MS.droneCatchH) : (d < MS.catchR && rover.h < MS.roverCatchH);
+      if (got) marsStarCatch(s, flying);
+    } else if (s.st === "fly" || s.st === "crown") {
+      // its place in the ring over him
+      msU.set(S.cx - b.x, S.cy - b.y, S.cz - b.z).normalize();
+      msT.copy(S.cf).addScaledVector(msU, -S.cf.dot(msU)).normalize();
+      msR.copy(msT).cross(msU);
+      const wk = S.phase === "windup" ? clamp(1 - S.t / MS.windup, 0, 1) : 0;
+      const a = s.slot / MS.count * Math.PI * 2 + S.clock * MS.crownSpin * (1 + wk * wk * 5);
+      // over him and tipped back at the chase camera; from the seat, standing up in the windscreen
+      const sk = S.seat, tilt = MS.crownTilt + (Math.PI / 2 - MS.crownTilt) * sk;
+      const h = MS.crownH + (MS.seatUp - MS.crownH) * sk + wk * MS.windupRise * (1 - (1 - MS.seatRise) * sk);
+      msS.copy(msT).multiplyScalar(Math.cos(tilt)).addScaledVector(msU, Math.sin(tilt));
+      msV.set(S.cx, S.cy, S.cz).addScaledVector(msU, h).addScaledVector(msT, MS.seatAhead * sk)
+        .addScaledVector(msS, Math.cos(a) * MS.crownR).addScaledVector(msR, Math.sin(a) * MS.crownR);
+      if (s.st === "fly") {
+        s.t += dt;
+        const k = clamp(s.t / MS.flyTime, 0, 1), e = 1 - (1 - k) * (1 - k);
+        s.cur.lerpVectors(s.from, msV, e);
+        if (trail) marsSpark(s.cur.x, s.cur.y, s.cur.z, 0, 0, 0, MS_GOLD, 0.5);
+        if (k >= 1) s.st = "crown";
+      } else s.cur.copy(msV);
+      if (wk > 0.5 && trail) marsSpark(s.cur.x, s.cur.y, s.cur.z, 0, 0, 0, MS_GOLD, 0.4);
+    } else if (s.st === "launch") {
+      s.t += dt;
+      if (s.t > 0) {
+        const k = clamp(s.t / MS.launchTime, 0, 1), e = k * (2 - k);
+        s.cur.lerpVectors(s.from, s.to, e);
+        if (trail) marsSpark(s.cur.x, s.cur.y, s.cur.z, 0, 0, 0, MS_FW[s.slot % MS_FW.length], 0.6);
+        if (k >= 1) marsStarBurst(s);
+      }
+    }
+  }
+  // ---- the big star: it pops open, then hangs there turning to face him and twinkling
+  if (S.big.visible) {
+    S.bigT += dt;
+    const k = clamp(S.bigT / MS.bigPop, 0, 1);
+    const pop = k < 1 ? 1 + 1.7 * Math.pow(k - 1, 3) + 0.7 * Math.pow(k - 1, 2) : 1;   // back-out: a little over, then settle
+    S.big.scale.setScalar(Math.max(0.001, pop * (1 + 0.05 * Math.sin(S.clock * 3))));
+    S.big.up.set(S.big.position.x - b.x, S.big.position.y - b.y, S.big.position.z - b.z).normalize();
+    S.big.lookAt(camera.position);
+    S.big.rotateZ(Math.sin(S.clock * 0.9) * 0.15);
+    if (S.rainT > 0) {
+      S.rainT -= dt;
+      if (trail) {
+        marsSparkDir(msV);
+        msU.copy(S.big.up);
+        marsSpark(S.big.position.x + msV.x * MS.bigSize, S.big.position.y + msV.y * MS.bigSize, S.big.position.z + msV.z * MS.bigSize,
+                  -msU.x * 6, -msU.y * 6, -msU.z * 6, MS_GOLD, 2.2);
+      }
+    }
+  }
+  marsSparksUpdate(dt);
+  marsStarsDraw();
+}
+
+function marsSparksUpdate(dt) {
+  const S = mars.stars, sp = S.sp, n = sp.life.length, b = mars.body;
+  const p = S.sparks.geometry.attributes.position.array, c = S.sparks.geometry.attributes.color.array;
+  if (!sp.dirty) return;
+  let alive = 0;
+  const drag = Math.max(0, 1 - MS.drag * dt);
+  for (let k = 0; k < n; k++) {
+    if (sp.life[k] <= 0) { c[k * 3] = c[k * 3 + 1] = c[k * 3 + 2] = 0; continue; }
+    sp.life[k] -= dt;
+    if (sp.life[k] <= 0) {
+      c[k * 3] = c[k * 3 + 1] = c[k * 3 + 2] = 0;
+      p[k * 3] = b.x; p[k * 3 + 1] = b.y; p[k * 3 + 2] = b.z;
+      continue;
+    }
+    alive++;
+    const v = sp.v;
+    // down is down where the spark is: 190 m out on a 680 m planet, the pad's down is slanted
+    let gx = b.x - p[k * 3], gy = b.y - p[k * 3 + 1], gz = b.z - p[k * 3 + 2];
+    const gl = MS.sparkG / (Math.hypot(gx, gy, gz) || 1);
+    gx *= gl; gy *= gl; gz *= gl;
+    v[k * 3] = (v[k * 3] + gx * dt) * drag; v[k * 3 + 1] = (v[k * 3 + 1] + gy * dt) * drag; v[k * 3 + 2] = (v[k * 3 + 2] + gz * dt) * drag;
+    p[k * 3] += v[k * 3] * dt; p[k * 3 + 1] += v[k * 3 + 1] * dt; p[k * 3 + 2] += v[k * 3 + 2] * dt;
+    const f = Math.min(1, sp.life[k] / sp.max[k] * 1.6);
+    c[k * 3] = sp.c[k * 3] * f; c[k * 3 + 1] = sp.c[k * 3 + 1] * f; c[k * 3 + 2] = sp.c[k * 3 + 2] * f;
+  }
+  S.sparks.geometry.attributes.position.needsUpdate = true;
+  S.sparks.geometry.attributes.color.needsUpdate = true;
+  sp.dirty = alive > 0;       // one last upload clears the dead ones, then nothing until the next spark
+}
+
+// Every star where it is: the ones in play shown, the rest scaled to nothing.
+function marsStarsDraw() {
+  const S = mars.stars, b = mars.body;
+  const gp = S.glow.geometry.attributes.position.array;
+  for (const s of S.list) {
+    const i = s.i;
+    let sc = 0;
+    if (s.st === "fall" || s.st === "landed") sc = 1;
+    else if (s.st === "fly") sc = 1 - (1 - MS.crownScale) * clamp(s.t / MS.flyTime, 0, 1);
+    else if (s.st === "crown") sc = MS.crownScale;
+    else if (s.st === "launch") sc = MS.crownScale + (1 - MS.crownScale) * clamp(s.t / MS.launchTime, 0, 1);
+    // standing up along the ground there, turning about its own up
+    msU.set(s.cur.x - b.x, s.cur.y - b.y, s.cur.z - b.z).normalize();
+    msQ.setFromUnitVectors(MS_Y, msU);
+    msQ2.setFromAxisAngle(MS_Y, S.clock * MS.spin + i * 0.9);
+    msQ.multiply(msQ2);
+    msScl.setScalar(Math.max(sc, 1e-4));
+    msM.compose(sc > 0 ? s.cur : S.centre, msQ, msScl);
+    S.starMesh.setMatrixAt(i, msM);
+    // its beam, only while it waits on the ground
+    const ps = s.st === "landed" ? s.grow : 0;
+    msV.set(s.x, s.y, s.z);
+    msQ.setFromUnitVectors(MS_Y, s.n);
+    msScl.set(Math.max(ps, 1e-4), Math.max(ps, 1e-4), Math.max(ps, 1e-4));
+    msM.compose(ps > 0 ? msV : S.centre, msQ, msScl);
+    S.pillarMesh.setMatrixAt(i, msM);
+    // a glow on the ones out in the world -- not the ring over him: seven of them there washed the rover out
+    const at = s.st === "fall" || s.st === "landed" || s.st === "launch" ? s.cur : S.centre;
+    gp[i * 3] = at.x; gp[i * 3 + 1] = at.y; gp[i * 3 + 2] = at.z;
+  }
+  S.starMesh.instanceMatrix.needsUpdate = true;
+  S.pillarMesh.instanceMatrix.needsUpdate = true;
+  S.glow.geometry.attributes.position.needsUpdate = true;
+}
+
 // ---- the four of them, driven from the base's own update
 function marsToysBuild(g) {
   marsToysClear();          // a rebuild must not leave the old drone in the scene
   marsBuildJumps(g);
   marsBuildBoulders(g);
   marsBuildDrone(g);
-  marsBuildPal(g);          // last, and on its own stream: what came before sees what it always saw
+  marsBuildPal(g);          // on its own stream: what came before sees what it always saw
+  marsBuildStars(g);        // and so is the star shower
 }
 function marsToysClear() {
   if (mars.drone) { disposeSurfaceObjects([mars.drone.g]); mars.drone = null; }
   mars.pal = null;          // it lives in the base group, which goes with it
+  mars.stars = null;        // ... and so does the star shower
   mars.jumps = []; mars.rocks = []; mars.rocksAway = false;
   mars.jump.air = false; mars.jump.peaked = false; mars.jump.t = 0; mars.jump.roll = 0; mars.jump.flipT = 0;
 }
 function updateMarsToys(dt) {
   if (!roverActive() || !mars.body) return;
   updateMarsPal(dt);        // before the drone: flying it down to the sleepy rover wakes it too
+  updateMarsStars(dt);      // and the drone catches stars too
   if (marsDroneActive()) { updateMarsDrone(dt); return; }   // the rover waits where he left it
   marsJumpCheck(dt);
   marsUpdateBoulders(dt, mars.body);

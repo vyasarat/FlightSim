@@ -800,6 +800,7 @@ const TUNE = {
     fireGlowColor: 0xff8a2a, fireGlowSize: 85, fireGlowOpacity: 0.62,
     blastGlowColor: 0xffd070, blastGlowScale: 5.5, blastGlowOpacity: 0.85,
     padLightColor: 0xffd23e, padLightSize: 9, padLightOpacity: 0.75,
+    padLightRest: 0.15, padLightDull: 0x5a4a18,   // the Mars pad's slow pulse at its low: the glow at this share, the lamps this colour
     // Heat haze off the pad: no post-processing, so it is a wide soft billboard
     // that breathes rather than a real distortion. It reads as air, not as a bug.
     heatColor: 0xffd9a8, heatSize: 34, heatOpacity: 0.18, heatRate: 5.5,
@@ -2103,6 +2104,42 @@ const TUNE = {
       glowPerM: 0.16,                 // ... and per metre from the camera beyond that: the same size on
                                       // screen from 56 m out, or at 140 m it was a 5-pixel speck
       dust: 6, dustLife: 0.8,         // the dust it shakes off: a little, and gone before the panels open
+    },
+    // v210: a star shower. A while after the cargo ship is down, seven golden stars drift down out of
+    // Mars's sky round wherever he is -- the first right in front of him, each next one further out and
+    // all the way round, the last few under the curve where only their beams of light show. He catches
+    // one by driving into it (or flying the drone over it): it plays the next note up and joins a ring
+    // of stars over him. The seventh starts the show: up they go, seven fireworks, and a big star stays
+    // in the sky. Then, a while later, another shower. No button, nothing to lose, nothing missed.
+    stars: {
+      count: 7,
+      first: 34,                      // seconds out driving before the first shower (the cargo ship is down by ~26)
+      again: 30,                      // ... and after a show, the next one
+      firstDist: 38, stepDist: 24, jitter: 10,   // the first this far in front of him, each next one further out
+      turn: 2.4,                      // radians round from the one before: all the way round him
+      padClear: 50,                   // never on or near the lit pad (driving onto it takes him home)
+      padDim: 0.1,                    // while a shower is on, the pad's glow at this share: every star outshines the pad
+      padDimFor: 20,                  // ... but only this long after the shower or his last catch: a hunt he has left gets its pad back
+      clearR: 4,                      // and off anything solid
+      fallH: 320, fallSlant: 150, fallTime: 4.5, stagger: 0.45,   // where they come from, and how gently
+      hover: 2.6, bob: 0.3, spin: 1.6,
+      size: 1.6,                      // a star's radius: 3.2 m across, against his 4.9 m rover
+      pillarH: 70, pillarR: 1.6, pillarOpacity: 0.5, pillarGrow: 0.6,   // its beam: over the horizon from 300 m
+      pillarFoot: 7,                  // ... faint at its foot, so the star there stands out of it, not lost in it
+      glowSize: 9,
+      catchR: 6, roverCatchH: 8,      // aim at it: within this, along the ground (a jump over it is not a catch)
+      droneCatchR: 8, droneCatchH: 24,   // the drone flying over it counts (it hovers at 14)
+      flyTime: 0.6,                   // caught, it flies to the ring over him
+      crownR: 2.6, crownH: 5.4, crownSpin: 1.8, crownScale: 0.5,
+      crownTilt: 0.75,                // radians up off flat, facing back at the chase camera: flat, it read as a row on the skyline
+      seatAhead: 16, seatUp: 7.2, seatRise: 0,   // from the seat the ring over him is out of sight: there it stands up in the windscreen,
+                                      // its lowest star still over his eye line, never across the star he is steering at
+      windup: 1.6, windupRise: 5,     // the seventh: the ring spins up and lifts ...
+      launchTime: 1.2, launchStagger: 0.14,   // ... and they go up, one after another
+      burstAhead: 110, burstUp: 24, fan: 9,   // where the show opens: in front of him and up, inside both views and both ways up
+      burst: 17, burstSparks: 30, sparkG: 4, drag: 0.9,
+      sparks: 280, sparkSize: 2.6, sparkLife: 1.4, trailEvery: 0.05,
+      bigSize: 9, bigPop: 0.8, rain: 3,       // the big star that stays, and the gold that falls from it
     },
     boost: 6,                      // ... and it keeps his throttle in this long after lift-off,
                                     // or Mars simply pulls him straight back down onto the pad

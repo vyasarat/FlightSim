@@ -10,6 +10,20 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v210 — A star shower on Mars
+
+A little while after the cargo ship lands on Mars, a shower of seven golden stars comes drifting down out of
+the sky around his rover. The first lands right in front of him; each one after it lands a bit further out,
+all the way round, and the last few are over the horizon, where only their tall beams of light show. He
+catches a star by driving into it (or flying the little drone over it): it plays the next note up the scale
+and flies up to join a ring of stars spinning over his rover. When he catches the seventh, the ring spins
+faster and lifts, the stars shoot up into the sky in front of him and burst into seven fireworks, and a big
+golden star opens where they burst and stays in Mars's sky. A while later another shower comes. No button,
+no numbers, nothing to lose: a star he has not caught yet just waits where it landed. From the driving seat
+the ring stands up in the windscreen, above where he is steering. While the stars are out, the landing pad's
+gold lights go down, so the stars are the brightest things on Mars; they come back when the show is over,
+or once he has left the stars alone for twenty seconds (the next one he catches puts them down again).
+
 ## v209 — A sleepy rover on Mars
 
 Out past the dunes on Mars, an old little rover is asleep -- dusty, its solar panels folded shut and its
