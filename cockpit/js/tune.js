@@ -800,6 +800,7 @@ const TUNE = {
     fireGlowColor: 0xff8a2a, fireGlowSize: 85, fireGlowOpacity: 0.62,
     blastGlowColor: 0xffd070, blastGlowScale: 5.5, blastGlowOpacity: 0.85,
     padLightColor: 0xffd23e, padLightSize: 9, padLightOpacity: 0.75,
+    padLightRest: 0.15, padLightDull: 0x5a4a18,   // the Mars pad's slow pulse at its low: the glow at this share, the lamps this colour
     // Heat haze off the pad: no post-processing, so it is a wide soft billboard
     // that breathes rather than a real distortion. It reads as air, not as a bug.
     heatColor: 0xffd9a8, heatSize: 34, heatOpacity: 0.18, heatRate: 5.5,
@@ -2118,6 +2119,7 @@ const TUNE = {
       turn: 2.4,                      // radians round from the one before: all the way round him
       padClear: 50,                   // never on or near the lit pad (driving onto it takes him home)
       padDim: 0.1,                    // while a shower is on, the pad's glow at this share: every star outshines the pad
+      padDimFor: 20,                  // ... but only this long after the shower or his last catch: a hunt he has left gets its pad back
       clearR: 4,                      // and off anything solid
       fallH: 320, fallSlant: 150, fallTime: 4.5, stagger: 0.45,   // where they come from, and how gently
       hover: 2.6, bob: 0.3, spin: 1.6,

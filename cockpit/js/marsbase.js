@@ -331,14 +331,15 @@ function updateMarsBase(dt) {
 
   // the pad lights: a steady amber, hurrying once it is taking him home. While a star shower is
   // on they go down to their dull resting colour: they are the same gold and bigger in frame, and
-  // he drove at them, not the stars. Taking him home still blinks white -- that is his way out.
+  // he drove at them, not the stars. Only for MB.stars.padDimFor after the shower or his last catch:
+  // a hunt he has wandered off from gets its pad back. Taking him home still blinks white -- his way out.
   if (mars.padMat) {
     const counting = mars.phase === "count" || mars.phase === "launch";
-    const dim = !counting && marsStarsLive();
+    const dim = !counting && marsPadDimmed();
     const on = !dim && (counting ? (Math.floor(mars.clock * 9) % 2 === 0) : (Math.sin(mars.clock * 2.2) > -0.3));
-    mars.padMat.color.setHex(on ? (counting ? 0xf2f4f7 : 0xffd23e) : 0x5a4a18);
+    mars.padMat.color.setHex(on ? (counting ? 0xf2f4f7 : 0xffd23e) : TUNE.sky.padLightDull);
     if (mars.padGlow) {
-      mars.padGlow.material.opacity = on ? TUNE.sky.padLightOpacity : TUNE.sky.padLightOpacity * (dim ? MB.stars.padDim : 0.15);
+      mars.padGlow.material.opacity = on ? TUNE.sky.padLightOpacity : TUNE.sky.padLightOpacity * (dim ? MB.stars.padDim : TUNE.sky.padLightRest);
       mars.padGlow.material.color.setHex(counting ? 0xf2f4f7 : TUNE.sky.padLightColor);
     }
   }
@@ -1370,7 +1371,7 @@ function marsBuildStarsQuiet(g) {
   }
   mars.stars = {
     g: sg, starMesh, pillarMesh, glow, sparks, big, list,
-    phase: "wait", t: MS.first, clock: 0, caught: 0, showers: 0, bursts: 0, sparkN: 0, trailT: 0, rainT: 0, bigT: 0,
+    phase: "wait", t: MS.first, clock: 0, dimT: 0, caught: 0, showers: 0, bursts: 0, sparkN: 0, trailT: 0, rainT: 0, bigT: 0,
     cx: rover.x, cy: rover.y, cz: rover.z, cf: new THREE.Vector3(1, 0, 0), centre, seat: state.viewChase ? 0 : 1,
     burstAt: new THREE.Vector3(),
     sp: { life: new Float32Array(SN), max: new Float32Array(SN), v: new Float32Array(SN * 3), c: new Float32Array(SN * 3), cur: 0, dirty: true },
@@ -1448,6 +1449,7 @@ function marsStarShower(who) {
   // a shimmer coming down the scale: something is coming out of the sky
   [1760, 1568, 1319, 1175, 1047].forEach((f, i) => synthBlip("triangle", f, f, 0.3, 0.12, i * 0.09));
   synthBlip("sine", 2400, 900, 1.2, 0.08, 0);
+  S.dimT = 0;
   flags.marsStarShowers = (flags.marsStarShowers || 0) + 1;
 }
 
@@ -1456,10 +1458,15 @@ function marsStarsLive() {
   const S = mars.stars;
   return !!S && S.phase !== "wait" && S.phase !== "rest";
 }
+// ... and the pad's lights are down for it: a shower on, and a star fallen or caught lately
+function marsPadDimmed() {
+  return marsStarsLive() && mars.stars.dimT < MS.padDimFor;
+}
 
 function marsStarCatch(s, flying) {
   const S = mars.stars;
   s.st = "fly"; s.t = 0; s.slot = S.caught++; s.from.copy(s.cur);
+  S.dimT = 0;                       // he is hunting: the pad stays down
   const f = MS_NOTES[s.slot % MS_NOTES.length];
   synthBlip("triangle", f, f, 0.32, 0.3, 0);
   synthBlip("sine", f * 2, f * 2, 0.24, 0.1, 0.02);
@@ -1512,7 +1519,7 @@ function marsStarBurst(s) {
 function updateMarsStars(dt) {
   const S = mars.stars, b = mars.body;
   if (!S) return;
-  S.clock += dt;
+  S.clock += dt; S.dimT += dt;
   const flying = marsDroneActive(), who = flying ? mars.drone : rover;
   const calm = mars.phase === "idle" || mars.phase === "armed";
   // ---- the shower's clock: out driving, never while the cargo ship has the sky, never on the way home.

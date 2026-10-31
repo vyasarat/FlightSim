@@ -4845,10 +4845,20 @@ const harnessMain = async () => {
             put(start, f0); hold(); L.update(1 / 60);
             l = Math.max(l, lum(L.mars.padMat.color)); gl = Math.max(gl, L.mars.padGlow.material.opacity);
           }
-          return { lum: +l.toFixed(2), glow: +gl.toFixed(2) };
+          return { lum: +l.toFixed(2), glow: +gl.toFixed(2), phase: S.phase, dimT: +S.dimT.toFixed(1) };
         };
-        o.padHunt = padPeak(3); o.starLum = +starLum.toFixed(2);
-        o.padDimmed = o.padHunt.lum < starLum * 0.5 && o.padHunt.glow <= L.TUNE.sky.padLightOpacity * 0.2;
+        o.starLum = +starLum.toFixed(2);
+        const padDown = r => r.lum < starLum * 0.5 && r.glow <= L.TUNE.sky.padLightOpacity * 0.2;
+        const padUp = r => r.lum > starLum * 0.8 && r.glow >= L.TUNE.sky.padLightOpacity * 0.9;
+        // down the whole hunt, not just its first seconds: from here to a second short of the cap
+        // (bounded: a cap that never comes must fail the check below, not hang the run)
+        o.padHuntFor = +Math.min(40, M.padDimFor - 1 - S.dimT).toFixed(1);
+        o.padHunt = padPeak(Math.max(0, o.padHuntFor));
+        o.padDimmed = o.padHuntFor > 5 && o.padHunt.phase === "hunt" && padDown(o.padHunt);
+        // ... and a hunt he has left alone gets its pad lights back, the stars still out
+        stay(1.5);
+        o.padLeft = padPeak(3);
+        o.padLeftBack = o.padLeft.phase === "hunt" && S.list.every(s => s.st === "landed") && padUp(o.padLeft);
         // never under the drone's finger: a ray through a star and its beam meets the ground, not them
         {
           const ray = new THREE.Raycaster(), s2 = S.list[2];
@@ -4867,7 +4877,12 @@ const harnessMain = async () => {
         o.jumpNotCatch = c0.st === "landed" && S.caught === 0;
         put(c0, f0); hold(); L.update(1 / 60);
         o.caughtOne = c0.st === "fly" && S.caught === 1 && (L.flags.marsStarsCaught || 0) === 1;
-        for (let i = 0; i < 60; i++) { put(c0, f0); hold(); L.update(1 / 60); }
+        // back to the hunt, and the pad goes down again
+        let cl = 0, cg = 0;
+        for (let i = 0; i < 60; i++) { put(c0, f0); hold(); L.update(1 / 60);
+          cl = Math.max(cl, lum(L.mars.padMat.color)); cg = Math.max(cg, L.mars.padGlow.material.opacity); }
+        o.padCatch = { lum: +cl.toFixed(2), glow: +cg.toFixed(2) };
+        o.padRedim = padDown(o.padCatch);
         const rup = s => V(s.cur.x - L.rover.x, s.cur.y - L.rover.y, s.cur.z - L.rover.z).dot(L.rover.n);
         o.inRing = c0.st === "crown" && Math.round(c0.cur.distanceTo(V(L.rover.x, L.rover.y, L.rover.z))) <= 7 && rup(c0) > 3;
         o.noBeam = (() => { const m = new THREE.Matrix4(); S.pillarMesh.getMatrixAt(0, m); return new THREE.Vector3().setFromMatrixScale(m).x < 0.01; })();
@@ -4940,7 +4955,7 @@ const harnessMain = async () => {
         // the show over, the pad lights come back
         o.padRest = (() => { let l = 0, gl = 0; for (let i = 0; i < 60 * 3; i++) { hold7(); L.update(1 / 60);
           l = Math.max(l, lum(L.mars.padMat.color)); gl = Math.max(gl, L.mars.padGlow.material.opacity); } return { lum: +l.toFixed(2), glow: +gl.toFixed(2), phase: S.phase }; })();
-        o.padBack = o.padRest.phase === "rest" && o.padRest.lum > starLum * 0.8 && o.padRest.glow >= L.TUNE.sky.padLightOpacity * 0.9;
+        o.padBack = o.padRest.phase === "rest" && padUp(o.padRest);
         o.bigScale = +S.big.scale.x.toFixed(2);
         // inside the frame, both views and both ways up: every burst point and the big star
         o.frame = {};
@@ -4994,6 +5009,8 @@ const harnessMain = async () => {
       o.padClear >= o.padNeed - 2 && o.inSolid === 0, JSON.stringify(o));
     check("mars: the furthest stars land under the curve from him, and every star's beam of light stands over it, so he can find them all -- and the pad's gold lights go down while they are out, back when the show is over",
       o.underCurve >= 1 && o.beamsSeen === 7 && o.beamsUp && o.padDimmed && o.padBack, JSON.stringify(o));
+    check("mars: a hunt he has left alone gets its pad lights back -- MB.stars.padDimFor after the shower or his last catch, the stars still out -- and the next catch puts them down again",
+      o.padLeftBack && o.padRedim, JSON.stringify(o));
     check("mars: drive into a star and it is caught -- it flies up into a ring of stars spinning over his rover and rides with him, in sight from either seat; a jump clean over one is not a catch; the drone flying over one catches it too",
       o.jumpNotCatch && o.caughtOne && o.inRing && o.noBeam && o.ringRides && Object.values(o.ringSeen).every(v => v === "in") && o.seatLowDeg >= 4 && o.droneUp && o.droneCaught && o.droneHome && o.slots === "0,1", JSON.stringify(o));
     check("mars: catch the seventh and the ring spins up and lifts, the stars shoot up in front of him and burst into seven fireworks, and a big star opens there -- all inside the frame from the chase camera and the seat, portrait and landscape",
