@@ -329,13 +329,16 @@ function updateMarsBase(dt) {
     }
   }
 
-  // the pad lights: a steady amber, hurrying once it is taking him home
+  // the pad lights: a steady amber, hurrying once it is taking him home. While a star shower is
+  // on they go down to their dull resting colour: they are the same gold and bigger in frame, and
+  // he drove at them, not the stars. Taking him home still blinks white -- that is his way out.
   if (mars.padMat) {
     const counting = mars.phase === "count" || mars.phase === "launch";
-    const on = counting ? (Math.floor(mars.clock * 9) % 2 === 0) : (Math.sin(mars.clock * 2.2) > -0.3);
+    const dim = !counting && marsStarsLive();
+    const on = !dim && (counting ? (Math.floor(mars.clock * 9) % 2 === 0) : (Math.sin(mars.clock * 2.2) > -0.3));
     mars.padMat.color.setHex(on ? (counting ? 0xf2f4f7 : 0xffd23e) : 0x5a4a18);
     if (mars.padGlow) {
-      mars.padGlow.material.opacity = on ? TUNE.sky.padLightOpacity : TUNE.sky.padLightOpacity * 0.15;
+      mars.padGlow.material.opacity = on ? TUNE.sky.padLightOpacity : TUNE.sky.padLightOpacity * (dim ? MB.stars.padDim : 0.15);
       mars.padGlow.material.color.setHex(counting ? 0xf2f4f7 : TUNE.sky.padLightColor);
     }
   }
@@ -1446,6 +1449,12 @@ function marsStarShower(who) {
   [1760, 1568, 1319, 1175, 1047].forEach((f, i) => synthBlip("triangle", f, f, 0.3, 0.12, i * 0.09));
   synthBlip("sine", 2400, 900, 1.2, 0.08, 0);
   flags.marsStarShowers = (flags.marsStarShowers || 0) + 1;
+}
+
+// a shower is on: from the first star falling to the end of the show
+function marsStarsLive() {
+  const S = mars.stars;
+  return !!S && S.phase !== "wait" && S.phase !== "rest";
 }
 
 function marsStarCatch(s, flying) {

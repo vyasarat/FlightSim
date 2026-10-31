@@ -4837,6 +4837,18 @@ const harnessMain = async () => {
         o.underCurve = S.list.filter(s => !clear(s.to)).length;
         o.beamsSeen = S.list.filter(s => clear(V(s.x, s.y, s.z).addScaledVector(s.n, M.pillarH * 0.9))).length;
         o.beamsUp = S.list.every(s => s.grow === 1);
+        // ... and nothing at the pad outshines them: its gold lights go down while the shower is on
+        const lum = c => 0.3 * c.r + 0.59 * c.g + 0.11 * c.b, starLum = lum(S.starMesh.material.color);
+        const padPeak = secs => {
+          let l = 0, gl = 0;
+          for (let i = 0; i < secs * 60; i++) {
+            put(start, f0); hold(); L.update(1 / 60);
+            l = Math.max(l, lum(L.mars.padMat.color)); gl = Math.max(gl, L.mars.padGlow.material.opacity);
+          }
+          return { lum: +l.toFixed(2), glow: +gl.toFixed(2) };
+        };
+        o.padHunt = padPeak(3); o.starLum = +starLum.toFixed(2);
+        o.padDimmed = o.padHunt.lum < starLum * 0.5 && o.padHunt.glow <= L.TUNE.sky.padLightOpacity * 0.2;
         // never under the drone's finger: a ray through a star and its beam meets the ground, not them
         {
           const ray = new THREE.Raycaster(), s2 = S.list[2];
@@ -4925,7 +4937,10 @@ const harnessMain = async () => {
         for (let i = 0; i < 60 * 4 && S.phase === "payoff"; i++) { hold7(); L.update(1 / 60); }
         o.bursts = S.bursts; o.payoffs = L.flags.marsStarPayoffs || 0;
         o.bigOpen = S.big.visible;
-        for (let i = 0; i < 60 * 2; i++) { hold7(); L.update(1 / 60); }
+        // the show over, the pad lights come back
+        o.padRest = (() => { let l = 0, gl = 0; for (let i = 0; i < 60 * 3; i++) { hold7(); L.update(1 / 60);
+          l = Math.max(l, lum(L.mars.padMat.color)); gl = Math.max(gl, L.mars.padGlow.material.opacity); } return { lum: +l.toFixed(2), glow: +gl.toFixed(2), phase: S.phase }; })();
+        o.padBack = o.padRest.phase === "rest" && o.padRest.lum > starLum * 0.8 && o.padRest.glow >= L.TUNE.sky.padLightOpacity * 0.9;
         o.bigScale = +S.big.scale.x.toFixed(2);
         // inside the frame, both views and both ways up: every burst point and the big star
         o.frame = {};
@@ -4977,8 +4992,8 @@ const harnessMain = async () => {
       o.built && o.quietFirst && o.showers === 1 && o.fromHigh > 200 && o.landed === 7 && o.lastStep < 0.05 &&
       !o.numeralSeen && o.btnsSame && o.firstAheadDeg <= 20 && o.outwards && o.widestGapDeg < 130 &&
       o.padClear >= o.padNeed - 2 && o.inSolid === 0, JSON.stringify(o));
-    check("mars: the furthest stars land under the curve from him, and every star's beam of light stands over it, so he can find them all",
-      o.underCurve >= 1 && o.beamsSeen === 7 && o.beamsUp, JSON.stringify(o));
+    check("mars: the furthest stars land under the curve from him, and every star's beam of light stands over it, so he can find them all -- and the pad's gold lights go down while they are out, back when the show is over",
+      o.underCurve >= 1 && o.beamsSeen === 7 && o.beamsUp && o.padDimmed && o.padBack, JSON.stringify(o));
     check("mars: drive into a star and it is caught -- it flies up into a ring of stars spinning over his rover and rides with him, in sight from either seat; a jump clean over one is not a catch; the drone flying over one catches it too",
       o.jumpNotCatch && o.caughtOne && o.inRing && o.noBeam && o.ringRides && Object.values(o.ringSeen).every(v => v === "in") && o.seatLowDeg >= 4 && o.droneUp && o.droneCaught && o.droneHome && o.slots === "0,1", JSON.stringify(o));
     check("mars: catch the seventh and the ring spins up and lifts, the stars shoot up in front of him and burst into seven fireworks, and a big star opens there -- all inside the frame from the chase camera and the seat, portrait and landscape",

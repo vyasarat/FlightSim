@@ -2117,6 +2117,7 @@ const TUNE = {
       firstDist: 38, stepDist: 24, jitter: 10,   // the first this far in front of him, each next one further out
       turn: 2.4,                      // radians round from the one before: all the way round him
       padClear: 50,                   // never on or near the lit pad (driving onto it takes him home)
+      padDim: 0.1,                    // while a shower is on, the pad's glow at this share: every star outshines the pad
       clearR: 4,                      // and off anything solid
       fallH: 320, fallSlant: 150, fallTime: 4.5, stagger: 0.45,   // where they come from, and how gently
       hover: 2.6, bob: 0.3, spin: 1.6,

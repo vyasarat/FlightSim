@@ -19,7 +19,9 @@ catches a star by driving into it (or flying the little drone over it): it plays
 and flies up to join a ring of stars spinning over his rover. When he catches the seventh, the ring spins
 faster and lifts, the stars shoot up into the sky in front of him and burst into seven fireworks, and a big
 golden star opens where they burst and stays in Mars's sky. A while later another shower comes. No button,
-no numbers, nothing to lose: a star he has not caught yet just waits where it landed.
+no numbers, nothing to lose: a star he has not caught yet just waits where it landed. From the driving seat
+the ring stands up in the windscreen, above where he is steering. While the stars are out, the landing pad's
+gold lights go down, so the stars are the brightest things on Mars; they come back when the show is over.
 
 ## v209 — A sleepy rover on Mars
 
