@@ -181,6 +181,14 @@ function demoTrigger() {
   return true;
 }
 
+// (v213) a relaunch (the picker, the go arrow) is not his demolition any more: a count still running
+// stands down and the block re-arms. (A fold already falling goes on; out of sight it is silent.)
+function demoStandDown() {
+  if (demo.phase !== "charging") return;
+  countdownClear();
+  demoReset();
+}
+
 function demoFoldTower(t) {
   t.down = true;
   t.mesh.userData.noSolid = true;    // a folding tower is not a wall
@@ -214,6 +222,10 @@ function updateDemolition(dt) {
   if (!demo.g || !demo.g.visible) {
     // far away: keep the clock running so it is always ready when he comes back
     if (demo.phase !== "armed") { demo.t -= dt; if (demo.t <= 0 && demo.phase !== "folding") demoReset(); }
+    // (v213) ... and nothing of it follows him: left mid-fold (the go arrow, the picker) its rumble
+    // stayed at full, five times the engine, everywhere. (Left mid-count by a relaunch, its numeral
+    // stood over his new start: spawnForTakeoff stands the count down -- demoStandDown.)
+    setTone("demo", "sawtooth", DEMO.rumbleFreq, 0);
     return;
   }
   demo.clock += dt;

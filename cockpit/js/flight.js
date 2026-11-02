@@ -372,7 +372,9 @@ function update(dt) {
   // The horn is silenced here too: carHornCan() is false while he is under the
   // canopy, and without this call the tones would keep sounding for the whole
   // ejection -- update() returns before the frame's usual horn pass.
-  if (eject.active) { updateEjection(dt); carUpdateHorn(dt); return; }
+  // (v213) ... and the engine's voice: ejectStart set it to 0, but the voice is moved only by
+  // engUpdate, below this return -- it droned at cruise for the whole rescue
+  if (eject.active) { updateEjection(dt); carUpdateHorn(dt); engUpdate(engineLevelNow(), dt); return; }
   if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
   applyKeyboard(dt);
   // v154: inside dad mode his world is scenery. His events, set-pieces and rewards all

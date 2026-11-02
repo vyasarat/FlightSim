@@ -6156,6 +6156,9 @@ const harnessMain = async () => {
     ["./audit_space_checks", { newPage, check }],    // v211: the 2026-11 audit's Mars pad countdown (AUDIT.md SPACE-1..4)
     ["./audit_flight_checks", { newPage, check }],   // v212: the audit's flight findings (FLIGHT-*)
     ["./audit_harness_checks", { newPage, check }],  // v212: the audit's service-worker and offline findings (HARNESS-*)
+    ["./audit_hud_checks", { newPage, check }],      // v213: the audit's buttons, HUD and audio findings (HUD-*)
+    ["./audit_race_checks", { newPage, check }],     // v213: the audit's race findings (RACE-*)
+    ["./audit_dad_checks", { newPage, check }],      // v213: the audit's dad-mode findings (DAD-*)
   ];
   expectedMods = MODULES.map(([n, o]) => modKey(n, o));
   for (const [name, opts] of SHARDS > 1 ? SHARDING.order(MODULES) : MODULES) await runModule(name, opts);

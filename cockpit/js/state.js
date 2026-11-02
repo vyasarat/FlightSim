@@ -163,6 +163,10 @@ function applyVehicle(key) {
   if (typeof setTone === "function") for (const [n, t, f] of VEHICLE_TONES) setTone(n, t, f, 0);
   el.missileBtn.classList.toggle("lowSlot", !!state.vp.rocket);   // the shared slot is spoken for on a rocket
   if (!state.vp.rocket) {
+    // (v213) re-entry's glow and roar are driven only by the rocket's own update: left mid-re-entry
+    // they stayed on the screen and in his ears in whatever he picked, until his next rocket
+    if (typeof rk !== "undefined" && rk.reentry > 0) { rk.reentry = 0; reentryOverlay(); }
+    if (typeof setReentryRoar === "function") setReentryRoar(0);
     for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn, el.droneBtn]) b.classList.add("hidden");
     if (typeof roverReset === "function") roverReset();
     if (typeof astroReset === "function") astroReset();
@@ -186,6 +190,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   if (originIdx === undefined) { originIdx = state.originIdx; }
   if (dirIdx === undefined) { dirIdx = state.dirIdx; }
   if (typeof raceReset === "function") raceReset();   // v164: every start is out of a race
+  if (typeof demoStandDown === "function") demoStandDown();   // (v213) ... and out of a demolition's count
   state.originIdx = originIdx;
   state.dirIdx = dirIdx;
   state.destIdx = apDest(originIdx);

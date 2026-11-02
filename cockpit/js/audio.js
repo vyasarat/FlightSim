@@ -218,7 +218,10 @@ function carHornVoices() {
 
 let rollNodes = null;
 function setRolling(norm) {
-  if (!audioCtx || audioCtx.state !== "running") return;
+  if (!audioCtx || audioCtx.state !== "running") {
+    if (rollNodes && norm <= 0 && rollNodes.last !== 0) { audioHush(rollNodes.g); rollNodes.last = 0; }   // (v213)
+    return;
+  }
   if (!rollNodes) {
     const len = audioCtx.sampleRate * 1.5;
     const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
@@ -286,8 +289,18 @@ function routeNote(i) {
 // Continuous tones (stall wobble, dive whistle, rain): one oscillator each,
 // created lazily, driven by gain so silence costs nothing.
 const tones = {};
+// (v213) A SILENCE IS NEVER DROPPED. Asked for while the context is not running -- the iPad
+// locked, a call, Siri, and the first tap after (its resume is async) -- a ramp to 0 was skipped
+// by the early return, and the voice came back at its old level with nobody left to silence it:
+// dad mode's engines, the race's crowd, droning on in his game. So a silence is written straight
+// into the gain, which needs no running clock.
+function audioHush(g) { g.gain.cancelScheduledValues(0); g.gain.value = 0; }
 function setTone(name, type, freq, gain) {
-  if (!audioCtx || audioCtx.state !== "running") return;
+  if (!audioCtx || audioCtx.state !== "running") {
+    const t = tones[name];
+    if (t && gain <= 0 && t.last !== 0) { audioHush(t.g); t.last = 0; }
+    return;
+  }
   let t = tones[name];
   if (!t) {
     const o = audioCtx.createOscillator();
@@ -303,7 +316,10 @@ function setTone(name, type, freq, gain) {
 }
 let rainNodes = null;
 function setRain(level) {
-  if (!audioCtx || audioCtx.state !== "running") return;
+  if (!audioCtx || audioCtx.state !== "running") {
+    if (rainNodes && level <= 0 && rainNodes.last !== 0) { audioHush(rainNodes.g); rainNodes.last = 0; }   // (v213)
+    return;
+  }
   if (!rainNodes) {
     const len = audioCtx.sampleRate * 2;
     const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
@@ -398,7 +414,10 @@ function setRocketEngine(level, inSpace) {
 }
 let reentryNodes = null;
 function setReentryRoar(level) {
-  if (!audioCtx || audioCtx.state !== "running") return;
+  if (!audioCtx || audioCtx.state !== "running") {
+    if (reentryNodes && level <= 0 && reentryNodes.last !== 0) { audioHush(reentryNodes.g); audioHush(reentryNodes.lfoG); reentryNodes.last = 0; }   // (v213)
+    return;
+  }
   if (!reentryNodes) {
     if (level <= 0) return;
     const len = audioCtx.sampleRate * 2;

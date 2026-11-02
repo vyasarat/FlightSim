@@ -1,7 +1,7 @@
 "use strict";
 // Flight.
 // The 2026-11 audit (AUDIT.md): one check per finding, each failed on the release before its fix.
-const FIXED = new Set(["FLIGHT-4"]);
+const FIXED = new Set(["FLIGHT-4", "FLIGHT-3"]);
 // Flight audit (phase 2): one check per finding, each FAILS on b21b83f and passes once fixed.
 // Harness module contract: module.exports = async ({ newPage, check }) => { ... }
 module.exports = async function ({ newPage, check: report }) {
