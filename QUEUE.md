@@ -12,7 +12,7 @@ in which case it goes to the top.
 Every bug the audit confirmed, in fix order: S1 first, then S2, then S3, a few related fixes a
 release. Each release: its checks fail on main and pass after, the full loop, shipped. IDs are AUDIT.md's.
 
-- [ ] **v211 (S1) The Mars pad's countdown** -- SPACE-1 (a rover rolled out in the count drives off alone), SPACE-2 (the picker in the count launches the next rocket by itself), SPACE-3 (S2, same code: the cargo and pad counts buzz) and SPACE-4 (S3, same code: the pad dim for good).
+- [x] **v211 (S1) The Mars pad's countdown** (shipped 2026-11-02, merge b232cac, 1306/1306; audit_space_checks 6/6, 0/6 on v210) -- SPACE-1 (a rover rolled out in the count drives off alone), SPACE-2 (the picker in the count launches the next rocket by itself), SPACE-3 (S2, same code: the cargo and pad counts buzz) and SPACE-4 (S3, same code: the pad dim for good).
 - [ ] **v212 (S1) Nothing happens behind the picker; no reload mid-play** -- FLIGHT-4 (the plane flies on and crashes under the picker), HARNESS-2 (the service worker reloads him at a red light, on the grid, at the podium).
 - [ ] **v213 (S2) Sounds left on** -- AUDIO-1 (a silence dropped while the AudioContext is suspended: dad mode's engines, the race crowd), HUD-2 (re-entry glow and roar), HUD-3 (the demolition rumble and its "2"), HUD-4 (the harbour crane), FLIGHT-3 (the engine through the eject rescue).
 - [ ] **v214 (S2) Back where he was** -- CARS-1 (a pull-over follows a relaunch), CARS-2 (the globe from the toy track), CARS-3 (a car's eject goes back to the motorway start), FLIGHT-1 (eject after London's heading switch faces the wrong way), FLIGHT-2 (eject during the landing roll).

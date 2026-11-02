@@ -441,6 +441,7 @@ function pickerCanOpen() {
 }
 function openPicker() {
   if (!pickerCanOpen()) return;
+  if (swReloadWanted) { location.reload(); return; }   // (v212) new code waiting: the page comes back on the vehicles
   releaseThrottle();
   keys.clear();
   el.screenDir.classList.add("hiddenS");
@@ -474,9 +475,12 @@ el.vehBtn.addEventListener("pointerdown", (e) => {
 // function only resets the rover and the astronaut when the vehicle he picks
 // next is NOT a rocket, so picking the rocket again while on a spacewalk would
 // have carried the spacewalk into the launch.
+// (v212) new code arrived while he was playing: picked up the next time the picker opens
+let swReloadWanted = false;
 function openPickerAnywhere() {
   if (eject.active) return;        // the rescue is already taking him somewhere safe
   if (menuOpen()) return;
+  if (swReloadWanted) { location.reload(); return; }   // (v212) the page comes back on the vehicles
   releaseThrottle();
   keys.clear();
   state.touching = false; state.touchIsPoint = false;
@@ -618,11 +622,14 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   });
   // A freshly-activated worker means new code is cached; pick it up on this
-  // launch instead of the next one. Only reload while sitting on the menu so a
-  // flight is never interrupted.
+  // launch instead of the next one -- but only ON THE PICKER, where there is nothing
+  // of his to lose (a relaunch puts back his vehicle, direction and destination).
+  // (v212) It used to reload whenever `phase === "TAXI"` and he was still -- which every
+  // surface vehicle writes each frame: a car at a red, an idle boat, the race grid and
+  // the podium all reloaded under him. Off the picker it waits for the next time it opens.
   let hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (hadController && state.phase === "TAXI" && state.speed === 0 && !state.celebrated && !(rk && rk.onBody) && !(typeof recoveryActive === "function" && recoveryActive()) && !(rk && rk.refitT > 0) && !menuOpen()) location.reload();
+    if (hadController) { if (menuOpen()) location.reload(); else swReloadWanted = true; }
     hadController = true;
   });
 }
