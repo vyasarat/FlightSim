@@ -10,6 +10,17 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v212 — Nothing happens behind the menu, and no reload in the middle of play
+
+Two more fixes from the November audit. When the menu (the vehicle cards) was opened while he was flying,
+his plane kept flying on underneath it with nobody steering: the crash alarm beeped and it crashed while he
+was choosing a card, and it could pop a paper plane he never aimed at. Now whatever he is in holds still
+behind the cards until he picks something (which starts him somewhere new) or shuts them. And when a new
+version of the game arrived while he was playing, the page reloaded whenever he happened to be standing
+still -- a car at a red light, a boat idling, the race grid or the podium -- and he lost what he was doing.
+Now it only reloads on the menu, where there is nothing to lose; otherwise it waits for the next time the
+menu opens. Checks: scripts/audit_flight_checks.js and scripts/audit_harness_checks.js (each fails on v211).
+
 ## v211 — Mars's pad never drives anything by itself
 
 The first fixes from the November audit (AUDIT.md). When he drives the rover back onto the lit pad on Mars,

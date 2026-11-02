@@ -98,3 +98,11 @@ one that cannot be made to fail is marked UNCONFIRMED and left alone. The fix or
 
 ## Proof and fixes
 (filled in as each release ships: the check, FAILS on main / passes after, the release)
+
+| release | findings | check module | before / after |
+|---|---|---|---|
+| v211 (b232cac) | SPACE-1, 2, 3, 4 (+ the boost-then-plane case the law-reviewer found: a plane picked in the Mars boost rolled 288 m) | scripts/audit_space_checks.js | 0/6 on v210, 6/6 |
+| v212 | FLIGHT-4, HARNESS-2 | scripts/audit_flight_checks.js, scripts/audit_harness_checks.js | 1/2 and 0/2 on v211 (the passes are page-error guards), 2/2 and 2/2 |
+
+UNCONFIRMED, not fixed: HUD-9 (turning the iPad mid-drag): the check fails only if iOS keeps the touch
+alive through an autorotation, which nobody has shown; if it sends pointercancel, releaseDrag already handles it.

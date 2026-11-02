@@ -212,7 +212,8 @@ function updateCrashWarning(dt) {
   // is the whole point of the place, and the wind-up numerals are its only lead-in.
   const muted = (typeof demoAlarmMuted === "function" && demoAlarmMuted()) ||
                 (typeof carrierAlarmMuted === "function" && carrierAlarmMuted()) ||
-                (typeof dadAlarmMuted === "function" && dadAlarmMuted());   // v147: dad mode has its own warnings
+                (typeof dadAlarmMuted === "function" && dadAlarmMuted()) ||   // v147: dad mode has its own warnings
+                menuOpen();   // (v212) behind the picker nothing is about to happen: the world holds still there
   // The helicopter has no GROUND warning (v139): it lands anywhere solid and
   // hovers over water, so a descent is never a crash about to happen -- and the
   // sink-rate alarm on every one of them was the warning he heard each time he
@@ -453,6 +454,32 @@ function update(dt) {
       boing();
       state.popTimer = 0.45;
     }
+    return;
+  }
+  // (v212) Behind the picker nothing happens to him. Its cards cover the world and take his finger,
+  // so a plane left flying on under them hands-off flew into the ground -- the alarm, then a bang,
+  // while he was choosing a card -- and popped targets he never aimed at. Whatever he is in holds
+  // where it was until he picks (which puts him somewhere new) or shuts the cards (and goes on from
+  // there). Parked, nothing is moving: that frame runs as ever.
+  if (menuOpen() && !vehParked()) {
+    el.rotateArrow.classList.remove("on");
+    updateCrashWarning(dt);   // muted behind the cards: an alarm already sounding goes off
+    // the world's own pieces go on: a dropped stage still flies home, a fairing still chutes into the
+    // net boat, smoke drifts, satellites he let go keep unfolding -- none of it touches him (his rings,
+    // targets and spots wait with him; no new spray is made off a vehicle that is not moving)
+    updateSmoke(dt); updateCraters(dt);
+    updateFallingStages(dt); updateSatellites(dt);
+    skyDome.position.set(state.x, state.y, state.z);
+    waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
+    applyCamera(dt);
+    updateVehicleModel(dt);
+    updateSky(dt);
+    updateFx(dt);
+    updateAmbientAudio(dt);
+    engUpdate(engineLevelNow(), dt);
+    btnUpdateAll();
+    updateHud();
+    shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));
     return;
   }
   if (state.phase !== "AIRBORNE") state.flaring = false;

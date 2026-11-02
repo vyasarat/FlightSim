@@ -6154,6 +6154,8 @@ const harnessMain = async () => {
     ["./london_thames_checks", { newPage, check }],
     ["./london_race_checks", { newPage, check }],     // v200: the London street circuit -- clear, race day only, Tower Bridge down, the bends   // v199: the Thames -- Tower Bridge opens for the ship and his boat, never under his car    // v198: driving London -- the graph, left-hand lanes, the bridges, cabs and double-deckers, the river
     ["./audit_space_checks", { newPage, check }],    // v211: the 2026-11 audit's Mars pad countdown (AUDIT.md SPACE-1..4)
+    ["./audit_flight_checks", { newPage, check }],   // v212: the audit's flight findings (FLIGHT-*)
+    ["./audit_harness_checks", { newPage, check }],  // v212: the audit's service-worker and offline findings (HARNESS-*)
   ];
   expectedMods = MODULES.map(([n, o]) => modKey(n, o));
   for (const [name, opts] of SHARDS > 1 ? SHARDING.order(MODULES) : MODULES) await runModule(name, opts);
