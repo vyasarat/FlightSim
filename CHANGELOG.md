@@ -10,6 +10,19 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v213 — Sounds that stayed on
+
+Fixes from the November audit for sounds and glows that followed him after the thing that made them was
+over. If the iPad had been locked (or a call came in) and the first tap afterwards left dad mode or a race,
+the engines of dad's aircraft or the race crowd kept droning in his game for the rest of the session --
+a "go quiet" asked for while the sound was paused was being dropped; now it always lands. Leaving a rocket
+in the middle of re-entry left its buffeting roar in his ears in the next vehicle;
+leaving while the demolition towers were falling left their deep rumble on everywhere (and leaving in the
+middle of its countdown left the number on screen); jumping away from the harbour left the crane's hum on;
+and the plane's engine kept roaring through the whole eject rescue. Each of those now stops when he leaves.
+Checks: scripts/audit_hud_checks.js, audit_race_checks.js, audit_dad_checks.js and audit_flight_checks.js
+(each new one fails on v212).
+
 ## v212 — Nothing happens behind the menu, and no reload in the middle of play
 
 Two more fixes from the November audit. When the menu (the vehicle cards) was opened while he was flying,

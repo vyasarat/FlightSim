@@ -799,7 +799,12 @@ function updateHarbor(dt) {
   if (!harbor.built) return;
   const d = Math.hypot(state.x - HB.cx, state.z - (-6600));
   const near = d < HB.visibleRange;
-  if (near !== harbor.near) { harbor.near = near; harbor.g.visible = near; }
+  if (near !== harbor.near) {
+    harbor.near = near; harbor.g.visible = near;
+    // (v213) the crane's hum fades with distance in hbAudio, which stops running out here: a jump
+    // away (the picker, the go arrow) froze it at its harbour level, everywhere
+    if (!near) setTone("hbCrane", "sawtooth", 62, 0);
+  }
   if (!near) return;
   harbor.clock += dt;
 

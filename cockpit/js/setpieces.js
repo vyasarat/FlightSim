@@ -181,6 +181,15 @@ function demoTrigger() {
   return true;
 }
 
+// (v213) a relaunch (the picker, the go arrow) is not his demolition any more: a count still running
+// stands down and the block re-arms. (A fold already falling goes on while he can see it; out of sight,
+// the far-away branch puts the block back up and silences it.)
+function demoStandDown() {
+  if (demo.phase !== "charging") return;
+  countdownClear();
+  demoReset();
+}
+
 function demoFoldTower(t) {
   t.down = true;
   t.mesh.userData.noSolid = true;    // a folding tower is not a wall
@@ -214,6 +223,12 @@ function updateDemolition(dt) {
   if (!demo.g || !demo.g.visible) {
     // far away: keep the clock running so it is always ready when he comes back
     if (demo.phase !== "armed") { demo.t -= dt; if (demo.t <= 0 && demo.phase !== "folding") demoReset(); }
+    // (v213) ... and nothing of it follows him: left mid-fold (the go arrow, the picker) its rumble
+    // stayed at full, five times the engine, everywhere; left mid-count its numeral stood over his
+    // new start. Gone that far, the block simply stands back up, ready
+    if (demo.phase === "charging") countdownClear();
+    if (demo.phase === "charging" || demo.phase === "folding") demoReset();
+    setTone("demo", "sawtooth", DEMO.rumbleFreq, 0);
     return;
   }
   demo.clock += dt;
@@ -239,6 +254,9 @@ function updateDemolition(dt) {
     return;
   }
 
+  // (v213) the picker stands its count down, as it does every set-piece's (the launch site, the sled,
+  // the monster truck): the numeral was left over his new start and the towers fell behind the cards
+  if (demo.phase === "charging" && menuOpen()) demoStandDown();
   if (demo.phase === "charging") {
     demo.t -= dt;
     countdownTo(demo.t, 3);

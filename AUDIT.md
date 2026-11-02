@@ -82,6 +82,12 @@ one that cannot be made to fail is marked UNCONFIRMED and left alone. The fix or
 | LIFECYCLE-1 | vehicle.js:28-36 | Every vehicle switch disposes the cached prototype's buffers and shaders: a 33-63 ms first frame (SwiftShader). | probe |
 | LIFECYCLE-2 | input.js:598-606 | The page hidden, audio is never suspended: the engine drones where the browser doesn't cut it. | probe |
 
+## Found during the fixes
+
+| id | where | what | status |
+|---|---|---|---|
+| GLOW-1 (S3, found v213) | index.html:434 `#reentryGlow` z-index 7 under the canvas (z-index 9) | The orange screen-edge glow of re-entry has never been visible: the opaque WebGL canvas covers it. HUD-2's "glow stays on" was invisible; its roar was real (fixed v213). | Left for the parent: turning it on adds an effect he has never seen (readability), not a fix. |
+
 ## S4 — code smells (listed only, not fixed)
 - Third water definition (`terrainEff < TUNE.waterLevel`): rocket.js:804, recovery.js:105-126, events.js:620, setpieces.js:599 (eject.js is FLIGHT-6).
 - marsbase.js:300-304: the Mars boost's expiry releases whatever vehicle's throttle (covered by SPACE-2's fix).
@@ -102,7 +108,8 @@ one that cannot be made to fail is marked UNCONFIRMED and left alone. The fix or
 | release | findings | check module | before / after |
 |---|---|---|---|
 | v211 (b232cac) | SPACE-1, 2, 3, 4 (+ the boost-then-plane case the law-reviewer found: a plane picked in the Mars boost rolled 288 m) | scripts/audit_space_checks.js | 0/6 on v210, 6/6 |
-| v212 | FLIGHT-4, HARNESS-2 | scripts/audit_flight_checks.js, scripts/audit_harness_checks.js | 1/2 and 0/2 on v211 (the passes are page-error guards), 2/2 and 2/2 |
+| v212 (3fa76bf) | FLIGHT-4, HARNESS-2 | scripts/audit_flight_checks.js, scripts/audit_harness_checks.js | 1/2 and 0/2 on v211 (the passes are page-error guards), 2/2 and 2/2 |
+| v213 | AUDIO-1 (DAD-1, RACE-3, HUD-8), HUD-2 (the roar; its glow was never visible, GLOW-1), HUD-3, HUD-4, FLIGHT-3 | audit_hud/race/dad/flight_checks.js | 0/5, 0/1, 0/1, FLIGHT-3 0/1 on v212; all pass |
 
 UNCONFIRMED, not fixed: HUD-9 (turning the iPad mid-drag): the check fails only if iOS keeps the touch
 alive through an autorotation, which nobody has shown; if it sends pointercancel, releaseDrag already handles it.
