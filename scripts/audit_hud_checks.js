@@ -84,16 +84,17 @@ module.exports = async function hudAuditChecks({ newPage, check: report }) {
       const trig = L.demoTrigger(); __step(60);
       const before = el.bigNum.classList.contains("on") ? el.bigNum.textContent : "";
       __relaunch("prop", 0);
+      const atStart = el.bigNum.classList.contains("on") ? el.bigNum.textContent : "";   // the moment he lands at his new start
       // whose numeral is it: another set-piece may start its own count at his new start (the fireworks
       // barge does at New York) -- what must not be there is the demolition's
       let demoWrites = 0; const ct = window.countdownTo;
       window.countdownTo = function () { if (/updateDemolition/.test(new Error().stack)) demoWrites++; return ct.apply(this, arguments); };
       try { __step(60); } finally { window.countdownTo = ct; }
       const demoNum = before !== "" && el.bigNum.classList.contains("on") && demoWrites > 0;
-      return { trig, before, demoPhase: demo.phase, demoWrites, after: demoNum ? el.bigNum.textContent : "" };
+      return { trig, before, atStart, demoPhase: demo.phase, demoWrites, after: demoNum ? el.bigNum.textContent : "" };
     });
     check("HUD-3: a second after he leaves the demolition mid-countdown, its numeral is gone from his screen",
-      h3a.trig && h3a.before !== "" && h3a.demoWrites === 0 && h3a.demoPhase !== "charging", h3a);
+      h3a.trig && h3a.before !== "" && h3a.atStart === "" && h3a.demoWrites === 0 && h3a.demoPhase !== "charging", h3a);
     const h3b = await page.evaluate(() => {
       const L = window.__lp, st = L.state;
       for (let i = 0; i < 900 && demo.phase !== "armed"; i++) L.update(1 / 60);
