@@ -112,7 +112,7 @@ a deliberate, stated behaviour change.
 - **The assist is never BLENDED with his steering** — it yields on a timer and his command
   gets through whole. Blending let the road outvote him and, at a light steer, reverse him.
   Running a red starts the chase (`police.js`): rubber-banded, ducked under everything,
-  ended by being caught, outrunning them or a long backstop — **never by crashing** — and
+  ended by being caught, outrunning them, a long backstop or a fresh start (v214) — **never by crashing** — and
   taking nothing. The officer never leaves his seat; only the CARS ever crash.
 - **Water is `terrainEff(x,z) < seaLevelAt(x,z)`, and nothing else** — one definition that
   takes a position; `lockLevelAt` is the only override. **Do not add a third answer.**

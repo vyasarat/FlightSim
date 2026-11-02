@@ -213,7 +213,20 @@ function ejectRestore() {
     rk.onBody=eject.rocketSave.onBody;rk.stage=eject.rocketSave.stage;rk.fuel=rocketFullTanks();rk.vx=rk.vy=rk.vz=0;rk.refitT=0;rk.reentry=0;chuteReset();
     state.speed=0;state.airVy=0;rocketApplyStages(eject.model);
     if(!rk.onBody){const pad=rocketPad(state.originIdx);state.x=pad.x;state.z=pad.z;state.y=pad.ground+rocketHalfLen();state.pitch=90;state.bank=0;state.phase='TAXI';}
-  }else spawnForTakeoff();
+  }else if(typeof trk!=="undefined"&&trk.on){
+    // (v214) on the giant toy track: nothing more -- the track stays his, and its next frame puts the car
+    // back on the rail where he left it (a fresh start here would take him off it, to the motorway)
+  }else if(typeof vehIsCar==="function"&&vehIsCar()){
+    // (v214) a car comes back on the road it was on, where he left it -- as from a bang (carReassemble),
+    // not at the start of the motorway or London's airport road, a kilometre or two away
+    carMarkSpot(0,0);carReassemble();
+  }else{
+    // (v214) an aircraft: on the runway of the airport he is at -- the one he landed at if he was
+    // rolling out or celebrating (originIdx moves only once the celebration ends), facing the way a
+    // landing would face him
+    const at=state.phase==='LANDED'&&state.landedIdx!==undefined?state.landedIdx:state.originIdx;
+    spawnAtAirport(at);
+  }
   el.hud.classList.toggle('chase',state.viewChase);if(!eject.surfaceMode)updateVehicleModel(0);state.popTimer=.45;
   p.root.visible=false;el.ejectVeil.style.opacity=1;ejectPhase('rejoin');
   eject.events.returned=true;eject.last={...eject.events};eject.cycles++;

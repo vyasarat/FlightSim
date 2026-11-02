@@ -186,11 +186,21 @@ function rocketPad(idx) {
   const m = AIRPORTS[idx].side;
   return { x: -m * P.dx, z: ap.cz + P.dz, ground: ap.elev + P.mountH };
 }
+// (v214) Back on an airport's runway the way a landing puts him there: origin and direction PAIRED
+// (New York flies south, California north, London south to New York). A bare spawnForTakeoff()
+// reuses whatever pair it finds, and London's heading switch leaves one that faces out to sea.
+function spawnAtAirport(at) { spawnForTakeoff(at, at === 1 ? 1 : 0); }
 function spawnForTakeoff(originIdx, dirIdx) {
   if (originIdx === undefined) { originIdx = state.originIdx; }
   if (dirIdx === undefined) { dirIdx = state.dirIdx; }
   if (typeof raceReset === "function") raceReset();   // v164: every start is out of a race
   if (typeof demoStandDown === "function") demoStandDown();   // (v213) ... and out of a demolition's count
+  // (v214) ... and out of a police pull-over: its cars eased toward him with no limit on the step,
+  // so from a relaunch they crossed the country (or the sea) in two seconds to finish the 3-2-1
+  if (typeof policeStop === "function") policeStop(false);
+  // (v214) ... and off the giant toy track: it stayed on, and the next frame put him back on the
+  // rail -- the globe took him nowhere, but saved London as his start
+  if (typeof trackReset === "function") trackReset();
   state.originIdx = originIdx;
   state.dirIdx = dirIdx;
   state.destIdx = apDest(originIdx);

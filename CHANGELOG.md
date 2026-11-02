@@ -10,6 +10,19 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v214 — Back where he was
+
+Fixes from the November audit for starting again in the wrong place. Ejecting from a car brought him back
+at the start of the motorway (or London's airport road), a kilometre or two from where he was; now he is
+back on the road he was on, where he left it, as after a bang. Ejecting from a plane after turning for
+London, or while still rolling out from a landing, put him back on the wrong runway or facing out to sea;
+now it is the runway of the airport he is at, facing the way a landing would. If the police had pulled
+him over and he started again somewhere else, their cars streaked across the country (or the sea) in two
+seconds to finish the 3-2-1 at his new start; now a fresh start ends the chase. And on the giant toy track
+the globe was offered but did nothing (he snapped straight back onto the track, though London was saved
+as his start); now picking a place takes him there. Checks: scripts/audit_cars_checks.js and
+scripts/audit_flight_checks.js (each new one fails on v213).
+
 ## v213 — Sounds that stayed on
 
 Fixes from the November audit for sounds and glows that followed him after the thing that made them was

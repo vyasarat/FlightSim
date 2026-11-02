@@ -686,17 +686,7 @@ function carCrash(nx, nz) {
   // crashed, then snapped to the road nearest THAT. Crash at one end of the
   // coast road after a flight and he reappeared at the other end. The boat has
   // always kept its own crash position for exactly this reason.
-  car.crashX = state.x; car.crashZ = state.z;
-  // ... and the ROAD it happened on, which the nearest road is not: from the
-  // boulevard the nearest was the motorway 800 m away, and on a city ramp the
-  // carriageway beside it. The planner's street is his road even when the bang
-  // was on the pavement against the building.
-  const r = car.road;
-  car.crashOn = !r ? { off: true }
-    : r.street ? { street: r.street }
-    : r.spur && r.dist < HW.spurW + 12 ? { spur: r.spur }
-    : !r.spur && Math.abs(r.lateral) < CAR.onRoadHalf + 12 ? { main: true } : { off: true };
-  car.crashNx = nx || 0; car.crashNz = nz || 0;
+  carMarkSpot(nx, nz);
   triggerExplosion(state.x, state.y + 1.2, state.z, 1);
   cameraHitStop(1.2);
   state.exploding = true;
@@ -730,6 +720,20 @@ function carWallHit(push, hit) {
 
 // Put him back on the road he was on, where it happened, pointing the way he
 // was going. Nothing is lost.
+// Where it happened and the road it happened on, for carReassemble (a bang; v214 an eject too).
+function carMarkSpot(nx, nz) {
+  car.crashX = state.x; car.crashZ = state.z;
+  // ... and the ROAD it happened on, which the nearest road is not: from the
+  // boulevard the nearest was the motorway 800 m away, and on a city ramp the
+  // carriageway beside it. The planner's street is his road even when the bang
+  // was on the pavement against the building.
+  const r = car.road;
+  car.crashOn = !r ? { off: true }
+    : r.street ? { street: r.street }
+    : r.spur && r.dist < HW.spurW + 12 ? { spur: r.spur }
+    : !r.spur && Math.abs(r.lateral) < CAR.onRoadHalf + 12 ? { main: true } : { off: true };
+  car.crashNx = nx || 0; car.crashNz = nz || 0;
+}
 function carReassemble() {
   // From where it HIT, not from wherever the shared safePos left him.
   const fromX = car.crashX !== null ? car.crashX : state.x;

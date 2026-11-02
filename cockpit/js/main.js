@@ -339,7 +339,7 @@ function frame(now) {
     console.error("frame error", err);
     window.__lp = window.__lp || {};
     window.__lp.frameErrors = (window.__lp.frameErrors || 0) + 1;
-    if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
+    if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnAtAirport(state.originIdx);   // (v214) paired
   }
 }
 requestAnimationFrame(frame);
