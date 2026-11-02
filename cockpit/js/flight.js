@@ -464,6 +464,11 @@ function update(dt) {
   if (menuOpen() && !vehParked()) {
     el.rotateArrow.classList.remove("on");
     updateCrashWarning(dt);   // muted behind the cards: an alarm already sounding goes off
+    // the world's own pieces go on: a dropped stage still flies home, a fairing still chutes into the
+    // net boat, smoke drifts, satellites he let go keep unfolding -- none of it touches him (his rings,
+    // targets and spots wait with him; no new spray is made off a vehicle that is not moving)
+    updateSmoke(dt); updateCraters(dt);
+    updateFallingStages(dt); updateSatellites(dt);
     skyDome.position.set(state.x, state.y, state.z);
     waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
     applyCamera(dt);
