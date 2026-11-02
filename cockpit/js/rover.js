@@ -70,7 +70,8 @@ function buildRover() {
 }
 
 function roverCan() {
-  return !!(state.vp && state.vp.rocket && state.phase === "TAXI" && rk.onBody && !rk.onBody.dock && !state.exploding && !rover.active);
+  return !!(state.vp && state.vp.rocket && state.phase === "TAXI" && rk.onBody && !rk.onBody.dock && !state.exploding && !rover.active &&
+            !marsPadTaking());   // (v211) the pad is taking him home: the rover stays in (it would drive off on the pad's throttle)
 }
 function roverActive() { return rover.active; }
 

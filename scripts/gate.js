@@ -74,7 +74,7 @@ const MODULES = {
   "vehicle.js": ["aircraft_orientation_checks", "cybertruck_checks", "corvette_checks"], "models.js": ["aircraft_orientation_checks", "cybertruck_checks", "corvette_checks"],
   "eject.js": ["eject_framing_checks"], "toyfinish.js": ["toyfinish_checks"],
   "toyworld.js": ["toyworld_checks"], "workshop.js": ["workshop_checks", "workshop_play_checks"],
-  "marsbase.js": ["robot_checks", "robot_play_checks"], "rover.js": ["robot_play_checks"],
+  "marsbase.js": ["robot_checks", "robot_play_checks", "audit_space_checks"], "rover.js": ["robot_play_checks", "audit_space_checks"],
   "input.js": ["hardening_checks", "slot_checks", "london_checks"],
   "london.js": ["london_checks", "london_drive_checks", "london_thames_checks", "london_race_checks", "city_checks", "slot_checks", "solidity_checks", "frame_budget_checks", "dadmissions_checks", "sea_checks"],
   // the world's shape and what stands on it: v197 moved them and only the full harness saw the

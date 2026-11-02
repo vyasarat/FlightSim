@@ -299,14 +299,23 @@ function updateMarsBase(dt) {
   // anything. This runs outside the on-Mars test so it survives leaving.
   if (mars.boostT > 0) {
     mars.boostT -= dt;
-    if (state.vp && state.vp.rocket && !rk.onBody && state.phase === "AIRBORNE") state.throttleHeld = true;
-    if (mars.boostT <= 0) { state.throttleHeld = false; releaseThrottle(); }
+    const rising = state.vp && state.vp.rocket && !rk.onBody && state.phase === "AIRBORNE";
+    if (rising) state.throttleHeld = true;
+    // (v211) it holds only the rocket it lifted. Anything else by now (the picker opened in the boost
+    // and a card picked): the pad wrote that throttle the frame before, so it lets go at once --
+    // keeping it would roll the next plane, or light the next rocket, with no finger down
+    if (mars.boostT <= 0 || !rising) { mars.boostT = 0; state.throttleHeld = false; releaseThrottle(); }
   }
   // built the moment he sets down on Mars, cleared the moment he is not there
   if (!marsIsHome()) {
-    if (mars.phase === "launch" && mars.boostT <= 0) {
+    // (v211) a departure only if the pad really lifted him. Left any other way while it was taking him
+    // (the picker in the count: he is on an Earth pad now), the pad's held throttle goes with it --
+    // carried over, it lit the next rocket on Earth with no finger on the screen.
+    if (mars.phase === "launch" && mars.boostT <= 0 && state.vp && state.vp.rocket && !rk.onBody && state.phase === "AIRBORNE") {
       mars.boostT = MB.boost;
       flags.marsDepartures = (flags.marsDepartures || 0) + 1;
+    } else if (mars.phase === "count" || mars.phase === "launch") {
+      state.throttleHeld = false; releaseThrottle();
     }
     if (mars.phase !== "none") marsClear();
     return;
@@ -350,7 +359,11 @@ function updateMarsBase(dt) {
     if (mars.cargoT <= 0) { mars.cargoPhase = "count"; mars.cargoT = MB.cargoCount; synthBlip("sine", 180, 320, 1.0, 0.16, 0); }
   } else if (mars.cargoPhase === "count") {
     mars.cargoT -= dt;
-    countdownTo(mars.cargoT, MB.cargoCount);
+    // (v211) the numeral is one thing: while the pad is counting him home it is the pad's, and the
+    // cargo ship's count runs on silently (its light still blinking) -- both writing it made the
+    // tick fire every frame, a buzz
+    const padCounting = mars.phase === "count";
+    if (!padCounting) countdownTo(mars.cargoT, MB.cargoCount);
     // a light low on the horizon, where it is coming from
     if (!mars.horizonLight) {
       const p = surfacePoint(mars.body, mars.n, MB.cargoOffset, 2.9);
@@ -360,7 +373,7 @@ function updateMarsBase(dt) {
     }
     mars.horizonLight.visible = (frameCount % 26) < 14;
     if (mars.cargoT <= 0) {
-      countdownClear();
+      if (!padCounting) countdownClear();
       if (mars.horizonLight) { disposeSurfaceObjects([mars.horizonLight]); mars.horizonLight = null; }
       marsCargoStart();
     }
@@ -403,6 +416,18 @@ function updateMarsBase(dt) {
     }
   } else if (mars.phase === "returning") {
     if (!roverActive()) marsGoHome();
+  } else if ((mars.phase === "count" || mars.phase === "launch") && roverActive()) {
+    // (v211) the rover is out again (roverCan refuses it now, but nothing may ever drive it on the
+    // pad's held throttle): the pad stands down to resting; driving out and back calls it again
+    mars.phase = "idle";
+    countdownClear();
+    state.throttleHeld = false; releaseThrottle();
+  } else if ((mars.phase === "count" || mars.phase === "launch") && menuOpen()) {
+    // (v211) the picker is up over it: the pad holds where it was, its numeral off and its throttle
+    // let go -- held under the cards, it lit the next rocket he picked. Shut again with nothing
+    // picked, the count goes on from there: nothing he had is taken away.
+    countdownClear();
+    state.throttleHeld = false;
   } else if (mars.phase === "count") {
     mars.t -= dt;
     countdownTo(mars.t, MB.padCount);
@@ -1460,7 +1485,13 @@ function marsStarsLive() {
 }
 // ... and the pad's lights are down for it: a shower on, and a star fallen or caught lately
 function marsPadDimmed() {
-  return marsStarsLive() && mars.stars.dimT < MS.padDimFor;
+  // (v211) only while he is out with the rover: the shower's clock (dimT) runs with the rover, so
+  // parked back in the rocket by its button it stood still and the pad stayed dull for good
+  return roverActive() && marsStarsLive() && mars.stars.dimT < MS.padDimFor;
+}
+// (v211) the pad is taking him home -- its count, or the launch it lights
+function marsPadTaking() {
+  return typeof mars !== "undefined" && (mars.phase === "returning" || mars.phase === "count" || mars.phase === "launch");
 }
 
 function marsStarCatch(s, flying) {

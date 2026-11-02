@@ -10,6 +10,18 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v211 — Mars's pad never drives anything by itself
+
+The first fixes from the November audit (AUDIT.md). When he drives the rover back onto the lit pad on Mars,
+the pad counts 3-2-1 and lights the rocket for him. Two things could go wrong during that count. If he
+tapped the rover button again, the rover rolled out and drove off on its own at full speed with no finger
+on the screen; now the rover stays in while the pad is taking him home (its button is not offered during the 3-2-1). If the menu was opened during the
+count, the pad's "held" throttle came along to the next rocket, which then lifted off from the Earth pad
+by itself; now the pad stands down when the menu opens, and lets go of nothing but the rocket it really
+lifted. Also: if the cargo ship's countdown and the pad's ran at once, the tick became a buzz -- the pad's
+count now has the numeral to itself; and after parking the rover with its button during a star shower, the
+pad's gold lights come back instead of staying dull. Checks: scripts/audit_space_checks.js (each fails on v210).
+
 ## v210 — A star shower on Mars
 
 A little while after the cargo ship lands on Mars, a shower of seven golden stars comes drifting down out of

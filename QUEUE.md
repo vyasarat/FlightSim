@@ -7,11 +7,27 @@ in which case it goes to the top.
 
 ## Releases
 
+## The audit (2026-11-01, the parent's yes on all of it -- see AUDIT.md)
+
+Every bug the audit confirmed, in fix order: S1 first, then S2, then S3, a few related fixes a
+release. Each release: its checks fail on main and pass after, the full loop, shipped. IDs are AUDIT.md's.
+
+- [ ] **v211 (S1) The Mars pad's countdown** -- SPACE-1 (a rover rolled out in the count drives off alone), SPACE-2 (the picker in the count launches the next rocket by itself), SPACE-3 (S2, same code: the cargo and pad counts buzz) and SPACE-4 (S3, same code: the pad dim for good).
+- [ ] **v212 (S1) Nothing happens behind the picker; no reload mid-play** -- FLIGHT-4 (the plane flies on and crashes under the picker), HARNESS-2 (the service worker reloads him at a red light, on the grid, at the podium).
+- [ ] **v213 (S2) Sounds left on** -- AUDIO-1 (a silence dropped while the AudioContext is suspended: dad mode's engines, the race crowd), HUD-2 (re-entry glow and roar), HUD-3 (the demolition rumble and its "2"), HUD-4 (the harbour crane), FLIGHT-3 (the engine through the eject rescue).
+- [ ] **v214 (S2) Back where he was** -- CARS-1 (a pull-over follows a relaunch), CARS-2 (the globe from the toy track), CARS-3 (a car's eject goes back to the motorway start), FLIGHT-1 (eject after London's heading switch faces the wrong way), FLIGHT-2 (eject during the landing roll).
+- [ ] **v215 (S2) London, the race, the menu, offline** -- LONDON-2 (a heli parked on Tower Bridge), LONDON-3 (a relaunch keeps London), RACE-1 (a race from the car wash), HUD-1 (a double tap on the menu opens dad's pad), HARNESS-1 (London's city offline).
+- [ ] **v216 (S2) The harbour** -- BOATS-1 (the drawbridge stays up), BOATS-2 (the lock never opens to the harbour again), BOATS-3 (the yacht's dead cannon button), BOATS-4 (garage and lock buttons in one slot).
+- [ ] **v217 (S3) Water and the lock** -- BOATS-5 (the container in the hull), BOATS-6 (the lock's numeral follows him), BOATS-7 (the garage door), FLIGHT-6 (eject over the lock's water).
+- [ ] **v218 (S3) Touch and the HUD** -- HUD-5 (horn over the picker), HUD-6 (double tap picks a direction), HUD-7 (engine roars through a crash), HUD-9 (rotate mid-drag), FLIGHT-7 (the route strip on the London crossing), FLIGHT-8 (the heli's resting palm).
+- [ ] **v219 (S3) Leftovers and cost** -- RACE-2 (his car floating mid-race), RACE-4 (giant on the podium), DAD-2 (dad mode's GPU leak), DAD-3 (stall warble in dad mode), LONDON-5 (the frozen whale), LIFECYCLE-1 (every switch re-uploads the prototype), LIFECYCLE-2 (audio while hidden).
+
+
 **Space, found not shown (the parent, 2026-10-29: "my son really enjoys the space themed things ... the little drone on mars was super cool, we didn't even know it was there and discovered it"):**
 small hidden discoveries in space, one release each, no new buttons, every kid rule applies.
 
-- [ ] **v209 The sleepy rover** (built 2026-10-29 on claude/project-thread-7o0kxh; the harness, the stream compare and the renders still to run on the Mac) -- an old little rover asleep out past Mars's dunes, under the curve from the pad, only a slow amber blink on its antenna; the rover or the drone close by wakes it (dust off, panels open, eyes lit, a beep), it follows him inside a leash, spins when he stops beside it, and goes home to nap when he leaves. Inline harness block T-SP8 (5 checks).
-- [ ] **v210 A star shower on Mars** (built 2026-10-30 on claude/project-thread-bexqux, off main 25c6452; the parent found v209 "kind of a boring feature" and asked to be surprised: something to DO with a big payoff) -- a while after the cargo ship is down, seven golden stars drift down round his rover, the first in front of him, the last few under the curve with only their beams showing; driving into one (or flying the drone over it) catches it, the next note up, into a ring of stars over him; the seventh sends them up in front of him as seven fireworks and leaves a big star in the sky; another shower later. No button, no numeral, no rnd(). Inline harness block T-SP9 (5 checks); renders `scripts/stars_renders.js`. The harness, the stream compare and the renders still to run on the Mac.
+- [x] **v209 The sleepy rover** (shipped, merge 25c6452, 1294/1294; built 2026-10-29 on claude/project-thread-7o0kxh; the harness, the stream compare and the renders still to run on the Mac) -- an old little rover asleep out past Mars's dunes, under the curve from the pad, only a slow amber blink on its antenna; the rover or the drone close by wakes it (dust off, panels open, eyes lit, a beep), it follows him inside a leash, spins when he stops beside it, and goes home to nap when he leaves. Inline harness block T-SP8 (5 checks).
+- [x] **v210 A star shower on Mars** (merged 15b239d, 1300/1300; deployed with the first audit fix; built 2026-10-30 on claude/project-thread-bexqux, off main 25c6452; the parent found v209 "kind of a boring feature" and asked to be surprised: something to DO with a big payoff) -- a while after the cargo ship is down, seven golden stars drift down round his rover, the first in front of him, the last few under the curve with only their beams showing; driving into one (or flying the drone over it) catches it, the next note up, into a ring of stars over him; the seventh sends them up in front of him as seven fireworks and leaves a big star in the sky; another shower later. No button, no numeral, no rnd(). Inline harness block T-SP9 (5 checks); renders `scripts/stars_renders.js`. The harness, the stream compare and the renders still to run on the Mac.
 
 **London, across the sea (the parent, 2026-10-25: "my son's idea, my yes on all of it"):** a third
 city east of New York. Normal game -- every kid rule applies (no text, nothing living hit, nothing
