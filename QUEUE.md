@@ -17,7 +17,7 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 
 ## 0. Housekeeping
 
-- [ ] **v214 (S2) Back where he was** -- finish its loop and ship it. CARS-1 (a pull-over follows a relaunch), CARS-2 (the globe from the toy track), CARS-3 (a car's eject goes back to the motorway start), FLIGHT-1 (eject after London's heading switch faces the wrong way), FLIGHT-2 (eject during the landing roll). Built 2026-11-02 (da8823a); pushed 2026-11-13.
+- [x] **v214 (S2) Back where he was** (shipped 2026-11-13: 1333/1333, stream SAME, sweep 79/0, noisy drive seeds 11 and 23 clean, law-reviewer PASS) -- CARS-1 (a pull-over follows a relaunch), CARS-2 (the globe from the toy track), CARS-3 (a car's eject goes back to the motorway start), FLIGHT-1 (eject after London's heading switch faces the wrong way), FLIGHT-2 (eject during the landing roll). Built 2026-11-02 (da8823a); pushed 2026-11-13.
 
 ## 1. The audit, v215
 
