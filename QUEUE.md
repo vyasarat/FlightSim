@@ -21,7 +21,7 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 
 ## 1. The audit, v215
 
-- [ ] **v215 (S2) London, the race, the menu, offline** -- LONDON-2 (a heli parked on Tower Bridge), LONDON-3 (a relaunch keeps London), RACE-1 (a race from the car wash), HUD-1 (a double tap on the menu opens dad's pad), HARNESS-1 (London's city offline).
+- [x] **v215 (S2) London, the race, the menu, offline** (shipped 2026-11-13: 1360/1360, stream SAME, sweep 79/0, law-reviewer PASS x3) -- LONDON-2, LONDON-3, RACE-1, HUD-1, HARNESS-1; and the v214 eject checks hardened (the eject seen to run, CARS-3 reads his heading, portrait and landscape).
 
 ## 2. iPad and deploy (REVIEW findings 11, 12; Q-11)
 
@@ -84,3 +84,5 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 
 - [ ] (WAITING on a playtest report -- the fade-in is for if anyone notices it popping; nobody has) Snowy Peaks / Sky Glow Road skyline ghost pops at the cull depth (found in v179, accepted): past the fog's far edge a venue piece used to draw as a flat fog-coloured ghost on the skyline; it now appears at ~1.7 km view depth. If he or the parent notices a pop driving toward a venue, fade pieces in over the last 150 m instead of a hard cut -- readability only.
 - [ ] (renders the critic would still like; not bugs, nothing failed) v187 power-ups: a slick at 20 m (chase and seat); a giant monster truck with a rival close by, a shield taking a hit, him driving over oil, a rival using boost, shield or giant -- `race_renders.js` item:/itemSeat:/hold: views. v181 spray: five rivals 15-25 m ahead of the seat camera; the staged near-puff row from the chase camera on sand, dirt and snow; his own spray from the chase camera, unstaged; a puff just past the bonnet hidden by it; Desert Dunes sand at dusk/night; a puff fading as it nears the camera -- `race_renders.js` bunch, closeSeat, puffAt, puffAtSeat, NIGHTF=.
+- [ ] (v215, the law-reviewer, not blocking) Tower Bridge at the edge: a helicopter bobbing across the edge of "on the leaves" (15 m up, or 15 m/s) while a leaf is under `wallAt` flips rise/fall with no wait and restarts `ldTbHydraulics` each time (london.js `ldTbUpdate`); `rewarn` guards only down -> warn. A hold-off there, and a check that counts reversals.
+- [ ] (v215, the law-reviewer, check gaps) audit_london_checks: the rising-leaf case never asserts he stands on the leaf (`onDeck`); the abandoned warning asserts no `tbOpens` delta of 0; only the rocket card is shown to still get the direction screen in London (yacht, monster truck); no check drives a car over the leaves and then lets the ship ask (the car now adds `deckOver.rewarn` to her wait). audit_harness_checks HARNESS-1 sees only whole-literal asset paths. `scripts/audit_eject.js` is not in gate.js's `--run` map.

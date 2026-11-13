@@ -31,13 +31,19 @@ adds a permanent HUD element or a second button to a feature, persists, counts
 or unlocks anything, reworks a shipped feature, or adds a dependency or build
 step.
 
-## 2. Check first, then build
+## 2. Check first, then build — by a subagent
 
-Write the behavioural check before the feature and see it fail: the thing
-*happens* and is measured, as a delta, in the states he is really in. Then build
-on `cockpit-3d` until it passes. Every number in `TUNE`.
+The main session supervises (`CLAUDE.md`, "The loop"): it writes the brief and does not
+write game code. Hand the build to ONE subagent (the Agent tool, general-purpose), with a
+brief that stands on its own: what he will see, the QUEUE item and its file:line evidence,
+the rules from `CLAUDE.md` that bite here, which files it may touch, the check to write
+FIRST and see fail (the thing *happens* and is measured, as a delta, in the states he is
+really in), every number in `TUNE`, work on `cockpit-3d`, bump `CACHE_NAME`, write the
+CHANGELOG paragraph and the PLAYTEST prediction, do not commit to `main`, do not deploy.
+Ask it to report: the diff summary, the check failing before and passing after, anything
+it cut or was unsure of.
 
-## 3. The inner loop — fast judges, until green
+## 3. The inner loop — fast judges, run by the subagent until green
 
 ```
 node scripts/gate.js            # a second: syntax, scope, wiring, version, changelog, hygiene
@@ -46,9 +52,16 @@ node scripts/gate.js --run      # then the modules the changed files answer to
 
 The Stop hook runs the gate anyway: a turn cannot end on a failing one. Fix the
 change, never the gate. If city or car code changed, `node scripts/noisy_drive.js
-300 <seed>` on at least two seeds, and keep the logs.
+300 <seed>` on at least two seeds, and keep the logs. The subagent runs these, and the
+race sweep and stream compare the gate asks for; only ONE thing that launches a browser
+runs at a time.
 
-## 4. Fresh eyes — two reviewers who did not write it
+**The main session then reads the diff itself** before any reviewer does: it is the
+supervisor's review, not the subagent's summary, that decides the next step. If the work
+is wrong, send it back with what is wrong (the same subagent, by message). **Two failed
+attempts** and the main session writes the code itself.
+
+## 4. Fresh eyes — two reviewers who did not write it (called by the main session)
 
 - **`law-reviewer`** on the diff. Give it nothing but "review the current change".
 - Render it (the `*_renders.js` scripts and `art_rig.js`; both seats, portrait),
@@ -60,6 +73,9 @@ blocks, stop and report what it will not pass and why — do not argue it down a
 do not ship around it.
 
 ## 5. The full harness, once, alone
+
+A subagent may start and watch the run; the main session reads the count and the FAIL lines
+itself and makes the ship-or-stop decision (step 6). Merging and deploying are the main session's.
 
 Exactly as the ship checklist in `CLAUDE.md` says: nothing else running, no
 edits to `cockpit/` while it runs, output to a file. Report the count, and that

@@ -67,7 +67,9 @@ module.exports = async function dadChecks({ newPage, check, perf }) {
       while (w.nextNode()) { const n = w.currentNode, p = n.parentElement && n.parentElement.tagName; if (p === "SCRIPT" || p === "STYLE") continue; const t = n.nodeValue.trim(); if (t && !/^[0-9]+$/.test(t)) bad.push(t.slice(0, 30)); }
       return bad;
     };
-    H.tap = id => { const e = document.getElementById(id); e.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true })); e.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true })); };
+    // (v215) the star answers once the picker has been up a moment (TUNE.dad.keyCalm, HUD-1): every tap
+    // on it here is the parent's, after he has looked -- audit_hud_checks.js times the wait itself
+    H.tap = id => { if (id === "dadKey") L.dad.pad.calm = Math.max(L.dad.pad.calm, L.TUNE.dad.keyCalm); const e = document.getElementById(id); e.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true })); e.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true })); };
     H.padKey = k => { const b = document.querySelector('#dadPad .dadPadKey[data-k="' + k + '"]'); if (!b) return false;
       b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true })); return true; };
     H.code = s => { for (const k of s) if (!H.padKey(k)) return false; return true; };

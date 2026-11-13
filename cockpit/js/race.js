@@ -1287,7 +1287,7 @@ function rcClearRacers() {
 // ---- in and out ------------------------------------------------------------------------
 // The picker of tracks. Its own screen, so menuOpen() holds the world off.
 function raceOpenPicker() {
-  if (!raceCarOK() || race.on || state.exploding) return;
+  if (!raceCarOK() || race.on || state.exploding || raceWashBusy()) return;
   rcBuild();
   el.screenRace.classList.remove("hiddenS");
   unlockAudio();
@@ -2625,9 +2625,12 @@ function rcHud() {
 }
 
 // ---- the buttons (buttons.js asks these) ----------------------------------------------------
+// (v215) ... nor inside the car wash: the wash holds him to its rail, so a race started from in it sat
+// frozen, his car off screen, and its EXIT put him back in the wash. The flag comes back when it is done.
+function raceWashBusy() { return typeof twWashBusy === "function" && twWashBusy(); }
 function raceBtnShows() {
   return raceCarOK() && !race.on && !state.exploding && !menuOpen() && !(typeof eject !== "undefined" && eject.active) &&
-    !(typeof trk !== "undefined" && trk.on) && !(typeof dadActive === "function" && dadActive());
+    !(typeof trk !== "undefined" && trk.on) && !(typeof dadActive === "function" && dadActive()) && !raceWashBusy();
 }
 function raceExitShows() { return race.on && race.phase !== "podium" && !menuOpen(); }
 function raceEndShows() { return race.on && race.phase === "podium" && race.podiumT > RC.podium.buttonsAfter && !menuOpen(); }

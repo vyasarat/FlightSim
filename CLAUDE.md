@@ -73,8 +73,7 @@ MODE, not the picker card, in the one safe order — modes first, `bigBoat` befo
 `vehParked()` and `vehSolid()` are the honest forms. `state.js`'s header says what each
 shared field means per vehicle; `state_semantics_checks.js` enforces what it can.
 
-`scripts/vehicle_baseline.json` pins 162 numbers across 11 vehicles; regenerate **only** for
-a deliberate, stated behaviour change.
+`scripts/vehicle_baseline.json` pins 162 numbers across 11 vehicles; regenerate **only** for a stated behaviour change.
 
 ## Architecture (these bite)
 
@@ -233,6 +232,9 @@ tag in `index.html` (right order), `ASSETS` in `sw.js`, bump `CACHE_NAME` (the g
 Every release passes five judges, cheapest first, none of them its author; `/cycle` runs
 one turn, `/retro` closes it. At the start of every session, and after every release ships,
 read QUEUE.md and start the top item.
+The main session supervises: it plans each release, hands the building and the test runs
+to subagents, reviews what comes back, and decides whether to ship. It writes game code
+itself only when a subagent has failed twice.
 
 **The stop rule** (the parent, 2026-11-13). You may merge and deploy unattended, any hour,
 when the full loop passes; while QUEUE.md has items, go on to the next. Stop and report if:
@@ -274,7 +276,7 @@ nothing else can — paid for by cutting one.
 - It stubs rAF (only the *last* queued callback fires) and runs 12 sim-seconds in a sixth of
   a real one, so **game code must never time off `performance.now()`**.
 - **Never A/B perf in blocks** — alternate samples, and report more than one run.
-- `scripts/polish_check.js <tag>` times the heaviest scenes under **SwiftShader, not an
+  `scripts/polish_check.js <tag>` times the heaviest scenes under **SwiftShader, not an
   iPad**: read `calls`/`tris` as the hardware proxy, `cpuMs` only as a bound.
 
 ## Ship checklist
@@ -289,11 +291,8 @@ nothing else can — paid for by cutting one.
    **A background command, output to a file, its exit notifies you — never a waiter loop** (the
    gate and the `--bash` hook refuse one); keep a 30-minute fallback wake-up. `UPDATE_VISUAL` /
    `UPDATE_VEHICLE` regenerate the baselines; never hand-edit them.
-4. **A check whose expected value you edited is re-run before ship** -- the module alone,
-   or the inline check extracted -- and passes. Editing a number to match is not passing.
-5. For anything visual, render it and **look at it** — the hashed scenes cover no boat,
-   no HUD and no harbour.
+4. **A check whose expected value you edited is re-run before ship** and passes: editing a number to match is not passing.
+5. For anything visual, render it and **look at it** — the hashed scenes cover no boat, no HUD, no harbour.
 6. Push `cockpit-3d`, merge `--no-ff` into `main`, push.
 7. `ssh root@138.197.80.104 'cd /root/flightsim && bash deploy/deploy.sh'` (rollback:
-   `deploy.sh --rollback`). Add a `CHANGELOG.md` paragraph. The iPad picks it up next
-   launch.
+   `deploy.sh --rollback`). Add a `CHANGELOG.md` paragraph. The iPad picks it up next launch.

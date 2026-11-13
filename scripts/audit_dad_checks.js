@@ -32,7 +32,7 @@ module.exports = async function dadAuditChecks({ newPage, check: report }) {
       // the way the parent goes in: the key on his picker, the code, FLY on the mission's card
       H.fly = id => {
         document.getElementById("screenVehicle").classList.remove("hiddenS");
-        L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k);
+        L.dad.pad.calm = L.TUNE.dad.keyCalm; L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k);
         const c = document.querySelector('#dadMenu .dadCard[data-mission="' + id + '"]');
         if (!c) return false;
         H.tapEl(c.querySelector(".dadBtn.go")); return L.dadActive();

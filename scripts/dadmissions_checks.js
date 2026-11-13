@@ -42,7 +42,7 @@ module.exports = async function dadMissionChecks({ newPage, check }) {
     H.tapEl = e => { e.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true })); e.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true })); };
     H.ls = () => { const o = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o[k] = localStorage.getItem(k); } return o; };
     H.dadDom = () => document.querySelectorAll("#dadHud,#dadGrey,#dadCanopy,#dadCard,#dadPad,#dadMenu").length;
-    H.open = () => { document.getElementById("screenVehicle").classList.remove("hiddenS"); L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k); return !!document.getElementById("dadMenu"); };
+    H.open = () => { document.getElementById("screenVehicle").classList.remove("hiddenS"); L.dad.pad.calm = L.TUNE.dad.keyCalm; L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k); return !!document.getElementById("dadMenu"); };
     H.fly = id => { if (!H.open()) return false; const c = document.querySelector('#dadMenu .dadCard[data-mission="' + id + '"]'); if (!c) return false; H.tapEl(c.querySelector(".dadBtn.go")); return L.dadActive(); };
     // a stick for a pitch RATE on a mission profile (the inverse of its expo)
     H.pitchStick = (P, q) => Math.sign(q) * Math.pow(Math.min(1, Math.abs(q) / P.pitchRateDeg), 1 / P.pitchExpo);

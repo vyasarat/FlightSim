@@ -1,7 +1,7 @@
 "use strict";
 // Buttons, HUD and audio.
 // The 2026-11 audit (AUDIT.md): one check per finding, each failed on the release before its fix.
-const FIXED = new Set(["HUD-2", "HUD-3", "HUD-4", "HUD-8"]);
+const FIXED = new Set(["HUD-2", "HUD-3", "HUD-4", "HUD-8", "HUD-1"]);
 // HUD / input / audio audit (phase 2): one check per finding, each FAILS on 15b239d and passes once fixed.
 // Taps are dispatched as touch PointerEvents on whatever elementFromPoint says is under the finger, with the
 // pointerup going to the pointerdown's target (touch pointers are implicitly captured), and game frames
@@ -188,6 +188,69 @@ module.exports = async function hudAuditChecks({ newPage, check: report }) {
       h6.over > 0 && h6.dirWaiting, h6);
 
     if (errors.length) check("HUD-taps page: no page errors", false, errors.slice(0, 5));
+    await ctx.close();
+  }
+
+  // ======================= page B': the menu button by REAL touches, both ways up =======================
+  // (v215) HUD-1 as his finger does it: touches through the browser's own input (CDP), so the pointer
+  // events, their targets and the implicit capture are the browser's, not ours. A double tap; ten taps
+  // mashed on the same spot; and the parent's way in still works -- the picker up a moment, then the star.
+  for (const [w, h, way] of [[1024, 768, "landscape"], [768, 1024, "portrait"]]) {
+    const { ctx, page, errors } = await newPage(w, h);
+    await page.evaluate(install);
+    const cdp = await page.context().newCDPSession(page);
+    const touch = async (x, y) => {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, id: 1 }] });
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    };
+    const frames = (n) => page.evaluate((n) => __step(n), n);
+    const look = () => page.evaluate(() => ({ picker: window.__lp.menuOpen(), pad: !!document.getElementById("dadPad"), lockT: +dad.pad.lockT.toFixed(1), wrong: dad.pad.wrong, menu: !!dad.menu }));
+    const at = await page.evaluate(() => {
+      const L = window.__lp;
+      L.api.setVehicle("prop"); L.api.spawnAt(0, 0); __step(10);
+      const r = el.menuBtn.getBoundingClientRect();
+      return { x: Math.round(r.left + r.width * 0.25), y: Math.round(r.top + r.height * 0.7) };
+    });
+    // a double tap: a tenth of a second between
+    await touch(at.x, at.y); await frames(6); await touch(at.x, at.y); await frames(2);
+    const dbl = await look();
+    await page.evaluate(() => { if (document.getElementById("dadPad")) dadPadClose(); window.__lp.api.skipScreens(); __step(30); });
+    // mashed: taps about seven a second, for well over twice the star's wait (TUNE.dad.keyCalm) -- a
+    // mash shorter than the wait would pass even if a tap did not restart it
+    const calm = await page.evaluate(() => window.__lp.TUNE.dad.keyCalm);
+    const mashN = Math.ceil(calm * 2.5 * 60 / 9) + 1;
+    let mashPadSeen = false;
+    let underTap = null;
+    for (let i = 0; i < mashN; i++) {
+      await touch(at.x, at.y); await frames(9); if ((await look()).pad) mashPadSeen = true;
+      // (v215) once the picker is up, what is under his finger there IS the star -- or the mash proves nothing
+      if (i === 0) underTap = await page.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return { picker: window.__lp.menuOpen(), star: !!(e && e.closest("#dadKey")), el: e ? e.id || e.tagName : null }; }, at);
+    }
+    const mash = { ...(await look()), taps: mashN, secs: +(mashN * 9 / 60).toFixed(2), keyCalm: calm };
+    await page.evaluate(() => { if (document.getElementById("dadPad")) dadPadClose(); window.__lp.api.skipScreens(); __step(30); });
+    // the parent: the menu, a moment's look at the cards, then the star in the corner
+    await touch(at.x, at.y); await frames(150);
+    const star = await page.evaluate(() => { const r = document.getElementById("dadKey").getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; });
+    await touch(star.x, star.y); await frames(2);
+    const parent = await look();
+    // (v215) the parent's way in, as before v215 once the picker has been up: the pad closed, the star
+    // opens it again at once; after a wrong code likewise; during a lockout the star shakes (a tap during
+    // a lockout before the picker's wait is over does nothing at all -- no shake -- which is accepted)
+    const tapStar = async () => { await touch(star.x, star.y); await frames(2); return page.evaluate(() => ({ pad: !!document.getElementById("dadPad"), shake: document.getElementById("dadKey").classList.contains("shake"), lockT: +dad.pad.lockT.toFixed(1) })); };
+    await page.evaluate(() => dadPadClose());
+    const again = await tapStar();
+    await page.evaluate(() => { const c = String(window.__lp.TUNE.dad.code), w = c === "0000" ? "1111" : "0000"; for (const k of w) dadPadPress(k); });
+    const afterWrong = { wrong: await page.evaluate(() => dad.pad.wrong), ...(await tapStar()) };
+    await page.evaluate(() => { const c = String(window.__lp.TUNE.dad.code), w = c === "0000" ? "1111" : "0000"; for (let n = 0; n < 3 && dad.pad.lockT === 0; n++) { if (!document.getElementById("dadPad")) dadKeyTap(); for (const k of w) dadPadPress(k); } document.getElementById("dadKey").classList.remove("shake"); });
+    const inLockout = await tapStar();
+    await page.evaluate(() => { if (document.getElementById("dadPad")) dadPadClose(); dad.pad.lockT = 0; dad.pad.wrong = 0; dadKeyDraw(); window.__lp.api.skipScreens(); __step(2); });
+    const way2 = { again, afterWrong, inLockout, note: "a tap in a lockout before keyCalm gives no shake (accepted)" };
+    const tag = way === "portrait" ? "portrait 768x1024" : "landscape 1024x768";
+    check(`HUD-1: by real touches (${tag}) a double tap on the menu button opens the vehicle picker and nothing of dad mode; taps mashed there for 2.5x the star's wait never open the code pad nor lock it; the parent's way in still opens it -- and again at once after he closes it or a wrong code, and in a lockout the star shakes`,
+      dbl.picker && !dbl.pad && !!underTap && underTap.picker && underTap.star && !mashPadSeen && !mash.pad && mash.lockT === 0 && mash.wrong === 0 && parent.pad &&
+      again.pad && afterWrong.wrong === 1 && afterWrong.pad && inLockout.lockT > 0 && !inLockout.pad && inLockout.shake,
+      { dbl, underTap, mashPadSeen, mash, parent, way2, at, star });
+    check(`HUD-touch page (${way}): no page errors`, errors.length === 0, errors.slice(0, 5));
     await ctx.close();
   }
 

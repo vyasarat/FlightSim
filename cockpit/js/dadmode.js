@@ -40,7 +40,7 @@
 // ---------------------------------------------------------------------------
 const dad = {
   on: false,
-  pad: { open: false, entry: "", wrong: 0, lockT: 0 },
+  pad: { open: false, entry: "", wrong: 0, lockT: 0, calm: 0 },
   menu: false,
   prev: null,            // what he was in when the parent went in: put back on exit
   vp: null,              // the jet's own profile (never TUNE.vehicles.fighter)
@@ -132,6 +132,11 @@ const DAD_ICON = {
 };
 
 function dadKeyTap() {
+  // (v215) The star sits in the picker's corner under the menu button: his second tap of a double tap,
+  // or a mash, landed on it and opened the pad (and could lock the parent out). It answers only once the
+  // picker has been up, with nothing touching the star, for TUNE.dad.keyCalm -- a tap sooner starts that
+  // wait again and does nothing he can see. The parent opens the menu, looks, then taps it.
+  if (dad.pad.calm < TUNE.dad.keyCalm) { dad.pad.calm = 0; return; }
   if (dad.pad.lockT > 0 || dad.pad.open || dad.menu || dad.on) { dadKeyShake(); return; }
   dadPadOpen();
 }
@@ -223,6 +228,7 @@ function dadMenuClose() {
 // Called once a frame from the top of update(), in and out of dad mode: the pad's
 // lockout counts down on the game's own clock, never performance.now().
 function dadTick(dt) {
+  dad.pad.calm = el.screenVehicle.classList.contains("hiddenS") ? 0 : dad.pad.calm + dt;   // (v215) how long the picker has been up, untouched at the star
   if (dad.pad.lockT > 0) { dad.pad.lockT = Math.max(0, dad.pad.lockT - dt); if (dad.pad.lockT === 0) dadKeyDraw(); }
   if (!dad.on) return;
   // anything that swapped the vehicle out from under dad mode ends it

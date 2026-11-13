@@ -6,6 +6,27 @@ const fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 
 module.exports = async function auditHarnessChecks({ newPage, check }) {
+  // ---- HARNESS-1 (v215): a file check, no page. Every asset the game asks for at runtime -- a path
+  // in a string in cockpit/js/*.js or index.html, to a model, texture, sound, icon or data file that
+  // ships under cockpit/ -- is in the service worker's ASSETS, or offline it is not there (London's
+  // city GLB was missing: offline, London had no buildings).
+  {
+    const CK = path.join(ROOT, "cockpit");
+    const sw = fs.readFileSync(path.join(CK, "sw.js"), "utf8");
+    const assets = new Set((sw.match(/const ASSETS = \[([\s\S]*?)\];/) || ["", ""])[1].match(/"[^"]+"/g).map(s => s.slice(1, -1).replace(/^\.\//, "")));
+    const srcs = fs.readdirSync(path.join(CK, "js")).filter(f => f.endsWith(".js")).map(f => path.join(CK, "js", f)).concat([path.join(CK, "index.html")]);
+    const asked = new Map();
+    for (const f of srcs) {
+      const txt = fs.readFileSync(f, "utf8");
+      for (const m of txt.matchAll(/["'`]((?:\.\/)?[\w\-./]+\.(?:glb|gltf|webp|png|jpe?g|json|mp3|m4a|ogg|wav|bin))["'`]/g)) {
+        const p = m[1].replace(/^\.\//, "");
+        if (fs.existsSync(path.join(CK, p))) asked.set(p, path.relative(ROOT, f));
+      }
+    }
+    const missing = [...asked].filter(([p]) => !assets.has(p)).map(([p, from]) => `${p} (asked for in ${from})`);
+    check(`HARNESS-1: every asset the game asks for at runtime is in cockpit/sw.js ASSETS, so it is there offline (${asked.size} asked for)`,
+      asked.size >= 10 && missing.length === 0, missing.length ? missing.join("; ") : [...asked.keys()].sort().join(" "));
+  }
   // ---- HARNESS-2 (the real controllerchange handler, driven) -------------------------------------
   // input.js only wires the handler on https; the page here is http, so the served input.js has that
   // one test widened, the worker container is given a controller (as on any launch after the first),

@@ -42,14 +42,14 @@ async function render(root, only) {
     L.renderer.render(L.scene, cam);
   }, code);
   const enter = (id) => page.evaluate((id) => { const L = window.__lp; document.getElementById("screenVehicle").classList.remove("hiddenS");
-    L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k);
+    L.dad.pad.calm = L.TUNE.dad.keyCalm; L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k);
     const c = document.querySelector('#dadMenu .dadCard[data-mission="' + id + '"]'); const b = c.querySelector(".dadBtn.go");
     b.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); b.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
     for (let i = 0; i < 2; i++) window.__paint(); return L.dad.mis && L.dad.mis.id; }, id);
 
   // ---------------- the list ----------------
   if (!only.length || only.includes("list")) {
-    await page.evaluate(() => { const L = window.__lp; document.getElementById("screenVehicle").classList.remove("hiddenS"); L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k); for (let i = 0; i < 2; i++) window.__paint(); });
+    await page.evaluate(() => { const L = window.__lp; document.getElementById("screenVehicle").classList.remove("hiddenS"); L.dad.pad.calm = L.TUNE.dad.keyCalm; L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k); for (let i = 0; i < 2; i++) window.__paint(); });
     await shot(page, out, "00-list", { note: "the dad menu: the mission list" });
     await page.evaluate(() => { const l = document.querySelector("#dadMenu .dadList"); l.scrollTop = l.scrollHeight; window.__paint(); });
     await shot(page, out, "00b-list-bottom", { note: "the list scrolled to its end" });
@@ -95,7 +95,7 @@ async function render(root, only) {
     await paint(); await shot(page, out, "07-dam-card", { ...i, note: "the results card" });
     await page.evaluate(() => window.__lp.dadExit());
     // the list again: this session's record on the Dambusters card
-    await page.evaluate(() => { const L = window.__lp; document.getElementById("screenVehicle").classList.remove("hiddenS"); L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k);
+    await page.evaluate(() => { const L = window.__lp; document.getElementById("screenVehicle").classList.remove("hiddenS"); L.dad.pad.calm = L.TUNE.dad.keyCalm; L.dadKeyTap(); for (const k of String(L.TUNE.dad.code)) L.dadPadPress(k);
       const c = document.querySelector('#dadMenu .dadCard[data-mission="dam"]'); c.scrollIntoView(); for (let i = 0; i < 2; i++) window.__paint(); });
     await shot(page, out, "08-list-record", { note: "the list after a sortie: the Dambusters card's session record" });
   }
