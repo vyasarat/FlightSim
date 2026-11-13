@@ -1,6 +1,7 @@
 "use strict";
 // Cars, the motorway, the streets: the 2026-11 audit (AUDIT.md), one check per finding.
 const FIXED = new Set(["CARS-1", "CARS-2", "CARS-3"]);
+const EJ = require("./audit_eject.js");   // (v215) an eject is seen to run, not taken on its word
 // ---------------------------------------------------------------------------
 // Cars audit (2026-11): three transitions that leave the car in the wrong place.
 //
@@ -9,7 +10,8 @@ const FIXED = new Set(["CARS-1", "CARS-2", "CARS-3"]);
 //           countdown plays at his new start
 //   CARS-2  on the toy track the globe is either not offered, or a pick really takes him there;
 //           a pick that leaves him where he was changes nothing (lp.start, originIdx)
-//   CARS-3  after an eject from a car he comes back on the road he was on, near where he ejected
+//   CARS-3  after an eject from a car he comes back on the road he was on, near where he ejected, facing
+//           the way he was going (v215: the eject seen to run, in both of the iPad's ways up)
 // ---------------------------------------------------------------------------
 module.exports = async function carsAuditChecks({ newPage, check: report }) {
   // Only the findings already fixed report (FIXED grows release by release, AUDIT.md's table).
@@ -92,31 +94,49 @@ module.exports = async function carsAuditChecks({ newPage, check: report }) {
     await ctx.close();
   }
 
-  // ---- CARS-3: eject from a car, back on his road ------------------------------------------
-  {
-    const { page, ctx } = await newPage(1024, 768);
-    const r = await page.evaluate(() => {
+  // ---- CARS-3: eject from a car, back on his road, facing his way -----------------------------
+  // (v215) in both of the iPad's ways up; the eject SEEN to run (audit_eject.js), and his heading
+  // read after it: facing along the road he comes back on (its line, the way he is set to drive it)
+  // and the way he was going before (within HDG_TOL of both)
+  const HDG_TOL = 25;
+  for (const [w, h, way] of [[1024, 768, "landscape"], [768, 1024, "portrait"]]) {
+    const { page, ctx } = await newPage(w, h);
+    await page.evaluate(EJ.install);
+    const r = await page.evaluate((HDG_TOL) => {
       const L = window.__lp, st = L.state, out = {};
       L.noRender = true; L.api.skipScreens();
+      const deg = (a) => Math.round(a * 180 / Math.PI);
+      const diff = (a, b) => Math.abs(deg(Math.atan2(Math.sin(a - b), Math.cos(a - b))));
+      const hdgOf = (fx, fz) => Math.atan2(-fx, -fz);                 // the heading whose forward is (fx, fz)
       const roadOf = () => L.stPlan.road ? L.stPlan.road : null;
       const onMotorway = () => { const n = L.hwyNearest(st.x, st.z); return !!n && Math.abs(n.lateral) < L.CAR.onRoadHalf && Math.abs(n.y - st.y) < 4; };
+      // the way along the road under him that he is set to drive: a street's line by stPlan.dir, the
+      // motorway's carriageway (the side of the median he is on), the rail ahead
+      const roadHdg = (kind) => {
+        if (kind === "track") { if (!L.trk.on || !L.trk.seg) return null; const sg = typeof L.trk.seg === "string" ? L.trk.segs[L.trk.seg] : L.trk.seg; if (!sg) return null; const q = L.tkAt(sg, L.trk.s); return hdgOf(q.tx * Math.sign(L.trk.v || 1), q.tz * Math.sign(L.trk.v || 1)); }
+        if (kind === "main") { const n = L.hwyNearest(st.x, st.z); if (!n) return null; const side = n.lateral >= 0 ? 1 : -1; return hdgOf(n.fx * side, n.fz * side); }
+        const r = roadOf(); if (!r) return null; const p = L.stProject(r, st.x, st.z); return hdgOf(p.fx * L.stPlan.dir, p.fz * L.stPlan.dir);
+      };
       const run = (label, setup, kind) => {
         setup();
         for (let i = 0; i < 30; i++) { L.api.setStick(0, 0); L.update(1 / 60); }
         L.api.clearStick();
-        const bx = st.x, bz = st.z, broad = roadOf(), bMain = onMotorway();
+        const bx = st.x, bz = st.z, broad = roadOf(), bMain = onMotorway(), bHdg = st.heading, bRoadHdg = roadHdg(kind);
         const onRail = kind !== "track" || (L.trk.on && !L.trk.lift);   // (v214) the track case ejects mid-run, off the lift
-        const ok = ejectStart();
-        let n = 0; while (eject.active && n < 60 * 40) { L.update(1 / 60); n++; }
+        const ej = window.__ejectRun(40);
         for (let i = 0; i < 10; i++) L.update(1 / 60);
         const d = Math.hypot(st.x - bx, st.z - bz);
         // the same road: the same city street (or one meeting it at the nearest junction), or the motorway again
         const ar = roadOf();
         const sameRoad = kind === "track" ? L.trk.on : kind === "main" ? onMotorway()
           : !!ar && !!broad && (ar === broad || [broad.a, broad.b].some(nd => nd && nd.arms.some(a => a.road === ar)));
-        out[label] = { ejected: ok, returned: !eject.active, secs: +(n / 60).toFixed(1), from: { x: Math.round(bx), z: Math.round(bz), road: broad ? broad.kind : bMain ? "motorway" : null },
+        const aRoadHdg = roadHdg(kind);
+        const hdg = { before: deg(bHdg), roadBefore: bRoadHdg === null ? null : deg(bRoadHdg), after: deg(st.heading), roadAfter: aRoadHdg === null ? null : deg(aRoadHdg),
+                      offRoadLine: aRoadHdg === null ? null : diff(st.heading, aRoadHdg), offHisWay: diff(st.heading, bHdg) };
+        const facing = hdg.offRoadLine !== null && hdg.offRoadLine <= HDG_TOL && hdg.offHisWay <= HDG_TOL && bRoadHdg !== null && diff(bHdg, bRoadHdg) <= HDG_TOL;
+        out[label] = { eject: ej, from: { x: Math.round(bx), z: Math.round(bz), road: broad ? broad.kind : bMain ? "motorway" : null },
                        to: { x: Math.round(st.x), z: Math.round(st.z), road: ar ? ar.kind : onMotorway() ? "motorway" : null }, metres: Math.round(d), sameRoad,
-                       onRail, pass: ok && onRail && !eject.active && d < 150 && sameRoad };
+                       onRail, hdg, facing, near: !eject.active && d < 150 };
       };
       run("ny street (SUV)", () => {
         L.api.setVehicle("car"); L.api.spawnAt(0, 0);
@@ -142,11 +162,13 @@ module.exports = async function carsAuditChecks({ newPage, check: report }) {
         for (let i = 0; i < 60 * 2; i++) { L.api.setStick(0, 0.9); L.update(1 / 60); }
       }, "track");
       out.frameErrors = L.frameErrors || 0;
+      L.api.setVehicle("car"); L.api.spawnAt(0, 0);
       return out;
-    });
+    }, HDG_TOL);
     for (const k of Object.keys(r)) {
       if (k === "frameErrors") continue;
-      check(`CARS-3: after an eject from a car (${k}) he comes back on the road he was on, within 150 m of where he ejected`, r[k].pass && r.frameErrors === 0, r[k]);
+      const o = r[k], ok = EJ.ran(o.eject) && o.onRail && o.near && o.sameRoad && o.facing && r.frameErrors === 0;
+      check(`CARS-3: after an eject from a car (${k}) he comes back on the road he was on, within 150 m of where he ejected, facing the way he was going along it (within ${HDG_TOL} deg)${way === "portrait" ? " -- portrait 768x1024" : ""}`, ok, o);
     }
     await ctx.close();
   }

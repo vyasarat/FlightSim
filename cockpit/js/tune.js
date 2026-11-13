@@ -2287,6 +2287,7 @@ const TUNE = {
   dad: {
     code: "1986",
     wrongMax: 3, lockout: 60,    // three wrong tries lock the pad for this many seconds
+    keyCalm: 1.5,                // (v215) the star answers only after the picker has been up, untouched there, this long: a double tap or a mash on the menu button never opens the pad
     jet: {
       cruise: 150, min: 95, max: 235, accel: 0.55, gravity: 0.75,   // m/s; how hard it drives to cruise, how much a climb or dive trades
       bankLimitDeg: 82, rollRate: 5.5,                               // attitude in roll: release levels the wings
@@ -3000,6 +3001,7 @@ const TUNE = {
       boatTrigger: 300, boatClear: 120,               // his boat this close (on the river, coming) asks; this far past, it is done
       boatLead: 4,                                    // ... or further, at his speed: up this many seconds before he gets there
       boatLinger: 20,                                 // his boat still beside it this long: it stops asking (a car may be waiting)
+      deckOver: { above: 15, below: 2, margin: 6, passing: 15, rewarn: 5 },   // (v215) him on the leaves (within margin of them, from `below` under the deck to `above` over it, at no more than `passing` m/s): it does not begin, nor go on rising; after he was on them it warns again only once he has been off them `rewarn` s
       ship: { speed: 12, from: 12000, berth: 14010, moor: 55, away: 35, slowAt: 160, holdAt: 70, ask: 180, clearPast: 60,
               horn: 120, len: 82, beam: 14,
               mastMax: 40,                            // her tallest mast's top over the water: the walkways are 43 up

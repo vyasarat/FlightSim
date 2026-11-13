@@ -10,6 +10,26 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v215 — London, the race, the menu, offline
+
+Fixes from the November audit. A helicopter set down on Tower Bridge hung in the air when the bridge
+opened under it, and the tall ship then sailed straight through it; now the bridge does not open while
+anything of his is on its leaves (as it never opens with his car between the gates) -- the ship waits
+below, and it opens for her once he has flown off (set down on a rising leaf, it goes back down under him; a helicopter under the bridge or a plane passing over it does not hold it). After a relaunch that brought London back, carrying
+on (a tap on the lit vehicle card) went through the direction screen, which only offers New York and
+California, and took him out of London; now, started in London, a vehicle that can start there starts
+there (the globe is the way back across the sea; a rocket still gets the direction screen). The race
+flag was up inside the car wash, and a race started from there sat frozen for eight seconds with his car
+off screen, and EXIT later put him back inside the wash; now the flag waits until the wash is done. A
+double tap on the menu button opened dad's code pad (the star in the picker's corner sits under the
+menu button), and mashing it could lock the parent out for a minute; now the star answers only once the
+picker has been up, untouched there, for a moment and a half -- the parent opens the menu, looks, then
+taps the star. Offline, London had no buildings: its city model was not in the service worker's list;
+it is now. And the v214 eject checks now see the eject happen (started, through its phases, ended) and,
+for a car, read which way he faces after it; they run with the iPad both ways up. Checks:
+scripts/audit_london_checks.js (new), audit_race_checks.js, audit_hud_checks.js, audit_harness_checks.js
+(each new one fails on v214); audit_cars_checks.js and audit_flight_checks.js hardened.
+
 ## v214 — Back where he was
 
 Fixes from the November audit for starting again in the wrong place. Ejecting from a car brought him back

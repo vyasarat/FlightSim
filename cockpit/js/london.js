@@ -1190,6 +1190,7 @@ function ldCarStartAt() {
 //     he could not stop; and while it is not down, the gate holds him -- a speed-only hold, like the
 //     corner assist (`ldGateCap`, asked by streets.js): a held finger stops at the gate and goes on
 //     when it lifts. There is no queue on the bridge to drive into: the traffic stays in the grid.
+//     (v215) Nor with anything else of his on the leaves -- a helicopter set down on them (`ldTbDeckClear`).
 //   - A RAISED LEAF IS STILL A WALL: its flat solid goes and an upright one stands at its hinge, for
 //     the aeroplanes and the helicopter. The ship waits below the bridge until it is up.
 //   - The boats on the river are machines and scenery: not solid, as the ships at sea are; they ease
@@ -1216,7 +1217,7 @@ function ldRiverMid(z, out) {
 // Built by ldTowerBridge's caller, on London's stream, inside its solids' region.
 function ldTbBuild() {
   const [x, z] = LD.at.towerBridge, deck = ldDeckY(), half = ldn.tbHalf;
-  const T = ldn.tb = { state: "down", t: 0, open: 0, gate: 0, x, z, half, lamps: [], arms: [], up: [], asks: "" };
+  const T = ldn.tb = { state: "down", t: 0, open: 0, gate: 0, x, z, half, lamps: [], arms: [], up: [], asks: "", clearFor: 1e9 };
   // the leaves standing up: a wall at each hinge, there only while they are (isSolidHidden: its
   // stand-in mesh is invisible while they are down)
   for (const L of ldn.tbLeaves) {
@@ -1314,6 +1315,22 @@ function ldTbCarClear() {
   return d > state.speed * state.speed / (2 * LDR.carBrake) + LDR.clearMargin;
 }
 
+// (v215) May it begin, or go on rising? Not with anything of his on the leaves: a helicopter set down on
+// them (or just over them) was left hanging in the air when they rose, and the tall ship sailed through
+// it. Like his car between the gates, he holds it down -- the ship waits below -- and when he goes, it
+// opens for her. His boat under it is what asks; his car is ldTbCarClear's.
+// "On" them is what could stand on them: over the deck (not under it -- a helicopter or a plane flying
+// beneath the bridge is not on its leaves), lower than `above`, and at no more than a hover or a
+// landing's speed (a plane or a fast helicopter passing low over them is gone in a moment).
+function ldTbDeckClear() {
+  const T = ldn.tb, K = LDR.deckOver;
+  if (!T || state.exploding || (typeof eject !== "undefined" && eject.active)) return true;
+  if (typeof boatActive === "function" && boatActive()) return true;
+  if (Math.abs(state.x - T.x) > T.half + K.margin || Math.abs(state.z - T.z) > LDD.bridgeHalfW + K.margin) return true;
+  const over = state.y - ldDeckY();
+  return over < -K.below || over > K.above || state.speed > K.passing;
+}
+
 // (v200) a London race is run over it: down, now, and held down (the ship waits below it)
 function ldTbDown() {
   const T = ldn.tb;
@@ -1353,20 +1370,28 @@ function ldTbUpdate(dt) {
   ldn.dt = dt;
   const O = LDR.open, want = ldTbAsks();
   const was = T.state;
+  // (v215) how long nothing of his has been on the leaves: a new warning waits `deckOver.rewarn` of it, so
+  // a helicopter at the very edge of "on" them does not ring the bells and drop the gates over and over
+  T.clearFor = ldTbDeckClear() ? T.clearFor + dt : 0;
   if (T.state === "down") {
-    if (want && ldTbCarClear()) { T.state = "warn"; T.t = O.warn; ldTbBells(); flags.tbOpens = (flags.tbOpens || 0) + 1; }
+    // (v215) the bells ring for every warning, an abandoned one too, so nothing ever rises unannounced;
+    // flags.tbOpens counts the times it really opened (the rise), tbWarnings the warnings
+    if (want && ldTbCarClear() && ldTbDeckClear() && T.clearFor >= LDR.deckOver.rewarn) { T.state = "warn"; T.t = O.warn; ldTbBells(); flags.tbWarnings = (flags.tbWarnings || 0) + 1; }
   } else if (T.state === "warn") {
     T.gate = Math.min(1, T.gate + dt / O.warn);
     T.t -= dt;
-    if (!want) T.state = "settle", T.t = 0;
-    else if (T.t <= 0) { T.state = "rise"; ldTbHydraulics(); }
+    if (!want || !ldTbDeckClear()) T.state = "settle", T.t = 0;
+    else if (T.t <= 0) { T.state = "rise"; ldTbHydraulics(); flags.tbOpens = (flags.tbOpens || 0) + 1; }
   } else if (T.state === "rise") {
-    T.open = Math.min(1, T.open + dt / O.rise);
+    // (v215) set down on a leaf while it is still low enough to stand on: it goes back down under him
+    // (past wallAt nothing of it is a floor, and lowering it would bring it down on him)
+    if (T.open < O.wallAt && !ldTbDeckClear()) { T.state = "fall"; ldTbHydraulics(); }
+    else T.open = Math.min(1, T.open + dt / O.rise);
     if (T.open >= 1) { T.state = "up"; flags.tbUp = (flags.tbUp || 0) + 1; }
   } else if (T.state === "up") {
     if (!want) { T.state = "fall"; ldTbHydraulics(); }
   } else if (T.state === "fall") {
-    if (want) T.state = "rise";
+    if (want && (T.open >= O.wallAt || ldTbDeckClear())) T.state = "rise";
     T.open = Math.max(0, T.open - dt / O.fall);
     if (T.open <= 0) { T.state = "settle"; T.t = O.settle; thunk(); noiseBurst(0.4, 130, 0.14, 0); }
   } else if (T.state === "settle") {

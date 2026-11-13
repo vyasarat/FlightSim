@@ -26,7 +26,7 @@ async function render(root) {
   const page = await openGame(browser, port, { width: 1180, height: 820, errors });
   await page.evaluate(`(${pilot.toString()})()`);
   // the pad and the menu, over the picker
-  await page.evaluate(() => { const L = window.__lp; document.getElementById("screenVehicle").classList.remove("hiddenS"); L.dadKeyTap(); L.dadPadPress("1"); L.dadPadPress("9"); for (let i = 0; i < 2; i++) window.__paint(); });
+  await page.evaluate(() => { const L = window.__lp; document.getElementById("screenVehicle").classList.remove("hiddenS"); L.dad.pad.calm = L.TUNE.dad.keyCalm; L.dadKeyTap(); L.dadPadPress("1"); L.dadPadPress("9"); for (let i = 0; i < 2; i++) window.__paint(); });
   await shot(page, out, "00-pad", { note: "the number pad over the picker, two digits in" });
   await page.evaluate(() => { const L = window.__lp; L.dadPadPress("8"); L.dadPadPress("6"); for (let i = 0; i < 2; i++) window.__paint(); });
   await shot(page, out, "01-menu", { note: "the right code: the dad menu" });

@@ -6160,6 +6160,7 @@ const harnessMain = async () => {
     ["./audit_race_checks", { newPage, check }],     // v213: the audit's race findings (RACE-*)
     ["./audit_dad_checks", { newPage, check }],      // v213: the audit's dad-mode findings (DAD-*)
     ["./audit_cars_checks", { newPage, check }],     // v214: the audit's car, motorway and street findings (CARS-*)
+    ["./audit_london_checks", { newPage, check }],   // v215: the audit's London findings (LONDON-*)
   ];
   expectedMods = MODULES.map(([n, o]) => modKey(n, o));
   for (const [name, opts] of SHARDS > 1 ? SHARDING.order(MODULES) : MODULES) await runModule(name, opts);

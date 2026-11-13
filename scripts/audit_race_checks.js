@@ -1,7 +1,7 @@
 "use strict";
 // The race.
 // The 2026-11 audit (AUDIT.md): one check per finding, each failed on the release before its fix.
-const FIXED = new Set(["RACE-3"]);
+const FIXED = new Set(["RACE-3", "RACE-1"]);
 // ---------------------------------------------------------------------------
 // RACE AUDIT (2026-11): four things a race left wrong, each a check that fails until fixed.
 //   RACE-1  at the car wash he is never offered a race that cannot run (flag hidden, or its clock runs)
@@ -31,17 +31,36 @@ module.exports = async function raceAuditChecks({ newPage, check: report }) {
     step(30);
     const btn = document.getElementById("raceBtn"), cs = getComputedStyle(btn);
     const offered = L.raceBtnShows() && cs.display !== "none" && cs.visibility !== "hidden" && !btn.classList.contains("hidden");
+    const washAtOffer = !!L.toyWorld.wash;               // (v215) he really is in the wash as the flag is asked
+    // (v215) the track picker's own guard, asked directly inside the wash: it does not open, no race
+    L.raceOpenPicker();
+    const direct = { washOn: !!L.toyWorld.wash, pickerOpened: !document.getElementById("screenRace").classList.contains("hiddenS"), raceOn: !!R.on };
+    if (direct.pickerOpened) raceClosePicker();
     let opened = false, clock = null;
     if (offered) {
       L.raceOpenPicker();
       opened = !document.getElementById("screenRace").classList.contains("hiddenS");
       if (opened) { L.rcStartRace("oval", 4242); const t0 = R.t; step(180, true); clock = +(R.t - t0).toFixed(2); }
     }
-    const out = { started, washOn: !!L.toyWorld.wash, offered, opened, raceClockIn3s: clock };
+    const out = { started, washAtOffer, direct, offered, opened, raceClockIn3s: clock };
     L.raceReset(); for (let i = 0; i < 900 && L.toyWorld.wash; i++) step(1);
+    // (v215) ... and nothing is taken away: out of the wash the flag is back, a race runs from there,
+    // and EXIT puts him back where he was -- out of the wash, not inside it
+    step(30);
+    const site = { x: Math.round(st.x), z: Math.round(st.z) };
+    out.after = { washOn: !!L.toyWorld.wash, offered: L.raceBtnShows() };
+    if (out.after.offered) {
+      L.raceOpenPicker(); L.rcStartRace("oval", 4241); const t0 = R.t; step(180, true);
+      out.after.clockIn3s = +(R.t - t0).toFixed(2);
+      L.raceExit(); step(10);
+      out.after.back = { x: Math.round(st.x), z: Math.round(st.z), metresFromWhereHeWas: Math.round(Math.hypot(st.x - site.x, st.z - site.z)),
+                         inWash: Math.abs(st.x - w.x) < 15 && Math.abs(st.z - w.z) < L.TW.wash.length / 2 + 5 };
+    }
+    L.raceReset(); step(3);
     return out;`));
-  check("RACE-1: at the car wash he is never offered a race that cannot run (no flag, or the race's clock runs)",
-    r1.started && (!r1.offered || !r1.opened || r1.raceClockIn3s > 2.5), r1);
+  check("RACE-1: at the car wash he is never offered a race that cannot run (no flag, or the race's clock runs), and the track picker will not open there; out of the wash the flag is back, a race from there runs, and EXIT puts him back where he was, never inside the wash",
+    r1.started && r1.washAtOffer && r1.direct.washOn && !r1.direct.pickerOpened && !r1.direct.raceOn && (!r1.offered || !r1.opened || r1.raceClockIn3s > 2.5) &&
+    !r1.after.washOn && r1.after.offered && r1.after.clockIn3s > 2.5 && !!r1.after.back && r1.after.back.metresFromWhereHeWas < 5 && !r1.after.back.inWash, r1);
 
   // ---- RACE-2: the body arriving mid-race
   const r2 = await page.evaluate(new Function(`${prelude}

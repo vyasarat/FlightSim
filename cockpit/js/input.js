@@ -318,6 +318,13 @@ document.querySelectorAll(".vehCard").forEach(card => {
     try { localStorage.setItem("lp.vehicle", card.dataset.v); } catch (err) {}
     document.querySelectorAll(".vehCard").forEach(c2 => c2.classList.toggle("sel", c2 === card));
     el.screenVehicle.classList.add("hiddenS");
+    // (v215) Started in London -- by the globe, or a relaunch that brought London back -- a vehicle that
+    // can start there starts there. The direction screen's two cards are America's (New York,
+    // California): carrying on through it took him out of London. The globe is the way back over the sea.
+    // Started there AND there now: out over the sea or landed in New York (his start moves only after the
+    // celebration), the direction screen as ever.
+    if (typeof ldn !== "undefined" && state.originIdx === ldn.airportIdx && typeof ldNear === "function" && ldNear(state.x, state.z) &&
+        typeof ldCanStart === "function" && ldCanStart()) { ldStart(); return; }
     el.screenDir.classList.remove("hiddenS");
   });
 });

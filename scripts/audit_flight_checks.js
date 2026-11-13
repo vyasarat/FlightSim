@@ -2,6 +2,7 @@
 // Flight.
 // The 2026-11 audit (AUDIT.md): one check per finding, each failed on the release before its fix.
 const FIXED = new Set(["FLIGHT-4", "FLIGHT-3", "FLIGHT-1", "FLIGHT-2"]);
+const EJ = require("./audit_eject.js");   // (v215) an eject is seen to run, not taken on its word
 // Flight audit (phase 2): one check per finding, each FAILS on b21b83f and passes once fixed.
 // Harness module contract: module.exports = async ({ newPage, check }) => { ... }
 module.exports = async function ({ newPage, check: report }) {
@@ -90,14 +91,20 @@ module.exports = async function ({ newPage, check: report }) {
     await ctx.close();
   }
 
-  // ---- page B: everything else, each scenario re-spawned from scratch
-  const { ctx, page, errors } = await newPage(1024, 768);
+  // ---- pages B (landscape) and B' (portrait): the ejects, each scenario re-spawned from scratch.
+  // (v215) Each eject is SEEN to run (audit_eject.js): started, through its phases, ended -- an eject
+  // that was refused or did nothing left him where he was and passed. And in both of the iPad's ways up.
+  // The landscape page goes on to the rest (FLIGHT-6/7/8) after.
+  let ctx, page, errors;
+  for (const [w, h, way] of [[768, 1024, "portrait"], [1024, 768, "landscape"]]) {
+  ({ ctx, page, errors } = await newPage(w, h));
+  const tag = way === "portrait" ? " -- portrait 768x1024" : "";
+  await page.evaluate(EJ.install);
   const live = await page.evaluate(async () => { try { await window.__lp.audio.unlock(); } catch (e) {} return window.__lp.audio.ctxState(); });
 
   // FLIGHT-1: eject after the London heading switch
   const f1 = await page.evaluate(() => {
     const L = window.__lp, st = L.state, A = L.AIRPORTS, out = {};
-    const runEject = () => { ejectStart(); let n = 0; while (eject.active && n < 60 * 40) { L.update(1 / 60); n++; } };
     const facing = () => {   // does the nose point toward the destination along the route (z)?
       const fz = -Math.cos(st.heading), toDest = A[st.destIdx].cz - st.z;
       return { origin: st.originIdx, dest: st.destIdx, dir: st.dirIdx, z: Math.round(st.z), hdg: Math.round(st.heading * 180 / Math.PI), towardDest: fz * toDest > 0 };
@@ -110,15 +117,15 @@ module.exports = async function ({ newPage, check: report }) {
     L.api.setVehicle("prop"); L.api.spawnAt(0, 0); L.update(1 / 60);
     outToSea(Math.PI);                       // NY origin, turned toward Britain: London is the destination
     out.nySwitched = st.destIdx === 2;
-    runEject(); out.ny = facing();
+    out.nyEject = window.__ejectRun(40); out.ny = facing();
     L.ldStart(); L.update(1 / 60);
     outToSea(Math.PI);                       // London origin, turned back toward Britain
-    runEject(); out.ldn = facing();
+    out.ldnEject = window.__ejectRun(40); out.ldn = facing();
     L.api.spawnAt(0, 0);
     return out;
   });
-  check("FLIGHT-1: after an eject out over the sea, he is back on his runway facing where he is going (NY start and London start)",
-    f1.nySwitched && f1.ny.towardDest && f1.ldn.towardDest, f1);
+  check("FLIGHT-1: after an eject out over the sea, he is back on his runway facing where he is going (NY start and London start)" + tag,
+    EJ.ran(f1.nyEject) && EJ.ran(f1.ldnEject) && f1.nySwitched && f1.ny.towardDest && f1.ldn.towardDest, f1);
 
   // FLIGHT-2: eject during the landing roll-out keeps the landing
   const f2 = await page.evaluate(() => {
@@ -128,13 +135,13 @@ module.exports = async function ({ newPage, check: report }) {
     for (let i = 0; i < 60 * 90; i++) { L.update(1 / 60); if (st.phase === "LANDED" || st.exploding) break; }
     L.api.clearStick();
     out.landed = { phase: st.phase, landedIdx: st.landedIdx, ejectOffered: !el.ejectBtn.classList.contains("hidden") };
-    ejectStart(); let n = 0; while (eject.active && n < 60 * 40) { L.update(1 / 60); n++; }
+    out.eject = window.__ejectRun(40);
     out.after = { origin: st.originIdx, z: Math.round(st.z), atCalifornia: Math.abs(st.z - A[1].cz) < 1500, atNewYork: Math.abs(st.z - A[0].cz) < 1500 };
     L.api.spawnAt(0, 0);
     return out;
   });
-  check("FLIGHT-2: ejecting during the landing roll-out at California brings him back in California, not where he took off",
-    f2.landed.phase === "LANDED" && f2.landed.landedIdx === 1 && f2.after.atCalifornia, f2);
+  check("FLIGHT-2: ejecting during the landing roll-out at California brings him back in California, not where he took off" + tag,
+    EJ.ran(f2.eject) && f2.landed.phase === "LANDED" && f2.landed.landedIdx === 1 && f2.after.atCalifornia, f2);
 
   // FLIGHT-3: the engine is silent during the rescue
   const f3 = await page.evaluate(async (live) => {
@@ -142,16 +149,26 @@ module.exports = async function ({ newPage, check: report }) {
     L.api.setVehicle("prop"); L.api.teleportAirborne(1500, 0, 300, 0);
     for (let i = 0; i < 90; i++) L.update(1 / 60);
     out.before = L.audio.engine();
-    ejectStart();
+    const c0 = eject.cycles, f0 = L.flags.ejections || 0;
+    out.started = ejectStart(); out.activeAtStart = eject.active;
     for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);
-    out.phase = eject.phase; out.during = L.audio.engine();
-    while (eject.active) L.update(1 / 60);
+    out.phase = eject.phase; out.activeAt4s = eject.active; out.during = L.audio.engine();
+    let n = 0; while (eject.active && n < 60 * 40) { L.update(1 / 60); n++; }
+    out.ended = !eject.active; out.cycles = eject.cycles - c0; out.counted = (L.flags.ejections || 0) - f0;
     L.api.spawnAt(0, 0);
     return out;
   }, live);
   const e3 = f3.during || {};
-  check("FLIGHT-3: four seconds into an eject from cruise, the plane's engine voice has gone quiet (the rescue is not droned over)",
-    f3.live === "running" && !!f3.before.up && f3.before.high + f3.before.idle > 0.01 && (!e3.up || e3.out <= 0.01 || (e3.idle + e3.high) <= 0.002), f3);
+  // (v215) the rescue really running at four seconds -- a refused eject leaves the engine where it was,
+  // and an eject that did nothing but silence it would pass the sound test alone
+  const ran3 = f3.started === true && f3.activeAtStart && f3.activeAt4s && !["idle", "frame", "rejoin"].includes(f3.phase) && f3.ended && f3.cycles === 1 && f3.counted === 1;
+  check("FLIGHT-3: four seconds into an eject from cruise, the plane's engine voice has gone quiet (the rescue is not droned over)" + tag,
+    ran3 && f3.live === "running" && !!f3.before.up && f3.before.high + f3.before.idle > 0.01 && (!e3.up || e3.out <= 0.01 || (e3.idle + e3.high) <= 0.002), f3);
+  if (way === "portrait") {
+    check("FLIGHT audit: no page errors" + tag, errors.length === 0, errors.slice(0, 3));
+    await ctx.close();
+  }
+  }
 
   // FLIGHT-6: eject over the lock's upper dock
   const f6 = await page.evaluate(() => {
