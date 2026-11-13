@@ -84,6 +84,70 @@ const MODULES = {
 };
 const CITY_FILES = new Set(["car.js", "streets.js", "city.js", "citydata.js", "lights.js", "highway.js"]);
 
+// ---------- the A2 readers: pure, so gate 18 can hold each to its cases ----------
+// JS with its comments out and its strings kept whole (a "https://" in a string is not a comment).
+function gateStripComments(src) {
+  let out = "";
+  for (let i = 0; i < src.length;) {
+    const c = src[i], n = src[i + 1];
+    if (c === "/" && n === "/") { const e = src.indexOf("\n", i); i = e < 0 ? src.length : e; continue; }
+    if (c === "/" && n === "*") { const e = src.indexOf("*/", i + 2); i = e < 0 ? src.length : e + 2; continue; }
+    if (c === '"' || c === "'" || c === "`") { let j = i + 1; for (; j < src.length && src[j] !== c; j++) if (src[j] === "\\") j++; out += src.slice(i, j + 1); i = j + 1; continue; }
+    out += c; i++;
+  }
+  return out;
+}
+// cockpit/sw.js's ASSETS, as paths under cockpit/ ("./" is "" -- it is not "./index.html": the cache matches by URL)
+function gateAssetsOf(sw) {
+  const m = gateStripComments(sw).match(/ASSETS\s*=\s*\[([\s\S]*?)\]/);
+  return m ? [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1].replace(/^\.\//, "")) : [];
+}
+// The modules scripts/headless_test.js runs: its `const MODULES = [ … ];` rows, and a module called by name
+// (runModule("./x") at the start of a line). null when the list cannot be read whole: every line up to its
+// first `];` must be a row, blank or a comment, or the gate would report sixty modules "run nowhere".
+function gateHarnessModsOf(src) {
+  const a = src.indexOf("const MODULES = ["), b = a < 0 ? -1 : src.indexOf("];", a);
+  if (b < 0) return null;
+  const names = new Set();
+  for (const l of gateStripComments(src.slice(a + "const MODULES = [".length, b)).split("\n")) {
+    if (!l.trim()) continue;
+    const m = /^\s*\[\s*"\.\/([\w.-]+)"\s*,.*\]\s*,?\s*$/.exec(l);
+    if (!m) return null;
+    names.add(m[1]);
+  }
+  for (const m of src.matchAll(/^\s*(?:await\s+)?runModule\(\s*"\.\/([\w.-]+)"/gm)) names.add(m[1]);
+  return names;
+}
+// What is wrong with a --run map: a key that is no game file, a module the harness does not run.
+function gateRunMapProblems(map, isGameFile, mods, isScript) {
+  const out = [];
+  for (const [f, ms] of Object.entries(map)) {
+    if (!isGameFile(f)) out.push(`gate.js MODULES has "${f}", which is not in cockpit/js/ -- a change to the file meant answers to the full harness only, and --run never runs its modules`);
+    if (mods) for (const n of ms) if (!mods.has(n)) out.push(`gate.js MODULES maps ${f} to "${n}", which ${isScript(n) ? "the harness does not run" : `is no scripts/${n}.js`} -- --run drops it without a word, and a change to ${f} goes unchecked by it`);
+  }
+  return out;
+}
+// three.min.js's REVISION, read out of the file (r128 minified writes REVISION=e and const e="128")
+function gateThreeRevisionOf(src) {
+  const v = (src.match(/\bREVISION=(\w+|"\d+")/) || [])[1];
+  if (!v) return undefined;
+  if (/^"\d+"$/.test(v)) return v.slice(1, -1);
+  return (src.match(new RegExp(`\\b(?:const|var|let)\\s+${v}\\s*=\\s*"(\\d+)"`)) || [])[1];
+}
+const gateSha256 = buf => require("crypto").createHash("sha256").update(buf).digest("hex");
+
+// The harness's own list of the modules it runs. Read once: gate 15 holds it against scripts/*_check(s).js,
+// gate 16 holds the map above against it, and --run follows a helper to the modules that require it.
+const HARNESS_MODS_READ = gateHarnessModsOf(read("scripts/headless_test.js"));
+const HARNESS_MODS = HARNESS_MODS_READ || new Set();
+const modSrcs = new Map();
+const modSrc = n => { if (!modSrcs.has(n)) { let s = ""; try { s = read("scripts/" + n + ".js"); } catch (e) {} modSrcs.set(n, s); } return modSrcs.get(n); };
+// Every file the repo holds (tracked, or new and not ignored): what a commit would carry and the droplet
+// would check out. Gates 13 and 14 read it.
+const REPO_FILES = new Set();
+for (const out of [git("ls-files"), git("ls-files", "--others", "--exclude-standard")])
+  if (out) out.split("\n").filter(Boolean).forEach(f => REPO_FILES.add(f));
+
 // ---------- what changed ----------
 const base = opt("base") || ["origin/main", "main"].find(r => git("rev-parse", "--verify", "-q", r) !== null) || "HEAD";
 const changed = new Set();
@@ -129,8 +193,7 @@ fs.readdirSync(path.join(ROOT, "scripts")).filter(n => n.endsWith(".js")).forEac
 {
   const html = read("cockpit/index.html"), sw = read("cockpit/sw.js");
   const tags = [...html.matchAll(/<script\s+src="([^"]+)"/g)].map(m => m[1]);
-  const m = sw.match(/ASSETS\s*=\s*\[([\s\S]*?)\]/);
-  const assets = m ? [...m[1].matchAll(/"([^"]+)"/g)].map(x => x[1].replace(/^\.\//, "")) : [];
+  const assets = gateAssetsOf(sw);   // a commented-out entry is not cached
   const held = new Set(assets);
   for (const f of jsFiles) {
     if (!tags.includes("js/" + f)) fail("wiring", `cockpit/js/${f} has no <script> tag in cockpit/index.html -- it never loads`);
@@ -302,7 +365,7 @@ for (const f of fs.readdirSync(path.join(ROOT, "cockpit", "js")).filter(f => f.e
   }
 }
 
-// ---------- 10b. the page's random stream is untouched (v201 retro) ----------
+// ---------- 10c. the page's random stream is untouched (v201 retro) ----------
 // Three leaks in four releases (v198 twice, v201): a builder made at load drew from Math.random and every
 // seeded thing after it moved. When the game's files differ from the base, the change is not done until
 // scripts/stream_compare.js has said SAME on exactly what is on disk (or DELIBERATE="<why>" said it means to).
@@ -373,14 +436,104 @@ if (fs.existsSync(path.join(ROOT, "scripts", "harness_shards.js"))) {
 
 // ---------- 13. nothing waits on the harness with pgrep -f (it matches itself: see WAIT_ON_HARNESS) ----------
 {
-  const files = new Set();
-  for (const out of [git("ls-files"), git("ls-files", "--others", "--exclude-standard")])
-    if (out) out.split("\n").filter(Boolean).forEach(f => files.add(f));
-  for (const f of files) {
+  for (const f of REPO_FILES) {
     if (!/\.(js|sh|md|json|py|txt)$/.test(f) || /^(evidence|docs)\//.test(f)) continue;
     let src; try { src = read(f); } catch (e) { continue; }
     src.split("\n").forEach((l, i) => { if (WAIT_ON_HARNESS.test(l)) fail("harness", `${f}:${i + 1}: waits on the harness with pgrep -f, which matches its own command line and never ends -- run the harness as a background command and let its exit notify`); });
   }
+}
+
+// ---------- 14. every shipped file the game fetches is in ASSETS (A2; v215: London's city GLB) ----------
+// The file side of rule 3, for what is not a script: every file the repo holds under deploy/shipped-paths.txt
+// is either in cockpit/sw.js's ASSETS or named below as shipped-but-never-fetched. The cache-first worker
+// serves only what it installed, so a model left out is a city with no buildings offline. (cockpit/js/*.js is
+// rule 3's; ASSETS naming a file that is not there is rule 3's too.) Gitignored files never ship, so are not asked.
+{
+  const NEVER_FETCHED = {
+    "cockpit/audio/engines/README.md": "the brief for the engine recordings; engines.js fetches only index.json and the clips it names",
+  };
+  const held = new Set(gateAssetsOf(read("cockpit/sw.js")).map(a => "cockpit/" + a));
+  const shipPaths = read("deploy/shipped-paths.txt").split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#"));
+  for (const f of [...REPO_FILES].sort()) {
+    if (!shipPaths.some(p => p.endsWith("/") ? f.startsWith(p) : f === p) || /^cockpit\/js\/[^/]+\.js$/.test(f)) continue;
+    if (!fs.existsSync(path.join(ROOT, f))) continue;   // deleted in the working tree: not shipped
+    if (NEVER_FETCHED[f]) continue;
+    if (!held.has(f)) fail("assets", `${f} ships but is not in ASSETS in cockpit/sw.js -- offline the iPad never has it (v215: London's city GLB, a city with no buildings); add it (and bump CACHE_NAME), or, if the game never fetches it, name it in gate 14's NEVER_FETCHED with why`);
+  }
+  for (const f of Object.keys(NEVER_FETCHED)) {
+    if (!REPO_FILES.has(f)) fail("assets", `gate 14's NEVER_FETCHED names ${f}, which the repo does not hold -- take it out of the list`);
+    else if (held.has(f)) fail("assets", `gate 14's NEVER_FETCHED names ${f}, which ASSETS caches -- it is fetched after all; take it out of the list`);
+  }
+}
+
+// ---------- 15. every check module is run by the harness, and every module it runs exists (A2) ----------
+// A scripts/*_check(s).js the harness does not list is checks nobody runs: green for ever, whatever the game does.
+// A module the list names that is not on disk is a throw (one FAIL since A1) that says nothing about the game.
+// (--run's pattern takes _check.js too, so this does.)
+{
+  const NOT_MODULES = {
+    // stand-alone tools a person runs by hand, each with its own browser and argv -- not a harness module
+    polish_check: "the polish rig (CLAUDE.md, Testing habits): node scripts/polish_check.js <tag>; its serve() is shared by the three below",
+    fleet_polish_check: "polish fixtures (fixed camera and seed) rendered to docs/; run by hand, takes a tag",
+    helicopter_polish_check: "the helicopter polish pass's touch tours and render costs, to docs/; run by hand",
+    helicopter_cost_check: "interleaved baseline/candidate perf against LP_POLISH_ROOT; run by hand",
+    live_release_check: "keeps an installed release open across a real deployment, waits for Enter; run by hand when shipping",
+    eject_live_check: "the same across a deployment, for the eject rescue; run by hand when shipping",
+    helicopter_live_check: "the same across a deployment, for the helicopter release; run by hand when shipping",
+  };
+  if (!HARNESS_MODS_READ) fail("harness", "scripts/headless_test.js: no MODULES list found -- gate 15 reads `const MODULES = [` up to its first `];`, every line a [\"./name\", {...}] row, blank or a comment; the gate's reader needs updating, or the list was broken");
+  else for (const f of fs.readdirSync(path.join(ROOT, "scripts")).filter(f => /_checks?\.js$/.test(f)).sort()) {
+    const n = f.slice(0, -3);
+    if (!HARNESS_MODS.has(n) && !NOT_MODULES[n]) fail("harness", `scripts/${f} is run nowhere in scripts/headless_test.js (not in its MODULES, no runModule call) -- its checks never run, so it stays green whatever the game does; list it (or name it in gate 15's NOT_MODULES with why it is a helper)`);
+    if (HARNESS_MODS.has(n) && NOT_MODULES[n]) fail("harness", `gate 15's NOT_MODULES names ${n}, but the harness runs it -- take it out of the list`);
+  }
+  for (const n of Object.keys(NOT_MODULES)) if (!fs.existsSync(path.join(ROOT, "scripts", n + ".js"))) fail("harness", `gate 15's NOT_MODULES names ${n}, which is not on disk -- take it out of the list`);
+  for (const n of HARNESS_MODS) if (!fs.existsSync(path.join(ROOT, "scripts", n + ".js"))) fail("harness", `scripts/headless_test.js runs ./${n}, and there is no scripts/${n}.js -- the module throws and checks nothing (a typo, or a module renamed)`);
+}
+
+// ---------- 16. the --run map names real files and real modules (A2) ----------
+// The map above is what --run trusts: a key that is no file in cockpit/js/ never matches a change, and a module
+// the harness does not run was silently dropped, so a typo ran nothing and said nothing.
+// (Its modules are judged only when gate 15 could read the harness's list.)
+for (const p of gateRunMapProblems(MODULES, f => fs.existsSync(path.join(jsDir, f)), HARNESS_MODS_READ, n => fs.existsSync(path.join(ROOT, "scripts", n + ".js")))) fail("run-map", p);
+for (const f of CITY_FILES) if (!fs.existsSync(path.join(jsDir, f))) fail("run-map", `gate.js CITY_FILES has "${f}", which is not in cockpit/js/ -- the noisy-drive reminder never fires for the file meant`);
+
+// ---------- 17. three.js is the revision the game is built on, byte for byte (A2) ----------
+// No upgrade is planned (QUEUE: "NOT doing: any three.js upgrade"); every shader include, the log depth and the
+// loader are written against r128. The REVISION says which in the message; the hash catches any edit at all.
+{
+  const THREE_REVISION = "128";
+  const PINNED = {
+    "cockpit/three.min.js": "9274bbcec8d96168626c732b5d31c775aa8cfb7eaa0599bec0c175908a2c1ce2",
+    "cockpit/GLTFLoader.js": "5c15967ba830918a9caea6338712c994c354bccd4edc4569bde411c3ec06a3e6",   // carries no version: the hash is all
+  };
+  const rev = gateThreeRevisionOf(read("cockpit/three.min.js"));
+  if (rev !== THREE_REVISION) fail("three", `cockpit/three.min.js is three.js r${rev || "?"}, not r${THREE_REVISION} -- every shader, the log depth and GLTFLoader.js are written against r${THREE_REVISION}; there is no upgrade planned`);
+  for (const [f, h] of Object.entries(PINNED)) {
+    const now = gateSha256(fs.readFileSync(path.join(ROOT, f)));
+    if (now !== h) fail("three", `${f} is not the pinned file (sha256 ${now.slice(0, 12)}…, pinned ${h.slice(0, 12)}…) -- three.js does not change by accident; restore it (git checkout ${f}), or, for a deliberate change, re-pin it in gate 17 and say so in the changelog`);
+  }
+}
+
+// ---------- 18. the A2 readers turn red on the mistakes they exist for (as 11 and 12 prove theirs) ----------
+// Each reader above, driven with made-up files: a reader that went blind would leave its rule green for ever.
+{
+  const sw = 'const ASSETS = [\n  "./",\n  // "./models/a.glb",\n  /* "./models/b.glb", */\n  "./models/c.glb", // cache: "reload"\n  "https://x.org/y.js"\n];';
+  const list = (end, extra = "") => `x\n  const MODULES = [\n    ["./a_checks", { newPage, check }],   // v1: a\n    // ["./b_checks", { newPage }],\n    /* ["./c_checks", {}], */\n${extra}    ["./d_check", { newPage, check, viewports: [[1,2],[3,4]] }],\n${end}\n  expectedMods = 1;\n  await runModule("./h_checks", {});\n  // await runModule("./i_checks", {});\n`;
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const mods = gateHarnessModsOf(list("  ];")), A = gateAssetsOf(sw), S = s => [...(s || [])].sort();
+  const cases = [
+    ["ASSETS: a // or /* */ entry is not cached, a URL with // in it is", eq(A, ["", "models/c.glb", "https://x.org/y.js"])],
+    ["ASSETS: \"./\" does not stand in for index.html", !A.includes("index.html")],
+    ["harness list: rows, a _check module, a module called by name; no commented-out row or call", eq(S(mods), ["a_checks", "d_check", "h_checks"])],
+    ["harness list: re-indented end still read", eq(S(gateHarnessModsOf(list("        ];"))), S(mods))],
+    ["harness list: its end broken is unreadable (one message), not sixty", gateHarnessModsOf(list("  ]")) === null && gateHarnessModsOf(list("  ];", "    foo();\n")) === null],
+    ["run map: a key that is no game file, and a module typo, both found", gateRunMapProblems({ "a.js": ["a_checks"], "b.js": ["a_chekcs"] }, f => f === "a.js", new Set(["a_checks"]), () => false).length === 2],
+    ["run map: a clean map has nothing to say", gateRunMapProblems({ "a.js": ["a_checks"] }, () => true, new Set(["a_checks"]), () => true).length === 0],
+    ["three: REVISION through its constant, and written out", gateThreeRevisionOf('"use strict";const e="128",n=1;t.REVISION=e,t.X=1') === "128" && gateThreeRevisionOf('t.REVISION="160",') === "160" && gateThreeRevisionOf("nothing") === undefined],
+    ["three: one byte more is another file", gateSha256(Buffer.from("x")) !== gateSha256(Buffer.from("x "))],
+  ];
+  for (const [label, ok] of cases) if (!ok) fail("gate", `gate 18: ${label} -- a reader the A2 rules lean on went blind, so its rule would never fire`);
 }
 
 // ---------- which modules the change answers to ----------
@@ -390,9 +543,13 @@ for (const f of changedList) {
   if (m) { if (MODULES[m[1]]) MODULES[m[1]].forEach(x => mods.add(x)); else full = true; }
   const s = /^scripts\/([a-z_]+_checks?)\.js$/.exec(f);
   if (s) mods.add(s[1]);
+  // a helper the modules require (audit_eject.js, race_drive.js, art_rig.js ...): one level, the modules that require it
+  const h = /^scripts\/([\w.-]+)\.js$/.exec(f);
+  if (h) for (const n of HARNESS_MODS) if (n !== h[1] && new RegExp(`require\\(\\s*["']\\./${h[1].replace(/[.-]/g, "\\$&")}(\\.js)?["']`).test(modSrc(n))) mods.add(n);
   if (f === "cockpit/index.html" || f === "cockpit/sw.js") mods.add("hardening_checks");
 }
-const modList = [...mods].filter(n => fs.existsSync(path.join(ROOT, "scripts", n + ".js"))).sort();
+// only what the harness runs as a module: a hand-run tool that matches _check.js (polish_check ...) is not one
+const modList = [...mods].filter(n => HARNESS_MODS_READ ? HARNESS_MODS.has(n) : fs.existsSync(path.join(ROOT, "scripts", n + ".js"))).sort();
 const noisy = changedList.some(f => CITY_FILES.has(path.basename(f)) && /^cockpit\/js\//.test(f));
 
 if (flag("modules")) { console.log(modList.join("\n")); process.exit(0); }
