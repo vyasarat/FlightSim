@@ -10,6 +10,24 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## Gate: four more things a file can prove (2026-11-13, no game change, no version)
+
+How the game is tested, not the game (QUEUE A2). The fast gate now refuses four mistakes that used to
+reach the full harness, or the iPad, unseen. **14:** every file that ships under
+`deploy/shipped-paths.txt` and is not a script is in `cockpit/sw.js`'s ASSETS -- v215 found London's
+city model left out, so offline London had no buildings; the one file that ships and is never fetched
+(the engine recordings' README) is named in the gate with why. **15:** every `scripts/*_check(s).js` is run
+by the harness or named in the gate as a tool run by hand (the polish rig and the live-release checks,
+seven), and every module the harness runs is on disk. **16:** the `--run` map names real game
+files and modules the harness really runs -- a typo used to run nothing and say nothing; `--run` now
+follows a helper (`audit_eject.js`, `race_drive.js`, `art_rig.js`) to the modules that require it, and no
+longer offers a hand-run tool as a module. **17:** three.js is r128 byte for byte (its REVISION read out
+of the file, and a hash of it and of `GLTFLoader.js`): it does not change by accident. ASSETS is read with
+its comments out (a commented-out model is not cached), here and in rule 3, and `"./"` no longer stands
+in for `./index.html`. **18:** the readers these lean on are driven with made-up files on every run --
+a commented entry, a broken list end, a misspelt module, another revision -- and the gate fails if one
+goes blind. Each rule was also shown red by hand on a seeded mistake in a scratch worktree. The gate still takes about two seconds.
+
 ## Harness: a module that throws is one FAIL (2026-11-13, no game change, no version)
 
 How the game is tested, not the game (QUEUE A1). A check module that threw -- a page.evaluate that
