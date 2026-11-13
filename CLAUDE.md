@@ -69,46 +69,37 @@ MODE, not the picker card, in the one safe order — modes first, `bigBoat` befo
 **Add a vehicle by adding a row.**
 
 **Ask the vehicle, and ask the phase LAST.** Every surface vehicle writes
-`phase = "TAXI"` each frame to mean "not flying", and reading that instead has now
-cost three bugs: a car wash offering itself to a boat in the lock, a car whose solid
-test never once ran, and a harbour that played apron rumble. `vehParked()` and
-`vehSolid()` are the honest forms. `state.js`'s header says what each shared field
-means per vehicle; `state_semantics_checks.js` enforces what it can.
+`phase = "TAXI"` each frame to mean "not flying"; reading that instead has cost three bugs.
+`vehParked()` and `vehSolid()` are the honest forms. `state.js`'s header says what each
+shared field means per vehicle; `state_semantics_checks.js` enforces what it can.
 
-`scripts/vehicle_baseline.json` pins 60 numbers across 10 vehicles; regenerate **only** for
+`scripts/vehicle_baseline.json` pins 162 numbers across 11 vehicles; regenerate **only** for
 a deliberate, stated behaviour change.
 
 ## Architecture (these bite)
 
-- Classic scripts in **one global scope**, `index.html` order. A top-level `const`/`let`
-  used *at load time* must come from an earlier file (inside a function is fine), and a
-  later `function foo` **silently replaces** an earlier one. Prefix anything new.
+- Classic scripts in **one global scope**, `index.html` order (the gate keeps one owner per
+  name). A top-level `const`/`let` used *at load time* must come from an earlier file.
 - **Every button is declared once in `buttons.js`** — slot and `when()` — computed from
-  scratch each frame, so nothing another vehicle did survives. Two in a slot means the
-  later in the DOM eats the tap: `btnSlotClashes()` says so from the table,
-  `btnObstructions()` catches a HUD arrow across one.
+  scratch each frame; `btnSlotClashes()` and `btnObstructions()` say when two share a slot.
 - Set-pieces run one loop: giant obvious thing → one aim or pulsing control → wind-up →
   payoff → free reset. **No unannounced bangs.** One hero effect and at most one new button
   each, machines only.
-- **Events are pools with a policy** (`eventpool.js`): space draws one per launch and never
-  twice running, the harbour keeps eight standing on their own clocks. Three rules,
-  machine-checked: never required, never blocking, never takes anything away. A pool says
-  whether it holds events or paint — the police liveries borrow the draw only.
+- **Events are pools with a policy** (`eventpool.js`), three rules machine-checked: never
+  required, never blocking, never takes anything away. A pool says whether it holds events
+  or paint — the police liveries borrow the draw only.
 - **Signals** (`lights.js`): a crossroads per spur and every ~1.5 km of motorway, sited by
   measuring the ground, cross traffic queuing, amber blinking before red. **Lane-keep never
   brakes for one** — stopping is the one choice out there that is his. Traffic stops at a
   red *except* where it would become a wall in front of him: a held finger crosses the
   country without a bang, and that guarantee outranks the queue.
 - **The motorway has ONE measure**: `s` is metres along it, what `hwyNearest` answers and
-  what `hwySampleAt` takes — it looks the pair up by each sample's own `s`, never
-  `i * HW.step` (the samples are only nearly `step` apart; dividing made a second measure
-  14 m out by California, and traffic alongside him read as a car's length behind).
-- **A held finger never bangs, at any speed step, either way** (`road_checks.js` crosses the
-  country ten times to prove it). Traffic ahead in his lane YIELDS — moves over if it can,
-  and always outruns him by `yieldMatch` — because he is never slowed: fast is his. And
-  hands-off, lane-keep never takes an exit: a spur competes only once he has steered. At
-  either END of the motorway it slows him and turns him round on to the other carriageway
-  (`HW.endTurn`): a held finger that runs out of road used to drive into California.
+  what `hwySampleAt` takes — looked up by each sample's own `s`, never `i * HW.step` (the
+  samples are only nearly `step` apart: dividing made a second measure 14 m out).
+- **A held finger never bangs, at any speed step, either way** (`road_checks.js`). Traffic
+  ahead in his lane YIELDS and always outruns him by `yieldMatch`: he is never slowed.
+  Hands-off, lane-keep never takes an exit: a spur competes only once he has steered. At
+  either END of the motorway it turns him round on to the other carriageway (`HW.endTurn`).
 - **The assist is never BLENDED with his steering** — it yields on a timer and his command
   gets through whole. Blending let the road outvote him and, at a light steer, reverse him.
   Running a red starts the chase (`police.js`): rubber-banded, ducked under everything,
@@ -120,14 +111,12 @@ a deliberate, stated behaviour change.
   the mouth back through it. Then the lock: raise the rim, cut its two floors to *different*
   depths. Move a `TUNE.harbor`/`TUNE.lock` number and ground and structures move together.
 - **ONE solids registry, and every vehicle asks it** (`solids.js`). Anything solid
-  registers once through `solidAdd`/`addSolidBox` (or `solidBox3`, `solidCapsule`,
-  `solidRamp` for shapes that turn), with a `kind` from `SOLID_KINDS` and the classes it
-  `blocks` (default ALL). No vehicle keeps a collision list: they all call `solidQuery`
-  (or `solidCol` for a hull) with their radius from `TUNE.solid`. One law: over the
-  vehicle's `crawl` a bang and a free reassembly where it happened, at or under it a
-  shove, always sideways for anything on the ground. `solidity_checks.js` drives every
-  vehicle into every kind at cruise and crawl and prints the matrix; a cell that passes
-  through is a bug. **A ramp is a surface driven up, never a trigger zone.**
+  registers once (`solidAdd`/`addSolidBox`, or `solidBox3`, `solidCapsule`, `solidRamp`)
+  with a `kind` from `SOLID_KINDS` and the classes it `blocks`; no vehicle keeps a list:
+  they call `solidQuery` (or `solidCol`) with their radius from `TUNE.solid`. One law: over
+  the vehicle's `crawl` a bang and a free reassembly where it happened, at or under it a
+  shove, always sideways on the ground. `solidity_checks.js` drives every vehicle into every
+  kind and prints the matrix. **A ramp is a surface driven up, never a trigger zone.**
 - **Roads cross only at a junction or on a bridge** (`roadCrossings`, streets.js): no
   route over a runway, taxiway, apron or another road at grade. A city's ramps clear EACH
   OTHER by `ramp.clear`, not only the motorway (`stRampConflict`). The cities' ramp specs
@@ -164,11 +153,9 @@ a deliberate, stated behaviour change.
   traffic that yields all ask his height first, or a flyover picks up the car beneath it.
 - **Seeded traffic sees v125's random stream** (`vkQuiet`, `vehiclekit.js`): three.js draws
   `Math.random` for every object's id, so a builder that makes different meshes runs on its
-  own stream and then draws what v125's builder drew (`VK_V125_DRAWS`, `ST_V125_LINK_DRAWS`).
-  Change such a builder, keep the count.
-- **The guardrail holds him at the road's edge, and only there** (`CAR.railReach`): unbounded,
-  anywhere off-road below the nearest road's height read as "past the rail" and he was
-  pushed the whole way on to it — 850 m from the square in New York to the motorway.
+  own stream (`VK_V125_DRAWS`, `ST_V125_LINK_DRAWS`). Change such a builder, keep the count.
+- **The guardrail holds him at the road's edge, and only there** (`CAR.railReach`):
+  unbounded, he was pushed 850 m from the square in New York on to the motorway.
 - **A contextual button needs a RADIUS**, not just "parked and still". **A boat can never
   be stuck**: a beached hull widens its water search *and* times out — the search alone
   deadlocks against a quay. The harbour is the third place he can lose a session in, so its
@@ -192,12 +179,10 @@ a deliberate, stated behaviour change.
 - The rocket's envelope (`landMax*`, `land*R`) says what counts as a landing; everything
   else crashes, free. Assists may stand him up, never rescue a dive. **Engines are two
   loops crossfaded** (`engines.js`) and sit UNDER the events — the rocket keeps its bass.
-- **No post-processing stack, ever.** Glows are additive billboards on one shared
-  texture; on an iPad a full-screen bloom costs more than all of them. No weather button
-  either — the sky moods stay in code (`state.sky`). SSAO was priced for the art sprint
-  (`scripts/art_ssao.js`): +70–105% frame, twice the draw calls, and the log depth buffer
-  blinds it. ACES is a `TUNE.light.toneMap` switch, OFF: this palette is display-space and
-  the curve bleaches it.
+- **No post-processing stack, ever.** Glows are additive billboards on one shared texture;
+  on an iPad a full-screen bloom costs more than all of them. No weather button either —
+  the sky moods stay in code (`state.sky`). SSAO was priced and refused (`scripts/art_ssao.js`);
+  ACES is a `TUNE.light.toneMap` switch, OFF: the palette is display-space.
 - **Textures are detail, never colour** (`art.js`): a macro atlas and a detail atlas,
   each one texture array, box-mapped in the shader, each tile divided by its mean and
   multiplied onto the material's palette colour with the slot's contrast `gain`. **A tile
@@ -220,12 +205,12 @@ a deliberate, stated behaviour change.
 | `citydata.js` `city.js` | the generated city layout / the two block cities, their LODs and draped streets |
 | `tune.js` | every gameplay number |
 | `solids.js` | the one solids registry: shapes, kinds, classes, `solidQuery`/`solidCol` (loads before `scenery.js`) |
-| `terrain.js` `scene.js` `sky.js` | world and sea, lighting and shadows, sun/haze/stars, `mergeBoxes` |
+| `terrain.js` `scene.js` `sky.js` `scenery.js` `landmarks.js` | world and sea, lighting and shadows, sun/haze/stars, `mergeBoxes`; streamed scenery; the airports and landmarks |
 | `flight.js` `heli.js` | the plane model **and the frame loop** / the helicopter, ground *and* air |
 | `vehicles.js` `buttons.js` `speed.js` `eventpool.js` `engines.js` | the vehicle contract / every button's slot and `when()` / speed steps / event pools and policies / the two-loop engine voice |
-| `rocket.js` `recovery.js` `rover.js` `events.js` | rocket spine, droneship, buggy, per-launch event |
-| `setpieces.js` `marsbase.js` `toyworld.js` `workshop.js` `toyfinish.js` | demolition, tower-catch, fire rig, carrier, Mars and its toys / the airport magnet yards, ramp and toy-fleet finish |
-| `highway.js` `car.js` `lights.js` `police.js` | the coast-to-coast road and its traffic / the SUV and lane-keep / the junctions / the chase |
+| `rocket.js` `recovery.js` `rover.js` `events.js` `heavy.js` `station.js` | rocket spine, droneship, buggy, per-launch event, the booster rocket he flies, inside the station |
+| `setpieces.js` `marsbase.js` `toyworld.js` `workshop.js` `toyfinish.js` `launchsite.js` `rocketsled.js` `sledride.js` `crane.js` `fireworksbarge.js` `monstertruck.js` `monster.js` | demolition, tower-catch, fire rig, carrier, Mars and its toys / the airport magnet yards, ramp and toy-fleet finish / the launch site, the rocket sled and riding it, the crane, the fireworks barge, the monster-truck arena and the truck he drives |
+| `highway.js` `car.js` `corvette.js` `lights.js` `police.js` | the coast-to-coast road and its traffic / the SUV, Cybertruck and Corvette and lane-keep (the Corvette's booster and mirror apart) / the junctions / the chase |
 | `streets.js` | the cities, driveable: the street graph, the corner assist, the links (the ways in and out with their gantries and painted lanes, New York's bridge, California's boulevard), city traffic, parking, the square (no people) |
 | `vehiclekit.js` | the traffic's six low-poly shapes (and the police sedan): wheels spun in the shader, lamps lit per vertex, one instanced call per shape |
 | `track.js` | the giant toy track: its typed sections, the rail, the forks, the net, the lift, its own exit |
@@ -234,29 +219,36 @@ a deliberate, stated behaviour change.
 | `raceitems.js` | the power-ups: rows of boxes, the one item button, the five items, spin-outs; every mesh pooled at load |
 | `raceevents.js` | the track events (`TUNE.race.events`): announced, steered round, never a bang; built per track at load |
 | `harbor.js` `lock.js` `boat.js` `yacht.js` `seaevents.js` | the Californian port and its lock / the speedboat and cannon, the yacht, eight things at sea |
-| `eject.js` `ambient.js` `audio.js` `vehicle.js` `main.js` | rescue / birds / the mix / models and camera feel / rAF loop and `window.__lp` |
+| `eject.js` `ambient.js` `audio.js` `vehicle.js` `models.js` `main.js` | rescue / birds / the mix / models and camera feel / the GLB bodies / rAF loop and `window.__lp` |
+| `input.js` `hud.js` `landing.js` `traffic.js` `explosion.js` `collision.js` | touch and the picker / the HUD's elements / landing rings / AIR traffic and missiles / debris / shattered pieces and their restore |
+| `dadmode.js` `dadair.js` `valley.js` `dad_*.js` | dad mode, behind its code: the framework and Canyon Strike, its air model, its valley, five missions |
 
 `TUNE.palette` is the canonical ~21 colours; everything snaps to one unless it is an
 airliner livery or signal lamp. Flat shading is defaulted once atop `scene.js`, and
-`mergeBoxes` merges static boxes per material — three.js batches nothing itself.
-**Adding a file under `cockpit/js/`**: script tag in `index.html` (right order),
-`"./js/….js"` in `ASSETS` in `sw.js`, bump `CACHE_NAME`.
+`mergeBoxes` merges static boxes per material. **Adding a file under `cockpit/js/`**: script
+tag in `index.html` (right order), `ASSETS` in `sw.js`, bump `CACHE_NAME` (the gate checks).
 
 ## The loop
 
 Every release passes five judges, cheapest first, none of them its author; `/cycle` runs
-one turn, `/retro` closes it.
+one turn, `/retro` closes it. At the start of every session, and after every release ships,
+read QUEUE.md and start the top item.
 
-At the start of every session, and after every release ships, read QUEUE.md and start the top item. Never stop while QUEUE.md has items unless a stop rule applies.
+**The stop rule** (the parent, 2026-11-13). You may merge and deploy unattended, any hour,
+when the full loop passes; while QUEUE.md has items, go on to the next. Stop and report if:
+the harness fails (unless it already fails on `main` and the next release fixes it); a
+reviewer blocks three times; a change would alter how a vehicle feels; or a refactor step
+cannot show the standing proof — same harness count and check names, stream SAME, vehicle
+baseline and visual hashes unchanged. A refactor release changes no behaviour unless its
+step says so.
 
-1. **The gate** — `node scripts/gate.js` (a second, no browser): syntax, one owner per
-   global name, files wired, version bumped and written up, nothing binary, the random stream compared (`stream_compare.js`). It is the Stop
-   hook, so a turn cannot end on a failing one. **Fix the change, never the gate.**
-   `--run` then runs the harness modules the changed files answer to.
+1. **The gate** — `node scripts/gate.js` (a second, no browser). It is the Stop hook, so a
+   turn cannot end on a failing one. **Fix the change, never the gate.** `--run` then runs
+   the harness modules the changed files answer to.
 2. **Fresh eyes** — `law-reviewer` on the diff, `render-critic` on the frames
    (`.claude/agents/`). Three rounds at most; a standing BLOCK is reported, not argued down.
-3. **The full harness**, once, alone (below).
-4. **The parent** looks at the renders. Nothing merges to `main` or deploys before the yes.
+3. **The full harness**, once, alone (below). 4. **The parent** looks at the renders when he
+   can; under the stop rule a release does not wait for him.
 5. **The boy.** `PLAYTEST.md` holds what he did; each release writes a prediction there and
    `/retro` scores it. The next thing to build is chosen from that file, not from ideas.
 
@@ -268,12 +260,9 @@ nothing else can — paid for by cutting one.
 
 - **Before every city release, drive it with a noisy finger** (`scripts/noisy_drive.js`, and
   in the harness): five REAL minutes at 60 Hz by touch events, portrait, driving seat, one
-  finger wobbling ±15%, lifting for 300 ms and overshooting for 1 s — a four-year-old's hand
-  — from New York's way in, five held turns, to the way out. Ship only on zero unintended
-  turns, zero missed turns, zero bangs or touches, and nothing off the road; run more seeds
-  than the harness's one (`node scripts/noisy_drive.js 300 <seed>`) and **report the log,
-  not the pass count**. A deterministic check that passes says nothing about his hand.
-
+  finger wobbling, lifting and overshooting, through five held turns. Ship only on zero
+  unintended or missed turns, zero bangs or touches, nothing off the road; run more seeds
+  (`node scripts/noisy_drive.js 300 <seed>`) and **report the log, not the pass count**.
 - **A check that passes alone and fails in the full run is a harness bug, not an
   intermittent**: something it depends on was carried in from what ran before it on the
   page (the random stream, an event's clock, a flag). Find it and reset it in the check. A module that THROWS is a bug, never load (v200).
@@ -285,24 +274,20 @@ nothing else can — paid for by cutting one.
 - It stubs rAF (only the *last* queued callback fires) and runs 12 sim-seconds in a sixth of
   a real one, so **game code must never time off `performance.now()`**.
 - **Never A/B perf in blocks** — alternate samples, and report more than one run.
-
 - `scripts/polish_check.js <tag>` times the heaviest scenes under **SwiftShader, not an
   iPad**: read `calls`/`tris` as the hardware proxy, `cpuMs` only as a bound.
 
 ## Ship checklist
 
 1. Work on `cockpit-3d`, keep `main` deployable, **fetch first**.
-2. Bump `CACHE_NAME` in `cockpit/sw.js` **and** root `sw.js` for any `cockpit/` change —
-   `deploy.sh` refuses otherwise. Check afterwards: a `sed` for a version that is not
-   there is a silent no-op.
+2. Bump `CACHE_NAME` in `cockpit/sw.js` for any `cockpit/` change (root `sw.js` only when the
+   root build changes) — the gate and `deploy.sh` refuse otherwise.
 3. Harness green: `CHROME_HEADLESS_SHELL=… NODE_PATH=… node scripts/headless_test.js` (~40 min,
-   prints the count). It runs itself as four shards on :8177-8180 and then, ALONE, the checks that
-   judge milliseconds (`SOLO`, `harness_shards.js`); nothing else may run beside it, its own shards
-   are the only exception, and `HARNESS_SHARDS=1` is the old serial run. A race or track change
-   also needs `scripts/race_sweep.js` (every car, every track; the gate demands it). Don't edit
-   `cockpit/` while it runs. **Run it as a background command, output to a file, and let its
-   exit notify you — never a waiter loop** (`pgrep -f` matches its own command line and hung for
-   hours; gate 13 and the `--bash` hook refuse it). Always keep a 30-minute fallback wake-up. `UPDATE_VISUAL` /
+   prints the count): four shards on :8177-8180, then, ALONE, the checks that judge milliseconds
+   (`SOLO`, `harness_shards.js`). Nothing else runs beside it; don't edit `cockpit/` while it
+   runs. A race or track change also needs `scripts/race_sweep.js` (the gate demands it).
+   **A background command, output to a file, its exit notifies you — never a waiter loop** (the
+   gate and the `--bash` hook refuse one); keep a 30-minute fallback wake-up. `UPDATE_VISUAL` /
    `UPDATE_VEHICLE` regenerate the baselines; never hand-edit them.
 4. **A check whose expected value you edited is re-run before ship** -- the module alone,
    or the inline check extracted -- and passes. Editing a number to match is not passing.
