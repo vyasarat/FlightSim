@@ -169,4 +169,166 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
       clashes.length === 0, JSON.stringify(clashes));
     await page.close();
   }
+  await measuredOnce({ newPage, check });
 };
+
+// ---------------------------------------------------------------------------
+// (v216) THE CONTROLS ARE MEASURED ONCE A FRAME, AND EVERY ASK GETS THE TRUTH.
+//
+// `btnControlRects` keeps the first measure of a frame (buttons.js, its WORKING
+// RULES); a stale one would put the home arrow, the aim marker or the
+// helicopter's ring on a button he has to see. So every ask, from whichever
+// caller, is compared with a measure from scratch (`btnControlRectsFresh`; on a
+// build without it, the one function there is), through a driven sequence in
+// the states he is in: the plane away from home (the home arrow walks its ray,
+// the aim marker asks), the helicopter with its ring at the edge, the car,
+// portrait and landscape and a rotation between them asked before any frame,
+// the picker open and shut, and a button hidden BETWEEN two asks of one frame
+// (what any module writing a class mid-frame does). Then the count: from-scratch
+// measures per frame, a delta over each update -- at most one, except in the
+// frame the probe itself changed a button after the first ask.
+// ---------------------------------------------------------------------------
+async function measuredOnce({ newPage, check }) {
+  const { page } = await newPage(390, 844);
+  const run = (fn, arg) => page.evaluate(fn, arg);
+  await run(() => {
+    const L = window.__lp, st = L.state;
+    L.noRender = true; L.api.skipScreens();
+    const hasFresh = typeof window.btnControlRectsFresh === "function";
+    const fresh = hasFresh ? window.btnControlRectsFresh : window.btnControlRects;
+    const ask = window.btnControlRects;
+    const key = rs => JSON.stringify(rs.map(r => [r.id, r.left, r.top, r.right, r.bottom, r.bleed]));
+    const P = window.__btnProbe = { ask, fresh, hasFresh, phase: "", made: 0, asks: {}, bad: [], over: [], maxMade: 0, frameAsks: 0, stage: null, staged: 0, stageMoved: 0, frameChanges: 0, frameKey: null, remeasured: 0, shared: 0 };
+    if (hasFresh) window.btnControlRectsFresh = function () { P.made++; return fresh(); };
+    window.btnControlRects = function () {
+      if (P.stage && P.frameAsks === 1) {
+        const k0 = key(fresh());
+        P.stage(); P.stage = null; P.staged++;
+        if (key(fresh()) !== k0) P.stageMoved++;   // the staged change really moved a control (else it proves nothing)
+      }
+      if (!hasFresh) P.made++;
+      const a = ask();
+      P.frameAsks++;
+      P.asks[P.phase] = (P.asks[P.phase] || 0) + 1;
+      const f = fresh();                     // the probe's own measure: not counted
+      const fk = key(f);
+      if (P.frameKey !== null && fk !== P.frameKey) P.frameChanges++;   // the controls really changed since the frame's last ask
+      P.frameKey = fk;
+      if (key(a) !== key(f) && P.bad.length < 12) P.bad.push(P.phase + ": " + key(a).slice(0, 160) + " vs fresh " + key(f).slice(0, 160));
+      return a;
+    };
+    // one frame, its from-scratch measures counted as a delta
+    P.step = (n, phase) => {
+      P.phase = phase;
+      for (let i = 0; i < n; i++) {
+        const m0 = P.made; P.frameAsks = 0; P.frameChanges = 0; P.frameKey = null;
+        L.update(1 / 60);
+        const d = P.made - m0;
+        // one measure a frame, and one more each time the controls REALLY changed between two of its asks
+        // (the helicopter asks before the frame's button pass and again after it; the probe's own staging)
+        if (d > 1 + P.frameChanges && P.over.length < 12) P.over.push(phase + ": " + d + " measures in one frame (" + P.frameAsks + " asks, " + P.frameChanges + " changes)");
+        if (P.frameChanges) P.remeasured++; else { P.maxMade = Math.max(P.maxMade, d); if (P.frameAsks >= 2) P.shared++; }
+      }
+    };
+    // ... and an ask from outside any frame, as a touch handler or the harness makes
+    P.outside = (phase) => { P.phase = phase; L.btnObstructions(); };
+    // the plane on the runway, then away from home: the throttle goes, the speed pair and the missile come
+    L.api.setVehicle("prop"); L.api.placeOnRunway(); P.step(20, "plane on the runway");
+    L.api.teleportAirborne(6000, 900, 300, 0); P.step(60, "plane airborne, portrait");
+    P.outside("plane airborne, portrait, outside a frame");
+  });
+  // a rotation, asked before any frame has run in it, then flown
+  await page.setViewportSize({ width: 844, height: 390 });
+  await run(() => { const P = window.__btnProbe; P.outside("rotated to landscape, before a frame"); P.step(60, "plane airborne, landscape"); });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await run(() => {
+    const L = window.__lp, st = L.state, P = window.__btnProbe;
+    P.outside("rotated back to portrait, before a frame");
+    P.step(30, "plane airborne, portrait again");
+    // a control moved and one hidden between the first ask of a frame and the next -- what any module
+    // writing a style or a class mid-frame does (put back after the frame; `transition: none`, or the
+    // .08 s ease would still be at its start when the frame asks again, and nothing would have moved)
+    const vb = document.getElementById("viewBtn"), gb = document.getElementById("missileBtn");
+    for (let k = 0; k < 2; k++) { P.stage = () => { vb.style.transition = "none"; vb.style.transform = "translateX(-60px)"; }; P.step(1, "a button moved mid-frame"); vb.style.transform = ""; P.step(2, "after it"); vb.style.transition = ""; }
+    P.stage = () => { gb.style.display = "none"; }; P.step(1, "a button hidden mid-frame"); gb.style.display = ""; P.step(2, "after it");
+    // an ANCESTOR's class, not a button's: `body.ejecting .roundBtn` hides every round button, written
+    // between two asks of one frame (taken off again after it)
+    P.stage = () => { document.body.classList.add("ejecting"); }; P.step(1, "a body class mid-frame");
+    document.body.classList.remove("ejecting"); P.outside("body class gone, outside a frame"); P.step(2, "after it");
+    // ... and a real eject, started between two asks of a frame (the rescue writes `body.ejecting` itself),
+    // flown to its end with an ask after every frame -- the frame it ends in (the class comes off) too
+    P.stage = () => { P.ejStarted = ejectStart(); }; P.step(1, "an eject started mid-frame");
+    P.outside("an eject started, outside a frame");
+    P.ejFrames = 0;
+    while (eject.active && P.ejFrames < 60 * 40) {
+      P.step(1, "ejecting"); P.ejFrames++;
+      P.outside(eject.active ? "ejecting, outside a frame" : "the frame the eject ended in");
+    }
+    P.ejEnded = !eject.active && !document.body.classList.contains("ejecting");
+    P.step(20, "plane, after the eject");
+    // the helicopter, its ring out by the screen's edge
+    L.api.setVehicle("helicopter"); L.api.placeOnRunway(); L.heliReset();
+    st.phase = "AIRBORNE"; st.y += 80;
+    P.step(10, "helicopter hovering");
+    for (let i = 0; i < 60; i++) { L.heli.target = { x: st.x + 2500 * Math.sin(i / 7), y: st.y, z: st.z + 2500 * Math.cos(i / 7) }; P.step(1, "helicopter, its ring at the edge"); }
+    // a press mid-frame: the up button's halo is a held bleed (the next frame's own pass sets it back)
+    const hu = document.getElementById("heliUpBtn");
+    hu.style.transition = "none"; P.step(2, "helicopter hovering");
+    for (let k = 0; k < 2; k++) { P.stage = () => { hu.classList.add("pressed"); }; P.step(1, "a press mid-frame"); P.step(1, "after it"); }
+    hu.classList.add("pressed"); P.outside("held, outside a frame");
+    hu.classList.remove("pressed"); P.outside("released, outside a frame"); hu.style.transition = "";
+    P.step(10, "helicopter, after the press");
+    // a control that breathes in CSS (the bucket's button over the water, `homePulse`), the ring asking round it
+    // (open water near the fire rig, found rather than assumed)
+    let wx = L.FF.rig.x, wz = L.FF.rig.z;
+    find: for (let d = 150; d < 3000; d += 50) for (let k = 0; k < 24; k++) {
+      const x = L.FF.rig.x + d * Math.cos(k * Math.PI / 12), z = L.FF.rig.z + d * Math.sin(k * Math.PI / 12);
+      if (window.terrainEff(x, z) < L.TUNE.waterLevel - 5) { wx = x; wz = z; break find; }
+    }
+    L.heliReset(); st.phase = "AIRBORNE";
+    const bk = document.getElementById("bucketBtn"); let up = 0;
+    for (let i = 0; i < 60; i++) {
+      st.x = wx; st.z = wz; st.y = L.TUNE.waterLevel + 20; st.speed = 0;
+      L.heli.target = { x: st.x + 2500 * Math.sin(i / 5), y: st.y, z: st.z + 2500 * Math.cos(i / 5) };
+      P.step(1, "helicopter, the bucket's button pulsing");
+      if (getComputedStyle(bk).display !== "none") up++;
+    }
+    P.bucketUp = up;
+    // the rocket climbing to its staging: the stage button breathes (`homePulse`) while the arrows ask
+    L.api.setVehicle("rocket"); L.api.placeOnRunway(); L.api.setThrottle(true);
+    for (let i = 0; i < 60 * 25 && !L.rocketCanDrop(); i++) P.step(1, "rocket climbing");
+    const sb = document.getElementById("stageBtn"); let sbUp = 0;
+    for (let i = 0; i < 30; i++) { P.step(1, "rocket, the stage button pulsing"); if (getComputedStyle(sb).display !== "none") sbUp++; }
+    L.api.setThrottle(false); P.stageUp = sbUp;
+    // the car, and its horn held
+    L.api.setVehicle("car"); L.api.placeOnRunway(); P.step(30, "car on the road");
+    L.carHornPress(); P.step(10, "car honking"); P.outside("car honking, outside a frame"); L.carHornRelease(); P.step(5, "car, horn released");
+    // the picker, open and shut
+    L.openPickerAnywhere(); P.outside("picker open, before a frame"); P.step(20, "picker open");
+    L.api.skipScreens(); P.outside("picker shut, before a frame"); P.step(20, "picker shut");
+  });
+  await page.setViewportSize({ width: 844, height: 390 });
+  await run(() => { const P = window.__btnProbe; P.outside("rotated, in the car"); P.step(20, "car, landscape"); });
+  const r = await run(() => {
+    const P = window.__btnProbe;
+    window.btnControlRects = P.ask;
+    if (P.hasFresh) window.btnControlRectsFresh = P.fresh;
+    return { hasFresh: P.hasFresh, asks: P.asks, bad: P.bad, over: P.over, maxMade: P.maxMade, remeasured: P.remeasured, staged: P.staged, stageMoved: P.stageMoved, bucketUp: P.bucketUp, shared: P.shared, ejStarted: P.ejStarted, ejEnded: P.ejEnded, ejFrames: P.ejFrames, stageUp: P.stageUp };
+  });
+  const need = ["plane airborne, portrait", "plane airborne, landscape", "rotated to landscape, before a frame", "rotated back to portrait, before a frame",
+                "a button moved mid-frame", "a button hidden mid-frame", "a press mid-frame", "held, outside a frame", "helicopter, its ring at the edge", "helicopter, the bucket's button pulsing", "car honking, outside a frame",
+                "a body class mid-frame", "body class gone, outside a frame", "an eject started mid-frame", "an eject started, outside a frame", "ejecting, outside a frame", "the frame the eject ended in",
+                "rocket, the stage button pulsing",
+                "picker open, before a frame", "picker shut, before a frame", "rotated, in the car"];
+  const unasked = need.filter(p => !r.asks[p]);
+  check("buttons (v216): every ask for the controls' rectangles gets what a fresh measure says -- plane, helicopter, car; portrait, landscape and a rotation; the picker; a button moved, hidden and pressed mid-frame",
+    r.bad.length === 0 && unasked.length === 0 && r.staged === 7 && r.stageMoved === 7 && r.bucketUp > 30 &&
+    r.ejStarted === true && r.ejEnded && r.ejFrames > 60 && r.stageUp > 20,
+    JSON.stringify({ bad: r.bad, unasked, staged: r.staged, stageMoved: r.stageMoved, bucketUp: r.bucketUp, eject: { started: r.ejStarted, ended: r.ejEnded, frames: r.ejFrames }, stageUp: r.stageUp, asks: r.asks }));
+  check("buttons (v216): the controls are measured from scratch at most once a frame -- the home arrow, the aim marker and the helicopter's ring share one measure",
+    // (and the sharing was really tested: frames where nothing changed and two or more asks shared the measure)
+    r.over.length === 0 && r.maxMade === 1 && r.shared >= 200,
+    JSON.stringify({ maxMade: r.maxMade, over: r.over, remeasured: r.remeasured, shared: r.shared, hasFresh: r.hasFresh }));
+  await page.close();
+}
+module.exports.measuredOnce = measuredOnce;   // (run alone: a module that requires this one)

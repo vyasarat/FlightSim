@@ -279,7 +279,10 @@ function btnHeldBleed(e) {
   return rest === undefined ? 0 : Math.max(0, reach - rest);
 }
 
-function btnControlRects() {
+// Every control's rectangle, measured from scratch: a getComputedStyle and a
+// layout read on every button and everything inside it. The game asks through
+// `btnControlRects` below; this is what that asks when it must measure.
+function btnControlRectsFresh() {
   const out = [];
   for (const id in BUTTONS) {
     const e = el[id];
@@ -289,6 +292,59 @@ function btnControlRects() {
     out.push({ id, left: r.left - g, top: r.top - g, right: r.right + g, bottom: r.bottom + g, bleed: g });
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// WORKING RULES -- THE CONTROLS ARE MEASURED ONCE A FRAME (v216).
+//
+// The home arrow asks "is this spot on a button?" at every 8 px step of its
+// ray, the helicopter's ring up to eight times, the aim marker once, the
+// podium's fireworks per burst -- and each ask measured every button again.
+// Now the first ask in a frame measures and every later one gets that same
+// answer (frozen: nobody may edit it), unless something could have moved a
+// control since. The answer is thrown away when ANY of these happens:
+//   - a new frame (`frameCount`, bumped at the top of update(): the game's own
+//     counter, never a clock -- the harness runs many frames per real one). In
+//     the game a frame is one task, so the clear at the task's end (below)
+//     already covers it; it stays so "once a frame" holds where many frames
+//     share one task, in case a CSS animation's clock moves inside one;
+//   - the DOM a control is drawn from changes: a MutationObserver on every
+//     button (its attributes and everything inside it), on each of their
+//     ancestors' attributes and children (a body class is a CSS state), and on
+//     <head> (a stylesheet), read synchronously with takeRecords() on each ask,
+//     so a press, a `hidden`, a `lowSlot` or a data-mode written between two
+//     asks in one frame is seen at the second;
+//   - the end of the task that measured (a microtask): a touch handler, a
+//     rotation or anything else outside the frame always measures afresh.
+// A missed invalidation is a stale rectangle, and that is the one way this can
+// be wrong: slot_checks compares the answer with btnControlRectsFresh() on every
+// ask of a driven sequence (vehicles, both orientations, a rotation, the picker,
+// a press mid-frame).
+// ---------------------------------------------------------------------------
+let btnRectsMemo = null;   // { frame, rects } -- live only inside the task that measured it
+let btnRectsObs = null;
+function btnRectsWatch() {
+  if (btnRectsObs || typeof MutationObserver !== "function") return;
+  btnRectsObs = new MutationObserver(() => {});   // read by takeRecords(); the delivery is a no-op
+  const deep = { attributes: true, childList: true, characterData: true, subtree: true };
+  const btns = new Set(), up = new Set();
+  for (const id in BUTTONS) if (el[id]) btns.add(el[id]);
+  for (const e of btns) {
+    btnRectsObs.observe(e, deep);
+    for (let a = e.parentNode; a && a.nodeType === 1; a = a.parentNode) if (!btns.has(a)) up.add(a);
+  }
+  for (const a of up) btnRectsObs.observe(a, { attributes: true, childList: true });
+  if (document.head) btnRectsObs.observe(document.head, deep);
+}
+function btnControlRects() {
+  btnRectsWatch();
+  const moved = !btnRectsObs || btnRectsObs.takeRecords().length > 0;
+  const m = btnRectsMemo;
+  if (m && !moved && m.frame === frameCount) return m.rects;
+  const rects = Object.freeze(btnControlRectsFresh().map(r => Object.freeze(r)));
+  if (!m) queueMicrotask(() => { btnRectsMemo = null; });
+  btnRectsMemo = { frame: frameCount, rects };
+  return rects;
 }
 
 const btnHits = (a, b) => a.left < b.right - 3 && b.left < a.right - 3 &&
