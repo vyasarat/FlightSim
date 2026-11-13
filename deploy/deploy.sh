@@ -74,7 +74,19 @@ main() {
       echo "✗ cockpit/sw.js CACHE_NAME ($NEW_NAME) was already used by an earlier published build; pick a new name." >&2
       exit 1
     fi
-    if ! git diff --quiet "$DEPLOYED" "$NEW_REV" -- cockpit/index.html cockpit/js cockpit/three.min.js cockpit/manifest.json cockpit/icons \
+    # The list is the gate's own (deploy/shipped-paths.txt): this one used to be typed
+    # here and had no models/, textures/, audio/ or GLTFLoader.js, so an asset-only
+    # release deployed without a bump and the cache-first worker never refetched it.
+    local SHIPPED=()
+    while IFS= read -r line; do
+      [[ -z "$line" || "$line" == \#* ]] && continue
+      SHIPPED+=("${line%/}")
+    done < deploy/shipped-paths.txt
+    if [[ ${#SHIPPED[@]} -eq 0 ]]; then
+      echo "✗ deploy/shipped-paths.txt lists nothing; cannot check the CACHE_NAME bump." >&2
+      exit 1
+    fi
+    if ! git diff --quiet "$DEPLOYED" "$NEW_REV" -- "${SHIPPED[@]}" \
        && [[ "$NEW_NAME" == "$OLD_NAME" ]]; then
       echo "✗ cockpit/ changed since the published rev but cockpit/sw.js CACHE_NAME was not bumped; refusing to deploy." >&2
       echo "  (published: $DEPLOYED  candidate: $NEW_REV)" >&2
@@ -91,7 +103,10 @@ main() {
   # Allowlist: only what the browser needs. README, scripts, screenshots and
   # anything untracked never reach the public docroot; --delete-excluded also
   # removes files a previous deploy left behind.
-  rsync -a --delete --delete-excluded \
+  # --delay-updates: every changed file is written beside its old one and all are
+  # renamed together at the end, so an iPad installing a service worker during a
+  # deploy cannot cache half of each build. --delete-delay keeps the deletes for then too.
+  rsync -a --delete --delete-delay --delay-updates --delete-excluded \
     --exclude='.DS_Store' --exclude='*.swp' --exclude='node_modules' --exclude='__pycache__' \
     --exclude='.env' --exclude='*.log' --exclude='.claude' --exclude='qa-screenshots' \
     --include='/index.html' --include='/manifest.json' --include='/sw.js' \
