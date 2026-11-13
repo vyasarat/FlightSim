@@ -38,7 +38,9 @@ write game code. Hand the build to ONE subagent (the Agent tool, general-purpose
 brief that stands on its own: what he will see, the QUEUE item and its file:line evidence,
 the rules from `CLAUDE.md` that bite here, which files it may touch, the check to write
 FIRST and see fail (the thing *happens* and is measured, as a delta, in the states he is
-really in), every number in `TUNE`, work on `cockpit-3d`, bump `CACHE_NAME`, write the
+really in; and a fix with two parts gets a red for EACH: take one part out in a copy of
+`cockpit/` and the check must fail -- v215's mash ended inside the wait it tested, and its
+ship could not reach the helicopter it was "never sailing through"), every number in `TUNE`, work on `cockpit-3d`, bump `CACHE_NAME`, write the
 CHANGELOG paragraph and the PLAYTEST prediction, do not commit to `main`, do not deploy.
 Ask it to report: the diff summary, the check failing before and passing after, anything
 it cut or was unsure of.
