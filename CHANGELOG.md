@@ -10,6 +10,16 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v216 — less work per frame for the buttons
+
+Nothing he sees changes. Several things on the screen keep out of the way of his buttons -- the
+arrow home, the aiming dot, the helicopter's ring -- and each of them used to measure every button
+again, up to a dozen times a frame on the plane, which is slow work on the iPad. Now the buttons are
+measured once a frame and every one of them shares that answer; it is measured again only when a
+button really changed (appeared, went, was pressed, the iPad turned round). A new check compares the
+shared answer with a fresh measure every time anything asks, in the plane, the helicopter and the car,
+upright and on its side, with the menu open and shut.
+
 ## Deploy fixes (2026-11-13, no game change, no version)
 
 How the game gets to the iPad, not the game. The models now go out compressed: nginx did not know what a

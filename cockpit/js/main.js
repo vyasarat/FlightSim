@@ -220,7 +220,7 @@ window.__lp = {
   police, PL, updatePolice, policeStart, policeStop, policeState, policeCan, policeHolds,
   carHornCan, carHornPress, carHornRelease, carUpdateHorn, carHornVoices, setCarHorn, carCrash,
   vehKind, vehIsCar, vehBooster, cv, CORVETTE, cvSpeed, cvUpdate, cvReset, cvCamK, cvFov, vehSlot, vehUpdate, vehCamera, vehParked, vehReassemble, vehSolid, vehWallHit, VEHICLE_CONTRACT,
-  BUTTONS, btnUpdateAll, btnSlotClashes, btnObstructions,
+  BUTTONS, btnUpdateAll, btnSlotClashes, btnObstructions, btnControlRects, btnControlRectsFresh,
   spdKey, spdStepsFor, spdIndex, spdMul, spdNudge, spdCycle, spdUsesCycle, spdReset, spdUpdateButtons,
   openPicker, openPickerAnywhere, pickerCanOpen, menuOpen,
   harbor, HB, hbBuild, updateHarbor, hbRoadY, hbHorn, hbBridgeHonked,
