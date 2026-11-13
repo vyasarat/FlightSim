@@ -59,6 +59,7 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 
 ## 7. Small bug batch
 
+- [ ] **Q-15** (the parent, 2026-11-13) The eject button is offered in the monster truck and the yacht and does nothing: `updateEjectControl` (eject.js:29-31) shows it, `ejectStart` returns false at eject.js:110 because `TUNE.eject.families` (tune.js:2215-2242) has no monster or yacht entry. Either make it work or don't show it. Found by the leaving matrix (B1): when fixed, its KNOWN entries for monster/eject and yacht/eject go red and come out.
 - [ ] **Q-4** Big Ben's bong never releases its 12 audio nodes a stroke (london.js:883-896, no `sfxOneShot`).
 - [ ] **Q-5** In a race a spent turn is dropped by a short lift: no relatch allowance (race.js:1517-1521 against car.js:899-903).
 - [ ] **Q-8** Wall-clock `setTimeout` in game code: car.js:1319, car.js:1337, lights.js:501, input.js:554.
