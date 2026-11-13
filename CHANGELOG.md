@@ -10,6 +10,21 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## Harness: a module that throws is one FAIL (2026-11-13, no game change, no version)
+
+How the game is tested, not the game (QUEUE A1). A check module that threw -- a page.evaluate that
+throws, a timeout -- used to end the whole run: "HARNESS ERROR", exit 2, no count, every module after
+it unrun. Now the throw is one failed check, `<module>: module threw`, with the error's first line and
+where it came from; the checks it reported before it stand, its pages are closed as on any run, a
+browser the throw took with it is launched again, and the run goes on to the next module. It counts as
+run (and failed) for the "every module ran once" accounting. One guard does it everywhere a module
+runs -- serially, in a shard, in the solo phase and in `run_module.js` (harness_shards.js,
+`guardModule`); `run_module.js` still prints the whole stack after it. The shard self-test drives it with
+a fake module that passes once and throws, and the gate now runs that self-test and checks that both
+callers run their module inside the guard. A green run is unchanged: same count, same names, nothing new
+printed. Only MODULES are guarded: the inline `T-…` sections of headless_test.js are not, and a throw in
+one is still a HARNESS ERROR (exit 2) until they become modules (QUEUE A4).
+
 ## v216 — less work per frame for the buttons
 
 Nothing he sees changes. Several things on the screen keep out of the way of his buttons -- the
