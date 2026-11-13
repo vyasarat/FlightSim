@@ -57,29 +57,29 @@ const git = (...a) => { try { return execFileSync("git", a, { cwd: ROOT, stdio: 
 // tune.js is not here: it answers by TUNE block (TUNE_MODULES, below). A row in
 // PARTIAL is knowingly a subset, and --run says the full harness is still the judge.
 const MODULES = {
-  "car.js": ["road_checks", "car_feel_checks", "city_checks", "cybertruck_checks", "corvette_checks", "corner_cam_checks", "london_drive_checks"],
-  "corvette.js": ["corvette_checks", "slot_checks", "engine_sound_checks"],
+  "car.js": ["road_checks", "car_feel_checks", "city_checks", "cybertruck_checks", "corvette_checks", "corner_cam_checks", "london_drive_checks", "leave_matrix_checks"],
+  "corvette.js": ["corvette_checks", "slot_checks", "engine_sound_checks", "leave_matrix_checks"],
   "highway.js": ["road_checks", "car_feel_checks"],
   "streets.js": ["city_checks", "road_checks", "solidity_checks", "corvette_checks", "london_drive_checks"],
   "city.js": ["city_checks"], "citydata.js": ["city_checks", "solidity_checks"],
-  "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks", "cybertruck_checks", "corvette_checks"],
+  "lights.js": ["lights_police_checks", "road_checks"], "police.js": ["lights_police_checks", "cybertruck_checks", "corvette_checks", "leave_matrix_checks"],
   "vehiclekit.js": ["road_checks", "city_checks", "london_drive_checks"],
   "solids.js": ["solidity_checks", "corner_cam_checks"], "collision.js": ["solidity_checks"],
-  "track.js": ["track_checks", "race_checks"], "race.js": ["audit_race_checks", "race_checks", "london_race_checks", "race_track_checks", "race_item_checks", "frame_budget_checks", "slot_checks", "vehicle_contract_checks", "state_semantics_checks"], "raceitems.js": ["race_item_checks", "race_checks", "race_track_checks", "slot_checks"], "raceevents.js": ["race_event_checks", "race_track_checks", "race_item_checks", "solidity_checks", "frame_budget_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks"], "crane.js": ["crane_checks", "slot_checks", "solidity_checks", "vehicle_contract_checks", "state_semantics_checks"], "dadmode.js": ["audit_hud_checks", "dadmode_checks", "dadmissions_checks", "slot_checks", "vehicle_contract_checks", "state_semantics_checks"], "valley.js": ["dadmode_checks", "solidity_checks"], "dadair.js": ["dadmissions_checks"], "dad_dam.js": ["dadmissions_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks", "corner_cam_checks"],
-  "boat.js": ["boat_checks", "sea_checks", "london_thames_checks"], "harbor.js": ["boat_checks", "lock_checks", "sea_checks", "audit_hud_checks"],
-  "lock.js": ["lock_checks"], "yacht.js": ["yacht_checks"], "seaevents.js": ["sea_checks"],
-  "heli.js": ["heli_control_checks", "heli_play_checks", "heli_land_checks"],
-  "buttons.js": ["slot_checks"], "speed.js": ["speed_horn_checks"],
-  "engines.js": ["engine_sound_checks"], "audio.js": ["engine_sound_checks", "hardening_checks", "audit_hud_checks", "audit_race_checks", "audit_dad_checks"],
+  "track.js": ["track_checks", "race_checks", "leave_matrix_checks"], "race.js": ["audit_race_checks", "race_checks", "london_race_checks", "race_track_checks", "race_item_checks", "frame_budget_checks", "slot_checks", "vehicle_contract_checks", "state_semantics_checks", "leave_matrix_checks"], "raceitems.js": ["race_item_checks", "race_checks", "race_track_checks", "slot_checks"], "raceevents.js": ["race_event_checks", "race_track_checks", "race_item_checks", "solidity_checks", "frame_budget_checks"], "launchsite.js": ["launchsite_checks", "payoff_size_checks", "heavy_checks"], "heavy.js": ["heavy_checks", "launchsite_checks"], "rocketsled.js": ["rocketsled_checks", "payoff_size_checks", "sledride_checks", "leave_matrix_checks"], "sledride.js": ["sledride_checks", "rocketsled_checks", "slot_checks", "solidity_checks", "leave_matrix_checks"], "crane.js": ["crane_checks", "slot_checks", "solidity_checks", "vehicle_contract_checks", "state_semantics_checks", "leave_matrix_checks"], "dadmode.js": ["audit_hud_checks", "dadmode_checks", "dadmissions_checks", "slot_checks", "vehicle_contract_checks", "state_semantics_checks", "leave_matrix_checks"], "valley.js": ["dadmode_checks", "solidity_checks"], "dadair.js": ["dadmissions_checks"], "dad_dam.js": ["dadmissions_checks"], "fireworksbarge.js": ["fireworksbarge_checks", "payoff_size_checks"], "monstertruck.js": ["monstertruck_checks", "payoff_size_checks", "monster_checks"], "monster.js": ["monster_checks", "solidity_checks", "slot_checks", "corner_cam_checks", "leave_matrix_checks"],
+  "boat.js": ["boat_checks", "sea_checks", "london_thames_checks", "leave_matrix_checks"], "harbor.js": ["boat_checks", "lock_checks", "sea_checks", "audit_hud_checks"],
+  "lock.js": ["lock_checks"], "yacht.js": ["yacht_checks", "leave_matrix_checks"], "seaevents.js": ["sea_checks"],
+  "heli.js": ["heli_control_checks", "heli_play_checks", "heli_land_checks", "leave_matrix_checks"],
+  "buttons.js": ["slot_checks", "leave_matrix_checks"], "speed.js": ["speed_horn_checks"],
+  "engines.js": ["engine_sound_checks", "leave_matrix_checks"], "audio.js": ["engine_sound_checks", "hardening_checks", "audit_hud_checks", "audit_race_checks", "audit_dad_checks", "leave_matrix_checks"],
   "eventpool.js": ["event_pool_checks"], "events.js": ["event_pool_checks", "events_perf_checks"],
-  "vehicles.js": ["vehicle_contract_checks", "state_semantics_checks", "solidity_checks", "cybertruck_checks", "corvette_checks"],
-  "state.js": ["state_semantics_checks", "vehicle_contract_checks", "audit_hud_checks", "audit_cars_checks"], "setpieces.js": ["audit_hud_checks"],
+  "vehicles.js": ["vehicle_contract_checks", "state_semantics_checks", "solidity_checks", "cybertruck_checks", "corvette_checks", "leave_matrix_checks"],
+  "state.js": ["state_semantics_checks", "vehicle_contract_checks", "audit_hud_checks", "audit_cars_checks", "leave_matrix_checks"], "setpieces.js": ["audit_hud_checks", "leave_matrix_checks"],
   "vehicle.js": ["aircraft_orientation_checks", "cybertruck_checks", "corvette_checks"], "models.js": ["aircraft_orientation_checks", "cybertruck_checks", "corvette_checks"],
-  "eject.js": ["eject_framing_checks", "audit_cars_checks", "audit_flight_checks"], "toyfinish.js": ["toyfinish_checks"],
+  "eject.js": ["eject_framing_checks", "audit_cars_checks", "audit_flight_checks", "leave_matrix_checks"], "toyfinish.js": ["toyfinish_checks"],
   "toyworld.js": ["toyworld_checks", "audit_race_checks"], "workshop.js": ["workshop_checks", "workshop_play_checks"],
-  "marsbase.js": ["robot_checks", "robot_play_checks", "audit_space_checks"], "rover.js": ["robot_play_checks", "audit_space_checks"],
-  "input.js": ["hardening_checks", "slot_checks", "london_checks", "audit_flight_checks", "audit_harness_checks", "audit_london_checks", "audit_hud_checks"],
-  "london.js": ["audit_london_checks", "london_checks", "london_drive_checks", "london_thames_checks", "london_race_checks", "city_checks", "slot_checks", "solidity_checks", "frame_budget_checks", "dadmissions_checks", "sea_checks"],
+  "marsbase.js": ["robot_checks", "robot_play_checks", "audit_space_checks", "leave_matrix_checks"], "rover.js": ["robot_play_checks", "audit_space_checks", "leave_matrix_checks"],
+  "input.js": ["hardening_checks", "slot_checks", "london_checks", "audit_flight_checks", "audit_harness_checks", "audit_london_checks", "audit_hud_checks", "leave_matrix_checks"],
+  "london.js": ["audit_london_checks", "london_checks", "london_drive_checks", "london_thames_checks", "london_race_checks", "city_checks", "slot_checks", "solidity_checks", "frame_budget_checks", "dadmissions_checks", "sea_checks", "leave_matrix_checks"],
   // the world's shape and what stands on it: v197 moved them and only the full harness saw the
   // Doolittle carrier land in Britain (dadmissions) and a runway drawn from every venue (frame budget)
   "terrain.js": ["dadmissions_checks", "sea_checks", "frame_budget_checks", "london_checks"],
@@ -89,11 +89,11 @@ const MODULES = {
   // (vehicle_contract), and run every mode through update() -- its buttons, solids, engines, events, sounds
   // and its early returns (the picker, a resize, a stale save: hardening)
   "flight.js": ["audit_flight_checks", "eject_framing_checks", "aircraft_orientation_checks", "cleanup_checks", "vehicle_contract_checks",
-    "state_semantics_checks", "slot_checks", "solidity_checks", "engine_sound_checks", "event_pool_checks", "audit_hud_checks", "hardening_checks"],
+    "state_semantics_checks", "slot_checks", "solidity_checks", "engine_sound_checks", "event_pool_checks", "audit_hud_checks", "hardening_checks", "leave_matrix_checks"],
   // the rocket: the modules that set it (or the Starship) and fly it -- drops, the go button, skipping to land,
   // re-entry's overlay and rumble, Mars's pad -- and the booster he flies from the launch site
   "rocket.js": ["heavy_checks", "launchsite_checks", "audit_space_checks", "event_pool_checks", "events_perf_checks", "audit_hud_checks",
-    "cleanup_checks", "solidity_checks", "engine_sound_checks", "slot_checks", "speed_horn_checks", "vehicle_contract_checks", "state_semantics_checks"],
+    "cleanup_checks", "solidity_checks", "engine_sound_checks", "slot_checks", "speed_horn_checks", "vehicle_contract_checks", "state_semantics_checks", "leave_matrix_checks"],
   // the HUD's elements, its dials, the progress strip and the confetti: the modules that read them
   // (slot_checks and hardening measure every element; audit_flight reads the strip's dots; race_checks the confetti)
   "hud.js": ["slot_checks", "audit_hud_checks", "hardening_checks", "audit_flight_checks", "race_checks"],

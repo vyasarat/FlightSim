@@ -40,6 +40,7 @@ const COST = {
   "garden_play_checks": 2.1, "lights_police_checks": 2.0, "heli_play_checks": 1.9, "toyworld_checks": 1.9,
   "cleanup_checks": 1.7, "payoff_size_checks": 1.5, "dadmissions_checks": 1.4, "engine_sound_checks": 1.4,
   "car_feel_checks": 1.4, "event_pool_checks": 1.3, "corvette_checks": 1.3,
+  "leave_matrix_checks": 5.0,   // (B1) 176 cells on 48 pages, ~5 min alone
 };
 const DEFAULT = 1.0;
 // (v194) launchsite_checks and monstertruck_checks render frame after frame: 38 s and 2 min alone, 12-17 and 9 min
