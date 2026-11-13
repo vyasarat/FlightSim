@@ -10,6 +10,30 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## Harness: the leaving matrix (2026-11-13, no game change, no version)
+
+How the game is tested, not the game (QUEUE B1, Track B's first step). `scripts/leave_matrix_checks.js`, modelled on
+solidity_checks, puts him in 24 states -- every row of the vehicle contract (held to it: a new row with no matrix
+row is red), plus the toy track, a police pull-over, a demolition counting over a plane, a car in London, a parked
+plane, and the driving seat, the helm and the bridge -- and proves he got there (vehKind and the mode's own state).
+From each it takes the ways out the matrix knows: the picker, the eject, a bang through the wall law, a race start,
+the globe, the mode's own exit (the race's, dad mode's), a relaunch (the choice made through the game's own cards, the
+page reloaded, then he carries on), and a fresh start from the mode -- and every clean start after a cell is judged as
+that cell's leftover, never retried -- and must be seen to take (the parked prop, every mode off). Whether an exit is offered is asked of the game (each button's `when()`,
+eject.js's control, `vehSolid()`), and the set it does not offer is pinned by name. Each exit must be seen to happen;
+the picker, the eject and the bang are also read DURING (the bang frame by frame to the reassembly), and the reading
+must be taken. Four leftovers, each named by what is left: a tone nothing owns (every voice writer stamped; held, or a
+vehicle's tone outside its vehicle, or a siren or set-piece roar with its source at rest), a numeral nothing counts or
+that does not tick, a button its own `when()` does not want, a model hidden or left drawn. Every page's audio must be
+running; a throw is the cell's failure. Portrait 820x1180 runs every exit, landscape 1180x820 the fresh start, the
+picker and the eject. KNOWN lists every leftover there today by name with its QUEUE id: Q-3 (vehicle tones held
+behind the cards), HUD-7 and Q-6 (the engine and the buttons held in a bang) -- and four nobody knew: a race started
+from a car at speed keeps the tyre tone for the race; the eject button in the monster truck and the yacht does
+nothing; on the toy track the contract says solid where nothing asks the registry; and on the frame he is put back
+together after a bang his model is not drawn (and the eject button still is); and leaving the Moon, Mars or the
+station for any other vehicle keeps that body's ambient bed (rk.onBody is cleared only for a rocket). What is left must equal KNOWN: a new leftover is red, and so is a known
+one that has gone. ~5 min alone.
+
 ## Gate: the fast loop sees tune.js, flight.js, rocket.js and hud.js (2026-11-13, no game change, no version)
 
 How the game is tested, not the game (QUEUE A3). `gate.js --run` used to select nothing for the four most-edited
