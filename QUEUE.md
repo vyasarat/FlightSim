@@ -25,7 +25,7 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 
 ## 2. iPad and deploy (REVIEW findings 11, 12; Q-11)
 
-- [ ] **Deploy** -- gzip GLBs in nginx (`model/gltf-binary` in `gzip_types`); `rsync --delay-updates`; deploy.sh's cache-bump guard uses the gate's path list (**Q-11**: it omits models/, textures/, audio/, GLTFLoader.js -- deploy/deploy.sh:77 against gate.js:148). Check the LIVE nginx matches `deploy/nginx-flightsim.conf`.
+- [x] **Deploy** (shipped 2026-11-13) -- GLBs gzipped by nginx (live config checked against the repo's before and after), `rsync --delay-updates`, one path list for deploy.sh and the gate (`deploy/shipped-paths.txt`, **Q-11**).
 - [ ] **Cache `btnControlRects` once per frame** (buttons.js:282-303; main.js:100-104, heli.js:182, race.js:2000). Refactor: same rectangles, same answers.
 
 ## 3. Harness, Track A steps 1-3

@@ -10,6 +10,15 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## Deploy fixes (2026-11-13, no game change, no version)
+
+How the game gets to the iPad, not the game. The models now go out compressed: nginx did not know what a
+.glb was, so 6.6 MB of them travelled as they were; they pack to about 3. A deploy now swaps every changed
+file in together at the end (rsync --delay-updates), so an iPad that installs a build while one is being
+published cannot cache half of each. And the droplet's "did you bump the cache name?" guard reads the
+same list as the gate (deploy/shipped-paths.txt): its own typed list had no models, textures, audio or
+GLTFLoader.js, so a model-only release could have deployed without a bump and never reached him (Q-11).
+
 ## v215 — London, the race, the menu, offline
 
 Fixes from the November audit. A helicopter set down on Tower Bridge hung in the air when the bridge

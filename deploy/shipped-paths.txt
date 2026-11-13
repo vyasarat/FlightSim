@@ -1,0 +1,12 @@
+# What a cockpit/ release ships: a change under any of these needs a new CACHE_NAME
+# in cockpit/sw.js. ONE list, read by deploy/deploy.sh (on the droplet) and by
+# scripts/gate.js (before the harness). A path ending in / is a directory.
+cockpit/index.html
+cockpit/js/
+cockpit/three.min.js
+cockpit/GLTFLoader.js
+cockpit/manifest.json
+cockpit/icons/
+cockpit/models/
+cockpit/textures/
+cockpit/audio/

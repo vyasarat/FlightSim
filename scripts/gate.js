@@ -145,7 +145,11 @@ fs.readdirSync(path.join(ROOT, "scripts")).filter(n => n.endsWith(".js")).forEac
 const cacheName = src => ((src || "").match(/const CACHE_NAME = "([^"]*)"/) || [])[1];
 {
   const now = cacheName(read("cockpit/sw.js")), was = cacheName(git("show", base + ":cockpit/sw.js"));
-  const shipped = runtime.filter(f => /^cockpit\/(index\.html|js\/|three\.min\.js|manifest\.json|icons\/|models\/|textures\/|audio\/|GLTFLoader\.js)/.test(f));
+  // ONE list, deploy/shipped-paths.txt, read here and by deploy.sh on the droplet (Q-11: deploy.sh
+  // typed its own and left out models/, textures/, audio/ and GLTFLoader.js). A path ending in / is a directory.
+  const shipPaths = read("deploy/shipped-paths.txt").split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#"));
+  if (!shipPaths.length) fail("version", "deploy/shipped-paths.txt lists nothing -- the CACHE_NAME bump cannot be checked, here or on the droplet");
+  const shipped = runtime.filter(f => shipPaths.some(p => p.endsWith("/") ? f.startsWith(p) : f === p));
   if (shipped.length && was && now === was)
     fail("version", `cockpit/ changed (${shipped.slice(0, 4).join(", ")}${shipped.length > 4 ? ", …" : ""}) but CACHE_NAME is still "${now}" -- bump it, or the iPad keeps the old build`);
   if (was && now !== was) {
