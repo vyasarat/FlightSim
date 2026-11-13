@@ -345,6 +345,30 @@ if (fs.existsSync(path.join(ROOT, "scripts", "race_sweep.js"))) {
 // timing file: scripts/harness_shards.js's verdict, driven with made-up shard results
 if (fs.existsSync(path.join(ROOT, "scripts", "harness_shards.js"))) {
   for (const c of require("./harness_shards.js").selftest()) if (!c.ok) fail("harness", `harness_shards.js verdict: ${c.label} -- got exit ${c.code}`);
+  // (A1) and the module guard's cases, which are async: the self-test run whole, in its own process (~50 ms)
+  const r = spawnSync(process.execPath, [path.join(ROOT, "scripts", "harness_shards.js"), "--selftest"], { cwd: ROOT, encoding: "utf8", timeout: 20000 });
+  const bad = String(r.stdout || "").split("\n").filter(l => l.startsWith("BAD "));
+  if (r.status !== 0 || bad.length) fail("harness", `node scripts/harness_shards.js --selftest exits ${r.status}${bad.length ? ": " + bad.join(" | ") : ""}${r.stderr ? " -- " + String(r.stderr).trim().split("\n")[0] : ""}`);
+}
+
+// ---------- 12b. every module runs through guardModule (A1) ----------
+// A module that throws is one FAIL, `<module>: module threw`, and the run goes on -- only if the module is
+// called INSIDE harness_shards.js's guardModule, in the harness's runModule and in run_module.js alike; and it
+// counts as run (the verdict's "every module ran once") only because runModule's finally records it.
+{
+  const ht = read("scripts/headless_test.js"), rm = read("scripts/run_module.js");
+  const a = ht.indexOf("async function runModule("), b = ht.indexOf("\n  async function newPage(", a);
+  const body = a >= 0 && b > a ? ht.slice(a, b) : "";
+  const count = (s, re) => (s.match(re) || []).length;
+  if (!body) fail("harness", "scripts/headless_test.js: runModule not found (gate 12b reads it to see each module run through guardModule)");
+  else {
+    const calls = count(body, /require\(\s*name\s*\)/g), guarded = count(body, /guardModule\(\s*key\s*,\s*\(\)\s*=>\s*require\(\s*name\s*\)\s*\(/g);
+    if (!calls || calls !== guarded) fail("harness", `scripts/headless_test.js runModule: ${calls - guarded} of ${calls} module call(s) not inside SHARDING.guardModule(key, () => require(name)(opts), check) -- a throw there ends the run instead of failing one check`);
+    const fin = body.indexOf("finally {");
+    if (fin < 0 || body.indexOf("modTimes.push(", fin) < 0) fail("harness", "scripts/headless_test.js runModule: modTimes.push is not in its finally -- a module that threw would count as never run");
+  }
+  const rcalls = count(rm, /require\(\s*name\b/g), rguarded = count(rm, /guardModule\([^;]*?,\s*\(\)\s*=>\s*require\(\s*name\b/g);
+  if (!rcalls || rcalls !== rguarded) fail("harness", `scripts/run_module.js: ${rcalls - rguarded} of ${rcalls} module call(s) not inside guardModule -- a throw there would not be the harness's \`<module>: module threw\``);
 }
 
 // ---------- 13. nothing waits on the harness with pgrep -f (it matches itself: see WAIT_ON_HARNESS) ----------

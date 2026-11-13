@@ -30,7 +30,7 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 
 ## 3. Harness, Track A steps 1-3
 
-- [ ] **A1** A module that throws is a FAIL (`<module>: module threw`), not an abort (headless_test.js:198-206, :6177). A case in the shard self-test.
+- [x] **A1** (shipped 2026-11-13: 1362/1362, no `module threw` on a green run; law-reviewer BLOCK then PASS) -- a module that throws is one FAIL, `<module>: module threw`, and the run goes on (`guardModule`, harness_shards.js; runModule and run_module.js both through it). The gate runs `harness_shards.js --selftest` and checks the wiring from the files (rule 12b).
 - [ ] **A2** Gate additions: every shipped non-JS asset is in `ASSETS`; every `*_checks.js` is wired into the harness; a typo in the `--run` map fails; the three.js revision is pinned.
 - [ ] **A3** `gate.js --run` maps `tune.js` (by TUNE block, as race_sweep.js:30-37 does), `flight.js`, `rocket.js`, `hud.js`.
 
@@ -90,3 +90,4 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 - [ ] (v216, found by the builder) `btnHeldBleed` learns a button's resting glow whenever `pressed` is absent -- during the 0.08 s transition after a release it reads the pressed glow and can store too high a rest (buttons.js:273-280).
 - [ ] (v216, found by the builder) slot_checks' "helicopter over the fire with a full bucket" scene sits at `FF.rig + 400`, which is not water: `bucketCanScoop()` is false and its `bucketPress` probably does nothing. Find water as the v216 section does.
 - [ ] (v216, the law-reviewer, check gaps) the v216 rectangle probe drives one camera view only (never `viewBtn`/`camBtn`), not `rcFwSpot` (race.js:2000, the podium fireworks) nor dad mode's buttons; no check goes red with the `<head>` observer or the `frameCount` key removed (buttons.js:337, :343).
+- [ ] (A1, the law-reviewer, for A5's rig) the real `runModule` has never been driven through a throw by a check (the self-test's loop is its own copy; gate 12b is a text match), nor the relaunch of a browser the throw took with it (headless_test.js:210-215). And `browser.process().kill("SIGKILL")` (headless_test.js:205, :213) may be a silent no-op: playwright-core's Browser may have no `process()` -- find out, since the solo phase relies on :205 (v177).

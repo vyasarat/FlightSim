@@ -56,9 +56,11 @@ const { launch, serve } = require("./art_rig.js");
   }
   const SHOTS = path.resolve(__dirname, "..", "evidence", "module");
   require("fs").mkdirSync(SHOTS, { recursive: true });
-  try {
-    await require(name.startsWith("/") ? name : "./" + name)({ newPage, check, shots: SHOTS, viewports, perf });
-  } catch (e) { fail++; console.log("FAIL module threw: " + (e.stack || e)); }
+  // (A1) a throw is one FAIL, `<module>: module threw`, the same guard the harness runs every module through
+  // -- and then, here, the whole stack as before A1: this is the tool for hunting the throw (the harness log keeps the one line)
+  const threw = await require("./harness_shards.js").guardModule(path.basename(name, ".js"),
+    () => require(name.startsWith("/") ? name : "./" + name)({ newPage, check, shots: SHOTS, viewports, perf }), check);
+  if (threw) console.log(String(threw.stack || threw));
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close(); srv.close();
   process.exit(fail ? 1 : 0);

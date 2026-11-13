@@ -131,6 +131,28 @@ async function orchestrate(file, shards) {
   process.exit(v.code);
 }
 
+// A MODULE THAT THROWS (A1). Every module, in every way one runs -- serial, a shard, the solo
+// phase, run_module.js -- runs through here: a throw out of it is ONE failed check,
+// `<module>: module threw`, with the error's first line and where it came from, and the run goes
+// on to the next module. The checks it reported before the throw stand. It returns the error (null
+// if none) for the caller to clean up after. On a green run it adds nothing: the name exists only
+// on a throw. (Before, runModule was try/finally with no catch: one throw was "HARNESS ERROR",
+// exit 2, no count, and every module after it unrun.)
+async function guardModule(key, run, check) {
+  try { await run(); return null; }
+  catch (e) {
+    const first = String((e && e.message) || e).split("\n")[0].slice(0, 300);
+    // where: the first frame (for a page-side error, deep in the game) AND the first frame in scripts/ -- the
+    // check module's own line when there is one, else the harness's -- which page frames would otherwise crowd out
+    const frames = String((e && e.stack) || "").split("\n").map(l => l.trim()).filter(l => l.startsWith("at ") && !/harness_shards\.js/.test(l));
+    const inScripts = frames.filter(l => !/https?:\/\//.test(l) && /\/scripts\/[^\s():]+\.js:\d+/.test(l));
+    const mine = inScripts.find(l => !/\/scripts\/(headless_test|run_module)\.js:/.test(l)) || inScripts[0];
+    const at = [frames[0], mine].filter((l, i, a) => l && a.indexOf(l) === i);
+    check(`${key}: module threw`, false, `${(e && e.name) || "Error"}: ${first}${at.length ? " (" + at.join(" < ") + ")" : ""}`);
+    return e || new Error("module threw " + e);
+  }
+}
+
 // THE VERDICT, as a function of what the processes left behind (their logs, their timing files,
 // their exit codes), so a test can drive it. Green only if no check failed AND the run was whole:
 // a shard that died -- an uncaught throw exits 1, the same code as a FAIL -- leaves the module it
@@ -160,7 +182,8 @@ function verdict({ texts, jsons, codes, shards }) {
 }
 
 // The verdict's own proof, without a browser: made-up shard results, each the way a run can go
-// wrong, through the same function (`node scripts/harness_shards.js --selftest`; the gate runs it).
+// wrong, through the same function (`node scripts/harness_shards.js --selftest`, which also runs
+// selftestGuard's cases; the gate calls selftest() and runs --selftest whole, gate 12).
 function selftest() {
   const shards = 2, mods = ["a_checks", "b_checks", "c_checks", "events_perf_checks"];
   const done = (k, ms) => ({ finished: true, expected: mods, modules: ms.map(mod => ({ mod, s: 1 })) });
@@ -182,10 +205,79 @@ function selftest() {
   return cases;
 }
 
-if (require.main === module && process.argv.includes("--selftest")) {
-  const cases = selftest();
-  for (const c of cases) console.log(`${c.ok ? "ok  " : "BAD "} ${c.label} (exit ${c.code})`);
-  process.exit(cases.every(c => c.ok) ? 0 : 1);
+// (A1) guardModule's own proof: shard 0's modules run through it for real -- fake modules, a check that writes
+// the shard's log lines, and each module's timing entry pushed in a finally and written in the timing file's own
+// shape, both as headless_test.js's runModule and harnessTimes do -- then that log and file through the verdict.
+// A module that reports a PASS and throws is its PASS, one `<module>: module threw` FAIL, and the next module still
+// runs: red by its FAIL (exit 1), not by a broken run (exit 2), and counted as run once. (runModule itself needs a
+// browser to drive; gate 12b proves from the file that it calls the module inside guardModule and records it in its
+// finally.) Async, so it runs from `--selftest`, which the gate runs in a process of its own.
+async function selftestGuard() {
+  const shards = 2, mods = ["a_checks", "b_checks", "c_checks", "events_perf_checks"];
+  const soloMods = SOLO.concat(PERF_PARTS.map(m => m + " (timing part)"));
+  const done = ms => ({ finished: true, expected: mods, modules: ms.map(mod => ({ mod, s: 1 })) });
+  const cases = [];
+  const shard0 = async fakes => {
+    const lines = [], results = [], modTimes = [];
+    let escaped = null;
+    const check = (name, ok, extra) => { results.push({ name, ok, mod: null, s: 0 }); lines.push(`${ok ? "PASS" : "FAIL"}  ${name}${extra ? "  — " + extra : ""}`); };
+    try {
+      for (const [mod, fn] of fakes) {
+        const n0 = results.length;
+        try { await guardModule(mod, () => fn(check), check); }
+        finally { modTimes.push({ mod, s: 0, checks: results.length - n0, at: 0 }); }
+      }
+    } catch (e) { escaped = e; }
+    const pass = results.filter(r => r.ok).length, fail = results.length - pass;
+    const text = lines.join("\n") + (escaped ? "" : `\n${pass}/${pass + fail} checks passed\n`);
+    const timing = escaped ? null : JSON.parse(JSON.stringify({ total: 0, expected: mods, finished: true, modules: modTimes, checks: results.map(r => ({ name: r.name, mod: r.mod, s: r.s })) }));
+    const v = verdict({ texts: [text, "PASS  y\n1/1 checks passed\n", "PASS  t\n1/1 checks passed\n"],
+      jsons: [timing, done(["b_checks"]), done(soloMods)], codes: [escaped ? 2 : fail ? 1 : 0, 0, 0], shards });
+    return { lines, escaped, v, timing };
+  };
+  {
+    const label = "a module that PASSes then throws: its PASS, one `module threw` FAIL, the next module runs; red (exit 1), whole, the thrown one counted as run once";
+    const { lines, escaped, v, timing } = await shard0([
+      ["a_checks", async check => { check("a: one", true); throw new Error("boom\nsecond line"); }],
+      ["c_checks", async check => { check("c: one", true); }]]);
+    const ok = !escaped && lines.length === 3 && lines[0] === "PASS  a: one" && lines[2] === "PASS  c: one"
+      && lines[1].startsWith("FAIL  a_checks: module threw  — Error: boom") && !lines[1].includes("second line")
+      && JSON.stringify(timing.modules.map(m => [m.mod, m.checks])) === JSON.stringify([["a_checks", 2], ["c_checks", 1]])
+      && v.code === 1 && v.pass === 4 && v.fail === 1 && v.problems.length === 0;
+    cases.push({ label, ok, code: escaped ? "threw: " + escaped.message.split("\n")[0] : v.code, problems: v.problems });
+  }
+  {
+    const label = "a green run through the guard adds no line (no `module threw` PASS): green, the same count";
+    const { lines, escaped, v } = await shard0([
+      ["a_checks", async check => { check("a: one", true); }],
+      ["c_checks", async check => { check("c: one", true); }]]);
+    const ok = !escaped && lines.join("|") === "PASS  a: one|PASS  c: one" && v.code === 0 && v.pass === 4 && v.fail === 0;
+    cases.push({ label, ok, code: escaped ? "threw" : v.code, problems: v.problems });
+  }
+  {
+    // a throw from deep in the game: page frames first, the check module's line further down
+    const label = "a throw from deep in the game names its first frame AND the check module's own line";
+    const e = new Error("page.evaluate: TypeError: x is undefined");
+    e.stack = [e.message, "    at carStep (http://127.0.0.1:8177/cockpit/js/car.js:120:5)", "    at update (http://127.0.0.1:8177/cockpit/js/flight.js:900:3)",
+      "    at eval (http://127.0.0.1:8177/cockpit/js/main.js:40:1)", "    at async Object.guardModule (/r/scripts/harness_shards.js:142:9)",
+      "    at async newPage (/r/scripts/headless_test.js:225:11)", "    at async roadChecks (/r/scripts/road_checks.js:77:14)"].join("\n");
+    const out = [];
+    let r; try { r = await guardModule("road_checks", async () => { throw e; }, (n, ok, d) => out.push({ n, ok, d })); } catch (x) { r = "escaped"; }
+    const d = (out[0] && out[0].d) || "";
+    const ok = r === e && out.length === 1 && out[0].n === "road_checks: module threw" && out[0].ok === false
+      && d.includes("cockpit/js/car.js:120:5") && d.includes("scripts/road_checks.js:77:14") && !d.includes("harness_shards.js");
+    cases.push({ label, ok, code: d.slice(0, 160), problems: [] });
+  }
+  return cases;
 }
 
-module.exports = { COST, DEFAULT, SOLO, PERF_PARTS, BASE_PORT, order, claim, orchestrate, verdict, selftest };
+if (require.main === module && process.argv.includes("--selftest")) (async () => {
+  let guard;
+  try { guard = await selftestGuard(); }
+  catch (e) { guard = [{ ok: false, label: "the guard cases threw out of guardModule: " + String(e && e.message || e).split("\n")[0], code: "threw" }]; }
+  const cases = selftest().concat(guard);
+  for (const c of cases) console.log(`${c.ok ? "ok  " : "BAD "} ${c.label} (exit ${c.code})`);
+  process.exit(cases.every(c => c.ok) ? 0 : 1);
+})();
+
+module.exports = { COST, DEFAULT, SOLO, PERF_PARTS, BASE_PORT, order, claim, orchestrate, verdict, selftest, selftestGuard, guardModule };

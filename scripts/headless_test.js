@@ -195,13 +195,24 @@ const harnessMain = async () => {
     const solo = SHARDS > 1 && SHARD === SHARDS && !SHARDING.SOLO.includes(key);
     // (and a page's own close() is a no-op there: the browser goes, with everything queued in it)
     if (solo) opts = { ...opts, newPage: async (w, h) => { const r = await newPage(w, h); r.page.close = async () => {}; return r; } };
-    try { await require(name)(opts); }
+    // (A1) a throw is ONE failed check, `<module>: module threw`, and the run goes on (harness_shards.js,
+    // guardModule) -- it counted as run, for the verdict's "every module ran once". What follows gets a
+    // clean slate: the module's own contexts are closed below as on any run (every module boots its own
+    // fresh page with newPage), and a browser the throw left dead (disconnected) is launched again.
+    let threw = null;
+    try { threw = await SHARDING.guardModule(key, () => require(name)(opts), check); }
     finally {
       if (solo) { for (const c of [...liveCtxs]) liveCtxs.delete(c); try { browser.process().kill("SIGKILL"); } catch (e) {} browser = await launchBrowser(); }
       // (the pages it left open are closed in its time: closing one runs the SwiftShader work
       // its frames queued -- 240 s of boat_checks' 283, which no clock used to count)
       const left = [...liveCtxs].filter(c => !before.has(c));
       for (const c of left) await c.close().catch(() => {});
+      if (threw && !solo && !browser.isConnected()) {
+        console.log(`INFO  the browser went with ${key}'s throw -- launching a fresh one for what follows`);
+        for (const c of [...liveCtxs]) liveCtxs.delete(c);
+        try { browser.process().kill("SIGKILL"); } catch (e) {}
+        browser = await launchBrowser();
+      }
       modTimes.push({ mod: curMod, s: (Date.now() - t) / 1000, checks: results.length - n0, at: (t - T0) / 1000 });
       curMod = null; lastAt = Date.now();
     }
