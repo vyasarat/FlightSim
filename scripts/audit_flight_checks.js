@@ -1,7 +1,7 @@
 "use strict";
 // Flight.
 // The 2026-11 audit (AUDIT.md): one check per finding, each failed on the release before its fix.
-const FIXED = new Set(["FLIGHT-4", "FLIGHT-3"]);
+const FIXED = new Set(["FLIGHT-4", "FLIGHT-3", "FLIGHT-1", "FLIGHT-2"]);
 // Flight audit (phase 2): one check per finding, each FAILS on b21b83f and passes once fixed.
 // Harness module contract: module.exports = async ({ newPage, check }) => { ... }
 module.exports = async function ({ newPage, check: report }) {
@@ -118,7 +118,7 @@ module.exports = async function ({ newPage, check: report }) {
     return out;
   });
   check("FLIGHT-1: after an eject out over the sea, he is back on his runway facing where he is going (NY start and London start)",
-    f1.ny.towardDest && f1.ldn.towardDest, f1);
+    f1.nySwitched && f1.ny.towardDest && f1.ldn.towardDest, f1);
 
   // FLIGHT-2: eject during the landing roll-out keeps the landing
   const f2 = await page.evaluate(() => {

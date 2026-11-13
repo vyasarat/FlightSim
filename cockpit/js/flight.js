@@ -375,7 +375,7 @@ function update(dt) {
   // (v213) ... and the engine's voice: ejectStart set it to 0, but the voice is moved only by
   // engUpdate, below this return -- it droned at cruise for the whole rescue
   if (eject.active) { updateEjection(dt); carUpdateHorn(dt); engUpdate(engineLevelNow(), dt); return; }
-  if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnForTakeoff();
+  if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnAtAirport(state.originIdx);   // (v214) paired
   applyKeyboard(dt);
   // v154: inside dad mode his world is scenery. His events, set-pieces and rewards all
   // key off `state`, which is dad's aircraft there: on the Dambusters' lake the fireworks

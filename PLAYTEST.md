@@ -97,6 +97,26 @@ Newest first. Copy the block.
 - Stuck, lost, bored, or broke:
 ```
 
+### 2026-10-30 — v209 (the sleepy rover) — from his dad, as written in QUEUE.md
+- Went to first / stayed longest: not recorded.
+- Did again and again / said out loud: not recorded.
+- Stuck, lost, bored, or broke: the parent found it "kind of a boring feature" and asked to be surprised: something to DO, with a big payoff.
+
+### 2026-10-29 — the build live then (v208) — from his dad, as written in QUEUE.md
+- Went to first / stayed longest: "my son really enjoys the space themed things".
+- Did again and again / said out loud: "the little drone on mars was super cool, we didn't even know it was there and discovered it".
+- Stuck, lost, bored, or broke: nothing reported.
+
+### 2026-10-25 — an idea of his — from his dad, as written in QUEUE.md
+- Went to first / stayed longest: not recorded.
+- Did again and again / said out loud: London was "my son's idea" -- a third city across the sea.
+- Stuck, lost, bored, or broke: nothing reported.
+
+### 2026-10-23 — v186 — from his dad
+- Went to first / stayed longest: played all the race tracks.
+- Did again and again / said out loud: says racing is "just circling the track".
+- Stuck, lost, bored, or broke: bored -- nothing happens in a race but driving round.
+
 ### 2026-10-19 — the build live today (v170/v171, the races) — from his dad
 - Went to first / stayed longest: the races (the oval and Desert Dunes).
 - Did again and again / said out loud: wants the tracks LONGER.
@@ -106,8 +126,3 @@ Newest first. Copy the block.
 - Went to first / stayed longest: loved the new set-pieces; the giant toy track was the biggest hit.
 - Did again and again / said out loud: wants to FLY the new rocket (likes the side boosters landing); wants to DRIVE the monster truck.
 - Stuck, lost, bored, or broke: helicopter gets the ground warning near land and blows up most times he tries to land.
-
-### 2026-10-23 — v186 — from his dad
-- Went to first / stayed longest: played all the race tracks.
-- Did again and again / said out loud: says racing is "just circling the track".
-- Stuck, lost, bored, or broke: bored -- nothing happens in a race but driving round.

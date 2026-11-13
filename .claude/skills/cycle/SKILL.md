@@ -1,6 +1,6 @@
 ---
 name: cycle
-description: One full turn of the Little Pilot loop — pick one thing from what the child actually did, build it check-first, gate it, have it reviewed by fresh eyes, run the harness, and stop for the parent's yes. Use when asked to "keep building", "run the loop", "do the next release", or /cycle.
+description: One full turn of the Little Pilot loop — pick one thing from what the child actually did, build it check-first, gate it, have it reviewed by fresh eyes, run the harness, and ship or stop by the stop rule in CLAUDE.md. Use when asked to "keep building", "run the loop", "do the next release", or /cycle.
 ---
 
 # /cycle — one release, evaluated before the parent sees it
@@ -66,10 +66,13 @@ edits to `cockpit/` while it runs, output to a file. Report the count, and that
 it was one uninterrupted run. A check that passes alone and fails here is a
 harness bug: find what was carried in, do not re-run until it is green.
 
-## 6. Stop for the parent
+## 6. Ship, or stop (the stop rule in `CLAUDE.md`, "The loop")
 
-Push `cockpit-3d`. **Do not merge to `main` and do not deploy** until the parent
-has looked at the renders and said yes. The report, always in this shape:
+Push `cockpit-3d`. When the full loop has passed you may merge and deploy unattended
+(step 7). **Stop and report instead** if the harness fails (unless it already fails on
+`main` and the next release fixes it), a reviewer blocks three times, the change would
+alter how a vehicle feels, or a refactor step cannot show the standing proof. Either way
+the report, always in this shape:
 
 1. What it is, in three sentences a parent can read.
 2. Judgement calls and anything cut, and why.
@@ -81,7 +84,7 @@ has looked at the renders and said yes. The report, always in this shape:
 6. What to watch him do, in three lines — this becomes the next `PLAYTEST.md`
    entry.
 
-## 7. After the yes
+## 7. Ship
 
 Merge, deploy, changelog paragraph — the ship checklist. Then run **`/retro`**
 before starting the next cycle. A cycle without a retro is how the same mistake
