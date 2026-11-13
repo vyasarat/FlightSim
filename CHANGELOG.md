@@ -10,6 +10,29 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## Gate: the fast loop sees tune.js, flight.js, rocket.js and hud.js (2026-11-13, no game change, no version)
+
+How the game is tested, not the game (QUEUE A3). `gate.js --run` used to select nothing for the four most-edited
+files -- "only the full harness says anything about it". Now a change to `tune.js` is read value by value, the
+base's against the working tree's, and attributed to the TUNE block it moved (`TUNE.heli`, and on their own
+`TUNE.london.river`, `TUNE.london.drive` and `TUNE.race.tracks`). WHO reads a block is not a typed list: the gate
+computes it from the game's files -- `TUNE.a` in the text, or a use of any of the ~45 aliases that hold a block
+(`const HW = TUNE.highway`, `const LDR = LD.river` ...), in whichever file uses them -- and each reader's own
+modules are the block's, plus a few modules that name the block themselves. A reader no module owns, or a file
+whose modules are partial, is named beside the list, so it never reads as covered; `--modules` prints that on
+stderr and `--tune-readers` prints the whole table for a person to check. A comment or a blank line moves
+nothing and runs nothing; a tune.js that will not read, a change outside the TUNE object, the loose numbers
+outside any block (fov, waterLevel ...), the palette (read by 39 files) and the vehicles' profiles (read by 36
+through `state.vp`) still say "only the full harness". `flight.js`, `rocket.js` and `hud.js` have rows of their
+own, all three knowingly partial (the plane's take-off and landing, the rocket's drops and recovery and the HUD's
+dials and zero-text audit are inline harness sections -- v212's own find was one). A change to `TUNE.car`, `city`,
+`highway` or `lights` now asks for the noisy-finger drive, as their files do. **19:** every block in tune.js has
+a row, so a new block cannot go unmapped, and no row is stale. Rule 18 drives the new readers with made-up files:
+a value moved deep in a block, an alias read in another file, an alias of a sub-block, a use in a comment or a
+string, a local name over an alias, a broken tune.js, a block with no row. Each of those cases, and the map rule,
+was shown red by hand on a seeded break in a scratch worktree. Nothing else selects differently, and the gate
+takes about two seconds (the readers are computed only when tune.js changed).
+
 ## Gate: four more things a file can prove (2026-11-13, no game change, no version)
 
 How the game is tested, not the game (QUEUE A2). The fast gate now refuses four mistakes that used to
