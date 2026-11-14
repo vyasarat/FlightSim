@@ -8,6 +8,10 @@
 // `airlinerDelta`/`airlinerEmirates` -- there is no "heli" or "airliner".
 let audioCtx = null;
 let masterGain = null;
+// (v217) the voices the picker's hold quieted, and how to put each back (audioHoldStill, below). Every voice
+// writer calls audioHeldWrote first: a voice its owner writes is the owner's again, and is never put back.
+let audioHeld = null, audioHolding = false;
+function audioHeldWrote(key) { if (audioHeld && !audioHolding) delete audioHeld.v[key]; }
 
 function unlockAudio() {
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -194,6 +198,7 @@ function ensureHorn() {
   hornNodes = { g, hp, oscs, on: false };
 }
 function setCarHorn(on) {
+  audioHeldWrote("horn");
   ensureHorn();
   if (!hornNodes || !audioCtx) return;
   const H = TUNE.car.horn, t = audioCtx.currentTime;
@@ -218,6 +223,7 @@ function carHornVoices() {
 
 let rollNodes = null;
 function setRolling(norm) {
+  audioHeldWrote("roll");
   if (!audioCtx || audioCtx.state !== "running") {
     if (rollNodes && norm <= 0 && rollNodes.last !== 0) { audioHush(rollNodes.g); rollNodes.last = 0; }   // (v213)
     return;
@@ -296,6 +302,7 @@ const tones = {};
 // into the gain, which needs no running clock.
 function audioHush(g) { g.gain.cancelScheduledValues(0); g.gain.value = 0; }
 function setTone(name, type, freq, gain) {
+  audioHeldWrote("tone:" + name);
   if (!audioCtx || audioCtx.state !== "running") {
     const t = tones[name];
     if (t && gain <= 0 && t.last !== 0) { audioHush(t.g); t.last = 0; }
@@ -393,6 +400,7 @@ function ensureRocketNodes() {
   }
 }
 function setRocketEngine(level, inSpace) {
+  audioHeldWrote("rocket");
   if (!audioCtx) return;
   if (audioCtx.state !== "running") {
     // iOS can leave the context suspended / interrupted after a lock or a call:
@@ -414,6 +422,7 @@ function setRocketEngine(level, inSpace) {
 }
 let reentryNodes = null;
 function setReentryRoar(level) {
+  audioHeldWrote("reentry");
   if (!audioCtx || audioCtx.state !== "running") {
     if (reentryNodes && level <= 0 && reentryNodes.last !== 0) { audioHush(reentryNodes.g); audioHush(reentryNodes.lfoG); reentryNodes.last = 0; }   // (v213)
     return;
@@ -602,6 +611,91 @@ function updateAmbientAudio(dt) {
   bedNodes.lp.frequency.setTargetAtTime(bedNodes.cut, t, 0.3);
   bedNodes.lfoG.gain.setTargetAtTime(bedNodes.level * bedNodes.thump, t, 0.3);
   if (B.thumpRate) bedNodes.lfo.frequency.setTargetAtTime(B.thumpRate, t, 0.4);
+}
+
+// ---- the frame's audio (v217, B2) -------------------------------------------
+// update() brings the sound up to date in ONE place per way through it, and
+// they are not the same: AUDIO_TAILS names what each does, in the order it does
+// it -- the bed for wherever he is, then the horn's tones, then the engine voice
+// from whatever setEngine was last told (here rather than inside setEngine
+// because the crossfade, the wobble and the doppler decay all need dt, and
+// sixteen call sites do not have one).
+//   frame  update()'s own tail: the bed, the horn, the engine
+//   eject  under the canopy: the horn (carHornCan() is false there, so it goes
+//          off) and the engine (ejectStart set it to 0, and only engUpdate moves
+//          the voice -- v213: it droned at cruise for the whole rescue); the bed
+//          is not brought up to date
+//   hold   behind the picker (v212's hold, menuOpen() && !vehParked()): the bed
+//          and the engine; the horn is not brought up to date -- and (v217,
+//          Q-3) his vehicle's motion voices go quiet (audioHoldStill); the
+//          frame tail puts back what nothing has written since (audioHoldResume)
+// The bang branch has no audio tail of its own (HUD-7: the engine is not moved
+// there) -- it is not a row here until that is fixed.
+const AUDIO_TAILS = {
+  frame: { bed: true,  horn: true,  still: false, resume: true },
+  eject: { bed: false, horn: true,  still: false, resume: false },
+  hold:  { bed: true,  horn: false, still: true,  resume: false },
+};
+// (v217, Q-3) Behind the picker nothing he is in moves (flight.js, v212's hold), and a vehicle's motion voices
+// are written only by its own update, which the hold does not run: the dive whistle, the tyres, the hull, the
+// booster's roar, the track's rattle, the crane's rumble and the rocket's roar held their last gain under the
+// cards. Each goes to 0 through its OWN writer (setTone's 0.08 s ramp, the roll's, the rocket's, the horn's
+// release), so nothing pops, and nothing is built that is not there yet -- a silent voice is left alone, and
+// no graph is made (they draw on the random stream when they are).
+//   WHAT WAS QUIETED IS PUT BACK. Most of these are rewritten by their owner every frame, but not all: the
+// crane's rumble is written in its count and wind-up and then HELD, on purpose, through the swing and the fall
+// until the towers are down (crane.js); the boat's hull holds through a jump. So the hold remembers each voice
+// it quieted, as its writer's own arguments, and on the first frame that runs update()'s own tail it writes
+// back every one that nothing has written since (audioHeldWrote, in every writer: a voice its owner wrote
+// again is the owner's, and is left as the owner set it). Nothing of a vehicle he has left comes back:
+// applyVehicle and spawnForTakeoff forget the lot (audioHoldForget), and so does a change of mode under the
+// cards (vehKind()) -- the race, the globe. The eject and every fresh start write their own silence first.
+//   What the hold does not touch: the ambient bed (where he is has not changed), the engine voice (v212's hold
+// has always moved it from its last level), the rain (updateSky still runs) and the world's tones whose
+// writers run before the hold every frame (updateEvents and updateSetpieces, flight.js:384: the demolition,
+// the harbour, the launch site, the sled's roar, the arena truck, the seaplane, the rocket events). Two world
+// voices DO hold behind the cards, and are not this release's: the police siren (police.js:207-208, written
+// only from updatePolice, which the hold skips) and the race's crowd and surface tones (race.js:2579-2581,
+// written from the race's own update). Every tone applyVehicle silences (state.js VEHICLE_TONES) is here;
+// engine_sound_checks holds the two lists together.
+const HELD_STILL = ["stall", "dive", "carTyre", "cvRoar", "boatHull", "boatCannon", "yachtHull", "rover", "srBurst",
+                    "trkRattle", "trkWhir", "crRumble", "crHum", "fans"];
+function audioHoldStill() {
+  if (!audioHeld) audioHeld = { kind: typeof vehKind === "function" ? vehKind() : "", v: {} };
+  const H = audioHeld.v;
+  audioHolding = true;
+  for (const n of HELD_STILL) {
+    const t = tones[n];
+    if (!t || !(t.last > 0)) continue;
+    const type = t.o.type, freq = t.o.frequency.value, gain = t.last;
+    if (!H["tone:" + n]) H["tone:" + n] = () => setTone(n, type, freq, gain);
+    setTone(n, type, freq, 0);
+  }
+  if (rollNodes && rollNodes.last > 0) { const n = rollNodes.last; if (!H.roll) H.roll = () => setRolling(n); setRolling(0); }
+  if (rocketNodes && rocketNodes.last > 0) {
+    const n = rocketNodes.last, sp = rocketNodes.lastSpace;
+    if (!H.rocket) H.rocket = () => setRocketEngine(n, sp);
+    setRocketEngine(0, sp);
+  }
+  if (reentryNodes && reentryNodes.last > 0) { const n = reentryNodes.last; if (!H.reentry) H.reentry = () => setReentryRoar(n); setReentryRoar(0); }
+  if (hornNodes && hornNodes.on) { if (!H.horn) H.horn = () => setCarHorn(true); setCarHorn(false); }
+  audioHolding = false;
+}
+// the first frame of update()'s own tail after a hold: back, whatever nobody has written since
+function audioHoldResume() {
+  const A = audioHeld;
+  audioHeld = null;
+  if (!A || (typeof vehKind === "function" && vehKind() !== A.kind)) return;
+  for (const k in A.v) A.v[k]();
+}
+function audioHoldForget() { audioHeld = null; }
+function audioFrame(dt, tail) {
+  const T = AUDIO_TAILS[tail];
+  if (T.still) audioHoldStill();
+  if (T.bed) updateAmbientAudio(dt);
+  if (T.horn) carUpdateHorn(dt);   // the horn's TONES; whether its button exists is the table's (buttons.js)
+  engUpdate(engineLevelNow(), dt);
+  if (T.resume && audioHeld) audioHoldResume();
 }
 
 // ---- layered events --------------------------------------------------------

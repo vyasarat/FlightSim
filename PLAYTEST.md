@@ -87,6 +87,7 @@ entry below.
 | v210 | on Mars he points at the stars falling ("stars!"), drives to them one after another and grins at each chime; he goes looking for the beams over the horizon; he cheers or says "fireworks" when the seventh sends them up, looks at the big star, and waits for (or asks for) the next shower |  open |
 | v215 | nothing he notices: he no longer lands in dad's number pad from a double tap on the menu, no longer leaves London by carrying on after a relaunch there, and no longer sits frozen in the car wash after tapping the race flag (a regression would be the parent unable to get into dad mode, or the race flag missing after a wash) |  open |
 | v216 | nothing he notices: the arrow home, the aiming dot and the helicopter's ring still step off his buttons as before (a regression would be one of them sitting on a button, or missing when it should show) |  open |
+| v217 | probably nothing he remarks on: the menu is quiet behind its cards now instead of droning with the dive whistle, the tyres, the hull or the rocket (a regression would be silence where there should be sound after the cards close -- no tyres, no hull, no whistle in a dive, no rocket roar -- or a bang or pop as they go) |  open |
 
 ## Entries
 

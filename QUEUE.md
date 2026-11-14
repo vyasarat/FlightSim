@@ -15,6 +15,16 @@ unchanged.
 **NOT doing** (the parent, 2026-11-13): file splits (REVIEW finding 23), Tracks D and E,
 unifying the turn rule (all four implementations stay as they are), any three.js upgrade.
 
+## TOP. From him (the parent, 2026-11-13): ahead of everything but a crash, stuck or text
+
+- [ ] **The giant ROBOT monster** -- "a BIG MONSTER he can shoot missiles at, and that attacks him." A machine, so the "nothing living" rule holds: a metal dinosaur as tall as a skyscraper, glowing eyes, stomping feet, a roar, steam vents. Toy-like and exciting, not frightening. Normal game, every kid rule applies.
+  - WHERE: it rises out of the sea off New York, visible from far away, and wades slowly along the coast. It never steps on the city. He cannot miss it from the New York runway.
+  - SHOOTING IT: the missiles he already has (plane, helicopter, the boat's cannon). Aim at it and fire; aim assist as for other targets. Each hit knocks armour plates off with sparks and a clang, and it staggers. No health bar and no numbers: plates gone and lights going out. Glowing weak spots (chest, back, head) take bigger chunks.
+  - IT ATTACKS HIM: it turns to face him, and every attack is announced (eyes flash, a wind-up roar) and can be dodged by steering: a tail swipe, a thrown boulder of scrap, a slow sweeping eye beam. A hit on him is a bang and a free reassembly where it happened. Nothing taken away. It never attacks while he is behind the picker or just reassembled.
+  - THE PAYOFF: enough hits and it topples into the sea in pieces: a huge splash, fireworks, a victory horn. After a few minutes it rebuilds itself and rises again.
+  - Never required, never blocking: he can fly away and it gives up.
+  - HOW: a set-piece on the shared loop, registered in the event pool; solid in the one registry; all numbers in TUNE. Checks: hits register from each vehicle; every attack is announced and dodgeable by the noisy finger; a hit on him reassembles and never loops; it falls and rebuilds; nothing is left on after he leaves (its rows in the leaving matrix); draw calls within budget. Renders: rising, a hit, each attack, the fall, from the chase cam and the seat; the render-critic confirms it reads as a robot and is not frightening. Full loop, ship when it passes, then carry on.
+
 ## 0. Housekeeping
 
 - [x] **v214 (S2) Back where he was** (shipped 2026-11-13: 1333/1333, stream SAME, sweep 79/0, noisy drive seeds 11 and 23 clean, law-reviewer PASS) -- CARS-1 (a pull-over follows a relaunch), CARS-2 (the globe from the toy track), CARS-3 (a car's eject goes back to the motorway start), FLIGHT-1 (eject after London's heading switch faces the wrong way), FLIGHT-2 (eject during the landing roll). Built 2026-11-02 (da8823a); pushed 2026-11-13.
@@ -37,7 +47,7 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 ## 4. Track B: leaving and sound (one per release, in this order)
 
 - [x] **B1** (shipped 2026-11-13: 1400/1400, the 1362 names and 38 new; law-reviewer BLOCK, BLOCK, PASS) -- `scripts/leave_matrix_checks.js`: 24 modes x 8 exits (switch, picker, eject, bang, race, globe, the mode's own EXIT, relaunch), 176 cells run, portrait and landscape; each exit seen to happen and the mode seen to be left; what is left (tone, numeral, button, model) must equal its KNOWN table exactly, by the leftover's own name. Q-3, HUD-7 and Q-6 confirmed there; Q-7 not reproduced; it found Q-15 to Q-20.
-- [ ] **B2** One `audioFrame(dt)` out of `update()`'s three audio tails (flight.js:377, :480-481, :766-775), no behaviour change; then call it from the picker hold -- fixes **Q-3** (stall warble, dive whistle and the tyre/hull/roar tones hold their last gain behind the picker).
+- [x] **B2** (shipped 2026-11-13 as v217: 1403/1403; law-reviewer BLOCK, PASS -- round 1 silenced the crane's rumble through swing and fall for good; the hold now remembers what it quiets and puts back what no owner has rewritten) One `audioFrame(dt)` out of `update()`'s three audio tails (flight.js:377, :480-481, :766-775), no behaviour change; then call it from the picker hold -- fixes **Q-3** (stall warble, dive whistle and the tyre/hull/roar tones hold their last gain behind the picker).
 - [ ] **B3** `frameWorld` / `framePicture` / `frameControls` extracted verbatim; each early-return variant restated as a named subset, no behaviour change. Then, separately: `btnUpdateAll` in the bang variant -- fixes **Q-6** (buttons not recomputed during a plane, heli or rocket bang; the speed step can still be nudged).
 - [ ] **B4** One ordered `LEAVE` table from the three reset lists (state.js:126-176, :189-259, input.js:480-507), verbatim and in today's order (`eventsSpawn` draws from the stream); then each exit calls the table, one row per release.
 - [ ] **B5** Tone ownership: `setTone` stamps the frame; an opted-in tone not written this frame is swept to zero at the end of `update()`. One tone per release.
@@ -71,6 +81,9 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 - [ ] **Q-12** The view/gear debounce is 18 frames, not seconds: 0.6 s at 30 Hz (input.js:204-227).
 - [ ] **Q-13** Rocket-start rivals are picked by roster index, not grid slot (race.js:1487).
 - [ ] **Q-14** The oval's last-lap shortcut boom stays open after a race (race.js:629, :1885). Cosmetic.
+- [ ] **Q-21** (v217 builder) A chase siren holds its last gain behind the picker: `policeSiren`/`policeSirenB` (police.js:207-208) are written only from updatePolice (police.js:239), called from updateHighway (highway.js:1207, after the hold) and the bang branch (flight.js:425). Maybe also `raceCrowd` and the race surface tones (race.js:2579-2581), not reproduced: the matrix's race/picker cell is clean.
+- [ ] **Q-22** (v217 builder) The runway roll survives a vehicle switch made without the cards: `applyVehicle` silences `VEHICLE_TONES`, and the roll (`setRolling`) is not one of them.
+- [ ] **Q-23** (v217 law-reviewer, keyboard/harness only) A rescue begun on the frame the cards close keeps what the hold remembered and restores it when the canopy lands: the eject tail neither resumes nor forgets (audio.js AUDIO_TAILS.eject; flight.js:377). `audioHoldForget()` in the eject tail closes it.
 
 ## 8. Harness, Track A steps 4-5, and the picture baseline
 
