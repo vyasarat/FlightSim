@@ -15,6 +15,16 @@ unchanged.
 **NOT doing** (the parent, 2026-11-13): file splits (REVIEW finding 23), Tracks D and E,
 unifying the turn rule (all four implementations stay as they are), any three.js upgrade.
 
+## TOP. From him (the parent, 2026-11-13): ahead of everything but a crash, stuck or text
+
+- [ ] **The giant ROBOT monster** -- "a BIG MONSTER he can shoot missiles at, and that attacks him." A machine, so the "nothing living" rule holds: a metal dinosaur as tall as a skyscraper, glowing eyes, stomping feet, a roar, steam vents. Toy-like and exciting, not frightening. Normal game, every kid rule applies.
+  - WHERE: it rises out of the sea off New York, visible from far away, and wades slowly along the coast. It never steps on the city. He cannot miss it from the New York runway.
+  - SHOOTING IT: the missiles he already has (plane, helicopter, the boat's cannon). Aim at it and fire; aim assist as for other targets. Each hit knocks armour plates off with sparks and a clang, and it staggers. No health bar and no numbers: plates gone and lights going out. Glowing weak spots (chest, back, head) take bigger chunks.
+  - IT ATTACKS HIM: it turns to face him, and every attack is announced (eyes flash, a wind-up roar) and can be dodged by steering: a tail swipe, a thrown boulder of scrap, a slow sweeping eye beam. A hit on him is a bang and a free reassembly where it happened. Nothing taken away. It never attacks while he is behind the picker or just reassembled.
+  - THE PAYOFF: enough hits and it topples into the sea in pieces: a huge splash, fireworks, a victory horn. After a few minutes it rebuilds itself and rises again.
+  - Never required, never blocking: he can fly away and it gives up.
+  - HOW: a set-piece on the shared loop, registered in the event pool; solid in the one registry; all numbers in TUNE. Checks: hits register from each vehicle; every attack is announced and dodgeable by the noisy finger; a hit on him reassembles and never loops; it falls and rebuilds; nothing is left on after he leaves (its rows in the leaving matrix); draw calls within budget. Renders: rising, a hit, each attack, the fall, from the chase cam and the seat; the render-critic confirms it reads as a robot and is not frightening. Full loop, ship when it passes, then carry on.
+
 ## 0. Housekeeping
 
 - [x] **v214 (S2) Back where he was** (shipped 2026-11-13: 1333/1333, stream SAME, sweep 79/0, noisy drive seeds 11 and 23 clean, law-reviewer PASS) -- CARS-1 (a pull-over follows a relaunch), CARS-2 (the globe from the toy track), CARS-3 (a car's eject goes back to the motorway start), FLIGHT-1 (eject after London's heading switch faces the wrong way), FLIGHT-2 (eject during the landing roll). Built 2026-11-02 (da8823a); pushed 2026-11-13.
