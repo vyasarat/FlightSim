@@ -6130,6 +6130,7 @@ const harnessMain = async () => {
     ["./launchsite_checks", { newPage, check }],
     ["./rocketsled_checks", { newPage, check }],
     ["./fireworksbarge_checks", { newPage, check }],
+    ["./titan_checks", { newPage, check }],        // v218: the giant robot off New York -- it rises, he shoots it down, it rebuilds
     ["./monstertruck_checks", { newPage, check }],
     ["./monster_checks", { newPage, check }],
     ["./heavy_checks", { newPage, check }],

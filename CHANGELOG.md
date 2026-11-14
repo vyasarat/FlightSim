@@ -10,6 +10,28 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v218 — the giant robot (stage 1: it rises, he shoots it down, it rebuilds)
+
+His idea: a giant robot monster he can shoot. A toy metal dinosaur as tall as a skyscraper -- flat bright
+silver, with red, yellow, blue, green and orange armour plates, big round eyes, a white belly, little round
+arms, steam puffing from two chimneys on its back and a gold wind-up key -- wades shin-deep up and down the
+sea just off New York, foam round its legs. When he is at New York the sea first boils and steams and it
+roars, and then it rises out of the water. It stays at least 2.5 km from the city and 300 m clear of the
+runway's approach and the roads. From the runway the sea is behind him, so while it is up and off his
+screen, and he is in the plane or the helicopter, a button-sized picture of its head sits at the edge of
+his screen above the dials, pointing to it; it never covers a button and a touch on it steers as usual.
+The plane's and the helicopter's missiles bend on to it when he points at it. Each hit knocks a plate off
+with sparks and a clang, leaving a dark hole that spits sparks and steam; its coloured lamps go dark one by
+one; and it rocks back (unless he is right beside it). Three glowing, pulsing spots are its weak points --
+the light on its chest, the key on its back, the green gem on its head -- and a hit there flares that spot,
+throws a burst and a wide ring of its colour, knocks three plates off and plays its own chime. While it is
+rising or falling, a missile glances off it. When the last plate goes it topples over on to its side, all
+its lights out -- a big splash, a show of fireworks and a victory fanfare -- and the pieces sink. About two
+and a half minutes later, when he is at New York, it rises again whole. Flying into it is the ordinary bang
+and free put-back-together; while he is within 70 m of it nothing of it that he could hit moves, so it can
+never knock into him. Nothing is kept: no score, no bar, no numbers. It does not attack him yet (that is the
+next stage); it turns to face him and its eyes follow him. It is hidden in dad mode.
+
 ## v217 — quiet behind the menu
 
 When he opens the menu while he is moving, the game holds everything still until he picks, but some of

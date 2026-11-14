@@ -403,10 +403,14 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
     o.ground = v196.map(([x, z, y]) => +(L.terrainEff(x, z) - y).toFixed(4));
     o.airports = L.AIRPORTS.slice(0, 2).map(a => [a.cz, +a.elev.toFixed(2)]);
     // a question asked in New York walks none of London's solids
-    let n = 0, total = 0;
-    L.forEachSolid(() => total++);
-    L.forEachSolid(() => n++, -400, 4100, 10);
-    o.walk = { ny: n, all: total, region: L.ldn.region.list.length };
+    // (v218) by IDENTITY, not by arithmetic: London is no longer the only region (the giant robot's is another),
+    // so "all minus London's" is not what a New York question walks. None of London's own records may be walked
+    // there, and every one of them must be in the whole walk.
+    const ldSet = new Set(L.ldn.region.list);
+    let n = 0, total = 0, ldAtNy = 0, ldInAll = 0;
+    L.forEachSolid(b => { total++; if (ldSet.has(b)) ldInAll++; });
+    L.forEachSolid(b => { n++; if (ldSet.has(b)) ldAtNy++; }, -400, 4100, 10);
+    o.walk = { ny: n, all: total, region: L.ldn.region.list.length, ldAtNy, ldInAll };
     // London's own clocks never draw from the page's random stream
     const R = Math.random; let draws = 0;
     Math.random = function () { if (/london\.js/.test(new Error().stack)) draws++; return R(); };
@@ -419,7 +423,7 @@ module.exports = async function londonChecks({ newPage, check, perf }) {
   check("london leaves New York and California alone: their ground is v196's to the millimetre and their runways are where they were",
     same.ground.every(d => d === 0) && same.airports[0][0] === 6000 && same.airports[0][1] === 7.99 && same.airports[1][0] === -6000 && same.airports[1][1] === 7.69, JSON.stringify(same));
   check("london leaves New York alone: a solid question asked there walks none of London's records, and London never draws from the page's random stream",
-    same.walk.ny === same.walk.all - same.walk.region && same.walk.region > 100 && same.draws === 0, JSON.stringify(same));
+    same.walk.ldAtNy === 0 && same.walk.ldInAll === same.walk.region && same.walk.ny <= same.walk.all - same.walk.region && same.walk.region > 100 && same.draws === 0, JSON.stringify(same));
 
   await page.close();
   if (perf !== "skip") await perfBlock();

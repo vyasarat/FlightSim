@@ -186,6 +186,8 @@ function updateMissiles(dt) {
         if (m.x > b.x - b.hw - 1 && m.x < b.x + b.hw + 1 &&
             m.z > b.z - b.hd - 1 && m.z < b.z + b.hd + 1 &&
             m.y > b.y0 - 1.5 && m.y < b.y1 + 1.5) {
+          // (v218) the giant robot: its capsules' boxes are loose, so its own shape decides, and it counts the hit
+          if (b.tn) { if (tnMissileHit(b, m.x, m.y, m.z, m)) boomed = true; return; }
           boomed = true;
           if (b.car !== undefined) shootTrainCar(b.car, m.x, m.y, m.z);
           else shatterAround(m.x, m.y, m.z);

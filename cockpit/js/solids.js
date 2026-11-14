@@ -52,7 +52,7 @@ const SOLID = { AIR: 1, CAR: 2, BOAT: 4, ROVER: 8, ALL: 15 };
 // What a solid IS. The matrix check drives every vehicle into every one of
 // these; add a kind here and the check grows a column.
 const SOLID_KINDS = ["building", "wall", "pillar", "tunnel", "portal", "ramp", "rock",
-                     "dome", "pad", "parked", "crane", "container", "ship", "bridge"];
+                     "dome", "pad", "parked", "crane", "container", "ship", "bridge", "robot"];
 
 const staticSolids = [];   // registered once, at build time
 // (v197) REGIONS: solids kilometres from everything else (London's), kept in their own list

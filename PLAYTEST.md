@@ -88,6 +88,7 @@ entry below.
 | v215 | nothing he notices: he no longer lands in dad's number pad from a double tap on the menu, no longer leaves London by carrying on after a relaunch there, and no longer sits frozen in the car wash after tapping the race flag (a regression would be the parent unable to get into dad mode, or the race flag missing after a wash) |  open |
 | v216 | nothing he notices: the arrow home, the aiming dot and the helicopter's ring still step off his buttons as before (a regression would be one of them sitting on a button, or missing when it should show) |  open |
 | v217 | probably nothing he remarks on: the menu is quiet behind its cards now instead of droning with the dive whistle, the tyres, the hull or the rocket (a regression would be silence where there should be sound after the cards close -- no tyres, no hull, no whistle in a dive, no rocket roar -- or a bang or pop as they go) |  open |
+| v218 | at New York he follows the robot arrow (or hears the roar) round to the sea, shouts "the robot!" or "monster!", flies at it and keeps firing; whoops at the plates and sparks flying off; cheers or says "it fell down" at the splash and the fireworks; asks for it again or waits for it to come back (a regression would be fear -- turning away from it, not wanting to go near; or bangs he did not expect from flying into it, or the robot never seen because he never turns round) |  open |
 
 ## Entries
 

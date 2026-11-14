@@ -1418,6 +1418,66 @@ const TUNE = {
     hearR: 3000, boomGain: 0.5, soundsPerSec: 14,  // the finale is many bangs: no more than this many a second
     reticleR: 14, reticleRate: 2.4, reticleY: 34,  // the target over the barge, turning to face him
   },
+  // ---- v218: the giant robot (js/titan.js), stage 1 -- a toy metal dinosaur that rises out of the sea
+  // off New York and wades the coast; missiles knock its plates off; it topples, and rebuilds.
+  titan: {
+    // where it wades: sea at every sample, outside inCorridor(.., 300) at every yaw (|x| > 365 + reach),
+    // east of the droneship and the net boat, kilometres from the city (titan_checks samples it)
+    path: [[500, 7170], [730, 7200], [980, 7180]], home: 1, homeYaw: 90,
+    wade: 2.5, stepTime: 1.7, legSwing: 16, tailSwish: 9, keyRate: 0.8,
+    turnRate: 12, headYaw: 60, headPitch: 25, jawDeg: 22,
+    top: 128, reach: 110,           // its head's height over the sea; its furthest part from its middle
+    wadeDepth: 12,                  // it stands in the sea to the middle of its shins
+    wakeR: 2600,                    // it rises when he is this near its home (all of New York's runway) ...
+    clearR: 380,                    // ... and never with him nearer than this
+    watchR: 1800, faceR: 900,       // its eyes follow him; nearer, in something that shoots, it turns to face him
+    drawR: 4200, meshR: 2100, hearR: 2600, gain: 1,   // its lights drawn within drawR; its body within meshR (past the fog's far edge, 1560 m, it is fog-coloured)
+    riseTime: 11, eyesAt: 0.55, sink: 160, sinkRate: 14,
+    announce: 3.2, roarAt: 0.4,     // the rise: this long of the sea boiling over it (its roar this far in) before it comes up
+    boilRate: 8, boilPuffs: 9, boilR: 70,
+    foamEvery: 0.3, foamPuffs: 3, foamR: 9,     // foam round each leg at the waterline
+    leakEvery: 0.5,                 // a bare socket spits sparks or steam this often
+    sweepR: 70,                     // he is this near a part of it: it holds every joint still (never swings a part into him)
+    insidePad: 6,                   // solid switches on only with him at least this far outside it
+    walkTurnDeg: 25, treadDeg: 2,   // it steps only while facing within this of its way; it treads while it turns more than this
+    headYawRate: 2, headPitchRate: 1, eyeHeight: 118, hearY: 60,   // rad/s its head turns; its eyes over its base; its middle, heard
+    steamEvery: 3.2, roarEvery: 22,
+    // damage: one plate a hit, a weak spot three; the lamps go out with them; the last one fells it
+    weakMul: 3, weakR: 16, weakLockHit: 2, hitPad: 3, hitSparks: 40, weakBurst: 160, weakRing: 48, weakRingSpeed: 34, weakPuffs: 24, weakFlash: 4, weakFlashTime: 1.2, shrugSparks: 24,   // weakLockHit: a missile locked on a weak spot counts it within weakR x this
+    weak: [
+      { name: "core", part: "body", region: "body", at: [0, 20, 36], color: 0x5ff1ff, size: 34 },
+      { name: "key", part: "key", region: "body", at: [0, 4, 0], color: 0xffd23e, size: 30 },
+      { name: "crest", part: "head", region: "head", at: [0, 46.5, 12], color: 0x36c46a, size: 28 },
+    ],
+    stagger: 1.2, staggerDeg: 9,
+    lockR: 450, lockDot: 0.82, lockRate: 3.5, weakLock: 24,   // the bend: as the meteor shower's (TUNE.events.meteors); a weak spot within weakLock m of the line wins
+    grace: 6, clearAbove: 60,       // after a bang near it: it keeps still this long, and he comes back this far over it
+    // the fall, the splash, the fireworks, the horn -- and the rebuild, on the coast pool's clock
+    fallTime: 3.6, fallDeg: 82, breakAt: 0.45, fallPow: 1.5, headRoll: 1.3, fallSideM: 30,   // he is this far to one side of it: it falls to the other
+    columnH: 150, columnW: 60, columnGrav: 4,   // the splash's column: this tall and wide the moment it lands
+    splashAt: 95, splashPuffs: 110, splashSpeed: 34, splashUp: 52, splashLife: 3.6, splashColumn: 150, puffGrav: 11, fallChunks: 18,
+    shakeR: 700, shake: 0.6,
+    fireBursts: 8, fireSpread: 70, fireEvery: 0.7, fireY: [150, 240], fireStars: 110, fireSpeed: [34, 52], hornAfter: 1.2,
+    fireColors: ["red", "warning", "green", "cyan", "blue", "fire"],
+    rebuild: 150,
+    // its parts and the capsules that are its solids (in each part's own frame)
+    tailPts: [[0, 0, 0], [0, -6, -24], [0, -14, -48], [0, -20, -70]], tailR: [10, 8, 6, 4],
+    solids: [
+      { part: "legL", region: "legs", a: [0, -2, 2], b: [0, -50, 0], r: 11 },
+      { part: "legR", region: "legs", a: [0, -2, 2], b: [0, -50, 0], r: 11 },
+      { part: "body", region: "body", a: [0, 14, -14], b: [0, 22, 16], r: 20 },
+      { part: "head", region: "head", a: [0, -4, -2], b: [0, 34, 10], r: 12 },
+      { part: "head", region: "head", a: [0, 34, 6], b: [0, 31, 30], r: 13 },
+      { part: "tail", region: "tail", a: [0, 0, 0], b: [0, -20, -70], r: 8 },
+      { part: "key", region: "body", a: [-5, 3, 0], b: [5, 3, 0], r: 6.5 },   // the wind-up key: solid, and a missile's mark
+    ],
+    lamps: 30, lampSize: 13, lampOff: 0x23282f, lensOff: 0x30343a, eyeColor: 0x5ff1ff, eyeSize: 22, eyeDim: 0.6,
+    weakRate: 4, weakPulse: [0.75, 1.2], weakOpacity: 0.95,
+    shadeDir: [0.45, 0.8, 0.4], shadeLo: 0.66, shadeUp: 0.06,   // the flat palette's one baked light (titan.js tnShade)
+    plateColors: ["red", "warning", "blue", "green", "cyan", "fire"], sparkColors: ["warning", "flame", "white", "fire"],
+    sparks: 1400, sparkSize: 9, puffs: 600, puffSize: 30, puffOpacity: 0.85, debris: 48, poolR: 380,
+    arrowR: 3200, arrowMargin: 12, arrowInView: 0.85, arrowStep: 8, arrowGrid: 16,   // the edge arrow: within this of it, this far in from the edge, unless it is this far in view
+  },
   // ---- The monster truck (js/monstertruck.js): a loop of dirt west of the
   // motorway on the plains. Point at it and the truck roars off, jumps a ramp,
   // lands on a row of six junk cars and squashes them flat, then drives round

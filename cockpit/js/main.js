@@ -140,6 +140,7 @@ function updateHud() {
   updateHomeArrow();
   updateStrip();
   updateAimMarker();
+  if (typeof tnUpdateArrow === "function") tnUpdateArrow();   // (v218) where the giant robot is
 }
 
 // A relaunch (Guided Access, app switch) restores the last vehicle, direction
@@ -237,6 +238,7 @@ window.__lp = {
   lsite, LSITE, lsReset, lsForce, lsPuffsLive, lsStackSolid, lsCovers, updateLaunchSite,
   sled, SLED, sledReset, sledForce, sledPuffsLive, sledBricksLive, sledWallWorld, sledSlotError, sledWallSolid, sledCovers, sledToWall, updateRocketSled, sledSetRidden,
   fbarge, FBARGE, fbReset, fbForce, fbSparksLive, fbToFirstBurst, updateFireworksBarge, spCountBusy,
+  titan, TITAN, tnForce, tnReset, tnHide, tnStandDown, tnMissileHit, tnArrowPlace, tnGap, tnPlatesGone, tnLampsLit, tnPointsMax, tnOnScreen, tnInside, updateTitan, RECOVERY, cityCovers,
   sr, SR, srActive, srSpawn, srFlameEnds, srGo, srCanGo, srParked, srPlace,
   cr, CR, crActive, crSpawn, crCanGo, crParked, crAimed, crGroups, crTowers, crBall, crCrane, crHomeError, crLeave, crCovers,
   vl, vlCovers, vlBunkerAt, vlCenterZ, vlCenterSlope, vlFloorY, vlBowlCentre, vlWeight,

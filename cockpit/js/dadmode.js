@@ -100,6 +100,8 @@ function dadHideHis() {
     const r = o.parent && o.parent !== scene && o.parent.children.length <= 16 ? o.parent : o;
     if (!list.includes(r)) list.push(r);
   });
+  // (v218) the giant robot: hidden and not solid (updateTitan does not run in dad mode; its next frame outside puts it back)
+  if (typeof tnHide === "function") tnHide();
   dad.hid = list.map(o => [o, o.visible]);
   for (const o of list) o.visible = false;
 }

@@ -1,7 +1,7 @@
 "use strict";
 const el = {};
 ["hud", "pillarL", "pillarR", "brow", "dash", "asiDial", "aiDial", "altDial",
- "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow",
+ "aiBall", "altDigits", "rotateArrow", "throttleBtn", "fx", "homeArrow", "titanArrow",
  "screenVehicle", "screenDir", "screenDest", "progressStrip", "viewBtn", "gearBtn", "slowBtn", "glideGuide", "skipBtn", "fastBtn", "missileBtn", "aimMarker", "vehBtn", "alarm", "wingman", "camBtn", "photo", "photoImg", "flash", "stageBtn", "satBtn", "chuteBtn", "reentryGlow", "roverBtn", "hatchBtn", "bigNum", "bucketBtn", "catBtn", "droneBtn", "heliUpBtn", "heliDownBtn", "heliTarget", "magnetBtn", "washBtn", "cannonBtn", "garageBtn", "ejectBtn", "ejectVeil", "hornBtn", "speedBtn", "menuBtn", "lockBtn", "dadBombBtn", "dadFlareBtn", "dadMslBtn", "dadGunBtn", "dadExitBtn", "dadRodUpBtn", "dadRodDnBtn", "dadChamberBtn"].forEach(id => {
   el[id] = document.getElementById(id);
 });
