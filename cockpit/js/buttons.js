@@ -207,7 +207,7 @@ function btnUpdateAll() {
 // bit as bad as two buttons in one slot, because he still cannot press what he
 // is looking at. `btnObstructions` is the geometric half that the declared half
 // cannot do.
-const BTN_HUD_OVERLAY = ["homeArrow", "rotateArrow", "glideGuide", "aimMarker",
+const BTN_HUD_OVERLAY = ["homeArrow", "titanArrow", "rotateArrow", "glideGuide", "aimMarker",
                          "heliTarget", "alarm", "wingman", "bigNum", "dadHud", "raceHud"];
 
 function btnVisibleRect(e) {

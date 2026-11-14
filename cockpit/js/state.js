@@ -127,6 +127,7 @@ function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
   // what the monster truck crushed comes back when he leaves it: nothing is lost
   if (typeof monRestoreAll === "function") monRestoreAll();
+  if (typeof tnStandDown === "function") tnStandDown("vehicle");   // (v218) a different vehicle: the giant robot forgets him
   // ... and the crane's towers stand back up and go away (v145): its lot is drawn only while he is in it
   if (typeof crLeave === "function") crLeave();
   // and the heavy's side boosters do not outlive it
@@ -197,6 +198,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   if (typeof audioHoldForget === "function") audioHoldForget();   // (v217) ... nor in a fresh start
   if (typeof raceReset === "function") raceReset();   // v164: every start is out of a race
   if (typeof demoStandDown === "function") demoStandDown();   // (v213) ... and out of a demolition's count
+  if (typeof tnStandDown === "function") tnStandDown("start");   // (v218) ... and the giant robot forgets him
   // (v214) ... and out of a police pull-over: its cars eased toward him with no limit on the step,
   // so from a relaunch they crossed the country (or the sea) in two seconds to finish the 3-2-1
   if (typeof policeStop === "function") policeStop(false);

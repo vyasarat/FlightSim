@@ -1050,6 +1050,7 @@ function updateSetpieces(dt) {
   if (typeof updateLaunchSite === "function") updateLaunchSite(dt);
   if (typeof updateRocketSled === "function") updateRocketSled(dt);
   if (typeof updateFireworksBarge === "function") updateFireworksBarge(dt);
+  if (typeof updateTitan === "function") updateTitan(dt);   // (v218) the giant robot off New York
   if (typeof updateMonsterTruck === "function") updateMonsterTruck(dt);
   if (state.vp && state.vp.rocket) updateTowerCatch(dt);
 }

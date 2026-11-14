@@ -116,6 +116,7 @@ function ejectStart() {
     const near=BODIES.filter(b=>!b.dock).map(b=>({b,d:Math.hypot(state.x-b.x,state.y-b.y,state.z-b.z)-b.r})).sort((a,b)=>a.d-b.d)[0];
     if(near.d<state.y)body=near.b;
   }
+  if(typeof tnStandDown==='function')tnStandDown('eject');   // (v218) the giant robot forgets him while he is rescued
   releaseAllInputs();twRelease();
   toyWorld.contacts.visible=false;
   toyWorld.downwash.visible=false;toyWorld.downwash.material.opacity=0;

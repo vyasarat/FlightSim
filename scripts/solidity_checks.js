@@ -28,7 +28,7 @@ const fs = require("fs"), path = require("path");
 
 const VEHS = ["plane", "heli", "rocket", "car", "boat", "yacht", "rover", "drone"];
 const KINDS = ["building", "wall", "pillar", "tunnel", "portal", "ramp", "rock",
-               "dome", "pad", "parked", "crane", "container", "ship", "bridge"];
+               "dome", "pad", "parked", "crane", "container", "ship", "bridge", "robot"];
 
 // ---- in the page: the runner. Build-neutral on purpose (it replays on v128):
 // it touches only state, the vehicle objects and api calls both builds have.
@@ -541,6 +541,34 @@ module.exports = async function solidityChecks({ newPage, check }) {
   const { gen, mars } = await sweep(page);
   const { page: p2 } = await newPage(1024, 768);
   const res = await runAll(p2, gen.scenarios, mars);
+  // (v218) THE ROBOT: it moves and it is asleep at load, so the generator above finds none of it standing. It is
+  // stood up and held where it is (titan.hold, the harness's freeze), and each vehicle that can reach it -- over the
+  // sea off New York -- is run into its capsules the same way: the body for anything flying, a leg for the boat.
+  const robotRes = await p2.evaluate(() => {
+    const L = window.__lp, T = L.TUNE, V = window.__sm.speeds(), out = [];
+    L.api.setVehicle("prop"); L.api.spawnAt(0, 0); for (let i = 0; i < 5; i++) L.update(1 / 60);
+    L.tnForce("up"); L.titan.hold = true; for (let i = 0; i < 5; i++) L.update(1 / 60);
+    // ("through" here is his centre inside the capsule -- the shape itself -- never "past its far side": a hull
+    // shoved at a crawl slides round a round leg and on, which the far-side rule (counting only wallHits and
+    // solidShoves, which a boat's shove does not write) would call a pass)
+    const R = { plane: 3, heli: 3, rocket: 3, boat: 4.5 };
+    const rec = (part) => L.titan.recs.find(q => q.tnPart === part);
+    for (const veh of ["plane", "heli", "rocket", "boat"]) for (const mode of ["cruise", "crawl"]) {
+      const v = V[veh][mode];
+      if (!v) continue;
+      const b = rec(veh === "boat" ? "legL" : "body"), c = b.cap;
+      // the capsule's middle (for the boat, at the water), approached from the sea to the north
+      const mx = (c.a[0] + c.b[0]) / 2, mz = (c.a[2] + c.b[2]) / 2, my = veh === "boat" ? L.seaLevelAt(mx, mz) : (c.a[1] + c.b[1]) / 2;
+      const stand = R[veh] + Math.max(10, v * 0.4) + c.r;
+      out.push({ veh, kind: "robot", mode, v, replay: true, spawn: { x: mx, y: my, z: mz + stand, h: 0 },
+                 target: { cap: JSON.parse(JSON.stringify(c)) }, farAlong: 1e9, secs: Math.min(10, (stand + c.r * 2 + 30) / v + 1.5) });
+    }
+    const res = out.map(sc => ({ ...sc, ...window.__sm.run(sc) }));
+    L.titan.hold = false; L.tnReset();
+    return res;
+  });
+  for (const r of robotRes) { res.push(r); delete gen.why[r.veh + ":robot:" + r.mode]; }
+  for (const veh of ["car", "yacht"]) for (const mode of ["cruise", "crawl"]) gen.why[veh + ":robot:" + mode] = veh === "car" ? "the robot wades in the sea off New York: no road reaches it" : "the yacht berths in California, the whole sea away from New York: not run here (the speedboat stands for a hull)";
   await p2.context().close();
   const tbl = table(res, gen.why);
   console.log("\nSOLIDITY MATRIX (after)\n" + tbl);

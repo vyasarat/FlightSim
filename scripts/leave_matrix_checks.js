@@ -109,6 +109,8 @@ const MODES = [
   { id: "planeParked", kind: "plane",      card: "prop",        say: "the prop parked on the runway (the picker button and the globe)" },
   { id: "planeDemo",   kind: "plane",      card: "prop",        say: "the prop over the demolition, counting" },
   { id: "heli",        kind: "heli",       card: "helicopter",  say: "the helicopter flying" },
+  { id: "planeTitan",  kind: "plane",      card: "prop",        say: "the prop beside the giant robot, just after a missile hit it (v218)" },
+  { id: "heliTitan",   kind: "heli",       card: "helicopter",  say: "the helicopter beside the giant robot, just after a missile hit it (v218)" },
   { id: "car",         kind: "car",        card: "car",         say: "the SUV at speed on the motorway (tyres up)" },
   { id: "carSeat",     kind: "car",        card: "car",         say: "the SUV at speed, from the driving seat (its cabin drawn)", exits: SEAT_EXITS },
   { id: "cybertruck",  kind: "cybertruck", card: "cybertruck",  say: "the Cybertruck at speed" },
@@ -133,7 +135,7 @@ const MODES = [
 // each row's OWN voice, which the before-reading must hear (else "no tone after" means nothing); a row with
 // none says why in NO_OWN_TONE
 const OWN_TONE = {
-  plane: "tone:dive", planeDemo: "tone:demo", heli: "engine:heli", car: "tone:carTyre", carSeat: "tone:carTyre",
+  plane: "tone:dive", planeDemo: "tone:demo", heli: "engine:heli", planeTitan: "engine:prop", heliTitan: "engine:heli", car: "tone:carTyre", carSeat: "tone:carTyre",
   cybertruck: "tone:carTyre", corvette: "tone:cvRoar", police: "tone:policeSiren", track: "tone:trkRattle", race: "tone:raceCrowd",
   monster: "engine:car", sled: "tone:sledRoar", crane: "tone:crRumble", boat: "tone:boatHull", boatSeat: "tone:boatHull",
   yacht: "tone:yachtHull", yachtSeat: "tone:yachtHull", rocket: "rocket", rover: "tone:rover", drone: "tone:rover", astro: "tone:fans",
@@ -193,6 +195,8 @@ const KNOWN = {
   "plane/bang:mid/button/ejectBtn": EJECT_FRAME,
   "planeDemo/bang:mid/button/ejectBtn": EJECT_FRAME,
   "heli/bang:mid/button/ejectBtn": EJECT_FRAME,
+  "planeTitan/bang:mid/button/ejectBtn": EJECT_FRAME,
+  "heliTitan/bang:mid/button/ejectBtn": EJECT_FRAME,
   "car/bang:mid/button/ejectBtn": EJECT_FRAME,
   "cybertruck/bang:mid/button/ejectBtn": EJECT_FRAME,
   "corvette/bang:mid/button/ejectBtn": EJECT_FRAME,
@@ -222,6 +226,12 @@ const KNOWN = {
   "planeDemo/bang:mid/button/skipBtn": Q6,
   "planeDemo/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "heli/bang:mid/tone/engine:heli": HUD7,
+  "planeTitan/bang:mid/tone/engine:prop": HUD7,
+  "planeTitan/bang:mid/button/fastBtn": Q6,
+  "planeTitan/bang:mid/button/slowBtn": Q6,
+  "planeTitan/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
+  "heliTitan/bang:mid/tone/engine:heli": HUD7,
+  "heliTitan/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "heli/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "car/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "car/race/tone/tone:carTyre": RACE_TYRE,
@@ -245,9 +255,9 @@ const NA_PIN = {
     "astro/bang", "astro/eject", "astro/globe", "astro/own", "astro/race", "boat/globe", "boat/own", "boat/race",
     "car/globe", "car/own", "corvette/globe", "corvette/own", "crane/bang", "crane/eject", "crane/globe", "crane/own",
     "crane/race", "cybertruck/globe", "cybertruck/own", "dad/bang", "dad/eject", "dad/globe", "dad/picker", "dad/race",
-    "drone/bang", "drone/globe", "drone/own", "drone/race", "heli/globe", "heli/own", "heli/race", "london/own",
+    "drone/bang", "drone/globe", "drone/own", "drone/race", "heli/globe", "heli/own", "heli/race", "heliTitan/globe", "heliTitan/own", "heliTitan/race", "london/own",
     "monster/bang", "monster/globe", "monster/own", "plane/globe", "plane/own", "plane/race", "planeDemo/globe", "planeDemo/own",
-    "planeDemo/race", "planeParked/bang", "planeParked/own", "planeParked/race", "police/own", "race/bang", "race/eject", "race/globe",
+    "planeDemo/race", "planeParked/bang", "planeParked/own", "planeParked/race", "planeTitan/globe", "planeTitan/own", "planeTitan/race", "police/own", "race/bang", "race/eject", "race/globe",
     "race/race", "rocket/globe", "rocket/own", "rocket/race", "rover/bang", "rover/globe", "rover/own", "rover/race",
     "sled/bang", "sled/eject", "sled/globe", "sled/own", "sled/race", "track/globe", "track/own", "track/race",
     "yacht/globe", "yacht/own", "yacht/race"],
@@ -476,6 +486,13 @@ async function install(cfg) {
     if (mars.drone && mars.drone.g && shownObj(mars.drone.g) && !onBody("mars")) b("drone left out");
     if (astro.group && shownObj(astro.group) && !(onBody() && rk.onBody.dock)) b("station interior left drawn");
     if (eject.pool && shownObj(eject.pool.root) && !eject.active) b("eject seat left drawn");
+    // (v218) the giant robot: its edge arrow up where nothing wants it (behind the cards, in the rescue, in dad mode,
+    // in something that cannot shoot, or with the robot not up), and any of its solids live where it is not drawn
+    if (typeof titan !== "undefined" && titan.built) {
+      const wantArrow = (titan.phase === "rising" || titan.phase === "up") && (k === "plane" || k === "heli") && !menuOpen() && !eject.active && !dadActive() && !st.exploding;
+      if (!wantArrow && seen(el.titanArrow)) b("titan arrow left up", "the giant robot's arrow up with " + titan.phase + " in the " + state.vehicleKey);
+      if (titan.recs.some(r => !isSolidHidden(r)) && !(titan.g.visible && titan.phase === "up")) b("titan solid while hidden", "a giant robot solid live while it is " + titan.phase + (titan.g.visible ? "" : ", not drawn"));
+    }
     return bad;
   }
 
@@ -574,6 +591,9 @@ async function install(cfg) {
       for (let i = 0; i < 60 * 12 && !numUp(); i++) L.update(1 / 60);
     },
     heli() { L.api.setVehicle("helicopter"); L.api.spawnAt(0, 0); step(10); heli.vertical = 1; step(120); heli.vertical = 0; step(30); },
+    // (v218) beside the giant robot, a missile just into it: up, watching him, staggering
+    planeTitan() { L.api.setVehicle("prop"); L.api.teleportAirborne(1200, 0, 320, 0); step(5); titanShot("plane"); },
+    heliTitan() { SETUP.heli(); titanShot("heli"); },
     car() { L.api.setVehicle("car"); L.api.spawnAt(0, 0); step(10); finger(60 * 6); },
     carSeat() { SETUP.car(); L.api.setView(false); step(10, () => L.api.setStick(0, 0)); },
     cybertruck() { L.api.setVehicle("cybertruck"); L.api.spawnAt(0, 0); step(10); finger(60 * 6); },
@@ -650,12 +670,27 @@ async function install(cfg) {
     },
     dad() { L.dadEnter(); step(60); },
   };
+  // him 450 m off the robot's side at its body's height, pointed at it, a missile fired by the button, the hit seen
+  function titanShot(veh) {
+    L.tnForce("up"); step(2);
+    const r = titan.recs.find(q => q.tnPart === "body"), c = { x: (r.cap.a[0] + r.cap.b[0]) / 2, y: (r.cap.a[1] + r.cap.b[1]) / 2, z: (r.cap.a[2] + r.cap.b[2]) / 2 };
+    const yaw = titan.yaw + Math.PI / 2, x = c.x + Math.sin(yaw) * 450, z = c.z + Math.cos(yaw) * 450, h = Math.atan2(-(c.x - x), -(c.z - z));
+    st.x = x; st.z = z; st.y = c.y; st.heading = h; st.pitch = 0; st.bank = 0; st.phase = "AIRBORNE"; st.missileCooldown = 0;
+    if (veh === "heli") { heli.altitude = c.y; heli.vy = 0; heli.target = null; const v = L.TUNE.heli.cruise * 0.8; heli.vx = -Math.sin(h) * v; heli.vz = -Math.cos(h) * v; st.speed = v; }
+    else { st.speed = st.vp.cruiseSpeed; st.engaged = false; st.approachData = null; st.gearDown = false; }
+    const h0 = L.flags.tnHits || 0;
+    tap(el.missileBtn);
+    for (let i = 0; i < 60 * 5 && (L.flags.tnHits || 0) === h0; i++) { if (veh === "heli") { st.y = c.y; heli.altitude = c.y; } L.update(1 / 60); }
+    titan.tnRowHit = (L.flags.tnHits || 0) - h0;
+  }
   const air = () => st.phase === "AIRBORNE" || st.phase === "CLIMB_AWAY";
   const PROOF = {
     plane: () => air() && st.pitch < -10,
     planeParked: () => vehParked(),
     planeDemo: () => demo.phase === "charging" && numUp(),
     heli: () => air(),
+    planeTitan: () => air() && titan.phase === "up" && titan.watching && titan.tnRowHit === 1 && titan.stagger > 0,
+    heliTitan: () => air() && titan.phase === "up" && titan.watching && titan.tnRowHit === 1 && titan.stagger > 0,
     car: () => st.speed > 10 && !trk.on, carSeat: () => st.speed > 10 && !state.viewChase && !!car.cabin && shownObj(car.cabin),
     cybertruck: () => st.speed > 10, corvette: () => st.speed > 10 && cv.k > 0,
     police: () => police.state === "pullover" && numUp(),

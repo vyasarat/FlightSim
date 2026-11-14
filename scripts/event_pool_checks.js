@@ -53,11 +53,12 @@ module.exports = async function eventPoolChecks({ newPage, check }) {
         livery: Object.values(pools).filter(p => p.kind === "livery").map(p => p.policy),
       };
     });
-    check("events: one registry, two policies -- the space programme draws ONE per launch and never the same one twice, the harbour has every one of its eight standing and on its own clock, every event in both can be forced through the same door, and the police borrow the draw for their colour scheme without borrowing the rules",
+    check("events: one registry, two policies -- the space programme draws ONE per launch and never the same one twice, the harbour has every one of its eight standing and on its own clock, the coast its giant robot (v218) standing on its rebuild clock, every event in all three can be forced through the same door, and the police borrow the draw for their colour scheme without borrowing the rules",
       r.pools.space && r.pools.space.policy === "once" &&
       r.pools.sea && r.pools.sea.policy === "standing" &&
+      r.pools.coast && r.pools.coast.policy === "standing" && JSON.stringify(r.pools.coast.keys) === '["titan"]' &&
       r.spaceMatches && r.pools.sea.keys.length === 8 &&
-      r.eventPools.length === 2 && r.events === 14 && r.forcible === 14 &&
+      r.eventPools.length === 3 && r.events === 15 && r.forcible === 15 &&
       r.livery.length === 1 && r.livery[0] === "once", JSON.stringify(r));
     await page.close();
   }
@@ -97,6 +98,7 @@ module.exports = async function eventPoolChecks({ newPage, check }) {
       const L = window.__lp, st = L.state;
       L.noRender = true; L.api.skipScreens();
       const out = [];
+      let coastSeen = null;
 
       const snapshot = () => {
         const flags = {};
@@ -136,6 +138,44 @@ module.exports = async function eventPoolChecks({ newPage, check }) {
         compare(before, snapshot(), "sea/" + m.key, m.button);
       }
 
+      // ---- (v218) the coast: the giant robot, forced to rise beside him in the prop, held 700 m off it high over the
+      // sea. THE STATED EXCEPTION (his two asks, QUEUE.md TOP 2026-11-13: in the pool AND solid; the wording is proposed to the parent, not his -- eventpool.js header): it is registered here AND solid in the
+      // one registry. So its solids are measured LIVE -- what solidQuery would actually hit, not the registry's count,
+      // which its records never change -- and the truth asserted: it IS solid while up and drawn, and every live solid
+      // of it stands where a wall blocks nothing (deep sea, outside the road corridor and the runway with its approach
+      // and climb-out, clear of the droneship's and the net boat's water). Taking nothing away is asked as of any event.
+      const liveTitan = () => L.titan.recs.filter(r => !L.isSolidHidden(r));
+      for (const m of L.evpEventPools().coast.members) {
+        L.tnReset();
+        L.api.setVehicle("prop"); L.api.teleportAirborne(1500, 0, 300, 0);
+        // held on one spot (flown on, the go button comes and goes with where he is, not with the event)
+        const pin = () => { st.x = 730; st.z = 7900; st.y = 320; st.heading = 0; st.pitch = 0; st.bank = 0; };
+        for (let i = 0; i < 40; i++) { pin(); L.update(1 / 60); }
+        const before = snapshot(), live0 = liveTitan().length;
+        L.evpForce("coast", m.key);
+        const R = L.RECOVERY[0] || {}, ships = [R.barge, R.netBoat].filter(Boolean);
+        let liveMax = 0, badSpots = 0, samples = 0;
+        for (let i = 0; i < 60 * 45; i++) {
+          pin(); L.update(1 / 60);
+          const live = liveTitan();
+          liveMax = Math.max(liveMax, live.length);
+          if (i % 15) continue;
+          for (const r of live) for (const [ox, oz] of [[-1, -1], [-1, 1], [1, -1], [1, 1], [0, 0]]) {
+            const x = r.x + ox * r.hw, z = r.z + oz * r.hd;
+            samples++;
+            if (L.terrainEff(x, z) > L.seaLevelAt(x, z) - 6 || L.inCorridor(x, z, 300) || ships.some(sh => Math.hypot(x - sh.x, z - sh.z) < 150)) badSpots++;
+          }
+        }
+        const after = snapshot();
+        after.solids = before.solids;   // (the exception: its own walls are judged just above, not by the count)
+        if (L.titan.phase !== "up") out.push(`coast/${m.key}: forced, but it did not rise (${L.titan.phase})`);
+        if (live0 !== 0 || liveMax !== L.titan.recs.length) out.push(`coast/${m.key}: not solid as stated -- ${live0} live before it rose, ${liveMax} of ${L.titan.recs.length} live while up`);
+        if (!samples || badSpots) out.push(`coast/${m.key}: BLOCKS -- ${badSpots} of ${samples} of its live solid's corners out of deep water, in a corridor or in the ships' water`);
+        coastSeen = { live0, liveMax, samples, badSpots };
+        compare(before, after, "coast/" + m.key, m.button);
+        L.tnReset();
+      }
+
       // ---- the space programme: force each event and fly the flight
       for (const m of L.evpEventPools().space.members) {
         L.api.setVehicle("rocket"); L.api.placeOnRunway();
@@ -152,10 +192,10 @@ module.exports = async function eventPoolChecks({ newPage, check }) {
         compare(before, snapshot(), "space/" + m.key, m.button);
         L.eventsReset();
       }
-      return out;
+      return { out, coastSeen };
     });
-    check("events: every one of the fourteen, forced to happen on its own -- not one of them makes anything solid, takes a flag backwards, removes a control he had, or costs him a card in the picker",
-      bad.length === 0, JSON.stringify(bad.slice(0, 8)));
+    check("events: every one of the fifteen, forced to happen on its own -- the fourteen make nothing solid (read from a counter that is not there: Q-24, queued); the giant robot is the stated exception (the parent asked for it in the pool AND solid, 2026-11-13; the wording proposed to him): solid while it stands, and every live solid of it in deep sea, outside the road and runway corridors and clear of the ships' water; not one of the fifteen takes a flag backwards, removes a control he had, or costs him a card in the picker",
+      bad.out.length === 0 && !!bad.coastSeen, JSON.stringify({ bad: bad.out.slice(0, 8), coast: bad.coastSeen }));
     await page.close();
   }
 

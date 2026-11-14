@@ -14,6 +14,13 @@
 // facts now, and `scripts/event_pool_checks.js` forces every member of every
 // pool to happen and then asserts all three of them by machine.
 //
+// ONE EXCEPTION, AS PROPOSED TO THE PARENT (not his words). His two requirements for the giant robot
+// (QUEUE.md TOP, 2026-11-13): "registered in the event pool" and "solid in the one registry". The proposal
+// that meets both: the robot (titan.js, pool "coast") is solid only while it stands, and only where a wall
+// blocks nothing -- deep sea, outside every corridor, clear of the ships' water -- with take-off, landing and
+// the picker at New York working round it. The other events make nothing solid at all.
+// (scripts/event_pool_checks.js asserts both halves.)
+//
 // A POOL is a set of events plus a POLICY saying when the set is consulted.
 // There are exactly two policies and they are genuinely different questions:
 //

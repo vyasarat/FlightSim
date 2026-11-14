@@ -38,7 +38,7 @@
      pinch and double-tap zoom, which is all we are after. `.card` keeps
      manipulation for the same reason: `none` there would kill their taps. */
   #hud, #photo, #photo img, #flash, #bigNum, #reentryGlow, #rotateArrow,
-  #aimMarker, #glideGuide, #progressStrip, #homeArrow, #heliTarget {
+  #aimMarker, #glideGuide, #progressStrip, #homeArrow, #heliTarget, #titanArrow {
     touch-action: none;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
@@ -261,6 +261,16 @@
     0%, 100% { opacity: .7; transform: scale(1); }
     50% { opacity: .9; transform: scale(1.05); }
   }
+  /* v218: where the giant robot is, while it is up and off his screen -- its head, and a pointer
+     round it toward it (titan.js tnUpdateArrow). An icon: no text, no tap. */
+  #titanArrow { position: fixed; left: 50%; top: 50%; width: var(--btn); height: var(--btn); transform: translate(-50%,-50%);
+    z-index: 7; pointer-events: none; display: none; }
+  #titanArrow.on { display: block; }
+  #titanArrow svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 3px 8px rgba(10,30,60,.55)); }
+  #titanArrow .tnPoint { transform-origin: 50% 50%; }
+  #titanArrow .tnHead { transform-origin: 50% 50%; }
+  #titanArrow.on .tnHead { animation: tnPulse 1.8s ease-in-out infinite; }
+  @keyframes tnPulse { 0%, 100% { transform: scale(.9); } 50% { transform: scale(1.04); } }
   #heliUpBtn, #heliDownBtn { z-index: 10; color: #f2f4f7; }
   #heliUpBtn.hidden, #heliDownBtn.hidden { display: none; }
   #heliUpBtn, #heliDownBtn { right: calc(var(--edge) + env(safe-area-inset-right)); width: var(--thr); height: var(--thr); border-color: #5ff1ff; background: rgba(12, 43, 59, .9); }
@@ -713,7 +723,7 @@
     font: 700 18px system-ui, -apple-system, sans-serif; letter-spacing: .08em; }
   .dadBtn.go { background: #2b4fb0; border-color: #2b4fb0; }
   /* in dad mode his cockpit furniture and route aids step aside for the HUD */
-  body.dad #dash, body.dad #pillarL, body.dad #pillarR, body.dad #brow, body.dad #progressStrip, body.dad #homeArrow,
+  body.dad #dash, body.dad #pillarL, body.dad #pillarR, body.dad #brow, body.dad #progressStrip, body.dad #homeArrow, body.dad #titanArrow,
   body.dad #glideGuide, body.dad #aimMarker, body.dad #wingman, body.dad #rotateArrow, body.dad #alarm { display: none !important; }
   #dadHud { position: fixed; inset: 0; z-index: 9; pointer-events: none; color: #7dff9a;
     font: 600 15px/1.25 ui-monospace, "SF Mono", Menlo, monospace; text-shadow: 0 0 4px rgba(0,0,0,.8); }
@@ -999,7 +1009,7 @@
   #menuBtn:active svg { transform:scale(.92); }
   body.ejecting #menuBtn, body.ejecting #hornBtn { visibility:hidden!important; pointer-events:none!important; }
   body.ejecting .roundBtn, body.ejecting #throttleBtn { visibility:hidden!important; pointer-events:none!important; transition:none!important; }
-  body.ejecting .pillar, body.ejecting #brow, body.ejecting #progressStrip, body.ejecting #aimMarker, body.ejecting #homeArrow, body.ejecting #bigNum, body.ejecting #alarm, body.ejecting #glideGuide, body.ejecting #wingman, body.ejecting #heliTarget, body.ejecting #photo, body.ejecting #flash { visibility:hidden!important; }
+  body.ejecting .pillar, body.ejecting #brow, body.ejecting #progressStrip, body.ejecting #aimMarker, body.ejecting #homeArrow, body.ejecting #titanArrow, body.ejecting #bigNum, body.ejecting #alarm, body.ejecting #glideGuide, body.ejecting #wingman, body.ejecting #heliTarget, body.ejecting #photo, body.ejecting #flash { visibility:hidden!important; }
   #ejectVeil { position:fixed; inset:0; background:#e8f4fc; opacity:0; z-index:34; pointer-events:none; }
 </style>
 </head>
@@ -1272,6 +1282,16 @@
 <div id="homeArrow">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <path d="M50 6 L90 74 L64 62 L58 93 L42 93 L36 62 L10 74 Z" fill="#f2f4f7" stroke="#23282f" stroke-width="5" stroke-linejoin="round"/>
+  </svg>
+</div>
+<div id="titanArrow" aria-hidden="true">
+  <svg class="tnPoint" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M50 1 L63 17 L37 17 Z" fill="#5ff1ff" stroke="#1f2328" stroke-width="3.5" stroke-linejoin="round"/></svg>
+  <svg class="tnHead" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M50 22 L50 13" stroke="#3c4350" stroke-width="3.5"/><circle cx="50" cy="12" r="5" fill="#ffd23e" stroke="#1f2328" stroke-width="2.5"/>
+    <ellipse cx="50" cy="52" rx="31" ry="27" fill="#c9ced6" stroke="#1f2328" stroke-width="3.5"/>
+    <ellipse cx="50" cy="66" rx="20" ry="11" fill="#f2f4f7" stroke="#1f2328" stroke-width="2.5"/>
+    <circle cx="37" cy="47" r="10" fill="#f2f4f7" stroke="#1f2328" stroke-width="2.5"/><circle cx="38" cy="48" r="5.5" fill="#5ff1ff" stroke="#1f2328" stroke-width="2"/>
+    <circle cx="63" cy="47" r="10" fill="#f2f4f7" stroke="#1f2328" stroke-width="2.5"/><circle cx="62" cy="48" r="5.5" fill="#5ff1ff" stroke="#1f2328" stroke-width="2"/>
   </svg>
 </div>
 <div id="heliTarget" class="hidden" aria-hidden="true"><svg viewBox="0 0 48 48"><g class="destination" fill="none" stroke="currentColor" stroke-width="3"><circle cx="24" cy="24" r="15"/><circle cx="24" cy="24" r="4"/><path d="M24 2v9M24 37v9M2 24h9M37 24h9"/></g><path class="bearing" d="M24 5 39 30 24 24 9 30Z" fill="currentColor"/></svg></div>
@@ -1736,6 +1756,7 @@
 <script src="js/launchsite.js"></script>
 <script src="js/rocketsled.js"></script>
 <script src="js/fireworksbarge.js"></script>
+<script src="js/titan.js"></script>
 <script src="js/monstertruck.js"></script>
 <script src="js/monster.js"></script>
 <script src="js/heavy.js"></script>
