@@ -180,7 +180,7 @@ const COUNTER_FILES = ["crane.js", "fireworksbarge.js", "launchsite.js", "monste
 // <point>: "" after the exit, ":mid" during it, ":next" at the next clean start, ":on" after he carries on.
 // <kind>: tone | numeral | button | model, or "ran" (the exit did not happen / the mode was not reached / the
 // during-reading was not taken), with <what> the leftover's name or the reason.
-const Q3 = "Q-3 (B2): the picker's hold returns before updateRewards -> updateFlightTones and before every vehicle's own update, so their tones hold their last gain behind the cards (flight.js:466-486)";
+// (Q-3, fixed in v217: the picker's hold quiets his vehicle's motion voices -- audio.js audioHoldStill, checked in engine_sound_checks)
 const HUD7 = "HUD-7 (B3/B5): the bang branch never calls engUpdate -- the engine voice holds its pre-crash level through the bang (flight.js:405-460)";
 const Q6 = "Q-6 (B3): the bang branch never calls btnUpdateAll -- the buttons of before the bang stay up in pieces (flight.js:405-460)";
 const RACE_TYRE = "Q-16 (new): a race started from a car at speed keeps the car's tyre tone at its last gain for the whole race -- rcStartRace (race.js:1297-1345) silences the horn, the police and its own tones, not carTyre, and its only writer, updateCar (car.js:1190), does not run in a race (vehicles.js:172)";
@@ -198,7 +198,6 @@ const KNOWN = {
   "corvette/bang:mid/button/ejectBtn": EJECT_FRAME,
   "police/bang:mid/button/ejectBtn": EJECT_FRAME,
   "london/bang:mid/button/ejectBtn": EJECT_FRAME,
-  "crane/picker:mid/tone/tone:crRumble": Q3,
   "boat/bang:mid/button/ejectBtn": EJECT_FRAME,
   "yacht/bang:mid/button/ejectBtn": EJECT_FRAME,
   "rocket/bang:mid/button/ejectBtn": EJECT_FRAME,
@@ -213,7 +212,6 @@ const KNOWN = {
   "astro/switch/tone/bed:moon": STALE_BODY,
   "astro/picker/tone/bed:moon": STALE_BODY,
   "astro/picker:next/tone/bed:moon": STALE_BODY,
-  "plane/picker:mid/tone/tone:dive": Q3,
   "plane/bang:mid/tone/engine:prop": HUD7,
   "plane/bang:mid/button/fastBtn": Q6,
   "plane/bang:mid/button/slowBtn": Q6,
@@ -225,27 +223,16 @@ const KNOWN = {
   "planeDemo/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "heli/bang:mid/tone/engine:heli": HUD7,
   "heli/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
-  "car/picker:mid/tone/tone:carTyre": Q3,
   "car/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "car/race/tone/tone:carTyre": RACE_TYRE,
-  "carSeat/picker:mid/tone/tone:carTyre": Q3,
-  "cybertruck/picker:mid/tone/tone:carTyre": Q3,
   "cybertruck/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "cybertruck/race/tone/tone:carTyre": RACE_TYRE,
-  "corvette/picker:mid/tone/tone:carTyre": Q3,
-  "corvette/picker:mid/tone/tone:cvRoar": Q3,
   "corvette/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "corvette/race/tone/tone:carTyre": RACE_TYRE,
   "police/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "london/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
-  "track/picker:mid/tone/tone:trkRattle": Q3,
-  "boat/picker:mid/tone/tone:boatHull": Q3,
   "boat/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
-  "boatSeat/picker:mid/tone/tone:boatHull": Q3,
-  "yacht/picker:mid/tone/tone:yachtHull": Q3,
   "yacht/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
-  "yachtSeat/picker:mid/tone/tone:yachtHull": Q3,
-  "rocket/picker:mid/tone/rocket": Q3,
   "rocket/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "track/bang/ran/no bang": TRACK_SOLID,
   "monster/eject/ran/ejectStart returned false": DEAD_EJECT,

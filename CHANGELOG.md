@@ -10,6 +10,25 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v217 — quiet behind the menu
+
+When he opens the menu while he is moving, the game holds everything still until he picks, but some of
+the sounds of what he was in kept going under the cards: the whistle of a dive, the tyres of the car,
+the Corvette's booster roar, the rattle of the toy track, the crane's rumble, the slap of the boat's and
+the yacht's hulls, the rocket's roar. They droned on for as long as he looked at the cards. Now they
+fade out when the cards come up, the way they fade anywhere else, and when he shuts the cards each one
+comes back as it was -- including the crane's rumble while the ball swings and the towers fall, which
+the crane sets once and leaves sounding. If he picks something else instead, nothing of the old one
+comes back. The background sound of where he is (the wind, the sea, the car's cabin), the engine, and
+the sounds of the world around him (the harbour, the launch site, the demolition) stay as they were.
+Two world sounds still hold under the cards and are queued, not fixed here: a police siren in a chase,
+and a race's crowd. Underneath, the three places the game brought its sound up to date each frame are
+now one (`audioFrame`); that came first, as its own step, and over a recorded session it made the same
+sound calls with the same values every frame. In the main one, two calls that make no sound changed
+places with the sound around them (the vehicle's model is posed, and the lock moved, before the
+background sound now, not after), which a check of every sound call and every random number drawn, frame
+by frame, could not tell apart.
+
 ## Harness: the leaving matrix (2026-11-13, no game change, no version)
 
 How the game is tested, not the game (QUEUE B1, Track B's first step). `scripts/leave_matrix_checks.js`, modelled on

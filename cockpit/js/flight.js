@@ -374,7 +374,7 @@ function update(dt) {
   // ejection -- update() returns before the frame's usual horn pass.
   // (v213) ... and the engine's voice: ejectStart set it to 0, but the voice is moved only by
   // engUpdate, below this return -- it droned at cruise for the whole rescue
-  if (eject.active) { updateEjection(dt); carUpdateHorn(dt); engUpdate(engineLevelNow(), dt); return; }
+  if (eject.active) { updateEjection(dt); audioFrame(dt, "eject"); return; }
   if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) spawnAtAirport(state.originIdx);   // (v214) paired
   applyKeyboard(dt);
   // v154: inside dad mode his world is scenery. His events, set-pieces and rewards all
@@ -477,8 +477,7 @@ function update(dt) {
     updateVehicleModel(dt);
     updateSky(dt);
     updateFx(dt);
-    updateAmbientAudio(dt);
-    engUpdate(engineLevelNow(), dt);
+    audioFrame(dt, "hold");   // the bed and the engine, and (v217, Q-3) his vehicle's motion voices go quiet
     btnUpdateAll();
     updateHud();
     shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));
@@ -763,16 +762,16 @@ function update(dt) {
   updateSunRig();            // the shadow box rides the camera, so it must follow it
   updateAtmosphere(dt);      // ... and the sun billboard is pinned off the camera too
   updateAmbient(dt, state.x, state.y, state.z);
-  updateAmbientAudio(dt);    // the bed for wherever he is: wind, rotor wash, cabin hum, dust, or almost nothing
   shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));   // proportional, so a big bang lingers and a small one is gone
   updateVehicleModel(dt);
 
-  carUpdateHorn(dt);        // the horn's TONES; whether its button exists is the table's
   lockUpdate(dt);           // the gates, the water and the beacons
-  // The engine voice, once a frame, from whatever `setEngine` was last told.
-  // Here rather than inside setEngine because the crossfade, the wobble and the
-  // doppler decay all need dt, and sixteen call sites do not have one.
-  engUpdate(engineLevelNow(), dt);
+  // The frame's audio (audio.js, AUDIO_TAILS): the bed for wherever he is (wind, rotor wash, cabin hum,
+  // dust, or almost nothing), the horn's tones, and the engine voice from whatever `setEngine` was last told.
+  // (v217) The bed moved here from before updateVehicleModel, and lockUpdate up from after the horn: neither
+  // updateVehicleModel nor lockUpdate writes a voice or reads anything the bed or the horn sets, and the
+  // bed reads nothing they set (only the wind bed reads his height, and a boat in the lock hears the sea).
+  audioFrame(dt, "frame");
   // EVERY button, from js/buttons.js, computed from scratch. Last thing before
   // the HUD, so nothing any vehicle did to the DOM this frame can survive it --
   // which is what makes the sixteen `add("hidden")` suppressions unnecessary.

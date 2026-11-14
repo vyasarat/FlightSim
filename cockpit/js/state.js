@@ -161,6 +161,7 @@ function applyVehicle(key) {
     if (typeof boatCannonPress === "function") boatCannonPress(false);
   }
   if (typeof setTone === "function") for (const [n, t, f] of VEHICLE_TONES) setTone(n, t, f, 0);
+  if (typeof audioHoldForget === "function") audioHoldForget();   // (v217) nothing the picker quieted comes back in what he picked
   el.missileBtn.classList.toggle("lowSlot", !!state.vp.rocket);   // the shared slot is spoken for on a rocket
   if (!state.vp.rocket) {
     // (v213) re-entry's glow and roar are driven only by the rocket's own update: left mid-re-entry
@@ -193,6 +194,7 @@ function spawnAtAirport(at) { spawnForTakeoff(at, at === 1 ? 1 : 0); }
 function spawnForTakeoff(originIdx, dirIdx) {
   if (originIdx === undefined) { originIdx = state.originIdx; }
   if (dirIdx === undefined) { dirIdx = state.dirIdx; }
+  if (typeof audioHoldForget === "function") audioHoldForget();   // (v217) ... nor in a fresh start
   if (typeof raceReset === "function") raceReset();   // v164: every start is out of a race
   if (typeof demoStandDown === "function") demoStandDown();   // (v213) ... and out of a demolition's count
   // (v214) ... and out of a police pull-over: its cars eased toward him with no limit on the step,

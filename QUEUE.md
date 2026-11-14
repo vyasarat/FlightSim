@@ -47,7 +47,7 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 ## 4. Track B: leaving and sound (one per release, in this order)
 
 - [x] **B1** (shipped 2026-11-13: 1400/1400, the 1362 names and 38 new; law-reviewer BLOCK, BLOCK, PASS) -- `scripts/leave_matrix_checks.js`: 24 modes x 8 exits (switch, picker, eject, bang, race, globe, the mode's own EXIT, relaunch), 176 cells run, portrait and landscape; each exit seen to happen and the mode seen to be left; what is left (tone, numeral, button, model) must equal its KNOWN table exactly, by the leftover's own name. Q-3, HUD-7 and Q-6 confirmed there; Q-7 not reproduced; it found Q-15 to Q-20.
-- [ ] **B2** One `audioFrame(dt)` out of `update()`'s three audio tails (flight.js:377, :480-481, :766-775), no behaviour change; then call it from the picker hold -- fixes **Q-3** (stall warble, dive whistle and the tyre/hull/roar tones hold their last gain behind the picker).
+- [x] **B2** (shipped 2026-11-13 as v217: 1403/1403; law-reviewer BLOCK, PASS -- round 1 silenced the crane's rumble through swing and fall for good; the hold now remembers what it quiets and puts back what no owner has rewritten) One `audioFrame(dt)` out of `update()`'s three audio tails (flight.js:377, :480-481, :766-775), no behaviour change; then call it from the picker hold -- fixes **Q-3** (stall warble, dive whistle and the tyre/hull/roar tones hold their last gain behind the picker).
 - [ ] **B3** `frameWorld` / `framePicture` / `frameControls` extracted verbatim; each early-return variant restated as a named subset, no behaviour change. Then, separately: `btnUpdateAll` in the bang variant -- fixes **Q-6** (buttons not recomputed during a plane, heli or rocket bang; the speed step can still be nudged).
 - [ ] **B4** One ordered `LEAVE` table from the three reset lists (state.js:126-176, :189-259, input.js:480-507), verbatim and in today's order (`eventsSpawn` draws from the stream); then each exit calls the table, one row per release.
 - [ ] **B5** Tone ownership: `setTone` stamps the frame; an opted-in tone not written this frame is swept to zero at the end of `update()`. One tone per release.
@@ -81,6 +81,9 @@ unifying the turn rule (all four implementations stay as they are), any three.js
 - [ ] **Q-12** The view/gear debounce is 18 frames, not seconds: 0.6 s at 30 Hz (input.js:204-227).
 - [ ] **Q-13** Rocket-start rivals are picked by roster index, not grid slot (race.js:1487).
 - [ ] **Q-14** The oval's last-lap shortcut boom stays open after a race (race.js:629, :1885). Cosmetic.
+- [ ] **Q-21** (v217 builder) A chase siren holds its last gain behind the picker: `policeSiren`/`policeSirenB` (police.js:207-208) are written only from updatePolice (police.js:239), called from updateHighway (highway.js:1207, after the hold) and the bang branch (flight.js:425). Maybe also `raceCrowd` and the race surface tones (race.js:2579-2581), not reproduced: the matrix's race/picker cell is clean.
+- [ ] **Q-22** (v217 builder) The runway roll survives a vehicle switch made without the cards: `applyVehicle` silences `VEHICLE_TONES`, and the roll (`setRolling`) is not one of them.
+- [ ] **Q-23** (v217 law-reviewer, keyboard/harness only) A rescue begun on the frame the cards close keeps what the hold remembered and restores it when the canopy lands: the eject tail neither resumes nor forgets (audio.js AUDIO_TAILS.eject; flight.js:377). `audioHoldForget()` in the eject tail closes it.
 
 ## 8. Harness, Track A steps 4-5, and the picture baseline
 
