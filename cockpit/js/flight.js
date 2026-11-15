@@ -363,6 +363,172 @@ function updateFlightTones() {
   setTone("dive", "sine", dive ? 500 + (-state.pitch - 15) * 28 : 500, dive ? 0.09 : 0);
 }
 
+// ---- the frame's three tails (v220, B3) --------------------------------------
+// update() has one full path and two early returns that run part of the same tail: the bang (while he is in
+// pieces) and the picker's hold (v212: menuOpen() && !vehParked()). Each tail is three steps, always in this
+// order: the WORLD goes on around him (frameWorld), the PICTURE is posed (framePicture), and the CONTROLS are
+// decided and drawn (frameControls). FRAME_TAILS names, per tail, which sub-steps it runs -- moved verbatim from
+// update(), each tail in exactly its old order; a sub-step a tail skips is false, never quietly run.
+//   frame  update()'s own tail: all of the world, the feel, the sun and the ambient life, the buttons, the speed
+//          pair's dimming, the HUD. (lockUpdate and the audio sit between the picture and the controls, and the
+//          fx and the explosion's free pieces after them, in update() where they always were.)
+//   bang   in pieces (state.exploding): the ground, the shatter, the train (after the shatter -- the old order),
+//          the traffic and the rewards, the junctions, the chase and the booster going out; the camera and his
+//          model; the buttons and the HUD. Its sky, fx and shake follow in update(), after the HUD, as they
+//          always did. The frame he bangs on in the fixed-wing flight model (resolveSolidWalls) runs these
+//          controls too. (v220, Q-6) The buttons were not recomputed here: a plane that hit a wall kept its
+//          faster and slower buttons up for the whole bang, and a tap on one still moved his step. Every
+//          button is the table's now, in pieces as everywhere else (slot_checks, "buttons in pieces"). The
+//          eject button is not the table's (eject.js owns it, at the top of update()): Q-19, not this.
+//   hold   behind the picker: only what never touches him (the crash warning goes quiet, smoke drifts, a dropped
+//          stage still flies home); the camera, his model, the sky and the fx; the buttons and the HUD.
+const FRAME_TAILS = {
+  frame: {
+    world:    { space: true,  ground: true,  scenery: true,  train: "before", towns: true,  traffic: true,
+                still: false, roads: false,  around: true },
+    picture:  { feel: true,  sun: true,  skyFx: false },
+    controls: { buttons: true,  speed: true },
+  },
+  bang: {
+    world:    { space: false, ground: true,  scenery: false, train: "after",  towns: false, traffic: true,
+                still: false, roads: true,   around: false },
+    picture:  { feel: false, sun: false, skyFx: false },
+    controls: { buttons: true,  speed: false },   // (v220, Q-6) the buttons too: see the header
+  },
+  hold: {
+    world:    { space: false, ground: false, scenery: false, train: false,    towns: false, traffic: false,
+                still: true,  roads: false,  around: false },
+    picture:  { feel: false, sun: false, skyFx: true },
+    controls: { buttons: true,  speed: false },
+  },
+};
+// proportional, so a big bang lingers and a small one is gone
+function frameShake(dt) {
+  shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));
+}
+function frameWorld(dt, tail, dadOn) {
+  const W = FRAME_TAILS[tail].world;
+  if (W.space) {
+    const aglSpace = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
+    let spaceTarget = 0;
+    if (!state.vp.capped && state.phase === "AIRBORNE") {
+      spaceTarget = clamp((aglSpace - TUNE.spaceAltitude) / TUNE.spaceBlendBand, 0, 1);
+    } else if (state.vp.rocket && rk.onBody) {
+      spaceTarget = 1;   // sitting on the Moon or Mars
+    }
+    const dEnvS = typeof dadEnv === "function" ? dadEnv() : null;   // v158: a dad mission may keep the day sky high up
+    if (dEnvS && dEnvS.space !== undefined) spaceTarget = dEnvS.space;
+    state.spaceF += (spaceTarget - state.spaceF) * Math.min(1, 1.4 * dt);
+    if (state.vp.capped && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY")) {
+      if (state.y > TUNE.otherVehicleCeiling) {
+        state.y = TUNE.otherVehicleCeiling;
+        if (state.pitch > -2) state.pitch -= 20 * dt;
+      }
+    }
+    updateSky(dt);
+    const sf = state.spaceF;
+    stars.material.opacity = Math.max(sf, state.nightF);
+    earthMesh.material.opacity = sf * 0.96;
+    // the Earth follows along below, but stops rising once you're in deep space so it
+    // looks like a ball far beneath the Moon rather than a wall next to it
+    // In deep space the Earth stays far below as a ball in a black sky -- from the
+    // Moon it must never fill the view like a blue sky.
+    earthMesh.position.set(state.x, Math.min(state.y - 3600, -1400), state.z);
+    earthMesh.visible = sf > 0.02;
+    satellite.visible = station.visible = sf > 0.05;
+    if (satellite.visible) {
+      satellite.rotation.y += dt * 0.4;
+      satellite.rotation.x += dt * 0.12;
+      station.rotation.y += dt * 0.16;
+    }
+    waterMesh.visible = sf < 0.9;
+    updateWater(dt);
+    artUpdate();
+  }
+
+  if (W.ground) updateChunks(state.x, state.z);
+  if (W.scenery) updateScenery(state.x, state.z, false);
+  if (W.train === "before") updateTrain(dt, state.x, state.z);
+  if (W.ground) updateShatter(dt);
+  if (W.train === "after") updateTrain(dt, state.x, state.z);
+  if (W.towns) {
+    cullLandmarks(dt, state.x, state.z);
+    cityUpdate(dt);
+    if (typeof ldUpdate === "function") ldUpdate(dt);   // v197: London's clock, wheel, ships and whale
+  }
+  if (W.traffic) {
+    updateTraffic(dt, state.x, state.y, state.z);
+    updateMissiles(dt);
+    updateRewards(dt);
+  }
+  updateCrashWarning(dt);   // (behind the picker it is muted: an alarm already sounding goes off)
+  if (W.still) {
+    // the world's own pieces go on: a dropped stage still flies home, a fairing still chutes into the
+    // net boat, smoke drifts, satellites he let go keep unfolding -- none of it touches him (his rings,
+    // targets and spots wait with him; no new spray is made off a vehicle that is not moving)
+    updateSmoke(dt); updateCraters(dt);
+    updateFallingStages(dt); updateSatellites(dt);
+  }
+  if (W.roads) {
+    // The junctions keep cycling and the police keep coming while he is in
+    // pieces. The bang returns before `updateHighway`, so without these two
+    // the lights froze mid-bang and popped on reassembly, and a chase stopped
+    // dead for the length of the explosion -- which made crashing a way of
+    // shaking them off, and it is not one.
+    if (typeof ltUpdate === "function" && lights.built) ltUpdate(dt);
+    if (typeof updatePolice === "function") updatePolice(dt);
+    // and the Corvette's booster goes out in the bang (v159): its roar and flames stop
+    if (typeof cvUpdate === "function" && vehBooster()) cvUpdate(dt, false);
+    rumble = 0;
+  }
+  skyDome.position.set(state.x, state.y, state.z);
+  waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
+
+  if (W.around) {
+    const hx = -Math.sin(state.heading), hz = -Math.cos(state.heading);
+    for (const c of clouds) {
+      const dx = c.position.x - state.x, dz = c.position.z - state.z;
+      if (dx * dx + dz * dz > TUNE.fogFar * TUNE.fogFar * 1.44) {
+        respawnCloud(c, state.x, state.z, hx, hz, true);
+      }
+    }
+
+    const pulse = 1 + Math.sin(gameMs() * 0.001 * TUNE.ringPulseRate) * 0.07;
+    for (const r of rings) r.scale.setScalar(pulse);
+    const blinkOn = Math.sin(gameMs() * 0.004) > -0.3;
+    for (const b of blinkers) if (!b.userData.override) b.visible = blinkOn;
+
+    updateHighway(dt);
+    if (typeof trackFrame === "function") trackFrame(dt);
+    if (!dadOn) updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
+  }
+}
+function framePicture(dt, tail) {
+  const P = FRAME_TAILS[tail].picture;
+  if (P.feel) updateFeel(dt);   // field of view, bob, the nod and the hit-stop -- picture only
+  applyCamera(dt);
+  if (P.sun) {
+    updateSunRig();            // the shadow box rides the camera, so it must follow it
+    updateAtmosphere(dt);      // ... and the sun billboard is pinned off the camera too
+    updateAmbient(dt, state.x, state.y, state.z);
+    frameShake(dt);
+  }
+  updateVehicleModel(dt);
+  if (P.skyFx) {
+    updateSky(dt);
+    updateFx(dt);
+  }
+}
+function frameControls(tail) {
+  const C = FRAME_TAILS[tail].controls;
+  // EVERY button, from js/buttons.js, computed from scratch. Last thing before
+  // the HUD, so nothing any vehicle did to the DOM this frame can survive it --
+  // which is what makes the sixteen `add("hidden")` suppressions unnecessary.
+  if (C.buttons) btnUpdateAll();
+  if (C.speed) spdUpdateButtons();       // ... then the speed pair's dimming, which is appearance
+  updateHud();
+}
+
 function update(dt) {
   frameCount++;
   state.gameT += dt;   // (v203) the game's own clock: every bob and pulse times off it
@@ -409,31 +575,12 @@ function update(dt) {
     setEngine(0.01);
     if (state.vp.rocket) setRocketEngine(0, state.spaceF);
     state.engaged = false;
-    updateChunks(state.x, state.z);
-    updateShatter(dt);
-    updateTrain(dt, state.x, state.z);
-    updateTraffic(dt, state.x, state.y, state.z);
-    updateMissiles(dt);
-    updateRewards(dt);
-    updateCrashWarning(dt);
-    // The junctions keep cycling and the police keep coming while he is in
-    // pieces. This branch returns before `updateHighway`, so without these two
-    // the lights froze mid-bang and popped on reassembly, and a chase stopped
-    // dead for the length of the explosion -- which made crashing a way of
-    // shaking them off, and it is not one.
-    if (typeof ltUpdate === "function" && lights.built) ltUpdate(dt);
-    if (typeof updatePolice === "function") updatePolice(dt);
-    // and the Corvette's booster goes out in the bang (v159): its roar and flames stop
-    if (typeof cvUpdate === "function" && vehBooster()) cvUpdate(dt, false);
-    rumble = 0;
-    skyDome.position.set(state.x, state.y, state.z);
-    waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
-    applyCamera(dt);
-    updateVehicleModel(dt);
-    updateHud();
+    frameWorld(dt, "bang", dadOn);   // the world, the junctions and the chase go on while he is in pieces
+    framePicture(dt, "bang");
+    frameControls("bang");
     updateSky(dt);   // rain, snow and the dome keep moving while it reassembles
     updateFx(dt);
-    shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));   // proportional, so a big bang lingers and a small one is gone
+    frameShake(dt);
     if (state.explodeTimer <= 0) {
       state.exploding = false;
       state.x = safePos.x;
@@ -465,22 +612,11 @@ function update(dt) {
   // there). Parked, nothing is moving: that frame runs as ever.
   if (menuOpen() && !vehParked()) {
     el.rotateArrow.classList.remove("on");
-    updateCrashWarning(dt);   // muted behind the cards: an alarm already sounding goes off
-    // the world's own pieces go on: a dropped stage still flies home, a fairing still chutes into the
-    // net boat, smoke drifts, satellites he let go keep unfolding -- none of it touches him (his rings,
-    // targets and spots wait with him; no new spray is made off a vehicle that is not moving)
-    updateSmoke(dt); updateCraters(dt);
-    updateFallingStages(dt); updateSatellites(dt);
-    skyDome.position.set(state.x, state.y, state.z);
-    waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
-    applyCamera(dt);
-    updateVehicleModel(dt);
-    updateSky(dt);
-    updateFx(dt);
+    frameWorld(dt, "hold", dadOn);   // only what never touches him (FRAME_TAILS.hold)
+    framePicture(dt, "hold");
     audioFrame(dt, "hold");   // the bed and the engine, and (v217, Q-3) his vehicle's motion voices go quiet
-    btnUpdateAll();
-    updateHud();
-    shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));
+    frameControls("hold");
+    frameShake(dt);
     return;
   }
   if (state.phase !== "AIRBORNE") state.flaring = false;
@@ -615,7 +751,7 @@ function update(dt) {
 
     resolveSolidWalls();
     if (state.exploding) {
-      updateHud();
+      frameControls("bang");   // the frame he bangs on: the bang's controls (FRAME_TAILS.bang)
       updateFx(dt);
       return;
     }
@@ -691,79 +827,8 @@ function update(dt) {
     }
   }
 
-  const aglSpace = state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel);
-  let spaceTarget = 0;
-  if (!state.vp.capped && state.phase === "AIRBORNE") {
-    spaceTarget = clamp((aglSpace - TUNE.spaceAltitude) / TUNE.spaceBlendBand, 0, 1);
-  } else if (state.vp.rocket && rk.onBody) {
-    spaceTarget = 1;   // sitting on the Moon or Mars
-  }
-  const dEnvS = typeof dadEnv === "function" ? dadEnv() : null;   // v158: a dad mission may keep the day sky high up
-  if (dEnvS && dEnvS.space !== undefined) spaceTarget = dEnvS.space;
-  state.spaceF += (spaceTarget - state.spaceF) * Math.min(1, 1.4 * dt);
-  if (state.vp.capped && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY")) {
-    if (state.y > TUNE.otherVehicleCeiling) {
-      state.y = TUNE.otherVehicleCeiling;
-      if (state.pitch > -2) state.pitch -= 20 * dt;
-    }
-  }
-  updateSky(dt);
-  const sf = state.spaceF;
-  stars.material.opacity = Math.max(sf, state.nightF);
-  earthMesh.material.opacity = sf * 0.96;
-  // the Earth follows along below, but stops rising once you're in deep space so it
-  // looks like a ball far beneath the Moon rather than a wall next to it
-  // In deep space the Earth stays far below as a ball in a black sky -- from the
-  // Moon it must never fill the view like a blue sky.
-  earthMesh.position.set(state.x, Math.min(state.y - 3600, -1400), state.z);
-  earthMesh.visible = sf > 0.02;
-  satellite.visible = station.visible = sf > 0.05;
-  if (satellite.visible) {
-    satellite.rotation.y += dt * 0.4;
-    satellite.rotation.x += dt * 0.12;
-    station.rotation.y += dt * 0.16;
-  }
-  waterMesh.visible = sf < 0.9;
-  updateWater(dt);
-  artUpdate();
-
-  updateChunks(state.x, state.z);
-  updateScenery(state.x, state.z, false);
-  updateTrain(dt, state.x, state.z);
-  updateShatter(dt);
-  cullLandmarks(dt, state.x, state.z);
-  cityUpdate(dt);
-  if (typeof ldUpdate === "function") ldUpdate(dt);   // v197: London's clock, wheel, ships and whale
-  updateTraffic(dt, state.x, state.y, state.z);
-  updateMissiles(dt);
-  updateRewards(dt);
-  updateCrashWarning(dt);
-  skyDome.position.set(state.x, state.y, state.z);
-  waterMesh.position.set(state.x, TUNE.waterLevel, state.z);
-
-  const hx = -Math.sin(state.heading), hz = -Math.cos(state.heading);
-  for (const c of clouds) {
-    const dx = c.position.x - state.x, dz = c.position.z - state.z;
-    if (dx * dx + dz * dz > TUNE.fogFar * TUNE.fogFar * 1.44) {
-      respawnCloud(c, state.x, state.z, hx, hz, true);
-    }
-  }
-
-  const pulse = 1 + Math.sin(gameMs() * 0.001 * TUNE.ringPulseRate) * 0.07;
-  for (const r of rings) r.scale.setScalar(pulse);
-  const blinkOn = Math.sin(gameMs() * 0.004) > -0.3;
-  for (const b of blinkers) if (!b.userData.override) b.visible = blinkOn;
-
-  updateHighway(dt);
-  if (typeof trackFrame === "function") trackFrame(dt);
-  if (!dadOn) updateSetpiecesLate(dt);   // the carrier deck holds him only after the flight model has run
-  updateFeel(dt);            // field of view, bob, the nod and the hit-stop -- picture only
-  applyCamera(dt);
-  updateSunRig();            // the shadow box rides the camera, so it must follow it
-  updateAtmosphere(dt);      // ... and the sun billboard is pinned off the camera too
-  updateAmbient(dt, state.x, state.y, state.z);
-  shakeAmp = Math.max(0, shakeAmp - dt * TUNE.camera.shakeDecay * Math.max(0.22, shakeAmp));   // proportional, so a big bang lingers and a small one is gone
-  updateVehicleModel(dt);
+  frameWorld(dt, "frame", dadOn);
+  framePicture(dt, "frame");
 
   lockUpdate(dt);           // the gates, the water and the beacons
   // The frame's audio (audio.js, AUDIO_TAILS): the bed for wherever he is (wind, rotor wash, cabin hum,
@@ -772,12 +837,7 @@ function update(dt) {
   // updateVehicleModel nor lockUpdate writes a voice or reads anything the bed or the horn sets, and the
   // bed reads nothing they set (only the wind bed reads his height, and a boat in the lock hears the sea).
   audioFrame(dt, "frame");
-  // EVERY button, from js/buttons.js, computed from scratch. Last thing before
-  // the HUD, so nothing any vehicle did to the DOM this frame can survive it --
-  // which is what makes the sixteen `add("hidden")` suppressions unnecessary.
-  btnUpdateAll();
-  spdUpdateButtons();       // ... then the speed pair's dimming, which is appearance
-  updateHud();
+  frameControls("frame");
   updateFx(dt);
   updateExplosion(dt, safePos, false);
 }

@@ -170,7 +170,139 @@ module.exports = async function slotChecks({ newPage, check, viewports }) {
     await page.close();
   }
   await measuredOnce({ newPage, check });
+  await bangButtons({ newPage, check });
 };
+
+// ---------------------------------------------------------------------------
+// (v220, Q-6) IN PIECES, THE BUTTONS ARE WHAT THE TABLE SAYS, AND THE SPEED STEP CANNOT BE NUDGED.
+//
+// The bang (flight.js, FRAME_TAILS.bang) returned before the frame's btnUpdateAll, so whatever was up when he
+// banged stayed up in pieces -- the plane's faster and slower buttons, and a tap on one still moved his step.
+// In the states he is really in: portrait; the plane, the helicopter and the rocket, each flying; a real bang
+// through the one wall law (him, at cruise, inside the nearest solid that blocks his class -- the leaving
+// matrix's own bang). On every frame he is still in pieces after it, every button the table owns must be shown
+// exactly when its own when() says; and twice in the bang (just after it, and half a second in) a finger lands
+// and lifts on each point a speed button sat on before the bang, one point a frame -- whatever is under the finger then is
+// what is pressed -- and his speed step must not move: a DELTA, step before against step after. Then, put back
+// together (half a second on), the speed control he had is up again as its when() says, on the step he left it.
+// The rocket has no step: its one live control before the bang is the throttle, which its when() keeps up in
+// pieces; twice a finger lands and lifts where it sat, and nothing of the rocket (his position, speed, the
+// throttle held, every plain field of rk) may change beyond what the untapped frame before it changed.
+// What this does not cover: the ground bang and the gear-up bang (flight.js, the full path), landscape, the seat.
+// ---------------------------------------------------------------------------
+async function bangButtons({ newPage, check }) {
+  const { page } = await newPage(820, 1180);
+  const rows = await page.evaluate(() => {
+    const L = window.__lp, st = L.state;
+    L.noRender = true; L.api.skipScreens();
+    const step = (n) => { for (let i = 0; i < n; i++) L.update(1 / 60); };
+    const air = () => st.phase === "AIRBORNE" || st.phase === "CLIMB_AWAY";
+    const shown = id => !!el[id] && !el[id].classList.contains("hidden") && getComputedStyle(el[id]).display !== "none";
+    const tapAt = ([x, y]) => {
+      const t = document.elementFromPoint(x, y) || document.body;
+      for (const type of ["pointerdown", "pointerup"])
+        t.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, clientX: x, clientY: y }));
+      return t.id || t.tagName;
+    };
+    const SETUP = {
+      plane() { L.api.setVehicle("prop"); L.api.teleportAirborne(1200, 0, 320, 0); step(20); },
+      heli() { L.api.setVehicle("helicopter"); L.api.spawnAt(0, 0); step(10); heli.vertical = 1; step(120); heli.vertical = 0; step(30); },
+      rocket() { L.api.setVehicle("rocket"); L.api.placeOnRunway(); step(10); L.api.setThrottle(true); step(60 * 5); },
+    };
+    const out = [];
+    for (const v of ["plane", "heli", "rocket"]) {
+      SETUP[v]();
+      const r = { v, air: air(), speedIds: [], pts: [], taps: [], bad: [], inPieces: 0, exploded: false, back: false };
+      // the step in the middle of its range, so a nudge either way would move it (the helicopter's cycle always does)
+      const steps = spdStepsFor(spdKey());
+      if (steps) st.speedStep = Math.floor((steps.length - 1) / 2);
+      r.stepBefore = st.speedStep;
+      r.speedIds = ["fastBtn", "slowBtn", "speedBtn"].filter(shown);
+      // the rocket has no step: its live control is the throttle (hold to burn), up before the bang and, by its
+      // own when(), in pieces too -- a finger on it must change nothing of the rocket while he is in pieces
+      // (the setup holds the throttle through the harness; let go of it first, or the tap's release is read as a change)
+      if (v === "rocket") { L.api.setThrottle(false); step(1); }
+      if (v === "rocket" && shown("throttleBtn")) { const b = el.throttleBtn.getBoundingClientRect(); r.rocketPt = [b.left + b.width / 2, b.top + b.height / 2]; }
+      const rocketSnap = () => { const o = { x: st.x, y: st.y, z: st.z, speed: st.speed, throttleHeld: !!st.throttleHeld, exploding: !!st.exploding };
+        for (const key in L.rk) { const val = L.rk[key]; if (val === null || typeof val !== "object") o["rk." + key] = val; } return o; };
+      for (const id of r.speedIds) { const b = el[id].getBoundingClientRect(); r.pts.push([b.left + b.width / 2, b.top + b.height / 2]); }
+      r.upBefore = Object.keys(BUTTONS).filter(id => BUTTONS[id].when && shown(id));
+      // the bang: the nearest solid that blocks his class, him inside it at cruise
+      const cls = vehSolidClass(), cruise = st.vp.cruiseSpeed || 40;
+      let best = null, bd = Infinity;
+      L.forEachSolid(b => {
+        if (b.o3 || b.cap || b.ramp || b.toy || b.moving || b.car !== undefined || b.park) return;
+        if (!L.solidBlocks(b, cls) || (b.mesh && b.mesh.visible === false) || L.isSolidHidden(b)) return;
+        if (!(b.hw > 3 && b.hd > 3 && b.y1 - b.y0 > 6)) return;
+        const d = Math.hypot(b.x - st.x, b.z - st.z);
+        if (d < bd) { bd = d; best = b; }
+      }, st.x, st.z, 2000);
+      if (!best) { r.why = "no solid in reach"; out.push(r); continue; }
+      st.x = best.x; st.z = best.z + best.hd - 1;
+      st.y = Math.min(best.y1 - 2, Math.max(best.y0 + 3, st.y));
+      st.heading = 0; st.speed = cruise;
+      if (vehKind() === "heli") { heli.vx = 0; heli.vz = -cruise; heli.altitude = st.y; }
+      const judge = (frame) => {
+        for (const id in BUTTONS) {
+          const b = BUTTONS[id];
+          if (!b.when || !el[id]) continue;
+          let want = false;
+          try { want = !!b.when(); } catch (e) { want = false; }
+          if (shown(id) !== want) r.bad.push({ frame, id, shown: shown(id), want });
+        }
+      };
+      for (let n = 0; n < 60 && !st.exploding; n++) { st.speed = Math.max(st.speed, cruise); L.update(1 / 60); }
+      r.exploded = !!st.exploding;
+      if (st.exploding) judge(0);
+      for (let k = 1; st.exploding && k < 60 * 12; k++) {
+        // one finger on one point per frame, so a faster and a slower pressed together cannot cancel out
+        const p = (k === 2 || k === 30) ? r.pts[0] : (k === 3 || k === 31) ? r.pts[1] : null;
+        if (p) {
+          const s0 = st.speedStep, hit = tapAt(p);
+          L.update(1 / 60);
+          r.taps.push({ k, hit, before: s0, after: st.speedStep });
+        } else if (r.rocketPt && (k === 10 || k === 40)) {
+          // a delta against the same frame untapped is not available, so the frame before is the control:
+          // what a frame in pieces changes on its own, the tapped frame may change too; nothing more
+          const a0 = rocketSnap(); L.update(1 / 60); const a1 = rocketSnap();
+          const hit = tapAt(r.rocketPt); L.update(1 / 60); const a2 = rocketSnap(); k++;
+          const own = new Set(Object.keys(a1).filter(q => a1[q] !== a0[q]));
+          const changed = Object.keys(a2).filter(q => a2[q] !== a1[q] && !own.has(q));
+          r.taps.push({ k, hit, changed: changed.map(q => q + ":" + a1[q] + "->" + a2[q]) });
+          if (st.exploding) { r.inPieces++; judge(k - 1); }
+        } else L.update(1 / 60);
+        if (st.exploding) { r.inPieces++; judge(k); }
+      }
+      r.back = !st.exploding;
+      step(30);
+      // put back together: the speed control he had before is up again as its when() says, on the step he left it
+      r.after = { step: st.speedStep, pair: ["fastBtn", "slowBtn", "speedBtn"].map(id => {
+        let want = false; try { want = !!BUTTONS[id].when(); } catch (e) {}
+        return { id, shown: shown(id), want };
+      }) };
+      r.bad = r.bad.slice(0, 8);
+      out.push(r);
+    }
+    return out;
+  });
+  for (const r of rows) {
+    const rocket = r.v === "rocket";
+    const moved = r.taps.filter(t => rocket ? t.changed.length > 0 : t.after !== t.before);
+    const ran = r.air && r.exploded && r.back && r.inPieces > 20 &&
+      (rocket ? !!r.rocketPt && r.taps.length === 2 : r.pts.length > 0 && r.taps.length === 2 * r.pts.length);
+    // back together: every speed button agrees with its when(), the ones up before the bang are up again, the step is where it was
+    const backOk = !!r.after && r.after.pair.every(q => q.shown === q.want) &&
+      r.speedIds.every(id => r.after.pair.find(q => q.id === id).shown) && r.after.step === r.stepBefore;
+    const claim = rocket
+      ? "every frame of a bang the buttons are what their when() says, a finger on where its throttle sat changes nothing of the rocket, and back together its buttons are as when() says"
+      : "every frame of a bang the buttons are what their when() says, a finger on where the speed step sat does not move it, and back together the speed control is up again on the step he left it";
+    check(`buttons in pieces (v220, Q-6): ${r.v} -- ${claim}`,
+      ran && r.bad.length === 0 && moved.length === 0 && backOk,
+      JSON.stringify({ why: r.why, air: r.air, exploded: r.exploded, back: r.back, inPieces: r.inPieces, speedIds: r.speedIds, upBefore: r.upBefore, taps: r.taps, stepBefore: r.stepBefore, after: r.after, bad: r.bad }));
+  }
+  await page.close();
+}
+module.exports.bangButtons = bangButtons;
 
 // ---------------------------------------------------------------------------
 // (v216) THE CONTROLS ARE MEASURED ONCE A FRAME, AND EVERY ASK GETS THE TRUTH.
