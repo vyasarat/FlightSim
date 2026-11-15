@@ -41,7 +41,7 @@ const COST = {
   "cleanup_checks": 1.7, "payoff_size_checks": 1.5, "dadmissions_checks": 1.4, "engine_sound_checks": 1.4,
   "car_feel_checks": 1.4, "event_pool_checks": 1.3, "corvette_checks": 1.3,
   "leave_matrix_checks": 5.0,
-  "titan_checks": 3.0,          // (v218) the giant robot: two felling rounds and a rebuild wait, ~3 min alone   // (B1) 176 cells on 48 pages, ~5 min alone
+  "titan_checks": 9.5,          // (v218) the giant robot: two felling rounds and a rebuild wait; (v219) its attacks and the noisy-finger sweep (65 runs by real touches): ~9.5 min alone   // (B1) 176 cells on 48 pages, ~5 min alone
 };
 const DEFAULT = 1.0;
 // (v194) launchsite_checks and monstertruck_checks render frame after frame: 38 s and 2 min alone, 12-17 and 9 min

@@ -1,6 +1,7 @@
 "use strict";
 // ---------------------------------------------------------------------------
-// WORKING RULES -- THE GIANT ROBOT (v218, stage 1 of 3: "it rises, he shoots it down, it rebuilds").
+// WORKING RULES -- THE GIANT ROBOT (v218, stage 1: "it rises, he shoots it down, it rebuilds"; v219, stage 2: its
+// three attacks, THE ATTACKS below. The boat's part is parked by the parent, QUEUE.md section 10).
 //
 // A metal toy dinosaur as tall as a skyscraper rises out of the sea off New York and wades
 // slowly up and down the coast. The plane's and the helicopter's missiles knock its armour
@@ -31,17 +32,74 @@
 //     one wall law's bang and free reassembly (collision.js / flight.js, unchanged): measured, one bang,
 //     back within 80 m of where it happened, outside it, and no second bang in 20 s hands-off. It
 //     holds still while he is in pieces and for `grace` after, and it NEVER MOVES A SOLID WHILE HE IS
-//     NEAR: within sweepR of any part's surface nothing that carries a solid moves -- no turn, step,
+//     NEAR: within sweepR of any part's surface nothing that carries a LIVE solid moves -- no turn, step,
 //     breath, tail swish, key turn or head turn (they run on `mclock`, which stops), and a hit's
-//     stagger is skipped (its lamps blink instead).
+//     stagger is skipped (its lamps blink instead). THE ONE EXCEPTION (v219), ANNOUNCED: the tail swipe
+//     swings the tail at him on purpose -- and for all of it, from the flash until the tail is home and
+//     he is clear of it, the tail's record is OFF the registry (titan.tailOff): through all that time the
+//     tail is PASSABLE -- not a wall, and not a hit -- except from minLead to its end (5.5-6.9 s after the
+//     flash), when the swipe's own test can bang him. Its coil goes away from the mark; and once the swipe is
+//     called off or done, while he is within sweepR of it, it HOLDS -- it goes home only once he is clear,
+//     never toward or through him. Everything unannounced still holds still.
 //   * Rising and falling it is not solid, but a missile at what he can see of it (above the water) is
 //     never let through: it glances off with sparks and a clank (tnShrug) and takes nothing.
 //   * Pointing, not timing: a missile fired at it bends on to it (the meteor rule, events.js) -- to a
 //     weak spot when its line passes within weakLock of one; a missile fired away from it (outside
 //     lockDot) is left alone.
-//   * STAGE 1 NEVER ATTACKS. It turns to face him and its eyes follow; nothing is thrown, swept or
-//     fired. (Stage 2 can hang its attacks off tnStandDown and titan.calm.)
-//   * One-shot sounds only: no setTone, so nothing of it can drone on after he leaves.
+//   * One-shot sounds only: no setTone, so nothing of it can drone on after he leaves (every voice of an attack
+//     is over within a second: the wind-up 0.88 s, the swipe 1.0 s; the beam's charge is short blips from its frame).
+//
+// THE ATTACKS (v219; the parent's words: "it turns to face him, and every attack is announced -- eyes flash, a
+// wind-up roar -- and can be dodged by steering: a tail swipe, a thrown boulder of scrap, a slow sweeping eye beam.
+// A hit on him is a bang and a free reassembly where it happened. Nothing taken away. It never attacks while he is
+// behind the picker or just reassembled." Every number is TUNE.titan.atk; titan_checks.js sections 10-18 measure each.)
+//   * ONLY PROVOKED: his first hit on it this life, or him coming within provokeR of its middle from outside it.
+//     Rebuilt, it has forgotten. AN ATTACK THAT HITS HIM SATISFIES IT: provoked again only by his next missile hit, or
+//     by him going out beyond provokeR and coming back in -- left hands-off where it got him, nothing comes again.
+//   * ONLY THE PLANE AND THE HELICOPTER, in the air, within startR, and never: behind the cards, in the rescue, in dad
+//     mode, in pieces, landing (an engaged approach he is lined up on, within atk.landLat of the runway's line:
+//     tnAtkLanding), on the ground, within atk.calm (15 s) after ANY reassembly of his or a
+//     stand-down, within atk.gap of the last one (which runs on behind the cards), within afterCards of the cards
+//     shutting, while it staggers or keeps still, or held (the harness's freeze).
+//     tnAtkWhyNot names the rule that holds it back.
+//   * IT STARTS ONLY WHERE HE CAN SEE IT: its middle on his screen, and the mark -- or three dots of its path -- too.
+//     (So from his seat, hovering dead still behind it, no tail: its mark would be his own eye.)
+//   * EVERY ONE ANNOUNCED: at the flash its eyes flash yellow and white, bigger, and the wind-up roar plays; the MARK
+//     -- a striped ring, yellow and white, turned to him, its stripes turning, closing in to its true size as the
+//     strike comes -- stands where his straight-line flight puts him at the strike, and bright yellow dots (the same
+//     size on his screen at any range) run to it. The mark is fixed at the flash and never re-aimed. The ring is never
+//     drawn round his own eye: from his SEAT it is gone with his eye within ringNearHide of its radii, whole by
+//     ringNearFull (a hovering helicopter IS its own mark: there the dots running from it to him say it is aimed at
+//     him); from the CHASE view the ring round him is the picture, gone only with the camera inside it. A tail swipe
+//     he can no longer be shown -- switched to his seat mid-swipe: its ring round his eye, its path beside him -- is
+//     called off ("unseen") at any moment of it, wind-up or strike. And after an attack HITS him, what is left of that
+//     bang near him when he is put back (its debris and smoke boxes, its crash smoke) is cleared, within smokeClearR.
+//   * NOTHING OF IT CAN BANG HIM SOONER THAN minLead (5.5 s) AFTER THE FLASH -- its own test runs only from then.
+//     The boulder: 3.0 s gathering scrap in its hands, 2.8 s on its arc to the mark. The beam: 3.0 s charging at its
+//     eyes (a glow), then a bright bar from them SWEEPING in the upright plane through its eyes and the mark: on at
+//     the sea in front of it, its tip walking out across the water (steam where it touches) and up to the mark at
+//     6.0 s, held 0.7 s. Not across a fan -- a sideways sweep puts one side of every dodge into it; in the upright
+//     plane any sideways steer is clear of it, and climbing is clear (it never goes past the mark). The tail: only
+//     when his mark is low and close behind or beside it; 4.0 s coiling AWAY from the mark, lifted, then a sweep
+//     through it (at 5.9 s) and on. Pointing, not timing: any steer away from the mark is safe; flying straight on,
+//     hands-off, is hit. (The parent, 2026-11-15: a steer begun within 3 s of the flash must escape -- measured, every
+//     attack, plane and helicopter, east end and home, begun at 2.5 and 3.0 s; begun later he may be hit, and that is fine.)
+//   * WHAT BANGS HIM IS THE THING ITSELF: the boulder's ball (r + pad), the beam's bar from its eyes to its tip, the
+//     tail's own capsule. Not the registry: a moving wall is what the registry is not for, and its law shoves a
+//     hovering helicopter where the parent's rule says a hit is a bang. A hit is the mid-air's own bang (traffic.js):
+//     in pieces where it happened, put back there by the one bang branch (flight.js) -- raised over its head, the wall
+//     law's over-the-top rule (top + clearAbove: 188 m over the sea), so the straight line he comes back on clears it.
+//     One bang size for both (atk.bang). A missile he puts into the tail through a swipe -- off the registry -- is
+//     still a hit on it (tnTailMissiles), and knocks the swipe out of its wind-up like any hit.
+//   * NEVER A LOOP: a hit satisfies it (above); after any other reassembly no flash for atk.calm. Any bang of his calls
+//     an attack under way off the first frame it sees him in pieces.
+//   * HIS COUNTER-MOVE: his missile hitting it during a wind-up knocks it out of it (it staggers -- or, him inside its
+//     sweep, blinks -- and the attack is called off).
+//   * GIVEN UP VISIBLY, never fired at nothing: flown beyond giveUpR while it winds up, behind the cards, on the
+//     ground, landing (as above), in pieces, a tail swipe he can no longer see -- the boulder crumbles into junk, the eyes stop flashing, a wah-wah, and
+//     its ring and dots shrink away in `abandon` s. A stand-down, dad mode or its fall end it at once.
+//   * One attack at a time; every piece made once at load (the boulder, the ring, the dots, the beam, one glow).
+//     Bright toy colours, no red wash: the eyes flash yellow, the ring is yellow and white, the beam pale cyan.
 //   * Its own random stream (tnRnd); every three.js object it uses made at load inside vkQuiet, none
 //     after (a whole cycle draws nothing from Math.random but its sounds' noise, audio.js's own).
 //   * Hidden and not solid in dad mode (dadHideHis calls tnHide); stood down (tnStandDown, the hook
@@ -75,6 +133,10 @@ const titan = {
   g: null, parts: {}, recs: [], plates: [], lamps: [], weak: [], eyes: [],
   platesMesh: null, debris: [], debrisMesh: null, sparks: [], sparkPts: null, puffs: [], puffPts: null,
   member: null, arrowOn: false,
+  // (v219) the attacks: provoked this life; the attack under way (one at a time); no flash while atkCalm or
+  // atkGap runs; which kind next (atkN alternates the boulder and the beam; atkPick, the harness's, chooses)
+  provoked: false, atk: null, atkCalm: 0, atkGap: 0, atkN: 0, atkPick: null, wasEx: false,
+  tailBlend: 0, tailYaw: 0, tailPitch: 0, tailOff: false,   // the tail in a swipe: how far its pose is the swipe's; its record off
 };
 
 // ---- building -------------------------------------------------------------
@@ -235,6 +297,7 @@ function tnBuild() {
   }
   // ---- the tail
   const tail = grp(body, 0, 8, -26);
+  tail.rotation.order = "YXZ";   // (v219) its lift is its own elevation, whichever way it has swung
   parts.tail = tail;
   {
     const k = tnKit();
@@ -400,6 +463,7 @@ function tnBuild() {
   R.z0 = Math.min(...zs) - TITAN.reach - 20; R.z1 = Math.max(...zs) + TITAN.reach + 20;
   titan.region = R;
 
+  tnAtkBuild(mat);
   titan.built = true;
   tnReset();
 }
@@ -422,6 +486,9 @@ function tnReset() {
   for (const s of titan.sparks) s.life = 0;
   for (const p of titan.puffs) p.life = 0;
   if (titan.member) titan.member.state.next = 0;
+  titan.provoked = false; titan.wasOutside = true; titan.atkCalm = 0; titan.atkGap = 0; titan.atkN = 0; titan.wasEx = false; titan.wasMenu = false;
+  tnAtkStop("reset", false);
+  titan.tailBlend = 0; titan.tailOff = false;
   tnPose(0);
   tnSolidOn(false);
   tnShow(false);
@@ -451,7 +518,7 @@ function tnShow(on, body) {
 }
 function tnSolidOn(on) {
   titan.solid = on;
-  for (const r of titan.recs) r.mesh.visible = on;
+  for (const r of titan.recs) r.mesh.visible = on && !(r.tnPart === "tail" && titan.tailOff);
 }
 
 // The harness's doors, and dad mode's.
@@ -469,17 +536,22 @@ function tnForce(what) {
 }
 function tnHide() {
   if (!titan.built) return;
+  tnAtkStop("hidden", false);
   tnShow(false);
   tnSolidOn(false);
   titan.sparkPts.visible = false; titan.puffPts.visible = false; titan.debrisMesh.visible = false;
   tnArrow(false);
 }
-// Whatever it was doing to him, it stops: a fresh start, an eject. (Stage 1 has no attack to cancel;
-// it forgets him, and keeps still for a moment.)
+// Whatever it was doing to him, it stops: a fresh start, a change of vehicle, an eject. It forgets him, keeps
+// still for a moment, and (v219) an attack under way is gone at once -- he is somewhere else, or under the
+// canopy (update() runs nothing of the world then, so nothing of it may be left to finish) -- and no flash for
+// its calm time.
 function tnStandDown(why) {
   if (!titan.built) return;
   titan.watching = false; titan.facing = false;
   titan.calm = Math.max(titan.calm, TITAN.grace);
+  tnAtkStop("standDown", false);
+  titan.atkCalm = Math.max(titan.atkCalm, TITAN.atk.calm);
   titan.lastStandDown = why || "other";
   tnArrow(false);
   flags.tnStandDowns = (flags.tnStandDowns || 0) + 1;
@@ -495,7 +567,27 @@ function tnSound(kind) {
   const h = tnHear();
   if (h <= 0) return false;
   const g = TITAN.gain * h;
-  if (kind === "roar") {
+  flags["tnSnd_" + kind] = (flags["tnSnd_" + kind] || 0) + 1;   // (v219) every one-shot it plays, by kind: the checks hear what it says
+  if (kind === "windup") {
+    // (v219) an attack's announcement: a toy wind-up -- a ratchet of clicks rising, then two bright honks
+    // (every part of it over within 0.9 s: a given-up attack leaves nothing of its voice for long)
+    for (let i = 0; i < 6; i++) synthBlip("square", 900 + i * 110, 900 + i * 110, 0.04, 0.07 * g, i * 0.07);
+    synthBlip("sawtooth", 220, 440, 0.55, 0.16 * g, 0.05); synthBlip("square", 330, 660, 0.5, 0.06 * g, 0.07);
+    synthBlip("sawtooth", 294, 392, 0.3, 0.18 * g, 0.58);
+  } else if (kind === "throw") {
+    noiseBurst(0.7, 900, 0.22 * g, 0); synthBlip("sine", 300, 120, 0.6, 0.12 * g, 0);
+  } else if (kind === "hum") {
+    synthBlip("sine", 520 + (titan.atk ? titan.atk.t : 0) * 160, 560 + (titan.atk ? titan.atk.t : 0) * 160, 0.18, 0.07 * g, 0);
+  } else if (kind === "zap") {
+    synthBlip("triangle", 1200, 600, 0.5, 0.14 * g, 0); synthBlip("sine", 880, 660, 0.5, 0.08 * g, 0.02);
+  } else if (kind === "swipe") {
+    noiseBurst(1.0, 700, 0.24 * g, 0); synthBlip("sine", 160, 80, 0.8, 0.14 * g, 0);
+  } else if (kind === "fizzle") {
+    // given up or knocked out of it: a deflating toy, wah-wah, short
+    synthBlip("square", 420, 260, 0.22, 0.09 * g, 0); synthBlip("square", 300, 120, 0.3, 0.09 * g, 0.22);
+  } else if (kind === "thud") {
+    noiseBurst(0.6, 420, 0.3 * g, 0); synthBlip("sine", 80, 40, 0.5, 0.25 * g, 0);
+  } else if (kind === "roar") {
     // a toy horn growl: two honks and a rattle, not a scream
     synthBlip("sawtooth", 196, 150, 0.7, 0.2 * g, 0); synthBlip("square", 294, 220, 0.6, 0.07 * g, 0.03);
     synthBlip("sawtooth", 150, 247, 0.9, 0.2 * g, 0.6); synthBlip("square", 220, 330, 0.8, 0.06 * g, 0.62);
@@ -598,6 +690,13 @@ function tnPose(dt) {
   P.body.position.y = 52 + Math.abs(Math.cos(titan.step * Math.PI)) * walk * 1.6 + breathe * 0.4;
   P.tail.rotation.y = Math.sin(titan.mclock * 0.9) * T.tailSwish * DEG;
   P.tail.rotation.x = Math.sin(titan.mclock * 0.7) * 3 * DEG;
+  // (v219) a tail swipe: the ANNOUNCED exception to "nothing swung while he is near" -- its record is off the
+  // registry for all of it (titan.tailOff), and only the swipe's own test, after minLead, can bang him
+  if (titan.tailBlend > 0) {
+    const b = titan.tailBlend;
+    P.tail.rotation.y = lerp(P.tail.rotation.y, titan.tailYaw, b);
+    P.tail.rotation.x = lerp(P.tail.rotation.x, titan.tailPitch, b);
+  }
   P.key.rotation.y = titan.mclock * T.keyRate;
   // a stagger: rocked back, the head thrown
   // (not while he is inside its sweep: then a hit blinks its lamps and throws sparks, and nothing of it swings)
@@ -669,11 +768,14 @@ function tnFollow() {
   titan.lampPts.geometry.attributes.position.needsUpdate = true;
   titan.lampPts.geometry.attributes.color.needsUpdate = true;
   const T = TITAN, frac = titan.points / tnPointsMax();
+  // (v219) an attack's wind-up: the eyes FLASH, yellow and white, bigger -- the announcement
+  const flash = tnAtkFlashing(), fOn = flash && Math.floor(titan.clock * T.atk.flashHz * 2) % 2 === 0;
   for (const e of titan.eyes) {
     e.s.position.copy(tnV.copy(e.p).applyMatrix4(P.head.matrixWorld));
     e.lit = titan.phase === "up" || titan.phase === "rising" && titan.t > tnHeadUpAt();   // out the moment it falls
     const dim = frac < 1 / 3 ? T.eyeDim : 1;
-    e.s.scale.setScalar(T.eyeSize * dim * (titan.stagger > 0 ? 0.7 : 1));
+    e.s.scale.setScalar(T.eyeSize * (flash ? T.atk.eyeFlash : dim) * (titan.stagger > 0 ? 0.7 : 1));
+    e.s.material.color.setHex(flash ? (fOn ? TUNE.palette.warning : 0xffffff) : T.eyeColor);
   }
   const pulse = T.weakPulse[0] + (T.weakPulse[1] - T.weakPulse[0]) * (0.5 + 0.5 * Math.sin(titan.clock * T.weakRate));
   const lensOn = titan.phase === "up" || (titan.phase === "rising" && titan.t > tnHeadUpAt());
@@ -717,6 +819,9 @@ function tnMissileHit(b, x, y, z, m) {
   // and its lamps blink instead
   if (titan.near) { titan.blinkT = TITAN.stagger; flags.tnStaggersSkipped = (flags.tnStaggersSkipped || 0) + 1; }
   else { titan.stagger = TITAN.stagger; flags.tnStaggers = (flags.tnStaggers || 0) + 1; }
+  // (v219) his hit provokes it -- and knocks it out of a wind-up: his counter-move, and it shows (tnAtkAbandon)
+  if (!titan.provoked) { titan.provoked = true; flags.tnProvoked_hit = (flags.tnProvoked_hit || 0) + 1; }
+  if (titan.atk && titan.atk.on && titan.atk.stage === "wind") tnAtkAbandon("hit");
   if (weak) {
     // a weak spot looks it: its glow flares, a burst of its own colour and a wide ring, three plates, its own sound
     const wc = TITAN.weak.find(q => q.name === weak.name).color;
@@ -798,6 +903,22 @@ function tnBend(dt) {
   }
 }
 
+// (v219) Through a tail swipe the tail is off the registry -- so the missiles' registry test (traffic.js) does not see
+// it -- yet a missile he puts into it must not fly through: its own capsule is tested here, a hit like any other
+// (it knocks the swipe out of its wind-up as a hit anywhere does)
+function tnTailMissiles() {
+  if (!titan.tailOff || titan.phase !== "up" || typeof missiles === "undefined") return;
+  const r = tnTailRec();
+  for (const m of missiles) {
+    if (!m.alive || !solidTest(r, m.x, m.y, m.z, TITAN.hitPad)) continue;
+    if (!tnMissileHit(r, m.x, m.y, m.z, m)) continue;
+    m.alive = false; m.mesh.visible = false;
+    triggerExplosion(m.x, m.y, m.z, TA.tailBoom, state.exploding);
+    flags.missileHits = (flags.missileHits || 0) + 1;
+    flags.tnTailHits = (flags.tnTailHits || 0) + 1;
+  }
+}
+
 // ---- the phases ---------------------------------------------------------------
 function tnStartRise() {
   const T = TITAN;
@@ -805,6 +926,7 @@ function tnStartRise() {
   titan.y = seaLevelAt(titan.x, titan.z);
   titan.roared = false;
   titan.walk = 0; titan.stagger = 0; titan.headYaw = 0; titan.headPitch = 0; titan.near = false;
+  titan.provoked = false; titan.wasOutside = true;   // (v219) rebuilt, it has forgotten him
   titan.phase = "rising"; titan.t = 0;
   tnRepair();
   flags.tnRises = (flags.tnRises || 0) + 1;
@@ -813,6 +935,8 @@ function tnStartFall() {
   const T = TITAN;
   titan.phase = "fall"; titan.fallT = 0; titan.t = 0; titan.splashed = false; titan.fires = 0; titan.fireT = 0; titan.horned = false;
   titan.stagger = 0;
+  tnAtkStop("fall", true);   // (v219) an attack dies with it: a boulder in its hands crumbles, the rest goes
+  titan.tailBlend = 0; titan.tailOff = false;
   tnSolidOn(false);       // from its first frame the fall is not a wall
   // away from him: backwards if he is in front of it, forwards if behind
   // over on to a side (a roll about its own fore-and-aft line): the side away from him, and seaward when he
@@ -884,8 +1008,8 @@ function tnShrug(dt) {
     }
     if (!hit) continue;
     m.alive = false; m.mesh.visible = false;
-    triggerExplosion(tnV.x, tnV.y, tnV.z, 0.35, true);
-    for (let i = 0; i < TITAN.shrugSparks; i++) { const a = tnRnd() * Math.PI * 2, u = tnRnd(); tnSpark(tnV.x, tnV.y, tnV.z, Math.cos(a) * 16 * u, 6 + tnRnd() * 14, Math.sin(a) * 16 * u, 0.5 + tnRnd() * 0.5, TUNE.palette.white, 12, 0.5); }
+    triggerExplosion(tnV.x, tnV.y, tnV.z, TITAN.shrugBoom, true);
+    for (let i = 0; i < TITAN.shrugSparks; i++) { const a = tnRnd() * Math.PI * 2, u = tnRnd(); tnSpark(tnV.x, tnV.y, tnV.z, Math.cos(a) * TITAN.shrugSpread * u, 6 + tnRnd() * 14, Math.sin(a) * TITAN.shrugSpread * u, 0.5 + tnRnd() * 0.5, TUNE.palette.white, 12, 0.5); }
     tnSound("clang");
     flags.tnShrugs = (flags.tnShrugs || 0) + 1;
   }
@@ -910,6 +1034,25 @@ function updateTitan(dt) {
   // by the one wall law's own rule: over the capsule he hit, collision.js / flight.js)
   if (state.exploding && d < T.reach + T.clearAbove) titan.calm = Math.max(titan.calm, T.grace);
   titan.calm = Math.max(0, titan.calm - dt);
+  // (v219) his bangs, wherever: an attack under way is called off the first frame it sees him in pieces
+  // (tnAtkUpdate, "bang": he is never put back together into a strike), and nothing flashes for atk.calm after he is back
+  if (!state.exploding && titan.wasEx) {
+    titan.atkCalm = Math.max(titan.atkCalm, TA.calm);
+    // put back together after an attack HIT: what is left of that bang near him -- its debris and smoke boxes
+    // (explosion.js), its crash smoke (landmarks.js) -- goes, so nothing of it hangs across his view as he flies on
+    // (readability beats realism; every other bang keeps its debris as ever)
+    if (titan.atkHitPending) { titan.atkHitPending = false; tnClearBangNear(); }
+  }
+  // ... and only that bang: the mark lives while he is in pieces, never past it (a reset that puts him back unseen by
+  // this edge -- a fresh start, the picker -- must not leave it to clear some later bang of his)
+  if (!state.exploding) titan.atkHitPending = false;
+  titan.wasEx = !!state.exploding;
+  // the cards shut: never a flash on the frame they close (atk.afterCards); the gap and calm run on behind them
+  const menuNow = typeof menuOpen === "function" && menuOpen();
+  if (titan.wasMenu && !menuNow) titan.atkGap = Math.max(titan.atkGap, TA.afterCards);
+  titan.wasMenu = menuNow;
+  titan.atkCalm = Math.max(0, titan.atkCalm - dt);
+  titan.atkGap = Math.max(0, titan.atkGap - dt);
   const ph = titan.phase;
   if (ph === "sea") {
     if (titan.member && evpDue(titan.member, dt) && homeD < T.wakeR && d > T.clearR) tnStartRise();
@@ -929,10 +1072,14 @@ function updateTitan(dt) {
     // he is near and can shoot: it turns to face him and stops wading; otherwise it wades
     titan.watching = d < T.watchR && !busy && !(typeof eject !== "undefined" && eject.active);
     titan.facing = titan.watching && d < T.faceR && tnShooter();
+    // (v219) provoked by nearness (his first hit provokes it too, tnMissileHit); then its attacks
+    if (d > TA.provokeR) titan.wasOutside = true;
+    if (!titan.provoked && titan.wasOutside && tnShooter() && d < TA.provokeR) { titan.provoked = true; titan.wasOutside = false; flags.tnProvoked_near = (flags.tnProvoked_near || 0) + 1; }
+    tnAtkUpdate(dt, d);
     // NEVER A PART SWUNG INTO HIM: inside its sweep it holds every joint where it is -- no turn, no step,
     // no head, no stagger -- so anything he meets there is a wall he flew into, never one that came at him
     if (!titan.near) titan.stagger = Math.max(0, titan.stagger - dt);
-    const still = titan.hold || titan.calm > 0 || titan.stagger > 0 || titan.near;
+    const still = titan.hold || titan.calm > 0 || titan.stagger > 0 || titan.near || !!(titan.atk && titan.atk.on);   // (v219) it holds still to attack
     let want = titan.yaw, walk = 0;
     if (!still) {
       if (titan.facing) want = Math.atan2(state.x - titan.x, state.z - titan.z);
@@ -982,7 +1129,8 @@ function updateTitan(dt) {
     }
     // steam from the vents; now and then a roar
     titan.steamT -= dt;
-    if (titan.steamT <= 0) {
+    // (not while it attacks: far off, its fogged steam drifting past its head read as grey smoke from its eyes)
+    if (titan.steamT <= 0 && !(titan.atk && titan.atk.on)) {
       titan.steamT = T.steamEvery * (0.7 + tnRnd() * 0.6);
       for (const side of [-1, 1]) {
         tnV.set(side * 7, 46, -10).applyMatrix4(titan.parts.body.matrixWorld);
@@ -1041,8 +1189,10 @@ function updateTitan(dt) {
     }
   }
   titan.roarJaw = Math.max(0, titan.roarJaw - dt * 0.7);
+  if (titan.phase !== "up") tnAtkTail(dt);
   tnPose(dt);
   tnFollow();
+  tnAtkPieces(dt);
   if (titan.phase !== "up" && titan.solid) tnSolidOn(false);
   // drawn near enough, and never in dad mode (dad mode does not run this; dadHideHis hides it)
   const camD = Math.hypot(camera.position.x - titan.x, camera.position.z - titan.z);
@@ -1065,6 +1215,7 @@ function updateTitan(dt) {
   }
   if (shown && (titan.phase === "rising" && titan.t > tnHeadUpAt() || titan.phase === "fall")) tnShrug(dt);
   tnBend(dt);
+  tnTailMissiles();
   tnPools(dt, camD < T.drawR);
 }
 
@@ -1127,9 +1278,13 @@ function tnPools(dt, near) {
       d.vy -= 9.8 * dt;
       d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt;
       d.rx += d.wx * dt; d.ry += d.wy * dt;
-      if (d.y < sea - 2) {
-        if (d.vy < -4) tnSplashRing(d.x, d.z, 6, 4, 5, 1.2);
-        d.life = 0;
+      // (v219) into water it sinks with a splash; on LAND it comes to rest on the ground (it fell through the land,
+      // out of sight, before: the boulder's junk on the beach was never seen)
+      if (tnIsWater(d.x, d.z)) {
+        if (d.y < sea - 2) { if (d.vy < -4) tnSplashRing(d.x, d.z, 6, 4, 5, 1.2); d.life = 0; }
+      } else {
+        const g = terrainEff(d.x, d.z) + d.sy * 0.5;
+        if (d.y < g) { const k = TITAN.debrisRest; d.y = g; d.vx *= k; d.vz *= k; d.vy = 0; d.wx *= k; d.wy *= k; }
       }
     }
   }
@@ -1147,8 +1302,578 @@ function tnPools(dt, near) {
 }
 let tnObj = null;   // made at load, inside vkQuiet (an Object3D draws Math.random for its id)
 
+// ---- v219: THE ATTACKS ----------------------------------------------------------------
+// (the rules are the header's "THE ATTACKS"; every number is TUNE.titan.atk)
+const TA = TITAN.atk;
+const tnAtkV = new THREE.Vector3(), tnAtkV2 = new THREE.Vector3(), tnAtkV3 = new THREE.Vector3(), tnAtkMi = new THREE.Matrix4();
+const tnAtkUp = new THREE.Vector3(0, 1, 0);
+const tnAtkMk = { x: 0, y: 0, z: 0, th: 0, rho: 0, qy: 0, beta: 0 };
+const tnAtkRp = new THREE.Vector3();
+// made once, at load, inside vkQuiet with the rest of it: the scrap boulder, the mark's ring, the dotted path, the
+// beam, and one glow (the beam's charge and tip, the tail's tip) -- one attack at a time, so one of each
+function tnAtkBuild(mat) {
+  const P = TUNE.palette;
+  // the boulder: a ball of a machine's junk -- bright plates, a pipe, a cog -- never a rock with a face
+  {
+    const k = tnKit();
+    k.add(P.steel, new THREE.IcosahedronGeometry(0.92, 1), 0, 0, 0);
+    // (bright toy plates all over it: from far off it reads as a ball of coloured junk, not a dark rock)
+    const bits = [[P.red, 0.8, 0.25, 0.3, 0.3, 0.2], [P.warning, -0.6, 0.55, -0.4, -0.5, 0.9], [P.blue, 0.1, -0.85, 0.35, 1.1, 0.3],
+                  [P.green, -0.4, -0.3, 0.85, 0.2, -0.7], [P.cyan, 0.55, 0.6, -0.55, 0.8, 0.5], [P.fire, -0.85, -0.2, -0.3, -0.3, 1.4],
+                  [P.warning, 0.2, 0.9, 0.3, 1.2, 0.1], [P.red, -0.3, -0.6, -0.75, 0.6, 2.0], [P.green, 0.9, -0.3, -0.2, 0.1, 1.6]];
+    for (const [c, x, y, z, rx, ry] of bits) k.add(c, new THREE.BoxGeometry(0.95, 0.7, 0.3), x, y, z, rx, ry, 0);
+    k.add(P.steel, tnCyl(0.16, 0.16, 1.1, 8), 0.75, -0.55, -0.35, 0.6, 0, 0.9);    // a pipe sticking out
+    k.add(P.warning, tnCyl(0.42, 0.42, 0.18, 10), -0.2, 0.95, 0.25, 0.4, 0, 0.2);  // a cog
+    const m = k.build(mat);
+    m.visible = false; scene.add(m);
+    titan.boulder = m;
+  }
+  // the mark: a striped ring, yellow and white, turned to face him; its radius is what can bang him
+  {
+    const g = new THREE.TorusGeometry(1, TA.ringTube, 8, TA.ringSeg);
+    const pos = g.attributes.position, col = [];
+    const cw = new THREE.Color(P.warning), cl = new THREE.Color(0xffffff);
+    for (let i = 0; i < pos.count; i++) {
+      const a = Math.atan2(pos.getY(i), pos.getX(i)), s = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 8) % 2 ? cw : cl;
+      col.push(s.r, s.g, s.b);
+    }
+    g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, transparent: true, depthWrite: false }));
+    m.renderOrder = 5; m.visible = false; scene.add(m);
+    titan.atkRing = m;
+  }
+  // the dotted path: where it will go, to the ring
+  {
+    const n = TA.beads, geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    geo.setDrawRange(0, 0);
+    // (pixel-sized, not world-sized: as big at 700 m as at 70 m, and never a blob round his own eye)
+    const m = new THREE.Points(geo, new THREE.PointsMaterial({ map: glowTex, size: TA.beadPx, sizeAttenuation: false, vertexColors: true,
+      transparent: true, depthWrite: false, fog: false, blending: THREE.NormalBlending }));
+    m.frustumCulled = false; m.renderOrder = 5; m.visible = false; scene.add(m);
+    titan.atkBeads = m;
+  }
+  // the beam: a bright bar from its eyes, base at its origin, grown along +y to the length it has reached
+  {
+    const g = new THREE.CylinderGeometry(1, 1, 1, 10, 1, true);
+    g.translate(0, 0.5, 0);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: TUNE.palette.cyan, fog: false, transparent: true, opacity: TA.beam.opacity, depthWrite: false, side: THREE.DoubleSide }));
+    m.renderOrder = 5; m.visible = false; scene.add(m);
+    titan.atkBeam = m;
+  }
+  { const s = glowSprite(TITAN.eyeColor, TA.glowStart[0], TA.glowStart[1]); s.visible = false; scene.add(s); titan.atkGlow = s; }
+}
+function tnAtkPieces3() { return [titan.boulder, titan.atkRing, titan.atkBeads, titan.atkBeam, titan.atkGlow]; }
+function tnAtkShown() { return titan.built && tnAtkPieces3().some(o => o.visible); }
+function tnAtkFlashing() { const A = titan.atk; return !!(A && A.on && A.stage === "wind"); }
+// he is in the air in something that shoots (ask the vehicle first, the phase last)
+function tnAloft() { return tnShooter() && (state.phase === "AIRBORNE" || state.phase === "CLIMB_AWAY"); }
+// his velocity: what "straight on" means for each
+function tnHisVel(out) {
+  if (vehKind() === "heli") return out.set(heli.vx || 0, heli.vy || 0, heli.vz || 0);
+  const sp = state.speed, p = state.pitch * DEG, h = state.heading;
+  return out.set(-Math.sin(h) * Math.cos(p) * sp, Math.sin(p) * sp, -Math.cos(h) * Math.cos(p) * sp);
+}
+function tnAtkLead(kind) { const K = TA[kind]; return kind === "boulder" ? K.wind + K.fly : kind === "beam" ? K.wind + K.reach : K.hitAt; }
+function tnAtkLiveTo(kind) { const K = TA[kind]; return kind === "boulder" ? K.liveTo : kind === "beam" ? K.wind + K.reach + K.hold : K.end; }
+function tnTailRec() { return titan.recs.find(r => r.tnPart === "tail"); }
+function tnAtkHitR(kind) { return kind === "boulder" ? TA.boulder.r + TA.boulder.pad : kind === "beam" ? TA.beam.r + TA.beam.pad : tnTailRec().cap.r + TA.tail.pad; }
+// the tail's resting elevation (its capsule's axis), from its points
+function tnTailRestElev() { const A = TITAN.tailPts[TITAN.tailPts.length - 1]; return Math.atan2(A[1], -A[2]); }
+// THE MARK: where his straight-line flight puts him at the strike, if this attack can reach it there
+function tnAtkMarkFor(kind, out) {
+  tnHisVel(tnAtkV); const lead = tnAtkLead(kind);
+  out.x = state.x + tnAtkV.x * lead; out.y = state.y + tnAtkV.y * lead; out.z = state.z + tnAtkV.z * lead;
+  const sea = seaLevelAt(titan.x, titan.z), K = TA.tail;
+  if (kind === "tail") {
+    // in the body's frame, from the tail's pivot: how far out, which way round (0 = straight back), how high
+    const P = titan.parts;
+    tnAtkMi.copy(P.body.matrixWorld).invert();
+    tnAtkV2.set(out.x, out.y, out.z).applyMatrix4(tnAtkMi).sub(P.tail.position);
+    out.rho = Math.hypot(tnAtkV2.x, tnAtkV2.z); out.th = Math.atan2(-tnAtkV2.x, -tnAtkV2.z); out.qy = tnAtkV2.y;
+    out.beta = Math.atan2(tnAtkV2.y, out.rho) - tnTailRestElev();
+    const h = out.y - sea;
+    if (out.rho < K.inner || out.rho > K.reach || Math.abs(out.th) > K.sector * DEG) return null;
+    if (h < K.minH || h > K.maxH || out.beta < K.pitchMin * DEG || out.beta > K.pitchMax * DEG) return null;
+    return out;
+  }
+  const dh = Math.hypot(out.x - titan.x, out.z - titan.z), h = out.y - sea;
+  if (dh < TA.markMin || dh > TA.markMax || out.y - tnGround(out.x, out.z) < TA.markSea || h > TA.markTop) return null;
+  return out;
+}
+// the eyes' middle, world
+function tnEyeMid(out) { return out.copy(titan.eyes[0].s.position).add(titan.eyes[1].s.position).multiplyScalar(0.5); }
+// a point along an attack's path to its mark, u from 0 (it) to 1 (the mark)
+function tnAtkPath(A, u, out) {
+  if (A.kind === "boulder") {
+    const h = TA.boulder.arc * Math.hypot(A.mx - A.p0x, A.mz - A.p0z);
+    return out.set(A.p0x + (A.mx - A.p0x) * u, A.p0y + (A.my - A.p0y) * u + 4 * h * u * (1 - u), A.p0z + (A.mz - A.p0z) * u);
+  }
+  if (A.kind === "beam") { tnEyeMid(out); return out.set(out.x + (A.mx - out.x) * u, out.y + (A.my - out.y) * u, out.z + (A.mz - out.z) * u); }
+  const th = A.thS + (A.thE - A.thS) * u, P = titan.parts;
+  return out.set(-Math.sin(th) * A.rho, A.qy, -Math.cos(th) * A.rho).add(P.tail.position).applyMatrix4(P.body.matrixWorld);
+}
+// the ring's drawn radius: what bangs, never under ringMinFrac of its distance from his eye, closing in from
+// ringStart times that over the wind-up to it at the strike
+function tnAtkRingR(A) {
+  const camD = camera.position.distanceTo(tnAtkRingPos(A, tnAtkRp));
+  if (A.ringShrink > 0) return A.ringShrink;
+  const close = Math.min(1, A.t / tnAtkLead(A.kind));
+  return Math.max(A.hitR, camD * TA.ringMinFrac) * lerp(TA.ringStart, 1, close);
+}
+// how much of the ring may be drawn: none with his eye within ringNearHide of its radii (a hovering helicopter IS its
+// own mark -- the ring would be a slab round his eye), all of it from ringNearFull
+function tnAtkRingFade(A) {
+  const P = tnAtkRingPos(A, tnAtkRp);
+  let camD = camera.position.distanceTo(P);
+  const R = tnAtkRingR(A);
+  // the chase view: the camera behind him, the ring round HIM is what he should see -- gone only with the camera inside it
+  if (state.viewChase) return clamp((camD / R - TA.ringNearHideChase) / (TA.ringNearFullChase - TA.ringNearHideChase), 0, 1);
+  // (from his seat his eye IS where he is -- the camera easing in after a switch of view must not show it him meanwhile)
+  camD = Math.min(camD, Math.hypot(state.x - P.x, state.y - P.y, state.z - P.z));
+  return clamp((camD / R - TA.ringNearHide) / (TA.ringNearFull - TA.ringNearHide), 0, 1);
+}
+// the beam's tip, f from 0 (on) to 1 (at the mark): in the upright plane through its eyes (where they were as it came
+// on) and the mark -- on the sea startAt of the way out, across the water to under the mark by seaUntil, then up to it
+function tnBeamTip(A, f, out) {
+  // (over the GROUND: on the water's surface, or over land on the land -- never under it)
+  const K = TA.beam;
+  if (f < K.seaUntil) { const h = lerp(K.startAt, 1, f / K.seaUntil), x = A.ex + (A.mx - A.ex) * h, z = A.ez + (A.mz - A.ez) * h; return out.set(x, tnGround(x, z), z); }
+  return out.set(A.mx, lerp(tnGround(A.mx, A.mz), A.my, (f - K.seaUntil) / (1 - K.seaUntil)), A.mz);
+}
+// the ground under a point: the land, or the water's surface (water is terrainEff under seaLevelAt, nothing else)
+function tnGround(x, z) { return Math.max(terrainEff(x, z), seaLevelAt(x, z)); }
+function tnIsWater(x, z) { return terrainEff(x, z) < seaLevelAt(x, z); }
+// the boulder past its mark, tt s on: on along its arc's own velocity, falling under g -- the one place it is written
+function tnBoulderFall(A, tt, out) {
+  const K = TA.boulder, h = K.arc * Math.hypot(A.mx - A.p0x, A.mz - A.p0z);
+  return out.set(A.mx + (A.mx - A.p0x) / K.fly * tt, A.my - 4 * h / K.fly * tt - 0.5 * K.g * tt * tt, A.mz + (A.mz - A.p0z) / K.fly * tt);
+}
+// would this attack's path to its mark go under ground or through a solid (anything but the robot)? -- its arc, its
+// line from the eyes, its beam's walk over the ground -- past pathSkip from its middle (its own hands and head)
+function tnAtkPathClear(A) {
+  const n = TA.beads, c = TA.pathClear, pts = [];
+  // its points (past pathSkip from its middle): the arc or the line -- and the beam's walk over the ground
+  for (let i = 1; i <= n; i++) { tnAtkPath(A, i / n, tnAtkV3); if (Math.hypot(tnAtkV3.x - titan.x, tnAtkV3.z - titan.z) >= TA.pathSkip) pts.push([tnAtkV3.x, tnAtkV3.y, tnAtkV3.z, c]); }
+  if (A.kind === "beam") {
+    tnEyeMid(tnAtkV2); A.ex = tnAtkV2.x; A.ez = tnAtkV2.z;
+    for (let i = 0; i <= n; i++) { tnBeamTip(A, i / n, tnAtkV3); if (Math.hypot(tnAtkV3.x - titan.x, tnAtkV3.z - titan.z) >= TA.pathSkip) pts.push([tnAtkV3.x, tnAtkV3.y + TA.tipLift, tnAtkV3.z, -1]); }
+    A.ex = undefined; A.ez = undefined;
+  }
+  flags.tnPathEvals = (flags.tnPathEvals || 0) + 1;
+  // under the ground (the walk sits on it: only its line and arc are asked)
+  for (const p of pts) if (p[3] >= 0 && p[1] < tnGround(p[0], p[2]) + c) return false;
+  if (!pts.length) return true;
+  // through a solid: ONE walk of the registry for the whole path, each record first tested against the path's box
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); z0 = Math.min(z0, p[2]); z1 = Math.max(z1, p[2]); }
+  const m = TA.pathBox;
+  let hit = false;
+  flags.tnPathWalks = (flags.tnPathWalks || 0) + 1;
+  forEachSolid(b => {
+    if (hit || b.tn || isSolidHidden(b)) return;
+    if (b.x + b.hw < x0 - m || b.x - b.hw > x1 + m || b.z + b.hd < z0 - m || b.z - b.hd > z1 + m || b.y1 < y0 - m || b.y0 > y1 + m) return;
+    for (const p of pts) { flags.tnPathTests = (flags.tnPathTests || 0) + 1; if (solidTest(b, p[0], p[1], p[2], c)) { hit = true; return; } }
+  }, (x0 + x1) / 2, (z0 + z1) / 2, Math.max(x1 - x0, z1 - z0) / 2 + m);
+  return !hit;
+}
+// where the ring is DRAWN: at the mark -- or, from his SEAT with his eye too near the mark for it to be a ring (a
+// hovering helicopter IS its mark), slid back along the line from the mark to its eyes until it is ringNearFull of its
+// radii from his eye, never nearer the robot than ringSlideMin -- the boulder and the beam. Drawing only: the mark and
+// the test do not move.
+function tnAtkRingPos(A, out) {
+  out.set(A.mx, A.my, A.mz);
+  A.ringShrink = 0;
+  if (state.viewChase || A.kind === "tail") return out;   // (the tail's path runs beside him: no line to slide along)
+  const eye = camera.position, close = Math.min(1, A.t / tnAtkLead(A.kind));
+  const R = A.hitR * lerp(TA.ringStart, 1, close), want = TA.ringNearFull * R;
+  if (eye.distanceTo(out) >= want) return out;
+  tnEyeMid(tnAtkV3); tnAtkV3.sub(out);
+  const L = Math.max(0, tnAtkV3.length() - TA.ringSlideMin); tnAtkV3.normalize();
+  let lo = 0, hi = L;
+  for (let i = 0; i < 20; i++) { const m = (lo + hi) / 2; if (eye.distanceTo(tnAtkV2.copy(out).addScaledVector(tnAtkV3, m)) < want) lo = m; else hi = m; }
+  out.addScaledVector(tnAtkV3, hi);
+  // no room to slide it far enough (him near the robot): as far as there is, and SMALLER -- ringNearFull of its own
+  // radii from his eye, so its band is the same share of his screen. Never absent.
+  const d = eye.distanceTo(out);
+  if (d < want) A.ringShrink = d / TA.ringNearFull;
+  return out;
+}
+// where the boulder sits in its hands, world
+function tnAtkHand(out) { const h = TA.boulder.hand; return out.set(h[0], h[1], h[2]).applyMatrix4(titan.parts.body.matrixWorld); }
+// is this attack's mark -- or enough of its path -- on his screen as it would start
+function tnAtkSeenNow(A) {
+  camera.updateMatrixWorld();
+  const inside = (v) => { v.project(camera); return v.z < 1 && Math.abs(v.x) < TA.seenEdge && Math.abs(v.y) < TA.seenEdge; };
+  // the ring counts only where it is drawn (not round his own eye: tnAtkRingFade)
+  if (tnAtkRingFade(A) > TA.ringSeenFade && inside(tnAtkV3.copy(tnAtkRingPos(A, tnAtkRp)))) return true;
+  let n = 0;
+  for (let i = 1; i < TA.beads; i++) { tnAtkPath(A, i / TA.beads, tnAtkV3); if (tnAtkV3.distanceTo(camera.position) < TA.beadNear) continue; if (inside(tnAtkV3)) n++; }
+  return n >= TA.seenDots;
+}
+function tnAtkStart(kind, mk) {
+  const A = titan.atk || (titan.atk = {});
+  A.on = true; A.kind = kind; A.stage = "wind"; A.t = 0; A.ta = 0; A.why = ""; A.hit = false; A.humT = 0; A.firstLive = -1; A.splashed = false; A.lastGap = undefined; A.ex = undefined; A.ez = undefined; A.struck = false;
+  A.mx = mk.x; A.my = mk.y; A.mz = mk.z; A.hitR = tnAtkHitR(kind);
+  tnAtkHand(tnAtkV); A.p0x = tnAtkV.x; A.p0y = tnAtkV.y; A.p0z = tnAtkV.z;
+  if (kind === "tail") {
+    const K = TA.tail, s = mk.th >= 0 ? 1 : -1;
+    A.rho = mk.rho; A.qy = mk.qy; A.beta = mk.beta; A.th = mk.th;
+    A.thS = clamp(mk.th - s * K.swing * DEG, -K.sector * DEG, K.sector * DEG);   // it coils to the side away from him ...
+    A.thE = mk.th + (mk.th - A.thS) * (K.end - K.hitAt) / (K.hitAt - K.wind);     // ... and sweeps through his mark and on
+    titan.tailOff = true;
+    const r = tnTailRec(); if (r) r.mesh.visible = false;
+  } else titan.atkN++;
+  // readability beats realism: the smoke of one of his own bangs (landmarks.js startSmoke, dark faceted puffs that rise
+  // for ~10 s where he went to pieces) is cleared round him and its mark -- nothing hides what it is about to do
+  if (typeof smokeSources !== "undefined") {
+    const near = (x, z) => Math.hypot(x - state.x, z - state.z) < TA.smokeClearR || Math.hypot(x - A.mx, z - A.mz) < TA.smokeClearR;
+    for (let i = smokeSources.length - 1; i >= 0; i--) if (near(smokeSources[i].x, smokeSources[i].z)) smokeSources.splice(i, 1);
+    for (const p of smokePuffs) if (p.life > 0 && near(p.mesh.position.x, p.mesh.position.z)) { p.life = 0; p.mesh.visible = false; flags.tnSmokeCleared = (flags.tnSmokeCleared || 0) + 1; }
+  }
+  flags.tnAttacks = (flags.tnAttacks || 0) + 1;
+  flags["tnAtk_" + kind] = (flags["tnAtk_" + kind] || 0) + 1;
+  flags.tnAtkFlashes = (flags.tnAtkFlashes || 0) + 1;
+  titan.roarJaw = 1;
+  if (tnSound("windup")) flags.tnAtkRoars = (flags.tnAtkRoars || 0) + 1;
+  return true;
+}
+// may it start one now, and which
+// why it may not start one now ("" = it may): the first rule that holds it back
+function tnAtkWhyNot(d) {
+  if (d === undefined) d = tnDist();
+  if (titan.phase !== "up") return "not up";
+  if (titan.hold) return "held";
+  if (typeof dadHere === "function" && dadHere()) return "dad";
+  if (!tnShooter()) return "not a plane or helicopter";
+  if (typeof eject !== "undefined" && eject.active) return "eject";
+  if (typeof menuOpen === "function" && menuOpen()) return "picker";
+  if (state.exploding) return "in pieces";
+  if (!tnAloft()) return "on the ground";
+  if (tnAtkLanding()) return "landing";
+  if (!titan.provoked) return "not provoked";
+  if (titan.atk && titan.atk.on) return "one under way";
+  if (titan.atkCalm > 0) return "calm";
+  if (titan.atkGap > 0) return "gap";
+  if (titan.calm > 0) return "still";
+  if (titan.stagger > 0) return "staggering";
+  if (d > TA.startR) return "far";
+  if (!tnOnScreen()) return "off his screen";   // it starts only where he can see it
+  return "";
+}
+function tnAtkMaybe(d) {
+  const no = tnAtkWhyNot(d);
+  titan.atkNo = no;
+  if (no) return;
+  const A = titan.atk || (titan.atk = { on: false });
+  const tryKind = (k) => {
+    // the tail: only once it is home and back on the registry (a held tail never snaps to rest beside him)
+    if (k === "tail" && (titan.tailOff || titan.tailBlend > 0)) return false;
+    // a kind refused for its path is not asked again for refuseFor s
+    titan.refusedT = titan.refusedT || {};
+    if ((titan.refusedT[k] || 0) > titan.clock) return false;
+    const mk = tnAtkMarkFor(k, tnAtkMk);
+    if (!mk) return false;
+    // (seen as it would be: the mark, or three dots of its path, on his screen)
+    const was = { kind: A.kind, t: A.t, hitR: A.hitR, mx: A.mx, my: A.my, mz: A.mz, p0x: A.p0x, p0y: A.p0y, p0z: A.p0z, rho: A.rho, qy: A.qy, thS: A.thS, thE: A.thE };
+    A.kind = k; A.t = 0; A.hitR = tnAtkHitR(k); A.mx = mk.x; A.my = mk.y; A.mz = mk.z; tnAtkHand(tnAtkV); A.p0x = tnAtkV.x; A.p0y = tnAtkV.y; A.p0z = tnAtkV.z;
+    if (k === "tail") { const s = mk.th >= 0 ? 1 : -1; A.rho = mk.rho; A.qy = mk.qy; A.thS = clamp(mk.th - s * TA.tail.swing * DEG, -TA.tail.sector * DEG, TA.tail.sector * DEG); A.thE = mk.th; }
+    let seen = tnAtkSeenNow(A);
+    if (seen && k !== "tail" && !tnAtkPathClear(A)) { seen = false; titan.refusedT[k] = titan.clock + TA.refuseFor; flags.tnAtkRefused = (flags.tnAtkRefused || 0) + 1; }
+    Object.assign(A, was);
+    return seen && tnAtkStart(k, mk);
+  };
+  if (titan.atkPick ? titan.atkPick === "tail" : true) if (tryKind("tail")) return;
+  if (titan.atkPick === "tail") { titan.atkNo = "no tail mark"; return; }
+  if (titan.near) { titan.atkNo = "near (no tail mark)"; return; }
+  if (Math.abs(wrapPi(Math.atan2(state.x - titan.x, state.z - titan.z) - titan.yaw)) > TA.faceDeg * DEG) { titan.atkNo = "not facing him"; return; }
+  const first = titan.atkPick || (titan.atkN % 2 ? "beam" : "boulder");
+  if (tryKind(first)) return;
+  if (!titan.atkPick && tryKind(first === "boulder" ? "beam" : "boulder")) return;
+  titan.atkNo = "no mark it can reach and he can see";
+}
+// given up, or knocked out of it: visibly -- the boulder crumbles into junk, the eyes stop flashing, a wah-wah,
+// and its ring and dots shrink away. Nothing of it can bang him from this frame.
+function tnAtkAbandon(why) {
+  const A = titan.atk;
+  if (!A || !A.on || A.stage === "abandon" || A.stage === "done") return;
+  A.stage = "abandon"; A.ta = 0; A.why = why;
+  flags.tnAtkAbandons = (flags.tnAtkAbandons || 0) + 1;
+  flags["tnAtkAbandon_" + why] = (flags["tnAtkAbandon_" + why] || 0) + 1;
+  if (A.kind === "boulder") tnAtkCrumble();
+  tnSound("fizzle");
+}
+function tnAtkCrumble() {
+  const b = titan.boulder;
+  if (!b.visible) return;
+  const p = b.position, s = b.scale.x, P = TUNE.palette, cs = TITAN.plateColors;
+  const C = TA.crumble;
+  for (let i = 0; i < C.bits; i++) {
+    const a = tnRnd() * Math.PI * 2, v = 6 + tnRnd() * 10;
+    tnDebris(p.x + Math.cos(a) * s * 0.5, p.y, p.z + Math.sin(a) * s * 0.5, Math.cos(a) * v, 4 + tnRnd() * 8, Math.sin(a) * v,
+      s * 0.4, s * 0.3, s * 0.25, P[cs[i % cs.length]], 6);
+  }
+  for (let i = 0; i < C.sparks; i++) { const a = tnRnd() * Math.PI * 2, u = tnRnd(); tnSpark(p.x, p.y, p.z, Math.cos(a) * C.spread * u, 4 + tnRnd() * 10, Math.sin(a) * C.spread * u, 0.6, P.warning, 12, 0.5); }
+  b.visible = false;
+}
+// at once, nothing animated: a stand-down, dad mode, a reset, its fall (visible: a boulder in its hands crumbles)
+function tnAtkStop(why, visible) {
+  const A = titan.atk;
+  if (A && A.on) {
+    flags["tnAtkStop_" + why] = (flags["tnAtkStop_" + why] || 0) + 1;
+    if (visible && A.kind === "boulder") tnAtkCrumble();
+    A.on = false; A.stage = "off";
+    titan.atkGap = Math.max(titan.atkGap, TA.gap);
+  }
+  if (titan.built) for (const o of tnAtkPieces3()) o.visible = false;
+}
+// a strike reached him: the ordinary bang -- the mid-air's own lines (traffic.js updateTraffic): in pieces where it
+// happened, put back there by the one bang branch (flight.js), which lifts him over any solid he is above
+function tnAtkHitHim() {
+  const A = titan.atk;
+  flags.tnAtkHits = (flags.tnAtkHits || 0) + 1;
+  flags["tnAtkHit_" + A.kind] = (flags["tnAtkHit_" + A.kind] || 0) + 1;
+  A.hit = true; A.stage = "done"; A.ta = 0; flags.tnAtkStruckThrough = (flags.tnAtkStruckThrough || 0) + 1;
+  if (A.kind === "boulder") tnAtkCrumble();
+  titan.atkHitAt = { x: state.x, y: state.y, z: state.z, t: A.t, kind: A.kind };
+  triggerExplosion(state.x, state.y, state.z, TA.bang);   // (one size: the helicopter's bang as big as the plane's)
+  state.exploding = true;
+  state.explodeTimer = TUNE.reassembleDelay;
+  safePos.x = state.x; safePos.z = state.z;
+  // ... where it happened -- and over its head (the wall law's own over-the-top rule, as a bang into it comes back,
+  // collision.js), so the straight line he is put back on clears it: hands-off, a second bang must not follow
+  // (top + clearAbove over its standing sea: 188 m with today's numbers)
+  safePos.y = Math.max(state.y, Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) + TA.overGround, titan.y + TITAN.top + TITAN.clearAbove);
+  if (typeof shakeAmp !== "undefined") shakeAmp = Math.max(shakeAmp, TA.shake);
+  titan.wasEx = true;
+  // SATISFIED: it got him. Provoked again only by his next hit on it, or by him coming in from outside provokeR
+  titan.provoked = false; titan.wasOutside = tnDist() > TA.provokeR;
+  flags.tnSatisfied = (flags.tnSatisfied || 0) + 1;
+  titan.atkHitPending = true;
+}
+function tnClearBangNear() {
+  const r = TA.smokeClearR, near = (x, y, z) => Math.hypot(x - state.x, y - state.y, z - state.z) < r;
+  if (typeof parts !== "undefined") for (const p of parts) if (p.alive && p.life > 0 && near(p.px, p.py, p.pz)) { p.life = 0; flags.tnBangCleared = (flags.tnBangCleared || 0) + 1; }
+  if (typeof smokeSources !== "undefined") {
+    for (let i = smokeSources.length - 1; i >= 0; i--) if (near(smokeSources[i].x, smokeSources[i].y, smokeSources[i].z)) smokeSources.splice(i, 1);
+    for (const p of smokePuffs) if (p.life > 0 && near(p.mesh.position.x, p.mesh.position.y, p.mesh.position.z)) { p.life = 0; p.mesh.visible = false; }
+  }
+}
+// its clock: start one, wind it up, strike, finish -- run before its pose (the tail's swipe is a pose)
+function tnAtkUpdate(dt, d) {
+  const A = titan.atk;
+  if (!A || !A.on) { tnAtkMaybe(d); tnAtkTail(dt); return; }
+  A.t += dt;
+  const K = TA[A.kind];
+  const busy = (typeof menuOpen === "function" && menuOpen()) ? "picker" : state.exploding ? "bang" : !tnShooter() ? "vehicle" : !tnAloft() ? "ground" : tnAtkLanding() ? "landing" : "";
+  if (A.stage === "wind") {
+    const why = busy || (d > TA.giveUpR ? "far" : "") || (tnAtkTailUnseen(A) ? "unseen" : "");
+    if (why) tnAtkAbandon(why);
+    else {
+      if (A.kind === "boulder" && Math.floor(A.t * 6) !== Math.floor((A.t - dt) * 6)) {
+        // scrap gathering in its hands: sparks and clanks
+        const p = titan.boulder.position;
+        for (let i = 0; i < 4; i++) { const a = tnRnd() * Math.PI * 2; tnSpark(p.x, p.y, p.z, Math.cos(a) * 10, 4 + tnRnd() * 8, Math.sin(a) * 10, 0.5, TUNE.palette.warning, 10, 0.5); }
+        if (Math.floor(A.t * 2) !== Math.floor((A.t - dt) * 2)) tnSound("click");
+      }
+      if (A.kind === "beam") { A.humT -= dt; if (A.humT <= 0) { A.humT = K.humEvery; tnSound("hum"); } }
+      if (A.t >= K.wind) {
+        A.stage = "strike";
+        flags.tnAtkStrikes = (flags.tnAtkStrikes || 0) + 1;
+        if (A.kind === "boulder") { tnAtkHand(tnAtkV); A.p0x = tnAtkV.x; A.p0y = tnAtkV.y; A.p0z = tnAtkV.z; tnSound("throw"); }
+        else if (A.kind === "beam") { tnEyeMid(tnAtkV); A.ex = tnAtkV.x; A.ez = tnAtkV.z; A.struck = true; tnSound("zap"); }
+        else tnSound("swipe");
+      }
+    }
+  } else if (A.stage === "strike") {
+    if (busy) tnAtkAbandon(busy);
+    else if (tnAtkTailUnseen(A)) tnAtkAbandon("unseen");
+    else if (A.kind === "boulder") {
+      // past the mark, on down into the sea: a thud and a splash, and it is over
+      const u = (A.t - K.wind) / K.fly;
+      if (u > 1) {
+        const tt = A.t - K.wind - K.fly, p = tnBoulderFall(A, tt, tnAtkV2);
+        // down on the GROUND under it -- water (terrainEff under seaLevelAt): a splash; land: a thud and junk
+        if (p.y < tnGround(p.x, p.z) || tt > K.sinkAfter) {
+          if (!A.splashed) {
+            A.splashed = true;
+            if (tnIsWater(p.x, p.z)) { const S = K.splash; tnSplashRing(p.x, p.z, S[0], S[1], S[2], S[3]); flags.tnBoulderSplash = (flags.tnBoulderSplash || 0) + 1; }
+            else {
+              const gy = tnGround(p.x, p.z), P = TUNE.palette, cs = TITAN.plateColors;
+              for (let i = 0; i < K.landJunk; i++) { const a = tnRnd() * Math.PI * 2, v = 4 + tnRnd() * 6; tnDebris(p.x, gy + 2, p.z, Math.cos(a) * v, 4 + tnRnd() * 5, Math.sin(a) * v, K.r * 0.35, K.r * 0.25, K.r * 0.2, P[cs[i % cs.length]], 4); }
+              flags.tnBoulderLand = (flags.tnBoulderLand || 0) + 1;
+            }
+            tnSound("thud");
+          }
+          A.stage = "done"; A.ta = 0; titan.boulder.visible = false; flags.tnAtkStruckThrough = (flags.tnAtkStruckThrough || 0) + 1;
+        }
+      }
+    } else if (A.t >= tnAtkLiveTo(A.kind)) { A.stage = "done"; A.ta = 0; flags.tnAtkStruckThrough = (flags.tnAtkStruckThrough || 0) + 1; }
+  } else if (A.stage === "abandon" || A.stage === "done") {
+    A.ta += dt;
+    if (A.ta >= TA.abandon) { A.on = false; A.stage = "off"; titan.atkGap = Math.max(titan.atkGap, TA.gap); }
+  }
+  tnAtkTail(dt);
+}
+// how far he is from the tail capsule's surface
+function tnTailGap() {
+  const c = tnTailRec().cap, ax = c.a[0], ay = c.a[1], az = c.a[2], bx = c.b[0] - ax, by = c.b[1] - ay, bz = c.b[2] - az;
+  const l2 = bx * bx + by * by + bz * bz || 1e-9, s = clamp(((state.x - ax) * bx + (state.y - ay) * by + (state.z - az) * bz) / l2, 0, 1);
+  return Math.hypot(state.x - ax - bx * s, state.y - ay - by * s, state.z - az - bz * s) - c.r;
+}
+// (round 3) a tail swipe he can no longer be shown -- switched to his SEAT mid-swipe, its ring round his eye hidden and
+// its path beside him -- is called off (visibly), at ANY moment of it, wind-up or strike: nothing comes at him that he
+// cannot see. (Before round 6 only before minLead: switched to the seat after 5.5 s, the swipe still hit him.)
+// (From the chase view the ring is round him; steered away there, the strike still comes and misses)
+function tnAtkTailUnseen(A) {
+  return A.kind === "tail" && !state.viewChase && !tnAtkSeenNow(A);
+}
+// the tail's swipe pose: coiled away from his mark over the wind-up (lifted), then swept through it; after, home
+function tnAtkTail(dt) {
+  const A = titan.atk, K = TA.tail;
+  const swiping = A && A.on && A.kind === "tail" && (A.stage === "wind" || A.stage === "strike");
+  if (swiping) {
+    const t = A.t;
+    titan.tailBlend = Math.min(1, t / TA.tailIn);
+    if (t <= K.wind) {
+      const e = smoothstep(0, 1, t / K.wind);
+      titan.tailYaw = A.thS * e;
+      titan.tailPitch = A.beta * e + K.lift * Math.sin(Math.PI * Math.min(1, t / K.wind));
+    } else {
+      titan.tailYaw = A.thS + (A.th - A.thS) * (t - K.wind) / (K.hitAt - K.wind);
+      titan.tailPitch = A.beta;
+    }
+  } else if (titan.tailBlend > 0) {
+    // called off or done: home -- but never toward or through him. While he is within sweepR of it, it HOLDS its pose
+    // (off the registry, not a hit: passable), and goes home only once he is clear
+    if (tnTailGap() < TITAN.sweepR) flags.tnTailHeld = (flags.tnTailHeld || 0) + 1;
+    else titan.tailBlend = Math.max(0, titan.tailBlend - dt / K.back);
+  }
+  // home, and him not inside it: the tail is a wall again
+  if (!swiping && titan.tailBlend === 0 && titan.tailOff) {
+    const r = tnTailRec();
+    if (!r || !solidTest(r, state.x, state.y, state.z, TITAN.insidePad)) { titan.tailOff = false; if (r) r.mesh.visible = !!titan.solid; }
+  }
+}
+// every piece where it belongs this frame -- and the one test that can bang him: the thing itself, after minLead
+function tnAtkPieces(dt) {
+  const A = titan.atk, on = !!(A && A.on) && titan.phase === "up";
+  const ring = titan.atkRing, beads = titan.atkBeads, beam = titan.atkBeam, glow = titan.atkGlow, bo = titan.boulder;
+  if (!on) { for (const o of tnAtkPieces3()) o.visible = false; return; }
+  const K = TA[A.kind], fade = A.stage === "abandon" || A.stage === "done" ? Math.max(0, 1 - A.ta / TA.abandon) : 1;
+  const pulse = 1 + TA.ringPulse * Math.sin(titan.clock * Math.PI * 2 * TA.ringPulseHz);
+  // the ring, facing his camera, its stripes turning; closing in toward its true size as the strike comes (a closing
+  // iris: "keep out"); never smaller on his screen than ringMinFrac of its distance -- and never round his own eye
+  const strikeOver = A.stage === "strike" && A.t > tnAtkLead(A.kind) + TA.strikeOver;
+  const near = tnAtkRingFade(A);
+  ring.visible = fade > 0.02 && near > 0.02 && !strikeOver && !A.hit;
+  if (ring.visible) {
+    ring.position.copy(tnAtkRingPos(A, tnAtkRp)); ring.lookAt(camera.position); ring.rotateZ(titan.clock * TA.ringSpin);
+    ring.scale.setScalar(tnAtkRingR(A) * pulse * (TA.ringFadeFloor + (1 - TA.ringFadeFloor) * fade));
+    ring.material.opacity = fade * near;
+  }
+  // the dotted path: all of it while it winds up; striking, only what is still ahead of the strike. Bright yellow
+  // pixel-sized dots, none within beadNear of his eye
+  let from = 0;
+  if (A.stage === "strike") from = clamp((A.t - K.wind) / ((A.kind === "tail" ? K.end : tnAtkLead(A.kind)) - K.wind), 0, 1);
+  const n = TA.beads, pos = beads.geometry.attributes.position.array, col = beads.geometry.attributes.color.array;
+  tnColor.setHex(TUNE.palette.warning);
+  beads.material.size = state.viewChase ? TA.beadPx : TA.beadPxSeat;
+  let m = 0;
+  if (!A.hit && fade > 0.02) for (let i = 1; i <= n; i++) {
+    const u = i / n;
+    if (u < from) continue;
+    tnAtkPath(A, u, tnAtkV2);
+    if (tnAtkV2.distanceTo(camera.position) < TA.beadNear) continue;
+    pos[m * 3] = tnAtkV2.x; pos[m * 3 + 1] = tnAtkV2.y; pos[m * 3 + 2] = tnAtkV2.z;
+    const k = (0.75 + 0.25 * Math.max(0, Math.sin(titan.clock * TA.beadPulse * Math.PI * 2 - u * 8))) * fade;
+    col[m * 3] = tnColor.r * k; col[m * 3 + 1] = tnColor.g * k; col[m * 3 + 2] = tnColor.b * k;
+    m++;
+  }
+  beads.geometry.setDrawRange(0, m);
+  beads.geometry.attributes.position.needsUpdate = true; beads.geometry.attributes.color.needsUpdate = true;
+  beads.visible = m > 0;
+  // the boulder: gathering in its hands, then on its arc, then on down
+  bo.visible = false;
+  if (A.kind === "boulder" && !A.hit && (A.stage === "wind" || A.stage === "strike")) {
+    if (A.stage === "wind") {
+      tnAtkHand(tnAtkV);
+      const g = Math.min(1, 0.15 + A.t / K.grow);
+      bo.position.copy(tnAtkV); bo.position.y += Math.sin(A.t * TA.boulderBob[0]) * TA.boulderBob[1];
+      bo.scale.setScalar(K.r * g);
+    } else {
+      const u = (A.t - K.wind) / K.fly;
+      if (u <= 1) tnAtkPath(A, u, bo.position);
+      else {
+        tnBoulderFall(A, A.t - K.wind - K.fly, bo.position);
+      }
+      bo.scale.setScalar(K.r);
+    }
+    bo.rotation.set(A.t * TA.boulderSpin[0], A.t * TA.boulderSpin[1], 0);
+    bo.visible = true;
+  }
+  // the beam: charging at its eyes (a glow), then a bar from its eyes SWEEPING in the upright plane through them and
+  // the mark -- on at the sea in front of it, its tip walking out across the water (steam where it touches) and up
+  // to the mark, held, faded
+  beam.visible = false; glow.visible = false;
+  const G = TA.glow;
+  if (A.kind === "beam" && !A.hit) {
+    tnEyeMid(tnAtkV);
+    if (A.stage === "wind") {
+      glow.visible = true; glow.position.copy(tnAtkV); glow.scale.setScalar(G.charge[0] + G.charge[1] * Math.min(1, A.t / K.wind) * pulse);
+      glow.material.color.setHex(TITAN.eyeColor);
+    } else if (fade > 0.02 && A.struck) {   // (a wind-up called off never shows a bar)
+      tnBeamTip(A, clamp((A.t - K.wind) / K.reach, 0, 1), tnAtkV3);
+      tnAtkV2.copy(tnAtkV3).sub(tnAtkV);
+      const L = tnAtkV2.length();
+      if (L > 0.5) {
+        beam.visible = true;
+        beam.position.copy(tnAtkV);
+        beam.quaternion.setFromUnitVectors(tnAtkUp, tnAtkV2.normalize());
+        beam.scale.set(K.r, L, K.r);
+        beam.material.opacity = K.opacity * fade;
+        glow.visible = true; glow.position.copy(tnAtkV3); glow.scale.setScalar(G.tip * pulse * fade);
+        glow.material.color.setHex(0xffffff);
+        // steam where it touches the water (the pooled puffs)
+        A.steamT = (A.steamT || 0) - dt;
+        if (A.stage === "strike" && tnIsWater(tnAtkV3.x, tnAtkV3.z) && tnAtkV3.y <= tnGround(tnAtkV3.x, tnAtkV3.z) + 0.5 && A.steamT <= 0) {
+          A.steamT = K.steamEvery;
+          tnPuff(tnAtkV3.x, tnAtkV3.y + 1, tnAtkV3.z, (tnRnd() - 0.5) * 4, 10 + tnRnd() * 8, (tnRnd() - 0.5) * 4, TA.steamLife, -1);
+        }
+      }
+    }
+  }
+  if (A.kind === "tail" && (A.stage === "wind" || A.stage === "strike") && !A.hit) {
+    const c = tnTailRec().cap;
+    glow.visible = true; glow.position.set(c.b[0], c.b[1], c.b[2]); glow.scale.setScalar(G.tail * pulse);
+    glow.material.color.setHex(TUNE.palette.warning);
+  }
+  // THE TEST. Only once minLead has run from the flash, only while it strikes, and only the thing itself: the
+  // boulder's ball, the beam's bar from its eyes to its tip, the tail's own capsule
+  if (A.stage !== "strike" || A.t < TA.minLead || A.t > tnAtkLiveTo(A.kind) || state.exploding || !tnAloft()) return;
+  if (A.firstLive < 0) A.firstLive = A.t;
+  let d = Infinity;
+  if (A.kind === "boulder") d = bo.visible ? bo.position.distanceTo(tnAtkV.set(state.x, state.y, state.z)) - (K.r + K.pad) : Infinity;
+  else if (A.kind === "beam") {
+    if (beam.visible) {
+      tnEyeMid(tnAtkV); const L = beam.scale.y;
+      tnAtkV2.set(0, 1, 0).applyQuaternion(beam.quaternion);
+      const px = state.x - tnAtkV.x, py = state.y - tnAtkV.y, pz = state.z - tnAtkV.z;
+      const s = clamp(px * tnAtkV2.x + py * tnAtkV2.y + pz * tnAtkV2.z, 0, L);
+      d = Math.hypot(px - tnAtkV2.x * s, py - tnAtkV2.y * s, pz - tnAtkV2.z * s) - (K.r + K.pad);
+    }
+  } else {
+    const r = tnTailRec(), c = r.cap, ax = c.a[0], ay = c.a[1], az = c.a[2], bx = c.b[0] - ax, by = c.b[1] - ay, bz = c.b[2] - az;
+    const l2 = bx * bx + by * by + bz * bz || 1e-9, s = clamp(((state.x - ax) * bx + (state.y - ay) * by + (state.z - az) * bz) / l2, 0, 1);
+    d = Math.hypot(state.x - ax - bx * s, state.y - ay - by * s, state.z - az - bz * s) - (c.r + K.pad);
+  }
+  A.lastGap = d;
+  if (d < 0) tnAtkHitHim();
+}
+
 // ---- the edge arrow: where it is, while it is up and off his screen ---------------
-const tnProj = new THREE.Vector3();
+const tnProj = new THREE.Vector3(), tnProj2 = new THREE.Vector3(), tnProj3 = new THREE.Vector3();
 // At the screen's real edge, along the bearing to it, a margin in -- and never on a control or on the home
 // arrow: slid along that edge to the nearest clear place, and only if the whole edge is taken, walked in.
 function tnArrow(on, theta) {
@@ -1164,9 +1889,23 @@ function tnArrow(on, theta) {
   const dash = el.dash && el.dash.offsetHeight ? el.dash.getBoundingClientRect() : null;
   const floor = dash ? dash.top : H;
   const home = el.homeArrow && el.homeArrow.classList.contains("on") ? (el.homeArrow.querySelector("svg") || el.homeArrow).getBoundingClientRect() : null;
+  // (v219) and, in the chase view, never on his own aircraft: its disc on the screen, arrowPlaneR metres round him
+  let me = null;
+  if (state.viewChase) {
+    camera.updateMatrixWorld();
+    tnProj.set(state.x, state.y, state.z).project(camera);
+    if (tnProj.z < 1) {
+      const mx = (tnProj.x + 1) / 2 * W, my = (1 - tnProj.y) / 2 * H;
+      tnProj2.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(TITAN.arrowPlaneR).add(tnProj3.set(state.x, state.y, state.z)).project(camera);
+      const r = Math.max(TITAN.arrowPlaneMinPx, Math.hypot((tnProj2.x + 1) / 2 * W - mx, (1 - tnProj2.y) / 2 * H - my));
+      me = { x: mx, y: my, r };
+    }
+  }
+  titan.arrowMe = me;
   const blocked = (px, py) => {
     const L = px - hw, T0 = py - hw, R = px + hw, B = py + hw;
     if (B > floor - pad) return true;
+    if (me && L < me.x + me.r + pad && R > me.x - me.r - pad && T0 < me.y + me.r + pad && B > me.y - me.r - pad) return true;
     if (typeof btnRectBlocked === "function" && btnRectBlocked(L - pad, T0 - pad, R + pad, B + pad)) return true;
     return !!home && L < home.right + pad && R > home.left - pad && T0 < home.bottom + pad && B > home.top - pad;
   };
@@ -1205,7 +1944,7 @@ function tnArrowPlace(theta, W, H, w, blocked) {
 // asked once a frame from updateHud (main.js), after the camera has moved
 function tnUpdateArrow() {
   if (!titan.built) return;
-  const want = (titan.phase === "rising" || titan.phase === "up") && tnShooter() && !state.exploding && !state.engaged &&
+  const want = (titan.phase === "rising" || titan.phase === "up") && tnShooter() && !state.exploding && !tnLanding() &&
     !(typeof menuOpen === "function" && menuOpen()) && !(typeof eject !== "undefined" && eject.active) &&
     !(typeof dadHere === "function" && dadHere()) && tnDist() < TITAN.arrowR;
   if (!want) { tnArrow(false); return; }
@@ -1213,9 +1952,26 @@ function tnUpdateArrow() {
   tnProj.set(titan.x, titan.y + TITAN.top * 0.55, titan.z).project(camera);
   const behind = tnProj.z > 1;
   let sx = tnProj.x, sy = tnProj.y;
-  if (behind) { sx = -sx; sy = -sy; if (Math.abs(sx) < 1e-3 && Math.abs(sy) < 1e-3) sy = -1; }
+  // BEHIND him, the projection mirrored -- and (v219) never pointing UP: behind is the bottom edge or a side, in the
+  // seat as in the chase view (the mirror alone put a robot behind and below the seat's eye on the TOP edge)
+  if (behind) { sx = -sx; sy = -Math.abs(sy); if (Math.abs(sx) < 1e-3 && Math.abs(sy) < 1e-3) sy = -1; }
   if (!behind && Math.abs(sx) < TITAN.arrowInView && Math.abs(sy) < TITAN.arrowInView) { tnArrow(false); return; }
   tnArrow(true, Math.atan2(sx, sy));
+}
+// (v219 round 3) for its ATTACKS (starting one, calling one off), landing is an engaged approach he is LINED UP on --
+// within atk.landLat of the runway's line. Engaged far off the line, flying at the robot near home, he is not
+// landing, and its attacks go on (the approach engages there from the north: every attack on the prop near home was
+// called off). NOT "or low" (tnLanding, the arrow's rule): its attacks come at 50-120 m, so "low" called every one
+// at home off too. No flight assist is touched: this only reads approachData.
+function tnAtkLanding() {
+  if (!state.engaged) return false;
+  const ad = state.approachData;
+  return !ad || Math.abs(ad.lat) < TA.landLat;
+}
+// (v219) committed to landing: on an engaged approach AND low on it (the glide). Engaged far out and high -- as
+// he is when put back together over the robot facing New York -- the arrow still points at it.
+function tnLanding() {
+  return !!state.engaged && state.y - Math.max(terrainEff(state.x, state.z), TUNE.waterLevel) < TITAN.arrowLandAgl;
 }
 // is the robot (its middle) on his screen
 function tnOnScreen() {

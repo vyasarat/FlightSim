@@ -86,7 +86,10 @@ shared field means per vehicle; `state_semantics_checks.js` enforces what it can
   each, machines only.
 - **Events are pools with a policy** (`eventpool.js`), three rules machine-checked: never
   required, never blocking, never takes anything away. A pool says whether it holds events
-  or paint — the police liveries borrow the draw only.
+  or paint — the police liveries borrow the draw only. One exception, the parent's
+  (2026-11-13): the giant robot (`titan.js`) is a pool event AND solid in the one registry,
+  a wall only while it stands and only where a wall blocks nothing (deep sea, outside every
+  corridor, clear of the ships' water).
 - **Signals** (`lights.js`): a crossroads per spur and every ~1.5 km of motorway, sited by
   measuring the ground, cross traffic queuing, amber blinking before red. **Lane-keep never
   brakes for one** — stopping is the one choice out there that is his. Traffic stops at a
@@ -116,6 +119,8 @@ shared field means per vehicle; `state_semantics_checks.js` enforces what it can
   the vehicle's `crawl` a bang and a free reassembly where it happened, at or under it a
   shove, always sideways on the ground. `solidity_checks.js` drives every vehicle into every
   kind and prints the matrix. **A ramp is a surface driven up, never a trigger zone.**
+  One exception, the parent's (2026-11-15): the robot's announced attacks (`titan.js`) bang
+  him by their own distance test, never the registry, and its tail is off the registry for a swipe.
 - **Roads cross only at a junction or on a bridge** (`roadCrossings`, streets.js): no
   route over a runway, taxiway, apron or another road at grade. A city's ramps clear EACH
   OTHER by `ramp.clear`, not only the motorway (`stRampConflict`). The cities' ramp specs

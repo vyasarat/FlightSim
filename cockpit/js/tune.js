@@ -1443,7 +1443,7 @@ const TUNE = {
     headYawRate: 2, headPitchRate: 1, eyeHeight: 118, hearY: 60,   // rad/s its head turns; its eyes over its base; its middle, heard
     steamEvery: 3.2, roarEvery: 22,
     // damage: one plate a hit, a weak spot three; the lamps go out with them; the last one fells it
-    weakMul: 3, weakR: 16, weakLockHit: 2, hitPad: 3, hitSparks: 40, weakBurst: 160, weakRing: 48, weakRingSpeed: 34, weakPuffs: 24, weakFlash: 4, weakFlashTime: 1.2, shrugSparks: 24,   // weakLockHit: a missile locked on a weak spot counts it within weakR x this
+    weakMul: 3, weakR: 16, weakLockHit: 2, hitPad: 3, hitSparks: 40, weakBurst: 160, weakRing: 48, weakRingSpeed: 34, weakPuffs: 24, weakFlash: 0.7, weakFlashTime: 1.2, shrugSparks: 24,   // weakLockHit: a missile locked on a weak spot counts it within weakR x this
     weak: [
       { name: "core", part: "body", region: "body", at: [0, 20, 36], color: 0x5ff1ff, size: 34 },
       { name: "key", part: "key", region: "body", at: [0, 4, 0], color: 0xffd23e, size: 30 },
@@ -1476,7 +1476,61 @@ const TUNE = {
     shadeDir: [0.45, 0.8, 0.4], shadeLo: 0.66, shadeUp: 0.06,   // the flat palette's one baked light (titan.js tnShade)
     plateColors: ["red", "warning", "blue", "green", "cyan", "fire"], sparkColors: ["warning", "flame", "white", "fire"],
     sparks: 1400, sparkSize: 9, puffs: 600, puffSize: 30, puffOpacity: 0.85, debris: 48, poolR: 380,
+    debrisRest: 0.5,   // (v219) a piece that lands on LAND rests there, its slide and spin kept by this much (it fell through before)
     arrowR: 3200, arrowMargin: 12, arrowInView: 0.85, arrowStep: 8, arrowGrid: 16,   // the edge arrow: within this of it, this far in from the edge, unless it is this far in view
+    arrowLandAgl: 150,              // (v219) on an engaged approach the arrow goes only this low (on the glide, committed); higher it still points
+    arrowPlaneMinPx: 24,            // (v219) ... and never less than this many pixels round him
+    arrowPlaneR: 6,                 // (v219) metres round his own aircraft the arrow keeps off (in the chase view it never sits on him)
+    shrugBoom: 0.35, shrugSpread: 16,   // (v219, out of the code) a glance-off's blast size, and how wide its sparks fly (m/s)
+    // ---- v219, stage 2: ITS THREE ATTACKS (titan.js "THE ATTACKS"). Each: the eyes flash and a wind-up roar,
+    // a MARK fixed where his straight-line flight puts him at the strike, a dotted path to it, then the strike
+    // there. Nothing of an attack can touch him sooner than minLead after its flash (the parent's 5.5 s).
+    atk: {
+      provokeR: 260,                // provoked: his first hit on it this life, or him this near its middle (level) -- coming in from outside it.
+                                    // An attack that HITS him satisfies it: provoked again only by his next hit, or by him coming in from outside provokeR
+      landLat: 200,                 // for its attacks, an engaged approach is landing only within this of the runway's line
+      startR: 900, giveUpR: 1000,   // an attack starts only with him this near; flown out beyond giveUpR while it winds up, it is given up
+      faceDeg: 25,                  // a boulder or a beam only once it faces him within this
+      gap: 5,                       // seconds from one attack's end to the next one's flash
+      calm: 15,                     // after ANY reassembly of his (or a stand-down), no flash for this long:
+                                    // calm + minLead > 20, so a hit is never followed by another within 20 s hands-off
+      minLead: 5.5,                 // flash to the first moment anything of it can bang him, never less (with these timings a steer begun
+                                    // within 3 s of the flash escapes -- the parent's line, 2026-11-15, measured by titan_checks' pinned rows)
+      markMin: 150, markMax: 950, markSea: 15, markTop: 480,   // a boulder's or beam's mark: this far from its middle, this high over the sea
+      flashHz: 3, eyeFlash: 1.7,    // the eyes flash yellow and white this often, this much bigger
+      ringSeg: 48, ringTube: 0.09, ringMinFrac: 0.08,   // the mark's striped ring: its radius is what bangs, never under ringMinFrac of its distance from his eye ...
+      ringStart: 1.8, ringSpin: 1.2,                     // ... closing in from ringStart times that to it as the strike comes, its stripes turning (rad/s): "keep out", not a hoop
+      ringPulse: 0.12, ringPulseHz: 1.5,                 // it breathes this much, this often
+      ringNearHide: 2.5, ringNearFull: 6,                // his eye within ringNearHide of its radii: no ring at all (a hovering helicopter IS its mark); full by ringNearFull
+      ringNearHideChase: 1.1, ringNearFullChase: 1.6,    // ... from the chase view (the ring round HIM is the picture): gone only with the camera inside it
+      beads: 26, beadPx: 24, beadPxSeat: 36, beadPulse: 3, beadNear: 30, // the dotted path: dots this many PIXELS across at any range (bigger from his seat); none within beadNear m of his eye
+      ringSlideMin: 60,             // from his SEAT with his eye too near the mark, the ring is drawn slid back along the line to its eyes to ringNearFull radii -- never nearer the robot than this
+      ringBand: 0.06,               // (the checks: the ring's band never more than this share of his screen)
+      pathClear: 3, pathSkip: 130, pathBox: 40, tipLift: 2, refuseFor: 0.5,   // (pathBox: a solid this far round the path's box is tested; tipLift: the beam's walk tested this over the ground; a refused kind is not asked again for refuseFor s)
+      ringSeenFade: 0.5,            // the ring counts as shown at this much of its fade
+      ringFadeFloor: 0.4,           // a fading ring shrinks to this of its size
+      glowStart: [30, 0.95],        // the one glow, made at load: size, opacity
+      boulderBob: [9, 0.6], boulderSpin: [1.7, 2.3],   // in its hands it bobs (rad/s, m); it tumbles (rad/s, two axes)
+      steamLife: 1.4,               // the beam's steam puffs
+      smokeClearR: 250,             // at a flash, the smoke of his own bangs this near him or its mark is cleared (readability beats realism)  // a mark is refused if its path passes under ground or through a solid (this much clearance), past pathSkip m from the robot's middle
+      seenEdge: 0.9, seenDots: 3,                        // "on his screen": inside this much of it (NDC), and this many dots of its path
+      abandon: 0.6,                 // given up or interrupted: its pieces gone in this long (the boulder crumbles)
+      crumble: { bits: 7, sparks: 30, spread: 14 },   // the junk and sparks a crumbling boulder makes, and how fast its sparks fly (m/s)
+      tailBoom: 0.8,                // a missile into the tail through a swipe: the missile's own blast (traffic.js's size)
+      bang: 0.8, shake: 0.8, overGround: 60,          // a hit on him: the bang's size (the same for the plane and the helicopter), the shake; put back at least this over the ground (as the mid-air)
+      afterCards: 2,                // the cards shut: no flash for this long (never on the frame they close)
+      tailIn: 1.0,                  // the tail swipe's pose comes in over this long
+      glow: { charge: [20, 30], tip: 26, tail: 24 },  // the one glow's sizes: the beam's charge at its eyes (from, + up to), the beam's tip, the tail's tip
+      strikeOver: 0.3,              // the ring stays this long past the strike's moment
+      boulder: { wind: 3.0, fly: 2.8, r: 9, pad: 3, liveTo: 6.4, arc: 0.28, hand: [0, 14, 49], grow: 1.4, sinkAfter: 4,
+                 g: 9.8, splash: [16, 10, 14, 1.6], landJunk: 6 },   // past the mark it falls (g); into water a splash ring (puffs, speed, up, life), on land a thud and junk
+      // the beam SWEEPS in the upright plane through its eyes and the mark: it comes on pointing at the sea in front of
+      // it (startAt of the way out), walks out across the water (to seaUntil of its reach) and then up to the mark
+      beam: { wind: 3.0, reach: 3.0, hold: 0.7, r: 2.4, pad: 4, startAt: 0.3, seaUntil: 0.55, steamEvery: 0.05, humEvery: 0.3, opacity: 0.92 },
+      // the tail: only when his mark is low and close behind or beside it; it coils away, then sweeps through the mark
+      tail: { wind: 4.0, hitAt: 5.9, end: 6.9, back: 1.8, reach: 84, inner: 18, sector: 120, swing: 48, lift: 0.25,
+              minH: 4, maxH: 46, pitchMin: -45, pitchMax: 25, pad: 3 },
+    },
   },
   // ---- The monster truck (js/monstertruck.js): a loop of dirt west of the
   // motorway on the plains. Point at it and the truck roars off, jumps a ramp,
