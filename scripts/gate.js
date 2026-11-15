@@ -910,6 +910,53 @@ if (flag("tune-readers")) {
 }
 for (const f of Object.keys(PARTIAL)) if (!MODULES[f]) fail("tune-map", `gate.js PARTIAL names ${f}, which has no MODULES row -- a file with no row is already "only the full harness"; take it out`);
 
+// ---------- 20. the LEAVE table holds together (B4, v222) ----------
+// state.js's LEAVE (the rows), LEAVE_AT (which place runs which rows, in which step) and the grid in its
+// WORKING RULES header are three writings of one table. A name in LEAVE_AT that is not a row throws only when
+// that place runs; a row no place runs is dead; a grid that disagrees misleads the next step of B4. By reading
+// the file: every LEAVE_AT name is a key of LEAVE, every key is run somewhere, no place runs a row twice, and
+// the grid has exactly the rows of LEAVE, each column naming the step that place runs it in, or "-".
+{
+  const src = read("cockpit/js/state.js");
+  try {
+    const leaveBody = (/^const LEAVE = \{([^]*?)^\};/m.exec(src) || [, ""])[1];
+    const rows = [...leaveBody.matchAll(/^  ([A-Za-z_$][\w$]*):/gm)].map(m => m[1]);
+    const atSrc = (/^const LEAVE_AT = \{[^]*?^\};/m.exec(src) || [""])[0];
+    if (!rows.length || !atSrc) throw new Error("no `const LEAVE = {` or `const LEAVE_AT = {` (each closed by a `};` line) found");
+    const ctx = {}; vm.createContext(ctx);
+    vm.runInContext(atSrc + ";this.LEAVE_AT = LEAVE_AT;", ctx);
+    const AT = ctx.LEAVE_AT, places = Object.keys(AT), stepOf = {}, used = new Set();
+    for (const p of places) {
+      stepOf[p] = {};
+      for (const [step, names] of Object.entries(AT[p])) for (const n of names) {
+        if (!rows.includes(n)) fail("leave-table", `state.js LEAVE_AT.${p}.${step} names "${n}", which is not a row of LEAVE -- it throws when that place runs`);
+        if (stepOf[p][n]) fail("leave-table", `state.js LEAVE_AT.${p} runs "${n}" twice (${stepOf[p][n]} and ${step})`);
+        stepOf[p][n] = stepOf[p][n] || step; used.add(n);
+      }
+    }
+    for (const r of rows) if (!used.has(r)) fail("leave-table", `state.js LEAVE row "${r}" is run by no place in LEAVE_AT -- a dead row; run it somewhere or take it out`);
+    // the grid: the "row  <place> <place> ...  what goes" line, then one comment line per row, to the first blank one
+    const lines = src.split("\n"), h = lines.findIndex(l => /^\/\/\s+row\s+\S+\s+\S+\s+\S+\s+what goes\s*$/.test(l));
+    if (h < 0) throw new Error("no grid header (`//   row  vehicle  start  picker  what goes`) in the WORKING RULES comment");
+    const cols = lines[h].replace(/^\/\/\s+/, "").split(/\s+/).slice(1, -2);
+    if (cols.join() !== places.join()) fail("leave-table", `the grid's columns (${cols.join(", ")}) are not LEAVE_AT's places in its order (${places.join(", ")})`);
+    const grid = {};
+    for (let i = h + 1; i < lines.length && !/^\/\/\s*$/.test(lines[i]); i++) {
+      const t = lines[i].replace(/^\/\/\s+/, "").split(/\s+/);
+      if (grid[t[0]]) fail("leave-table", `the grid has row "${t[0]}" twice`);
+      grid[t[0]] = t.slice(1, 1 + cols.length);
+    }
+    for (const r of rows) if (!grid[r]) fail("leave-table", `LEAVE row "${r}" has no line in the grid in state.js's WORKING RULES header`);
+    for (const r of Object.keys(grid)) {
+      if (!rows.includes(r)) { fail("leave-table", `the grid has a line "${r}", which is not a row of LEAVE`); continue; }
+      cols.forEach((p, k) => {
+        const want = (AT[p] && stepOf[p][r]) || "-";
+        if (grid[r][k] !== want) fail("leave-table", `the grid says row "${r}" is "${grid[r][k]}" at ${p}; LEAVE_AT says "${want}"`);
+      });
+    }
+  } catch (e) { fail("leave-table", "state.js's LEAVE table would not read for gate 20: " + e.message); }
+}
+
 // ---------- which modules the change answers to ----------
 const mods = new Set(), fullFiles = [], partNotes = [], TUNE_NOISY = new Set(["city", "car", "highway", "lights"]);
 let tuneNoisy = false;

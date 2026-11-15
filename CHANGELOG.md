@@ -10,6 +10,21 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v222 — the Moon's sound stays on the Moon
+
+When he flew the rocket to the Moon, to Mars or to the station and then picked the plane (or the car, the
+boat, anything but the rocket), the game still thought he was standing on the Moon: the plane on the runway
+played the Moon's empty hum instead of the airport, and the sky and the light leaned the Moon's way too. Now
+picking any vehicle that is not the rocket takes him off the Moon, Mars or the station, so the plane sounds
+like the plane and the runway looks like the runway. Opening the menu on the Moon does not: until he picks,
+he is still on the Moon, and picking the rocket again is a fresh rocket on its pad, as before. It is the first
+line added to v221's one table of what is put away, in the one place that needed it. And that table is now
+held by the checks: the quick check before anything else reads the table and refuses a misspelt line, a line
+nothing uses, or a header that disagrees with it, and the harness now runs each of the three places and
+checks the order of what it puts away, line by line. What is measured is the sound and the game no longer
+thinking he is on the Moon; that the sky, the light and the motorway follow is read from the code, not yet
+checked or rendered.
+
 ## v221 — one list of what is put away (nothing he sees changes)
 
 Nothing he sees or hears is different. Three places put away what he was doing -- picking a new vehicle,
