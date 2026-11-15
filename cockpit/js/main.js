@@ -238,7 +238,8 @@ window.__lp = {
   lsite, LSITE, lsReset, lsForce, lsPuffsLive, lsStackSolid, lsCovers, updateLaunchSite,
   sled, SLED, sledReset, sledForce, sledPuffsLive, sledBricksLive, sledWallWorld, sledSlotError, sledWallSolid, sledCovers, sledToWall, updateRocketSled, sledSetRidden,
   fbarge, FBARGE, fbReset, fbForce, fbSparksLive, fbToFirstBurst, updateFireworksBarge, spCountBusy,
-  titan, TITAN, tnForce, tnReset, tnHide, tnStandDown, tnMissileHit, tnArrowPlace, tnGap, tnPlatesGone, tnLampsLit, tnPointsMax, tnOnScreen, tnInside, updateTitan, RECOVERY, cityCovers,
+  titan, TITAN, tnForce, tnReset, tnHide, tnStandDown, tnMissileHit, tnArrowPlace, tnGap, tnPlatesGone, tnLampsLit, tnPointsMax, tnOnScreen, tnInside, updateTitan,
+  tnAtkShown, tnAtkPath, tnAtkLiveTo, tnAtkLead, tnTailRec, tnEyeMid, tnHisVel, tnLanding, tnAtkStop, tnAtkWhyNot, tnTailGap, tnGround, tnIsWater, RECOVERY, cityCovers,   // (v219) the second line: its attacks
   sr, SR, srActive, srSpawn, srFlameEnds, srGo, srCanGo, srParked, srPlace,
   cr, CR, crActive, crSpawn, crCanGo, crParked, crAimed, crGroups, crTowers, crBall, crCrane, crHomeError, crLeave, crCovers,
   vl, vlCovers, vlBunkerAt, vlCenterZ, vlCenterSlope, vlFloorY, vlBowlCentre, vlWeight,

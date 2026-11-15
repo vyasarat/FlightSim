@@ -10,6 +10,40 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v219 — the giant robot fights back (stage 2: its three attacks)
+
+Once he has hit it, or flown in within 260 m of it, the robot attacks him -- only in the plane or the helicopter,
+only while he is flying, and only where he can see it. Each attack is announced: its eyes flash yellow and
+white and grow, it plays a toy wind-up (a ratchet of clicks, a rising whirr and a toot), and a striped
+yellow-and-white ring appears where he will be if he keeps going straight, its stripes turning as it closes in,
+with a line of bright yellow dots leading to it. The ring stays put; it is never drawn round his own eye: from the
+cockpit, when he is hovering on the spot itself, it is drawn a little way back toward the robot, between him and
+it, and the dots run from the robot to him. Nothing of
+the attack can touch him until five and a half seconds after the eyes flash. It throws a ball of scrap -- bright
+plates, a pipe and a cog -- that it gathers between its hands for three seconds and lobs along the dots into the
+ring. It charges a glow at its eyes for three seconds, then a pale beam from its eyes comes on at the sea in front
+of it and sweeps out across the water, steaming where it touches, and up to the ring. When he is low and close
+behind or beside it, it coils its tail away and sweeps it through the ring. The tail is only dangerous during that sweep
+(5.5 to 6.9 s after the flash); the rest of the time, from the flash until it is home, he can fly through it, and
+after the sweep it waits, still, until he has moved away before it swings home. Steering away, or climbing, gets him
+out of the way -- begun up to 3 seconds after the eyes flash he always escapes; later than that he may be hit;
+flying straight on, hands-off, is hit. A hit is the ordinary bang -- the same size in the plane
+and the helicopter -- and he is put back together where it happened, 188 m over the sea, clear of its head, with
+what was left of that bang near him (its smoke and its pieces) cleared away, so he is not put back inside a grey cloud; and
+then it is satisfied: it leaves him alone until he hits it again, or flies away and comes back in close. After
+any other bang it waits 15 seconds before it can start another. His missile hitting it while it winds up --
+the tail included -- knocks it out of the attack (it rocks back, or blinks if he is right beside it). An attack
+is called off -- the ball crumbles into junk, a "wah-wah", and the ring and dots shrink away -- if he flies out of
+range while it winds up, opens the menu, lands, lines up to land at New York (within 200 m of the runway's line)
+or is blown up some other way; a tail swipe is also called off whenever, in the cockpit view, neither its ring
+nor its dots are on his screen -- at any moment of it, the sweep included -- so it can never hit him unseen. It never attacks a boat, a car or a rocket, or in dad mode. A rebuilt robot has forgotten him. A weak spot's flare
+when he hits it now stays on the spot instead of washing over the whole robot.
+The robot's junk -- a crumbled ball, a plate knocked off -- now lies where it lands on a beach, instead of falling
+through the ground out of sight.
+Its arrow, too: with the robot behind him it now points to the bottom of the screen (or the side) from the
+cockpit as from the chase view, never the top; it stays up on an approach until he is low on it (under 150 m);
+and in the chase view it keeps off his own aircraft.
+
 ## v218 — the giant robot (stage 1: it rises, he shoots it down, it rebuilds)
 
 His idea: a giant robot monster he can shoot. A toy metal dinosaur as tall as a skyscraper -- flat bright

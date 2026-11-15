@@ -24,6 +24,14 @@
 //   heliSplash  the helicopter 420 m off, 90 m up, for the splash and the fireworks
 //   bldg      the crash alarm at one of New York's buildings (no robot near), for comparison
 //   night     as near, in the night sky mood (state.sky 3, in code; he has no button for it)
+// (v219) THE ATTACKS -- vantages: atkB the boulder and atkE the beam at the prop flying at it from 820 m (it faces east,
+// he flies west); atkHB / atkHE the same at the helicopter hovering 420 m off; atkT the tail swipe at the helicopter
+// hovering low behind it (from the seat it cannot start there -- its mark would be his eye -- so the seat views of the
+// tail are the attack started in the chase view and the view then switched, as his view button would). Moments:
+// flash (0.6 s into the wind-up: the eyes, the roar's jaw, the ring and the dots), mark (2 s in), strike (in flight /
+// reaching / sweeping), dodge (he steered away a second in -- gently left, or for the helicopter up -- the prop's frame just before it lands
+// where he was, the helicopter's just after), hit (him hands-off: the bang), back (put back together), interrupt (his missile into it 0.3 s into the
+// wind-up, just after it lands), giveup (him flown off out of range mid-wind-up, just after it gives up).
 // Moments: up, announce (the sea boiling, 1.8 s in, nothing of it out yet), rise (head and shoulders out),
 // hit (a quarter second after a plain hit), weak (the same at the chest core), half (half its plates shot
 // off by real hits), topple (mid-fall, 2.4 s in, after half its plates were shot off), splash (0.4 s after
@@ -38,6 +46,34 @@ const DEFAULT = ["runway-chase@rise", "runway-seat@up", "runway-chase@up~L", "tu
   "near-chase@topple", "near-seat@topple", "near-chase@splash", "near-seat@splash~L", "near-chase@fire", "near-chase@sunk", "near-chase@reset",
   "close-chase@up", "close-seat@up", "pass-chase@up", "pass-seat@up", "wade-chase@up", "heli-chase@up~L", "heli-seat@hit",
   "arrowL-chase@up~L", "arrowR-chase@up~L", "night-chase@up"];
+const ATTACKS = ["atkB-chase@flash", "atkB-seat@flash", "atkB-chase@mark", "atkB-seat@mark", "atkB-seat@mark~L", "atkB-chase@strike", "atkB-seat@strike",
+  "atkB-chase@dodge~L", "atkB-chase@hit", "atkB-chase@back", "atkB-chase@giveup",
+  "atkE-chase@flash", "atkE-seat@flash", "atkE-chase@mark", "atkE-seat@mark", "atkE-chase@strike", "atkE-seat@strike", "atkE-chase@strike~L",
+  "atkE-chase@dodge~L", "atkE-chase@hit", "atkE-chase@back",
+  "atkT-chase@flash", "atkT-chase@mark", "atkT-seat@calledoff1", "atkT-chase@strike", "atkT-seat@calledoff2", "atkT-chase@strike~L", "atkT-chase@dodge", "atkT-chase@hit", "atkT-chase@back",
+  "atkHB-seat@mark", "atkHB-chase@interrupt", "atkHB-seat@interrupt", "atkHE-chase@mark",
+  // (round 2) the helicopter's seat; from the seat a dodge, a hit, back; close enough to see the eyes and the scrap;
+  // the ring against land; three frames of the ring 0.2 s apart; the beam and dots at dusk and at night
+  "atkHE-seat@mark", "atkHE-seat@strike", "atkHE-seat@mark~L",
+  "atkB-seat@dodge", "atkB-seat@hit", "atkB-seat@back", "atkHB-seat@dodge", "atkHB-seat@hit", "atkHB-seat@back",
+  "atkHC-chase@flash", "atkHC-seat@flash", "atkHC-seat@mark", "atkHN-chase@mark",
+  "atkB-chase@ring1", "atkB-chase@ring2", "atkB-chase@ring3",
+  "atkEd-chase@mark", "atkEd-chase@strike", "atkEn-chase@mark", "atkEn-chase@strike",
+  // (round 3) at HOME, him from the north as on his real route (the approach left to the game); the tail switched to the seat
+  "atkN-chase@mark", "atkN-seat@mark", "atkN-chase@strike", "atkT-seat@giveup",
+  // (round 4) the helicopter's seat: the beam's dodge, hit, back; the ring slid at two in-between distances; dusk and
+  // night, boulder and beam; the boulder in landscape. The prop's seat: the beam's hit and back. A tail swipe tried while
+  // already in the seat (none starts). The beam's sweep, three frames. Over LAND from the city side.
+  "atkHE-seat@dodge", "atkHE-seat@hit", "atkHE-seat@back", "atkHE-seat@slideA", "atkHE-seat@slideB",
+  "atkHBd-seat@mark", "atkHBn-seat@mark", "atkHEd-seat@mark", "atkHEn-seat@mark", "atkHB-seat@mark~L",
+  "atkE-seat@hit", "atkE-seat@back", "atkTs-seat@none", "atkE-chase@sweep1", "atkE-chase@sweep2", "atkE-chase@sweep3", "atkL-chase@strike",
+  // (round 5) the helicopter's seat close (170 m): the boulder's strike too; over land, the thud and junk (round 6: from the helicopter backing
+  // off -- from the prop it lands behind him, out of his picture); the called-off
+  // tail held still from the seat a second apart, and going home once he has gone; the tail at half-night and night;
+  // a helicopter chase frame at night; and the stage-1 close-seat_up
+  "atkHC-seat@strike", "atkHL-chase@thud", "atkHL-chase@thud~L", "atkT-seat@held1", "atkT-seat@heldB", "atkT-seat@home",
+  "atkTd-chase@strike", "atkTn-chase@strike", "atkHEn-chase@mark", "close-seat@up"];
+// (round 6, a diagnostic, not in the set: the helicopter's seat hit at +2/+6/+12/+24 frames -- views atkHB-seat@hit2 etc.)
 
 async function render(root, views, outDir) {
   const out = outDir || path.resolve(__dirname, "..", "evidence", "titan");
@@ -51,6 +87,7 @@ async function render(root, views, outDir) {
       await pages[key].evaluate(() => { window.__lp.api.skipScreens(); window.__hold = () => {}; for (let i = 0; i < 3; i++) window.__paint(); });
     }
     const page = pages[key];
+    await page.evaluate(atkInstall);
     const info = await page.evaluate((v) => {
       const L = window.__lp, st = L.state, tn = L.titan, T = L.TUNE.titan;
       const [vs, moment] = v.replace("~L", "").split("@");
@@ -62,6 +99,7 @@ async function render(root, views, outDir) {
       // where its parts stand when it is UP (worked from its home and its standing heights, so a vantage is
       // the same whether it is up yet or not)
       const chestY = () => sea() - T.wadeDepth + 72, coreY = () => sea() - T.wadeDepth + 72;
+      if (vantage.startsWith("atk")) return window.__atkView(vantage, seat, moment);
       L.tnReset();
       const heliV = vantage === "turned" || vantage === "hover" || vantage === "wade" || vantage === "heli" || vantage === "heliSplash";
       L.api.setVehicle(heliV ? "helicopter" : "prop");
@@ -166,10 +204,145 @@ async function render(root, views, outDir) {
   }
   await browser.close(); srv.close();
 }
+// (v219) the attacks: set up through the game's own frames, then the moment run to
+function atkInstall() {
+  if (window.__atkView) return;
+  window.__atkView = (vantage, seat, moment) => {
+    const L = window.__lp, st = L.state, tn = L.titan;
+    // heldB: the SAME run as the view before it (held1), one second on -- nothing set up again
+    if (moment === "heldB") {
+      for (let i = 0; i < 60; i++) { window.__hold(); L.update(1 / 60); }
+      const c = L.tnTailRec().cap;
+      return { kind: "tail", sameRunAsHeld1: true, tailTip: c.b.map(v => +v.toFixed(2)), tailOff: tn.tailOff, gap: +L.tnTailGap().toFixed(1) };
+    }
+    window.__atkHitAt = null; window.__thud = null;
+    const kind = { atkB: "boulder", atkE: "beam", atkT: "tail", atkHB: "boulder", atkHE: "beam", atkHC: "boulder", atkHN: "boulder", atkEd: "beam", atkEn: "beam", atkN: "boulder", atkHBd: "boulder", atkHBn: "boulder", atkHEd: "beam", atkHEn: "beam", atkTs: "tail", atkL: "boulder", atkHL: "boulder", atkTd: "tail", atkTn: "tail" }[vantage];
+    const heliV = vantage.startsWith("atkT") || vantage.startsWith("atkH"), step = (n, f) => { for (let i = 0; i < n; i++) { if (f) f(); L.update(1 / 60); } };
+    L.api.skipScreens();
+    // (no dusk mood in the game -- sun, rain, snow, night -- so "dusk" is the night mood held half-way in)
+    const nightF = /^atk(E|HB|HE|T)n$/.test(vantage) ? 1 : /^atk(E|HB|HE|T)d$/.test(vantage) ? 0.5 : 0;
+    st.sky = nightF ? 3 : 0; st.nightF = nightF;
+    for (let i = 0; i < 60 * 4 && st.exploding; i++) L.update(1 / 60);   // (the last view's bang put back together first)
+    L.tnReset(); L.api.clearStick();
+    if (!heliV) { L.api.setVehicle("prop"); L.api.teleportAirborne(1500, 0, 300, 0); step(5); }
+    else { L.api.setVehicle("helicopter"); L.api.spawnAt(0, 0); step(10); heli.vertical = 1; step(60); heli.vertical = 0; }
+    // (at the east end of its path, as titan_checks does: a turn south there does not engage New York's approach)
+    const T = L.TUNE.titan, e = T.path[T.path.length - 1];
+    L.tnForce("up");
+    if (vantage === "atkN") tn.yaw = 0;   // (at home, where it rises, facing north)
+    else if (vantage === "atkL" || vantage === "atkHL") tn.yaw = Math.PI;   // (at home, facing south: the land)
+    else { tn.x = e[0]; tn.z = e[1]; tn.y = L.seaLevelAt(tn.x, tn.z); tn.yaw = vantage === "atkHN" ? 0 : Math.PI / 2; }
+    step(3);
+    const sea = L.seaLevelAt(tn.x, tn.z);
+    let pose;
+    if (vantage === "atkN") pose = { x: tn.x + 40, y: sea + 90, z: tn.z + 820, h: 0 };
+    else if (vantage === "atkL") { const x = tn.x + 30, z = tn.z - 880; pose = { x, y: Math.max(L.terrainEff(x, z), sea) + 90, z, h: Math.PI }; }
+    else if (vantage === "atkHL") { const x = tn.x + 30, z = tn.z - 420; pose = { x, y: Math.max(L.terrainEff(x, z), sea) + 60, z }; }   // (over the land south of it, facing it)
+    else if (!heliV) pose = { x: tn.x + (moment === "giveup" ? 880 : 820), y: sea + 90, z: tn.z + 40, h: Math.PI / 2 };
+    else if (kind === "tail") pose = { x: tn.x - 75, y: sea + 30, z: tn.z + 30 };
+    else if (vantage === "atkHN") pose = { x: tn.x + 30, y: sea + 70, z: tn.z + 420 };   // north of it, looking south over it to the land
+    else pose = { x: tn.x + (moment === "interrupt" ? 200 : vantage === "atkHC" ? 170 : 420), y: sea + 70, z: tn.z };
+    if (pose.h === undefined) pose.h = Math.atan2(-(tn.x - pose.x), -(tn.z - pose.z));
+    const pin = () => { if (nightF) st.nightF = nightF; st.x = pose.x; st.y = pose.y; st.z = pose.z; st.heading = pose.h; st.phase = "AIRBORNE"; st.maxAglSinceLiftoff = 1e9;
+      if (heliV) { heli.vx = heli.vz = heli.vy = 0; heli.altitude = pose.y; heli.target = null; st.speed = 0; } else { st.pitch = 0; st.bank = 0; st.speed = st.vp.cruiseSpeed; st.engaged = false; } };
+    // (the tail from the seat: started in the chase view, then the view switched)
+    L.api.setView(seat === "chase" || (kind === "tail" && vantage !== "atkTs"));
+    tn.atkCalm = 1e9; step(60, pin);
+    tn.atkCalm = 0; tn.atkGap = 0; tn.provoked = true; tn.atkPick = kind;
+    const f0 = L.flags.tnAtkFlashes || 0;
+    const still = () => { if (nightF) st.nightF = nightF; if (heliV && !st.exploding) { heli.vx = heli.vz = 0; } };
+    for (let i = 0; i < 60 * 4 && (L.flags.tnAtkFlashes || 0) === f0; i++) { still(); L.update(1 / 60); }
+    tn.atkPick = null;
+    const A = tn.atk;
+    if (vantage === "atkTs") { window.__hold = still; return { kind, flashed: (L.flags.tnAtkFlashes || 0) > f0, why: tn.atkNo, shown: ["boulder", "atkRing", "atkBeads", "atkBeam", "atkGlow"].filter(k => tn[k].visible) }; }
+    if (kind === "tail" && seat === "seat") L.api.setView(false);
+    const until = (cond, f) => { for (let i = 0; i < 60 * 12 && !cond(); i++) { (f || still)(); L.update(1 / 60); } };
+    let hold = still;
+    if (moment === "flash") until(() => A.t >= 0.6);
+    else if (moment === "mark") until(() => A.t >= 2.0);
+    else if (moment === "ring1" || moment === "ring2" || moment === "ring3") until(() => A.t >= { ring1: 1.6, ring2: 1.8, ring3: 2.0 }[moment]);
+    else if (moment === "sweep1" || moment === "sweep2" || moment === "sweep3") until(() => A.t >= { sweep1: 3.5, sweep2: 4.3, sweep3: 5.1 }[moment]);
+    else if (moment === "slideA" || moment === "slideB") {
+      // (staged: 2 s into the wind-up he is put 30 m / 70 m back from his mark, away from it -- the ring between slid and not)
+      until(() => A.t >= 2.0);
+      const back = moment === "slideA" ? 30 : 70, dx = pose.x - tn.x, dz = pose.z - tn.z, dl = Math.hypot(dx, dz);
+      pose = { x: pose.x + dx / dl * back, y: pose.y, z: pose.z + dz / dl * back, h: pose.h };
+      hold = () => { pin(); still(); }; step(3, hold);
+    }
+    else if (moment === "strike") until(() => A.t >= (kind === "boulder" ? 4.5 : kind === "beam" ? 5.1 : 5.3));
+    else if (moment === "thud" || moment === "thudR") {
+      // over land: he steers gently off; the ball comes down where he was -- on the land: a thud and junk
+      const l0 = L.flags.tnBoulderLand || 0;
+      // (a hard turn left from 1 s, round and back: the ball lands where he was, and he comes round to face it -- the frame
+      // the first moment its junk is in the middle of his picture, its 4 s not yet out)
+      // (the helicopter, atkHL: from 1 s it backs straight away from the robot, 10 m/s, holding its height -- the ball
+      // comes down in front of him, between him and it)
+      const away = Math.atan2(pose.x - tn.x, pose.z - tn.z);
+      const turn = heliV ? () => { if (A.t > 1 || !A.on) { heli.vx = Math.sin(away) * 10; heli.vz = Math.cos(away) * 10; heli.altitude = pose.y; } else heli.vx = heli.vz = 0; }
+        : () => L.api.setStick(moment === "thudR" ? 1 : -1, 0);
+      until(() => (L.flags.tnBoulderLand || 0) > l0 || (A.on === false && A.t > 7), () => { if (A.t > 1) turn(); });
+      const live = () => tn.debris.filter(d => d.life > 0), V = L.camera.position.constructor;
+      const inView = () => { const j = live(); if (!j.length) return false; let x = 0, y = 0, z = 0; for (const d of j) { x += d.x; y += d.y; z += d.z; }
+        L.camera.updateMatrixWorld(); const v = new V(x / j.length, y / j.length, z / j.length).project(L.camera); return v.z < 1 && Math.abs(v.x) < 0.75 && v.y > -0.66 && v.y < 0.85; };   // (above the instrument panel, its top at -0.71)
+      let n = 0; while (n++ < 60 * 3.5 && !inView()) { turn(); L.update(1 / 60); }
+      window.__thud = { framesAfter: n, junk: live().length, inView: inView() };
+      hold = turn;
+    }
+    else if (moment === "held1" || moment === "held2" || moment === "home") {
+      // (switched to his seat as it flashed, above: called off "unseen"). Held: 2 s and 3 s on, him still beside it.
+      // Home: 3 s on he goes 400 m back the way he faces from; 3 s more
+      step(moment === "held1" ? 120 : 180, still);
+      window.__held1Tip = L.tnTailRec().cap.b.map(v => +v.toFixed(2));
+      if (moment === "home") { const dx = pose.x - tn.x, dz = pose.z - tn.z, dl = Math.hypot(dx, dz); pose = { x: pose.x + dx / dl * 400, y: pose.y + 60, z: pose.z + dz / dl * 400, h: pose.h }; hold = () => { pin(); still(); }; step(180, hold); }
+    }
+    else if (moment === "dodge") {
+      // (the prop: a gentle steer left -- out to sea -- so, in landscape, the robot and its ring stay in the picture as it lands)
+      const steer = () => { if (heliV) heli.vertical = A.t > 1 ? 1 : 0; else if (A.t > 1) L.api.setStick(-0.3, 0); };
+      // (the frame: just before it lands -- him already off its line, the ring and the strike still in his picture)
+      until(() => A.t >= L.tnAtkLead(kind) - (heliV ? -0.15 : 0.6) || A.stage !== "wind" && A.stage !== "strike", () => { still(); steer(); });
+      hold = () => { still(); steer(); };
+    } else if (/^hit\d+$/.test(moment)) {
+      const h0 = L.flags.tnAtkHits || 0;
+      until(() => (L.flags.tnAtkHits || 0) > h0);
+      step(+moment.slice(3) - 1);
+    } else if (moment === "calledoff1" || moment === "calledoff2") {
+      // (switched to his seat as it flashed, above: the swipe is CALLED OFF, "unseen" -- these show that, not a swipe)
+      step(moment === "calledoff1" ? 30 : 90, still);
+    } else if (moment === "hit" || moment === "back") {
+      const h0 = L.flags.tnAtkHits || 0;
+      until(() => (L.flags.tnAtkHits || 0) > h0);
+      const hf = { x: Math.round(st.x), y: Math.round(st.y), z: Math.round(st.z) }; window.__atkHitAt = hf;
+      if (moment === "hit") step(seat === "seat" ? 6 : 12);   // (from the seat the bang's burst is past his eye by 12 frames)
+      else { until(() => !st.exploding); step(20, still); }
+    } else if (moment === "interrupt") {
+      until(() => A.t >= 0.3);
+      const r = tn.recs.find(q => q.tnPart === "body"), c = r.cap;
+      st.heading = Math.atan2(-((c.a[0] + c.b[0]) / 2 - st.x), -((c.a[2] + c.b[2]) / 2 - st.z)); st.missileCooldown = 0; L.fireMissile();
+      const a0 = L.flags.tnAtkAbandon_hit || 0;
+      until(() => (L.flags.tnAtkAbandon_hit || 0) > a0);
+      step(9, still);
+    } else if (moment === "giveup" && kind === "tail") {
+      // (switched to his seat as it flashed, above): it can no longer show him, and it is called off -- a fifth of a second on
+      step(12, still);
+    } else if (moment === "giveup") {
+      until(() => A.t >= 0.3);
+      st.heading = Math.atan2(-(st.x - tn.x), -(st.z - tn.z));
+      const a0 = L.flags.tnAtkAbandon_far || 0;
+      until(() => (L.flags.tnAtkAbandon_far || 0) > a0, () => { L.api.clearStick(); });
+      step(9);
+      hold = () => {};
+    }
+    window.__hold = hold;
+    return { thud: window.__thud || undefined, kind, stage: A.stage, t: +A.t.toFixed(2), why: A.why, mark: [Math.round(A.mx), Math.round(A.my), Math.round(A.mz)], me: [Math.round(st.x), Math.round(st.y), Math.round(st.z)],
+             exploding: st.exploding, hits: L.flags.tnAtkHits || 0, hitAt: window.__atkHitAt || null, tailTip: L.tnTailRec().cap.b.map(v => +v.toFixed(2)), shown: ["boulder", "atkRing", "atkBeads", "atkBeam", "atkGlow"].filter(k => tn[k].visible) };
+  };
+}
 module.exports = render;
 if (require.main === module) {
   const args = process.argv.slice(2), root = args[0] && fs.existsSync(path.join(args[0], "cockpit")) ? args.shift() : path.join(__dirname, "..");
   const od = args.find(a => a.startsWith("outDir=")); const outDir = od ? od.slice(7) : null;
-  const views = args.filter(a => !a.startsWith("outDir="));
+  let views = args.filter(a => !a.startsWith("outDir="));
+  if (views.length === 1 && views[0] === "attacks") views = ATTACKS;
   render(path.resolve(root), views.length ? views : DEFAULT, outDir);
 }
+module.exports.atkInstall = atkInstall;
