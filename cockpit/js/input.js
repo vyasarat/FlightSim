@@ -488,22 +488,9 @@ function openPickerAnywhere() {
   if (eject.active) return;        // the rescue is already taking him somewhere safe
   if (menuOpen()) return;
   if (swReloadWanted) { location.reload(); return; }   // (v212) the page comes back on the vehicles
-  releaseThrottle();
-  keys.clear();
-  state.touching = false; state.touchIsPoint = false;
-  state.ctrlBank = 0; state.ctrlPitch = 0;
-  stickPointerId = null;
-  // If he was mid-bang, put the pieces back before the picker covers the world:
-  // clearing `exploding` alone leaves the shattered model hidden behind it.
-  if (typeof restoreShattered === "function") restoreShattered();
-  state.exploding = false; state.explodeTimer = 0;
-  if (typeof roverReset === "function") roverReset();
-  if (typeof astroReset === "function") astroReset();
-  if (typeof cancelRecovery === "function") cancelRecovery();
-  if (typeof heliReset === "function") heliReset();
-  if (typeof boatCannonPress === "function") boatCannonPress(false);
-  if (typeof carHornRelease === "function") carHornRelease();
-  if (typeof raceReset === "function") raceReset();   // v164: out of a race, and its track picker shut
+  // (v221) the LEAVE table (state.js): the finger and the keys let go, a bang's pieces put back, the rover,
+  // the astronaut, the recovery, the helicopter, the cannon, the horn, a race
+  leaveRun("picker", "unwind");
   // ALWAYS on the vehicles -- never on the rocket's destination screen, which
   // has the way back to the vehicles underneath it.
   el.screenDir.classList.add("hiddenS");

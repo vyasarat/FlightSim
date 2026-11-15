@@ -123,57 +123,159 @@ const VEHICLE_TONES = [
   ["cvRoar", "sawtooth", TUNE.corvette.roar.hz],     // v159: the Corvette's booster (corvette.js)
 ];
 
+// ---------------------------------------------------------------------------
+// WORKING RULES -- LEAVING: ONE TABLE OF WHAT IS PUT AWAY (v221, B4 step 1).
+//
+// Three places put away what he was doing: a change of vehicle (applyVehicle, the vehicle card), a fresh
+// start (spawnForTakeoff: the direction card, a relaunch, the globe, a rescue), and the menu button
+// (openPickerAnywhere, input.js). Each had its own list. LEAVE holds every statement of the three as one
+// named row, moved verbatim with its own guard; LEAVE_AT says, per place, which rows it runs and in what
+// order, in steps, because each place does some of its own work between them (takes the new vehicle,
+// builds its model, poses him on the runway) and that work stays where it was, inline. A row a place
+// does not run is not in its lists: the grid below shows every row against every place, "-" for not run.
+// Each place runs exactly what it ran before v221, in exactly the old order -- the three lists did not
+// agree on an order (the helicopter and the toy track, the race and the helicopter, the cannon and the
+// rover), so there is no one order for all of them: each place keeps its own. A step guarded by the new
+// vehicle (offBoat, offRocket) is guarded at the place that runs it, as it was.
+//
+//   row            vehicle     start   picker     what goes
+//   monster        leaving     -       -          what the monster truck crushed comes back
+//   robot          leaving     first   -          the giant robot forgets him ("vehicle" / "start")
+//   crane          leaving     -       -          the crane's lot goes away
+//   heavy          leaving     -       -          the heavy's side boosters (unless he picked the heavy)
+//   heli           leaving     last    unwind     the helicopter's tool, load and air
+//   track          leaving     first   -          off the giant toy track
+//   corvette       leaving     -       -          the Corvette's booster flames
+//   rocketRoar     roar        -       -          the rocket's roar, if its graph exists
+//   cabin          putAway     -       -          the car's cabin (unless he picked a car)
+//   helm           putAway     -       -          the boat's helm (unless he picked a boat)
+//   yacht          putAway     -       -          the yacht's bridge, and she goes back in the world
+//   cannon         offBoat     -       unwind     the boat's cannon lets go
+//   tones          quiet       -       -          every per-vehicle tone (VEHICLE_TONES) to zero
+//   audioHold      quiet       first   -          the picker's hold forgets what it quieted
+//   reentry        offRocket   -       -          re-entry's glow
+//   reentryRoar    offRocket   -       -          re-entry's roar
+//   rocketButtons  offRocket   -       -          stage, satellite, chute, rover, hatch, drone buttons
+//   rover          offRocket   -       unwind     the rover put away
+//   astro          offRocket   -       unwind     the astronaut back in
+//   recovery       offRocket   -       unwind     the booster's recovery called off
+//   race           -           first   unwind     out of a race, its track picker shut
+//   demo           -           first   -          out of a demolition's count
+//   police         -           first   -          out of a police pull-over
+//   events         -           last    -          last flight's event goes, a new one is drawn (DRAWS from the stream)
+//   towerCatch     -           last    -          the tower catch re-armed
+//   carrier        -           last    -          the carrier re-armed
+//   throttle       -           -       unwind     the throttle let go
+//   keys           -           -       unwind     the keyboard's held keys
+//   finger         -           -       unwind     the finger's touch and stick
+//   stick          -           -       unwind     the stick's pointer
+//   pieces         -           -       unwind     a bang's pieces put back, the bang over
+//   horn           -           -       unwind     the car's horn let go
+//
+// What stays inline, at its old place: applyVehicle's taking of the new vehicle (key, profile, colours, the
+// model), its chase view and the missile's low slot, and its model's visibility; spawnForTakeoff's runway
+// pose, the vehicles' spawns, the rocket's pad (with its `rk.onBody = null`), the apron, the rings, the
+// helicopter's playground and the count; the picker's three refusals at its top and its screens after.
+//
+// Not yet (B4's next steps, one row per release): a place running a row it does not run today.
+// ---------------------------------------------------------------------------
+const LEAVE = {
+  monster:       () => { if (typeof monRestoreAll === "function") monRestoreAll(); },   // what the monster truck crushed comes back when he leaves it: nothing is lost
+  robot:         (at) => { if (typeof tnStandDown === "function") tnStandDown({ vehicle: "vehicle", start: "start" }[at]); },   // (v218) a different vehicle, a fresh start: the giant robot forgets him
+  crane:         () => { if (typeof crLeave === "function") crLeave(); },   // the crane's towers stand back up and go away (v145): its lot is drawn only while he is in it
+  heavy:         (at, key) => { if (typeof heavyReset === "function" && !(TUNE.vehicles[key] && TUNE.vehicles[key].heavy)) heavyReset(); },   // the heavy's side boosters do not outlive it
+  heli:          () => { if (typeof heliReset === "function") heliReset(); },
+  // (v214) ... and off the giant toy track: it stayed on, and the next frame put him back on the
+  // rail -- the globe took him nowhere, but saved London as his start
+  track:         () => { if (typeof trackReset === "function") trackReset(); },
+  corvette:      () => { if (typeof cvReset === "function") cvReset(); },   // v159: the booster's flames do not outlive the Corvette
+  rocketRoar:    () => { if (typeof rocketNodes !== "undefined" && rocketNodes) setRocketEngine(0, 0); },   // silence the roar, but don't build the graph for a plane
+  // the car's cabin is scene-level, so it has to be put away by hand when he
+  // climbs out -- otherwise it stays standing in the world behind him
+  cabin:         () => { if (!state.vp.car && typeof carHideCabin === "function") carHideCabin(); },
+  // ... and so is the boat's helm, for exactly the same reason
+  helm:          () => { if (!state.vp.boat && typeof boatHideHelm === "function") boatHideHelm(); },
+  yacht:         () => {
+    if (!state.vp.bigBoat) {
+      if (typeof yachtHideBridge === "function") yachtHideBridge();
+      // she is a place in the world whether or not he is standing on her, so she
+      // has to be put back into the world the moment he steps off
+      if (typeof yacht !== "undefined" && yacht.built) { yacht.aboard = false; yachtPlace(); }
+    }
+  },
+  // The cannon lives on the boat alone. Left up, it sits in the helicopter
+  // bucket's slot and eats the tap that means "scoop".
+  cannon:        () => { if (typeof boatCannonPress === "function") boatCannonPress(false); },
+  tones:         () => { if (typeof setTone === "function") for (const [n, t, f] of VEHICLE_TONES) setTone(n, t, f, 0); },
+  audioHold:     () => { if (typeof audioHoldForget === "function") audioHoldForget(); },   // (v217) nothing the picker quieted comes back in what he picked, nor in a fresh start
+  // (v213) re-entry's glow and roar are driven only by the rocket's own update: left mid-re-entry
+  // they stayed on the screen and in his ears in whatever he picked, until his next rocket
+  reentry:       () => { if (typeof rk !== "undefined" && rk.reentry > 0) { rk.reentry = 0; reentryOverlay(); } },
+  reentryRoar:   () => { if (typeof setReentryRoar === "function") setReentryRoar(0); },
+  rocketButtons: () => { for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn, el.droneBtn]) b.classList.add("hidden"); },
+  rover:         () => { if (typeof roverReset === "function") roverReset(); },
+  astro:         () => { if (typeof astroReset === "function") astroReset(); },
+  recovery:      () => { if (typeof cancelRecovery === "function") cancelRecovery(); },
+  race:          () => { if (typeof raceReset === "function") raceReset(); },   // v164: every start is out of a race (and the picker's: its track picker shut)
+  demo:          () => { if (typeof demoStandDown === "function") demoStandDown(); },   // (v213) ... and out of a demolition's count
+  // (v214) ... and out of a police pull-over: its cars eased toward him with no limit on the step,
+  // so from a relaunch they crossed the country (or the sea) in two seconds to finish the 3-2-1
+  police:        () => { if (typeof policeStop === "function") policeStop(false); },
+  // last flight's event goes away and a new one is drawn for this stack (it DRAWS from the random stream:
+  // where it runs among the other draws is what every seeded check after it sees)
+  events:        () => { if (typeof eventsSpawn === "function") eventsSpawn(); },
+  towerCatch:    () => { if (typeof towerCatchReset === "function") towerCatchReset(); },
+  carrier:       () => { if (typeof carrierReset === "function") carrierReset(); },
+  // input.js's own: the finger and the keys let go (its names are read when the row runs, never at load)
+  throttle:      () => { releaseThrottle(); },
+  keys:          () => { keys.clear(); },
+  finger:        () => { state.touching = false; state.touchIsPoint = false; state.ctrlBank = 0; state.ctrlPitch = 0; },
+  stick:         () => { stickPointerId = null; },
+  // If he was mid-bang, put the pieces back before the picker covers the world:
+  // clearing `exploding` alone leaves the shattered model hidden behind it.
+  pieces:        () => { if (typeof restoreShattered === "function") restoreShattered(); state.exploding = false; state.explodeTimer = 0; },
+  horn:          () => { if (typeof carHornRelease === "function") carHornRelease(); },
+};
+const LEAVE_AT = {
+  vehicle: {   // applyVehicle(key)
+    leaving:   ["monster", "robot", "crane", "heavy", "heli", "track", "corvette"],   // before the new vehicle is his
+    roar:      ["rocketRoar"],                                                         // his profile is the new one
+    putAway:   ["cabin", "helm", "yacht"],                                             // the new model is built
+    offBoat:   ["cannon"],                                                             // only if he did not pick a boat
+    quiet:     ["tones", "audioHold"],
+    offRocket: ["reentry", "reentryRoar", "rocketButtons", "rover", "astro", "recovery"],   // only if he did not pick a rocket
+  },
+  start: {     // spawnForTakeoff(originIdx, dirIdx)
+    first: ["audioHold", "race", "demo", "robot", "police", "track"],   // before he is posed on the runway
+    last:  ["events", "towerCatch", "carrier", "heli"],                 // after the rings are placed
+  },
+  picker: {    // openPickerAnywhere(), the menu button
+    unwind: ["throttle", "keys", "finger", "stick", "pieces", "rover", "astro", "recovery", "heli", "cannon", "horn", "race"],
+  },
+};
+// One step of one place's leaving, its rows in its own order.
+function leaveRun(at, step, key) {
+  for (const row of LEAVE_AT[at][step]) LEAVE[row](at, key);
+}
+
 function applyVehicle(key) {
   if (!TUNE.vehicles[key]) return;
-  // what the monster truck crushed comes back when he leaves it: nothing is lost
-  if (typeof monRestoreAll === "function") monRestoreAll();
-  if (typeof tnStandDown === "function") tnStandDown("vehicle");   // (v218) a different vehicle: the giant robot forgets him
-  // ... and the crane's towers stand back up and go away (v145): its lot is drawn only while he is in it
-  if (typeof crLeave === "function") crLeave();
-  // and the heavy's side boosters do not outlive it
-  if (typeof heavyReset === "function" && !(TUNE.vehicles[key] && TUNE.vehicles[key].heavy)) heavyReset();
-  if (typeof heliReset === "function") heliReset();
-  if (typeof trackReset === "function") trackReset();
-  if (typeof cvReset === "function") cvReset();      // v159: the booster's flames do not outlive the Corvette
+  leaveRun("vehicle", "leaving", key);
   state.vehicleKey = key;
   state.vp = TUNE.vehicles[key];
-  if (typeof rocketNodes !== "undefined" && rocketNodes) setRocketEngine(0, 0);   // silence the roar, but don't build the graph for a plane
+  leaveRun("vehicle", "roar", key);
   const cols = TUNE.vehicleColors[key];
   document.documentElement.style.setProperty("--veh", cols[0]);
   document.documentElement.style.setProperty("--veh2", cols[1]);
   buildVehicleModel(key);
-  // the car's cabin is scene-level, so it has to be put away by hand when he
-  // climbs out -- otherwise it stays standing in the world behind him
-  if (!state.vp.car && typeof carHideCabin === "function") carHideCabin();
-  // ... and so is the boat's helm, for exactly the same reason
-  if (!state.vp.boat && typeof boatHideHelm === "function") boatHideHelm();
-  if (!state.vp.bigBoat) {
-    if (typeof yachtHideBridge === "function") yachtHideBridge();
-    // she is a place in the world whether or not he is standing on her, so she
-    // has to be put back into the world the moment he steps off
-    if (typeof yacht !== "undefined" && yacht.built) { yacht.aboard = false; yachtPlace(); }
-  }
+  leaveRun("vehicle", "putAway", key);
   // Watch the rocket, see the helicopter's tool/load, and see the boat's hull and
   // its wake, in chase view; the view button still toggles.
   if ((state.vp.rocket || state.vp.heli || state.vp.boat || state.vp.sledRide || state.vp.crane) && !state.viewChase) { state.viewChase = true; el.hud.classList.add("chase"); }
-  // The cannon lives on the boat alone. Left up, it sits in the helicopter
-  // bucket's slot and eats the tap that means "scoop".
-  if (!state.vp.boat) {
-    if (typeof boatCannonPress === "function") boatCannonPress(false);
-  }
-  if (typeof setTone === "function") for (const [n, t, f] of VEHICLE_TONES) setTone(n, t, f, 0);
-  if (typeof audioHoldForget === "function") audioHoldForget();   // (v217) nothing the picker quieted comes back in what he picked
+  if (!state.vp.boat) leaveRun("vehicle", "offBoat", key);
+  leaveRun("vehicle", "quiet", key);
   el.missileBtn.classList.toggle("lowSlot", !!state.vp.rocket);   // the shared slot is spoken for on a rocket
-  if (!state.vp.rocket) {
-    // (v213) re-entry's glow and roar are driven only by the rocket's own update: left mid-re-entry
-    // they stayed on the screen and in his ears in whatever he picked, until his next rocket
-    if (typeof rk !== "undefined" && rk.reentry > 0) { rk.reentry = 0; reentryOverlay(); }
-    if (typeof setReentryRoar === "function") setReentryRoar(0);
-    for (const b of [el.stageBtn, el.satBtn, el.chuteBtn, el.roverBtn, el.hatchBtn, el.droneBtn]) b.classList.add("hidden");
-    if (typeof roverReset === "function") roverReset();
-    if (typeof astroReset === "function") astroReset();
-    if (typeof cancelRecovery === "function") cancelRecovery();
-  }
+  if (!state.vp.rocket) leaveRun("vehicle", "offRocket", key);
   if (vehicleModel) {
     vehicleModel.visible = state.viewChase && !state.exploding;
   }
@@ -195,16 +297,7 @@ function spawnAtAirport(at) { spawnForTakeoff(at, at === 1 ? 1 : 0); }
 function spawnForTakeoff(originIdx, dirIdx) {
   if (originIdx === undefined) { originIdx = state.originIdx; }
   if (dirIdx === undefined) { dirIdx = state.dirIdx; }
-  if (typeof audioHoldForget === "function") audioHoldForget();   // (v217) ... nor in a fresh start
-  if (typeof raceReset === "function") raceReset();   // v164: every start is out of a race
-  if (typeof demoStandDown === "function") demoStandDown();   // (v213) ... and out of a demolition's count
-  if (typeof tnStandDown === "function") tnStandDown("start");   // (v218) ... and the giant robot forgets him
-  // (v214) ... and out of a police pull-over: its cars eased toward him with no limit on the step,
-  // so from a relaunch they crossed the country (or the sea) in two seconds to finish the 3-2-1
-  if (typeof policeStop === "function") policeStop(false);
-  // (v214) ... and off the giant toy track: it stayed on, and the next frame put him back on the
-  // rail -- the globe took him nowhere, but saved London as his start
-  if (typeof trackReset === "function") trackReset();
+  leaveRun("start", "first");   // (v221) the LEAVE table above: the hold forgets, out of a race, a count, the robot's eye, a pull-over, the toy track
   state.originIdx = originIdx;
   state.dirIdx = dirIdx;
   state.destIdx = apDest(originIdx);
@@ -263,11 +356,7 @@ function spawnForTakeoff(originIdx, dirIdx) {
   // (not to the crane, v145: its lot is out in the country, not on an apron -- they stay at their airport)
   if (typeof apronVehiclesTo === "function" && !(state.vp && state.vp.crane)) apronVehiclesTo(originIdx, true);
   placeRings();
-  // last flight's event goes away and a new one is drawn for this stack
-  if (typeof eventsSpawn === "function") eventsSpawn();
-  if (typeof towerCatchReset === "function") towerCatchReset();
-  if (typeof carrierReset === "function") carrierReset();
-  if (typeof heliReset === "function") heliReset();
+  leaveRun("start", "last");   // (v221) last flight's event goes and a new one is drawn (the stream), the set-pieces re-armed, the helicopter
   if (state.vp.heli && typeof twFacePlayground === "function") twFacePlayground();
   flags.repositioned++;
 }
