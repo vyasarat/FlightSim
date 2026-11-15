@@ -185,8 +185,8 @@ const COUNTER_FILES = ["crane.js", "fireworksbarge.js", "launchsite.js", "monste
 // <kind>: tone | numeral | button | model, or "ran" (the exit did not happen / the mode was not reached / the
 // during-reading was not taken), with <what> the leftover's name or the reason.
 // (Q-3, fixed in v217: the picker's hold quiets his vehicle's motion voices -- audio.js audioHoldStill, checked in engine_sound_checks)
+// (Q-6, fixed in v220: the bang recomputes every button -- flight.js FRAME_TAILS.bang, checked in slot_checks "buttons in pieces")
 const HUD7 = "HUD-7 (B3/B5): the bang branch never calls engUpdate -- the engine voice holds its pre-crash level through the bang (flight.js:405-460)";
-const Q6 = "Q-6 (B3): the bang branch never calls btnUpdateAll -- the buttons of before the bang stay up in pieces (flight.js:405-460)";
 const RACE_TYRE = "Q-16 (new): a race started from a car at speed keeps the car's tyre tone at its last gain for the whole race -- rcStartRace (race.js:1297-1345) silences the horn, the police and its own tones, not carTyre, and its only writer, updateCar (car.js:1190), does not run in a race (vehicles.js:172)";
 const DEAD_EJECT = "Q-15 (new): the eject button is offered (eject.js:29-31 updateEjectControl does not exclude it) but ejectStart refuses -- no TUNE.eject.families entry (tune.js:2215-2242; eject.js:110) -- a button that does nothing";
 const TRACK_SOLID = "Q-20 (new): on the giant toy track vehSolid() says solid (vehicles.js:127, every car) but nothing there asks the registry -- car.js:865 hands the frame to trackUpdate first; the track's bangs are its own (a fall, track.js:975). REVIEW finding 18: the track is not a contract row";
@@ -221,24 +221,15 @@ const KNOWN = {
   "astro/picker/tone/bed:moon": STALE_BODY,
   "astro/picker:next/tone/bed:moon": STALE_BODY,
   "plane/bang:mid/tone/engine:prop": HUD7,
-  "plane/bang:mid/button/fastBtn": Q6,
-  "plane/bang:mid/button/slowBtn": Q6,
   "plane/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "planeDemo/bang:mid/tone/engine:prop": HUD7,
-  "planeDemo/bang:mid/button/fastBtn": Q6,
-  "planeDemo/bang:mid/button/slowBtn": Q6,
-  "planeDemo/bang:mid/button/skipBtn": Q6,
   "planeDemo/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "heli/bang:mid/tone/engine:heli": HUD7,
   "planeTitan/bang:mid/tone/engine:prop": HUD7,
-  "planeTitan/bang:mid/button/fastBtn": Q6,
-  "planeTitan/bang:mid/button/slowBtn": Q6,
   "planeTitan/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "heliTitan/bang:mid/tone/engine:heli": HUD7,
   "heliTitan/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "planeTitanAttack/bang:mid/tone/engine:prop": HUD7,
-  "planeTitanAttack/bang:mid/button/fastBtn": Q6,
-  "planeTitanAttack/bang:mid/button/slowBtn": Q6,
   "planeTitanAttack/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "heliTitanAttack/bang:mid/tone/engine:heli": HUD7,
   "heliTitanAttack/bang:mid/model/his model hidden": REASSEMBLY_FRAME,

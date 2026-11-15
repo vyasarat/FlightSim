@@ -10,6 +10,23 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v220 — no buttons in pieces
+
+When he flew the plane into a building or a wall, the faster and slower buttons (and the go button) he had
+before the bang stayed up while the pieces flew, and a tap on the speed buttons still changed his speed
+while he was in pieces. Now those buttons go while he is in pieces -- every button is worked out afresh
+each frame of the bang, as it is everywhere else -- and tapping where the speed buttons were does nothing;
+they come back, on the speed he left them at, when he is put back together. The missile and gear buttons
+stay up in pieces as they always have (the table shows them there). (The helicopter and the rocket
+already got this right, and a check now holds all three to it.) The eject button is still drawn on
+the very frame he bangs, and his model still blinks out for one frame as he is put back together; both are
+queued, not fixed here. Underneath, came first and as its own step: the frame's three tails -- the world
+going on round him, the picture, and the buttons and dials -- are now written once (`frameWorld`,
+`framePicture`, `frameControls`), and the bang and the menu's hold each say which parts of them they run.
+Over a recorded session in the plane, the helicopter, the car and the boat (flying, behind the cards, in
+pieces after a ground bang and a wall bang, under the canopy) that step made the same calls in the same
+order with the same results every frame, and drew the same random numbers.
+
 ## v219 — the giant robot fights back (stage 2: its three attacks)
 
 Once he has hit it, or flown in within 260 m of it, the robot attacks him -- only in the plane or the helicopter,
