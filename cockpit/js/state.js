@@ -159,6 +159,7 @@ const VEHICLE_TONES = [
 //   rover          offRocket   -       unwind     the rover put away
 //   astro          offRocket   -       unwind     the astronaut back in
 //   recovery       offRocket   -       unwind     the booster's recovery called off
+//   body           offRocket   -       -          off the Moon, Mars or the station: rk.onBody cleared (v222, Q-18)
 //   race           -           first   unwind     out of a race, its track picker shut
 //   demo           -           first   -          out of a demolition's count
 //   police         -           first   -          out of a police pull-over
@@ -177,7 +178,15 @@ const VEHICLE_TONES = [
 // pose, the vehicles' spawns, the rocket's pad (with its `rk.onBody = null`), the apron, the rings, the
 // helicopter's playground and the count; the picker's three refusals at its top and its screens after.
 //
+// (v222) `body` is the first row added after the move: the rocket is the only vehicle that lands on a body, so a
+// change to anything else is off it -- the rover and the astronaut are put away in the same step. Only the
+// vehicle card's place runs it: the menu does not (opened on the Moon he is still on it until he picks), a fresh
+// start does not need to (a non-rocket only comes from applyVehicle, which has cleared it; the rocket's own pad
+// clears it inline, as before), and dad mode enters through applyVehicle.
+//
 // Not yet (B4's next steps, one row per release): a place running a row it does not run today.
+// The order each place runs its rows in is pinned by leave_matrix_checks ("leave order: ..."); gate 20 holds the
+// names and this grid to LEAVE_AT.
 // ---------------------------------------------------------------------------
 const LEAVE = {
   monster:       () => { if (typeof monRestoreAll === "function") monRestoreAll(); },   // what the monster truck crushed comes back when he leaves it: nothing is lost
@@ -216,6 +225,10 @@ const LEAVE = {
   rover:         () => { if (typeof roverReset === "function") roverReset(); },
   astro:         () => { if (typeof astroReset === "function") astroReset(); },
   recovery:      () => { if (typeof cancelRecovery === "function") cancelRecovery(); },
+  // (v222, Q-18) off the Moon, Mars or the station: only the rocket stands on a body. Left set, every reader of
+  // rk.onBody (the ambient bed first, audio.js currentBedName; the sky, the light, the streamed lamps and the
+  // motorway) took the plane on the runway for one on the Moon
+  body:          () => { if (typeof rk !== "undefined") rk.onBody = null; },
   race:          () => { if (typeof raceReset === "function") raceReset(); },   // v164: every start is out of a race (and the picker's: its track picker shut)
   demo:          () => { if (typeof demoStandDown === "function") demoStandDown(); },   // (v213) ... and out of a demolition's count
   // (v214) ... and out of a police pull-over: its cars eased toward him with no limit on the step,
@@ -243,7 +256,7 @@ const LEAVE_AT = {
     putAway:   ["cabin", "helm", "yacht"],                                             // the new model is built
     offBoat:   ["cannon"],                                                             // only if he did not pick a boat
     quiet:     ["tones", "audioHold"],
-    offRocket: ["reentry", "reentryRoar", "rocketButtons", "rover", "astro", "recovery"],   // only if he did not pick a rocket
+    offRocket: ["reentry", "reentryRoar", "rocketButtons", "rover", "astro", "recovery", "body"],   // only if he did not pick a rocket
   },
   start: {     // spawnForTakeoff(originIdx, dirIdx)
     first: ["audioHold", "race", "demo", "robot", "police", "track"],   // before he is posed on the runway

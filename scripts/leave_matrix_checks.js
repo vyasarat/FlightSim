@@ -186,12 +186,12 @@ const COUNTER_FILES = ["crane.js", "fireworksbarge.js", "launchsite.js", "monste
 // during-reading was not taken), with <what> the leftover's name or the reason.
 // (Q-3, fixed in v217: the picker's hold quiets his vehicle's motion voices -- audio.js audioHoldStill, checked in engine_sound_checks)
 // (Q-6, fixed in v220: the bang recomputes every button -- flight.js FRAME_TAILS.bang, checked in slot_checks "buttons in pieces")
+// (Q-18, fixed in v222: a change to anything but the rocket clears rk.onBody -- state.js LEAVE row `body`, checked below in "leave a body (Q-18)")
 const HUD7 = "HUD-7 (B3/B5): the bang branch never calls engUpdate -- the engine voice holds its pre-crash level through the bang (flight.js:405-460)";
 const RACE_TYRE = "Q-16 (new): a race started from a car at speed keeps the car's tyre tone at its last gain for the whole race -- rcStartRace (race.js:1297-1345) silences the horn, the police and its own tones, not carTyre, and its only writer, updateCar (car.js:1190), does not run in a race (vehicles.js:172)";
 const DEAD_EJECT = "Q-15 (new): the eject button is offered (eject.js:29-31 updateEjectControl does not exclude it) but ejectStart refuses -- no TUNE.eject.families entry (tune.js:2215-2242; eject.js:110) -- a button that does nothing";
 const TRACK_SOLID = "Q-20 (new): on the giant toy track vehSolid() says solid (vehicles.js:127, every car) but nothing there asks the registry -- car.js:865 hands the frame to trackUpdate first; the track's bangs are its own (a fall, track.js:975). REVIEW finding 18: the track is not a contract row";
 const REASSEMBLY_FRAME = "Q-17 (new): on the frame he is put back together his model is not drawn (in every vehicle the bang branch serves) -- the bang branch poses the model (flight.js:432, hidden while exploding) BEFORE it reassembles him (flight.js:437-458) and returns, so that frame is drawn without him: a one-frame blink";
-const STALE_BODY = "Q-18 (new): leaving the Moon, Mars or the station for any other vehicle keeps that body's ambient bed -- rk.onBody is cleared only when the vehicle is a rocket (state.js:250-252, in spawnForTakeoff; applyVehicle, state.js:126-176, never clears it), and currentBedName asks rk.onBody before anything else (audio.js:563): the prop on the runway plays the Moon's (or Mars's) bed, and every other reader of rk.onBody sees a body he is not on";
 const EJECT_FRAME = "Q-19 (new): on the frame he bangs, the eject button is still drawn -- updateEjectControl (eject.js:24-31) runs at the top of update() (flight.js:371) before the bang that frame, and the bang branch does not call it again (the Q-6 family: B3)";
 const KNOWN = {
   "plane/bang:mid/button/ejectBtn": EJECT_FRAME,
@@ -209,17 +209,6 @@ const KNOWN = {
   "boat/bang:mid/button/ejectBtn": EJECT_FRAME,
   "yacht/bang:mid/button/ejectBtn": EJECT_FRAME,
   "rocket/bang:mid/button/ejectBtn": EJECT_FRAME,
-  "rover/switch/tone/bed:moon": STALE_BODY,
-  "rover/picker/tone/bed:moon": STALE_BODY,
-  "rover/picker:next/tone/bed:moon": STALE_BODY,
-  "rover/eject:next/tone/bed:moon": STALE_BODY,
-  "drone/switch/tone/bed:mars": STALE_BODY,
-  "drone/picker/tone/bed:mars": STALE_BODY,
-  "drone/picker:next/tone/bed:mars": STALE_BODY,
-  "drone/eject:next/tone/bed:mars": STALE_BODY,
-  "astro/switch/tone/bed:moon": STALE_BODY,
-  "astro/picker/tone/bed:moon": STALE_BODY,
-  "astro/picker:next/tone/bed:moon": STALE_BODY,
   "plane/bang:mid/tone/engine:prop": HUD7,
   "plane/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "planeDemo/bang:mid/tone/engine:prop": HUD7,
@@ -968,10 +957,162 @@ async function install(cfg) {
   return { audio: audioCtx ? audioCtx.state : null };
 }
 
+// ---------------------------------------------------------------------------
+// (v222) THE LEAVE TABLE'S ORDER, PINNED. state.js's LEAVE_AT says which rows each place runs and in what order;
+// the gate (gate 20) holds the names and the header grid to it, but not the ORDER -- and the order is behaviour
+// (eventsSpawn draws from the stream; the three places disagree on it on purpose). Every row is wrapped to say
+// that it ran, and where; each place is driven the way the game drives it; the rows are put back as they were.
+// The expected lists are written out in node (LEAVE_ORDER), never read from LEAVE_AT.
+function leaveOrderInPage() {
+  const L = window.__lp;
+  L.noRender = true;
+  const press = (e, type) => e && e.dispatchEvent(new PointerEvent(type || "pointerdown", { bubbles: true, cancelable: true, pointerId: 7, clientX: 0, clientY: 0 }));
+  const orig = {}, log = [], out = {};
+  for (const k of Object.keys(LEAVE)) {
+    orig[k] = LEAVE[k];
+    LEAVE[k] = function (at) { log.push(k + "@" + at); return orig[k].apply(this, arguments); };
+  }
+  const take = (name, fn) => { log.length = 0; try { fn(); out[name] = log.slice(); } catch (e) { out[name] = ["threw: " + e.message]; } };
+  try {
+    L.api.setVehicle("prop"); L.api.spawnAt(0, 0); L.api.skipScreens(); L.update(1 / 60);
+    L.api.setVehicle("car");                                   // from something else, so each change is a change
+    take("vehicle:plane", () => L.api.setVehicle("prop"));     // applyVehicle, to a non-boat non-rocket
+    take("vehicle:boat", () => L.api.setVehicle("speedboat"));
+    take("vehicle:rocket", () => L.api.setVehicle("rocket"));
+    L.api.setVehicle("prop");
+    take("start", () => L.api.spawnAt(0, 0));                  // spawnForTakeoff
+    L.api.skipScreens(); L.update(1 / 60);
+    take("picker", () => press(el.menuBtn));                   // openPickerAnywhere, by the menu button
+    out.pickerOpened = !el.screenVehicle.classList.contains("hiddenS");
+    L.api.skipScreens();
+  } finally {
+    for (const k of Object.keys(orig)) LEAVE[k] = orig[k];
+  }
+  out.unwrapped = Object.keys(orig).every(k => LEAVE[k] === orig[k]) && Object.keys(LEAVE).length === Object.keys(orig).length;
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// (v222, Q-18) OFF A BODY. In the rocket on the Moon, on Mars or docked at the station, then away by each route he
+// has: the menu, a vehicle card (read behind the direction screen) and a direction card; the fresh-start switch
+// the matrix drives (applyVehicle, spawnForTakeoff); from the Moon, dad mode. Afterwards rk.onBody is null and the
+// ambient bed (currentBedName) is, sample for sample over five seconds, what the SAME route gives from the rocket
+// on its Earth pad -- a delta against the place he went to, not a list of names. And where he must STAY: the menu
+// opened on the body and put away (by the harness's hand: the game's picker only closes by a card) leaves him
+// there, bed and all; the rocket card alone keeps him there; the rocket card and a direction card are a pad start.
+function bodyLeaveInPage(arg) {
+  const L = window.__lp, st = L.state;
+  L.noRender = true;
+  const step = (n) => { for (let i = 0; i < n; i++) L.update(1 / 60); };
+  const press = (e, type) => e && e.dispatchEvent(new PointerEvent(type || "pointerdown", { bubbles: true, cancelable: true, pointerId: 7, clientX: 0, clientY: 0 }));
+  const tap = (e) => { press(e, "pointerdown"); press(e, "pointerup"); };
+  const onScreen = (id) => { const e = document.getElementById(id); return !!e && !e.classList.contains("hiddenS"); };
+  const closeScreens = () => { for (const id of ["screenVehicle", "screenDir", "screenDest", "screenRace", "screenGlobe"]) { const e = document.getElementById(id); if (e) e.classList.add("hiddenS"); } };
+  const on = () => rk.onBody ? rk.onBody.name : null;
+  const snap = () => ({ body: on(), bed: currentBedName(), key: state.vehicleKey });
+  function fresh() {
+    L.api.clearStick(); L.api.setThrottle(false);
+    if (typeof dadActive === "function" && dadActive()) dadExit();
+    closeScreens();
+    try { localStorage.removeItem("lp.start"); } catch (e) {}
+    L.api.setVehicle("prop"); L.api.spawnAt(0, 0); closeScreens(); step(30);
+  }
+  // in the rocket, on its Earth pad or on a body -- placed as the leaving matrix's rover, drone and astro rows place it
+  function putOn(where) {
+    fresh();
+    L.api.setVehicle("rocket"); L.api.placeOnRunway(); closeScreens(); step(5);
+    if (where === "station") {
+      const b = BODIES.find(q => q.name === "station");
+      st.dest = "station"; st.exploding = false; st.phase = "AIRBORNE"; rk.onBody = null; rk.launchedFromBody = false; rk.stage = 3;
+      L.rocketApplyStages(L.vehicleModel);
+      st.x = b.x; st.y = b.y - 200; st.z = b.z; st.pitch = 90; st.spaceF = 1; rk.vx = rk.vz = 0; rk.vy = 25;
+      for (let i = 0; i < 60 * 40 && !rk.onBody; i++) L.update(1 / 60);
+    } else if (where !== "earth") {
+      const b = BODIES.find(q => q.name === where);
+      st.dest = where; st.phase = "TAXI"; rk.stage = 3; rk.onBody = b;
+      const n = where === "mars" ? new THREE.Vector3(0.62, 0.5, 0.6).normalize() : new THREE.Vector3(0, 1, 0);
+      st.x = b.x + n.x * (b.r + 10); st.y = b.y + n.y * (b.r + 10); st.z = b.z + n.z * (b.r + 10);
+    }
+    step(60);
+    return snap();
+  }
+  // five seconds of play after he is away: the bed and rk.onBody every half second, from the first second on
+  function play() { const s = []; for (let i = 1; i <= 300; i++) { L.update(1 / 60); if (i >= 60 && i % 30 === 0) s.push(snap()); } return s; }
+  const ROUTES = {
+    // the menu button, the vehicle card (read behind the direction screen), the direction card
+    menu(to) {
+      press(el.menuBtn); const opened = onScreen("screenVehicle");
+      step(30); tap(document.querySelector(`.vehCard[data-v="${to}"]`));
+      step(30); const card = Object.assign(snap(), { dirUp: onScreen("screenDir") });
+      press(document.querySelector('.dirCard[data-d="0"]'));
+      if (onScreen("screenDest")) press(document.querySelector(".destCard.sel") || document.querySelector(".destCard"));
+      return { opened, card, away: snap(), up: ["screenVehicle", "screenDir", "screenDest"].filter(onScreen) };
+    },
+    // the matrix's switch: applyVehicle and spawnForTakeoff, the game's own two
+    switch(to) { L.api.setVehicle(to); L.api.spawnAt(0, 0); closeScreens(); return { away: snap(), up: [] }; },
+    // dad mode, from the Moon (the parent's: its own exit brings him back on the vehicles)
+    dad() {
+      dadEnter(); step(60); const inDad = snap();
+      dadExit(); closeScreens(); step(5);
+      return { inDad, away: snap(), up: [] };
+    },
+  };
+  const out = { leave: [], stay: [] };
+  for (const where of arg.bodies) {
+    for (const [route, to] of arg.routes[where]) {
+      const ref = putOn("earth"), refRun = ROUTES[route](to), refPlay = play();
+      const before = putOn(where), run = ROUTES[route](to), after = play();
+      out.leave.push({ where, route, to, ref, refRun, refBeds: refPlay.map(s => s.bed), before, run, after });
+    }
+    // the stays: the menu put away, the rocket card alone, then a direction card (a pad start)
+    {
+      const before = putOn(where), p0 = { x: st.x, y: st.y, z: st.z };
+      press(el.menuBtn); const opened = onScreen("screenVehicle"); step(60);
+      L.api.skipScreens(); step(120);
+      const moved = Math.hypot(st.x - p0.x, st.y - p0.y, st.z - p0.z);
+      out.stay.push({ where, kind: "menu put away", before, opened, after: snap(), moved: +moved.toFixed(2) });
+    }
+    {
+      const before = putOn(where);
+      press(el.menuBtn); step(30); tap(document.querySelector('.vehCard[data-v="rocket"]')); step(30);
+      const card = snap();
+      press(document.querySelector('.dirCard[data-d="0"]'));
+      if (onScreen("screenDest")) press(document.querySelector(".destCard.sel") || document.querySelector(".destCard"));
+      step(60);
+      const pad = rocketPad(0), dPad = Math.hypot(st.x - pad.x, st.z - pad.z);
+      out.stay.push({ where, kind: "rocket again", before, card, after: snap(), dPad: +dPad.toFixed(1), up: ["screenVehicle", "screenDir", "screenDest"].filter(onScreen) });
+    }
+  }
+  fresh();
+  return out;
+}
+
 // ===========================================================================
 // in node
 // ===========================================================================
 const CFG = { HOLD, FROZEN, SETTLE, CLEAN, TONE_OWNER, SOURCE_TONES, DISTANCE_TONES };
+
+// (v222) each place's rows, in the order it runs them: written out, never read from state.js
+const LEAVE_ORDER = {
+  "vehicle:plane":  ["monster", "robot", "crane", "heavy", "heli", "track", "corvette", "rocketRoar", "cabin", "helm", "yacht", "cannon", "tones", "audioHold",
+                     "reentry", "reentryRoar", "rocketButtons", "rover", "astro", "recovery", "body"],
+  "vehicle:boat":   ["monster", "robot", "crane", "heavy", "heli", "track", "corvette", "rocketRoar", "cabin", "helm", "yacht", "tones", "audioHold",
+                     "reentry", "reentryRoar", "rocketButtons", "rover", "astro", "recovery", "body"],
+  "vehicle:rocket": ["monster", "robot", "crane", "heavy", "heli", "track", "corvette", "rocketRoar", "cabin", "helm", "yacht", "cannon", "tones", "audioHold"],
+  "start":          ["audioHold", "race", "demo", "robot", "police", "track", "events", "towerCatch", "carrier", "heli"],
+  "picker":         ["throttle", "keys", "finger", "stick", "pieces", "rover", "astro", "recovery", "heli", "cannon", "horn", "race"],
+};
+const LEAVE_ORDER_SAY = {
+  "vehicle:plane": "a vehicle change to a plane (applyVehicle: not a boat, not a rocket)", "vehicle:boat": "a vehicle change to a boat",
+  "vehicle:rocket": "a vehicle change to a rocket", start: "a fresh start (spawnForTakeoff)", picker: "the menu button (openPickerAnywhere)",
+};
+// (v222, Q-18) the routes off each body: [route, the card he picks]
+const BODY_ROUTES = {
+  moon:    [["menu", "prop"], ["menu", "car"], ["switch", "prop"], ["switch", "car"], ["dad", null]],
+  mars:    [["menu", "prop"], ["menu", "car"], ["switch", "prop"], ["switch", "car"]],
+  station: [["menu", "prop"], ["menu", "car"], ["switch", "prop"], ["switch", "car"]],
+};
+const BODY_BED = { moon: "moon", mars: "mars", station: "moon" };   // currentBedName on each (the station has no bed of its own)
 
 // one row x orientation: its page, its cells in order, every clean start judged as the last thing's leftover
 async function runRow({ newPage, orient, size, m, out }) {
@@ -1126,6 +1267,66 @@ module.exports = async function leaveMatrixChecks({ newPage, check }) {
     const stale = Object.keys(LEFT_OUT).filter(k => !contract.includes(k) || rowKinds.has(k));
     check("leave: every row of the vehicle contract (VEHICLE_CONTRACT) is a row of the matrix, or is named in LEFT_OUT with why -- a new vehicle cannot be left out of the matrix by forgetting",
       contract.length > 10 && uncovered.length === 0 && stale.length === 0, { contract, uncovered, stale });
+  }
+
+  // ---- 0c. (v222) the LEAVE table's order, pinned: each place runs exactly its rows, in exactly this order
+  {
+    const { page, ctx } = await newPage(PORTRAIT[0], PORTRAIT[1]);
+    const o = await page.evaluate(leaveOrderInPage);
+    for (const [name, want] of Object.entries(LEAVE_ORDER)) {
+      const place = name.split(":")[0], got = o[name] || [];
+      const rows = got.map(x => x.split("@")[0]), wrongAt = got.filter(x => x.split("@")[1] !== place);
+      check(`leave order: ${LEAVE_ORDER_SAY[name]} runs its LEAVE rows in exactly the pinned order, each told its place, and the rows are put back unwrapped`,
+        JSON.stringify(rows) === JSON.stringify(want) && !wrongAt.length && o.unwrapped && (place !== "picker" || o.pickerOpened),
+        { got: rows, want, wrongAt, unwrapped: o.unwrapped, pickerOpened: o.pickerOpened });
+    }
+    await ctx.close().catch(() => {});
+  }
+
+  // ---- 0d. (v222, Q-18) off a body, the body is gone: rk.onBody, and the bed is the new place's; on it, he stays
+  {
+    const { page, ctx } = await newPage(PORTRAIT[0], PORTRAIT[1]);
+    const r = await page.evaluate(bodyLeaveInPage, { bodies: Object.keys(BODY_ROUTES), routes: BODY_ROUTES });
+    const BODY_BEDS = ["moon", "mars"];
+    for (const where of Object.keys(BODY_ROUTES)) {
+      const bad = [];
+      for (const c of r.leave.filter(q => q.where === where)) {
+        const tag = `${c.route}${c.to ? " to " + c.to : ""}`;
+        if (c.before.body !== where || c.before.key !== "rocket" || c.before.bed !== BODY_BED[where]) bad.push(`${tag}: not on ${where} in the rocket first (${JSON.stringify(c.before)})`);
+        if (c.ref.body !== null || c.ref.key !== "rocket") bad.push(`${tag}: the reference not on the Earth pad (${JSON.stringify(c.ref)})`);
+        if (c.run.up.length || c.refRun.up.length) bad.push(`${tag}: screens still up (${c.run.up.concat(c.refRun.up).join(", ")})`);
+        if (c.route === "menu") {
+          if (!c.run.opened) bad.push(`${tag}: the menu did not open`);
+          if (!c.run.card.dirUp) bad.push(`${tag}: the direction screen not up after the vehicle card`);
+          if (c.run.card.key !== c.to || c.run.card.body !== null) bad.push(`${tag}: behind the direction screen, in the ${c.run.card.key}, rk.onBody is ${c.run.card.body} (the vehicle card takes him off the body)`);
+        }
+        if (c.route === "dad" && (c.run.inDad.body !== null || BODY_BEDS.includes(c.run.inDad.bed))) bad.push(`${tag}: in dad mode rk.onBody is ${c.run.inDad.body}, the bed ${c.run.inDad.bed}`);
+        const want = c.route === "dad" ? "rocket" : c.to;
+        if (c.run.away.key !== want || c.run.away.body !== null) bad.push(`${tag}: away, in the ${c.run.away.key}, rk.onBody is ${c.run.away.body}`);
+        const beds = c.after.map(s => s.bed), bodies = c.after.filter(s => s.body !== null).map(s => s.body);
+        if (bodies.length) bad.push(`${tag}: rk.onBody still set during play (${bodies.join(", ")})`);
+        if (beds.some(b => BODY_BEDS.includes(b)) || JSON.stringify(beds) !== JSON.stringify(c.refBeds)) bad.push(`${tag}: the bed over five seconds was ${beds.join(" ")}; from the Earth pad the same route gives ${c.refBeds.join(" ")}`);
+      }
+      check(`leave a body (Q-18): from the rocket on ${{ moon: "the Moon", mars: "Mars", station: "the station" }[where]}, away to the plane and the SUV by the menu, a vehicle card and a direction card, and by a fresh start${where === "moon" ? ", and into dad mode" : ""} -- rk.onBody is null from the vehicle card on, and for five seconds of play the ambient bed is what the same route gives from the Earth pad, never the body's`,
+        r.leave.some(q => q.where === where) && bad.length === 0, { bad, routes: r.leave.filter(q => q.where === where).map(q => ({ route: q.route, to: q.to, beds: q.after.map(s => s.bed).join(" "), ref: q.refBeds.join(" ") })) });
+    }
+    {
+      const bad = [];
+      for (const s of r.stay) {
+        const tag = `${s.where}, ${s.kind}`;
+        if (s.before.body !== s.where || s.before.key !== "rocket") { bad.push(`${tag}: not on it first (${JSON.stringify(s.before)})`); continue; }
+        if (s.kind === "menu put away") {
+          if (!s.opened) bad.push(`${tag}: the menu did not open`);
+          if (s.after.body !== s.where || s.after.key !== "rocket" || s.after.bed !== s.before.bed || s.moved > 5) bad.push(`${tag}: ${JSON.stringify(s.after)}, moved ${s.moved} m (want: still on it, in the rocket, the ${s.before.bed} bed, where he was)`);
+        } else {
+          if (s.card.body !== s.where || s.card.key !== "rocket" || s.card.bed !== s.before.bed) bad.push(`${tag}: after the rocket card alone ${JSON.stringify(s.card)} (want: still on it, the ${s.before.bed} bed)`);
+          if (s.after.body !== null || s.after.key !== "rocket" || s.dPad > 30 || BODY_BEDS.includes(s.after.bed) || s.up.length) bad.push(`${tag}: after the direction card ${JSON.stringify(s.after)}, ${s.dPad} m from the pad, screens ${s.up.join(",") || "none"} (want: a pad start)`);
+        }
+      }
+      check("leave a body (Q-18), where he STAYS: on the Moon, on Mars and at the station, the menu opened and put away leaves him there in the rocket, bed and all, where he was; the rocket card alone keeps him there; the rocket card and a direction card are a pad start, as ever",
+        r.stay.length === 6 && bad.length === 0, { bad, stays: r.stay.map(s => `${s.where} ${s.kind}: ${s.after.body} ${s.after.bed}`) });
+    }
+    await ctx.close().catch(() => {});
   }
 
   // ---- 1. the matrix: every row, both ways up, one page each
