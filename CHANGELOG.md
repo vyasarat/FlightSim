@@ -10,6 +10,21 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v221 — one list of what is put away (nothing he sees changes)
+
+Nothing he sees or hears is different. Three places put away what he was doing -- picking a new vehicle,
+a fresh start on the runway (the direction card, a relaunch, the globe, a rescue), and the menu button --
+and each kept its own list of what to put away: the helicopter's load, the cannon, the rover and the
+astronaut, a race, the toy track, the robot's attention, the tones. Those three lists are now one table
+(`LEAVE`, in state.js), every line moved as it was, and each place says which lines of it it runs and in
+what order -- the same lines in the same order as before. What it is for: the leaving matrix (v214) found
+things one of the three forgets that another remembers (the Moon's sound after he leaves it for the plane,
+Q-18, among them), and from here each of those is fixed one at a time by adding one line to one place in
+that table, where it can be seen. Checked the way a no-change step is: the same random numbers drawn,
+the leaving matrix unchanged, and -- by a one-off comparison run for this release and not kept in the
+harness -- the same calls in the same order with the same results through vehicle changes, starts and the
+menu in several vehicles. Nothing in the harness pins the order of the rows yet.
+
 ## v220 — no buttons in pieces
 
 When he flew the plane into a building or a wall, the faster and slower buttons (and the go button) he had
