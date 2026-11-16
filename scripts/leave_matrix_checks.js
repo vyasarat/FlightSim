@@ -188,7 +188,7 @@ const COUNTER_FILES = ["crane.js", "fireworksbarge.js", "launchsite.js", "monste
 // (Q-6, fixed in v220: the bang recomputes every button -- flight.js FRAME_TAILS.bang, checked in slot_checks "buttons in pieces")
 // (Q-18, fixed in v222: a change to anything but the rocket clears rk.onBody -- state.js LEAVE row `body`, checked below in "leave a body (Q-18)")
 const HUD7 = "HUD-7 (B3/B5): the bang branch never calls engUpdate -- the engine voice holds its pre-crash level through the bang (flight.js:405-460)";
-const RACE_TYRE = "Q-16 (new): a race started from a car at speed keeps the car's tyre tone at its last gain for the whole race -- rcStartRace (race.js:1297-1345) silences the horn, the police and its own tones, not carTyre, and its only writer, updateCar (car.js:1190), does not run in a race (vehicles.js:172)";
+// (Q-16, fixed in v224: a tone owned per frame and not written this frame is swept to zero -- audio.js TONES_OWNED, carTyre; checked in engine_sound_checks "tone ownership")
 const DEAD_EJECT = "Q-15 (new): the eject button is offered (eject.js:29-31 updateEjectControl does not exclude it) but ejectStart refuses -- no TUNE.eject.families entry (tune.js:2215-2242; eject.js:110) -- a button that does nothing";
 const TRACK_SOLID = "Q-20 (new): on the giant toy track vehSolid() says solid (vehicles.js:127, every car) but nothing there asks the registry -- car.js:865 hands the frame to trackUpdate first; the track's bangs are its own (a fall, track.js:975). REVIEW finding 18: the track is not a contract row";
 const REASSEMBLY_FRAME = "Q-17 (new): on the frame he is put back together his model is not drawn (in every vehicle the bang branch serves) -- the bang branch poses the model (flight.js:432, hidden while exploding) BEFORE it reassembles him (flight.js:437-458) and returns, so that frame is drawn without him: a one-frame blink";
@@ -224,11 +224,8 @@ const KNOWN = {
   "heliTitanAttack/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "heli/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "car/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
-  "car/race/tone/tone:carTyre": RACE_TYRE,
   "cybertruck/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
-  "cybertruck/race/tone/tone:carTyre": RACE_TYRE,
   "corvette/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
-  "corvette/race/tone/tone:carTyre": RACE_TYRE,
   "police/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "london/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
   "boat/bang:mid/model/his model hidden": REASSEMBLY_FRAME,
@@ -1128,11 +1125,13 @@ async function chaseMenuInPage() {
   const onScreen = (id) => { const e = document.getElementById(id); return !!e && !e.classList.contains("hiddenS"); };
   const closeScreens = () => { for (const id of ["screenVehicle", "screenDir", "screenDest", "screenRace", "screenGlobe"]) { const e = document.getElementById(id); if (e) e.classList.add("hiddenS"); } };
   // the siren's writes, stamped (put back at the end)
-  const setToneReal = window.setTone, wrote = {};
-  window.setTone = function (n) { wrote[n] = frameCount; return setToneReal.apply(this, arguments); };
+  // (v224, Q-27b) ... and each write above zero, and the police cars and the numeral in every reading
+  const setToneReal = window.setTone, wrote = {}, hot = {};
+  window.setTone = function (n, type, f, g) { wrote[n] = frameCount; if (g > 0) hot[n] = frameCount; return setToneReal.apply(this, arguments); };
   const tone = (n) => tones[n] ? Math.max(0, tones[n].last) : 0;
   const siren = () => ({ siren: +tone("policeSiren").toFixed(4), sirenB: +tone("policeSirenB").toFixed(4), written: wrote.policeSiren === frameCount,
-                         chase: !!police.active, duck: +engBus.duck.toFixed(3), cards: onScreen("screenVehicle") });
+                         chase: !!police.active, duck: +engBus.duck.toFixed(3), cards: onScreen("screenVehicle"),
+                         cars: !!(police.g && police.g.visible), num: el.bigNum.textContent || "", state: police.state });
   const series = (n) => { const s = []; for (let i = 1; i <= n; i++) { L.update(1 / 60); if (i % 30 === 0) s.push(siren()); } return s; };
   const drive = (n) => { for (let i = 0; i < n; i++) { L.api.setStick(0, 0); L.update(1 / 60); } };
   function inCar() {
@@ -1142,6 +1141,21 @@ async function chaseMenuInPage() {
     drive(60 * 6);
   }
   function chase() { inCar(); L.policeStart(null); drive(60 * 3); return siren(); }
+  // (v224, Q-27b) the siren's writes after frame f0 (the press: policeStop's own silence is written on it, outside
+  // update): any at all, and any above zero. A car stopped at a pull-over is PARKED, so behind the cards the whole
+  // frame runs (no hold) and updatePolice, with no chase, writes the siren at zero every frame -- that is the
+  // silence's owner; a write above zero would be the chase back
+  const writesSince = (f0) => ({ any: (wrote.policeSiren || -1) > f0 || (wrote.policeSirenB || -1) > f0,
+                                 hot: (hot.policeSiren || -1) > f0 || (hot.policeSirenB || -1) > f0 });
+  // the menu by touch, four seconds on the cards; then the cards put away (skipScreens: no start, nothing picked)
+  function menuBehind(before, extra) {
+    const e0 = flags.policeEnded || 0;
+    L.api.clearStick(); press(el.menuBtn);
+    const f0 = frameCount, opened = onScreen("screenVehicle"), parked = vehParked();
+    const behind = series(60 * 4), writes = writesSince(f0);
+    closeScreens();
+    return Object.assign({ before, opened, parked, behind, writes, ended: (flags.policeEnded || 0) - e0, exploding: st.exploding }, extra || {});
+  }
   const out = {};
   try {
     try { unlockAudio(); if (audioCtx && audioCtx.state !== "running") await audioCtx.resume(); startEngine(); } catch (e) {}
@@ -1150,11 +1164,11 @@ async function chaseMenuInPage() {
     {
       const before = chase(), e0 = flags.policeEnded || 0;
       L.api.clearStick(); press(el.menuBtn);
-      const behind = series(60 * 4);
+      const f0 = frameCount, behind = series(60 * 4), writes = writesSince(f0);
       tap(document.querySelector('.vehCard[data-v="car"]')); step(10);
       press(document.querySelector('.dirCard[data-d="0"]'));
       const after = series(60 * 2);
-      out.menu = { before, behind, after, ended: (flags.policeEnded || 0) - e0, up: ["screenVehicle", "screenDir", "screenDest"].filter(onScreen) };
+      out.menu = { before, behind, writes, after, ended: (flags.policeEnded || 0) - e0, up: ["screenVehicle", "screenDir", "screenDest"].filter(onScreen) };
     }
     // ---- a stay: a bang mid-chase (him, at speed, inside the nearest solid that blocks a car -- the leaving matrix's bang)
     {
@@ -1184,6 +1198,60 @@ async function chaseMenuInPage() {
       press(el.menuBtn); const opened = onScreen("screenVehicle"); step(60);
       out.noChase = { was, opened, ended: (flags.policeEnded || 0) - e0, chase: !!police.active, key: state.vehicleKey };
       closeScreens();
+    }
+    // ---- (v224, Q-27b) four more chases the menu ends, each in the state he is really in
+    out.more = {};
+    // the pull-over's 3-2-1: finger off, the car stops, they catch him, and the shared numeral counts
+    {
+      const before0 = chase();
+      L.api.clearStick();
+      for (let n = 0; n < 60 * 15 && !(police.state === "pullover" && el.bigNum.textContent); n++) L.update(1 / 60);
+      out.more.pullover = menuBehind(siren(), { chaseBefore: before0 });
+    }
+    // in pieces mid-chase: the menu on the frame he is in pieces (the picker's rows: `pieces`, then `police`)
+    {
+      const before0 = chase(), cls = vehSolidClass();
+      let best = null, bd = Infinity;
+      L.forEachSolid(b => {
+        if (b.o3 || b.cap || b.ramp || b.toy || b.moving || b.car !== undefined || b.park) return;
+        if (!L.solidBlocks(b, cls) || (b.mesh && b.mesh.visible === false) || L.isSolidHidden(b)) return;
+        if (!(b.hw > 3 && b.hd > 3 && b.y1 - b.y0 > 6)) return;
+        const d = Math.hypot(b.x - st.x, b.z - st.z);
+        if (d < bd) { bd = d; best = b; }
+      }, st.x, st.z, 2000);
+      let banged = false;
+      if (best) {
+        st.x = best.x; st.z = best.z + best.hd - 1; st.y = Math.max(best.y0, L.terrainEff(st.x, st.z)); st.heading = 0; st.speed = state.vp.cruiseSpeed || 40;
+        for (let n = 0; n < 60 && !banged; n++) { L.api.setStick(0, 0); L.update(1 / 60); if (st.exploding) banged = true; }
+      }
+      const inPieces = st.exploding, chaseInPieces = !!police.active;
+      out.more.pieces = menuBehind(siren(), { chaseBefore: before0, banged, inPieces, chaseInPieces, solid: !!best });
+    }
+    // a chase begun at a REAL red: the motorway's first crossroads held red, crossed at speed (ltWatchCar's own call)
+    {
+      inCar();
+      const j = lights.junctions[0], r0 = flags.redsRun || 0;
+      j.phase = 2; j.t = 999;
+      st.x = j.x - j.fx * 60; st.z = j.z - j.fz * 60; st.y = j.y;
+      st.heading = Math.atan2(-j.fx, -j.fz); st.speed = 30; st.exploding = false;
+      for (let n = 0; n < 60 * 10 && !police.active; n++) { L.api.setStick(0, 0); L.update(1 / 60); st.speed = Math.max(st.speed, 30); }
+      const fromRed = police.active && police.from === j, reds = (flags.redsRun || 0) - r0;
+      drive(60 * 2);
+      out.more.red = menuBehind(siren(), { fromRed, reds });
+    }
+    // a chase in a city: New York's streets, on a long grid street's lane, at the speed he drives there
+    {
+      inCar();
+      const C = streets.cities.ny, road = C.roads.filter(q => q.kind === "grid" && q.len > 90).sort((a, b) => b.len - a.len)[2], q = {};
+      stPointAt(road, 10, 1, road.lo, q);
+      st.x = q.x; st.z = q.z; st.heading = Math.atan2(-q.fx, -q.fz);
+      st.y = stSurfaceAt(q.x, q.z) ?? L.terrainEff(q.x, q.z); st.speed = 12; st.exploding = false;
+      car.yield = 1; car.steer = 0; car.crashCool = 0; car.assistOff = 0;
+      stPlan.road = road; stPlan.dir = 1; stPlan.turn = null; stTrail.pts.length = 0; stTrail.lastX = null;
+      drive(60 * 2);
+      const started = L.policeStart(null);
+      drive(60 * 2);
+      out.more.city = menuBehind(siren(), { started, onStreet: !!car.onStreet, road: stPlan.road ? stPlan.road.kind : null });
     }
   } finally {
     window.setTone = setToneReal;
@@ -1469,7 +1537,10 @@ module.exports = async function leaveMatrixChecks({ newPage, check }) {
         // ... and the reference is Earth's picture, so equal means Earth: the motorway and its heads drawn in a car (the
         // plane's runway has the motorway in the world too), the Earth light, the birds
         const last = c.refPics[c.refPics.length - 1] || {};
-        if (last.env !== "earth" || !last.birds || !last.hwy) bad.push(`${tag}: the reference itself is not Earth's picture (${JSON.stringify({ env: last.env, birds: last.birds, hwy: last.hwy })})`);
+        // (v224, Q-27a) ... and its signal heads drawn and DRIVEN, and the high jets out (all three of them on Earth at
+        // any height: ambient.js updateHighJets hides them only in space or on a body) -- else a probe that stops seeing
+        // the call (the ltUpdate wrap) reads false on both sides and "equal" passes
+        if (last.env !== "earth" || !last.birds || !last.hwy || !last.heads || !(last.jets > 0)) bad.push(`${tag}: the reference itself is not Earth's picture (${JSON.stringify({ env: last.env, birds: last.birds, hwy: last.hwy, heads: last.heads, jets: last.jets })})`);
       }
       check(`leave a body (Q-26): from the rocket on ${BODY_SAY[where]}, by every route above, the PICTURE for five seconds is what the same route gives from the Earth pad -- the motorway and its signal heads drawn, the light environment Earth's, the birds and the high jets out, from the first second; the light, the fog, the haze and the space blend eased home by the last second`,
         cs.length === BODY_ROUTES[where].length + BODY_ROUTES_MORE[where].length && bad.length === 0,
@@ -1520,6 +1591,41 @@ module.exports = async function leaveMatrixChecks({ newPage, check }) {
       if (!n.opened || n.was || n.ended !== 0 || n.chase || n.key !== "car") bad.push(`the menu with no chase: ${JSON.stringify(n)}`);
       check("leave a chase (Q-21), where it STAYS: a bang mid-chase is not a leaving -- reassembled, the chase goes on, its siren written every frame (CLAUDE.md: never ended by crashing); and the menu opened in the car with no chase ends nothing",
         bad.length === 0, { bad, bangAfter: (b.after || []).map(s => `${s.siren} chase ${s.chase} written ${s.written}`).join("; "), noChase: n });
+    }
+    // (v224, Q-27b) the menu ends every chase he can be in: the motorway's (above), the pull-over's 3-2-1, in pieces,
+    // one begun at a real red, one in a city. Behind the cards: the chase over, no siren, the police cars hidden, the
+    // numeral gone, and the siren not written again (moving: not at all, the hold; stopped at the pull-over he is
+    // parked, the frame runs, and only its owner's silence is written)
+    {
+      const mo = r.more || {}, bad = [];
+      const judge = (tag, c, want) => {
+        if (!c) { bad.push(`${tag}: not run`); return; }
+        if (!c.opened) bad.push(`${tag}: the menu did not open`);
+        if (c.ended !== 1) bad.push(`${tag}: the chase ended ${c.ended} times`);
+        const bh = c.behind || [];
+        if (bh.length !== 8) bad.push(`${tag}: ${bh.length} readings behind the cards`);
+        bh.forEach((s, i) => { if (!s.cards || s.chase || s.siren > 0 || s.sirenB > 0 || s.cars || s.num !== "" || s.duck !== 1) bad.push(`${tag}, ${(i + 1) / 2} s behind the cards: ${JSON.stringify(s)}`); });
+        if (!c.writes || c.writes.hot) bad.push(`${tag}: the siren written above zero behind the cards`);
+        if (!c.parked && c.writes && c.writes.any) bad.push(`${tag}: moving, and the siren written at all behind the cards (nothing should run it there)`);
+        if (want.parked !== undefined && c.parked !== want.parked) bad.push(`${tag}: parked ${c.parked} behind the cards, want ${want.parked}`);
+        if (c.exploding) bad.push(`${tag}: still in pieces behind the cards`);
+      };
+      judge("motorway", m.behind ? { opened: true, ended: m.ended, behind: m.behind, writes: m.writes, parked: false } : null, { parked: false });
+      const p = mo.pullover;
+      if (!p || p.before.state !== "pullover" || !/^[1-3]$/.test(p.before.num) || !p.before.chase || !p.before.cars) bad.push(`pull-over: not caught with the numeral up before the menu (${JSON.stringify(p && p.before)})`);
+      judge("pull-over", p, { parked: true });
+      const q = mo.pieces;
+      if (!q || !q.solid || !q.banged || !q.inPieces || !q.chaseInPieces) bad.push(`pieces: not in pieces mid-chase at the menu (${JSON.stringify(q && { solid: q.solid, banged: q.banged, inPieces: q.inPieces, chase: q.chaseInPieces })})`);
+      judge("pieces", q, {});
+      const rd = mo.red;
+      if (!rd || !rd.fromRed || rd.reds !== 1 || !rd.before.chase || !(rd.before.siren > 0.002)) bad.push(`red: no chase from the red's own call before the menu (${JSON.stringify(rd && { fromRed: rd.fromRed, reds: rd.reds, before: rd.before })})`);
+      judge("red", rd, { parked: false });
+      const cy = mo.city;
+      if (!cy || !cy.started || !cy.onStreet || cy.road !== "grid" || !cy.before.chase || !(cy.before.siren > 0.002)) bad.push(`city: no chase on a New York street before the menu (${JSON.stringify(cy && { started: cy.started, onStreet: cy.onStreet, road: cy.road, before: cy.before })})`);
+      judge("city", cy, { parked: false });
+      check("leave a chase (Q-27b): the menu, by touch, ends the chase in every state he is in -- on the motorway, during the pull-over's 3-2-1, in pieces mid-chase, begun at a real red, in a city -- and for four seconds behind the cards the chase is over, both siren voices at zero, the police cars hidden, the numeral gone, the engine unducked, and the siren never written above zero again (moving: not written at all)",
+        bad.length === 0, { bad: bad.slice(0, 12), nBad: bad.length,
+          cases: Object.fromEntries(Object.entries(mo).map(([k, c]) => [k, c && { parked: c.parked, ended: c.ended, writes: c.writes, before: c.before && `${c.before.state} siren ${c.before.siren} num '${c.before.num}' cars ${c.before.cars}`, behind0: c.behind && c.behind[0] && JSON.stringify(c.behind[0]) }])) });
     }
     await ctx.close().catch(() => {});
   }
