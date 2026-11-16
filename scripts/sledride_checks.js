@@ -317,26 +317,28 @@ module.exports = async function sledRideChecks({ newPage, check }) {
   const quiet = await page.evaluate(() => {
     const out = { err: null };
     const L = window.__lp, S = L.state, LS = L.TUNE.launchSite;
-    const keep = { armR: LS.armR, innerR: LS.innerR, coneDeg: LS.coneDeg };
+    const keep = { armR: LS.armR, innerR: LS.innerR, coneDeg: LS.coneDeg, drawFog: LS.drawFog };
     try {
       L.api.setThrottle(false); L.api.clearStick();
       L.lsReset(); L.sledReset();
       L.api.setVehicle("sled"); L.api.spawnAt(0, 0); L.api.skipScreens();
       for (let i = 0; i < 10; i++) L.update(1 / 60);
-      LS.armR = 1e6; LS.innerR = 0; LS.coneDeg = 179;
+      // (v229) drawn to the whole map too: since v229 a pad count out of its drawn distance stands down (spCountStep's
+      // `away`), and from the runway 6 km off it armed and stood down every other frame
+      LS.armR = 1e6; LS.innerR = 0; LS.coneDeg = 179; LS.drawFog = 1e3;
       let c0 = L.flags.lsCountdowns || 0;
       for (let i = 0; i < 120; i++) L.update(1 / 60);
       out.riding = { kind: L.vehKind(), countdowns: (L.flags.lsCountdowns || 0) - c0, phase: L.lsite.phase };
       L.api.setVehicle("prop"); L.api.placeOnRunway();
-      c0 = L.flags.lsCountdowns || 0;
+      c0 = L.flags.lsCountdowns || 0; const sd0 = L.flags.lsStandDowns || 0;
       for (let i = 0; i < 120; i++) L.update(1 / 60);
-      out.plane = { countdowns: (L.flags.lsCountdowns || 0) - c0 };
+      out.plane = { countdowns: (L.flags.lsCountdowns || 0) - c0, standDowns: (L.flags.lsStandDowns || 0) - sd0, phase: L.lsite.phase };
     } catch (e) { out.err = String(e && e.stack || e).slice(0, 300); }
     finally { Object.assign(LS, keep); try { L.lsReset(); L.update(1 / 60); } catch (e) {} }
     return out;
   });
   check("sled ride: while he rides no other set-piece starts a countdown -- the launch site armed from anywhere stays quiet for him, and arms for the plane",
-    !quiet.err && quiet.riding && quiet.riding.kind === "sled" && quiet.riding.countdowns === 0 && quiet.plane && quiet.plane.countdowns >= 1, J(quiet));
+    !quiet.err && quiet.riding && quiet.riding.kind === "sled" && quiet.riding.countdowns === 0 && quiet.plane && quiet.plane.countdowns === 1 && quiet.plane.standDowns === 0 && quiet.plane.phase === "count", J(quiet));
 
   // ---- g. leaving mid-run, the way he can: the menu button (the picker button is
   // gone mid-run), the car's card, a direction. The set-piece back exactly as a fresh

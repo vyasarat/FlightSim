@@ -10,6 +10,24 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v229 — the launch pad's count, too
+
+The launch pad's 5-4-3-2-1 now runs through the same shared step as the barge's, the truck's and the sled's, and
+like them it stands down when he is taken out of sight of it mid-count (the go arrow, an eject's fresh start): the
+number goes, the rocket does not light and climb where nobody sees it, and it counts again when he comes back.
+Pointed at, it is unchanged: traced frame by frame (digits, ticks, phases, the pad's own random draws) through the
+pad's, the race's, the barge's, the truck's, the sled's and the other set-piece checks, it is the same as before
+wherever he stays (the only differences are where a check had it counting kilometres away -- those checks now
+draw it there, or stand him in sight of it, and check that it really went off), and in the snow and sky races, where the pad counts mid-race, he is never more than 1.43 km from
+it while it counts (it is drawn to 2.26 km). The rest is checks: every car at its top step (and the Corvette's
+booster), the prop, the fighter and the helicopter now come at the launch pad too and see one whole count; each of
+those runs is checked to really be at the top step, with the booster really lit where it is held; turned round on
+the frame a count arms and sent straight away at the same speed (a staged worst case -- nothing turns in a frame),
+every count still runs whole and goes off, except the monster truck's from the Corvette's booster southbound, which
+arms right at the edge of where the truck is drawn: a car cannot turn there, so it is not something he can do. The
+helicopter's eject is checked for every set-piece; the sled's lamps are checked dark and its roar silent after it
+stands down out of sight; and the barge's checks share pages where nothing carries between them.
+
 ## v228 — the rocket sled's count, too
 
 The rocket sled's 3-2-1 now runs through the same shared step as the barge's and the truck's, and like them it

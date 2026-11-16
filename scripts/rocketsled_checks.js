@@ -240,8 +240,11 @@ module.exports = async function rocketSledChecks({ newPage, check }) {
     // and while it RUNS: the plane, at speed (so nothing steps it aside), met
     // head-on down the rail, high enough over the embankment not to be landing on it
     L.sledReset(); L.sledForce();
-    // (v228) out of the way 2 km off, in its drawn distance: since v228 a count out of sight stands down (`away`)
-    for (let i = 0; i < 60 * (T.count + 1.5); i++) { put(S.x, 400, S.z + 2000, 1, 0); L.update(1 / 60); }
+    // (v228) out of the way 2 km off, in its drawn distance: since v228 a count out of sight stands down (`away`).
+    // (v229, Q-32 d) facing north, away from everything, as before v228: v228 turned him east for no stated reason, and
+    // east from there his nose is on the launch pad 0.34 km off -- it set the pad off through the sled's run. Facing
+    // north from 2 km nothing arms (from 2.5 km the monster truck did, and the sled stood down: out of its sight).
+    for (let i = 0; i < 60 * (T.count + 1.5); i++) { put(S.x, 400, S.z + 2000, 0, 1); L.update(1 / 60); }
     {
       const ahead = 70;
       put(S.x + L.sled.dirX * ahead, T.railY + 0.5 + 1.9 * T.size + 2.5, S.z + L.sled.dirZ * ahead, -L.sled.dirX, -L.sled.dirZ);

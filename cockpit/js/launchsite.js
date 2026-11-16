@@ -33,7 +33,10 @@
 //     pads and the tower are solid always.
 //   * It shares the one big numeral, and never fights for it: a police
 //     pull-over or the picker opening takes it back (the countdown stands down
-//     and the rocket simply waits; nothing is lost).
+//     and the rocket simply waits; nothing is lost). (v229, B6) It owns the
+//     numeral while it counts ("launchSite"), its count is setpieces.js
+//     spCountStep, and taken out of its drawn distance (drawFog) mid-count it
+//     stands down, as the barge, the truck and the sled do.
 //   * Its own random stream (lsRnd): the show never shifts the game's `rnd()`
 //     for anything else.
 //   * Its own cloud pool, ONE instanced draw for every puff of it, so the
@@ -599,7 +602,7 @@ function updateLaunchSite(dt) {
   const T = LSITE;
   lsite.clock += dt;
   const d = Math.hypot(state.x - T.x, state.z - T.z);
-  const near = d < TUNE.fogFar * 1.45;
+  const near = d < TUNE.fogFar * T.drawFog;
   lsite.g.visible = near;
   // v142: in the booster rocket he IS this rocket, on this pad: the site's own
   // stack steps aside and never counts down; it is back when he leaves it
@@ -627,27 +630,28 @@ function updateLaunchSite(dt) {
     if (near && lsRnd() < dt * 1.6) lsPuff(T.x + (lsRnd() - 0.5) * 6, lsite.padY + 40 + lsRnd() * 30, T.z + (lsRnd() - 0.5) * 6, 2, 1, 0, 1.5, 5, 2.5, 0xf7f8fa);
     if (lsAimed()) lsStart();
   } else if (ph === "count") {
-    if (lsNumBusy()) {
-      // the police or the picker want the numeral: stand down, the rocket waits
-      if (countdownClear("launchSite")) el.bigNum.classList.remove("sky");
+    // (v229, B6) the count is the shared step's, on the numeral it owns (setpieces.js spCountStep): the launch site
+    // is the fourth set-piece moved on to it, the same steps in the same order it ran here by hand, the numeral up
+    // in the sky (at the middle of the screen it stood exactly where the rocket stands, dead ahead) -- and, as the
+    // barge, the truck and the sled, it stands down out of sight (`near`, its drawn distance): taken away mid-count
+    // it went on to light and climb where nobody saw it. Its own stream draws nothing in the step, so the stand-down
+    // and the count draw lsRnd() as they did: none standing down, the venting's after the numeral.
+    const c = spCountStep("launchSite", lsite, dt, T.count, lsNumBusy(), !near);
+    if (c === "stood") {
+      // the police or the picker want the numeral, or he is gone: stand down, the rocket waits
       setTone("lsRoar", "sawtooth", T.roarHz, 0);
       lsite.phase = "armed";              // the arms ease back in (armed, below)
       flags.lsStandDowns = (flags.lsStandDowns || 0) + 1;
       lsUpdatePuffs(dt);
       return;
     }
-    lsite.t -= dt;
-    // the numeral goes up into the sky for this one: at the middle of the
-    // screen it stood exactly where the rocket stands, dead ahead
-    if (!countdownBlocked("launchSite")) el.bigNum.classList.add("sky");
-    countdownTo(lsite.t, T.count, "launchSite");
     // the arms swing away, and the venting thickens
     const k = smoothstep(T.count, 1.2, lsite.t);
     for (const a of lsite.arms) a.rotation.y = -k * 1.25;
     if (lsRnd() < dt * 8) lsPuff(T.x + (lsRnd() - 0.5) * 10, lsite.padY + 3, T.z + (lsRnd() - 0.5) * 30, 0, 3, 0, 3, 9, 2, 0xf7f8fa);
     const h = lsHear();
     setTone("lsRoar", "sawtooth", T.roarHz, T.roar * 0.35 * h * (1 - lsite.t / T.count));
-    if (lsite.t <= 0) { if (countdownClear("launchSite")) el.bigNum.classList.remove("sky"); lsIgnite(); }
+    if (c === "go") lsIgnite();          // (its numeral already down, by the step)
   } else if (ph === "ignite") {
     lsite.t -= dt;
     const k = 1 - lsite.t / T.holdDown;
