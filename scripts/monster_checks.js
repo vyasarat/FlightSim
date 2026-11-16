@@ -354,8 +354,10 @@ module.exports = async function monsterChecks({ newPage, check }) {
     {
       L.TUNE.monsterTruck.armR = armR0;
       L.mtReset && L.mtReset();
-      L.mtForce();
       const c = L.mtruck.cars[4];
+      // (v227) in sight of it: a count he is out of sight of stands down (spCountStep's \`away\`), and no show would run
+      put(c.solid.x - 250, c.solid.z, c.solid.x, c.solid.z);
+      L.mtForce();
       for (let i = 0; i < 60 * 4; i++) L.update(1 / 60);       // the countdown, and away
       const ph = L.mtruck.phase;
       S.x = c.solid.x; S.z = c.solid.z; S.y = c.solid.y1 + 25; M.air = true; M.vy = 0; S.speed = 0;
@@ -433,7 +435,7 @@ module.exports = async function monsterChecks({ newPage, check }) {
   check("monster: landing a jump on a junk car squashes it -- never a bang", r.landCrush.squashed && r.landCrush.bangs === 0, J(r.landCrush));
   check("monster: a city car standing in its path on a straight New York street is knocked spinning, never a bang", r.city.found && r.city.knocks >= 1 && r.city.bangs === 0, J(r.city));
   check("monster: under the low end of a motorway bridge, from the field, it drives under the deck -- never lifted on to it", r.underBridge.found && r.underBridge.under > 10 && r.underBridge.worst < 2 && r.underBridge.bangs === 0, J(r.underBridge));
-  check("monster: a junk car flattened while the set-piece's show runs, then a vehicle change -- the show stands it back up", r.showJunk.flatNow && r.showJunk.phase === "armed" && r.showJunk.sq < 0.05, J(r.showJunk));
+  check("monster: a junk car flattened while the set-piece's show runs, then a vehicle change -- the show stands it back up", ["run", "air", "crush", "brake"].includes(r.showJunk.phaseWhenCrushed) && r.showJunk.flatNow && r.showJunk.phase === "armed" && r.showJunk.sq < 0.05, J(r.showJunk));
   check("monster: in a city street with a building behind him, the chase camera is never inside it -- it comes in over the cab", r.camPull && !r.camPull.inside && r.camPull.up > 8, J(r.camPull));
   check("monster: a motorway car it knocks is seen flying -- thrown up out to the side, in the air a good while", r.fling.flings >= 1 && r.fling.peak > 6 && r.fling.airFrames > 40, J(r.fling));
   check("monster: no bang anywhere in any of it", r.bangs === 0, J({ bangs: r.bangs, kinds: r.kinds }));

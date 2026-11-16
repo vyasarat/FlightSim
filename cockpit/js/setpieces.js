@@ -78,8 +78,17 @@ function countdownEndAll() { setBigNum(null); lastTick = -1; }
 // over, the picker). Returns "stood" (stood down: its numeral, if it held it, down), "go" (run out this frame: the
 // payoff's frame, its numeral down) or the numeral it shows (0 if it holds none). The same steps, in the same
 // order, each set-piece ran by hand; one set-piece is moved on to it per release (QUEUE B6), the barge first.
-function spCountStep(owner, c, dt, from, busy) {
-  if (busy) { if (countdownClear(owner)) el.bigNum.classList.remove("sky"); return "stood"; }
+// (v227) `away`: he has been TAKEN out of its sight mid-count (the caller says so: its own drawn distance) -- the
+// go arrow's skipToLanding in flight, a fresh start after an eject. The count stands down as for `busy`: numeral
+// down, no payoff out of sight, the set-piece re-armed for when he comes back -- as the demolition does out of sight
+// (v226). A count he is watching is never cut: it starts within its arm range, and in its few seconds nothing he
+// drives or flies gets from there past its drawn distance (fireworksbarge_checks h; the v227 traces).
+function spCountStep(owner, c, dt, from, busy, away) {
+  if (busy || away) {
+    if (away) flags.countAway = (flags.countAway || 0) + 1;
+    if (countdownClear(owner)) el.bigNum.classList.remove("sky");
+    return "stood";
+  }
   c.t -= dt;
   if (!countdownBlocked(owner)) el.bigNum.classList.add("sky");
   const n = countdownTo(c.t, from, owner);
@@ -278,8 +287,17 @@ function demoReset() {
   setTone("demo", "sawtooth", DEMO.rumbleFreq, 0);
 }
 
+// (v227) In sight: drawn, AND within the landmark cull's own radius NOW -- the cull only looks every 0.35 s
+// (landmarks.js cullLandmarks), and taken away by the go arrow or a relaunch the block still read as in sight for up
+// to 20 frames: a missile kept for the barge's numeral (which v227 takes down at once) or one still flying went
+// off in them, and the block's 3 stood on his screen at the far airport.
+function demoInSight() {
+  if (!demo.g || !demo.g.visible) return false;
+  const dx = demo.x - state.x, dz = demo.z - state.z;
+  return dx * dx + dz * dz < TUNE.fogFar * TUNE.fogFar * 2.1;
+}
 function updateDemolition(dt) {
-  if (!demo.g || !demo.g.visible) {
+  if (!demoInSight()) {
     // far away: keep the clock running so it is always ready when he comes back
     if (demo.phase !== "armed") { demo.t -= dt; if (demo.t <= 0 && demo.phase !== "folding") demoReset(); }
     // (v226, B6) ... and its numeral does not stay behind: taken out of sight mid-count by the go arrow (skipToLanding

@@ -21,7 +21,8 @@
 //     each junk car (its height follows its squash), and the truck itself,
 //     whose capsule follows it round the loop.
 //   * It shares the one big numeral through spCountBusy; it stands down for a
-//     police pull-over or the picker.
+//     police pull-over or the picker. (v227, B6) It owns the numeral while it
+//     counts ("monsterTruck"), and its count is setpieces.js spCountStep.
 //   * Its own random stream and its own puff pool.
 // ---------------------------------------------------------------------------
 const MTRUCK = TUNE.monsterTruck;
@@ -379,18 +380,17 @@ function updateMonsterTruck(dt) {
     if (mtAimed()) mtStart();
     roar = 0.12;            // idling
   } else if (ph === "count") {
-    if (mtBusy()) {
-      if (countdownClear("monsterTruck")) el.bigNum.classList.remove("sky");
+    // (v227, B6) the count is the shared step's, on the numeral it owns (setpieces.js spCountStep): the truck is
+    // the second set-piece moved on to it, the same steps in the same order it ran here by hand
+    // (v227) ... and it stands down out of sight (`near`, its drawn distance), as the barge does
+    const k = spCountStep("monsterTruck", mtruck, dt, T.count, mtBusy(), !near);
+    if (k === "stood") {
       mtruck.counting = false;
       mtruck.phase = "armed"; flags.mtStandDowns = (flags.mtStandDowns || 0) + 1;
     } else {
-      mtruck.t -= dt;
-      if (!countdownBlocked("monsterTruck")) el.bigNum.classList.add("sky");
-      countdownTo(mtruck.t, T.count, "monsterTruck");
       roar = 0.3 + 0.5 * (1 - mtruck.t / T.count);           // revving
       mtruck.bounce = Math.sin(mtruck.clock * 30) * 0.08 * (1 - mtruck.t / T.count);
-      if (mtruck.t <= 0) {
-        if (countdownClear("monsterTruck")) el.bigNum.classList.remove("sky");
+      if (k === "go") {
         mtruck.counting = false;
         mtruck.phase = "run"; mtruck.v = 0; mtruck.bounce = 0;
         flags.mtRuns = (flags.mtRuns || 0) + 1;

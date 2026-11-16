@@ -242,7 +242,11 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
     const L = window.__lp, st = L.state, M = L.mtruck, out = {};
     window.__mtResetAll();
     L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
-    L.mtForce(); for (let i = 0; i < 20; i++) L.update(1 / 60);
+    // (v227) on the motorway in sight of it: a count he is taken away from stands down (spCountStep's `away`)
+    const Lnd = L.mtLanding(), q = L.hwySampleAt(L.hwyNearest(300, Lnd.z + 450).s), off = L.HW.medianW / 2 + L.HW.laneW * 0.5;
+    const hold = () => { st.x = q.x - q.fz * off; st.z = q.z + q.fx * off; st.y = q.y; st.speed = 0; st.heading = Math.atan2(-q.fx, -q.fz); };
+    hold(); L.update(1 / 60);
+    L.mtForce(); for (let i = 0; i < 20; i++) { hold(); L.update(1 / 60); }
     out.busy = { sled: L.spCountBusy("rocketSled"), ls: L.spCountBusy("launchSite"), fb: L.spCountBusy("fireworksBarge") };
     const s0 = L.flags.mtStandDowns || 0;
     L.openPickerAnywhere(); L.update(1 / 60);
@@ -250,9 +254,9 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
     out.picker = { standDowns: (L.flags.mtStandDowns || 0) - s0, numOn: bn.classList.contains("on"), phase: M.phase };
     L.api.skipScreens();
     window.__mtResetAll();
-    L.mtForce(); for (let i = 0; i < 20; i++) L.update(1 / 60);
+    hold(); L.mtForce(); for (let i = 0; i < 20; i++) { hold(); L.update(1 / 60); }
     const s1 = L.flags.mtStandDowns || 0;
-    for (let i = 0; i < 5; i++) { L.police.active = true; L.police.state = "pullover"; L.update(1 / 60); }
+    for (let i = 0; i < 5; i++) { L.police.active = true; L.police.state = "pullover"; hold(); L.update(1 / 60); }
     L.police.active = false; L.police.state = "away";
     out.police = { standDowns: (L.flags.mtStandDowns || 0) - s1, phase: M.phase, numOn: bn.classList.contains("on") };
     // and it waits for another's count
