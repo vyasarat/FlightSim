@@ -240,7 +240,8 @@ module.exports = async function rocketSledChecks({ newPage, check }) {
     // and while it RUNS: the plane, at speed (so nothing steps it aside), met
     // head-on down the rail, high enough over the embankment not to be landing on it
     L.sledReset(); L.sledForce();
-    for (let i = 0; i < 60 * (T.count + 1.5); i++) { put(S.x, 400, S.z + 2500, 0, 1); L.update(1 / 60); }
+    // (v228) out of the way 2 km off, in its drawn distance: since v228 a count out of sight stands down (`away`)
+    for (let i = 0; i < 60 * (T.count + 1.5); i++) { put(S.x, 400, S.z + 2000, 1, 0); L.update(1 / 60); }
     {
       const ahead = 70;
       put(S.x + L.sled.dirX * ahead, T.railY + 0.5 + 1.9 * T.size + 2.5, S.z + L.sled.dirZ * ahead, -L.sled.dirX, -L.sled.dirZ);
@@ -290,6 +291,9 @@ module.exports = async function rocketSledChecks({ newPage, check }) {
     // the picker opened mid-count: the sled's numeral goes with it, read off the numeral itself
     L.sledReset();
     L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    // (v228) on the motorway in sight of it: since v228 a count out of sight stands down (spCountStep's `away`)
+    { const w = L.sledWallWorld(), q = L.hwySampleAt(L.hwyNearest(150, w.z + 500).s), off = L.HW.medianW / 2 + L.HW.laneW * 0.5;
+      st.x = q.x - q.fz * off; st.z = q.z + q.fx * off; st.y = q.y; st.speed = 0; st.heading = Math.atan2(-q.fx, -q.fz); }
     L.sledForce();
     for (let i = 0; i < 30; i++) L.update(1 / 60);
     const numUp = document.getElementById("bigNum").classList.contains("on");
@@ -317,17 +321,19 @@ module.exports = async function rocketSledChecks({ newPage, check }) {
     L.sledReset(); if (L.lsReset) L.lsReset();
     L.api.setVehicle("prop"); L.api.placeOnRunway(); for (let i = 0; i < 5; i++) L.update(1 / 60);
     L.api.teleportAirborne(3000, 0, 250, 0);
-    const px = LS.x - 500, pz = LS.z + 900, py = L.terrainEff(px, pz) + 200;
+    // (v228) from the sled's side of the pad, in sight of both: since v228 a count out of sight stands down (`away`),
+    // and from the north (LS.z + 900) the sled is 3 km off -- its count went at once and the pad never had to wait
+    const px = LS.x - 500, pz = LS.z - 900, py = L.terrainEff(px, pz) + 200;
     const hold = () => { st.phase = "AIRBORNE"; st.exploding = false; st.x = px; st.y = py; st.z = pz; st.heading = Math.atan2(-(LS.x - px), -(LS.z - pz)); st.pitch = 0; st.bank = 0; st.speed = st.vp.cruiseSpeed; };
     L.sledForce();                                      // the sled's 3-2-1 is on the numeral
-    const c0 = L.flags.lsCountdowns || 0;
+    const c0 = L.flags.lsCountdowns || 0, sr0 = L.flags.sledRuns || 0;
     let during = 0, after = null;
     for (let i = 0; i < 60 * 8; i++) {
       hold(); L.update(1 / 60);
       if (S.phase === "count" && (L.flags.lsCountdowns || 0) > c0) during++;
       if (after === null && S.phase !== "count" && (L.flags.lsCountdowns || 0) > c0) after = Math.round(i / 6) / 10;
     }
-    out.launch = { startedDuringSled: during, startedAfter: after };
+    out.launch = { startedDuringSled: during, startedAfter: after, sledRan: (L.flags.sledRuns || 0) - sr0 };
     L.sledReset(); if (L.lsReset) L.lsReset();
     return out;
   });
@@ -338,7 +344,7 @@ module.exports = async function rocketSledChecks({ newPage, check }) {
   check(`rocket sled: the sled, pointed at, waits while the launch pad's numeral is up and goes once it is down`,
     share.reverse.startedDuringLaunch === 0 && share.reverse.startedAfter !== null, share.reverse);
   check(`rocket sled: the launch pad, pointed at, waits while the sled's numeral is up and goes once it is down`,
-    share.launch.startedDuringSled === 0 && share.launch.startedAfter !== null, share.launch);
+    share.launch.startedDuringSled === 0 && share.launch.startedAfter !== null && share.launch.sledRan === 1, share.launch);
 
   // ---- 5c. portrait, both cameras: at the smash, the wall is on the screen and
   // clear of the windscreen pillars (the portrait iPad sees less to the side)
