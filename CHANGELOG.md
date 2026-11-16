@@ -10,6 +10,22 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v225 — the seaplane's engine stops when the seaplane has gone
+
+In the harbour a seaplane comes in every minute or two, lands, turns and takes off again. Once it had flown
+off and vanished, its engine note stayed on at the level it last had, under everything, until the next
+seaplane came in or he left the harbour: in the survey it hummed on for over 40 seconds after a plane that
+was no longer there. Now that sound has an owner, as the car's tyres got one last release: every frame the seaplane is
+flying it says how loud its engine is, and on a frame nothing says so the sound fades to silence. The checks
+show it starting to fade on the very next frame after the plane leaves, and silent for the 20 seconds after, while the
+whole visit, heard from the speedboat with a wobbling finger, a stop, the menu and a crash, sounds exactly as
+it did. It was found by measuring every continuous sound in the game frame by frame, through the whole leaving
+matrix and through each sound's own place and ways out. The seaplane was the only one left sounding with
+nothing driving it; the crane's rumble does that on purpose through its swing and fall, and a crash leaves a sound
+unwritten for one frame at most. The tyre checks also now cover the car wash, ejecting from a moving car,
+opening the menu in a moving car, and a race started with the iPad held sideways. All of those were already
+right.
+
 ## v224 — the tyres stop when nothing is driving them
 
 The car's tyre noise is now a sound that only plays while the car is actually driving it. Every frame the

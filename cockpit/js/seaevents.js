@@ -284,8 +284,9 @@ function seaHideAll() {
   if (sea.plane.g) sea.plane.g.visible = false;
   if (sea.sub.g) sea.sub.g.visible = false;
   if (sea.fboat.g) sea.fboat.g.visible = false;
-  // The seaplane's engine is driven once a frame by seaPlane(), and this is the
-  // one path that stops calling it. Without this the engine note would follow
+  // The seaplane's engine is driven once a frame by seaPlane(), and this is one
+  // path that stops calling it (the other, its take-off ending in "away", is
+  // swept: audio.js TONES_OWNED, v225). Without this the engine note would follow
   // him out of the harbour and sit under everything for the rest of the
   // session -- the same leak the car's whine and the yacht's diesel had.
   if (typeof setTone === "function") setTone("seaPlane", "sawtooth", SE.plane.engineHz[0], 0);
