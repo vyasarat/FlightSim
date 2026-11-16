@@ -10,6 +10,27 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## Harness: the race pin (2026-11-16, no game change, no version)
+
+How the race is tested, not the race (QUEUE C1). `scripts/race_sweep.js` now races 288 whole seeded races
+before its checks -- the four cars on the six tracks, six seeds, two hands: race_drive.js's noisy finger with the
+other hand tapping the item button (the hand every win rate since v187 was measured with), and a new weak hand
+(`RACE_HAND=weak`: off the glass every 6-14 s for most of a second, a pad seen late and often ignored, a car in
+front steered round late, every steer half as firm, no shortcuts). The seeds are paired: the same six for every
+car, track and hand. Each race's place, his time and the whole order are stored in `scripts/race_pin.json`
+(written only by `UPDATE_RACE_PIN=1`), and any race whose place, order or a time to the hundredth moves is a FAIL
+by name with before and after -- a refactor flips zero. A race is a function of its seed and its hand: measured
+the same in a fresh page, a used page and after other races, on 3 pages or 4, and each one starts fresh with
+every rival's body landed first (Q-10). Then a band on the noisy hand's races: on every track, in every car over
+all six, and over everything, he wins sometimes and loses sometimes (15-85% a track or a car, 30-80% overall),
+and somewhere he comes last. Today: 46-67% a track, 60% overall; the monster truck 78% (QUEUE Q-35); the noisy hand is never last, the weak one
+last in 39 of 144 (Q-36). Shown to
+work in copies: a renamed local, zero flips; one track's rivals 0.5% quicker (the oval's `aiMul`), all 48 oval races
+moved (44 flipped, 4 drifted), none elsewhere, the band untouched; the rivals 5% stronger, 282 of 288 races flip and the band fails (6% wins); 30% stronger, he never wins
+and the band fails on every track. The sweep's hash now also covers terrain.js, london.js, streets.js,
+`TUNE.track.ds` and the pin. The pin adds ~7 minutes (four pages in the one browser); the sweep is ~30 minutes.
+The full harness does not run the sweep: its count stands.
+
 ## v230 — the crane's count, too: every point-and-count set-piece on one step
 
 The crane's 3-2-1 now runs through the same shared step as the barge's, the truck's, the sled's and the launch

@@ -29,6 +29,10 @@
 //                           bursts, but what it MEANS is a full steer into the inside of the bend
 //                           coming (the last one's on a straight), the whole race -- riding the
 //                           inside barrier must never be a free win
+//   RACE_HAND=weak ...      (C1) the weaker hand: the same tremor and overshoots, but off the glass
+//                           every 6-14 s for 0.6-1 s, a pad seen only 45 m out and gone for 40% of
+//                           the time, a car in front steered round only inside 12 m, every steer
+//                           half as firm (late), the burst in a quarter of its moods, never a shortcut
 // or, from the harness: require("./race_drive").races(page, { veh, races, seed }).
 const fs = require("fs"), path = require("path");
 
@@ -55,23 +59,27 @@ async function oneRace(page, veh, seed, opts) {
     const rndT = () => { b = (b + 0x6D2B79F5) >>> 0; let t = b; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     let nextTap = 1 + rndT() * 5, taps = 0, stuckRun = 0, stuckMax = 0;
     const log = [];
+    // (C1) the weaker hand's numbers; the default hand's are the literals they were
+    const weak = opts.hand === "weak";
+    const H = weak ? { see: 45, padP: 0.4, carSee: 12, gain: 0.11, moodP: 0.25, scP: 0 } : { see: 90, padP: 0.75, carSee: 25, gain: 0.22, moodP: 0.5, scP: 0.5 };
+    if (weak) nextLift = 6 + rnd() * 8;
     for (let f = 0; f < 60 * 60 * 15 && R.phase !== "podium"; f++) {
       const dt = 1 / 60; t += dt;
       // the lifts and the overshoots
       nextLift -= dt; nextOver -= dt;
-      if (nextLift <= 0) { liftLeft = 0.3; nextLift = 12 + rnd() * 18; log.push(["lift", +t.toFixed(1)]); }
+      if (nextLift <= 0) { if (weak) { liftLeft = 0.6 + rnd() * 0.4; nextLift = 6 + rnd() * 8; } else { liftLeft = 0.3; nextLift = 12 + rnd() * 18; } log.push(["lift", +t.toFixed(1)]); }
       if (nextOver <= 0) { overLeft = 1; overDir = rnd() < 0.5 ? -1 : 1; overAmt = 0.35 + rnd() * 0.1; nextOver = 8 + rnd() * 12; log.push(["over", +t.toFixed(1)]); }
-      moodLeft -= dt; if (moodLeft <= 0) { mood = rnd() < 0.5 ? 1 : 0; moodLeft = 3 + rnd() * 5; }
+      moodLeft -= dt; if (moodLeft <= 0) { mood = rnd() < H.moodP ? 1 : 0; moodLeft = 3 + rnd() * 5; }
       // what it means: a pad it sees, a car in the way, or where it is
       let want = him.lat;
       let pad = null;
-      for (const p of R.pads) { const d = ((p.s - him.s) % R.track.len + R.track.len) % R.track.len; if (d > 5 && d < 90) pad = p; }
-      if (pad !== aimPad) { aimPad = pad; aimGo = !!pad && rnd() < 0.75; }
+      for (const p of R.pads) { const d = ((p.s - him.s) % R.track.len + R.track.len) % R.track.len; if (d > 5 && d < H.see) pad = p; }
+      if (pad !== aimPad) { aimPad = pad; aimGo = !!pad && rnd() < H.padP; }
       // (v170) a shortcut ahead: it goes for its edge about half the time it comes to one
       // (its draw only where a track has one, so the oval's hand is the one it was)
       let sc = null;
       for (const c of (R.track.sc || [])) { const d = ((c.sa + c.gore - him.s) % R.track.len + R.track.len) % R.track.len; if (d > 0 && d < 90 && !him.path) sc = c; }
-      if (sc && sc !== scFor) { scFor = sc; scGo = rnd() < 0.5; }
+      if (sc && sc !== scFor) { scFor = sc; scGo = rnd() < H.scP; }
       if (him.path) want = 0;
       else if (sc && scGo) want = sc.side * (L.RC.width / 2 - sc.mouth / 2);
       else if (pad && aimGo) want = pad.lat;
@@ -79,12 +87,12 @@ async function oneRace(page, veh, seed, opts) {
         for (const o of R.racers) {
           if (o === him || o.path !== him.path) continue;
           let ds = (o.s - him.s) % R.track.len; if (ds > R.track.len / 2) ds -= R.track.len; if (ds < -R.track.len / 2) ds += R.track.len;
-          if (ds > 0 && ds < 25 && Math.abs(o.lat - him.lat) < 4.5) { if (!passSide) passSide = o.lat > 0 ? -1 : 1; want = o.lat + passSide * 6; }
+          if (ds > 0 && ds < H.carSee && Math.abs(o.lat - him.lat) < 4.5) { if (!passSide) passSide = o.lat > 0 ? -1 : 1; want = o.lat + passSide * 6; }
         }
         if (want === him.lat) passSide = 0;
       }
       // the drag that would put him there: drag right moves him right (-left)
-      let bank = Math.abs(want - him.lat) < 0.8 ? 0 : Math.max(-1, Math.min(1, -(want - him.lat) * 0.22));
+      let bank = Math.abs(want - him.lat) < 0.8 ? 0 : Math.max(-1, Math.min(1, -(want - him.lat) * H.gain));
       if (opts.hand === "hug") { const q = L.rcAt(him.s + 40); if (Math.abs(q.kh) > 0.002) hugSide = Math.sign(q.kh); bank = -hugSide; }
       else if (sc && scGo && !him.path && ((sc.sa + sc.gore - him.s) % R.track.len + R.track.len) % R.track.len < sc.hold + 8) bank = -sc.side;   // (going for a shortcut: the full steer, held through its approach -- the turn rule)
       wob1 += dt * (2 + rnd() * 3); wob2 += dt * (2 + rnd() * 3);

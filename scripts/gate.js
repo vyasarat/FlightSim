@@ -680,12 +680,13 @@ if (fs.existsSync(path.join(ROOT, "scripts", "race_sweep.js"))) {
   // (the rule's own proof: an edit inside TUNE.race, or to any file it lists, changes the hash)
   const tune = readAt("cockpit/js/tune.js") || "";
   if (["race", "car", "solid"].some(k => raceHash(f => f === "cockpit/js/tune.js" ? tune.replace(new RegExp(`^  ${k}: \\{`, "m"), `  ${k}: { /*x*/`) : readAt(f)) === raceHash(readAt)) ||
-      raceHash(f => f === "cockpit/js/race.js" ? readAt(f) + "//x" : readAt(f)) === raceHash(readAt))
-    fail("race-sweep", "scripts/race_sweep.js's hash no longer sees an edit to TUNE.race/car/solid or race.js -- the sweep rule would never fire");
+      ["race.js", "terrain.js", "london.js", "streets.js"].some(n => raceHash(f => f === `cockpit/js/${n}` ? readAt(f) + "//x" : readAt(f)) === raceHash(readAt)) ||
+      raceHash(f => f === "cockpit/js/tune.js" ? tune.replace(/^(  track: \{[\s\S]*?\n    ds: )/m, "$1-") : readAt(f)) === raceHash(readAt))   // (C1: the ground, London, the streets, TUNE.track.ds)
+    fail("race-sweep", "scripts/race_sweep.js's hash no longer sees an edit to TUNE.race/car/solid, TUNE.track.ds, or race.js, terrain.js, london.js, streets.js -- the sweep rule would never fire");
   const now = raceHash(readAt), was = raceHash(f => git("show", `${base}:${f}`));
   if (now !== was) {
     let r = null; try { r = JSON.parse(readAt("evidence/race-sweep.json")); } catch (e) {}
-    if (!r || r.hash !== now) fail("race-sweep", `the race or a car in it changed (race.js, track.js, car.js and the bodies, solids.js, TUNE.race/car/solid/models, or its checks) and has not been swept as it stands -- run node scripts/race_sweep.js (every car on every track, about 10 min)`);
+    if (!r || r.hash !== now) fail("race-sweep", `the race or a car in it changed (race.js, track.js, car.js and the bodies, solids.js, the ground under it -- terrain.js, london.js, streets.js --, TUNE.race/car/solid/models or TUNE.track.ds, its checks or its pin) and has not been swept as it stands -- run node scripts/race_sweep.js (every car on every track and the race pin, about 30 min)`);
     else if (!r.ok) fail("race-sweep", `the race sweep FAILED on this content (${r.fail} failed) -- evidence/race-sweep.json`);
   }
 }

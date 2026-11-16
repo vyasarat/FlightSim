@@ -1,0 +1,3655 @@
+{
+ "note": "THE RACE PIN (C1): written by UPDATE_RACE_PIN=1 node scripts/race_sweep.js -- never edit by hand. Key track/car/hand/seed; his place, his time, the whole order.",
+ "pin": {
+  "cars": [
+   "car",
+   "cybertruck",
+   "corvette",
+   "monster"
+  ],
+  "hands": [
+   "noisy",
+   "weak"
+  ],
+  "seeds": [
+   5101,
+   5102,
+   5103,
+   5104,
+   5105,
+   5106
+  ]
+ },
+ "races": {
+  "beach/car/noisy/5101": {
+   "place": 5,
+   "time": 338.87,
+   "order": [
+    "monster:336.5",
+    "hatch:337.18",
+    "taxi:337.85",
+    "corvette:338.4",
+    "car:338.87",
+    "cybertruck:340.9"
+   ]
+  },
+  "beach/car/noisy/5102": {
+   "place": 1,
+   "time": 328.6,
+   "order": [
+    "car:328.6",
+    "monster:330.68",
+    "taxi:330.78",
+    "hatch:332.3",
+    "corvette:332.47",
+    "cybertruck:333.52"
+   ]
+  },
+  "beach/car/noisy/5103": {
+   "place": 3,
+   "time": 328.78,
+   "order": [
+    "monster:327.75",
+    "hatch:328.07",
+    "car:328.78",
+    "corvette:329.68",
+    "taxi:330.25",
+    "cybertruck:330.85"
+   ]
+  },
+  "beach/car/noisy/5104": {
+   "place": 2,
+   "time": 328.03,
+   "order": [
+    "monster:327.38",
+    "car:328.03",
+    "taxi:329.27",
+    "cybertruck:329.92",
+    "hatch:330",
+    "corvette:330.2"
+   ]
+  },
+  "beach/car/noisy/5105": {
+   "place": 1,
+   "time": 331.88,
+   "order": [
+    "car:331.88",
+    "monster:334",
+    "hatch:334.03",
+    "cybertruck:335.43",
+    "taxi:335.65",
+    "corvette:336.22"
+   ]
+  },
+  "beach/car/noisy/5106": {
+   "place": 3,
+   "time": 339.85,
+   "order": [
+    "monster:339.48",
+    "hatch:339.65",
+    "car:339.85",
+    "taxi:340.35",
+    "corvette:340.93",
+    "cybertruck:341.55"
+   ]
+  },
+  "beach/car/weak/5101": {
+   "place": 6,
+   "time": 355.7,
+   "order": [
+    "monster:350.1",
+    "taxi:351.28",
+    "hatch:352.5",
+    "corvette:353.2",
+    "cybertruck:353.75",
+    "car:355.7"
+   ]
+  },
+  "beach/car/weak/5102": {
+   "place": 6,
+   "time": 354.17,
+   "order": [
+    "taxi:351.73",
+    "monster:352.03",
+    "hatch:353.23",
+    "cybertruck:353.8",
+    "corvette:353.97",
+    "car:354.17"
+   ]
+  },
+  "beach/car/weak/5103": {
+   "place": 4,
+   "time": 351.51,
+   "order": [
+    "monster:347.28",
+    "hatch:348.9",
+    "taxi:349.93",
+    "car:351.51",
+    "cybertruck:351.59",
+    "corvette:351.59"
+   ]
+  },
+  "beach/car/weak/5104": {
+   "place": 4,
+   "time": 350.3,
+   "order": [
+    "hatch:347.77",
+    "monster:348.52",
+    "taxi:349.73",
+    "car:350.3",
+    "corvette:350.31",
+    "cybertruck:350.87"
+   ]
+  },
+  "beach/car/weak/5105": {
+   "place": 2,
+   "time": 342.63,
+   "order": [
+    "monster:341.32",
+    "car:342.63",
+    "corvette:343.28",
+    "hatch:343.52",
+    "taxi:344.02",
+    "cybertruck:344.53"
+   ]
+  },
+  "beach/car/weak/5106": {
+   "place": 6,
+   "time": 353.4,
+   "order": [
+    "hatch:349.43",
+    "monster:350.23",
+    "taxi:351.72",
+    "corvette:352.27",
+    "cybertruck:352.35",
+    "car:353.4"
+   ]
+  },
+  "beach/corvette/noisy/5101": {
+   "place": 2,
+   "time": 333.67,
+   "order": [
+    "monster:332.62",
+    "corvette:333.67",
+    "cybertruck:334.78",
+    "hatch:335.23",
+    "car:335.82",
+    "taxi:336"
+   ]
+  },
+  "beach/corvette/noisy/5102": {
+   "place": 1,
+   "time": 332.8,
+   "order": [
+    "corvette:332.8",
+    "hatch:334.77",
+    "taxi:334.87",
+    "car:335.27",
+    "monster:335.42",
+    "cybertruck:335.8"
+   ]
+  },
+  "beach/corvette/noisy/5103": {
+   "place": 1,
+   "time": 325.98,
+   "order": [
+    "corvette:325.98",
+    "monster:328.97",
+    "hatch:329.77",
+    "car:330.05",
+    "cybertruck:332.07",
+    "taxi:332.53"
+   ]
+  },
+  "beach/corvette/noisy/5104": {
+   "place": 3,
+   "time": 335.38,
+   "order": [
+    "monster:333.57",
+    "cybertruck:334.8",
+    "corvette:335.38",
+    "hatch:335.83",
+    "taxi:336.32",
+    "car:336.53"
+   ]
+  },
+  "beach/corvette/noisy/5105": {
+   "place": 1,
+   "time": 331.52,
+   "order": [
+    "corvette:331.52",
+    "monster:332.42",
+    "cybertruck:333.4",
+    "hatch:333.7",
+    "taxi:334.05",
+    "car:334.67"
+   ]
+  },
+  "beach/corvette/noisy/5106": {
+   "place": 1,
+   "time": 330.89,
+   "order": [
+    "corvette:330.89",
+    "hatch:331.01",
+    "monster:332.17",
+    "cybertruck:332.65",
+    "taxi:333.22",
+    "car:333.82"
+   ]
+  },
+  "beach/corvette/weak/5101": {
+   "place": 6,
+   "time": 355.67,
+   "order": [
+    "hatch:350.98",
+    "cybertruck:351.87",
+    "taxi:352.63",
+    "monster:353.23",
+    "car:354.03",
+    "corvette:355.67"
+   ]
+  },
+  "beach/corvette/weak/5102": {
+   "place": 6,
+   "time": 355.13,
+   "order": [
+    "monster:350.72",
+    "hatch:351.2",
+    "taxi:353",
+    "car:353.4",
+    "cybertruck:353.6",
+    "corvette:355.13"
+   ]
+  },
+  "beach/corvette/weak/5103": {
+   "place": 6,
+   "time": 351.65,
+   "order": [
+    "monster:348.15",
+    "taxi:349.63",
+    "cybertruck:349.65",
+    "car:350.72",
+    "hatch:350.88",
+    "corvette:351.65"
+   ]
+  },
+  "beach/corvette/weak/5104": {
+   "place": 5,
+   "time": 344.02,
+   "order": [
+    "taxi:343.08",
+    "hatch:343.15",
+    "monster:343.35",
+    "car:343.93",
+    "corvette:344.02",
+    "cybertruck:344.74"
+   ]
+  },
+  "beach/corvette/weak/5105": {
+   "place": 5,
+   "time": 353.18,
+   "order": [
+    "hatch:348.58",
+    "monster:349.5",
+    "taxi:352.35",
+    "cybertruck:352.93",
+    "corvette:353.18",
+    "car:353.65"
+   ]
+  },
+  "beach/corvette/weak/5106": {
+   "place": 6,
+   "time": 359.17,
+   "order": [
+    "monster:351.5",
+    "taxi:352.22",
+    "car:355.05",
+    "hatch:355.35",
+    "cybertruck:355.68",
+    "corvette:359.17"
+   ]
+  },
+  "beach/cybertruck/noisy/5101": {
+   "place": 2,
+   "time": 327.75,
+   "order": [
+    "monster:327.37",
+    "cybertruck:327.75",
+    "hatch:329.1",
+    "taxi:329.62",
+    "corvette:329.78",
+    "car:330.33"
+   ]
+  },
+  "beach/cybertruck/noisy/5102": {
+   "place": 1,
+   "time": 321.85,
+   "order": [
+    "cybertruck:321.85",
+    "monster:322.1",
+    "hatch:323.62",
+    "taxi:324.2",
+    "corvette:325.53",
+    "car:326.32"
+   ]
+  },
+  "beach/cybertruck/noisy/5103": {
+   "place": 1,
+   "time": 330.53,
+   "order": [
+    "cybertruck:330.53",
+    "monster:331.67",
+    "taxi:333.47",
+    "corvette:334.02",
+    "hatch:334.18",
+    "car:334.73"
+   ]
+  },
+  "beach/cybertruck/noisy/5104": {
+   "place": 1,
+   "time": 335.12,
+   "order": [
+    "cybertruck:335.12",
+    "monster:336.28",
+    "hatch:337.95",
+    "taxi:338.33",
+    "corvette:338.95",
+    "car:339.88"
+   ]
+  },
+  "beach/cybertruck/noisy/5105": {
+   "place": 2,
+   "time": 331.32,
+   "order": [
+    "monster:330.87",
+    "cybertruck:331.32",
+    "taxi:332.1",
+    "car:334.02",
+    "hatch:334.3",
+    "corvette:334.52"
+   ]
+  },
+  "beach/cybertruck/noisy/5106": {
+   "place": 1,
+   "time": 331.9,
+   "order": [
+    "cybertruck:331.9",
+    "taxi:333.37",
+    "hatch:333.88",
+    "monster:334.07",
+    "corvette:334.57",
+    "car:335.15"
+   ]
+  },
+  "beach/cybertruck/weak/5101": {
+   "place": 6,
+   "time": 349.52,
+   "order": [
+    "monster:345.77",
+    "hatch:346.53",
+    "taxi:347.48",
+    "car:347.55",
+    "corvette:347.6",
+    "cybertruck:349.52"
+   ]
+  },
+  "beach/cybertruck/weak/5102": {
+   "place": 6,
+   "time": 347.47,
+   "order": [
+    "monster:343.43",
+    "corvette:346.2",
+    "car:346.85",
+    "taxi:347.12",
+    "hatch:347.12",
+    "cybertruck:347.47"
+   ]
+  },
+  "beach/cybertruck/weak/5103": {
+   "place": 6,
+   "time": 355.67,
+   "order": [
+    "monster:349.9",
+    "corvette:352.63",
+    "hatch:353.1",
+    "taxi:353.52",
+    "car:354.17",
+    "cybertruck:355.67"
+   ]
+  },
+  "beach/cybertruck/weak/5104": {
+   "place": 4,
+   "time": 347.88,
+   "order": [
+    "hatch:345.47",
+    "taxi:345.5",
+    "monster:346.67",
+    "cybertruck:347.88",
+    "corvette:348.18",
+    "car:348.32"
+   ]
+  },
+  "beach/cybertruck/weak/5105": {
+   "place": 6,
+   "time": 354.4,
+   "order": [
+    "monster:349.8",
+    "taxi:351.65",
+    "hatch:352.07",
+    "car:353.12",
+    "corvette:353.18",
+    "cybertruck:354.4"
+   ]
+  },
+  "beach/cybertruck/weak/5106": {
+   "place": 3,
+   "time": 349.21,
+   "order": [
+    "monster:347.17",
+    "taxi:348.83",
+    "cybertruck:349.21",
+    "corvette:349.41",
+    "hatch:349.54",
+    "car:350.45"
+   ]
+  },
+  "beach/monster/noisy/5101": {
+   "place": 1,
+   "time": 332.23,
+   "order": [
+    "monster:332.23",
+    "taxi:332.6",
+    "corvette:333.4",
+    "cybertruck:334.52",
+    "hatch:334.73",
+    "car:335.22"
+   ]
+  },
+  "beach/monster/noisy/5102": {
+   "place": 2,
+   "time": 336.05,
+   "order": [
+    "hatch:335.78",
+    "monster:336.05",
+    "cybertruck:338.25",
+    "car:338.82",
+    "corvette:339.37",
+    "taxi:339.67"
+   ]
+  },
+  "beach/monster/noisy/5103": {
+   "place": 1,
+   "time": 337.53,
+   "order": [
+    "monster:337.53",
+    "taxi:338.5",
+    "corvette:339.02",
+    "hatch:339.43",
+    "cybertruck:339.97",
+    "car:340.53"
+   ]
+  },
+  "beach/monster/noisy/5104": {
+   "place": 1,
+   "time": 330.72,
+   "order": [
+    "monster:330.72",
+    "hatch:332.02",
+    "cybertruck:332.42",
+    "taxi:332.53",
+    "corvette:333.35",
+    "car:335.9"
+   ]
+  },
+  "beach/monster/noisy/5105": {
+   "place": 1,
+   "time": 326.87,
+   "order": [
+    "monster:326.87",
+    "hatch:329.5",
+    "taxi:329.97",
+    "corvette:331.58",
+    "cybertruck:332.62",
+    "car:334.85"
+   ]
+  },
+  "beach/monster/noisy/5106": {
+   "place": 1,
+   "time": 328.25,
+   "order": [
+    "monster:328.25",
+    "hatch:329.92",
+    "corvette:331.1",
+    "taxi:331.67",
+    "cybertruck:332.57",
+    "car:333.13"
+   ]
+  },
+  "beach/monster/weak/5101": {
+   "place": 3,
+   "time": 353.7,
+   "order": [
+    "hatch:350.97",
+    "taxi:351.47",
+    "monster:353.7",
+    "corvette:354.42",
+    "car:354.68",
+    "cybertruck:354.73"
+   ]
+  },
+  "beach/monster/weak/5102": {
+   "place": 6,
+   "time": 360.33,
+   "order": [
+    "hatch:353.63",
+    "taxi:355.2",
+    "corvette:355.57",
+    "cybertruck:356.78",
+    "car:358.17",
+    "monster:360.33"
+   ]
+  },
+  "beach/monster/weak/5103": {
+   "place": 6,
+   "time": 358.42,
+   "order": [
+    "hatch:351.97",
+    "taxi:352",
+    "corvette:354.85",
+    "cybertruck:355.67",
+    "car:356.28",
+    "monster:358.42"
+   ]
+  },
+  "beach/monster/weak/5104": {
+   "place": 4,
+   "time": 348.92,
+   "order": [
+    "hatch:345.45",
+    "taxi:347.78",
+    "cybertruck:348.67",
+    "monster:348.92",
+    "corvette:349.2",
+    "car:349.78"
+   ]
+  },
+  "beach/monster/weak/5105": {
+   "place": 4,
+   "time": 350.7,
+   "order": [
+    "taxi:348.72",
+    "hatch:349.85",
+    "corvette:350.45",
+    "monster:350.7",
+    "car:351",
+    "cybertruck:351.93"
+   ]
+  },
+  "beach/monster/weak/5106": {
+   "place": 6,
+   "time": 357.62,
+   "order": [
+    "hatch:354.2",
+    "corvette:354.92",
+    "taxi:354.93",
+    "cybertruck:356.13",
+    "car:356.73",
+    "monster:357.62"
+   ]
+  },
+  "dunes/car/noisy/5101": {
+   "place": 1,
+   "time": 348.35,
+   "order": [
+    "car:348.35",
+    "monster:351.55",
+    "taxi:352.62",
+    "hatch:352.7",
+    "corvette:353.12",
+    "cybertruck:355.98"
+   ]
+  },
+  "dunes/car/noisy/5102": {
+   "place": 2,
+   "time": 349.14,
+   "order": [
+    "monster:347.28",
+    "car:349.14",
+    "hatch:349.15",
+    "taxi:350.12",
+    "corvette:351.14",
+    "cybertruck:351.47"
+   ]
+  },
+  "dunes/car/noisy/5103": {
+   "place": 1,
+   "time": 350.47,
+   "order": [
+    "car:350.47",
+    "monster:351.98",
+    "hatch:352.23",
+    "taxi:353.7",
+    "cybertruck:354.62",
+    "corvette:355.62"
+   ]
+  },
+  "dunes/car/noisy/5104": {
+   "place": 2,
+   "time": 350.87,
+   "order": [
+    "monster:349.7",
+    "car:350.87",
+    "taxi:353.52",
+    "corvette:354.88",
+    "cybertruck:355.02",
+    "hatch:355.23"
+   ]
+  },
+  "dunes/car/noisy/5105": {
+   "place": 1,
+   "time": 345.05,
+   "order": [
+    "car:345.05",
+    "monster:346.83",
+    "hatch:348.48",
+    "taxi:349.5",
+    "cybertruck:350.1",
+    "corvette:350.18"
+   ]
+  },
+  "dunes/car/noisy/5106": {
+   "place": 1,
+   "time": 345.4,
+   "order": [
+    "car:345.4",
+    "monster:347.37",
+    "hatch:347.57",
+    "taxi:348.12",
+    "corvette:348.67",
+    "cybertruck:351.2"
+   ]
+  },
+  "dunes/car/weak/5101": {
+   "place": 3,
+   "time": 376.88,
+   "order": [
+    "monster:374.45",
+    "hatch:374.85",
+    "car:376.88",
+    "taxi:377.22",
+    "cybertruck:377.7",
+    "corvette:377.9"
+   ]
+  },
+  "dunes/car/weak/5102": {
+   "place": 5,
+   "time": 377.91,
+   "order": [
+    "monster:372.6",
+    "taxi:375.78",
+    "hatch:377.17",
+    "corvette:377.8",
+    "car:377.91",
+    "cybertruck:378.15"
+   ]
+  },
+  "dunes/car/weak/5103": {
+   "place": 6,
+   "time": 367.25,
+   "order": [
+    "monster:364.48",
+    "taxi:364.9",
+    "hatch:366.2",
+    "corvette:366.45",
+    "cybertruck:367.03",
+    "car:367.25"
+   ]
+  },
+  "dunes/car/weak/5104": {
+   "place": 6,
+   "time": 367.12,
+   "order": [
+    "monster:362.07",
+    "taxi:363.2",
+    "hatch:364.52",
+    "corvette:366.07",
+    "cybertruck:366.43",
+    "car:367.12"
+   ]
+  },
+  "dunes/car/weak/5105": {
+   "place": 3,
+   "time": 366.35,
+   "order": [
+    "taxi:365.08",
+    "hatch:365.3",
+    "car:366.35",
+    "corvette:367.97",
+    "monster:368.25",
+    "cybertruck:368.57"
+   ]
+  },
+  "dunes/car/weak/5106": {
+   "place": 5,
+   "time": 372.33,
+   "order": [
+    "monster:368.22",
+    "hatch:370.13",
+    "taxi:370.7",
+    "cybertruck:372.16",
+    "car:372.33",
+    "corvette:373"
+   ]
+  },
+  "dunes/corvette/noisy/5101": {
+   "place": 1,
+   "time": 348.85,
+   "order": [
+    "corvette:348.85",
+    "monster:350.75",
+    "taxi:352.07",
+    "hatch:352.32",
+    "car:353.87",
+    "cybertruck:354.97"
+   ]
+  },
+  "dunes/corvette/noisy/5102": {
+   "place": 1,
+   "time": 352.48,
+   "order": [
+    "corvette:352.48",
+    "taxi:352.54",
+    "monster:352.77",
+    "hatch:352.95",
+    "car:354.52",
+    "cybertruck:355.12"
+   ]
+  },
+  "dunes/corvette/noisy/5103": {
+   "place": 2,
+   "time": 340.53,
+   "order": [
+    "monster:339.15",
+    "corvette:340.53",
+    "taxi:341.52",
+    "cybertruck:341.88",
+    "hatch:342.25",
+    "car:343.62"
+   ]
+  },
+  "dunes/corvette/noisy/5104": {
+   "place": 1,
+   "time": 345.68,
+   "order": [
+    "corvette:345.68",
+    "monster:346.67",
+    "taxi:348.53",
+    "hatch:348.6",
+    "cybertruck:349.97",
+    "car:351.65"
+   ]
+  },
+  "dunes/corvette/noisy/5105": {
+   "place": 1,
+   "time": 343.97,
+   "order": [
+    "corvette:343.97",
+    "monster:345.3",
+    "hatch:347.1",
+    "taxi:347.8",
+    "cybertruck:350.45",
+    "car:350.75"
+   ]
+  },
+  "dunes/corvette/noisy/5106": {
+   "place": 2,
+   "time": 340.5,
+   "order": [
+    "hatch:340.07",
+    "corvette:340.5",
+    "monster:341.3",
+    "taxi:341.38",
+    "cybertruck:343.2",
+    "car:345.07"
+   ]
+  },
+  "dunes/corvette/weak/5101": {
+   "place": 4,
+   "time": 368.47,
+   "order": [
+    "monster:364.87",
+    "hatch:366.33",
+    "taxi:367.65",
+    "corvette:368.47",
+    "cybertruck:369.08",
+    "car:369.58"
+   ]
+  },
+  "dunes/corvette/weak/5102": {
+   "place": 4,
+   "time": 367.24,
+   "order": [
+    "monster:364.02",
+    "taxi:366.18",
+    "hatch:366.18",
+    "corvette:367.24",
+    "cybertruck:367.32",
+    "car:369.05"
+   ]
+  },
+  "dunes/corvette/weak/5103": {
+   "place": 4,
+   "time": 364.68,
+   "order": [
+    "monster:363.6",
+    "hatch:364.18",
+    "taxi:364.45",
+    "corvette:364.68",
+    "car:365.2",
+    "cybertruck:367.27"
+   ]
+  },
+  "dunes/corvette/weak/5104": {
+   "place": 2,
+   "time": 366.95,
+   "order": [
+    "monster:364.97",
+    "corvette:366.95",
+    "hatch:367.3",
+    "cybertruck:367.57",
+    "car:368.8",
+    "taxi:368.95"
+   ]
+  },
+  "dunes/corvette/weak/5105": {
+   "place": 6,
+   "time": 372.32,
+   "order": [
+    "monster:367.88",
+    "taxi:370.37",
+    "car:371.47",
+    "cybertruck:371.55",
+    "hatch:371.7",
+    "corvette:372.32"
+   ]
+  },
+  "dunes/corvette/weak/5106": {
+   "place": 6,
+   "time": 379.2,
+   "order": [
+    "monster:370.95",
+    "hatch:375.68",
+    "taxi:376.43",
+    "cybertruck:378.53",
+    "car:379",
+    "corvette:379.2"
+   ]
+  },
+  "dunes/cybertruck/noisy/5101": {
+   "place": 1,
+   "time": 349.75,
+   "order": [
+    "cybertruck:349.75",
+    "monster:352.32",
+    "hatch:353.12",
+    "corvette:355.03",
+    "taxi:355.28",
+    "car:356.52"
+   ]
+  },
+  "dunes/cybertruck/noisy/5102": {
+   "place": 2,
+   "time": 350.29,
+   "order": [
+    "monster:350.17",
+    "cybertruck:350.29",
+    "hatch:350.64",
+    "taxi:352.04",
+    "corvette:352.5",
+    "car:354.6"
+   ]
+  },
+  "dunes/cybertruck/noisy/5103": {
+   "place": 1,
+   "time": 353.97,
+   "order": [
+    "cybertruck:353.97",
+    "monster:354.58",
+    "hatch:356.72",
+    "taxi:358.82",
+    "corvette:359.6",
+    "car:360.17"
+   ]
+  },
+  "dunes/cybertruck/noisy/5104": {
+   "place": 1,
+   "time": 342.3,
+   "order": [
+    "cybertruck:342.3",
+    "monster:344.22",
+    "hatch:346.3",
+    "taxi:348.37",
+    "corvette:349.63",
+    "car:350.7"
+   ]
+  },
+  "dunes/cybertruck/noisy/5105": {
+   "place": 3,
+   "time": 359.47,
+   "order": [
+    "monster:356.72",
+    "taxi:358.53",
+    "cybertruck:359.47",
+    "hatch:360.32",
+    "corvette:360.95",
+    "car:361.67"
+   ]
+  },
+  "dunes/cybertruck/noisy/5106": {
+   "place": 2,
+   "time": 339.63,
+   "order": [
+    "monster:339.56",
+    "cybertruck:339.63",
+    "hatch:340.5",
+    "taxi:341.75",
+    "corvette:342.09",
+    "car:343.8"
+   ]
+  },
+  "dunes/cybertruck/weak/5101": {
+   "place": 2,
+   "time": 367.62,
+   "order": [
+    "monster:365.15",
+    "cybertruck:367.62",
+    "hatch:368.12",
+    "corvette:368.35",
+    "car:369.55",
+    "taxi:370.63"
+   ]
+  },
+  "dunes/cybertruck/weak/5102": {
+   "place": 6,
+   "time": 378.82,
+   "order": [
+    "monster:374.93",
+    "hatch:375.6",
+    "taxi:376.72",
+    "corvette:377.63",
+    "car:378.22",
+    "cybertruck:378.82"
+   ]
+  },
+  "dunes/cybertruck/weak/5103": {
+   "place": 6,
+   "time": 375.92,
+   "order": [
+    "monster:370.85",
+    "corvette:372.85",
+    "taxi:373.33",
+    "hatch:373.33",
+    "car:375.33",
+    "cybertruck:375.92"
+   ]
+  },
+  "dunes/cybertruck/weak/5104": {
+   "place": 6,
+   "time": 376.57,
+   "order": [
+    "monster:371.42",
+    "hatch:372.23",
+    "taxi:374.18",
+    "corvette:375.5",
+    "car:376.15",
+    "cybertruck:376.57"
+   ]
+  },
+  "dunes/cybertruck/weak/5105": {
+   "place": 5,
+   "time": 373.32,
+   "order": [
+    "monster:369.07",
+    "hatch:371.33",
+    "taxi:371.45",
+    "corvette:372",
+    "cybertruck:373.32",
+    "car:373.62"
+   ]
+  },
+  "dunes/cybertruck/weak/5106": {
+   "place": 4,
+   "time": 370.95,
+   "order": [
+    "monster:367.92",
+    "hatch:369.75",
+    "taxi:369.93",
+    "cybertruck:370.95",
+    "corvette:371.55",
+    "car:373.03"
+   ]
+  },
+  "dunes/monster/noisy/5101": {
+   "place": 1,
+   "time": 348.83,
+   "order": [
+    "monster:348.83",
+    "taxi:349.45",
+    "hatch:350.38",
+    "corvette:351.7",
+    "car:355.22",
+    "cybertruck:355.78"
+   ]
+  },
+  "dunes/monster/noisy/5102": {
+   "place": 2,
+   "time": 346.97,
+   "order": [
+    "hatch:346.57",
+    "monster:346.97",
+    "cybertruck:348.82",
+    "taxi:348.87",
+    "corvette:349.6",
+    "car:350.8"
+   ]
+  },
+  "dunes/monster/noisy/5103": {
+   "place": 1,
+   "time": 347.9,
+   "order": [
+    "monster:347.9",
+    "hatch:349.97",
+    "corvette:350.4",
+    "cybertruck:351.37",
+    "taxi:353.78",
+    "car:354.95"
+   ]
+  },
+  "dunes/monster/noisy/5104": {
+   "place": 1,
+   "time": 342.52,
+   "order": [
+    "monster:342.52",
+    "taxi:344.78",
+    "corvette:346.02",
+    "hatch:347.2",
+    "cybertruck:349.63",
+    "car:352.25"
+   ]
+  },
+  "dunes/monster/noisy/5105": {
+   "place": 1,
+   "time": 338.28,
+   "order": [
+    "monster:338.28",
+    "hatch:341.03",
+    "taxi:342.17",
+    "corvette:342.75",
+    "cybertruck:344.32",
+    "car:344.33"
+   ]
+  },
+  "dunes/monster/noisy/5106": {
+   "place": 4,
+   "time": 352.6,
+   "order": [
+    "hatch:349.35",
+    "taxi:351.63",
+    "corvette:351.77",
+    "monster:352.6",
+    "car:352.97",
+    "cybertruck:354.07"
+   ]
+  },
+  "dunes/monster/weak/5101": {
+   "place": 4,
+   "time": 378.28,
+   "order": [
+    "hatch:374.85",
+    "taxi:377.53",
+    "corvette:377.85",
+    "monster:378.28",
+    "cybertruck:378.9",
+    "car:379.65"
+   ]
+  },
+  "dunes/monster/weak/5102": {
+   "place": 5,
+   "time": 379.2,
+   "order": [
+    "hatch:375.4",
+    "corvette:376.9",
+    "taxi:377.33",
+    "car:378.95",
+    "monster:379.2",
+    "cybertruck:379.38"
+   ]
+  },
+  "dunes/monster/weak/5103": {
+   "place": 6,
+   "time": 370.03,
+   "order": [
+    "hatch:366.75",
+    "taxi:368.55",
+    "cybertruck:368.82",
+    "corvette:369.27",
+    "car:369.65",
+    "monster:370.03"
+   ]
+  },
+  "dunes/monster/weak/5104": {
+   "place": 2,
+   "time": 367.9,
+   "order": [
+    "hatch:366.42",
+    "monster:367.9",
+    "taxi:368.17",
+    "corvette:368.55",
+    "cybertruck:369.68",
+    "car:370.35"
+   ]
+  },
+  "dunes/monster/weak/5105": {
+   "place": 4,
+   "time": 372.75,
+   "order": [
+    "hatch:369.85",
+    "taxi:370.43",
+    "corvette:372.59",
+    "monster:372.75",
+    "cybertruck:373.07",
+    "car:374.63"
+   ]
+  },
+  "dunes/monster/weak/5106": {
+   "place": 6,
+   "time": 386.3,
+   "order": [
+    "hatch:377.57",
+    "taxi:381.72",
+    "corvette:382.47",
+    "car:385.25",
+    "cybertruck:385.62",
+    "monster:386.3"
+   ]
+  },
+  "london/car/noisy/5101": {
+   "place": 1,
+   "time": 355.47,
+   "order": [
+    "car:355.47",
+    "monster:357.7",
+    "hatch:360.62",
+    "taxi:361.23",
+    "corvette:365.5",
+    "cybertruck:367.05"
+   ]
+  },
+  "london/car/noisy/5102": {
+   "place": 1,
+   "time": 364.22,
+   "order": [
+    "car:364.22",
+    "hatch:364.98",
+    "monster:366.35",
+    "taxi:366.82",
+    "corvette:368.3",
+    "cybertruck:369.18"
+   ]
+  },
+  "london/car/noisy/5103": {
+   "place": 1,
+   "time": 363.1,
+   "order": [
+    "car:363.1",
+    "monster:365.47",
+    "taxi:367.3",
+    "hatch:367.98",
+    "corvette:369.2",
+    "cybertruck:371.53"
+   ]
+  },
+  "london/car/noisy/5104": {
+   "place": 1,
+   "time": 356.7,
+   "order": [
+    "car:356.7",
+    "taxi:359.27",
+    "monster:362.65",
+    "hatch:363.43",
+    "corvette:366.12",
+    "cybertruck:367.13"
+   ]
+  },
+  "london/car/noisy/5105": {
+   "place": 2,
+   "time": 373.42,
+   "order": [
+    "monster:371.35",
+    "car:373.42",
+    "hatch:373.8",
+    "taxi:374.98",
+    "cybertruck:375.48",
+    "corvette:375.97"
+   ]
+  },
+  "london/car/noisy/5106": {
+   "place": 1,
+   "time": 366.23,
+   "order": [
+    "car:366.23",
+    "taxi:370.23",
+    "corvette:370.58",
+    "hatch:370.65",
+    "monster:373.12",
+    "cybertruck:374.23"
+   ]
+  },
+  "london/car/weak/5101": {
+   "place": 6,
+   "time": 385.52,
+   "order": [
+    "hatch:382.43",
+    "taxi:382.9",
+    "monster:383.18",
+    "corvette:384.3",
+    "cybertruck:385.32",
+    "car:385.52"
+   ]
+  },
+  "london/car/weak/5102": {
+   "place": 4,
+   "time": 381.03,
+   "order": [
+    "hatch:377.53",
+    "monster:379.37",
+    "corvette:380.53",
+    "car:381.03",
+    "taxi:381.4",
+    "cybertruck:381.53"
+   ]
+  },
+  "london/car/weak/5103": {
+   "place": 6,
+   "time": 384.12,
+   "order": [
+    "monster:378.37",
+    "taxi:380.03",
+    "hatch:380.73",
+    "corvette:381.68",
+    "cybertruck:382.83",
+    "car:384.12"
+   ]
+  },
+  "london/car/weak/5104": {
+   "place": 3,
+   "time": 380.32,
+   "order": [
+    "monster:378.1",
+    "hatch:379.4",
+    "car:380.32",
+    "taxi:380.58",
+    "corvette:380.75",
+    "cybertruck:381.97"
+   ]
+  },
+  "london/car/weak/5105": {
+   "place": 4,
+   "time": 384.25,
+   "order": [
+    "monster:380.48",
+    "hatch:382.38",
+    "taxi:383.32",
+    "car:384.25",
+    "cybertruck:384.45",
+    "corvette:385.03"
+   ]
+  },
+  "london/car/weak/5106": {
+   "place": 5,
+   "time": 382.91,
+   "order": [
+    "monster:378.13",
+    "hatch:379.1",
+    "taxi:382.33",
+    "corvette:382.78",
+    "car:382.91",
+    "cybertruck:383.6"
+   ]
+  },
+  "london/corvette/noisy/5101": {
+   "place": 1,
+   "time": 356.5,
+   "order": [
+    "corvette:356.5",
+    "monster:358.35",
+    "hatch:358.93",
+    "taxi:359.43",
+    "cybertruck:362.67",
+    "car:363.8"
+   ]
+  },
+  "london/corvette/noisy/5102": {
+   "place": 4,
+   "time": 386.87,
+   "order": [
+    "hatch:383.27",
+    "monster:383.82",
+    "cybertruck:386.53",
+    "corvette:386.87",
+    "taxi:387.22",
+    "car:387.38"
+   ]
+  },
+  "london/corvette/noisy/5103": {
+   "place": 1,
+   "time": 361.97,
+   "order": [
+    "corvette:361.97",
+    "hatch:364.68",
+    "taxi:364.73",
+    "monster:365.38",
+    "cybertruck:368.17",
+    "car:368.9"
+   ]
+  },
+  "london/corvette/noisy/5104": {
+   "place": 2,
+   "time": 379.33,
+   "order": [
+    "hatch:378.03",
+    "corvette:379.33",
+    "monster:380.27",
+    "taxi:381.3",
+    "cybertruck:381.73",
+    "car:382.47"
+   ]
+  },
+  "london/corvette/noisy/5105": {
+   "place": 1,
+   "time": 368.43,
+   "order": [
+    "corvette:368.43",
+    "hatch:370.65",
+    "taxi:372.05",
+    "monster:373.05",
+    "cybertruck:374",
+    "car:375.08"
+   ]
+  },
+  "london/corvette/noisy/5106": {
+   "place": 1,
+   "time": 360.95,
+   "order": [
+    "corvette:360.95",
+    "hatch:364.02",
+    "monster:364.15",
+    "taxi:365.52",
+    "cybertruck:366.63",
+    "car:368.88"
+   ]
+  },
+  "london/corvette/weak/5101": {
+   "place": 6,
+   "time": 383.48,
+   "order": [
+    "monster:379.72",
+    "hatch:381.02",
+    "cybertruck:381.68",
+    "taxi:381.83",
+    "car:382.88",
+    "corvette:383.48"
+   ]
+  },
+  "london/corvette/weak/5102": {
+   "place": 5,
+   "time": 382.43,
+   "order": [
+    "hatch:377.48",
+    "monster:379.13",
+    "taxi:380.37",
+    "car:381.97",
+    "corvette:382.43",
+    "cybertruck:383.37"
+   ]
+  },
+  "london/corvette/weak/5103": {
+   "place": 5,
+   "time": 380.37,
+   "order": [
+    "monster:375.28",
+    "hatch:377.83",
+    "car:379.28",
+    "taxi:379.7",
+    "corvette:380.37",
+    "cybertruck:381.68"
+   ]
+  },
+  "london/corvette/weak/5104": {
+   "place": 5,
+   "time": 386,
+   "order": [
+    "hatch:382.68",
+    "monster:383.4",
+    "taxi:384.72",
+    "cybertruck:385.81",
+    "corvette:386",
+    "car:387.15"
+   ]
+  },
+  "london/corvette/weak/5105": {
+   "place": 6,
+   "time": 383.97,
+   "order": [
+    "hatch:379.37",
+    "monster:380.95",
+    "cybertruck:381.57",
+    "taxi:381.8",
+    "car:383.67",
+    "corvette:383.97"
+   ]
+  },
+  "london/corvette/weak/5106": {
+   "place": 3,
+   "time": 380.05,
+   "order": [
+    "monster:377.15",
+    "hatch:378.07",
+    "corvette:380.05",
+    "cybertruck:380.53",
+    "taxi:380.57",
+    "car:382.28"
+   ]
+  },
+  "london/cybertruck/noisy/5101": {
+   "place": 3,
+   "time": 361.12,
+   "order": [
+    "hatch:359.05",
+    "monster:359.75",
+    "cybertruck:361.12",
+    "taxi:362.45",
+    "corvette:363.1",
+    "car:363.85"
+   ]
+  },
+  "london/cybertruck/noisy/5102": {
+   "place": 5,
+   "time": 382.78,
+   "order": [
+    "hatch:378.18",
+    "monster:379.83",
+    "corvette:380.82",
+    "taxi:381.47",
+    "cybertruck:382.78",
+    "car:383.07"
+   ]
+  },
+  "london/cybertruck/noisy/5103": {
+   "place": 4,
+   "time": 383.68,
+   "order": [
+    "hatch:381.25",
+    "taxi:381.97",
+    "monster:382.8",
+    "cybertruck:383.68",
+    "corvette:384.1",
+    "car:384.47"
+   ]
+  },
+  "london/cybertruck/noisy/5104": {
+   "place": 2,
+   "time": 377.13,
+   "order": [
+    "monster:375.75",
+    "cybertruck:377.13",
+    "hatch:378.12",
+    "taxi:378.55",
+    "corvette:379.62",
+    "car:379.7"
+   ]
+  },
+  "london/cybertruck/noisy/5105": {
+   "place": 1,
+   "time": 361.67,
+   "order": [
+    "cybertruck:361.67",
+    "monster:363.48",
+    "hatch:364.72",
+    "taxi:364.78",
+    "corvette:366.13",
+    "car:367.13"
+   ]
+  },
+  "london/cybertruck/noisy/5106": {
+   "place": 1,
+   "time": 365.95,
+   "order": [
+    "cybertruck:365.95",
+    "monster:366.03",
+    "hatch:369.25",
+    "taxi:369.42",
+    "corvette:369.78",
+    "car:372.32"
+   ]
+  },
+  "london/cybertruck/weak/5101": {
+   "place": 6,
+   "time": 386.2,
+   "order": [
+    "taxi:381.45",
+    "hatch:382.77",
+    "corvette:383.3",
+    "monster:384.08",
+    "car:385.32",
+    "cybertruck:386.2"
+   ]
+  },
+  "london/cybertruck/weak/5102": {
+   "place": 5,
+   "time": 384.07,
+   "order": [
+    "monster:380.6",
+    "hatch:381.2",
+    "taxi:381.5",
+    "corvette:382.95",
+    "cybertruck:384.07",
+    "car:384.65"
+   ]
+  },
+  "london/cybertruck/weak/5103": {
+   "place": 5,
+   "time": 381.8,
+   "order": [
+    "monster:377.73",
+    "hatch:378.6",
+    "car:380.1",
+    "taxi:381.17",
+    "cybertruck:381.8",
+    "corvette:381.93"
+   ]
+  },
+  "london/cybertruck/weak/5104": {
+   "place": 3,
+   "time": 385.93,
+   "order": [
+    "monster:381.97",
+    "taxi:383.68",
+    "cybertruck:385.93",
+    "hatch:385.95",
+    "corvette:386.95",
+    "car:387.47"
+   ]
+  },
+  "london/cybertruck/weak/5105": {
+   "place": 5,
+   "time": 376.28,
+   "order": [
+    "taxi:373.73",
+    "corvette:373.93",
+    "monster:374.48",
+    "hatch:374.5",
+    "cybertruck:376.28",
+    "car:376.83"
+   ]
+  },
+  "london/cybertruck/weak/5106": {
+   "place": 4,
+   "time": 382.75,
+   "order": [
+    "hatch:380",
+    "taxi:381.55",
+    "monster:382.45",
+    "cybertruck:382.75",
+    "car:384.42",
+    "corvette:384.5"
+   ]
+  },
+  "london/monster/noisy/5101": {
+   "place": 1,
+   "time": 358.97,
+   "order": [
+    "monster:358.97",
+    "hatch:362.75",
+    "corvette:362.87",
+    "taxi:365.77",
+    "cybertruck:366.4",
+    "car:370.48"
+   ]
+  },
+  "london/monster/noisy/5102": {
+   "place": 3,
+   "time": 385.15,
+   "order": [
+    "hatch:383.37",
+    "corvette:383.95",
+    "monster:385.15",
+    "taxi:386.88",
+    "cybertruck:387.78",
+    "car:388.9"
+   ]
+  },
+  "london/monster/noisy/5103": {
+   "place": 1,
+   "time": 363.18,
+   "order": [
+    "monster:363.18",
+    "hatch:365.7",
+    "corvette:368.28",
+    "taxi:368.32",
+    "cybertruck:369.42",
+    "car:372.3"
+   ]
+  },
+  "london/monster/noisy/5104": {
+   "place": 1,
+   "time": 379.18,
+   "order": [
+    "monster:379.18",
+    "hatch:381.7",
+    "cybertruck:382.25",
+    "corvette:382.68",
+    "taxi:382.85",
+    "car:385.05"
+   ]
+  },
+  "london/monster/noisy/5105": {
+   "place": 1,
+   "time": 366.1,
+   "order": [
+    "monster:366.1",
+    "hatch:369.15",
+    "corvette:370.67",
+    "taxi:370.82",
+    "car:374.88",
+    "cybertruck:374.92"
+   ]
+  },
+  "london/monster/noisy/5106": {
+   "place": 1,
+   "time": 358.02,
+   "order": [
+    "monster:358.02",
+    "taxi:359.27",
+    "hatch:361.32",
+    "corvette:365.02",
+    "cybertruck:366.18",
+    "car:371.02"
+   ]
+  },
+  "london/monster/weak/5101": {
+   "place": 3,
+   "time": 384.06,
+   "order": [
+    "hatch:380.3",
+    "taxi:383.07",
+    "monster:384.06",
+    "corvette:384.18",
+    "cybertruck:384.98",
+    "car:385.55"
+   ]
+  },
+  "london/monster/weak/5102": {
+   "place": 5,
+   "time": 391.1,
+   "order": [
+    "hatch:385.03",
+    "cybertruck:389.53",
+    "taxi:390.13",
+    "corvette:390.23",
+    "monster:391.1",
+    "car:391.23"
+   ]
+  },
+  "london/monster/weak/5103": {
+   "place": 1,
+   "time": 378.73,
+   "order": [
+    "monster:378.73",
+    "taxi:379.75",
+    "hatch:380.13",
+    "corvette:381.37",
+    "car:382.6",
+    "cybertruck:383.38"
+   ]
+  },
+  "london/monster/weak/5104": {
+   "place": 3,
+   "time": 389.2,
+   "order": [
+    "hatch:384.73",
+    "taxi:386.97",
+    "monster:389.2",
+    "cybertruck:389.36",
+    "corvette:390.58",
+    "car:390.7"
+   ]
+  },
+  "london/monster/weak/5105": {
+   "place": 1,
+   "time": 368.18,
+   "order": [
+    "monster:368.18",
+    "hatch:369.57",
+    "taxi:369.58",
+    "corvette:371",
+    "cybertruck:371.42",
+    "car:371.53"
+   ]
+  },
+  "london/monster/weak/5106": {
+   "place": 3,
+   "time": 385.78,
+   "order": [
+    "hatch:381.87",
+    "taxi:385.05",
+    "monster:385.78",
+    "cybertruck:386.03",
+    "corvette:387.2",
+    "car:387.4"
+   ]
+  },
+  "oval/car/noisy/5101": {
+   "place": 3,
+   "time": 340.83,
+   "order": [
+    "monster:338.25",
+    "hatch:339.72",
+    "car:340.83",
+    "taxi:341.3",
+    "corvette:342.27",
+    "cybertruck:342.58"
+   ]
+  },
+  "oval/car/noisy/5102": {
+   "place": 2,
+   "time": 340.47,
+   "order": [
+    "monster:339.22",
+    "car:340.47",
+    "hatch:341.38",
+    "taxi:341.52",
+    "corvette:341.63",
+    "cybertruck:343.72"
+   ]
+  },
+  "oval/car/noisy/5103": {
+   "place": 1,
+   "time": 335.65,
+   "order": [
+    "car:335.65",
+    "taxi:336.53",
+    "monster:336.55",
+    "hatch:337.55",
+    "cybertruck:338.43",
+    "corvette:339.32"
+   ]
+  },
+  "oval/car/noisy/5104": {
+   "place": 1,
+   "time": 331.43,
+   "order": [
+    "car:331.43",
+    "monster:333.75",
+    "taxi:335.03",
+    "corvette:337.65",
+    "hatch:338.4",
+    "cybertruck:339.7"
+   ]
+  },
+  "oval/car/noisy/5105": {
+   "place": 2,
+   "time": 341.35,
+   "order": [
+    "monster:340.75",
+    "car:341.35",
+    "hatch:341.95",
+    "corvette:343.47",
+    "cybertruck:344.42",
+    "taxi:344.43"
+   ]
+  },
+  "oval/car/noisy/5106": {
+   "place": 2,
+   "time": 336.5,
+   "order": [
+    "monster:336.03",
+    "car:336.5",
+    "corvette:337.33",
+    "taxi:337.68",
+    "hatch:337.95",
+    "cybertruck:339.02"
+   ]
+  },
+  "oval/car/weak/5101": {
+   "place": 3,
+   "time": 357.8,
+   "order": [
+    "hatch:354.2",
+    "monster:355.07",
+    "car:357.8",
+    "cybertruck:357.83",
+    "taxi:357.96",
+    "corvette:358.17"
+   ]
+  },
+  "oval/car/weak/5102": {
+   "place": 5,
+   "time": 365.47,
+   "order": [
+    "monster:362.3",
+    "hatch:363.17",
+    "taxi:363.28",
+    "cybertruck:365.02",
+    "car:365.47",
+    "corvette:365.8"
+   ]
+  },
+  "oval/car/weak/5103": {
+   "place": 5,
+   "time": 358.2,
+   "order": [
+    "monster:355.23",
+    "taxi:355.38",
+    "hatch:356.63",
+    "corvette:357.43",
+    "car:358.2",
+    "cybertruck:360.22"
+   ]
+  },
+  "oval/car/weak/5104": {
+   "place": 5,
+   "time": 352.45,
+   "order": [
+    "monster:348.55",
+    "hatch:351.07",
+    "taxi:351.25",
+    "corvette:351.65",
+    "car:352.45",
+    "cybertruck:353.45"
+   ]
+  },
+  "oval/car/weak/5105": {
+   "place": 5,
+   "time": 358.52,
+   "order": [
+    "hatch:355.98",
+    "corvette:356.93",
+    "taxi:357.3",
+    "monster:358.13",
+    "car:358.52",
+    "cybertruck:359.25"
+   ]
+  },
+  "oval/car/weak/5106": {
+   "place": 4,
+   "time": 352.38,
+   "order": [
+    "hatch:350.22",
+    "monster:350.38",
+    "taxi:351.08",
+    "car:352.38",
+    "corvette:352.62",
+    "cybertruck:353.07"
+   ]
+  },
+  "oval/corvette/noisy/5101": {
+   "place": 1,
+   "time": 338.13,
+   "order": [
+    "corvette:338.13",
+    "monster:338.72",
+    "hatch:340.48",
+    "taxi:341.63",
+    "cybertruck:342.6",
+    "car:342.8"
+   ]
+  },
+  "oval/corvette/noisy/5102": {
+   "place": 3,
+   "time": 340.12,
+   "order": [
+    "hatch:339",
+    "monster:339.22",
+    "corvette:340.12",
+    "cybertruck:341.57",
+    "taxi:341.83",
+    "car:342.83"
+   ]
+  },
+  "oval/corvette/noisy/5103": {
+   "place": 1,
+   "time": 325.85,
+   "order": [
+    "corvette:325.85",
+    "hatch:327.6",
+    "monster:327.7",
+    "taxi:330.45",
+    "cybertruck:331.95",
+    "car:333.68"
+   ]
+  },
+  "oval/corvette/noisy/5104": {
+   "place": 2,
+   "time": 336.7,
+   "order": [
+    "monster:335.97",
+    "corvette:336.7",
+    "taxi:338.18",
+    "hatch:338.67",
+    "cybertruck:340.02",
+    "car:340.47"
+   ]
+  },
+  "oval/corvette/noisy/5105": {
+   "place": 2,
+   "time": 350.27,
+   "order": [
+    "monster:348.2",
+    "corvette:350.27",
+    "cybertruck:351.13",
+    "hatch:351.33",
+    "taxi:351.45",
+    "car:352.6"
+   ]
+  },
+  "oval/corvette/noisy/5106": {
+   "place": 1,
+   "time": 337.1,
+   "order": [
+    "corvette:337.1",
+    "monster:337.37",
+    "taxi:339.95",
+    "hatch:339.95",
+    "cybertruck:340.42",
+    "car:341.88"
+   ]
+  },
+  "oval/corvette/weak/5101": {
+   "place": 4,
+   "time": 355.61,
+   "order": [
+    "monster:353.5",
+    "hatch:354.63",
+    "taxi:354.82",
+    "corvette:355.61",
+    "cybertruck:355.63",
+    "car:357.78"
+   ]
+  },
+  "oval/corvette/weak/5102": {
+   "place": 3,
+   "time": 364.57,
+   "order": [
+    "monster:361.88",
+    "taxi:363.67",
+    "corvette:364.57",
+    "hatch:365.27",
+    "cybertruck:365.7",
+    "car:366.72"
+   ]
+  },
+  "oval/corvette/weak/5103": {
+   "place": 5,
+   "time": 357.22,
+   "order": [
+    "monster:353.12",
+    "hatch:354.68",
+    "taxi:354.95",
+    "cybertruck:356.27",
+    "corvette:357.22",
+    "car:357.48"
+   ]
+  },
+  "oval/corvette/weak/5104": {
+   "place": 4,
+   "time": 362.42,
+   "order": [
+    "monster:360.33",
+    "taxi:361.48",
+    "hatch:361.72",
+    "corvette:362.42",
+    "cybertruck:362.88",
+    "car:364.28"
+   ]
+  },
+  "oval/corvette/weak/5105": {
+   "place": 4,
+   "time": 355.28,
+   "order": [
+    "monster:352.5",
+    "hatch:353.38",
+    "taxi:354.98",
+    "corvette:355.28",
+    "cybertruck:355.97",
+    "car:356.22"
+   ]
+  },
+  "oval/corvette/weak/5106": {
+   "place": 5,
+   "time": 358.43,
+   "order": [
+    "monster:356.87",
+    "taxi:357.25",
+    "cybertruck:357.42",
+    "hatch:357.47",
+    "corvette:358.43",
+    "car:359.33"
+   ]
+  },
+  "oval/cybertruck/noisy/5101": {
+   "place": 3,
+   "time": 339.32,
+   "order": [
+    "monster:337.57",
+    "taxi:338.42",
+    "cybertruck:339.32",
+    "hatch:340.42",
+    "car:340.98",
+    "corvette:341.37"
+   ]
+  },
+  "oval/cybertruck/noisy/5102": {
+   "place": 1,
+   "time": 327.62,
+   "order": [
+    "cybertruck:327.62",
+    "monster:328.77",
+    "hatch:330.9",
+    "taxi:332.77",
+    "car:334.72",
+    "corvette:336.83"
+   ]
+  },
+  "oval/cybertruck/noisy/5103": {
+   "place": 4,
+   "time": 338.19,
+   "order": [
+    "monster:335.85",
+    "hatch:337.83",
+    "taxi:338.12",
+    "cybertruck:338.19",
+    "corvette:339.62",
+    "car:340.55"
+   ]
+  },
+  "oval/cybertruck/noisy/5104": {
+   "place": 2,
+   "time": 334.72,
+   "order": [
+    "monster:334.48",
+    "cybertruck:334.72",
+    "hatch:336.18",
+    "corvette:336.3",
+    "taxi:337.17",
+    "car:337.52"
+   ]
+  },
+  "oval/cybertruck/noisy/5105": {
+   "place": 1,
+   "time": 335.12,
+   "order": [
+    "cybertruck:335.12",
+    "monster:336.93",
+    "taxi:337.77",
+    "hatch:338.1",
+    "corvette:339.42",
+    "car:339.72"
+   ]
+  },
+  "oval/cybertruck/noisy/5106": {
+   "place": 1,
+   "time": 345.67,
+   "order": [
+    "cybertruck:345.67",
+    "monster:346.03",
+    "hatch:346.65",
+    "taxi:349.08",
+    "corvette:349.15",
+    "car:350.35"
+   ]
+  },
+  "oval/cybertruck/weak/5101": {
+   "place": 2,
+   "time": 358.38,
+   "order": [
+    "hatch:357.95",
+    "cybertruck:358.38",
+    "monster:358.97",
+    "taxi:359.35",
+    "car:360.3",
+    "corvette:360.52"
+   ]
+  },
+  "oval/cybertruck/weak/5102": {
+   "place": 6,
+   "time": 365.45,
+   "order": [
+    "monster:361.82",
+    "taxi:363.38",
+    "hatch:364.23",
+    "corvette:364.5",
+    "car:364.8",
+    "cybertruck:365.45"
+   ]
+  },
+  "oval/cybertruck/weak/5103": {
+   "place": 4,
+   "time": 354.32,
+   "order": [
+    "hatch:351.82",
+    "monster:351.97",
+    "taxi:352.47",
+    "cybertruck:354.32",
+    "car:354.87",
+    "corvette:355.32"
+   ]
+  },
+  "oval/cybertruck/weak/5104": {
+   "place": 4,
+   "time": 352.98,
+   "order": [
+    "hatch:350.7",
+    "monster:351.02",
+    "taxi:352.72",
+    "cybertruck:352.98",
+    "corvette:354.33",
+    "car:354.7"
+   ]
+  },
+  "oval/cybertruck/weak/5105": {
+   "place": 4,
+   "time": 350.59,
+   "order": [
+    "hatch:349.82",
+    "monster:350.18",
+    "taxi:350.43",
+    "cybertruck:350.59",
+    "corvette:352.7",
+    "car:353.47"
+   ]
+  },
+  "oval/cybertruck/weak/5106": {
+   "place": 5,
+   "time": 359.77,
+   "order": [
+    "monster:357.28",
+    "taxi:357.82",
+    "hatch:357.92",
+    "corvette:358.87",
+    "cybertruck:359.77",
+    "car:360.98"
+   ]
+  },
+  "oval/monster/noisy/5101": {
+   "place": 2,
+   "time": 338.43,
+   "order": [
+    "hatch:338.23",
+    "monster:338.43",
+    "cybertruck:339.73",
+    "taxi:340.1",
+    "corvette:341.35",
+    "car:341.45"
+   ]
+  },
+  "oval/monster/noisy/5102": {
+   "place": 1,
+   "time": 329.28,
+   "order": [
+    "monster:329.28",
+    "hatch:330.8",
+    "taxi:332.05",
+    "corvette:332.92",
+    "cybertruck:334.43",
+    "car:339.42"
+   ]
+  },
+  "oval/monster/noisy/5103": {
+   "place": 1,
+   "time": 329.38,
+   "order": [
+    "monster:329.38",
+    "hatch:331.65",
+    "taxi:333.03",
+    "corvette:333.25",
+    "cybertruck:334.23",
+    "car:337.45"
+   ]
+  },
+  "oval/monster/noisy/5104": {
+   "place": 1,
+   "time": 348.5,
+   "order": [
+    "monster:348.5",
+    "hatch:348.95",
+    "taxi:350.97",
+    "corvette:352.5",
+    "cybertruck:352.58",
+    "car:354.68"
+   ]
+  },
+  "oval/monster/noisy/5105": {
+   "place": 1,
+   "time": 342.5,
+   "order": [
+    "monster:342.5",
+    "hatch:344.22",
+    "taxi:344.9",
+    "corvette:345.27",
+    "cybertruck:346.85",
+    "car:348.82"
+   ]
+  },
+  "oval/monster/noisy/5106": {
+   "place": 1,
+   "time": 334.55,
+   "order": [
+    "monster:334.55",
+    "hatch:335.15",
+    "cybertruck:335.95",
+    "taxi:336.02",
+    "corvette:336.3",
+    "car:341.83"
+   ]
+  },
+  "oval/monster/weak/5101": {
+   "place": 6,
+   "time": 353.24,
+   "order": [
+    "hatch:350.75",
+    "taxi:352.45",
+    "car:352.65",
+    "corvette:352.7",
+    "cybertruck:353.23",
+    "monster:353.24"
+   ]
+  },
+  "oval/monster/weak/5102": {
+   "place": 3,
+   "time": 361.98,
+   "order": [
+    "hatch:360.33",
+    "taxi:361.93",
+    "monster:361.98",
+    "corvette:362.65",
+    "cybertruck:363.3",
+    "car:364.32"
+   ]
+  },
+  "oval/monster/weak/5103": {
+   "place": 5,
+   "time": 365.97,
+   "order": [
+    "hatch:363.9",
+    "taxi:364.12",
+    "corvette:364.85",
+    "cybertruck:365.55",
+    "monster:365.97",
+    "car:366.55"
+   ]
+  },
+  "oval/monster/weak/5104": {
+   "place": 5,
+   "time": 368.65,
+   "order": [
+    "hatch:365.38",
+    "taxi:366.68",
+    "cybertruck:367.3",
+    "corvette:367.47",
+    "monster:368.65",
+    "car:369.43"
+   ]
+  },
+  "oval/monster/weak/5105": {
+   "place": 3,
+   "time": 359.47,
+   "order": [
+    "hatch:357.77",
+    "taxi:358.25",
+    "monster:359.47",
+    "corvette:359.68",
+    "car:361.22",
+    "cybertruck:361.63"
+   ]
+  },
+  "oval/monster/weak/5106": {
+   "place": 3,
+   "time": 355.12,
+   "order": [
+    "hatch:353.7",
+    "taxi:354.18",
+    "monster:355.12",
+    "cybertruck:356.22",
+    "corvette:356.3",
+    "car:357.68"
+   ]
+  },
+  "sky/car/noisy/5101": {
+   "place": 1,
+   "time": 308.48,
+   "order": [
+    "car:308.48",
+    "hatch:309.9",
+    "monster:312.08",
+    "taxi:314.12",
+    "corvette:315.53",
+    "cybertruck:318.13"
+   ]
+  },
+  "sky/car/noisy/5102": {
+   "place": 1,
+   "time": 312.65,
+   "order": [
+    "car:312.65",
+    "taxi:314.65",
+    "monster:314.67",
+    "hatch:315.3",
+    "cybertruck:317.05",
+    "corvette:317.07"
+   ]
+  },
+  "sky/car/noisy/5103": {
+   "place": 1,
+   "time": 310.38,
+   "order": [
+    "car:310.38",
+    "monster:311.72",
+    "hatch:312.27",
+    "cybertruck:313.8",
+    "corvette:314.82",
+    "taxi:315.15"
+   ]
+  },
+  "sky/car/noisy/5104": {
+   "place": 1,
+   "time": 306.25,
+   "order": [
+    "car:306.25",
+    "monster:306.75",
+    "hatch:308.42",
+    "taxi:310.8",
+    "corvette:312.5",
+    "cybertruck:315.67"
+   ]
+  },
+  "sky/car/noisy/5105": {
+   "place": 1,
+   "time": 303.38,
+   "order": [
+    "car:303.38",
+    "monster:304.92",
+    "hatch:306.52",
+    "taxi:308.68",
+    "corvette:309.17",
+    "cybertruck:311.82"
+   ]
+  },
+  "sky/car/noisy/5106": {
+   "place": 2,
+   "time": 307.91,
+   "order": [
+    "monster:307.82",
+    "car:307.91",
+    "corvette:311.32",
+    "taxi:311.49",
+    "hatch:311.6",
+    "cybertruck:311.89"
+   ]
+  },
+  "sky/car/weak/5101": {
+   "place": 5,
+   "time": 331.94,
+   "order": [
+    "monster:327.37",
+    "taxi:330.08",
+    "hatch:330.62",
+    "cybertruck:331.82",
+    "car:331.94",
+    "corvette:332.34"
+   ]
+  },
+  "sky/car/weak/5102": {
+   "place": 6,
+   "time": 336.78,
+   "order": [
+    "monster:331.62",
+    "hatch:333.7",
+    "taxi:333.73",
+    "corvette:334.63",
+    "cybertruck:336.18",
+    "car:336.78"
+   ]
+  },
+  "sky/car/weak/5103": {
+   "place": 6,
+   "time": 332.99,
+   "order": [
+    "monster:328.87",
+    "hatch:329.2",
+    "taxi:329.68",
+    "corvette:331.52",
+    "cybertruck:332.8",
+    "car:332.99"
+   ]
+  },
+  "sky/car/weak/5104": {
+   "place": 3,
+   "time": 325.3,
+   "order": [
+    "taxi:323.4",
+    "monster:324.38",
+    "car:325.3",
+    "hatch:325.97",
+    "corvette:326.95",
+    "cybertruck:328"
+   ]
+  },
+  "sky/car/weak/5105": {
+   "place": 5,
+   "time": 328.95,
+   "order": [
+    "hatch:326.18",
+    "monster:326.25",
+    "taxi:327.07",
+    "corvette:328.62",
+    "car:328.95",
+    "cybertruck:329.17"
+   ]
+  },
+  "sky/car/weak/5106": {
+   "place": 5,
+   "time": 332.8,
+   "order": [
+    "monster:329.98",
+    "hatch:330.77",
+    "taxi:330.83",
+    "cybertruck:332.13",
+    "car:332.8",
+    "corvette:333.32"
+   ]
+  },
+  "sky/corvette/noisy/5101": {
+   "place": 1,
+   "time": 311.25,
+   "order": [
+    "corvette:311.25",
+    "hatch:313.17",
+    "taxi:313.78",
+    "cybertruck:314.6",
+    "monster:315.8",
+    "car:316.68"
+   ]
+  },
+  "sky/corvette/noisy/5102": {
+   "place": 2,
+   "time": 306.7,
+   "order": [
+    "monster:306.2",
+    "corvette:306.7",
+    "taxi:307.52",
+    "hatch:308.03",
+    "car:313.55",
+    "cybertruck:313.62"
+   ]
+  },
+  "sky/corvette/noisy/5103": {
+   "place": 1,
+   "time": 310.53,
+   "order": [
+    "corvette:310.53",
+    "monster:311.8",
+    "hatch:313.4",
+    "cybertruck:313.45",
+    "taxi:313.88",
+    "car:315.27"
+   ]
+  },
+  "sky/corvette/noisy/5104": {
+   "place": 2,
+   "time": 309.77,
+   "order": [
+    "monster:309.35",
+    "corvette:309.77",
+    "hatch:310.15",
+    "taxi:311.2",
+    "cybertruck:313.15",
+    "car:314.03"
+   ]
+  },
+  "sky/corvette/noisy/5105": {
+   "place": 1,
+   "time": 311.33,
+   "order": [
+    "corvette:311.33",
+    "taxi:314.02",
+    "monster:314.25",
+    "hatch:315.37",
+    "cybertruck:315.88",
+    "car:316.13"
+   ]
+  },
+  "sky/corvette/noisy/5106": {
+   "place": 2,
+   "time": 307.72,
+   "order": [
+    "monster:307.1",
+    "corvette:307.72",
+    "hatch:308.22",
+    "taxi:311.12",
+    "car:311.15",
+    "cybertruck:311.65"
+   ]
+  },
+  "sky/corvette/weak/5101": {
+   "place": 6,
+   "time": 336.07,
+   "order": [
+    "monster:331.28",
+    "hatch:332.8",
+    "taxi:333.67",
+    "cybertruck:334.7",
+    "car:335.53",
+    "corvette:336.07"
+   ]
+  },
+  "sky/corvette/weak/5102": {
+   "place": 6,
+   "time": 330.61,
+   "order": [
+    "monster:326.22",
+    "hatch:327.02",
+    "taxi:328.67",
+    "cybertruck:328.95",
+    "car:330.52",
+    "corvette:330.61"
+   ]
+  },
+  "sky/corvette/weak/5103": {
+   "place": 4,
+   "time": 327.67,
+   "order": [
+    "monster:325.25",
+    "hatch:325.9",
+    "taxi:326.9",
+    "corvette:327.67",
+    "cybertruck:327.72",
+    "car:329.27"
+   ]
+  },
+  "sky/corvette/weak/5104": {
+   "place": 5,
+   "time": 332.44,
+   "order": [
+    "taxi:331",
+    "monster:331.22",
+    "cybertruck:331.83",
+    "hatch:332.4",
+    "corvette:332.44",
+    "car:334.2"
+   ]
+  },
+  "sky/corvette/weak/5105": {
+   "place": 6,
+   "time": 330.02,
+   "order": [
+    "monster:325.62",
+    "taxi:327.47",
+    "hatch:327.78",
+    "cybertruck:328.35",
+    "car:329.47",
+    "corvette:330.02"
+   ]
+  },
+  "sky/corvette/weak/5106": {
+   "place": 4,
+   "time": 325.22,
+   "order": [
+    "monster:323.47",
+    "hatch:323.9",
+    "taxi:324.28",
+    "corvette:325.22",
+    "cybertruck:327.07",
+    "car:327.48"
+   ]
+  },
+  "sky/cybertruck/noisy/5101": {
+   "place": 1,
+   "time": 315.57,
+   "order": [
+    "cybertruck:315.57",
+    "monster:316.4",
+    "hatch:318.82",
+    "taxi:318.87",
+    "corvette:320.53",
+    "car:322.48"
+   ]
+  },
+  "sky/cybertruck/noisy/5102": {
+   "place": 1,
+   "time": 318.62,
+   "order": [
+    "cybertruck:318.62",
+    "monster:318.87",
+    "taxi:320.62",
+    "hatch:320.73",
+    "car:320.82",
+    "corvette:321.68"
+   ]
+  },
+  "sky/cybertruck/noisy/5103": {
+   "place": 2,
+   "time": 314.17,
+   "order": [
+    "hatch:313.78",
+    "cybertruck:314.17",
+    "taxi:315.65",
+    "monster:315.83",
+    "car:317.1",
+    "corvette:317.78"
+   ]
+  },
+  "sky/cybertruck/noisy/5104": {
+   "place": 1,
+   "time": 314.89,
+   "order": [
+    "cybertruck:314.89",
+    "monster:315.01",
+    "taxi:316.2",
+    "corvette:316.89",
+    "hatch:317.1",
+    "car:317.59"
+   ]
+  },
+  "sky/cybertruck/noisy/5105": {
+   "place": 1,
+   "time": 304.03,
+   "order": [
+    "cybertruck:304.03",
+    "hatch:305.38",
+    "taxi:306.05",
+    "monster:306.85",
+    "corvette:311.1",
+    "car:311.43"
+   ]
+  },
+  "sky/cybertruck/noisy/5106": {
+   "place": 2,
+   "time": 312.08,
+   "order": [
+    "monster:311.22",
+    "cybertruck:312.08",
+    "hatch:313.3",
+    "taxi:313.82",
+    "car:315.55",
+    "corvette:316.03"
+   ]
+  },
+  "sky/cybertruck/weak/5101": {
+   "place": 4,
+   "time": 329.04,
+   "order": [
+    "hatch:326.82",
+    "corvette:328.83",
+    "monster:328.83",
+    "cybertruck:329.04",
+    "taxi:329.16",
+    "car:330.89"
+   ]
+  },
+  "sky/cybertruck/weak/5102": {
+   "place": 5,
+   "time": 338.92,
+   "order": [
+    "hatch:336.47",
+    "monster:336.55",
+    "taxi:336.95",
+    "corvette:338.02",
+    "cybertruck:338.92",
+    "car:339.98"
+   ]
+  },
+  "sky/cybertruck/weak/5103": {
+   "place": 5,
+   "time": 331.68,
+   "order": [
+    "hatch:329.73",
+    "monster:330.08",
+    "corvette:330.62",
+    "taxi:331.15",
+    "cybertruck:331.68",
+    "car:332.22"
+   ]
+  },
+  "sky/cybertruck/weak/5104": {
+   "place": 4,
+   "time": 327.08,
+   "order": [
+    "monster:325.35",
+    "hatch:325.45",
+    "taxi:327",
+    "cybertruck:327.08",
+    "corvette:327.57",
+    "car:329.37"
+   ]
+  },
+  "sky/cybertruck/weak/5105": {
+   "place": 4,
+   "time": 329.68,
+   "order": [
+    "monster:326.4",
+    "hatch:327.22",
+    "taxi:329.43",
+    "cybertruck:329.68",
+    "car:329.92",
+    "corvette:330.62"
+   ]
+  },
+  "sky/cybertruck/weak/5106": {
+   "place": 5,
+   "time": 335.7,
+   "order": [
+    "monster:332.05",
+    "corvette:333.78",
+    "hatch:333.95",
+    "taxi:334.43",
+    "cybertruck:335.7",
+    "car:336.02"
+   ]
+  },
+  "sky/monster/noisy/5101": {
+   "place": 1,
+   "time": 308.58,
+   "order": [
+    "monster:308.58",
+    "hatch:310.03",
+    "corvette:312.93",
+    "taxi:312.98",
+    "cybertruck:317.73",
+    "car:318.93"
+   ]
+  },
+  "sky/monster/noisy/5102": {
+   "place": 2,
+   "time": 320.72,
+   "order": [
+    "hatch:320.25",
+    "monster:320.72",
+    "taxi:322.17",
+    "corvette:323.38",
+    "cybertruck:324.3",
+    "car:324.45"
+   ]
+  },
+  "sky/monster/noisy/5103": {
+   "place": 1,
+   "time": 308.67,
+   "order": [
+    "monster:308.67",
+    "hatch:310.32",
+    "taxi:310.8",
+    "corvette:311.97",
+    "car:313.95",
+    "cybertruck:316.65"
+   ]
+  },
+  "sky/monster/noisy/5104": {
+   "place": 1,
+   "time": 312.47,
+   "order": [
+    "monster:312.47",
+    "hatch:313.85",
+    "corvette:314.72",
+    "taxi:314.92",
+    "cybertruck:316.58",
+    "car:317.43"
+   ]
+  },
+  "sky/monster/noisy/5105": {
+   "place": 1,
+   "time": 306.17,
+   "order": [
+    "monster:306.17",
+    "hatch:307.87",
+    "taxi:308.1",
+    "corvette:308.32",
+    "car:316.13",
+    "cybertruck:316.87"
+   ]
+  },
+  "sky/monster/noisy/5106": {
+   "place": 2,
+   "time": 314.07,
+   "order": [
+    "hatch:313.75",
+    "monster:314.07",
+    "taxi:316.28",
+    "corvette:317.32",
+    "cybertruck:317.77",
+    "car:318.95"
+   ]
+  },
+  "sky/monster/weak/5101": {
+   "place": 1,
+   "time": 319.73,
+   "order": [
+    "monster:319.73",
+    "hatch:319.78",
+    "taxi:320.19",
+    "corvette:321.62",
+    "car:323.24",
+    "cybertruck:323.37"
+   ]
+  },
+  "sky/monster/weak/5102": {
+   "place": 4,
+   "time": 328.3,
+   "order": [
+    "hatch:324.48",
+    "corvette:326.57",
+    "taxi:326.85",
+    "monster:328.3",
+    "car:328.63",
+    "cybertruck:329.53"
+   ]
+  },
+  "sky/monster/weak/5103": {
+   "place": 2,
+   "time": 323.27,
+   "order": [
+    "hatch:322.17",
+    "monster:323.27",
+    "taxi:323.8",
+    "cybertruck:324.57",
+    "corvette:324.92",
+    "car:326.28"
+   ]
+  },
+  "sky/monster/weak/5104": {
+   "place": 6,
+   "time": 337.38,
+   "order": [
+    "hatch:333.25",
+    "corvette:334.48",
+    "taxi:334.75",
+    "cybertruck:335.93",
+    "car:336.07",
+    "monster:337.38"
+   ]
+  },
+  "sky/monster/weak/5105": {
+   "place": 5,
+   "time": 332.83,
+   "order": [
+    "hatch:328.18",
+    "taxi:332.07",
+    "cybertruck:332.12",
+    "corvette:332.57",
+    "monster:332.83",
+    "car:333.78"
+   ]
+  },
+  "sky/monster/weak/5106": {
+   "place": 4,
+   "time": 336.65,
+   "order": [
+    "hatch:334.22",
+    "corvette:335.03",
+    "taxi:335.52",
+    "monster:336.65",
+    "cybertruck:337.17",
+    "car:338.87"
+   ]
+  },
+  "snow/car/noisy/5101": {
+   "place": 2,
+   "time": 344.87,
+   "order": [
+    "monster:342.53",
+    "car:344.87",
+    "hatch:344.93",
+    "corvette:347.44",
+    "cybertruck:348.37",
+    "taxi:348.39"
+   ]
+  },
+  "snow/car/noisy/5102": {
+   "place": 1,
+   "time": 339.27,
+   "order": [
+    "car:339.27",
+    "monster:339.35",
+    "hatch:341.77",
+    "taxi:341.89",
+    "cybertruck:342.22",
+    "corvette:343.87"
+   ]
+  },
+  "snow/car/noisy/5103": {
+   "place": 2,
+   "time": 344.25,
+   "order": [
+    "monster:343.43",
+    "car:344.25",
+    "hatch:345.85",
+    "taxi:346.58",
+    "corvette:346.95",
+    "cybertruck:347.58"
+   ]
+  },
+  "snow/car/noisy/5104": {
+   "place": 1,
+   "time": 340.18,
+   "order": [
+    "car:340.18",
+    "monster:341.3",
+    "hatch:342.83",
+    "taxi:343.4",
+    "corvette:344.17",
+    "cybertruck:344.6"
+   ]
+  },
+  "snow/car/noisy/5105": {
+   "place": 2,
+   "time": 345.28,
+   "order": [
+    "monster:344.55",
+    "car:345.28",
+    "hatch:347.28",
+    "taxi:347.43",
+    "corvette:349.5",
+    "cybertruck:349.92"
+   ]
+  },
+  "snow/car/noisy/5106": {
+   "place": 2,
+   "time": 340.45,
+   "order": [
+    "monster:339.47",
+    "car:340.45",
+    "taxi:343",
+    "hatch:343.33",
+    "corvette:344.57",
+    "cybertruck:345.08"
+   ]
+  },
+  "snow/car/weak/5101": {
+   "place": 5,
+   "time": 368.21,
+   "order": [
+    "monster:363.25",
+    "hatch:364.55",
+    "taxi:366.83",
+    "corvette:367.95",
+    "car:368.21",
+    "cybertruck:368.33"
+   ]
+  },
+  "snow/car/weak/5102": {
+   "place": 5,
+   "time": 362.48,
+   "order": [
+    "monster:358.25",
+    "hatch:360.3",
+    "taxi:361.15",
+    "corvette:362.13",
+    "car:362.48",
+    "cybertruck:363.58"
+   ]
+  },
+  "snow/car/weak/5103": {
+   "place": 5,
+   "time": 366.67,
+   "order": [
+    "monster:362.5",
+    "taxi:364.28",
+    "hatch:364.63",
+    "cybertruck:366.1",
+    "car:366.67",
+    "corvette:367.05"
+   ]
+  },
+  "snow/car/weak/5104": {
+   "place": 4,
+   "time": 359.52,
+   "order": [
+    "monster:356.38",
+    "hatch:358.85",
+    "taxi:358.93",
+    "car:359.52",
+    "corvette:360.42",
+    "cybertruck:362.22"
+   ]
+  },
+  "snow/car/weak/5105": {
+   "place": 3,
+   "time": 363.08,
+   "order": [
+    "monster:359.95",
+    "taxi:362.45",
+    "car:363.08",
+    "hatch:363.65",
+    "corvette:366.05",
+    "cybertruck:366.38"
+   ]
+  },
+  "snow/car/weak/5106": {
+   "place": 5,
+   "time": 360.55,
+   "order": [
+    "monster:357.55",
+    "hatch:358.48",
+    "taxi:359.55",
+    "corvette:360.51",
+    "car:360.55",
+    "cybertruck:362.28"
+   ]
+  },
+  "snow/corvette/noisy/5101": {
+   "place": 1,
+   "time": 347.12,
+   "order": [
+    "corvette:347.12",
+    "monster:347.33",
+    "hatch:348.6",
+    "taxi:350.67",
+    "car:351.03",
+    "cybertruck:351.27"
+   ]
+  },
+  "snow/corvette/noisy/5102": {
+   "place": 3,
+   "time": 344.77,
+   "order": [
+    "monster:341.45",
+    "hatch:344.23",
+    "corvette:344.77",
+    "taxi:345.13",
+    "cybertruck:346.4",
+    "car:346.63"
+   ]
+  },
+  "snow/corvette/noisy/5103": {
+   "place": 2,
+   "time": 341.95,
+   "order": [
+    "monster:341.03",
+    "corvette:341.95",
+    "hatch:342.88",
+    "taxi:343.27",
+    "cybertruck:344.82",
+    "car:345.35"
+   ]
+  },
+  "snow/corvette/noisy/5104": {
+   "place": 2,
+   "time": 342.92,
+   "order": [
+    "monster:342.55",
+    "corvette:342.92",
+    "hatch:344.83",
+    "cybertruck:347.3",
+    "car:347.72",
+    "taxi:348.92"
+   ]
+  },
+  "snow/corvette/noisy/5105": {
+   "place": 1,
+   "time": 339.13,
+   "order": [
+    "corvette:339.13",
+    "monster:339.63",
+    "hatch:340.8",
+    "taxi:340.9",
+    "cybertruck:344.7",
+    "car:345.22"
+   ]
+  },
+  "snow/corvette/noisy/5106": {
+   "place": 3,
+   "time": 335.53,
+   "order": [
+    "monster:333.33",
+    "taxi:334.6",
+    "corvette:335.53",
+    "hatch:337.3",
+    "car:337.6",
+    "cybertruck:337.78"
+   ]
+  },
+  "snow/corvette/weak/5101": {
+   "place": 6,
+   "time": 357.03,
+   "order": [
+    "monster:352.12",
+    "hatch:354.4",
+    "taxi:355.8",
+    "car:356.17",
+    "cybertruck:356.33",
+    "corvette:357.03"
+   ]
+  },
+  "snow/corvette/weak/5102": {
+   "place": 2,
+   "time": 366.46,
+   "order": [
+    "monster:363.75",
+    "corvette:366.46",
+    "hatch:366.49",
+    "taxi:366.75",
+    "car:367.98",
+    "cybertruck:368.78"
+   ]
+  },
+  "snow/corvette/weak/5103": {
+   "place": 4,
+   "time": 360.82,
+   "order": [
+    "monster:356.65",
+    "taxi:358.48",
+    "hatch:359.15",
+    "corvette:360.82",
+    "cybertruck:361.42",
+    "car:362.83"
+   ]
+  },
+  "snow/corvette/weak/5104": {
+   "place": 6,
+   "time": 366.7,
+   "order": [
+    "monster:363.55",
+    "hatch:364.6",
+    "taxi:365",
+    "cybertruck:365.07",
+    "car:365.93",
+    "corvette:366.7"
+   ]
+  },
+  "snow/corvette/weak/5105": {
+   "place": 3,
+   "time": 361.42,
+   "order": [
+    "monster:358.02",
+    "hatch:359.87",
+    "corvette:361.42",
+    "taxi:362.05",
+    "cybertruck:362.45",
+    "car:362.7"
+   ]
+  },
+  "snow/corvette/weak/5106": {
+   "place": 4,
+   "time": 365.97,
+   "order": [
+    "monster:362.73",
+    "taxi:363.13",
+    "hatch:363.35",
+    "corvette:365.97",
+    "cybertruck:366.28",
+    "car:366.92"
+   ]
+  },
+  "snow/cybertruck/noisy/5101": {
+   "place": 3,
+   "time": 346.03,
+   "order": [
+    "monster:345.08",
+    "hatch:345.82",
+    "cybertruck:346.03",
+    "taxi:347.7",
+    "corvette:348.52",
+    "car:349.9"
+   ]
+  },
+  "snow/cybertruck/noisy/5102": {
+   "place": 2,
+   "time": 342.38,
+   "order": [
+    "monster:341.48",
+    "cybertruck:342.38",
+    "hatch:343.18",
+    "taxi:344.72",
+    "car:345.45",
+    "corvette:347.45"
+   ]
+  },
+  "snow/cybertruck/noisy/5103": {
+   "place": 1,
+   "time": 333.95,
+   "order": [
+    "cybertruck:333.95",
+    "monster:336.98",
+    "hatch:339.5",
+    "corvette:340.32",
+    "taxi:340.62",
+    "car:342.4"
+   ]
+  },
+  "snow/cybertruck/noisy/5104": {
+   "place": 2,
+   "time": 339.42,
+   "order": [
+    "monster:338.98",
+    "cybertruck:339.42",
+    "hatch:341.17",
+    "taxi:341.85",
+    "corvette:343.6",
+    "car:344.85"
+   ]
+  },
+  "snow/cybertruck/noisy/5105": {
+   "place": 1,
+   "time": 344.42,
+   "order": [
+    "cybertruck:344.42",
+    "monster:345.25",
+    "hatch:345.43",
+    "taxi:346.37",
+    "car:349.25",
+    "corvette:349.32"
+   ]
+  },
+  "snow/cybertruck/noisy/5106": {
+   "place": 2,
+   "time": 336.23,
+   "order": [
+    "monster:334.58",
+    "cybertruck:336.23",
+    "hatch:337.4",
+    "corvette:339.18",
+    "car:340.18",
+    "taxi:340.18"
+   ]
+  },
+  "snow/cybertruck/weak/5101": {
+   "place": 4,
+   "time": 358.13,
+   "order": [
+    "monster:354.9",
+    "hatch:356.63",
+    "taxi:357.18",
+    "cybertruck:358.13",
+    "corvette:358.25",
+    "car:359.18"
+   ]
+  },
+  "snow/cybertruck/weak/5102": {
+   "place": 5,
+   "time": 365.43,
+   "order": [
+    "monster:361.22",
+    "hatch:363.48",
+    "taxi:364.22",
+    "corvette:365.33",
+    "cybertruck:365.43",
+    "car:366.58"
+   ]
+  },
+  "snow/cybertruck/weak/5103": {
+   "place": 4,
+   "time": 357.42,
+   "order": [
+    "monster:355.13",
+    "hatch:355.18",
+    "corvette:357.18",
+    "cybertruck:357.42",
+    "taxi:357.72",
+    "car:358.62"
+   ]
+  },
+  "snow/cybertruck/weak/5104": {
+   "place": 6,
+   "time": 364.2,
+   "order": [
+    "monster:357.33",
+    "hatch:359.22",
+    "taxi:360.58",
+    "corvette:361.1",
+    "car:362.83",
+    "cybertruck:364.2"
+   ]
+  },
+  "snow/cybertruck/weak/5105": {
+   "place": 4,
+   "time": 362.58,
+   "order": [
+    "monster:360.78",
+    "hatch:361.25",
+    "taxi:362.23",
+    "cybertruck:362.58",
+    "corvette:364.63",
+    "car:365.22"
+   ]
+  },
+  "snow/cybertruck/weak/5106": {
+   "place": 3,
+   "time": 359.98,
+   "order": [
+    "monster:356.8",
+    "hatch:357.8",
+    "cybertruck:359.98",
+    "taxi:359.99",
+    "corvette:361.27",
+    "car:362.45"
+   ]
+  },
+  "snow/monster/noisy/5101": {
+   "place": 2,
+   "time": 348.81,
+   "order": [
+    "hatch:345.48",
+    "monster:348.81",
+    "taxi:348.94",
+    "corvette:349.49",
+    "car:352.27",
+    "cybertruck:352.94"
+   ]
+  },
+  "snow/monster/noisy/5102": {
+   "place": 1,
+   "time": 346.12,
+   "order": [
+    "monster:346.12",
+    "taxi:346.9",
+    "hatch:347.65",
+    "corvette:347.73",
+    "cybertruck:349.13",
+    "car:350.68"
+   ]
+  },
+  "snow/monster/noisy/5103": {
+   "place": 1,
+   "time": 339.3,
+   "order": [
+    "monster:339.3",
+    "taxi:341.82",
+    "hatch:342.25",
+    "corvette:343.37",
+    "car:344.37",
+    "cybertruck:344.87"
+   ]
+  },
+  "snow/monster/noisy/5104": {
+   "place": 1,
+   "time": 336.52,
+   "order": [
+    "monster:336.52",
+    "hatch:340.2",
+    "taxi:344.17",
+    "corvette:346.63",
+    "cybertruck:348.22",
+    "car:350.1"
+   ]
+  },
+  "snow/monster/noisy/5105": {
+   "place": 1,
+   "time": 334.07,
+   "order": [
+    "monster:334.07",
+    "hatch:335.82",
+    "corvette:340.08",
+    "taxi:340.32",
+    "cybertruck:344.15",
+    "car:345.17"
+   ]
+  },
+  "snow/monster/noisy/5106": {
+   "place": 1,
+   "time": 337.58,
+   "order": [
+    "monster:337.58",
+    "hatch:338.48",
+    "taxi:341.58",
+    "corvette:342.43",
+    "car:344.63",
+    "cybertruck:345.32"
+   ]
+  },
+  "snow/monster/weak/5101": {
+   "place": 2,
+   "time": 361.88,
+   "order": [
+    "hatch:359.55",
+    "monster:361.88",
+    "corvette:362.57",
+    "taxi:362.72",
+    "car:364.35",
+    "cybertruck:364.73"
+   ]
+  },
+  "snow/monster/weak/5102": {
+   "place": 3,
+   "time": 356.32,
+   "order": [
+    "taxi:355.77",
+    "hatch:355.78",
+    "monster:356.32",
+    "corvette:359.8",
+    "car:360.07",
+    "cybertruck:361.1"
+   ]
+  },
+  "snow/monster/weak/5103": {
+   "place": 4,
+   "time": 371.43,
+   "order": [
+    "hatch:367.77",
+    "corvette:369.83",
+    "taxi:370.27",
+    "monster:371.43",
+    "cybertruck:372",
+    "car:373.83"
+   ]
+  },
+  "snow/monster/weak/5104": {
+   "place": 4,
+   "time": 361.52,
+   "order": [
+    "hatch:358.2",
+    "corvette:360.07",
+    "taxi:360.97",
+    "monster:361.52",
+    "cybertruck:361.87",
+    "car:362.47"
+   ]
+  },
+  "snow/monster/weak/5105": {
+   "place": 4,
+   "time": 373.23,
+   "order": [
+    "hatch:369.82",
+    "taxi:371.65",
+    "corvette:373",
+    "monster:373.23",
+    "car:374.45",
+    "cybertruck:375.32"
+   ]
+  },
+  "snow/monster/weak/5106": {
+   "place": 3,
+   "time": 363.53,
+   "order": [
+    "hatch:359",
+    "taxi:360.57",
+    "monster:363.53",
+    "corvette:363.73",
+    "car:364.65",
+    "cybertruck:364.9"
+   ]
+  }
+ },
+ "rates": {
+  "noisy": {
+   "oval": {
+    "win": 0.54,
+    "wins": 13,
+    "last": 0,
+    "n": 24,
+    "cars": {
+     "car": "2/6 won, 0 last",
+     "cybertruck": "3/6 won, 0 last",
+     "corvette": "3/6 won, 0 last",
+     "monster": "5/6 won, 0 last"
+    }
+   },
+   "dunes": {
+    "win": 0.63,
+    "wins": 15,
+    "last": 0,
+    "n": 24,
+    "cars": {
+     "car": "4/6 won, 0 last",
+     "cybertruck": "3/6 won, 0 last",
+     "corvette": "4/6 won, 0 last",
+     "monster": "4/6 won, 0 last"
+    }
+   },
+   "snow": {
+    "win": 0.46,
+    "wins": 11,
+    "last": 0,
+    "n": 24,
+    "cars": {
+     "car": "2/6 won, 0 last",
+     "cybertruck": "2/6 won, 0 last",
+     "corvette": "2/6 won, 0 last",
+     "monster": "5/6 won, 0 last"
+    }
+   },
+   "beach": {
+    "win": 0.63,
+    "wins": 15,
+    "last": 0,
+    "n": 24,
+    "cars": {
+     "car": "2/6 won, 0 last",
+     "cybertruck": "4/6 won, 0 last",
+     "corvette": "4/6 won, 0 last",
+     "monster": "5/6 won, 0 last"
+    }
+   },
+   "sky": {
+    "win": 0.67,
+    "wins": 16,
+    "last": 0,
+    "n": 24,
+    "cars": {
+     "car": "5/6 won, 0 last",
+     "cybertruck": "4/6 won, 0 last",
+     "corvette": "3/6 won, 0 last",
+     "monster": "4/6 won, 0 last"
+    }
+   },
+   "london": {
+    "win": 0.67,
+    "wins": 16,
+    "last": 0,
+    "n": 24,
+    "cars": {
+     "car": "5/6 won, 0 last",
+     "cybertruck": "2/6 won, 0 last",
+     "corvette": "4/6 won, 0 last",
+     "monster": "5/6 won, 0 last"
+    }
+   },
+   "all": {
+    "win": 0.6,
+    "wins": 86,
+    "last": 0,
+    "n": 144,
+    "cars": {
+     "car": "20/36 won, 0 last",
+     "cybertruck": "18/36 won, 0 last",
+     "corvette": "20/36 won, 0 last",
+     "monster": "28/36 won, 0 last"
+    }
+   }
+  },
+  "weak": {
+   "oval": {
+    "win": 0,
+    "wins": 0,
+    "last": 2,
+    "n": 24,
+    "cars": {
+     "car": "0/6 won, 0 last",
+     "cybertruck": "0/6 won, 1 last",
+     "corvette": "0/6 won, 0 last",
+     "monster": "0/6 won, 1 last"
+    }
+   },
+   "dunes": {
+    "win": 0,
+    "wins": 0,
+    "last": 9,
+    "n": 24,
+    "cars": {
+     "car": "0/6 won, 2 last",
+     "cybertruck": "0/6 won, 3 last",
+     "corvette": "0/6 won, 2 last",
+     "monster": "0/6 won, 2 last"
+    }
+   },
+   "snow": {
+    "win": 0,
+    "wins": 0,
+    "last": 3,
+    "n": 24,
+    "cars": {
+     "car": "0/6 won, 0 last",
+     "cybertruck": "0/6 won, 1 last",
+     "corvette": "0/6 won, 2 last",
+     "monster": "0/6 won, 0 last"
+    }
+   },
+   "beach": {
+    "win": 0,
+    "wins": 0,
+    "last": 14,
+    "n": 24,
+    "cars": {
+     "car": "0/6 won, 3 last",
+     "cybertruck": "0/6 won, 4 last",
+     "corvette": "0/6 won, 4 last",
+     "monster": "0/6 won, 3 last"
+    }
+   },
+   "sky": {
+    "win": 0.04,
+    "wins": 1,
+    "last": 6,
+    "n": 24,
+    "cars": {
+     "car": "0/6 won, 2 last",
+     "cybertruck": "0/6 won, 0 last",
+     "corvette": "0/6 won, 3 last",
+     "monster": "1/6 won, 1 last"
+    }
+   },
+   "london": {
+    "win": 0.08,
+    "wins": 2,
+    "last": 5,
+    "n": 24,
+    "cars": {
+     "car": "0/6 won, 2 last",
+     "cybertruck": "0/6 won, 1 last",
+     "corvette": "0/6 won, 2 last",
+     "monster": "2/6 won, 0 last"
+    }
+   },
+   "all": {
+    "win": 0.02,
+    "wins": 3,
+    "last": 39,
+    "n": 144,
+    "cars": {
+     "car": "0/36 won, 9 last",
+     "cybertruck": "0/36 won, 10 last",
+     "corvette": "0/36 won, 13 last",
+     "monster": "3/36 won, 7 last"
+    }
+   }
+  }
+ }
+}
