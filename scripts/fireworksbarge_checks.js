@@ -16,7 +16,9 @@
 //      the picker;
 //   7. the frame: draw calls bounded;
 //   8. (v226, B6) the numeral has an owner: Q-7 by touch, the go arrow, the police's
-//      peel-off, the dunes grid, the menu, the rule and the source.
+//      peel-off, the dunes grid, the menu, the rule and the source; (v227) a count he is taken away
+//      from stands down (h), the kept missile dropped (i), a race asked for or left with a count up
+//      (l), the separation of the counts that never ask (k), and the refused path, a row each (j).
 // Renders are scripts/fireworksbarge_renders.js, and are LOOKED at.
 // ---------------------------------------------------------------------------
 
@@ -414,13 +416,15 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
     out.on = L.raceOn(); { const T = L.RC.tracks.find(t => t.id === "dunes"); out.track = Math.hypot(st.x - T.site.x, st.z - T.site.z) < 300 ? "dunes" : Math.round(st.x) + "," + Math.round(st.z); }
     const n0 = tr.frames.length;
     let goAt = -1, sledAt = -1;
-    step(60 * 8, (i) => { L.api.setStick(0, 0); if (goAt < 0 && L.race.phase === "race") goAt = i; if (sledAt < 0 && sled.phase === "count") sledAt = i; }, () => L.race.phase);
+    let sledRunAt = -1; const r0 = d("sledRuns", f0);
+    step(60 * 20, (i) => { L.api.setStick(0, 0); if (goAt < 0 && L.race.phase === "race") goAt = i; if (sledAt < 0 && sled.phase === "count") sledAt = i; if (sledRunAt < 0 && d("sledRuns", f0) > r0) sledRunAt = i; }, () => L.race.phase);
     const g = tr.frames.slice(n0, n0 + Math.max(0, goAt));
     out.gridSeen = (() => { const o = []; let last = null, n = 0; for (const f of g) { if (f.k === last) n++; else { if (last !== null) o.push(last + "x" + n); last = f.k; n = 1; } } if (last !== null) o.push(last + "x" + n); return o.join(" "); })();
-    Object.assign(out, { goAt, sledAt, gridTicks: g.reduce((m, f) => m + f.ticks, 0), gridMax: g.reduce((m, f) => Math.max(m, f.ticks), 0), after: seen(n0 + Math.max(0, goAt)).slice(0, 120), sledCounts: d("sledCountdowns", f0) });
+    Object.assign(out, { goAt, sledAt, gridTicks: g.reduce((m, f) => m + f.ticks, 0), gridMax: g.reduce((m, f) => Math.max(m, f.ticks), 0), after: seen(n0 + Math.max(0, goAt)).slice(0, 120), sledCounts: d("sledCountdowns", f0), sledRunAt, sledRuns: d("sledRuns", f0) });
   `);
-  check("numeral (B6): the dunes race, by its button and its card -- the grid's 3-2-1 is the race's own (under the lamps, nothing up in the sky, one tick a lamp: three), and the rocket sled, whose wall is 900 m off the grid's nose, waits for the green instead of counting over the lamps (whether it counts after depends on where he drives: printed)",
-    !grid.err && grid.raceBtn && grid.card && grid.on && grid.track === "dunes" && grid.goAt > 0 && /^(-r?x\d+ )*3rx\d+ 2rx\d+ 1rx\d+( -x\d+)?$/.test(grid.gridSeen) && grid.gridTicks === 3 && grid.gridMax === 1 && (grid.sledAt < 0 || grid.sledAt >= grid.goAt),
+  check("numeral (B6): the dunes race, by its button and its card -- the grid's 3-2-1 is the race's own (under the lamps, nothing up in the sky, one tick a lamp: three), and the rocket sled, whose wall is 900 m off the grid's nose, waits for the green instead of counting over the lamps -- and (v227, Q-30 c) after the green, hands-off, it DOES count and run",
+    !grid.err && grid.raceBtn && grid.card && grid.on && grid.track === "dunes" && grid.goAt > 0 && /^(-r?x\d+ )*3rx\d+ 2rx\d+ 1rx\d+( -x\d+)?$/.test(grid.gridSeen) && grid.gridTicks === 3 && grid.gridMax === 1 &&
+      grid.sledAt >= grid.goAt && grid.sledRunAt > grid.sledAt && grid.sledCounts >= 1 && grid.sledRuns >= 1,
     JSON.stringify(grid));
   // e. the menu: no chase, a chase, a pull-over
   const menu = await numIn(`
@@ -480,6 +484,348 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
     !rule.err && rule.a === 3 && rule.aTicks === 1 && rule.b === 0 && rule.bTicks === 0 && rule.textB === "3" && rule.bBlocked && !rule.aBlocked && rule.bClear === false && rule.textAfterBClear === "3" &&
       rule.bShow === false && rule.textAfterBShow === "3" && rule.aClear === true && rule.downA && rule.b2 === 2 && rule.textB2 === "2" && rule.downAll && rule.bareDown && rule.fbUp && rule.afterStart === "-" && rule.refused >= 3,
     JSON.stringify(rule));
+  // h. (v227) a point-at count does not follow him away: the barge and the monster truck counting, in the prop (by
+  // touch, portrait) -- the go arrow (skipToLanding in flight), or the eject (its fresh start on the runway). Within
+  // two frames the numeral is down and stays down, no payoff goes off out of sight, and the set-piece is armed: flown
+  // back at, it counts again.
+  const awayRuns = {};
+  for (const piece of ["barge", "truck"]) for (const how of ["skip", "eject"]) {
+    awayRuns[piece + "/" + how] = await numIn(`
+      const f0 = Object.assign({}, L.flags);
+      const B = arg.piece === "barge";
+      const P = B ? { x: FBARGE.x, z: FBARGE.z } : mtLanding();
+      const ph = () => B ? fbarge.phase : mtruck.phase, payoff = B ? "fbShows" : "mtRuns", counts = B ? "fbCountdowns" : "mtCountdowns";
+      const ax = P.x - 600, az = P.z + 700, hdg = Math.atan2(-(P.x - ax), -(P.z - az));
+      const fly = () => { L.api.clearStick(); st.y = Math.max(st.y, L.terrainEff(st.x, st.z) + 150); st.pitch = 0; };
+      planeAt(ax, az, 200, hdg);
+      let at = -1;
+      step(60 * 8, (i) => { fly(); if (ph() === "count" && bn.classList.contains("on")) { at = i; return false; } });
+      step(20, fly);
+      out.at = at; out.before = bn.textContent; out.held = countdownHeldBy(B ? "fireworksBarge" : "monsterTruck");
+      const btn = arg.how === "skip" ? el.skipBtn : el.ejectBtn;
+      out.btn = !btn.classList.contains("hidden");
+      const r0 = d("repositioned", f0);
+      press(btn);
+      if (arg.how === "eject") { for (let i = 0; i < 60 * 40 && d("repositioned", f0) === r0; i++) L.update(1 / 60); out.restarted = d("repositioned", f0) > r0; out.ejectActive = eject.active; }
+      const n0 = tr.frames.length;
+      step(60 * 12, () => { L.api.clearStick(); });
+      const after = tr.frames.slice(n0);
+      out.firstDown = after.findIndex(f => f.k[0] === "-"); out.upAfter = after.filter(f => f.k[0] !== "-").length;
+      out.seen = seen(n0).slice(0, 160); out.dist = Math.round(Math.hypot(st.x - P.x, st.z - P.z));
+      out.payoff = d(payoff, f0); out.phase = ph(); out.away = d("countAway", f0);
+      // back: flown at it again
+      planeAt(ax, az, 200, hdg);
+      let again = -1;
+      step(60 * 8, (i) => { fly(); if (ph() === "count" && bn.classList.contains("on")) { again = i; return false; } });
+      out.again = again; out.counts = d(counts, f0);
+      L.fbReset(); L.mtReset();
+    `, { piece, how });
+  }
+  const awayBad = [];
+  for (const [k, r] of Object.entries(awayRuns)) {
+    if (r.err || !(r.at >= 0) || !r.btn || !r.held || (k.endsWith("eject") && !r.restarted)) { awayBad.push(`${k}: not counting by touch with its button there, or no fresh start (${JSON.stringify(r)})`); continue; }
+    if (!(r.dist > 2400)) awayBad.push(`${k}: not taken away (${r.dist} m)`);
+    if (r.firstDown < 0 || r.firstDown > 1 || r.upAfter > 1) awayBad.push(`${k}: its numeral followed him (${r.seen})`);
+    if (r.payoff !== 0) awayBad.push(`${k}: its payoff went off out of sight (${r.payoff})`);
+    if (r.phase !== "armed" || !(r.again >= 0) || r.counts !== 2) awayBad.push(`${k}: not armed again when he came back (phase ${r.phase}, counted again at ${r.again}, ${r.counts} counts)`);
+  }
+  check("numeral (v227): a point-at count does not follow him away -- the fireworks barge and the monster truck counting, the prop by touch (portrait), then the go arrow or the eject's fresh start: the numeral down within two frames and down for the 12 s after, no show and no run out of sight, and flown back at, it counts again (armed)",
+    awayBad.length === 0, JSON.stringify({ bad: awayBad, runs: Object.fromEntries(Object.entries(awayRuns).map(([k, r]) => [k, { at: r.at, dist: r.dist, firstDown: r.firstDown, upAfter: r.upAfter, payoff: r.payoff, again: r.again, away: r.away, seen: (r.seen || "").slice(0, 60), err: r.err }])) }));
+  // i. (v227, Q-30 d) the kept missile (demo.want) dropped when he goes: Q-7's flight (the prop, portrait), the barge
+  // counting and his missile from its button landing in the block, kept -- then the go arrow (by touch: its drop is
+  // the out-of-sight one, updateDemolition) or a relaunch (the picker and a fresh start, as audit_hud's __relaunch:
+  // its drop is demoStandDown's). Flown back over the block with nothing fired, it never goes off on its own.
+  const kept = {};
+  for (const how of ["skip", "relaunch"]) {
+    kept[how] = await numIn(`
+      const f0 = Object.assign({}, L.flags);
+      const fly = () => { L.api.clearStick(); st.y = Math.max(st.y, L.terrainEff(st.x, st.z) + 70); st.pitch = 0; };
+      planeAt(300, 3500, 80, 0);
+      let fired = -1;
+      step(60 * 12, (i) => { if (fired < 0 && fbarge.phase === "count" && bn.classList.contains("on")) { press(el.missileBtn); fired = i; } if (fired >= 0 && demo.want) return false; fly(); });
+      out.fired = fired; out.kept = demo.want; out.fb = fbarge.phase;
+      if (arg === "skip") { out.btn = !el.skipBtn.classList.contains("hidden"); press(el.skipBtn); }
+      else { L.openPickerAnywhere(); L.api.skipScreens(); L.api.setVehicle("prop"); L.api.spawnAt(0, 0); }
+      out.wantAtOnce = demo.want;
+      step(60 * 5, () => L.api.clearStick());
+      out.wantLater = demo.want;
+      const m0 = d("missiles", f0), dm0 = d("demolitions", f0);
+      planeAt(300, 3500, 80, 0);
+      step(60 * 16, fly);
+      Object.assign(out, { missilesBack: d("missiles", f0) - m0, demolitionsBack: d("demolitions", f0) - dm0, demolitions: d("demolitions", f0), demoPhase: demo.phase, fbShows: d("fbShows", f0) });
+    `, how);
+  }
+  const keptBad = [];
+  for (const [how, r] of Object.entries(kept)) {
+    if (r.err || !(r.fired >= 0) || !r.kept || (how === "skip" && !r.btn)) { keptBad.push(`${how}: no missile kept behind the barge's count (${JSON.stringify(r)})`); continue; }
+    if (r.wantLater || (how === "relaunch" && r.wantAtOnce)) keptBad.push(`${how}: the kept missile not dropped (at once ${r.wantAtOnce}, 5 s on ${r.wantLater})`);
+    if (r.missilesBack !== 0 || r.demolitionsBack !== 0 || r.demolitions !== 0) keptBad.push(`${how}: flown back with nothing fired, the block went off on its own (${r.demolitionsBack}, ${r.missilesBack} missiles)`);
+  }
+  check("numeral (v227, Q-30 d): a missile kept behind the barge's count (Q-7's flight by touch, portrait) is dropped when he goes -- by the go arrow (out of sight) and by a relaunch (at once: demoStandDown) -- and flown back over the block with nothing fired, it never goes off on its own",
+    keptBad.length === 0, JSON.stringify({ bad: keptBad, kept }));
+  // ... and behind another holder: the launch pad's 5-4-3-2-1, STAGED (lsForce: by touch no other count is up while a
+  // missile can reach the block -- the barge is the only one whose arm range is within a missile of it). The block
+  // waits for the pad's count to come down, then goes: its own 3-2-1, never two digits fighting, its missile not lost.
+  const keptLs = await numIn(`
+    const f0 = Object.assign({}, L.flags);
+    const fly = () => { L.api.clearStick(); st.y = Math.max(st.y, L.terrainEff(st.x, st.z) + 70); st.pitch = 0; };
+    const fbR = FBARGE.armR; FBARGE.armR = 0;                // the barge kept out of it: the holder is the pad's
+    try {
+      planeAt(300, 3050, 80, 0);
+      lsForce(); step(3, fly);
+      out.lsUp = countdownHeldBy("launchSite");
+      press(el.missileBtn);
+      let keptAt = -1, lsEnd = -1, dmAt = -1;
+      step(60 * 14, (i) => { if (keptAt < 0 && demo.want) keptAt = i; if (lsEnd < 0 && lsite.phase !== "count") lsEnd = i; if (dmAt < 0 && demo.phase === "charging") dmAt = i; fly(); });
+      Object.assign(out, { keptAt, lsEnd, dmAt, seen: seen(), maxTicks: maxTicks(), demolitions: d("demolitions", f0), folded: d("demoTowersFolded", f0) });
+    } finally { FBARGE.armR = fbR; lsReset(); }
+  `);
+  check("numeral (v227, Q-30 d): a missile into the block while the launch pad's 5-4-3-2-1 holds the numeral (staged) is kept: the block's 3-2-1 starts only once the pad's is down, never two ticks a frame, and the block goes",
+    !keptLs.err && keptLs.lsUp && keptLs.keptAt >= 0 && keptLs.dmAt >= keptLs.lsEnd && keptLs.lsEnd > keptLs.keptAt && keptLs.maxTicks === 1 && keptLs.demolitions === 1 && keptLs.folded >= 7 &&
+      /3x(59|60|61) 2x(59|60|61) 1x(59|60|61)/.test(keptLs.seen.replace(/\^/g, "")),
+    JSON.stringify(keptLs));
+  // l. (v227, Q-30 b) a race asked for while a point-at count is up on the motorway (by touch, portrait): the race
+  // button's own picker stands it down (menuOpen) before the card is tapped, so the grid's 3-2-1 is the race's own
+  // under its lamps -- the barge, the truck, the launch pad and the sled, each counting as he taps the button.
+  const ROAD = `
+    const roadNear = (tx, tz, dd) => {
+      let best = null;
+      for (let s = 0; s < highway.length; s += 20) { const q = hwySampleAt(s); const e = Math.hypot(q.x - tx, q.z - tz); if (q.z > tz && Math.abs(e - dd) < 150 && (!best || Math.abs(e - dd) < Math.abs(best.e - dd))) best = { s, e, q }; }
+      const q = best.q; st.x = q.x - q.fz * 3; st.z = q.z + q.fx * 3; st.y = q.y;
+      const dir = ((tx - st.x) * q.fx + (tz - st.z) * q.fz) >= 0 ? 1 : -1;
+      st.heading = Math.atan2(-q.fx * dir, -q.fz * dir); st.speed = 0;
+      return Math.round(best.e);
+    };
+    const lamps = () => race.lights.map(m => { const h = m.material.color.getHex(); return h === 0xe0483e ? "R" : h === 0x36c46a ? "G" : "."; }).join("");`;
+  const raceAsk = {};
+  for (const [piece, dd, track] of [["barge", 700, "dunes"], ["truck", 900, "dunes"], ["launch", 1000, "snow"], ["sled", 900, "dunes"]]) {
+    raceAsk[piece] = await numIn(`${ROAD}
+      const f0 = Object.assign({}, L.flags);
+      L.api.setVehicle("car"); L.api.spawnAt(0, 0); step(10);
+      const P = arg.piece, W = sledWallWorld(), M = mtLanding();
+      const tgt = P === "barge" ? [FBARGE.x, FBARGE.z] : P === "sled" ? [W.x, W.z] : P === "truck" ? [M.x, M.z] : [LSITE.x, LSITE.z];
+      roadNear(tgt[0], tgt[1], arg.dd);
+      const counting = () => P === "barge" ? fbarge.phase === "count" : P === "sled" ? sled.phase === "count" : P === "truck" ? mtruck.phase === "count" : lsite.phase === "count";
+      let up = -1;
+      step(60 * 20, (i) => { L.api.setStick(0, 0); if (counting() && bn.classList.contains("on")) { up = i; return false; } });
+      step(3, () => L.api.setStick(0, 0));
+      out.up = up; out.before = bn.textContent; L.api.clearStick();
+      out.raceBtn = !el.raceBtn.classList.contains("hidden");
+      press(el.raceBtn); step(2);
+      out.afterBtn = bn.classList.contains("on") ? bn.textContent : "-"; out.stillCounting = counting();
+      tap(document.querySelector('.trackCard[data-track="' + arg.track + '"]'));
+      out.on = L.raceOn();
+      const n0 = tr.frames.length; let goAt = -1;
+      step(60 * 5, (i) => { L.api.setStick(0, 0); if (goAt < 0 && L.race.phase === "race") { goAt = i; return false; } }, () => lamps());
+      out.goAt = goAt; out.seen = seen(n0);
+      const g = tr.frames.slice(n0); out.ticks = g.reduce((m, f) => m + f.ticks, 0);
+      out.lampSeq = [...new Set(g.map(f => f.tag))].join(" ");
+    `, { piece, dd, track });
+  }
+  const raBad = [];
+  for (const [p, r] of Object.entries(raceAsk)) {
+    if (r.err || !(r.up >= 0) || !r.raceBtn || !r.on || !(r.goAt > 0)) { raBad.push(`${p}: not counting by touch, or no race (${JSON.stringify(r)})`); continue; }
+    if (r.afterBtn !== "-" || r.stillCounting) raBad.push(`${p}: still counting behind the race's picker (${r.afterBtn})`);
+    if (!/^(-r?x\d+ )*3rx\d+ 2rx\d+ 1rx\d+( -x\d+)?$/.test(r.seen) || r.ticks !== 3) raBad.push(`${p}: the grid's 3-2-1 not the race's own (${r.seen}, ${r.ticks} ticks)`);
+    if (!/R\.\. RR\. RRR GGG$/.test(r.lampSeq)) raBad.push(`${p}: the lamps did not light one a second (${r.lampSeq})`);
+  }
+  check("numeral (v227, Q-30 b): a race asked for while the barge's, the truck's, the launch pad's or the sled's count is up on the motorway (by touch, portrait) -- the race button's picker stands it down before the card, and the grid's 3-2-1 is the race's own under its three lamps, one tick each",
+    raBad.length === 0, JSON.stringify({ bad: raBad, runs: Object.fromEntries(Object.entries(raceAsk).map(([k, r]) => [k, { up: r.up, before: r.before, afterBtn: r.afterBtn, seen: r.seen, lamps: r.lampSeq, err: r.err }])) }));
+  // ... and LEFT with one up (by touch): on the dunes after the green the sled counts over the race (v226: it waits for
+  // the green); the menu then leaves the race (raceReset) and the sled's digit and its sky class survive the press --
+  // the race takes down only its own -- and the sled's own stand-down takes it down on the next frame.
+  const raceLeft = await numIn(`${ROAD}
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); step(30, () => L.api.setStick(0, 0)); L.api.clearStick(); step(10);
+    press(el.raceBtn); step(10); tap(document.querySelector('.trackCard[data-track="dunes"]'));
+    out.on = L.raceOn();
+    let up = -1;
+    step(60 * 20, (i) => { L.api.setStick(0, 0); if (L.race.phase === "race" && sled.phase === "count" && countdownHeldBy("rocketSled")) { up = i; return false; } });
+    out.up = up; out.before = bn.textContent + (bn.classList.contains("sky") ? "^" : "") + (bn.classList.contains("race") ? "r" : "");
+    L.api.clearStick(); press(el.menuBtn);
+    out.menu = L.menuOpen(); out.raceOff = !L.raceOn();
+    out.atPress = (bn.classList.contains("on") ? bn.textContent : "-") + (bn.classList.contains("sky") ? "^" : "") + (bn.classList.contains("race") ? "r" : "") + (countdownHeldBy("rocketSled") ? " sled" : "");
+    L.update(1 / 60);
+    out.next = (bn.classList.contains("on") ? bn.textContent : "-") + (bn.classList.contains("sky") ? "^" : "");
+    L.api.skipScreens();
+  `);
+  check("numeral (v227, Q-30 b): a race LEFT by the menu while the sled counts over it on the dunes (by touch) -- the sled's digit and its sky class survive the race's leave (it takes down only its own), and the sled's own stand-down takes it down on the next frame",
+    !raceLeft.err && raceLeft.on && raceLeft.up >= 0 && /^[1-3]\^$/.test(raceLeft.before) && raceLeft.menu && raceLeft.raceOff &&
+      raceLeft.atPress === raceLeft.before + " sled" && raceLeft.next === "-",
+    JSON.stringify(raceLeft));
+  // ... and STAGED (no count of his reaches the grid by touch -- above): another owner's 3, with the sky class, put up
+  // on the grid after the race has started. The lamps still light one a second; the race's digits are refused; at the
+  // green the other's 3 and its sky class are still there. PRINTED, not judged: the race class the start put on the
+  // numeral stays on the other's digit until the green (QUEUE, v227's finding).
+  const raceGreen = await numIn(`${ROAD}
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); step(30, () => L.api.setStick(0, 0)); L.api.clearStick(); step(10);
+    press(el.raceBtn); step(10); tap(document.querySelector('.trackCard[data-track="dunes"]'));
+    step(5); countdownTo(2.5, 3, "another"); el.bigNum.classList.add("sky"); tr.ticks = 0;
+    const n0 = tr.frames.length; let goAt = -1;
+    step(60 * 5, (i) => { if (goAt < 0 && L.race.phase === "race") { goAt = i; return false; } }, () => lamps());
+    out.goAt = goAt; out.seen = seen(n0); out.lampSeq = [...new Set(tr.frames.slice(n0).map(f => f.tag))].join(" ");
+    out.ticks = tr.frames.slice(n0).reduce((m, f) => m + f.ticks, 0);
+    out.atGreen = bn.textContent + (bn.classList.contains("sky") ? "^" : "") + (bn.classList.contains("race") ? "r" : "") + (countdownHeldBy("another") ? " another" : "");
+    countdownEndAll(); el.bigNum.classList.remove("sky");
+  `);
+  check("numeral (v227, Q-30 b): the race's green with another owner's 3 up (STAGED) -- the lamps light one a second and go green, the race's digits are refused (no tick), and at the green the other's 3 and its sky class are still there",
+    !raceGreen.err && raceGreen.goAt > 0 && /R\.\. RR\. RRR GGG$/.test(raceGreen.lampSeq) && raceGreen.ticks === 0 && raceGreen.atGreen === "3^ another",
+    JSON.stringify(raceGreen));
+  // k. (v227, Q-30 a) THE SEPARATION that makes j's rows unreachable, pinned: the counts that never ask (the carrier's
+  // catapult, the lock's gates, the tower catch, Mars's pad) run where no other count can be up. From where he is when
+  // each runs (the catapult; the chamber; a real flight from each airport, his finger held and let go, every frame the
+  // catch counts; anywhere on Mars) to every count he can set off (the barge, the truck, the launch pad, the sled: their
+  // furthest arm range, a car's at 80 m/s; the demolition: a missile's reach) is more than that range plus 400 m/s for its whole count.
+  // A set-piece moved within reach makes this red: then it must ask (spCountBusy) or wait, as the crane does.
+  const sep = await numIn(`
+    const CV = TUNE.carrier, K = L.LK, vMax = 400, vCar = 80, places = {};   // vCar: faster than any car's top step
+    places.carrier = [{ x: carrier.x + CV.catX, y: carrier.deck, z: carrier.z - CV.catZ }];
+    places.lock = [{ x: (K.chamber.x[0] + K.chamber.x[1]) / 2, y: TUNE.waterLevel, z: (K.gateS + K.gateN) / 2 }];
+    out.flights = [];
+    for (const [ap, dir] of [[0, 0], [1, 1]]) for (const holdOn of [true, false]) {
+      L.api.setVehicle("starship"); spawnForTakeoff(ap, dir); L.api.setThrottle(true);
+      for (let i = 0; i < 60 * 60 && !L.rocketCanDrop(); i++) L.update(1 / 60);
+      L.dropStage(); if (!holdOn) L.api.setThrottle(false);
+      const pts = []; let n = 0;
+      for (let j = 0; j < 60 * 120; j++) { L.update(1 / 60); if (tcatch.counting) { n++; pts.push({ x: st.x, y: st.y, z: st.z }); } else if (n) break; }
+      L.api.setThrottle(false);
+      out.flights.push({ ap, holdOn, frames: n });
+      places["catch" + ap + (holdOn ? "held" : "off")] = pts;
+    }
+    const b = L.BODIES[1];
+    const pieces = {
+      fireworksBarge: { x: FBARGE.x, y: fbarge.y, z: FBARGE.z, R: Math.max(FBARGE.armR, FBARGE.carView + vCar * fbToFirstBurst()), count: FBARGE.count },
+      monsterTruck: { ...mtLanding(), R: Math.max(MTRUCK.armR, MTRUCK.carArmR), count: MTRUCK.count },
+      launchSite: { x: LSITE.x, y: lsite.padY + 40, z: LSITE.z, R: LSITE.armR, count: LSITE.count },
+      rocketSled: { ...sledWallWorld(), R: Math.max(SLED.armR, SLED.carView + vCar * sledToWall()), count: SLED.count },
+      demolition: { x: demo.x, y: demo.base, z: demo.z, R: (TUNE.missileSpeed + vMax) * TUNE.missileLife + TUNE.demolition.hitR, count: 3 },
+    };
+    out.gaps = [];
+    for (const [sn, S] of Object.entries(pieces)) {
+      const need = S.R + vMax * S.count;
+      for (const [pn, pts] of Object.entries(places)) {
+        let dmin = 1e12; for (const P of pts) dmin = Math.min(dmin, Math.hypot(P.x - S.x, P.y - S.y, P.z - S.z));
+        out.gaps.push({ place: pn, piece: sn, d: Math.round(dmin), need: Math.round(need), n: pts.length });
+      }
+      out.gaps.push({ place: "mars", piece: sn, d: Math.round(Math.abs(Math.hypot(S.x - b.x, S.y - b.y, S.z - b.z) - b.r)), need: Math.round(need), n: 1 });
+    }
+  `);
+  const sepBad = sep.err ? [sep.err] : sep.gaps.filter(g => !(g.n > 0) || g.d <= g.need).map(g => `${g.piece} from ${g.place}: ${g.d} m, within ${g.need} m`);
+  if (!sep.err && !sep.flights.every(f => f.frames > 60)) sepBad.push("the tower catch did not count on a flight: " + JSON.stringify(sep.flights));
+  check("numeral (v227, Q-30 a): the counts that never ask (the carrier's catapult, the lock's gates, the tower catch on a real flight from each airport, Mars's pad) run kilometres from every count he can set off -- each further than that count's furthest arm range (a missile's reach for the demolition) plus 400 m/s for its whole count, so nothing he does can have two up at once there",
+    sepBad.length === 0, JSON.stringify({ bad: sepBad, closest: sep.gaps && [...sep.gaps].sort((p, q) => (p.d - p.need) - (q.d - q.need)).slice(0, 6) }));
+  // j. (v227, Q-30 e) THE REFUSED PATH, a row each, STAGED (by touch none of these can start under another's count:
+  // the point-at ones and the crane ask first, and the rest are kilometres from every other count -- k, below):
+  // another owner's 3 is up, with and without the sky class, and the row's own count is run through to its go.
+  // Refused whole: the 3 stands, no tick of its own, the class not moved either way; what it does is printed.
+  const REFUSE_ROWS = {
+    crane: `L.api.setVehicle("crane"); L.api.spawnAt(0, 0); step(30);
+      R.start = () => { cr.aim = crAimed(); cr.phase = "count"; cr.t = CR.count; };
+      R.running = () => cr.phase === "count"; R.hold = () => {}; R.frames = 60 * 3.5; R.reset = () => crReset();`,
+    launchSite: `L.api.setVehicle("car"); L.api.spawnAt(0, 0); step(10);
+      R.hold = () => { st.x = LSITE.x - 700; st.z = LSITE.z + 300; st.y = L.terrainEff(st.x, st.z) + 2; st.speed = 0; };
+      R.start = () => lsForce(); R.running = () => lsite.phase === "count"; R.frames = 60 * (LSITE.count + 0.5); R.reset = () => lsReset();`,
+    monsterTruck: `L.api.setVehicle("car"); L.api.spawnAt(0, 0); step(10);
+      const P = mtLanding(); R.hold = () => { st.x = P.x + 300; st.z = P.z + 450; st.y = L.terrainEff(st.x, st.z) + 2; st.speed = 0; };
+      R.start = () => mtForce(); R.running = () => mtruck.phase === "count"; R.frames = 60 * 3.5; R.reset = () => mtReset();`,
+    rocketSled: `L.api.setVehicle("car"); L.api.spawnAt(0, 0); step(10);
+      const W = sledWallWorld(); R.hold = () => { st.x = W.x + 300; st.z = W.z + 500; st.y = L.terrainEff(st.x, st.z) + 2; st.speed = 0; };
+      R.start = () => sledForce(); R.running = () => sled.phase === "count"; R.frames = 60 * 3.5; R.reset = () => sledReset();
+      R.extra = () => sled.lamps.map(q => q.glow.material.opacity > 0.5 ? "o" : ".").join("");`,
+    lock: `L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1); step(10);
+      const K = L.LK, cx = (K.chamber.x[0] + K.chamber.x[1]) / 2, cz = (K.gateS + K.gateN) / 2;
+      R.hold = () => { st.x = cx; st.z = cz; st.y = L.seaLevelAt(cx, cz); st.speed = 0; };
+      R.start = () => { lock.dir = lock.fill < 0.5 ? 1 : -1; lock.state = "warn"; lock.t = K.warn; }; R.running = () => lock.state === "warn"; R.frames = 60 * (K.warn + 0.5);
+      R.reset = () => { lock.state = "idle"; lock.t = 0; };`,
+    carrier: `L.api.setVehicle("fighter"); L.api.spawnAt(1, 1); step(10);
+      const CV = TUNE.carrier; R.hold = () => {};
+      R.start = () => { st.phase = "AIRBORNE"; st.exploding = false; st.x = carrier.x + CV.catX; st.z = carrier.z - CV.catZ; st.y = carrier.deck + TUNE.gearHeight; st.heading = 0; st.speed = 0; carrier.state = "count"; carrier.t = CV.countFrom; };
+      R.running = () => carrier.state === "count"; R.frames = 60 * (CV.countFrom + 0.5); R.reset = () => carrierReset();`,
+    towerCatch: `R.hold = () => {}; R.start = () => {}; R.reset = () => {};
+      // a real flight to the drop (its fresh start ends every count: so before the other's 3 goes up), then the catch
+      R.pre = () => {
+        L.api.setVehicle("starship"); spawnForTakeoff(0, 0); L.api.setThrottle(true);
+        for (let i = 0; i < 60 * 60 && !L.rocketCanDrop(); i++) L.update(1 / 60);
+        L.dropStage(); L.api.setThrottle(false);
+      };
+      R.running = () => tcatch.counting; R.frames = 60 * 25;`,
+    // Mars: one landing a page (a second landing after its launch does not call the pad again), each class its own page
+    marsBase: `R.skies = [false]; const b = L.BODIES[1];
+      const onMars = () => {
+        if (typeof roverReset === "function") roverReset(); L.api.setThrottle(false);
+        L.api.setVehicle("starship"); L.api.placeOnRunway();
+        st.dest = "mars"; st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 1;
+        const n0 = new THREE.Vector3(0.62, 0.5, 0.6).normalize();
+        st.x = b.x + n0.x * (b.r + 12); st.y = b.y + n0.y * (b.r + 12); st.z = b.z + n0.z * (b.r + 12);
+        st.touching = false; releaseThrottle(); L.update(1 / 60);
+      };
+      R.hold = () => {}; R.reset = () => {};
+      // landed, out in the rover and back on the pad: the pad's count is called (then put back to its start, staged)
+      R.pre = () => {
+        onMars(); for (let i = 0; i < 6; i++) L.update(1 / 60);
+        L.roverDeploy(); for (let i = 0; i < 6; i++) L.update(1 / 60);
+        mars.phase = "returning"; L.roverReturn();
+        for (let t = 0; rover.active && t < 300; t++) for (let i = 0; i < 6; i++) L.update(1 / 60);
+        R.called = mars.phase === "count";
+      };
+      R.start = () => { mars.phase = "count"; mars.t = MB.padCount; };
+      R.running = () => mars.phase === "count"; R.frames = 60 * (MB.padCount + 0.5);`,
+    marsBaseSky: `R.skies = [true]; const b = L.BODIES[1];
+      const onMars = () => {
+        if (typeof roverReset === "function") roverReset(); L.api.setThrottle(false);
+        L.api.setVehicle("starship"); L.api.placeOnRunway();
+        st.dest = "mars"; st.phase = "TAXI"; L.rk.onBody = b; L.rk.stage = 1;
+        const n0 = new THREE.Vector3(0.62, 0.5, 0.6).normalize();
+        st.x = b.x + n0.x * (b.r + 12); st.y = b.y + n0.y * (b.r + 12); st.z = b.z + n0.z * (b.r + 12);
+        st.touching = false; releaseThrottle(); L.update(1 / 60);
+      };
+      R.hold = () => {}; R.reset = () => {};
+      // landed, out in the rover and back on the pad: the pad's count is called (then put back to its start, staged)
+      R.pre = () => {
+        onMars(); for (let i = 0; i < 6; i++) L.update(1 / 60);
+        L.roverDeploy(); for (let i = 0; i < 6; i++) L.update(1 / 60);
+        mars.phase = "returning"; L.roverReturn();
+        for (let t = 0; rover.active && t < 300; t++) for (let i = 0; i < 6; i++) L.update(1 / 60);
+        R.called = mars.phase === "count";
+      };
+      R.start = () => { mars.phase = "count"; mars.t = MB.padCount; };
+      R.running = () => mars.phase === "count"; R.frames = 60 * (MB.padCount + 0.5);`,
+  };
+  const refuse = {};
+  for (const [row, setup] of Object.entries(REFUSE_ROWS)) {
+    refuse[row] = await numIn(`
+      const R = {}; ${setup}
+      const f0 = Object.assign({}, L.flags);
+      const runs = [];
+      for (const sky of (R.skies || [false, true])) {
+        if (R.pre) R.pre(); else { R.hold(); step(5, R.hold); }
+        countdownEndAll(); el.bigNum.classList.remove("sky");
+        countdownTo(2.5, 3, "another");                       // someone else's 3, up
+        if (sky) el.bigNum.classList.add("sky");
+        tr.ticks = 0; const n0 = tr.frames.length, r0 = d("numRefused", f0);
+        R.hold(); R.start();
+        const extra = [];
+        let ran = 0;
+        step(R.frames, () => { R.hold(); if (R.running()) ran++; if (R.extra) { const e = R.extra(); if (extra[extra.length - 1] !== e) extra.push(e); } });
+        const fr = tr.frames.slice(n0);
+        runs.push({ sky, ran, seen: seen(n0), ticks: sumTicks(n0), refused: d("numRefused", f0) - r0,
+          held: countdownHeldBy("another"), text: bn.textContent, skyNow: bn.classList.contains("sky"), still: R.running(), lamps: extra.join(" "), called: R.called });
+        R.reset(); countdownEndAll(); el.bigNum.classList.remove("sky");
+      }
+      out.runs = runs;
+    `);
+  }
+  const refBad = [];
+  for (const [row, r] of Object.entries(refuse)) {
+    if (r.err || !r.runs) { refBad.push(`${row}: ${r.err || "no runs"}`); continue; }
+    for (const u of r.runs) {
+      if (!(u.ran > 120) || (/^marsBase/.test(row) && !u.called)) refBad.push(`${row} (sky ${u.sky}): its count did not run its length (${u.ran} frames${/^marsBase/.test(row) ? ", the pad called " + u.called : ""})`);
+      if (!new RegExp("^" + (u.sky ? "3\\^" : "3") + "x\\d+$").test(u.seen)) refBad.push(`${row} (sky ${u.sky}): the other owner's 3 did not stand, or its class moved (${u.seen})`);
+      if (u.ticks !== 0) refBad.push(`${row} (sky ${u.sky}): ${u.ticks} ticks of its own under another's numeral`);
+      if (!(u.refused > 0) || !u.held || u.text !== "3" || u.skyNow !== u.sky) refBad.push(`${row} (sky ${u.sky}): not refused whole (${JSON.stringify(u)})`);
+    }
+  }
+  check("numeral (v227, Q-30 e): the refused path, a row each (STAGED: none is reachable by touch -- the crane, the launch pad, the truck and the sled ask first, the rest are kilometres from every other count, k): another owner's 3 up, with and without the sky class, and the crane's, the launch pad's, the truck's, the sled's, the lock's, the carrier's, the tower catch's (a real flight) and Mars's pad count run to its go under it -- the 3 stands with its class unmoved, no tick of their own, refused every frame",
+    refBad.length === 0, JSON.stringify({ bad: refBad, rows: Object.fromEntries(Object.entries(refuse).map(([k, r]) => [k, r.runs ? r.runs.map(u => ({ sky: u.sky, ran: u.ran, seen: u.seen, ticks: u.ticks, refused: u.refused, lamps: u.lamps, still: u.still, called: u.called })) : r.err])) }));
   // g. the source
   {
     const fs = require("fs"), path = require("path"), dir = path.join(__dirname, "..", "cockpit", "js");

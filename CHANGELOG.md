@@ -10,6 +10,27 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v227 — a countdown does not follow him away
+
+When the fireworks barge or the giant monster truck had started its 3-2-1 and he pressed the go arrow, or
+ejected and was put back on the runway, the count carried on where he now was: its numbers counted down over
+the runway or the far airport, and the fireworks or the truck's jump went off kilometres behind him where nobody
+could see them. Now a count stands down the moment he is taken out of sight of it -- the number goes, nothing
+goes off, and the barge or the truck is ready again for when he comes back (flown back at, it counts again). The
+demolition block now notices at once that he has gone, not up to a third of a second later: with the barge's
+count gone at once, a missile he had put into the block while the barge counted set the block's own 3-2-1 going
+in that third of a second, and its 3 showed at the far airport. A
+count he is watching is unchanged: traced frame by frame through the truck's, the monster arena's, the sled's
+and the crane's checks, the numbers are the same as before everywhere he stays, and differ only where a check
+moves him away mid-count (and there the count now goes). The monster truck's countdown now runs through the
+same shared step as the barge's, with no change to what he sees or hears. The rest of the release is checks:
+the counts that never wait their turn (the carrier's catapult, the lock, the tower catch, Mars's pad) were
+measured to run kilometres from anything else that counts, so two can never be up at once there, and that
+distance is now pinned; asking for a race while a set-piece is counting was measured to stand that count down
+before the race starts, so the race's lights always count alone; the rocket sled on the dunes is now checked to
+go after the green, a missile kept waiting behind another count is checked to be dropped when he leaves, and the
+harness log now prints the HUD checks' details instead of "[object Object]".
+
 ## v226 — one countdown at a time
 
 The big number in the middle of the screen is shared by everything that counts down to a payoff, and two

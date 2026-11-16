@@ -10,7 +10,8 @@ module.exports = async function hudAuditChecks({ newPage, check: report }) {
   // Only the findings already fixed report (FIXED grows release by release, AUDIT.md's table); the rest
   // still run, so the scenarios stay honest, but stay quiet until their release. Anything not named
   // by a finding id (a page-error guard) always reports.
-  const check = (name, ok, detail) => { const id = (name.match(/^([A-Z]+-\d+)/) || [])[1]; if (!id || FIXED.has(id)) report(name, ok, detail); };
+  // (v227, Q-30 f) the detail goes out as a string: the harness prints it by concatenation, and an object read "[object Object]"
+  const check = (name, ok, detail) => { const id = (name.match(/^([A-Z]+-\d+)/) || [])[1]; if (!id || FIXED.has(id)) report(name, ok, detail === undefined || typeof detail === "string" ? detail : JSON.stringify(detail)); };
   // shared page helpers, installed into the page
   const install = () => {
     const L = window.__lp; L.noRender = true;

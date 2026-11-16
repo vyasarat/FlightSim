@@ -290,7 +290,9 @@ function updateFireworksBarge(dt) {
   } else if (ph === "count") {
     // (v226, B6) the count is the shared step's, on the numeral it owns (setpieces.js spCountStep): the barge is
     // the first set-piece moved on to it, the same steps in the same order it ran here by hand
-    const k = spCountStep("fireworksBarge", fbarge, dt, T.count, fbBusy());
+    // (v227) ... and it stands down out of sight (`near`, its drawn distance): taken away mid-count (the go arrow, a fresh
+    // start after an eject) its 3-2-1 ran on at the runway and its show went off where nobody saw it
+    const k = spCountStep("fireworksBarge", fbarge, dt, T.count, fbBusy(), !near);
     if (k === "stood") {
       fbarge.counting = false;
       fbarge.phase = "armed";
