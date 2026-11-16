@@ -39,7 +39,8 @@
 // THE BUTTONS: go and the picker only while it waits; the view, the photo and the
 // menu as everywhere. No speed steps (it does not drive), no eject (a parked crane's
 // cab is not a seat to fly out of), no horn. No other set-piece counts down while he
-// is in it (crQuiet): the one numeral is his.
+// is in it (crQuiet): the one numeral is his. (v230, B6) Its 3-2-1 is setpieces.js spCountStep, owned "crane",
+// with no stand-down of its own: crReset ends it (the picker, a fresh start).
 // ---------------------------------------------------------------------------
 const CR = TUNE.crane;
 const cr = {
@@ -261,13 +262,15 @@ function crUpdate(dt) {
   if (ph === "count") {
     // settle on the block it was pointed at, and count
     state.heading += wrapPi(g[cr.aim].bearing - state.heading) * (1 - Math.exp(-CR.lockRate * dt));
-    cr.t -= dt;
-    if (!countdownBlocked("crane")) el.bigNum.classList.add("sky");
-    countdownTo(cr.t, CR.count, "crane");
+    // (v230, B6) the count is the shared step's, on the numeral it owns (setpieces.js spCountStep): the crane is the
+    // fifth and last point-and-count set-piece moved on to it, the same steps in the same order it ran here by hand.
+    // NO `busy` and NO `away`: he is IN the crane, sitting at it -- it never moves and has no go arrow, no eject and
+    // no police; the picker (crLeave) and a fresh start (crSpawn) end its count by crReset, as before -- and the
+    // count runs on under the menu, as it always has (his press is kept until the numeral is free: never lost).
+    const c = spCountStep("crane", cr, dt, CR.count, false, false);
     setTone("crRumble", "sawtooth", CR.rumbleHz, CR.rumble * 0.5 * (1 - cr.t / CR.count));
-    if (cr.t <= 0) {
-      if (countdownClear("crane")) el.bigNum.classList.remove("sky");
-      state.heading = g[cr.aim].bearing;
+    if (c === "go") {
+      state.heading = g[cr.aim].bearing;    // (its numeral already down, by the step)
       cr.phase = "wind"; cr.t = 0;
     }
   } else if (ph === "wind") {

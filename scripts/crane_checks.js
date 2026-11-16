@@ -189,6 +189,8 @@ module.exports = async function craneChecks({ newPage, check }) {
         if (n && n !== lastN) nums.push(n);
         lastN = n;
         if (cr.phase !== lastP) { phases.push(cr.phase); lastP = cr.phase; }
+        // (v230, B6) the count's go: on the swing's first frame its numeral and its sky class are both down
+        if (cr.phase === "wind" && out.atWind === undefined) out.atWind = { on: big.classList.contains("on"), sky: big.classList.contains("sky") };
         if (ph0 === "count" && (L.flags.crHits || 0) > hitsBefore) hitsInCount++;
         const b = L.crBall();
         if (cr.phase === "wind") speeds.wind.push(b.speed);
@@ -427,9 +429,10 @@ module.exports = async function craneChecks({ newPage, check }) {
   for (const r of cycles) {
     const tag = `crane (${r.view})`, f = r.flags || {}, sp = r.speed || {}, a = r.after || {};
     const ran = !r.err && r.kind === "crane" && f.goes === 1 && f.hits === 1;
-    check(`${tag}: go (the go button tapped once) -- 3-2-1 on the big numeral, then the swing; nothing is hit while it counts`,
-      !r.err && r.kind === "crane" && f.goes === 1 && f.countdowns === 1 && r.nums === "321" && r.hitsInCount === 0 && /^count,wind,swing,fall/.test(r.phases || ""),
-      J({ err: r.err, nums: r.nums, phases: r.phases, hitsInCount: r.hitsInCount, flags: f }));
+    check(`${tag}: go (the go button tapped once) -- 3-2-1 on the big numeral, then the swing; nothing is hit while it counts; (v230) and as the swing begins the numeral and its sky class are down`,
+      !r.err && r.kind === "crane" && f.goes === 1 && f.countdowns === 1 && r.nums === "321" && r.hitsInCount === 0 && /^count,wind,swing,fall/.test(r.phases || "") &&
+        !!r.atWind && !r.atWind.on && !r.atWind.sky,
+      J({ err: r.err, nums: r.nums, phases: r.phases, hitsInCount: r.hitsInCount, atWind: r.atWind, flags: f }));
     check(`${tag}: the ball swings by itself -- drawn back slowly (over 1.5 s), then fast -- and hits the aimed block once (its speed at the hit over 2.5x the wind-up's average)`,
       ran && f.swings === 1 && sp.windSecs >= 1.5 && sp.windMean !== null && sp.atHit > 2.5 * sp.windMean && sp.atHit > 8,
       J({ err: r.err, speed: sp, flags: f }));

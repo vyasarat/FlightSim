@@ -20,7 +20,8 @@
 //      from stands down (h), the kept missile dropped (i), a race asked for or left with a count up
 //      (l), the separation of the counts that never ask (k), and the refused path, a row each (j).
 //      (v228) a count he comes at is never cut (m), a missile in flight at the go arrow (n); (v229) a count he
-//      turns away from at once is never cut either (o).
+//      turns away from at once is never cut either (o); (v230) B6 done: the source names every count still written
+//      by hand, and every point-and-count set-piece is on the one step (g).
 // Renders are scripts/fireworksbarge_renders.js, and are LOOKED at.
 // ---------------------------------------------------------------------------
 
@@ -278,13 +279,21 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
       objs().forEach((o, i) => { o.visible = was[i]; });
       return all - without;
     };
-    for (let i = 0; i < 20; i++) frame();
-    const idle = frame();
-    L.fbForce();
-    let worst = 0;
-    for (let i = 0; i < 60 * 20; i++) { if (i % 12 === 0) worst = Math.max(worst, frame()); else { hold(); L.update(1 / 60); } }
-    L.fbReset();
-    return { idle, worst };
+    // (v230) three counts its draw calls itself (renderer.info, in JS): the GL draws are left out while it counts.
+    // Drawn for real, these ~360 frames handed SwiftShader's GPU process some 80 s of rasterising, and the next page
+    // this module opened waited behind it to load (measured: its first numIn page took 82 s, the rest 2.7 s). The
+    // counts are three's own and come out the same either way.
+    const gl = L.renderer.getContext(), NO = ["drawArrays", "drawElements", "drawArraysInstanced", "drawElementsInstanced"], keep = NO.map(n => gl[n]);
+    NO.forEach(n => { gl[n] = () => {}; });
+    try {
+      for (let i = 0; i < 20; i++) frame();
+      const idle = frame();
+      L.fbForce();
+      let worst = 0;
+      for (let i = 0; i < 60 * 20; i++) { if (i % 12 === 0) worst = Math.max(worst, frame()); else { hold(); L.update(1 / 60); } }
+      L.fbReset();
+      return { idle, worst };
+    } finally { NO.forEach((n, i) => { gl[n] = keep[i]; }); }
   });
   check(`fireworks barge: it costs at most 15 draw calls standing and 30 through the finale (${cost.idle}, ${cost.worst})`,
     cost.idle > 0 && cost.idle <= 15 && cost.worst <= 30, cost);
@@ -497,6 +506,13 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
   // so there (a held finger, by touch) the count is judged to run on through the eject and go off, uncut. Within two frames the numeral is down and stays down, no payoff goes off out
   // of sight, the stand-down is the one for being out of sight (`countAway`: 0 before the press, at least 1 after it),
   // and the set-piece is armed: come back at, it counts again.
+  // (v230, Q-33 e) Not the rocket nor the booster rocket at the pad: neither can be in a pad count to be taken from it.
+  // The rocket stands on its airport's pad, 5.5 km (California) and 6.5 km (New York) from the launch pad, and climbs
+  // straight up from there: measured on real launches (the rocket and the starship from both airports, both
+  // directions, 8 s on the pad, then the finger held or let go after the drop), it never comes within 5.55 km of
+  // the pad (armR 1.4 km, 3-D) and the pad never counts. In the booster rocket he IS the pad's rocket: its stack steps
+  // aside and never counts while he is in it (launchsite.js, heavyHeld; the same launches from its pad, 29 m from the
+  // count's aim point: no count), and a count up when he picks it is stood down by the picker. So h has no rocket case.
   const awayRuns = {};
   const AWAY_CASES = [];
   for (const piece of ["barge", "truck", "sled", "pad"]) {
@@ -513,11 +529,19 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
       const ph = () => B ? fbarge.phase : T ? mtruck.phase : LS ? lsite.phase : sled.phase;
       const payoff = B ? "fbShows" : T ? "mtRuns" : LS ? "lsIgnitions" : "sledRuns", counts = B ? "fbCountdowns" : T ? "mtCountdowns" : LS ? "lsCountdowns" : "sledCountdowns";
       const owner = B ? "fireworksBarge" : T ? "monsterTruck" : LS ? "launchSite" : "rocketSled";
+      // (v230, Q-33 b) where its count's away is measured from, and how far it is drawn: each piece's own drawFog
+      const DR = () => B ? { x: FBARGE.x, z: FBARGE.z, R: TUNE.fogFar * FBARGE.drawFog } : T ? { x: mtruck.x, z: mtruck.z, R: TUNE.fogFar * MTRUCK.drawFog }
+        : LS ? { x: LSITE.x, z: LSITE.z, R: TUNE.fogFar * LSITE.drawFog } : { x: sled.x, z: sled.z, R: TUNE.fogFar * SLED.drawFog };
+      const fromDrawn = () => { const D = DR(); return Math.round(Math.hypot(st.x - D.x, st.z - D.z)); };
+      out.drawn = Math.round(DR().R);
+      // (v230, Q-33 d) the pad's arms (how far swung out) and every write of its roar after the press
+      const armsNow = () => Math.max(...lsite.arms.map(a => Math.abs(a.rotation.y)));
+      let padRoar = null;
       const standF = B ? "fbStandDowns" : T ? "mtStandDowns" : LS ? "lsStandDowns" : "sledStandDowns";
       // (v229, Q-32 e) the sled's lamps and its roar, read when it stands down and when he is back in its sight
       const lampsNow = () => sled.lamps.map(q => q.glow.material.opacity > 0 ? "o" : ".").join("");
       const st0 = window.setTone; let roar = null;
-      window.setTone = function (name, type, freq, g) { if (name === "sledRoar") roar = g; return st0.apply(this, arguments); };
+      window.setTone = function (name, type, freq, g) { if (name === "sledRoar") roar = g; if (name === "lsRoar" && padRoar) padRoar.push(+g.toFixed(4)); return st0.apply(this, arguments); };
       const cvs = L.renderer.domElement;
       const fire = (type, x, y) => cvs.dispatchEvent(new PointerEvent(type, { pointerId: 41, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true, clientX: x, clientY: y }));
       const ax = P.x - 600, az = P.z + 700, hdg = Math.atan2(-(P.x - ax), -(P.z - az));
@@ -541,16 +565,18 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
       let each = setUp();
       let at = -1;
       step(60 * 20, (i) => { if (each) each(); if (ph() === "count" && bn.classList.contains("on")) { at = i; return false; } });
-      step(20, each);
+      // (the pad's a beat longer, so its arms have swung out and its roar risen before he is taken away)
+      step(LS ? 90 : 20, each);
       out.at = at; out.before = bn.textContent; out.held = countdownHeldBy(owner);
       if (arg.veh === "car") out.skipShown = !el.skipBtn.classList.contains("hidden");
       if (SL) out.lampsBefore = lampsNow();
+      if (LS) out.armsBefore = +armsNow().toFixed(3);
       const btn = arg.how === "skip" ? el.skipBtn : el.ejectBtn;
       out.btn = !btn.classList.contains("hidden");
       const r0 = d("repositioned", f0);
       out.awayBefore = d("countAway", f0);
       if (arg.veh === "car") fire("pointerup", 410, 800);
-      roar = null;
+      roar = null; if (LS) padRoar = [];
       press(btn);
       // the car's eject keeps his place on the road (eject.js: surface progress is preserved): he is back by his car, in
       // sight, so it is NOT a take-away -- the count runs on and goes off, with no stand-down (judged below)
@@ -559,19 +585,22 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
       // (the whole world waits while he is under the canopy -- update() returns early for the rescue -- so the car's
       // count picks up again once he is back by his car)
       if (arg.veh === "car") { let k = 0; for (; k < 60 * 60 && (k < 2 || eject.active); k++) { L.update(1 / 60); snap(); } out.rescueF = k; }
-      step(60 * 12, () => { L.api.clearStick(); });
-      if (arg.veh === "car") { out.carDist = Math.round(Math.hypot(st.x - P.x, st.z - P.z)); out.carPay = d(payoff, f0); out.carAway = d("countAway", f0); out.carStand = d(standF, f0); out.ejectActive = eject.active; out.ph = ph(); out.seen = seen(n0).slice(0, 160); out.ejPhase = eject.phase; } else {
+      let armsUp = 0, armsLast = LS ? armsNow() : 0;
+      step(60 * 12, () => { L.api.clearStick(); if (LS) { const a = armsNow(); if (a > armsLast + 1e-6) armsUp++; armsLast = a; } });
+      if (LS && arg.veh !== "car") { out.armsAway = +armsLast.toFixed(4); out.armsUp = armsUp; out.padRoar = padRoar.slice(0, 8); out.padRoarN = padRoar.length; out.padRoarMax = Math.max(0, ...padRoar); }
+      padRoar = null;
+      if (arg.veh === "car") { out.carDist = fromDrawn(); out.carPay = d(payoff, f0); out.carAway = d("countAway", f0); out.carStand = d(standF, f0); out.ejectActive = eject.active; out.ph = ph(); out.seen = seen(n0).slice(0, 160); out.ejPhase = eject.phase; } else {
       const after = tr.frames.slice(n0);
       out.firstDown = after.findIndex(f => f.k[0] === "-"); out.upAfter = after.filter(f => f.k[0] !== "-").length;
       if (SL) { out.lampsAway = lampsNow(); out.roarAway = roar; roar = null; }
-      out.seen = seen(n0).slice(0, 160); out.dist = Math.round(Math.hypot(st.x - P.x, st.z - P.z));
+      out.seen = seen(n0).slice(0, 160); out.dist = fromDrawn();
       out.payoff = d(payoff, f0); out.phase = ph(); out.away = d("countAway", f0);
       // back: come at it again
       each = setUp();
       let again = -1;
       step(60 * 20, (i) => {
         // back in its sight, one frame on (its count, if it starts again at once, has not lit a lamp yet)
-        if (SL && i === 1) { out.lampsBack = lampsNow(); out.roarBack = roar; out.backDist = Math.round(Math.hypot(st.x - sled.x, st.z - sled.z)); }
+        if (SL && i === 1) { out.lampsBack = lampsNow(); out.roarBack = roar; out.backDist = fromDrawn(); }
         if (each) each(); if (ph() === "count" && bn.classList.contains("on")) { again = i; return false; } });
       if (arg.veh === "car") fire("pointerup", 410, 800);
       out.again = again; out.counts = d(counts, f0);
@@ -588,22 +617,26 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
     if (k.includes("/car/")) {
       if (r.err || !(r.at >= 0) || !r.btn || !r.held) { awayBad.push(`${k}: not counting by touch with the eject there (${JSON.stringify(r)})`); continue; }
       if (r.skipShown) awayBad.push(`${k}: a go arrow in the car`);
-      if (!(r.carDist < 2262) || r.carPay !== 1 || r.carAway !== 0 || r.carStand !== 0) awayBad.push(`${k}: the car's eject is not a take-away -- he stays in sight and the count should run on and go off (${r.carDist} m, ${r.carPay} payoffs, countAway ${r.carAway}, ${r.carStand} stand-downs)`);
+      if (!(r.carDist < r.drawn) || r.carPay !== 1 || r.carAway !== 0 || r.carStand !== 0) awayBad.push(`${k}: the car's eject is not a take-away -- he stays in sight and the count should run on and go off (${r.carDist} m, ${r.carPay} payoffs, countAway ${r.carAway}, ${r.carStand} stand-downs)`);
       continue;
     }
     if (r.err || !(r.at >= 0) || !r.btn || !r.held || (k.endsWith("eject") && !r.restarted)) { awayBad.push(`${k}: not counting by touch with its button there, or no fresh start (${JSON.stringify(r)})`); continue; }
-    if (!(r.dist > 2400)) awayBad.push(`${k}: not taken away (${r.dist} m)`);
+    if (!(r.dist > r.drawn)) awayBad.push(`${k}: not taken away (${r.dist} m from where it is drawn, drawn to ${r.drawn})`);
     if (r.firstDown < 0 || r.firstDown > 1 || r.upAfter > 1) awayBad.push(`${k}: its numeral followed him (${r.seen})`);
     if (r.payoff !== 0) awayBad.push(`${k}: its payoff went off out of sight (${r.payoff})`);
     if (r.awayBefore !== 0 || !(r.away >= 1)) awayBad.push(`${k}: not stood down for being out of sight (countAway ${r.awayBefore} before the press, ${r.away} after)`);
     if (r.skipShown) awayBad.push(`${k}: a go arrow in the car`);
     if (r.phase !== "armed" || !(r.again >= 0) || r.counts !== 2) awayBad.push(`${k}: not armed again when he came back (phase ${r.phase}, counted again at ${r.again}, ${r.counts} counts)`);
     // (v229, Q-32 e) the sled stood down out of sight: its lamps dark and its roar silent, then and when he is back
-    if (k.startsWith("sled/") && (!/o/.test(r.lampsBefore || "") || r.lampsAway !== "..." || r.roarAway !== 0 || r.lampsBack !== "..." || !(r.roarBack === null || r.roarBack === 0) || !(r.backDist < 2262)))
+    if (k.startsWith("sled/") && (!/o/.test(r.lampsBefore || "") || r.lampsAway !== "..." || r.roarAway !== 0 || r.lampsBack !== "..." || !(r.roarBack === null || r.roarBack === 0) || !(r.backDist < r.drawn)))
       awayBad.push(`${k}: the sled's lamps or roar not dark and silent after its stand-down (lit ${r.lampsBefore} at the press, ${r.lampsAway} and roar ${r.roarAway} away, ${r.lampsBack} and roar ${r.roarBack} back at ${r.backDist} m)`);
+    // (v230, Q-33 d) the pad stood down out of sight: its roar written to 0 (every write from the press on) and its
+    // arms easing back in (never swinging out again) from where the count had them to all but closed
+    if (k.startsWith("pad/") && (!(r.armsBefore > 0.2) || r.armsUp !== 0 || !(r.armsAway < 0.01) || !(r.padRoarN >= 1) || r.padRoarMax !== 0))
+      awayBad.push(`${k}: the pad's roar not silenced or its arms not eased back after its stand-down (arms ${r.armsBefore} at the press, ${r.armsAway} 12 s on, out again ${r.armsUp}x; roar written ${r.padRoarN}x, at most ${r.padRoarMax}: ${JSON.stringify(r.padRoar)})`);
   }
-  check("numeral (v227): a point-at count does not follow him away -- the fireworks barge, the monster truck, (v228) the rocket sled and (v229) the launch pad counting, the prop by touch (portrait) then the go arrow or the eject's fresh start, (v228) the helicopter's go arrow and (v229, for every one) its eject: the numeral down within two frames and down for the 12 s after, no show, run or launch out of sight, stood down for being out of sight (countAway), and come back at, it counts again (armed); (v229) the sled's lamps dark and its roar silent from the stand-down to his return; in the car (no go arrow) the eject keeps him in sight and the count runs on and goes off",
-    awayBad.length === 0, JSON.stringify({ bad: awayBad, runs: Object.fromEntries(Object.entries(awayRuns).map(([k, r]) => [k, { at: r.at, dist: r.dist, firstDown: r.firstDown, upAfter: r.upAfter, payoff: r.payoff, again: r.again, away: [r.awayBefore, r.away], seen: (r.seen || "").slice(0, 60), lamps: r.lampsBefore && [r.lampsBefore, r.lampsAway, r.roarAway, r.lampsBack, r.roarBack, r.backDist], err: r.err }])) }));
+  check("numeral (v227): a point-at count does not follow him away -- the fireworks barge, the monster truck, (v228) the rocket sled and (v229) the launch pad counting, the prop by touch (portrait) then the go arrow or the eject's fresh start, (v228) the helicopter's go arrow and (v229, for every one) its eject: the numeral down within two frames and down for the 12 s after, no show, run or launch out of sight, stood down for being out of sight (countAway), and come back at, it counts again (armed); (v229) the sled's lamps dark and its roar silent from the stand-down to his return; (v230) the pad's roar written silent and its arms easing back in; in the car (no go arrow) the eject keeps him in sight and the count runs on and goes off",
+    awayBad.length === 0, JSON.stringify({ bad: awayBad, runs: Object.fromEntries(Object.entries(awayRuns).map(([k, r]) => [k, { at: r.at, dist: r.dist, firstDown: r.firstDown, upAfter: r.upAfter, payoff: r.payoff, again: r.again, away: [r.awayBefore, r.away], seen: (r.seen || "").slice(0, 60), lamps: r.lampsBefore && [r.lampsBefore, r.lampsAway, r.roarAway, r.lampsBack, r.roarBack, r.backDist], arms: r.armsBefore !== undefined ? [r.armsBefore, r.armsAway, r.armsUp, r.padRoarN, r.padRoarMax] : undefined, drawn: r.drawn, err: r.err }])) }));
   // i. (v227, Q-30 d) the kept missile (demo.want) dropped when he goes: Q-7's flight (the prop, portrait), the barge
   // counting and his missile from its button landing in the block, kept -- then the go arrow (by touch: its drop is
   // the out-of-sight one, updateDemolition) or a relaunch (the picker and a fresh start, as audit_hud's __relaunch:
@@ -734,10 +767,14 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
       fire("pointerup", 410, 500); L.api.clearStick(); loud();
       return Object.assign(r, { boost: lit, cv: typeof cv !== "undefined" && cv.on, flipped: !!F.done, armD: F.armD });
     };
-    // the plane flown at it from 3 km, at its top step, its height held
+    // (v230, Q-33 f) the planes and the helicopter start 200 m outside its drawn distance (they flew from 3 km: the
+    // ~0.54 km between was cruising before anything could arm -- every arm range is inside the drawn distance,
+    // and a later one that is not arms at the start, in sight of an edge it then crosses: red, as before)
+    const airStart = (piece) => drawnAt(piece).R + 200;
+    // the plane flown at it from there, at its top step, its height held
     const planeRun = (piece, key, flip) => {
       resetAll(); quiet(piece);
-      const P = tgt(piece), a = Math.atan2(P.x - 300, P.z - 9000), ax = P.x - Math.sin(a) * 3000, az = P.z - Math.cos(a) * 3000;
+      const P = tgt(piece), a = Math.atan2(P.x - 300, P.z - 9000), ax = P.x - Math.sin(a) * airStart(piece), az = P.z - Math.cos(a) * airStart(piece);
       L.api.setVehicle(key); L.api.teleportAirborne(1200, 0, 320, 0);
       st.x = ax; st.z = az; st.y = L.terrainEff(ax, az) + 200; st.heading = Math.atan2(-(P.x - ax), -(P.z - az)); st.pitch = 0; st.bank = 0; L.api.clearStick();
       const fly = () => { L.api.clearStick(); st.y = Math.max(st.y, L.terrainEff(st.x, st.z) + 150); st.pitch = 0; };
@@ -746,11 +783,11 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
       const r = watch(piece, 60 * 90, () => { fly(); if (flip && armedNow(piece, F)) st.heading += Math.PI; }); loud();
       return Object.assign(r, { flipped: !!F.done, armD: F.armD });
     };
-    // the helicopter at its top step, its target the thing (staged), from 3 km
+    // the helicopter at its top step, its target the thing (staged), from there too
     const heliRun = (piece, flip) => {
       resetAll(); quiet(piece);
       L.api.setVehicle("helicopter"); L.api.spawnAt(0, 0); step(10);
-      const P = tgt(piece), a = Math.atan2(P.x - 300, P.z - 9000), ax = P.x - Math.sin(a) * 3000, az = P.z - Math.cos(a) * 3000;
+      const P = tgt(piece), a = Math.atan2(P.x - 300, P.z - 9000), ax = P.x - Math.sin(a) * airStart(piece), az = P.z - Math.cos(a) * airStart(piece);
       st.phase = "AIRBORNE"; st.x = ax; st.z = az; st.y = L.terrainEff(ax, az) + 120; heli.altitude = st.y; heli.vx = heli.vz = heli.vy = 0; heli.vertical = 0;
       st.heading = Math.atan2(-(P.x - ax), -(P.z - az));
       for (let i = 0; i < 8; i++) { press(el.speedBtn); L.update(1 / 60); if (st.speedStep === L.spdStepsFor(L.spdKey()).length - 1) break; }
@@ -763,31 +800,37 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
       return Object.assign(r, { flipped: !!F.done, armD: F.armD });
     };`;
   const standRuns = {};
-  const standOne = async (key, body) => {
+  // (v230, Q-33 f) the runs share pages: each sets up its own vehicle and place (resetAll, setVehicle) and judges
+  // deltas from its own start, as h's do -- the three cars and the unstaged run on one page, the prop, the fighter
+  // and the helicopter on another: 2 pages, not 7
+  const standPage = async (list) => {     // [key, body, perPiece]: body run once a piece (or once), its runs as out[...]
     const r = await numIn(`${STAND}
-      for (const piece of ["barge", "truck", "sled", "pad"]) { ${body} }
+      const runs = [${list.map(([k, body, per]) => `[${JSON.stringify(k)}, () => { const out = {}; ${per ? `for (const piece of ["barge", "truck", "sled", "pad"]) { ${body} }` : body} return out; }]`).join(", ")}];
+      for (const [key, run] of runs) {
+        try { for (const [k, v] of Object.entries(run())) out[key + " " + k] = v; }
+        catch (e) { out[key + " (page)"] = { err: String(e && e.stack || e).slice(0, 400) }; }
+      }
       L.api.clearStick();`);
-    if (r.err) standRuns[key + " (page)"] = { err: r.err };
-    for (const [k, v] of Object.entries(r)) if (k !== "err") standRuns[key + " " + k] = v;
+    if (r.err) standRuns["(page)"] = { err: r.err };
+    for (const [k, v] of Object.entries(r)) if (k !== "err") standRuns[k] = v;
   };
-  // (v229) each page runs m's coming-at runs and then o's going-away ones (below): the same staging, no page more
-  for (const veh of ["car", "cybertruck", "corvette"]) {
-    await standOne(veh, `L.api.setVehicle("${veh}"); L.api.spawnAt(0, 0); step(10);
+  // (v229) each vehicle runs m's coming-at runs and then o's going-away ones (below): the same staging
+  const carBody = (veh) => `L.api.setVehicle("${veh}"); L.api.spawnAt(0, 0); step(10);
       for (const flip of [false, true]) {
         const tag = flip ? " away" : "";
         for (const dir of [1, -1]) out[piece + (dir > 0 ? " +s" : " -s") + tag] = carRun(piece, dir, { flip });
         ${veh === "corvette" ? `for (const dir of [1, -1]) out[piece + (dir > 0 ? " +s" : " -s") + " booster" + tag] = carRun(piece, dir, { boost: true, flip });` : ""}
-      }`);
-  }
-  // the unstaged path (v228's finding): the bottom step through the pad's count, then the booster
-  {
-    const r = await numIn(`${STAND}
-      L.api.setVehicle("corvette"); L.api.spawnAt(0, 0); step(10);
-      out["truck -s slow, then the booster (unstaged)"] = carRun("truck", -1, { loud: true, slow: true, late: true });`);
-    for (const [k, v] of Object.entries(r)) standRuns["corvette " + k] = v;
-  }
-  for (const key of ["prop", "fighter"]) await standOne(key, `out[piece] = planeRun(piece, "${key}"); out[piece + " away"] = planeRun(piece, "${key}", true);`);
-  await standOne("helicopter", `out[piece] = heliRun(piece); out[piece + " away"] = heliRun(piece, true);`);
+      }`;
+  await standPage([
+    ...["car", "cybertruck", "corvette"].map(veh => [veh, carBody(veh), true]),
+    // the unstaged path (v228's finding): the bottom step through the pad's count, then the booster
+    ["corvette", `L.api.setVehicle("corvette"); L.api.spawnAt(0, 0); step(10);
+      out["truck -s slow, then the booster (unstaged)"] = carRun("truck", -1, { loud: true, slow: true, late: true });`, false],
+  ]);
+  await standPage([
+    ...["prop", "fighter"].map(key => [key, `out[piece] = planeRun(piece, "${key}"); out[piece + " away"] = planeRun(piece, "${key}", true);`, true]),
+    ["helicopter", `out[piece] = heliRun(piece); out[piece + " away"] = heliRun(piece, true);`, true],
+  ]);
   // (v229, Q-32 a) and what each run WAS: at the vehicle's top step (the slow run at its bottom one), the booster lit
   // and over BOOST_FLOOR where it is held (the Corvette's 128 m/s, over the top step's 85), and the unstaged run met
   // the pad's count on the way -- or the one guard on v228's mtDrawn fix passes on a drive that never tested it
@@ -808,15 +851,17 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
   // (v229) a car run whose count arms AT its drawn edge (under EDGE_M inside it): the monster truck's, since v228's
   // mtDrawn, at the booster's 128 m/s on the -s carriageway -- turned round there it is out of sight in a frame, so o
   // cannot judge it whole. It is unreachable by touch (no car turns on the motorway: it only ever arms coming at it,
-  // which m judges whole); o prints it, and judges only that it is a car's and that it stood down with no bang.
-  // Anything else armed at its edge -- a plane, the helicopter, who can turn -- is red.
+  // which m judges whole); o prints it, and judges only that it is THAT run (EDGE_KEY) and that it stood down with no
+  // bang. Anything else armed at its edge -- another car, piece or carriageway, a plane, the helicopter -- is red.
   const EDGE_M = 30;
+  // (v230, Q-33 a) and that is the ONE run let off: any other run (another car, piece or way) armed at its edge is red
+  const EDGE_KEY = "corvette truck -s booster away";
   const standBad = [], awayBad2 = [], edge = {};
   for (const [k, r] of Object.entries(standRuns)) {
     if (!/ away$/.test(k)) { judgeRun(k, r, standBad, "coming at"); continue; }
     if (!r.err && r.armD > r.drawn - EDGE_M) {
       edge[k] = { armD: r.armD, maxD: r.maxD, drawn: r.drawn, vmax: r.vmax, away: r.away, counts: r.counts, pay: r.pay, digits: r.digits };
-      if (!/^(car|cybertruck|corvette) /.test(k) || r.bang || !(r.away >= 1)) awayBad2.push(`${k}: armed at its drawn edge (${r.armD} of ${r.drawn} m) and not a car's clean stand-down`);
+      if (k !== EDGE_KEY || r.bang || !(r.away >= 1)) awayBad2.push(`${k}: armed at its drawn edge (${r.armD} of ${r.drawn} m) and not the one stated run's (${EDGE_KEY}) clean stand-down`);
       continue;
     }
     judgeRun(k, r, awayBad2, "going away from");
@@ -833,7 +878,7 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
   {
     const margins = {};
     for (const [k, r] of Object.entries(standRuns)) if (/ away$/.test(k) && !r.err && !edge[k]) { const pc = k.split(" ")[1]; margins[pc] = Math.min(margins[pc] === undefined ? 1e9 : margins[pc], r.drawn - r.maxD); }
-    check(`numeral (v229, Q-32 f): a count he goes AWAY from at once is never cut -- each of the coming-at runs (the barge, the truck, the sled and the launch pad; the three cars both ways and the Corvette's booster, the prop, the fighter and the helicopter, all at their top steps) turned round on the frame it arms (STAGED, the worst case) and away at the same speed: one whole count and its payoff, no stand-down, countAway 0, each piece's least margin to its drawn distance over 0 (printed); a car's count armed at its drawn edge, where no car can turn (the truck at the booster's speed), printed and judged only to stand down clean`,
+    check(`numeral (v229, Q-32 f): a count he goes AWAY from at once is never cut -- each of the coming-at runs (the barge, the truck, the sled and the launch pad; the three cars both ways and the Corvette's booster, the prop, the fighter and the helicopter, all at their top steps) turned round on the frame it arms (STAGED, the worst case) and away at the same speed: one whole count and its payoff, no stand-down, countAway 0, each piece's least margin to its drawn distance over 0 (printed); the one count armed at its drawn edge, where no car can turn (the truck, the Corvette's booster, -s), printed and judged only to stand down clean -- any other run armed at its edge is red`,
       awayBad2.length === 0 && Object.keys(margins).length === 4 && Object.values(margins).every(m => m > 0) && Object.keys(edge).length <= 1, JSON.stringify({ bad: awayBad2, margins, edge, runs: pick(/ away$/) }));
   }
   // n. (v228, Q-31 d) a missile still in FLIGHT toward the block when the go arrow takes him away (demoInSight's
@@ -1073,9 +1118,12 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
       R.running = () => mars.phase === "count"; R.frames = 60 * (MB.padCount + 0.5);`,
   };
   const refuse = {};
-  for (const [row, setup] of Object.entries(REFUSE_ROWS)) {
-    refuse[row] = await numIn(`
-      const R = {}; ${setup}
+  // (v230, Q-33 f) the rows share a page, each in its own block with its own flags and trace from its own start, and
+  // each reset after it: the seven on Earth on one page, Mars's two on a page each (one landing a page): 3, not 9
+  const ROW_PAGES = [Object.keys(REFUSE_ROWS).filter(r => !/^marsBase/.test(r)), ["marsBase"], ["marsBaseSky"]];
+  for (const rows of ROW_PAGES) {
+    const pr = await numIn(rows.map(row => `{ const out = {}; try {
+      const R = {}; ${REFUSE_ROWS[row]}
       const f0 = Object.assign({}, L.flags);
       const runs = [];
       for (const sky of (R.skies || [false, true])) {
@@ -1094,7 +1142,8 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
         R.reset(); countdownEndAll(); el.bigNum.classList.remove("sky");
       }
       out.runs = runs;
-    `);
+      } catch (e) { out.err = String(e && e.stack || e).slice(0, 400); } __rows[${JSON.stringify(row)}] = out; }`).join("\n").replace(/^/, "const __rows = out;\n"));
+    for (const row of rows) refuse[row] = pr.err ? { err: pr.err } : (pr[row] || { err: "no result" });
   }
   const refBad = [];
   for (const [row, r] of Object.entries(refuse)) {
@@ -1112,6 +1161,20 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
   {
     const fs = require("fs"), path = require("path"), dir = path.join(__dirname, "..", "cockpit", "js");
     const bad = [], places = { endAll: [], bare: [] };
+    // (v230, B6's close) WHO COUNTS, and how: every point-and-count set-piece runs its count on the one step
+    // (spCountStep) -- the barge, the truck, the sled, the launch pad and the crane -- and the hand-written counts that
+    // are left are the ones that are not point-and-count, each named here with why (setpieces.js's header): the
+    // demolition (a missile sets it off, its numeral mid-screen, its kept missile), the tower catch (altitude over the
+    // closing speed, not a clock), the carrier's catapult (he is put on it), the police's pull-over, Mars (two counts
+    // under the base, held under the picker and resumed), the lock and the race (they drive the digit: numShow). A new
+    // hand-written count, or the sky class moved by anyone but the step, is red here: it goes on spCountStep, or this
+    // list grows with its reason.
+    const ON_STEP = ["crane.js crane", "fireworksbarge.js fireworksBarge", "launchsite.js launchSite", "monstertruck.js monsterTruck", "rocketsled.js rocketSled"];
+    const BY_HAND = ["countdownTo marsbase.js marsBase", "countdownTo police.js police", "countdownTo setpieces.js carrier", "countdownTo setpieces.js demolition", "countdownTo setpieces.js towerCatch",
+                     "numShow lock.js lock", "numShow race.js race"];
+    // ... and who takes the sky class off: the step, each step-owner's reset (a count it holds when it is reset), the race (its own leave)
+    const SKY_OFF = ["crane.js", "fireworksbarge.js", "launchsite.js", "monstertruck.js", "race.js", "rocketsled.js", "setpieces.js"];
+    const who = { step: new Set(), hand: new Set(), clear: new Set(), skyOn: new Set(), skyOff: new Set() };
     for (const f of fs.readdirSync(dir).filter(f => f.endsWith(".js"))) {
       const src = fs.readFileSync(path.join(dir, f), "utf8").split("\n");
       src.forEach((line, i) => {
@@ -1129,7 +1192,15 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
           args.push(cur.trim());
           const owner = { countdownTo: args[2], countdownClear: args[0], numShow: args[1], countdownBlocked: args[0], countdownHeldBy: args[0], spCountStep: args[0] }[m[1]];
           if (!(f === "setpieces.js" && owner === "owner") && !/^"[A-Za-z]+"$/.test(owner || "")) bad.push(`${f}:${i + 1} ${m[1]}(${args.join(", ")})`);
+          const o = (owner || "").replace(/"/g, "");
+          if (!(f === "setpieces.js" && o === "owner")) {
+            if (m[1] === "spCountStep") who.step.add(`${f} ${o}`);
+            if (m[1] === "countdownTo" || m[1] === "numShow") who.hand.add(`${m[1]} ${f} ${o}`);
+            if (m[1] === "countdownClear") who.clear.add(`${f} ${o}`);
+          }
         }
+        if (/classList\.(add|toggle)\("sky"/.test(code)) who.skyOn.add(f);
+        if (/classList\.remove\("sky"\)/.test(code)) who.skyOff.add(f);
         if (/\bcountdownEndAll\(\)/.test(code) && !/function countdownEndAll/.test(code)) places.endAll.push(`${f}:${i + 1}`);
         if (/\bsetBigNum\(/.test(code) && !/function setBigNum/.test(code)) places.bare.push(f);
       });
@@ -1138,5 +1209,12 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
     const bareOk = places.bare.every(f => f === "setpieces.js");
     check("numeral (B6): every write and clear of the numeral in cockpit/js names its owner (a literal); the clear of all (countdownEndAll) is called in one place, the start's (towerCatchReset), and the bare write (setBigNum) only inside the mechanism in setpieces.js",
       bad.length === 0 && endAllOk && bareOk, JSON.stringify({ bad, endAll: places.endAll, bare: [...new Set(places.bare)] }));
+    const same = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+    const owners = new Set([...ON_STEP.map(x => x.split(" ")[1]), ...BY_HAND.map(x => x.split(" ")[2])]);
+    const strayClear = [...who.clear].filter(x => !owners.has(x.split(" ")[1]) || ![...ON_STEP, ...BY_HAND.map(y => y.split(" ").slice(1).join(" "))].includes(x));
+    const skyOn = [...who.skyOn].filter(f => f !== "setpieces.js"), skyOff = [...who.skyOff].filter(f => !SKY_OFF.includes(f));
+    check("numeral (v230, B6 done): every point-and-count set-piece counts on the one step (spCountStep: the barge, the truck, the sled, the launch pad and the crane), the counts still written by hand are exactly the stated ones that are not point-and-count (the demolition, the tower catch, the carrier, the police, Mars, the lock, the race), the sky class goes up only in the step, and no one else clears or takes it down",
+      same(who.step, ON_STEP) && same(who.hand, BY_HAND) && strayClear.length === 0 && skyOn.length === 0 && skyOff.length === 0,
+      JSON.stringify({ step: [...who.step].sort(), hand: [...who.hand].sort(), strayClear, skyOn, skyOff }));
   }
 };

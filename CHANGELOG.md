@@ -10,6 +10,26 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v230 — the crane's count, too: every point-and-count set-piece on one step
+
+The crane's 3-2-1 now runs through the same shared step as the barge's, the truck's, the sled's and the launch
+pad's -- the last of the five, so every set-piece he points at (or, in the crane, presses go for) now counts in one
+place. Nothing changes for him: traced frame by frame (the digit, its classes, the ticks, the phases and the flags)
+through the crane's, the HUD audit's and the leaving matrix's checks, the game is the same as before, byte for
+byte. The crane gets no stand-down of its own: he sits in it, and the picker and a fresh start already end its
+count. A check now reads the source and names every count still written by hand, each one that is not
+point-and-count (the demolition, the tower catch, the carrier, the police, Mars, the lock, the race), so a new
+hand-written one goes red. The rest is checks: a set-piece counting during a race (the launch pad on the snow and
+sky tracks, the sled on the dunes) is now checked to run whole and go off through every car's whole race (the pad
+counted 12 times on the snow and 6 on the sky road, the sled 16 times on the dunes, every one whole); after the pad
+stands down out of sight its rumble is checked silent and its arms checked easing back; the one count allowed to
+arm right at its drawn edge is pinned to the one run that does it; the crane's go is checked to take its number and
+its sky class down as the swing begins; and the rocket and the booster rocket were measured never to be near the
+pad's count (the rocket never comes within 5.5 km of it, and in the booster rocket the pad's own rocket is his, and
+never counts). The fireworks barge's checks ran 8.3 minutes alone and now run 6.0, every case kept: a draw-call
+count drew ~360 renders for real and left the graphics process rasterising for 78 s, which the next page waited
+behind; it now counts without drawing (the same counts), and runs share pages and start nearer.
+
 ## v229 — the launch pad's count, too
 
 The launch pad's 5-4-3-2-1 now runs through the same shared step as the barge's, the truck's and the sled's, and

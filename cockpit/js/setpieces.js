@@ -77,7 +77,10 @@ function countdownEndAll() { setBigNum(null); lastTick = -1; }
 // seconds left, `from` its first numeral, `busy` whether it must stand down this frame (the police pulling him
 // over, the picker). Returns "stood" (stood down: its numeral, if it held it, down), "go" (run out this frame: the
 // payoff's frame, its numeral down) or the numeral it shows (0 if it holds none). The same steps, in the same
-// order, each set-piece ran by hand; one set-piece is moved on to it per release (QUEUE B6), the barge first.
+// order, each set-piece ran by hand. (v230) Done: every point-and-count set-piece is on it -- the barge (v226), the
+// monster truck (v227), the rocket sled (v228), the launch pad (v229) and the crane (v230, with no `busy` and no
+// `away`: he sits in it). The counts still written by hand are not point-and-count (the demolition, the tower catch,
+// the carrier, the police, Mars, the lock, the race), and fireworksbarge_checks g names each one.
 // (v227) `away`: he has been TAKEN out of its sight mid-count (the caller says so: its own drawn distance) -- the
 // go arrow's skipToLanding in flight, a fresh start after an eject. The count stands down as for `busy`: numeral
 // down, no payoff out of sight, the set-piece re-armed for when he comes back -- as the demolition does out of sight

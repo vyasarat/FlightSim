@@ -54,6 +54,9 @@
 //   x. THE LAST LAP: the tune quicker, the stands roar once, the shut shortcut taken by a held steer then, never before;
 //   y. THE PHOTO FINISH: nose to nose at the line the race slows for it; a clear win does not.
 //
+// (v230, Q-33 c) and through d's, i's and p's whole races, a set-piece counting over the race (the launch pad on the
+// snow and the sky road, the rocket sled on the dunes) is never cut: no stand-down, every count to its payoff.
+//
 // Alone: node scripts/run_module.js race_event_checks
 // ---------------------------------------------------------------------------
 const { oneRace } = require("./race_drive");
@@ -166,8 +169,24 @@ module.exports = async function raceEventChecks({ newPage, check }) {
     c.lane.released === 3 && c.lane.crossedRoad && c.lane.spins >= 1 && c.gap.spins === 0 && c.rivals.released >= 3 && c.rivals.hits >= 2, J(c));
 
   // ---- d. a whole race: the noisy hand and random taps, in every car
+  // (v230, Q-33 c) and every whole race (d, i, p) is watched for the set-pieces counting over it (the launch pad on the
+  // snow and the sky road, the rocket sled on the dunes): read from the race's start (rcStartRace, wrapped -- it only
+  // reads) to its podium, judged after p
+  await page.evaluate(() => {
+    const L = window.__lp;
+    window.__rcSnap = () => { const f = L.flags; return { away: f.countAway || 0, lsS: f.lsStandDowns || 0, slS: f.sledStandDowns || 0, lsC: f.lsCountdowns || 0, lsI: f.lsIgnitions || 0,
+      slC: f.sledCountdowns || 0, slR: f.sledRuns || 0, lsPh: lsite.phase, slPh: sled.phase }; };
+    if (!window.__rcReal) { window.__rcReal = L.rcStartRace; L.rcStartRace = function () { const r = window.__rcReal.apply(this, arguments); window.__rcAt0 = window.__rcSnap(); return r; }; }
+  });
+  const inRace = { dunes: [], snow: [], sky: [] };
+  const countsOf = async (track, veh) => inRace[track].push(Object.assign({ veh }, await page.evaluate(() => {
+    const a = window.__rcAt0 || {}, b = window.__rcSnap(); window.__rcAt0 = null;
+    return { from: a.lsPh !== undefined, away: b.away - a.away, lsStand: b.lsS - a.lsS, sledStand: b.slS - a.slS, lsCounts: b.lsC - a.lsC, lsIgn: b.lsI - a.lsI,
+             sledCounts: b.slC - a.slC, sledRuns: b.slR - a.slR, ls: a.lsPh + ">" + b.lsPh, sl: a.slPh + ">" + b.slPh,
+             lsOwed: (a.lsPh === "count" ? 1 : 0) - (b.lsPh === "count" ? 1 : 0), slOwed: (a.slPh === "count" ? 1 : 0) - (b.slPh === "count" ? 1 : 0) };
+  })));
   const d = [];
-  for (const veh of ["car", "cybertruck", "corvette", "monster"]) d.push(await oneRace(page, veh, 5200 + d.length, { track: "dunes", taps: true }));
+  for (const veh of ["car", "cybertruck", "corvette", "monster"]) { d.push(await oneRace(page, veh, 5200 + d.length, { track: "dunes", taps: true })); await countsOf("dunes", veh); }
   const dOk = d.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.train || 0) >= 3 && (r.things.kinds.boulders || 0) >= 3);
   check(`race events: a whole race on the dunes with the noisy hand and random taps -- ${d.map(r => `${r.veh} came ${r.place}, the train under him ${r.things.kinds.train || 0}x, boulders ${r.things.kinds.boulders || 0}x, something every ${r.things.every_} s`).join("; ")}; ${d.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...d.map(r => r.stuckMax))} s`, dOk, J(d));
 
@@ -283,7 +302,7 @@ module.exports = async function raceEventChecks({ newPage, check }) {
 
   // ---- i. a whole race on the snow: the noisy hand and random taps, in every car
   const i_ = [];
-  for (const veh of ["car", "cybertruck", "corvette", "monster"]) i_.push(await oneRace(page, veh, 6200 + i_.length, { track: "snow", taps: true }));
+  for (const veh of ["car", "cybertruck", "corvette", "monster"]) { i_.push(await oneRace(page, veh, 6200 + i_.length, { track: "snow", taps: true })); await countsOf("snow", veh); }
   const iOk = i_.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.snowballs || 0) >= 3 && (r.things.kinds.avalanche || 0) === 1 && (r.things.kinds.jump || 0) >= 3);
   check(`race events: a whole race on the snow with the noisy hand and random taps -- ${i_.map(r => `${r.veh} came ${r.place}, snowballs ${r.things.kinds.snowballs || 0}x, the avalanche ${r.things.kinds.avalanche || 0}x, jumps ${r.things.kinds.jump || 0}x, something every ${r.things.every_} s`).join("; ")}; ${i_.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...i_.map(r => r.stuckMax))} s`, iOk, J(i_));
 
@@ -453,9 +472,29 @@ module.exports = async function raceEventChecks({ newPage, check }) {
 
   // ---- p. a whole race on the sky road: the noisy hand and random taps, in every car
   const p_ = [];
-  for (const veh of ["car", "cybertruck", "corvette", "monster"]) p_.push(await oneRace(page, veh, 8200 + p_.length, { track: "sky", taps: true }));
+  for (const veh of ["car", "cybertruck", "corvette", "monster"]) { p_.push(await oneRace(page, veh, 8200 + p_.length, { track: "sky", taps: true })); await countsOf("sky", veh); }
   const pOk = p_.every(r => r.podium && r.bangs === 0 && r.stuck === 0 && r.stuckMax <= 2 && r.things.every_ >= 4 && r.things.every_ <= 10.5 && (r.things.kinds.gust || 0) >= 5) && p_.reduce((a, r) => a + (r.things.kinds.ring || 0), 0) >= 4;
   check(`race events: a whole race on the sky road with the noisy hand and random taps -- ${p_.map(r => `${r.veh} came ${r.place}, gusts ${r.things.kinds.gust || 0}x, rings ${r.things.kinds.ring || 0}x, something every ${r.things.every_} s`).join("; ")}; ${p_.reduce((s, r) => s + r.bangs, 0)} bangs, the longest stuck ${Math.max(...p_.map(r => r.stuckMax))} s`, pOk, J(p_));
+
+  // ---- (v230, Q-33 c) a count INSIDE a race is never cut: through each of d's, i's and p's whole races (every car,
+  // from the race's start to its podium) no set-piece's count stood down -- for being out of its sight (countAway)
+  // or otherwise (the pad's, the sled's) -- and every count that started reached its payoff (a launch, a run; one
+  // still counting at the podium, or counting at the start, is owed). The launch pad counts on the snow and the sky
+  // road, the sled on the dunes: at least one each, or the check saw nothing.
+  {
+    await page.evaluate(() => { if (window.__rcReal) { window.__lp.rcStartRace = window.__rcReal; window.__rcReal = null; } });
+    const bad = [];
+    for (const [track, rs] of Object.entries(inRace)) for (const r of rs) {
+      if (!r.from) { bad.push(`${track}/${r.veh}: the race's start not seen`); continue; }
+      if (r.away !== 0 || r.lsStand !== 0 || r.sledStand !== 0) bad.push(`${track}/${r.veh}: a count cut in the race (countAway ${r.away}, the pad's stand-downs ${r.lsStand}, the sled's ${r.sledStand})`);
+      if (r.lsIgn !== r.lsCounts + r.lsOwed) bad.push(`${track}/${r.veh}: the pad counted ${r.lsCounts} and launched ${r.lsIgn} (${r.ls})`);
+      if (r.sledRuns !== r.sledCounts + r.slOwed) bad.push(`${track}/${r.veh}: the sled counted ${r.sledCounts} and ran ${r.sledRuns} (${r.sl})`);
+    }
+    const padN = [...inRace.snow, ...inRace.sky].reduce((a, r) => a + r.lsCounts, 0), sledN = inRace.dunes.reduce((a, r) => a + r.sledCounts, 0);
+    const each = { snow: inRace.snow.reduce((a, r) => a + r.lsCounts, 0), sky: inRace.sky.reduce((a, r) => a + r.lsCounts, 0), dunes: sledN };
+    check(`race events (v230, Q-33 c): a set-piece's count inside a race is never cut -- through every car's whole race on the snow (the launch pad counted ${each.snow}x), the sky road (${each.sky}x) and the dunes (the rocket sled ${each.dunes}x), no stand-down (countAway, the pad's, the sled's: 0) and every count that started reached its launch or run`,
+      bad.length === 0 && each.snow >= 1 && each.sky >= 1 && each.dunes >= 1 && padN >= 2, J({ bad, inRace }));
+  }
 
   // ---- q. nothing left on the sky road
   const q = await page.evaluate(() => {

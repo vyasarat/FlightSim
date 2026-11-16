@@ -166,7 +166,7 @@ const TONE_OWNER = {
   yachtHull: "yacht",                                    // yacht.js:248, :578
   rover: "rover|drone",                                  // rover.js:361, marsbase.js:983 (the drone uses it too)
   srBurst: "sled",                                       // sledride.js:108
-  crRumble: "crane", crHum: "crane",                     // crane.js:183-336 (its lot is drawn only while he is in it)
+  crRumble: "crane", crHum: "crane",                     // crane.js:184-339 (its lot is drawn only while he is in it)
   trkRattle: "track", trkWhir: "track",                  // track.js:751-1124
   fans: "astro",                                         // station.js:240-538
   raceCrowd: "race",                                     // race.js:1393, :2581 (+ the surfaces' tones, TUNE.race.surfaces[].tone)
@@ -631,7 +631,7 @@ async function install(cfg) {
       L.api.setVehicle("crane"); L.api.spawnAt(0, 0); closeScreens(); step(90);
       L.api.setThrottle(true); step(2); L.api.setThrottle(false);
       for (let i = 0; i < 60 * 3 && !numUp(); i++) L.update(1 / 60);
-      step(40);   // into the count: its rumble rises from zero (crane.js:267, x (1 - t/count))
+      step(40);   // into the count: its rumble rises from zero (crane.js:271, x (1 - t/count))
     },
     boat() { L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1); step(10); finger(60 * 4); },
     boatSeat() { SETUP.boat(); L.api.setView(false); step(10, () => L.api.setStick(0, 0)); },
