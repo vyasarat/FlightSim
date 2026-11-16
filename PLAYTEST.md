@@ -95,6 +95,7 @@ entry below.
 | v222 | probably nothing he remarks on: after the Moon, Mars or the station, the plane on the runway sounds like the plane at the airport (the apron's rumble, then the wind), and the car like the car, not the Moon's hollow hum; the sky and light are Earth's at once (a regression would be the Moon's hum or its dark sky back in the plane, the menu opened on the Moon taking him off it before he picks, or picking the rocket again not giving a fresh rocket on the pad) |  open |
 | v223 | probably nothing he remarks on: chased by the police, he taps the menu and the siren stops while the cards are up; he picks a car and drives on with no police (a regression would be the siren still wailing on the cards or back after he picks, a chase ending when he crashes, or the menu changing anything when no one is chasing him) |  open |
 | v224 | nothing he remarks on: the car sounds the same on the road, in the city, stopping and after a crash; a race started from a moving car has no tyre drone under it (a regression would be tyre noise cutting out or stuttering while he drives, or missing after a race) |  open |
+| v225 | nothing he remarks on: in the harbour the seaplane still drones in, lands and takes off, and once it has flown off its engine fades away instead of humming on; the car sounds as in v224 (a regression would be the seaplane silent while it is landing or taking off, or any sound cutting out while he drives or sails) |  open |
 
 ## Entries
 

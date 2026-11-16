@@ -307,10 +307,19 @@ function audioHush(g) { g.gain.cancelScheduledValues(0); g.gain.value = 0; }
 // so on a frame it was not written nobody wants it, and the frame's audio tail (audioFrame, AUDIO_TAILS.sweep)
 // sends it to zero through setTone's own 0.08 s ramp -- the same silence its writer would have written, so no click.
 // One tone per release (QUEUE B5). Each one's writer is surveyed first: it must write every frame it is audible.
-//   carTyre (v224, Q-16)  updateCar (car.js) writes it on every frame it runs -- the bang and the toy track at 0,
-//                         else from his speed -- and nothing else does above zero. A race (rcUpdate) never runs it, and
-//                         the tyres held their last gain under the whole race.
-const TONES_OWNED = ["carTyre"];
+//   carTyre (v224, Q-16)  updateCar (car.js) writes it on every frame it runs -- the toy track at 0, else from his
+//                         speed -- and nothing else does above zero. In pieces it does not run (the bang returns before
+//                         vehUpdate, so car.js's own in-pieces line is never reached from update()): nothing writes the
+//                         tyres there, and nothing sweeps them (the `bang` row below; v225 measured at most one such
+//                         frame a bang). A race (rcUpdate) never runs it, and the tyres held their last gain under the
+//                         whole race.
+//   seaPlane (v225)       seaPlane() (seaevents.js) writes it on every frame of a visit -- inbound, the splash, taxi,
+//                         turn, take-off -- from updateSeaEvents, every frame he is in the harbour's range (beyond it
+//                         seaHideAll writes the silence), in the bang and behind the cards too (updateSetpieces runs
+//                         before both). The take-off ends in state "away" and seaPlane() returns at its top from then
+//                         on: the engine of a plane no longer drawn held its last level (0.03-0.04) until the next
+//                         one came in, 70-130 s later, or he left the harbour (v225's survey: 2,501 frames).
+const TONES_OWNED = ["carTyre", "seaPlane"];
 const toneStamp = {};
 // frameCount is input.js's (it loads after this file), and a tone written while the page loads -- applyVehicle's
 // silences, before input.js has run -- is written before frame 0: that read would be its temporal dead zone

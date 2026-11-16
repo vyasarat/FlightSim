@@ -1164,11 +1164,12 @@ async function chaseMenuInPage() {
     {
       const before = chase(), e0 = flags.policeEnded || 0;
       L.api.clearStick(); press(el.menuBtn);
-      const f0 = frameCount, behind = series(60 * 4), writes = writesSince(f0);
+      // (v225, Q-28) opened and parked MEASURED on the press, as menuBehind does, never handed in as literals
+      const f0 = frameCount, opened = onScreen("screenVehicle"), parked = vehParked(), behind = series(60 * 4), writes = writesSince(f0);
       tap(document.querySelector('.vehCard[data-v="car"]')); step(10);
       press(document.querySelector('.dirCard[data-d="0"]'));
       const after = series(60 * 2);
-      out.menu = { before, behind, writes, after, ended: (flags.policeEnded || 0) - e0, up: ["screenVehicle", "screenDir", "screenDest"].filter(onScreen) };
+      out.menu = { before, opened, parked, behind, writes, after, ended: (flags.policeEnded || 0) - e0, up: ["screenVehicle", "screenDir", "screenDest"].filter(onScreen) };
     }
     // ---- a stay: a bang mid-chase (him, at speed, inside the nearest solid that blocks a car -- the leaving matrix's bang)
     {
@@ -1610,7 +1611,7 @@ module.exports = async function leaveMatrixChecks({ newPage, check }) {
         if (want.parked !== undefined && c.parked !== want.parked) bad.push(`${tag}: parked ${c.parked} behind the cards, want ${want.parked}`);
         if (c.exploding) bad.push(`${tag}: still in pieces behind the cards`);
       };
-      judge("motorway", m.behind ? { opened: true, ended: m.ended, behind: m.behind, writes: m.writes, parked: false } : null, { parked: false });
+      judge("motorway", m.behind ? { opened: m.opened, ended: m.ended, behind: m.behind, writes: m.writes, parked: m.parked } : null, { parked: false });
       const p = mo.pullover;
       if (!p || p.before.state !== "pullover" || !/^[1-3]$/.test(p.before.num) || !p.before.chase || !p.before.cars) bad.push(`pull-over: not caught with the numeral up before the menu (${JSON.stringify(p && p.before)})`);
       judge("pull-over", p, { parked: true });
