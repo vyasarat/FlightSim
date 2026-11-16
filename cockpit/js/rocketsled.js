@@ -568,7 +568,7 @@ function updateRocketSled(dt) {
   // v144: he has just got on it (sledride.js), or just got off: either way a fresh start at home
   const ridden = typeof srActive === "function" && srActive();
   if (ridden !== !!sled.ridden) sledSetRidden(ridden);
-  const near = Math.hypot(state.x - sled.x, state.z - sled.z) < TUNE.fogFar * 1.45;
+  const near = Math.hypot(state.x - sled.x, state.z - sled.z) < TUNE.fogFar * T.drawFog;   // (v229) by name: it decides the stand-down
   sled.g.visible = near;
   sled.sledG.visible = near && !sled.ridden;      // riding it, the sled drawn is his own
   sled.brickMesh.visible = near;

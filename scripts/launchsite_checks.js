@@ -190,9 +190,12 @@ module.exports = async function launchSiteChecks({ newPage, check }) {
     // 10 s into the climb, the plane level with its middle, coming straight at it
     L.lsReset(); L.api.setVehicle("prop"); L.api.placeOnRunway(); for (let i = 0; i < 5; i++) L.update(1 / 60);
     L.api.teleportAirborne(3000, 0, 250, 0);
-    put(T.x - 3000, 300, T.z - 3000, 1, 1);                    // far off, out of range, while it goes
+    // (v229) out of its arm range while it goes, but in its drawn distance (2.19 km of TUNE.fogFar * drawFog's 2.26):
+    // since v229 a count out of sight stands down (spCountStep's `away`), and from 4.2 km off it never lit
+    const far = () => put(T.x - 1550, 300, T.z - 1550, 1, 1);
+    far();
     L.lsForce();
-    for (let i = 0; i < 60 * 16; i++) { put(T.x - 3000, 300, T.z - 3000, 1, 1); L.update(1 / 60); }
+    for (let i = 0; i < 60 * 16; i++) { far(); L.update(1 / 60); }
     // 70 m off, level with where its middle will be when he gets there (it is
     // climbing at tens of metres a second)
     const lead = 70 / st.vp.cruiseSpeed, vy = S.speed * Math.cos(S.tilt);
@@ -201,7 +204,7 @@ module.exports = async function launchSiteChecks({ newPage, check }) {
     out.climb = fly(60 * 4, () => ({ dx: Math.round(st.x - S.x), alt: Math.round(S.alt), phase: S.phase }));
     // a landed booster
     L.lsReset(); L.lsForce();
-    for (let i = 0; i < 60 * 60 && !S.boosters.every(b => b.landed); i++) { put(T.x - 3000, 300, T.z - 3000, 1, 1); L.update(1 / 60); }
+    for (let i = 0; i < 60 * 60 && !S.boosters.every(b => b.landed); i++) { far(); L.update(1 / 60); }
     const b = S.boosters[0];
     out.landedBoth = S.boosters.every(q => q.landed);
     put(b.x - 140, b.lzY + 30, b.z, 1, 0);

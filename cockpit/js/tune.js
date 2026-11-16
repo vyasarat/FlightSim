@@ -1354,6 +1354,7 @@ const TUNE = {
     boomAt: 0.55, boomGap: 0.4,     // the double sonic boom: this far through the boosters' glide, this far apart
     selfLight: 0.35,                // the rocket's paint carries this share of its own colour as light
     glowSee: 900,                   // past this the engine glow grows with distance, so it never shrinks to nothing
+    drawFog: 1.45,                  // drawn within this many fog-distances of the pad: and (v229) its count stands down beyond it
   },
   // ---- The rocket sled (js/rocketsled.js): a rocket on a rail in the desert,
   // west of the motorway. Point at it and it blasts off down the rail, smashes
@@ -1393,6 +1394,7 @@ const TUNE = {
     size: 2.6,                      // the sled, over a 12 m sled: 31 m of it
     reticleR: 13, reticleRate: 2.4, // the pulsing target on both faces of the wall, as the demolition's
     clearAhead: 80, clearSpeed: 40, // anything sitting still on the rail this far ahead is stepped aside, west, this fast
+    drawFog: 1.45,                  // drawn within this many fog-distances of the sled: and (v228) its count stands down beyond it
   },
   // ---- The fireworks barge (js/fireworksbarge.js): a barge of mortar racks on
   // the great lake, just west of the motorway. Point at it and every rack goes.
