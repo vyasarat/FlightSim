@@ -54,7 +54,7 @@ function marsClear() {
   const flagIndex = ambFlags.indexOf(mars.flag);
   if (flagIndex !== -1) ambFlags.splice(flagIndex, 1);
   mars.flag = null;
-  countdownClear();
+  countdownClear("marsBase");
   mars.pad = null; mars.padMat = null; mars.lights = []; mars.padGlow = null;
   mars.cargo = null; mars.cargoGlow = null; mars.horizonLight = null;
   mars.phase = "none"; mars.t = 0; mars.cargoT = 0; mars.cargoPhase = "waiting";
@@ -363,7 +363,7 @@ function updateMarsBase(dt) {
     // cargo ship's count runs on silently (its light still blinking) -- both writing it made the
     // tick fire every frame, a buzz
     const padCounting = mars.phase === "count";
-    if (!padCounting) countdownTo(mars.cargoT, MB.cargoCount);
+    if (!padCounting) countdownTo(mars.cargoT, MB.cargoCount, "marsBase");   // (v226) one owner, the base: the pad's count and the cargo's are its own two
     // a light low on the horizon, where it is coming from
     if (!mars.horizonLight) {
       const p = surfacePoint(mars.body, mars.n, MB.cargoOffset, 2.9);
@@ -373,7 +373,7 @@ function updateMarsBase(dt) {
     }
     mars.horizonLight.visible = (frameCount % 26) < 14;
     if (mars.cargoT <= 0) {
-      if (!padCounting) countdownClear();
+      if (!padCounting) countdownClear("marsBase");
       if (mars.horizonLight) { disposeSurfaceObjects([mars.horizonLight]); mars.horizonLight = null; }
       marsCargoStart();
     }
@@ -420,19 +420,19 @@ function updateMarsBase(dt) {
     // (v211) the rover is out again (roverCan refuses it now, but nothing may ever drive it on the
     // pad's held throttle): the pad stands down to resting; driving out and back calls it again
     mars.phase = "idle";
-    countdownClear();
+    countdownClear("marsBase");
     state.throttleHeld = false; releaseThrottle();
   } else if ((mars.phase === "count" || mars.phase === "launch") && menuOpen()) {
     // (v211) the picker is up over it: the pad holds where it was, its numeral off and its throttle
     // let go -- held under the cards, it lit the next rocket he picked. Shut again with nothing
     // picked, the count goes on from there: nothing he had is taken away.
-    countdownClear();
+    countdownClear("marsBase");
     state.throttleHeld = false;
   } else if (mars.phase === "count") {
     mars.t -= dt;
-    countdownTo(mars.t, MB.padCount);
+    countdownTo(mars.t, MB.padCount, "marsBase");
     if (mars.t <= 0) {
-      countdownClear();
+      countdownClear("marsBase");
       mars.phase = "launch";
       state.throttleHeld = true;        // the pad lights him: the normal launch, hands off
     }

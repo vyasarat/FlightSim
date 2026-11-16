@@ -176,7 +176,7 @@ function crSpawn() {
 }
 // Back to waiting, everything standing, nothing in the air, nothing counting.
 function crReset() {
-  if (cr.phase === "count") { countdownClear(); el.bigNum.classList.remove("sky"); }
+  if (cr.phase === "count" && countdownClear("crane")) el.bigNum.classList.remove("sky");
   cr.phase = "armed"; cr.t = 0; cr.theta = 0; cr.thetaPrev = 0; cr.ballSpeed = 0; cr.want = false; cr.cable = CR.cable;
   if (cr.built) crTowersHome();
   crClearPieces();
@@ -262,11 +262,11 @@ function crUpdate(dt) {
     // settle on the block it was pointed at, and count
     state.heading += wrapPi(g[cr.aim].bearing - state.heading) * (1 - Math.exp(-CR.lockRate * dt));
     cr.t -= dt;
-    el.bigNum.classList.add("sky");
-    countdownTo(cr.t, CR.count);
+    if (!countdownBlocked("crane")) el.bigNum.classList.add("sky");
+    countdownTo(cr.t, CR.count, "crane");
     setTone("crRumble", "sawtooth", CR.rumbleHz, CR.rumble * 0.5 * (1 - cr.t / CR.count));
     if (cr.t <= 0) {
-      countdownClear(); el.bigNum.classList.remove("sky");
+      if (countdownClear("crane")) el.bigNum.classList.remove("sky");
       state.heading = g[cr.aim].bearing;
       cr.phase = "wind"; cr.t = 0;
     }

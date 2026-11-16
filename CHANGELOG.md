@@ -10,6 +10,25 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v226 — one countdown at a time
+
+The big number in the middle of the screen is shared by everything that counts down to a payoff, and two
+things could count on it at once. Flying the route south from New York over the demolition block, the fireworks
+barge on the lake a kilometre further on starts its 3-2-1 just as he comes up on the towers; a missile into the
+block then started a second 3-2-1 on top of it. The two fought over the number every frame, the tick sounded
+twice a frame for over a second (a buzz), and the demolition's count finished in the wrong place. Now whoever
+puts the number up owns it until it comes down, and nobody else can change it: the missile that hits the block
+is kept, and the block counts and falls the moment the barge's count is over. The same rule fixed three other
+things the survey found. At the start of every race on the dunes track the rocket sled's wall, 900 metres ahead
+of the grid, set off the sled's own count over the starting lights, so the lights' 3-2-1 came out garbled; the
+sled now waits for the green and goes then. Pressing the go arrow during a demolition count left its last
+number standing on the screen for good, with nothing counting. And when the police let him go beside a
+set-piece that had started counting, the police's departure blinked that count off for a frame and ticked it
+again. None of the counts, wind-ups or payoffs changed length. In this release the fireworks barge is the first
+set-piece whose count runs through the one shared step; the others follow one at a time. Separately, the checks on
+the seaplane's engine sound now listen from the yacht and from a plane flying over the harbour as well as from
+the speedboat, and through an eject and dad mode in the middle of a visit.
+
 ## v225 — the seaplane's engine stops when the seaplane has gone
 
 In the harbour a seaplane comes in every minute or two, lands, turns and takes off again. Once it had flown

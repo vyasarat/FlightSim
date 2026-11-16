@@ -81,6 +81,9 @@ module.exports = async function hudAuditChecks({ newPage, check: report }) {
     const h3a = await page.evaluate(() => {
       const L = window.__lp, st = L.state;
       L.api.setVehicle("prop"); st.x = demo.x - 600; st.z = demo.z; st.y = 400; st.phase = "AIRBORNE"; st.speed = 60; __step(30);
+      // (v226, B6) a missile into the block waits while another count holds the numeral (the barge's, started at his
+      // new start by the relaunch above): the harness's trigger asks for it free first, as a missile now does
+      for (let i = 0; i < 60 * 12 && L.spCountBusy("demolition"); i++) L.update(1 / 60);
       const trig = L.demoTrigger(); __step(60);
       const before = el.bigNum.classList.contains("on") ? el.bigNum.textContent : "";
       __relaunch("prop", 0);
@@ -99,6 +102,7 @@ module.exports = async function hudAuditChecks({ newPage, check: report }) {
       const L = window.__lp, st = L.state;
       for (let i = 0; i < 900 && demo.phase !== "armed"; i++) L.update(1 / 60);
       L.api.setVehicle("prop"); st.x = demo.x - 600; st.z = demo.z; st.y = 400; st.phase = "AIRBORNE"; st.speed = 60; __step(30);
+      for (let i = 0; i < 60 * 12 && L.spCountBusy("demolition"); i++) L.update(1 / 60);   // (v226) as above
       const trig = L.demoTrigger();
       for (let i = 0; i < 900 && demo.phase !== "folding"; i++) L.update(1 / 60);
       __step(20);

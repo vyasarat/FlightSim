@@ -319,6 +319,12 @@ function audioHush(g) { g.gain.cancelScheduledValues(0); g.gain.value = 0; }
 //                         before both). The take-off ends in state "away" and seaPlane() returns at its top from then
 //                         on: the engine of a plane no longer drawn held its last level (0.03-0.04) until the next
 //                         one came in, 70-130 s later, or he left the harbour (v225's survey: 2,501 frames).
+//                         (v226, Q-29) Two ways through update() skip its writer mid-visit: the eject (the canopy
+//                         returns before updateSetpieces) and dad mode (updateSetpieces does not run there). The
+//                         plane is frozen where it was and its engine is written to 0 meanwhile (by ejectStart's
+//                         silence under the canopy, by the sweep in dad mode); on the first
+//                         frame updateSetpieces runs again seaPlane() writes it back (or seaHideAll's silence, out of
+//                         range) -- measured from the speedboat, the prop overhead and dad mode (engine_sound_checks).
 const TONES_OWNED = ["carTyre", "seaPlane"];
 const toneStamp = {};
 // frameCount is input.js's (it loads after this file), and a tone written while the page loads -- applyVehicle's

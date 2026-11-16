@@ -294,8 +294,8 @@ function lockUpdate(dt) {
     }
     case "warn": {
       lock.t -= dt;
-      setBigNum(Math.max(1, Math.ceil(lock.t)));
-      if (lock.t <= 0) { lock.state = "closing"; lock.t = LK.gateTime; setBigNum(null); lkRumble(); }
+      numShow(Math.max(1, Math.ceil(lock.t)), "lock");   // (v226, B6) the lock's own count, owned
+      if (lock.t <= 0) { lock.state = "closing"; lock.t = LK.gateTime; numShow(null, "lock"); lkRumble(); }
       break;
     }
     case "closing": {

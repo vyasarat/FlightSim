@@ -1387,7 +1387,8 @@ function raceReset() {
   race.loseShot = null;
   if (el.raceHud) el.raceHud.classList.add("hidden");
   raceClosePicker();
-  setBigNum(null); el.bigNum.classList.remove("sky", "race");
+  // (v226, B6) the race's own numeral only: a set-piece's count up beside it is that set-piece's to end
+  numShow(null, "race"); el.bigNum.classList.remove("race"); if (!countdownBlocked("race")) el.bigNum.classList.remove("sky");
   if (car.screen) car.screen.visible = true;
   if (typeof cvUpdate === "function" && state.vp && state.vp.corvette) cvUpdate(1 / 60, false);
   setTone("raceCrowd", "sawtooth", 120, 0);
@@ -1473,12 +1474,12 @@ function rcGrid(dt, touching) {
   if (lit >= 1 && lit <= 3 && touching && race.revLit !== lit) { race.revLit = lit; synthBlip("sawtooth", 70 + lit * 35, 110 + lit * 45, 0.5, 0.07, 0); }
   for (let k = 0; k < 3; k++) race.lights[k].material.color.setHex(k < lit ? 0xe0483e : TUNE.palette.ink);
   const left = 3 - Math.max(0, lit) + 1;
-  if (lit >= 1 && lit <= 3) { setBigNum(4 - lit); if (race.lastLit !== lit) { race.lastLit = lit; synthBlip("triangle", 520, 520, 0.16, 0.18, 0); } }
+  if (lit >= 1 && lit <= 3) { if (numShow(4 - lit, "race") && race.lastLit !== lit) { race.lastLit = lit; synthBlip("triangle", 520, 520, 0.16, 0.18, 0); } }
   if (lit >= 4) {
     for (const L of race.lights) L.material.color.setHex(0x36c46a);
-    setBigNum(null);
+    numShow(null, "race");
     race.phase = "race"; race.raceT0 = race.t; race.lastLit = 0;
-    el.bigNum.classList.remove("sky", "race");
+    el.bigNum.classList.remove("race"); if (!countdownBlocked("race")) el.bigNum.classList.remove("sky");
     synthBlip("triangle", 1040, 1040, 0.4, 0.24, 0);
     flags.raceGo = (flags.raceGo || 0) + 1;
     race.revLit = 0;
@@ -2628,6 +2629,12 @@ function rcHud() {
 // (v215) ... nor inside the car wash: the wash holds him to its rail, so a race started from in it sat
 // frozen, his car off screen, and its EXIT put him back in the wash. The flag comes back when it is done.
 function raceWashBusy() { return typeof twWashBusy === "function" && twWashBusy(); }
+// (v226, B6) the grid's 3-2-1 is a count on the one numeral like the set-pieces': from the frame the race starts
+// (its first lamp is a beat away), no set-piece starts one on top of it. On the dunes track the rocket sled's wall
+// is 900 m off the grid's nose, in a car he is not (vehIsCar is false in a race: it arms by armR): it counted the
+// same frame, the two counts fought for the digit, ticking twice a frame, and the sled ran under the lamps. It
+// waits for the green now, as it waits for anyone's count.
+spCountRegister("race", () => race.on && race.phase === "grid");
 function raceBtnShows() {
   return raceCarOK() && !race.on && !state.exploding && !menuOpen() && !(typeof eject !== "undefined" && eject.active) &&
     !(typeof trk !== "undefined" && trk.on) && !(typeof dadActive === "function" && dadActive()) && !raceWashBusy();

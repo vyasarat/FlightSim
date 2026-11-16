@@ -17,26 +17,75 @@
 // ---- the big numeral. Shared by every set-piece that counts down: numbers are
 // allowed in this game, words are not. Nothing is on screen unless a wind-up is
 // actually running, so the HUD gains nothing permanent.
+//
+// (v226, B6) THE NUMERAL HAS AN OWNER. Whoever puts a number up holds it until it comes down, and only the
+// holder writes it or takes it down: every writer names itself -- countdownTo(left, from, owner),
+// countdownClear(owner), numShow(n, owner) for the two that drive the digit themselves (the lock, the race).
+//   ONE RULE when a second count wants it while one is up: THE FIRST KEEPS IT, the newcomer waits. A write or a
+//   clear by anyone else is refused, and does nothing -- no digit, no tick, no class (countdownBlocked says so
+//   before a caller moves the class). Starting is asked first, as before (spCountBusy): the point-at set-pieces
+//   re-ask every frame while he points, the crane and the sled ride keep his press until it is free, and the
+//   demolition keeps the missile that set it off (demo.want, Q-7).
+//   ONE clear needs no owner, because it ends everything: a fresh start (spawnForTakeoff's LEAVE row
+//   `towerCatch`, towerCatchReset: it is run from nowhere else) -- countdownEndAll(). A vehicle change ends no
+//   count but its own (the crane's crReset, by name). setBigNum is the bare write under all of these: the
+//   harness's door (__lp.setBigNum) and nothing else in the game calls it.
 let bigNumShown = null;
+let bigNumOwner = null;            // who holds the numeral while it is up; null when it is down (or a bare write put it up)
 function setBigNum(n) {
   const v = n === null || n === undefined ? "" : String(Math.max(0, Math.round(n)));
+  if (v === "") bigNumOwner = null;
   if (v === bigNumShown) return;
   bigNumShown = v;
   el.bigNum.textContent = v;
   el.bigNum.classList.toggle("on", v !== "");
   if (v !== "") { el.bigNum.classList.remove("beat"); void el.bigNum.offsetWidth; el.bigNum.classList.add("beat"); }
 }
+// Someone else holds the numeral: `owner` may not write it, take it down, or move its class.
+function countdownBlocked(owner) { return !!bigNumShown && bigNumOwner !== null && bigNumOwner !== owner; }
+function countdownHeldBy(owner) { return !!bigNumShown && bigNumOwner === owner; }
+function numRefused() { flags.numRefused = (flags.numRefused || 0) + 1; return false; }
+// The digit itself, for a writer that drives it (and its tick) on its own: n, or null to take it down.
+function numShow(n, owner) {
+  if (countdownBlocked(owner)) return numRefused();
+  setBigNum(n);
+  if (bigNumShown) bigNumOwner = owner;
+  return true;
+}
 // A countdown from `from` over `total` seconds, given how much is left. Returns
-// the numeral it is showing so a caller can chirp on the change.
+// the numeral it is showing so a caller can chirp on the change (0 when it is not
+// showing one: run out, or refused -- someone else holds it).
 let lastTick = -1;
-function countdownTo(left, from) {
+function countdownTo(left, from, owner) {
+  if (countdownBlocked(owner)) { numRefused(); return 0; }
   if (left <= 0) { setBigNum(null); lastTick = -1; return 0; }
   const n = Math.min(from, Math.max(1, Math.ceil(left)));
-  setBigNum(n);
+  setBigNum(n); bigNumOwner = owner;
   if (n !== lastTick) { lastTick = n; synthBlip("triangle", 520, 520, 0.16, 0.16, 0); }
   return n;
 }
-function countdownClear() { setBigNum(null); lastTick = -1; }
+// Its owner takes it down; true if it did (or it was down already), false if it is someone else's.
+function countdownClear(owner) {
+  if (countdownBlocked(owner)) return numRefused();
+  setBigNum(null); lastTick = -1;
+  return true;
+}
+// The one clear that asks nobody: a fresh start ends every count (see above, and towerCatchReset).
+function countdownEndAll() { setBigNum(null); lastTick = -1; }
+
+// (v226, B6) One frame of a point-and-count set-piece's count on the one numeral, up in the sky: `c.t` is its
+// seconds left, `from` its first numeral, `busy` whether it must stand down this frame (the police pulling him
+// over, the picker). Returns "stood" (stood down: its numeral, if it held it, down), "go" (run out this frame: the
+// payoff's frame, its numeral down) or the numeral it shows (0 if it holds none). The same steps, in the same
+// order, each set-piece ran by hand; one set-piece is moved on to it per release (QUEUE B6), the barge first.
+function spCountStep(owner, c, dt, from, busy) {
+  if (busy) { if (countdownClear(owner)) el.bigNum.classList.remove("sky"); return "stood"; }
+  c.t -= dt;
+  if (!countdownBlocked(owner)) el.bigNum.classList.add("sky");
+  const n = countdownTo(c.t, from, owner);
+  if (c.t <= 0) { if (countdownClear(owner)) el.bigNum.classList.remove("sky"); return "go"; }
+  return n;
+}
 
 // The big numeral is ONE thing on the screen, and the set-pieces that point-and-
 // count share it. Each registers whether it is counting; none STARTS while the
@@ -71,7 +120,10 @@ const demo = {
   phase: "armed",      // armed | charging | folding | down | rising
   t: 0, next: 0, folded: 0,
   clock: 0,            // its own clock: the pulse and the blink run off dt, not the wall clock
+  want: false,         // (v226, Q-7) a missile landed while the numeral was someone else's: it goes when it is free
 };
+// (v226) it counts on the one numeral like the others: from the frame it is set off, before its first digit is drawn
+spCountRegister("demolition", () => demo.phase === "charging");
 
 function buildDemolition() {
   const half = TUNE.routeLength / 2;
@@ -171,8 +223,15 @@ function demoAlarmMuted() {
 function demoTowerWorld(t) { return { x: demo.x + t.lx, y: demo.base, z: demo.z + t.lz }; }
 
 // Set it off. Only ever called from a missile landing in the block.
+// (v226, B6, Q-7) ... and it asks for the numeral first, as every count does (spCountBusy): flying the route south
+// from New York over the block, the fireworks barge a kilometre on starts its 3-2-1 as he comes up on it, and a
+// missile into the block then started a second count on top -- the digits fought every frame, ticking twice a
+// frame (a buzz), and the demolition's ended in the middle of the screen. Now the missile is KEPT (demo.want)
+// and the block goes the moment the numeral is free -- its own 3-2-1, the fold, as ever: nothing he did is lost.
 function demoTrigger() {
   if (demo.phase !== "armed") return false;
+  if (spCountBusy("demolition")) { demo.want = true; return false; }
+  demo.want = false;
   demo.phase = "charging";
   demo.t = DEMO.charge;
   demo.next = 0; demo.folded = 0;
@@ -184,8 +243,9 @@ function demoTrigger() {
 // (v213) a relaunch (the picker, the go arrow) is not his demolition any more: a count still running
 // stands down and the block re-arms. (A fold already falling goes on; out of sight it is silent.)
 function demoStandDown() {
+  demo.want = false;                 // (v226) a missile kept for a busy numeral is not his any more either
   if (demo.phase !== "charging") return;
-  countdownClear();
+  countdownClear("demolition");
   demoReset();
 }
 
@@ -204,7 +264,7 @@ function demoFoldTower(t) {
 }
 
 function demoReset() {
-  demo.phase = "armed";
+  demo.phase = "armed"; demo.want = false;
   demo.t = 0; demo.next = 0; demo.folded = 0;
   for (const t of demo.towers) {
     t.fold = 0; t.down = false;
@@ -222,6 +282,11 @@ function updateDemolition(dt) {
   if (!demo.g || !demo.g.visible) {
     // far away: keep the clock running so it is always ready when he comes back
     if (demo.phase !== "armed") { demo.t -= dt; if (demo.t <= 0 && demo.phase !== "folding") demoReset(); }
+    // (v226, B6) ... and its numeral does not stay behind: taken out of sight mid-count by the go arrow (skipToLanding
+    // moves him, it starts nothing), the count runs out here, where it is never drawn, and its last digit stood on
+    // his screen for good with nothing counting. A missile kept for the numeral is dropped too: he has gone.
+    if (countdownHeldBy("demolition")) countdownClear("demolition");
+    demo.want = false;
     // (v213) ... and nothing of it follows him: left mid-fold (the go arrow, the picker) its rumble
     // stayed at full, five times the engine, everywhere. (Left mid-count by a relaunch, its numeral
     // stood over his new start: spawnForTakeoff stands the count down -- demoStandDown.)
@@ -239,6 +304,8 @@ function updateDemolition(dt) {
     // the reticle pulses: the one thing to aim at
     const p = 1 + Math.sin(now * DEMO.reticleRate) * 0.14;
     demo.reticle.scale.setScalar(p);
+    // (v226, Q-7) a missile that landed while the numeral was someone else's: it goes now it is free
+    if (demo.want) { if (!spCountBusy("demolition")) demoTrigger(); return; }
     // a missile anywhere in the block sets it off -- he does not have to hit the ring
     for (const m of missiles) {
       if (!m.alive) continue;
@@ -253,7 +320,7 @@ function updateDemolition(dt) {
 
   if (demo.phase === "charging") {
     demo.t -= dt;
-    countdownTo(demo.t, 3);
+    countdownTo(demo.t, 3, "demolition");
     // dust already lifting off the bases, and the rumble climbing
     if (rnd() < dt * 9) {
       const t = demo.towers[Math.floor(rnd() * demo.towers.length)], w = demoTowerWorld(t);
@@ -261,7 +328,7 @@ function updateDemolition(dt) {
     }
     setTone("demo", "sawtooth", DEMO.rumbleFreq, DEMO.rumble * (1 - demo.t / DEMO.charge));
     if (demo.t <= 0) {
-      countdownClear();
+      countdownClear("demolition");
       demo.phase = "folding";
       demo.next = 0; demo.folded = 0;
       demo.reticle.visible = false;
@@ -363,7 +430,7 @@ function towerCatchCaught(s) {
   tcatch.sweep = TC.sweepTime;
   tcatch.hornT = TC.hornDelay;
   tcatch.counting = false;
-  countdownClear();
+  countdownClear("towerCatch");
   if (s.glow) { s.glow.visible = false; }        // engines cut the instant the arms take it
   // the clunk: heavy, warm, and all at once
   clang();
@@ -387,14 +454,14 @@ function towerCatchClear() {
   }
   tcatch.hanging = null; tcatch.sway = 0; tcatch.sweep = 0; tcatch.hornT = 0;
   tcatch.counting = false;
-  countdownClear();
+  countdownClear("towerCatch");
 }
 
 function towerCatchMissed() {
   const a = towerRec();
   if (a) a.catchClosed = false;
   tcatch.counting = false;
-  countdownClear();
+  countdownClear("towerCatch");
 }
 
 // A little engine glow under the descending booster, so there is something to cut.
@@ -432,11 +499,11 @@ function updateTowerCatch(dt) {
     // real countdown rather than a number that stalls while it hovers across.
     const gap = inbound.y - inbound.target.y;
     const closing = Math.max(-inbound.vy, 4);
-    countdownTo(Math.min(TC.countFrom, gap / closing), TC.countFrom);
+    countdownTo(Math.min(TC.countFrom, gap / closing), TC.countFrom, "towerCatch");
     tcatch.counting = true;
   } else if (tcatch.counting) {
     tcatch.counting = false;
-    countdownClear();
+    countdownClear("towerCatch");
   }
 
   // ---- caught: it hangs there swaying, the tower sweeps, the boats sound off
@@ -475,7 +542,9 @@ function towerCatchReset() {
   const a = towerRec();
   if (a && a.catchZone) { a.catchZone.visible = false; }
   if (a && a.catchLights) for (const lt of a.catchLights) lt.material.color.setHex(0x2a2f38);
-  countdownClear();
+  // (v226, B6) run only by a fresh start (state.js LEAVE row `towerCatch`): this is the start's clear, of EVERY
+  // count, not the catch's own -- the one place that ends everything, so the one clear that asks nobody
+  countdownEndAll();
 }
 
 // ===========================================================================
@@ -915,7 +984,7 @@ function carrierLaunchPress() {
 function carrierShove() {
   carrier.state = "shove";
   carrier.t = 0;
-  countdownClear();
+  countdownClear("carrier");
   // the steam, the bang and the shove
   for (let i = 0; i < CV.steam; i++) {
     ffPuff(state.x + (rnd() - 0.5) * 14, carrier.deck + 1 + rnd() * 5, state.z - 8 - rnd() * 24,
@@ -929,7 +998,7 @@ function carrierShove() {
 
 function carrierReset() {
   carrier.state = "none"; carrier.t = 0;
-  countdownClear();
+  countdownClear("carrier");
 }
 
 // Runs late, after the flight model, so the deck actually holds him.
@@ -961,7 +1030,7 @@ function carrierLate(dt) {
     state.heading += wrapPi(0 - state.heading) * Math.min(1, 3 * dt);
     if (carrier.state === "count") {
       carrier.t -= dt;
-      countdownTo(carrier.t, CV.countFrom);
+      countdownTo(carrier.t, CV.countFrom, "carrier");
       if (carrier.t <= 0) carrierShove();
     }
     return;

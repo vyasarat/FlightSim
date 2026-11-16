@@ -178,7 +178,10 @@ function policeStop(whoop) {
   if (whoop && typeof synthBlip === "function") {
     synthBlip("sine", PL.sirenHz[1], PL.sirenHz[0], 0.9, 0.06, 0);   // the last whoop
   }
-  countdownClear();
+  // (v226, B6) its own count only: the pull-over's. Ending at the close of its peel-off (plLeave) it used to take
+  // down a set-piece's count begun meanwhile -- the barge he was stopped pointing at, once the police let him go --
+  // for a frame, and its tick came again; and the menu's `police` row (v223) is the police's, not every count's
+  countdownClear("police");
   flags.policeEnded = (flags.policeEnded || 0) + 1;
 }
 
@@ -410,12 +413,12 @@ function plPullOver(dt, fx, fz, rx, rz) {
   // -- and numerals are the one thing that is allowed on screen, only while a
   // wind-up is actually running.
   const left = P.count + P.hold - police.t;
-  if (left > 0 && left <= P.count + 0.001) countdownTo(left, P.count);
-  else if (left <= 0) countdownClear();
+  if (left > 0 && left <= P.count + 0.001) countdownTo(left, P.count, "police");
+  else if (left <= 0) countdownClear("police");
 
-  if (police.t > total - P.leave) { police.state = "leaving"; police.t = 0; countdownClear(); }
+  if (police.t > total - P.leave) { police.state = "leaving"; police.t = 0; countdownClear("police"); }
   // and he can simply drive away out of it, at any point
-  if (state.speed > PL.caughtSpeed * 2.2) { police.state = "leaving"; police.t = 0; countdownClear(); }
+  if (state.speed > PL.caughtSpeed * 2.2) { police.state = "leaving"; police.t = 0; countdownClear("police"); }
 }
 
 // ---- peeling off ----------------------------------------------------------
