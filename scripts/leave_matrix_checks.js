@@ -1009,7 +1009,21 @@ function bodyLeaveInPage(arg) {
   const onScreen = (id) => { const e = document.getElementById(id); return !!e && !e.classList.contains("hiddenS"); };
   const closeScreens = () => { for (const id of ["screenVehicle", "screenDir", "screenDest", "screenRace", "screenGlobe"]) { const e = document.getElementById(id); if (e) e.classList.add("hiddenS"); } };
   const on = () => rk.onBody ? rk.onBody.name : null;
-  const snap = () => ({ body: on(), bed: currentBedName(), key: state.vehicleKey });
+  // (v223, Q-26) the PICTURE: the motorway and its signal heads drawn (highway.js updateHighway, lights.js ltUpdate),
+  // the light environment and its values (scene.js updateLightMood), the fog and the body's haze (flight.js updateSky,
+  // sky.js applyBodyHaze), the ambient birds and the high jets (ambient.js) -- each read as the game left it
+  const rgb = (c) => [c.r, c.g, c.b];
+  // the signal heads' group hangs off the scene, not the motorway's: a frame that skips ltUpdate leaves it drawn as it
+  // was, frozen. So "the heads" is drawn AND driven: ltUpdate seen to run this frame (wrapped here, put back at the end)
+  const ltReal = window.ltUpdate; let ltRan = -1;
+  window.ltUpdate = function () { ltRan = frameCount; return ltReal.apply(this, arguments); };
+  const pic = () => ({
+    hwy: !!(highway.built && highway.g.visible), heads: !!(lights.built && lights.g.visible && ltRan === frameCount), env: currentLightEnv(),
+    birds: !!birdMesh.visible, jets: highJets.filter(j => j.g.visible).length,
+    sunI: sunLight.intensity, hemiI: hemiLight.intensity, sun: rgb(sunLight.color), sky: rgb(hemiLight.color), ground: rgb(hemiLight.groundColor),
+    shadow: !!sunLight.castShadow, fogNear: scene.fog.near, fogFar: scene.fog.far, fog: rgb(scene.fog.color), haze: hazeF, spaceF: state.spaceF,
+  });
+  const snap = () => ({ body: on(), bed: currentBedName(), key: state.vehicleKey, pic: pic() });
   function fresh() {
     L.api.clearStick(); L.api.setThrottle(false);
     if (typeof dadActive === "function" && dadActive()) dadExit();
@@ -1050,7 +1064,16 @@ function bodyLeaveInPage(arg) {
     },
     // the matrix's switch: applyVehicle and spawnForTakeoff, the game's own two
     switch(to) { L.api.setVehicle(to); L.api.spawnAt(0, 0); closeScreens(); return { away: snap(), up: [] }; },
-    // dad mode, from the Moon (the parent's: its own exit brings him back on the vehicles)
+    // (v223, Q-26) the vehicle card's London branch (input.js: started in London AND near it, a vehicle that can start
+    // there starts there). HARNESS-STAGED: his start is set to London by hand -- a rocket's start is never London (the
+    // globe and the London branch both refuse a rocket, ldCanStart) -- so this asks only that from a body the branch is
+    // not taken (he is nowhere near London) and he goes on through the direction screen, as from the Earth pad
+    london(to) {
+      st.originIdx = ldn.airportIdx;
+      const r = ROUTES.menu(to);
+      return Object.assign(r, { staged: true });
+    },
+    // dad mode (the parent's: its own exit brings him back on the vehicles)
     dad() {
       dadEnter(); step(60); const inDad = snap();
       dadExit(); closeScreens(); step(5);
@@ -1059,10 +1082,10 @@ function bodyLeaveInPage(arg) {
   };
   const out = { leave: [], stay: [] };
   for (const where of arg.bodies) {
-    for (const [route, to] of arg.routes[where]) {
+    for (const [route, to, extra] of arg.routes[where].map(q => q.concat(false)).concat((arg.extra[where] || []).map(q => q.concat(true)))) {
       const ref = putOn("earth"), refRun = ROUTES[route](to), refPlay = play();
       const before = putOn(where), run = ROUTES[route](to), after = play();
-      out.leave.push({ where, route, to, ref, refRun, refBeds: refPlay.map(s => s.bed), before, run, after });
+      out.leave.push({ where, route, to, extra, ref, refRun, refBeds: refPlay.map(s => s.bed), refPics: refPlay.map(s => s.pic), before, run, after });
     }
     // the stays: the menu put away, the rocket card alone, then a direction card (a pad start)
     {
@@ -1084,6 +1107,90 @@ function bodyLeaveInPage(arg) {
     }
   }
   fresh();
+  window.ltUpdate = ltReal;
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// (v223, Q-21) THE MENU MID-CHASE. A chase (police.js) starts when he runs a red in a car; the menu button is up
+// all the while. Behind the cards nothing runs updatePolice (it is called from updateHighway, after the picker's
+// hold), so the chase stayed on and its siren held its last gain, unwritten, for as long as he sat on the cards
+// -- and the engine stayed ducked under it. Driven by touch from the chase (the menu button, then a car card and
+// a direction card); the chase itself started as police_checks starts one (policeStart, the red's own call).
+// And where it must STAY: a bang mid-chase is not a leaving (CLAUDE.md: a chase is never ended by crashing), and
+// the menu opened with no chase ends nothing.
+async function chaseMenuInPage() {
+  const L = window.__lp, st = L.state;
+  L.noRender = true;
+  const step = (n) => { for (let i = 0; i < n; i++) L.update(1 / 60); };
+  const press = (e, type) => e && e.dispatchEvent(new PointerEvent(type || "pointerdown", { bubbles: true, cancelable: true, pointerId: 7, clientX: 0, clientY: 0 }));
+  const tap = (e) => { press(e, "pointerdown"); press(e, "pointerup"); };
+  const onScreen = (id) => { const e = document.getElementById(id); return !!e && !e.classList.contains("hiddenS"); };
+  const closeScreens = () => { for (const id of ["screenVehicle", "screenDir", "screenDest", "screenRace", "screenGlobe"]) { const e = document.getElementById(id); if (e) e.classList.add("hiddenS"); } };
+  // the siren's writes, stamped (put back at the end)
+  const setToneReal = window.setTone, wrote = {};
+  window.setTone = function (n) { wrote[n] = frameCount; return setToneReal.apply(this, arguments); };
+  const tone = (n) => tones[n] ? Math.max(0, tones[n].last) : 0;
+  const siren = () => ({ siren: +tone("policeSiren").toFixed(4), sirenB: +tone("policeSirenB").toFixed(4), written: wrote.policeSiren === frameCount,
+                         chase: !!police.active, duck: +engBus.duck.toFixed(3), cards: onScreen("screenVehicle") });
+  const series = (n) => { const s = []; for (let i = 1; i <= n; i++) { L.update(1 / 60); if (i % 30 === 0) s.push(siren()); } return s; };
+  const drive = (n) => { for (let i = 0; i < n; i++) { L.api.setStick(0, 0); L.update(1 / 60); } };
+  function inCar() {
+    L.api.clearStick(); L.api.setThrottle(false); closeScreens();
+    try { localStorage.removeItem("lp.start"); } catch (e) {}
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); closeScreens(); step(10);
+    drive(60 * 6);
+  }
+  function chase() { inCar(); L.policeStart(null); drive(60 * 3); return siren(); }
+  const out = {};
+  try {
+    try { unlockAudio(); if (audioCtx && audioCtx.state !== "running") await audioCtx.resume(); startEngine(); } catch (e) {}
+    out.audio = audioCtx ? audioCtx.state : null;
+    // ---- the leaving: the menu mid-chase, four seconds on the cards, then a car card and a direction card
+    {
+      const before = chase(), e0 = flags.policeEnded || 0;
+      L.api.clearStick(); press(el.menuBtn);
+      const behind = series(60 * 4);
+      tap(document.querySelector('.vehCard[data-v="car"]')); step(10);
+      press(document.querySelector('.dirCard[data-d="0"]'));
+      const after = series(60 * 2);
+      out.menu = { before, behind, after, ended: (flags.policeEnded || 0) - e0, up: ["screenVehicle", "screenDir", "screenDest"].filter(onScreen) };
+    }
+    // ---- a stay: a bang mid-chase (him, at speed, inside the nearest solid that blocks a car -- the leaving matrix's bang)
+    {
+      const before = chase(), e0 = flags.policeEnded || 0, cls = vehSolidClass();
+      let best = null, bd = Infinity;
+      L.forEachSolid(b => {
+        if (b.o3 || b.cap || b.ramp || b.toy || b.moving || b.car !== undefined || b.park) return;
+        if (!L.solidBlocks(b, cls) || (b.mesh && b.mesh.visible === false) || L.isSolidHidden(b)) return;
+        if (!(b.hw > 3 && b.hd > 3 && b.y1 - b.y0 > 6)) return;
+        const d = Math.hypot(b.x - st.x, b.z - st.z);
+        if (d < bd) { bd = d; best = b; }
+      }, st.x, st.z, 2000);
+      let banged = false;
+      if (best) {
+        st.x = best.x; st.z = best.z + best.hd - 1; st.y = Math.max(best.y0, L.terrainEff(st.x, st.z)); st.heading = 0; st.speed = state.vp.cruiseSpeed || 40;
+        for (let n = 0; n < 60 && !banged; n++) { L.update(1 / 60); if (st.exploding) banged = true; }
+        for (let n = 0; n < 60 * 10 && st.exploding; n++) L.update(1 / 60);
+      }
+      const back = !st.exploding;
+      const after = series(60 * 2);
+      out.bang = { before, banged, back, after, ended: (flags.policeEnded || 0) - e0, solid: !!best };
+      L.policeStop(false);
+    }
+    // ---- a stay: the menu opened in the car with no chase ends nothing
+    {
+      inCar(); const e0 = flags.policeEnded || 0, was = police.active;
+      press(el.menuBtn); const opened = onScreen("screenVehicle"); step(60);
+      out.noChase = { was, opened, ended: (flags.policeEnded || 0) - e0, chase: !!police.active, key: state.vehicleKey };
+      closeScreens();
+    }
+  } finally {
+    window.setTone = setToneReal;
+    L.api.clearStick(); closeScreens();
+    if (police.active) L.policeStop(false);
+    L.api.setVehicle("prop"); L.api.spawnAt(0, 0); closeScreens(); step(10);
+  }
   return out;
 }
 
@@ -1100,7 +1207,7 @@ const LEAVE_ORDER = {
                      "reentry", "reentryRoar", "rocketButtons", "rover", "astro", "recovery", "body"],
   "vehicle:rocket": ["monster", "robot", "crane", "heavy", "heli", "track", "corvette", "rocketRoar", "cabin", "helm", "yacht", "cannon", "tones", "audioHold"],
   "start":          ["audioHold", "race", "demo", "robot", "police", "track", "events", "towerCatch", "carrier", "heli"],
-  "picker":         ["throttle", "keys", "finger", "stick", "pieces", "rover", "astro", "recovery", "heli", "cannon", "horn", "race"],
+  "picker":         ["throttle", "keys", "finger", "stick", "pieces", "rover", "astro", "recovery", "heli", "cannon", "horn", "race", "police"],   // (v223: police, Q-21)
 };
 const LEAVE_ORDER_SAY = {
   "vehicle:plane": "a vehicle change to a plane (applyVehicle: not a boat, not a rocket)", "vehicle:boat": "a vehicle change to a boat",
@@ -1112,7 +1219,39 @@ const BODY_ROUTES = {
   mars:    [["menu", "prop"], ["menu", "car"], ["switch", "prop"], ["switch", "car"]],
   station: [["menu", "prop"], ["menu", "car"], ["switch", "prop"], ["switch", "car"]],
 };
-const BODY_BED = { moon: "moon", mars: "mars", station: "moon" };   // currentBedName on each (the station has no bed of its own)
+// (v223, Q-26) and the routes 0d did not measure: away to the speedboat and the helicopter, the vehicle card's London
+// branch (harness-staged: see ROUTES.london), dad mode from Mars and the station
+const BODY_ROUTES_MORE = {};
+for (const b of ["moon", "mars", "station"]) {
+  BODY_ROUTES_MORE[b] = [["menu", "speedboat"], ["menu", "helicopter"], ["switch", "speedboat"], ["switch", "helicopter"], ["london", "car"]];
+  if (b !== "moon") BODY_ROUTES_MORE[b].push(["dad", null]);
+}
+const BODY_BED = { moon: "moon", mars: "mars", station: "moon" };   // currentBedName on each (the station has no bed of its own: pinned as it is, Q-26)
+// (v223, Q-26) the picture after he is away, against the same route from the Earth pad: what is ON or OFF (the
+// motorway, its signal heads, the light environment, the birds, the high jets) at every half second from the first
+// second on; the eased values (the light, the fog, the haze, the space blend) at the last two readings, within EASE_TOL
+// -- the game eases the light and the haze home (TUNE.light.blend, sky.js applyBodyHaze), so a reading in the first
+// seconds may differ by the ease alone
+const PIC_ONOFF = ["hwy", "heads", "env", "birds", "jets", "shadow"];
+const PIC_EASED = ["sunI", "hemiI", "sun", "sky", "ground", "fogNear", "fogFar", "fog", "haze", "spaceF"];
+// relative to the reference's value (absolute under 1). The space blend eases home at 1.4/s (flight.js frameWorld), so by
+// the fresh-start route the fog's far edge is still 1.2% out at 4.5 s (1578 m for 1560): an ease. A body left behind is
+// out by far more -- the Moon's light (sunI 1.30, hemiI 0.22 for Earth's ~1.0), its haze (fog to 20 km), Mars's (2.1 km)
+const EASE_TOL = 0.03;
+function picDiff(got, ref) {
+  const out = [];
+  for (let i = 0; i < Math.min(got.length, ref.length); i++) {
+    for (const k of PIC_ONOFF) if (got[i][k] !== ref[i][k]) out.push(`${(i + 2) / 2} s ${k}: ${got[i][k]} (from the Earth pad ${ref[i][k]})`);
+  }
+  for (let i = Math.max(0, got.length - 2); i < Math.min(got.length, ref.length); i++) {
+    for (const k of PIC_EASED) {
+      const a = [].concat(got[i][k]), b = [].concat(ref[i][k]);
+      if (a.some((v, j) => !(Math.abs(v - b[j]) <= EASE_TOL * Math.max(1, Math.abs(b[j]))))) out.push(`${(i + 2) / 2} s ${k}: ${a.map(v => +v.toFixed(3)).join(",")} (from the Earth pad ${b.map(v => +v.toFixed(3)).join(",")})`);
+    }
+  }
+  if (got.length !== ref.length || got.length < 2) out.push(`${got.length} readings, ${ref.length} from the Earth pad`);
+  return out;
+}
 
 // one row x orientation: its page, its cells in order, every clean start judged as the last thing's leftover
 async function runRow({ newPage, orient, size, m, out }) {
@@ -1286,29 +1425,55 @@ module.exports = async function leaveMatrixChecks({ newPage, check }) {
   // ---- 0d. (v222, Q-18) off a body, the body is gone: rk.onBody, and the bed is the new place's; on it, he stays
   {
     const { page, ctx } = await newPage(PORTRAIT[0], PORTRAIT[1]);
-    const r = await page.evaluate(bodyLeaveInPage, { bodies: Object.keys(BODY_ROUTES), routes: BODY_ROUTES });
+    const r = await page.evaluate(bodyLeaveInPage, { bodies: Object.keys(BODY_ROUTES), routes: BODY_ROUTES, extra: BODY_ROUTES_MORE });
     const BODY_BEDS = ["moon", "mars"];
+    const BODY_SAY = { moon: "the Moon", mars: "Mars", station: "the station" };
+    // one route's body and bed (v222's judge, unchanged), into bad
+    const judgeBody = (c, bad) => {
+      const where = c.where, tag = `${c.route}${c.to ? " to " + c.to : ""}`;
+      if (c.before.body !== where || c.before.key !== "rocket" || c.before.bed !== BODY_BED[where]) bad.push(`${tag}: not on ${where} in the rocket first (${JSON.stringify({ body: c.before.body, bed: c.before.bed, key: c.before.key })})`);
+      if (c.ref.body !== null || c.ref.key !== "rocket") bad.push(`${tag}: the reference not on the Earth pad (${JSON.stringify({ body: c.ref.body, key: c.ref.key })})`);
+      if (c.run.up.length || c.refRun.up.length) bad.push(`${tag}: screens still up (${c.run.up.concat(c.refRun.up).join(", ")})`);
+      if (c.route === "menu" || c.route === "london") {
+        if (!c.run.opened) bad.push(`${tag}: the menu did not open`);
+        if (!c.run.card.dirUp) bad.push(`${tag}: the direction screen not up after the vehicle card${c.route === "london" ? " (the London branch taken from a body)" : ""}`);
+        if (c.run.card.key !== c.to || c.run.card.body !== null) bad.push(`${tag}: behind the direction screen, in the ${c.run.card.key}, rk.onBody is ${c.run.card.body} (the vehicle card takes him off the body)`);
+        if (c.route === "london" && (!c.refRun.card.dirUp || !c.run.staged)) bad.push(`${tag}: from the Earth pad the direction screen not up either, or not staged`);
+      }
+      if (c.route === "dad" && (c.run.inDad.body !== null || BODY_BEDS.includes(c.run.inDad.bed))) bad.push(`${tag}: in dad mode rk.onBody is ${c.run.inDad.body}, the bed ${c.run.inDad.bed}`);
+      const want = c.route === "dad" ? "rocket" : c.to;
+      if (c.run.away.key !== want || c.run.away.body !== null) bad.push(`${tag}: away, in the ${c.run.away.key}, rk.onBody is ${c.run.away.body}`);
+      const beds = c.after.map(s => s.bed), bodies = c.after.filter(s => s.body !== null).map(s => s.body);
+      if (bodies.length) bad.push(`${tag}: rk.onBody still set during play (${bodies.join(", ")})`);
+      if (beds.some(b => BODY_BEDS.includes(b)) || JSON.stringify(beds) !== JSON.stringify(c.refBeds)) bad.push(`${tag}: the bed over five seconds was ${beds.join(" ")}; from the Earth pad the same route gives ${c.refBeds.join(" ")}`);
+    };
     for (const where of Object.keys(BODY_ROUTES)) {
       const bad = [];
-      for (const c of r.leave.filter(q => q.where === where)) {
+      for (const c of r.leave.filter(q => q.where === where && !q.extra)) judgeBody(c, bad);
+      check(`leave a body (Q-18): from the rocket on ${BODY_SAY[where]}, away to the plane and the SUV by the menu, a vehicle card and a direction card, and by a fresh start${where === "moon" ? ", and into dad mode" : ""} -- rk.onBody is null from the vehicle card on, and for five seconds of play the ambient bed is what the same route gives from the Earth pad, never the body's`,
+        r.leave.some(q => q.where === where && !q.extra) && bad.length === 0, { bad, routes: r.leave.filter(q => q.where === where && !q.extra).map(q => ({ route: q.route, to: q.to, beds: q.after.map(s => s.bed).join(" "), ref: q.refBeds.join(" ") })) });
+    }
+    // (v223, Q-26) the routes v222 did not drive: the same judge
+    for (const where of Object.keys(BODY_ROUTES_MORE)) {
+      const bad = [], cs = r.leave.filter(q => q.where === where && q.extra);
+      for (const c of cs) judgeBody(c, bad);
+      check(`leave a body (Q-26): from the rocket on ${BODY_SAY[where]}, away to the speedboat and the helicopter by the menu, a vehicle card and a direction card, and by a fresh start; by the vehicle card with his start in London (harness-staged: the London branch is not taken from a body, the direction screen comes up as from the Earth pad)${where === "moon" ? "" : "; into dad mode and out"} -- rk.onBody is null from the vehicle card on, and for five seconds of play the ambient bed is what the same route gives from the Earth pad`,
+        cs.length === BODY_ROUTES_MORE[where].length && bad.length === 0, { bad, routes: cs.map(q => ({ route: q.route, to: q.to, beds: q.after.map(s => s.bed).join(" "), ref: q.refBeds.join(" ") })) });
+    }
+    // (v223, Q-26) and the PICTURE, every route off each body: what the same route gives from the Earth pad
+    for (const where of Object.keys(BODY_ROUTES)) {
+      const bad = [], cs = r.leave.filter(q => q.where === where);
+      for (const c of cs) {
         const tag = `${c.route}${c.to ? " to " + c.to : ""}`;
-        if (c.before.body !== where || c.before.key !== "rocket" || c.before.bed !== BODY_BED[where]) bad.push(`${tag}: not on ${where} in the rocket first (${JSON.stringify(c.before)})`);
-        if (c.ref.body !== null || c.ref.key !== "rocket") bad.push(`${tag}: the reference not on the Earth pad (${JSON.stringify(c.ref)})`);
-        if (c.run.up.length || c.refRun.up.length) bad.push(`${tag}: screens still up (${c.run.up.concat(c.refRun.up).join(", ")})`);
-        if (c.route === "menu") {
-          if (!c.run.opened) bad.push(`${tag}: the menu did not open`);
-          if (!c.run.card.dirUp) bad.push(`${tag}: the direction screen not up after the vehicle card`);
-          if (c.run.card.key !== c.to || c.run.card.body !== null) bad.push(`${tag}: behind the direction screen, in the ${c.run.card.key}, rk.onBody is ${c.run.card.body} (the vehicle card takes him off the body)`);
-        }
-        if (c.route === "dad" && (c.run.inDad.body !== null || BODY_BEDS.includes(c.run.inDad.bed))) bad.push(`${tag}: in dad mode rk.onBody is ${c.run.inDad.body}, the bed ${c.run.inDad.bed}`);
-        const want = c.route === "dad" ? "rocket" : c.to;
-        if (c.run.away.key !== want || c.run.away.body !== null) bad.push(`${tag}: away, in the ${c.run.away.key}, rk.onBody is ${c.run.away.body}`);
-        const beds = c.after.map(s => s.bed), bodies = c.after.filter(s => s.body !== null).map(s => s.body);
-        if (bodies.length) bad.push(`${tag}: rk.onBody still set during play (${bodies.join(", ")})`);
-        if (beds.some(b => BODY_BEDS.includes(b)) || JSON.stringify(beds) !== JSON.stringify(c.refBeds)) bad.push(`${tag}: the bed over five seconds was ${beds.join(" ")}; from the Earth pad the same route gives ${c.refBeds.join(" ")}`);
+        for (const d of picDiff(c.after.map(s => s.pic), c.refPics)) bad.push(`${tag}: ${d}`);
+        // ... and the reference is Earth's picture, so equal means Earth: the motorway and its heads drawn in a car (the
+        // plane's runway has the motorway in the world too), the Earth light, the birds
+        const last = c.refPics[c.refPics.length - 1] || {};
+        if (last.env !== "earth" || !last.birds || !last.hwy) bad.push(`${tag}: the reference itself is not Earth's picture (${JSON.stringify({ env: last.env, birds: last.birds, hwy: last.hwy })})`);
       }
-      check(`leave a body (Q-18): from the rocket on ${{ moon: "the Moon", mars: "Mars", station: "the station" }[where]}, away to the plane and the SUV by the menu, a vehicle card and a direction card, and by a fresh start${where === "moon" ? ", and into dad mode" : ""} -- rk.onBody is null from the vehicle card on, and for five seconds of play the ambient bed is what the same route gives from the Earth pad, never the body's`,
-        r.leave.some(q => q.where === where) && bad.length === 0, { bad, routes: r.leave.filter(q => q.where === where).map(q => ({ route: q.route, to: q.to, beds: q.after.map(s => s.bed).join(" "), ref: q.refBeds.join(" ") })) });
+      check(`leave a body (Q-26): from the rocket on ${BODY_SAY[where]}, by every route above, the PICTURE for five seconds is what the same route gives from the Earth pad -- the motorway and its signal heads drawn, the light environment Earth's, the birds and the high jets out, from the first second; the light, the fog, the haze and the space blend eased home by the last second`,
+        cs.length === BODY_ROUTES[where].length + BODY_ROUTES_MORE[where].length && bad.length === 0,
+        { bad: bad.slice(0, 12), nBad: bad.length, off: bad.reduce((o, b) => { const [t, d] = b.split(": "), k = (/ s (\w+)$/.exec(d) || [, d.slice(0, 40)])[1]; (o[t] = o[t] || []).includes(k) || o[t].push(k); return o; }, {}), routes: cs.map(q => { const p = q.after[q.after.length - 1].pic; return `${q.route}${q.to ? ">" + q.to : ""}: hwy ${p.hwy} heads ${p.heads} ${p.env} birds ${p.birds} sunI ${+p.sunI.toFixed(2)} fog ${Math.round(p.fogNear)}-${Math.round(p.fogFar)}`; }) });
     }
     {
       const bad = [];
@@ -1325,6 +1490,36 @@ module.exports = async function leaveMatrixChecks({ newPage, check }) {
       }
       check("leave a body (Q-18), where he STAYS: on the Moon, on Mars and at the station, the menu opened and put away leaves him there in the rocket, bed and all, where he was; the rocket card alone keeps him there; the rocket card and a direction card are a pad start, as ever",
         r.stay.length === 6 && bad.length === 0, { bad, stays: r.stay.map(s => `${s.where} ${s.kind}: ${s.after.body} ${s.after.bed}`) });
+    }
+    await ctx.close().catch(() => {});
+  }
+
+  // ---- 0e. (v223, Q-21) the menu mid-chase ends the chase: no siren held behind the cards; a bang does not end it
+  {
+    const { page, ctx } = await newPage(PORTRAIT[0], PORTRAIT[1]);
+    const r = await page.evaluate(chaseMenuInPage);
+    const m = r.menu || {}, b = r.bang || {}, n = r.noChase || {};
+    {
+      const bad = [];
+      if (r.audio !== "running") bad.push(`audio ${r.audio}`);
+      if (!m.before || !m.before.chase || !(m.before.siren > 0.002) || !m.before.written) bad.push(`no chase, or no siren, before the menu (${JSON.stringify(m.before)})`);
+      const behind = m.behind || [];
+      if (behind.length !== 8) bad.push(`${behind.length} readings behind the cards`);
+      behind.forEach((s, i) => { if (!s.cards || s.chase || s.siren > 0 || s.sirenB > 0 || s.duck !== 1) bad.push(`${(i + 1) / 2} s behind the cards: ${JSON.stringify(s)}`); });
+      (m.after || []).forEach((s, i) => { if (s.chase || s.siren > 0 || s.sirenB > 0) bad.push(`${(i + 1) / 2} s after the direction card: ${JSON.stringify(s)}`); });
+      if (m.ended !== 1 || (m.up || []).length) bad.push(`chase ended ${m.ended} times, screens up ${(m.up || []).join(",")}`);
+      check("leave a chase (Q-21): the menu opened mid-chase, by touch, ends it -- for four seconds on the cards no siren (both voices at zero, from the first half-second), the chase over and the engine no longer ducked under it; a car card and a direction card after, still none",
+        bad.length === 0, { bad: bad.slice(0, 10), before: m.before, behind: (m.behind || []).map(s => `${s.siren}/${s.sirenB} chase ${s.chase} duck ${s.duck}`).join("; ") });
+    }
+    {
+      const bad = [];
+      if (!b.solid || !b.banged || !b.back) bad.push(`the bang: solid ${b.solid}, banged ${b.banged}, back ${b.back}`);
+      if (!b.before || !b.before.chase) bad.push(`no chase before the bang`);
+      (b.after || []).forEach((s, i) => { if (!s.chase || !s.written) bad.push(`${(i + 1) / 2} s after the reassembly: ${JSON.stringify(s)}`); });
+      if (b.ended !== 0) bad.push(`the bang ended the chase (${b.ended})`);
+      if (!n.opened || n.was || n.ended !== 0 || n.chase || n.key !== "car") bad.push(`the menu with no chase: ${JSON.stringify(n)}`);
+      check("leave a chase (Q-21), where it STAYS: a bang mid-chase is not a leaving -- reassembled, the chase goes on, its siren written every frame (CLAUDE.md: never ended by crashing); and the menu opened in the car with no chase ends nothing",
+        bad.length === 0, { bad, bangAfter: (b.after || []).map(s => `${s.siren} chase ${s.chase} written ${s.written}`).join("; "), noChase: n });
     }
     await ctx.close().catch(() => {});
   }

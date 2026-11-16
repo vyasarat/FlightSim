@@ -489,7 +489,7 @@ function openPickerAnywhere() {
   if (menuOpen()) return;
   if (swReloadWanted) { location.reload(); return; }   // (v212) the page comes back on the vehicles
   // (v221) the LEAVE table (state.js): the finger and the keys let go, a bang's pieces put back, the rover,
-  // the astronaut, the recovery, the helicopter, the cannon, the horn, a race
+  // the astronaut, the recovery, the helicopter, the cannon, the horn, a race, a police chase (v223)
   leaveRun("picker", "unwind");
   // ALWAYS on the vehicles -- never on the rocket's destination screen, which
   // has the way back to the vehicles underneath it.

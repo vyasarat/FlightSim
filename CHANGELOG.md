@@ -10,6 +10,20 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v223 — the police siren stops when he opens the menu
+
+If the police were chasing him and he tapped the menu button, the siren kept wailing behind the vehicle
+cards, one note held for as long as he sat there, and the car's engine stayed turned down under it. Now
+opening the menu ends the chase, just as picking a vehicle and a direction already did: the cards are
+quiet. Crashing still never ends a chase, and opening the menu when nobody is chasing him changes nothing.
+This is the second line added to v221's table of what gets put away. It puts away something that was
+already in the table at one more place. The checks also now look at the picture after he leaves the
+Moon, Mars or the station, not only the sound. In the plane, the car, the speedboat and the helicopter,
+the motorway and its traffic lights are drawn, the light and fog are Earth's, and the birds and high jets
+are back, all matching the same trip from the rocket's pad on Earth. The checks also cover dad mode
+entered from Mars or the station. A before-and-after pair of the car on the motorway after the Moon
+shows the same sky and light as after the Earth pad.
+
 ## v222 — the Moon's sound stays on the Moon
 
 When he flew the rocket to the Moon, to Mars or to the station and then picked the plane (or the car, the
