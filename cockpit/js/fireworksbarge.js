@@ -22,7 +22,8 @@
 //     the finale's bangs are rate-limited so it never becomes a wall of noise.
 //   * The barge is solid (kind "ship"); nothing on it is living.
 //   * It shares the one big numeral through spCountBusy, and stands down for a
-//     police pull-over or the picker.
+//     police pull-over or the picker. (v226, B6) It owns the numeral while it
+//     counts ("fireworksBarge"), and its count is setpieces.js spCountStep.
 // ---------------------------------------------------------------------------
 const FBARGE = TUNE.fireworksBarge;
 
@@ -161,7 +162,7 @@ function fbReset() {
   fbarge.shellPts.geometry.setDrawRange(0, 0);
   for (const f of fbarge.flashes) { f.t = 0; f.s.visible = false; }
   fbarge.reticle.visible = true;
-  if (el.bigNum.classList.contains("sky") && fbarge.counting) { countdownClear(); el.bigNum.classList.remove("sky"); }
+  if (el.bigNum.classList.contains("sky") && fbarge.counting && countdownClear("fireworksBarge")) el.bigNum.classList.remove("sky");
   fbarge.counting = false;
 }
 
@@ -287,19 +288,17 @@ function updateFireworksBarge(dt) {
   if (ph === "armed") {
     if (fbAimed()) fbStart();
   } else if (ph === "count") {
-    if (fbBusy()) {
-      countdownClear(); el.bigNum.classList.remove("sky"); fbarge.counting = false;
+    // (v226, B6) the count is the shared step's, on the numeral it owns (setpieces.js spCountStep): the barge is
+    // the first set-piece moved on to it, the same steps in the same order it ran here by hand
+    const k = spCountStep("fireworksBarge", fbarge, dt, T.count, fbBusy());
+    if (k === "stood") {
+      fbarge.counting = false;
       fbarge.phase = "armed";
       flags.fbStandDowns = (flags.fbStandDowns || 0) + 1;
-    } else {
-      fbarge.t -= dt;
-      el.bigNum.classList.add("sky");
-      countdownTo(fbarge.t, T.count);
-      if (fbarge.t <= 0) {
-        countdownClear(); el.bigNum.classList.remove("sky"); fbarge.counting = false;
-        fbarge.phase = "show"; fbarge.t = 0; fbarge.next = 0; fbarge.fired = 0;
-        flags.fbShows = (flags.fbShows || 0) + 1;
-      }
+    } else if (k === "go") {
+      fbarge.counting = false;
+      fbarge.phase = "show"; fbarge.t = 0; fbarge.next = 0; fbarge.fired = 0;
+      flags.fbShows = (flags.fbShows || 0) + 1;
     }
   } else if (ph === "show" || ph === "rest") {
     fbarge.t += dt;

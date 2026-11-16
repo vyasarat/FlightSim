@@ -496,7 +496,7 @@ function sledReset() {
   sledPlace();
   for (const r of sled.reticles) r.visible = true;
   setTone("sledRoar", "sawtooth", SLED.roarHz, 0);
-  if (el.bigNum.classList.contains("sky") && sled.counting) { countdownClear(); el.bigNum.classList.remove("sky"); }
+  if (el.bigNum.classList.contains("sky") && sled.counting && countdownClear("rocketSled")) el.bigNum.classList.remove("sky");
   sled.counting = false;
 }
 
@@ -580,18 +580,20 @@ function updateRocketSled(dt) {
     if (sled.ridden ? srGo() : sledAimed()) sledStart();   // riding it, only his go starts it
   } else if (ph === "count") {
     if (sledBusy()) {
-      countdownClear(); el.bigNum.classList.remove("sky"); sled.counting = false;
+      if (countdownClear("rocketSled")) el.bigNum.classList.remove("sky");
+      sled.counting = false;
       sledLamps(-1); setTone("sledRoar", "sawtooth", T.roarHz, 0);
       sled.phase = "armed";
       flags.sledStandDowns = (flags.sledStandDowns || 0) + 1;
     } else {
       sled.t -= dt;
-      el.bigNum.classList.add("sky");
-      const n = countdownTo(sled.t, T.count);
+      if (!countdownBlocked("rocketSled")) el.bigNum.classList.add("sky");
+      const n = countdownTo(sled.t, T.count, "rocketSled");
       sledLamps(n === 3 ? 0 : n === 2 ? 1 : n === 1 ? 1 : -1);
       setTone("sledRoar", "sawtooth", T.roarHz, T.roar * 0.3 * sledHear(sled.x, sled.y, sled.z) * (1 - sled.t / T.count));
       if (sled.t <= 0) {
-        countdownClear(); el.bigNum.classList.remove("sky"); sled.counting = false;
+        if (countdownClear("rocketSled")) el.bigNum.classList.remove("sky");
+        sled.counting = false;
         sledLamps(2);
         sled.phase = "run"; sled.t = 0; sled.v = 0;
         sled.flame.visible = true;

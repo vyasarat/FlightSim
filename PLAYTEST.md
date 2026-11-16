@@ -96,6 +96,7 @@ entry below.
 | v223 | probably nothing he remarks on: chased by the police, he taps the menu and the siren stops while the cards are up; he picks a car and drives on with no police (a regression would be the siren still wailing on the cards or back after he picks, a chase ending when he crashes, or the menu changing anything when no one is chasing him) |  open |
 | v224 | nothing he remarks on: the car sounds the same on the road, in the city, stopping and after a crash; a race started from a moving car has no tyre drone under it (a regression would be tyre noise cutting out or stuttering while he drives, or missing after a race) |  open |
 | v225 | nothing he remarks on: in the harbour the seaplane still drones in, lands and takes off, and once it has flown off its engine fades away instead of humming on; the car sounds as in v224 (a regression would be the seaplane silent while it is landing or taking off, or any sound cutting out while he drives or sails) |  open |
+| v226 | nothing he remarks on: flying south over the demolition and firing at it while the fireworks over the lake are counting, he sees one 3-2-1 and then the other, never a jumble of numbers and never a buzzing tick, and the towers still fall; the dunes race's lights count 3-2-1 cleanly with the rocket sled going after the green (a regression would be a countdown that never comes, a demolition that does not fall after he hits it, a number stuck on the screen, or a set-piece no longer going off when he points at it) |  open |
 
 ## Entries
 

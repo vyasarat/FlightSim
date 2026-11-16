@@ -432,7 +432,7 @@ function lsReset() {
   lsite.sep = false; lsite.boomed = false; lsite.booms = [];
   lsite.boosters = lsite.pairs[0];
   lsite.ring.visible = false;
-  if (el.bigNum.classList.contains("sky")) { countdownClear(); el.bigNum.classList.remove("sky"); }
+  if (el.bigNum.classList.contains("sky") && countdownClear("launchSite")) el.bigNum.classList.remove("sky");
   for (const b of lsite.pairs[1]) { b.mode = "spare"; b.g.visible = false; b.landed = false; }
   lsSeatBoosters(lsite.boosters);
   lsPlaceStack(lsite.padY);
@@ -605,7 +605,7 @@ function updateLaunchSite(dt) {
   // stack steps aside and never counts down; it is back when he leaves it
   if (state.vp && state.vp.heavy) {
     if (!lsite.heavyHeld) {
-      if (lsite.phase === "count") { countdownClear(); el.bigNum.classList.remove("sky"); }
+      if (lsite.phase === "count" && countdownClear("launchSite")) el.bigNum.classList.remove("sky");
       lsReset(); lsite.heavyHeld = true;
     }
     lsite.stack.visible = false;
@@ -629,7 +629,7 @@ function updateLaunchSite(dt) {
   } else if (ph === "count") {
     if (lsNumBusy()) {
       // the police or the picker want the numeral: stand down, the rocket waits
-      countdownClear(); el.bigNum.classList.remove("sky");
+      if (countdownClear("launchSite")) el.bigNum.classList.remove("sky");
       setTone("lsRoar", "sawtooth", T.roarHz, 0);
       lsite.phase = "armed";              // the arms ease back in (armed, below)
       flags.lsStandDowns = (flags.lsStandDowns || 0) + 1;
@@ -639,15 +639,15 @@ function updateLaunchSite(dt) {
     lsite.t -= dt;
     // the numeral goes up into the sky for this one: at the middle of the
     // screen it stood exactly where the rocket stands, dead ahead
-    el.bigNum.classList.add("sky");
-    countdownTo(lsite.t, T.count);
+    if (!countdownBlocked("launchSite")) el.bigNum.classList.add("sky");
+    countdownTo(lsite.t, T.count, "launchSite");
     // the arms swing away, and the venting thickens
     const k = smoothstep(T.count, 1.2, lsite.t);
     for (const a of lsite.arms) a.rotation.y = -k * 1.25;
     if (lsRnd() < dt * 8) lsPuff(T.x + (lsRnd() - 0.5) * 10, lsite.padY + 3, T.z + (lsRnd() - 0.5) * 30, 0, 3, 0, 3, 9, 2, 0xf7f8fa);
     const h = lsHear();
     setTone("lsRoar", "sawtooth", T.roarHz, T.roar * 0.35 * h * (1 - lsite.t / T.count));
-    if (lsite.t <= 0) { countdownClear(); el.bigNum.classList.remove("sky"); lsIgnite(); }
+    if (lsite.t <= 0) { if (countdownClear("launchSite")) el.bigNum.classList.remove("sky"); lsIgnite(); }
   } else if (ph === "ignite") {
     lsite.t -= dt;
     const k = 1 - lsite.t / T.holdDown;

@@ -293,7 +293,7 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
     if (!res.live) rb.push("no running audio context");
     for (const [id, r] of Object.entries(res.race)) {
       if (!(r.before > 0) || !r.shows || !r.picker || !r.on) rb.push(`${id}: not at speed with the tyres up and a race started by its button (${JSON.stringify({ before: r.before, shows: r.shows, picker: r.picker, on: r.on })})`);
-      if (!(r.zeroAt >= 1 && r.zeroAt <= 6)) rb.push(`${id}: the tyres not at 0 within 0.1 s of the race (first 0 at frame ${r.zeroAt})`);
+      if (!(r.zeroAt >= 1 && r.zeroAt <= 6)) rb.push(`${id}: the tyres not written to 0 within 0.1 s of the race (first 0 at frame ${r.zeroAt})`);
       if (r.maxAfter > 0) rb.push(`${id}: the tyres back up in the race (${r.maxAfter})`);
       if (r.raceWrites) rb.push(`${id}: the race wrote the tyres ${r.raceWrites} times`);
       if (!(r.raceF >= 60 * 20) || !r.still) rb.push(`${id}: not 20 s of racing (${r.raceF} frames, still on ${r.still})`);
@@ -416,7 +416,7 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
       if (!(s.bangs >= 1) || s.bangGaps > s.bangs) sb.push(`${v}: ${s.bangGaps} unwritten frames in pieces over ${s.bangs} bangs (at most one a bang)`);
       if (!(s.heard > s.frames * 0.5) || !(s.stopF > 60) || s.turned < 2 || !s.banged || !s.back) sb.push(`${v}: not the drive it says (${JSON.stringify({ frames: s.frames, heard: s.heard, stopF: s.stopF, turned: s.turned, banged: s.banged, back: s.back })})`);
     }
-    check("engines: tone ownership (B5, Q-16) -- in the SUV, the Cybertruck and the Corvette at speed, portrait, a race started by its button (the track picker up half a second, or a card on the button's own frame) takes the tyres to 0 within 0.1 s and they stay 0 through the grid and 20 s of racing (the race never writes them); off it by its exit, driving again, they are back within 3 s",
+    check("engines: tone ownership (B5, Q-16) -- in the SUV, the Cybertruck and the Corvette at speed, portrait, a race started by its button (the track picker up half a second, or a card on the button's own frame) has the tyres written to 0 within 0.1 s and written no higher through the grid and 20 s of racing (the race never writes them); off it by its exit, driving again, they are back within 3 s",
       rb.length === 0, JSON.stringify({ bad: rb, race: Object.fromEntries(Object.entries(res.race).map(([k, r]) => [k, `${r.before} -> 0 @${r.zeroAt}f, max after ${r.maxAfter}, back @${r.back}f`])) }));
     check("engines: tone ownership (B5), where it STAYS -- a minute of ordinary driving in each car (a wobbling finger with short lifts, a stop, full turns held in a city, a bang) never sweeps the tyres, and every frame they are heard they were written that frame, but the bang's own frame in pieces, where nothing sweeps (portrait)",
       // (v225, Q-28) the claim is carried by `swept 0` and `0 unwritten` (every frame heard was written by updateCar that
@@ -441,7 +441,7 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
     const lres = await toneOwnRun(lp, false);
     await lp.close();
     const lb = judgeRace(lres);
-    check("engines: tone ownership (B5, Q-28) -- the race started in LANDSCAPE: in the SUV, the Cybertruck and the Corvette at speed, by its button (the picker up half a second, or a card on the button's own frame), the tyres 0 within 0.1 s, 0 through the grid and 20 s of racing, back within 3 s of driving off it",
+    check("engines: tone ownership (B5, Q-28) -- the race started in LANDSCAPE: in the SUV, the Cybertruck and the Corvette at speed, by its button (the picker up half a second, or a card on the button's own frame), the tyres written to 0 within 0.1 s and no higher through the grid and 20 s of racing, back within 3 s of driving off it",
       lb.length === 0, JSON.stringify({ bad: lb, race: Object.fromEntries(Object.entries(lres.race).map(([k, r]) => [k, `${r.before} -> 0 @${r.zeroAt}f, max after ${r.maxAfter}, back @${r.back}f`])) }));
 
     const { page: mp } = await newPage(820, 1180);
@@ -560,11 +560,13 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
     if (w.before > 0 || w.max > 0) wb.push(`the tyres up in the wash (${w.before} before, ${w.max} in it)`);
     if (w.swept !== 0) wb.push(`swept ${w.swept} (${w.sweptIn} in the wash)`);
     if (!(w.back > 0)) wb.push(`the tyres not back within 3 s of driving off (${w.back})`);
-    check("engines: tone ownership (B5, Q-28) -- the menu in a MOVING car, by touch, portrait, each car: the tyres 0 behind the cards; the cards put away, they are back within 10 frames and the sweep never fires, on the resume frame or after; by a car card and a direction card instead, the fresh start is silent, nothing is swept, and they are back when he drives",
+    check("engines: tone ownership (B5, Q-28) -- the menu in a MOVING car, by touch, portrait, each car: the tyres written to 0 behind the cards; the cards put away, they are back within 10 frames and the sweep never fires, on the resume frame or after; by a car card and a direction card instead, the fresh start is silent, nothing is swept, and they are back when he drives",
       mb.length === 0, JSON.stringify({ bad: mb, menu: m.menu, card: m.card }));
-    check("engines: tone ownership (B5, Q-28) -- the eject from a MOVING car, by touch, portrait, each car: the tyres 0 within 0.1 s and through the whole rescue, nothing swept, and back within 3 s once he drives his car again",
+    check("engines: tone ownership (B5, Q-28) -- the eject from a MOVING car, by touch, portrait, each car: the tyres written to 0 within 0.1 s and no higher through the whole rescue, nothing swept, and back within 3 s once he drives his car again",
       eb.length === 0, JSON.stringify({ bad: eb, eject: m.eject }));
-    check("engines: tone ownership (B5, Q-28) -- the car WASH (twWashGuide runs in place of updateCar, the frame's sweep still runs): the SUV parked beside it, its button by touch, run to the end: the tyres 0 throughout, nothing swept, back within 3 s of driving off",
+    // (v226, Q-29) a characterisation, not a guard: parked, the tyres are written 0 before the wash begins, so a sweep
+    // in it would have nothing to take -- this records what the wash does to them, it cannot catch one
+    check("engines: tone ownership (B5, Q-28), what the car WASH does to the tyres (a characterisation: parked, they are already written 0, so it cannot fail on a sweep) -- twWashGuide runs in place of updateCar and the frame's sweep still runs: the SUV parked beside it, its button by touch, run to the end: the tyres written 0 throughout, nothing swept, back within 3 s of driving off",
       wb.length === 0, JSON.stringify({ bad: wb, wash: m.wash }));
   }
 
@@ -574,43 +576,68 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
   // one path that stops writing it without a silence: the take-off ends in state "away" and seaPlane() returns at
   // its top from then on -- the engine of a plane no longer drawn held its last level, 0.03-0.04 (the boat's hull is
   // 0.05): 2,501 frames in the survey before it took him away, else until the next one came in (70-130 s) or he
-  // left the harbour. Portrait, in the
-  // speedboat by its landing water, the visit by the sea pool's own clock (forced only if it has not come in 200 s):
-  //   the leftover: within 0.1 s of the plane going away its engine's gain is 0, and it stays 0 for 20 s after
-  //     (no write above zero), while he sails on;
-  //   the stay: the whole visit with a wobbling finger, a stop with the finger off, the menu opened by touch and
-  //     put away, and a bang -- every frame the engine is heard it was written that frame, nothing is swept while
+  // left the harbour. Portrait, the visit by the sea pool's own clock (forced only if it has not come in 200 s),
+  // heard (v226, Q-29) from three places he is really in -- the speedboat by its landing water (with a stop and a
+  // bang), the yacht at her berth (with a stop) and the prop circling overhead on a held bank:
+  //   the leftover: within 0.1 s of the plane going away its engine is WRITTEN to 0 (these read tones.seaPlane.last,
+  //     the target setTone ramps the gain to, not the gain node), and nothing writes it higher for 20 s after, while
+  //     he goes on;
+  //   the stay: the whole visit with a wobbling finger, the menu opened by touch and put away (and the stop and the
+  //     bang where they apply) -- every frame the engine is heard it was written that frame, nothing is swept while
   //     the plane is still flying, and the visit's gain trace (hash printed, to compare two trees) is the writer's.
-  {
-    const { page: sp } = await newPage(820, 1180);
-    const r = await sp.evaluate(async () => {
+  // (v226, Q-29) And the two ways through update() that skip its writer mid-visit, each swept to 0 meanwhile: the
+  // eject (flight.js: the canopy returns before updateSetpieces; ejectStart's silence writes it to 0) and dad mode (the
+  // parent's: updateSetpieces does not run there; the sweep writes it to 0) -- on the FIRST frame updateSetpieces runs again its own writer writes it (seaPlane(), or seaHideAll's
+  // silence out of the harbour's range), and where he is within earshot of a plane still visiting, it is back up.
+  const SEA_STAGE = `
       const L = window.__lp, st = L.state;
-      L.noRender = true; L.api.skipScreens();
-      try { await L.audio.unlock(); } catch (e) {}
-      const live = L.audio.ctxState() === "running";
       const press = (e) => e && e.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 7, clientX: 0, clientY: 0 }));
       const SCREENS = ["screenVehicle", "screenDir", "screenDest", "screenRace", "screenGlobe"];
       const closeScreens = () => { for (const id of SCREENS) { const e = document.getElementById(id); if (e) e.classList.add("hiddenS"); } };
-      const setToneReal = window.setTone; let stamp = -1, hot = -1;
-      window.setTone = function (n, t, f, g) { if (n === "seaPlane") { stamp = frameCount; if (g > 0) hot = frameCount; } return setToneReal.apply(this, arguments); };
       const eng = () => tones.seaPlane ? Math.max(0, tones.seaPlane.last) : 0;
       const swept = () => L.flags.tonesSwept || 0;
       const P = sea.plane, C = SE.plane;
-      const out = { live, forced: false };
-      try {
+      // where he listens from: the speedboat on the landing water, the yacht at her berth, the prop circling 260 m up
+      const stage = (who) => {
         L.api.clearStick(); closeScreens();
-        L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1); closeScreens();
-        st.x = C.x + 150; st.z = C.touchZ; st.y = L.TUNE.waterLevel; st.speed = 0; st.heading = Math.PI / 2;
-        for (let i = 0; i < 10; i++) L.update(1 / 60);
-        out.boat = vehKind();
-        // the visit, by the pool's own clock
-        let w = 0; for (; w < 60 * 200 && P.state === "away"; w++) { L.api.clearStick(); L.update(1 / 60); }
+        if (who === "yacht") { L.api.setVehicle("yacht"); L.api.spawnAt(1, 1); closeScreens(); }
+        else if (who === "plane") {
+          L.api.setVehicle("prop"); L.api.teleportAirborne(1200, 0, 320, 0);
+          st.x = C.x + 700; st.z = C.touchZ; st.y = L.TUNE.waterLevel + 260; st.heading = 0; st.pitch = 0; st.bank = 0;
+        } else {
+          L.api.setVehicle("speedboat"); L.api.spawnAt(1, 1); closeScreens();
+          st.x = C.x + 150; st.z = C.touchZ; st.y = L.TUNE.waterLevel; st.speed = 0; st.heading = Math.PI / 2;
+        }
+        for (let i = 0; i < 10; i++) { if (who === "plane") L.api.setStick(PLANE_BANK, 0); L.update(1 / 60); }
+      };
+      const PLANE_BANK = 0.5;
+      // the finger: a boat's wobbling push; the plane's held bank, wobbling (it circles over the harbour)
+      const wobFor = (who) => who === "plane" ? (i) => [PLANE_BANK + 0.08 * Math.sin(i / 40), 0] : (i) => [0.55 + 0.25 * Math.sin(i / 40), 0];
+      const visitIn = (who, wob) => {
+        let w = 0, i = 0; for (; w < 60 * 200 && P.state === "away"; w++) { if (who === "plane") L.api.setStick(...wob(i++)); else L.api.clearStick(); L.update(1 / 60); }
+        let forced = false;
         if (P.state === "away") {
-          out.forced = true;
+          forced = true;
           P.state = "inbound"; P.t = 0; P.x = C.x; P.z = C.touchZ - C.runIn; P.y = L.TUNE.waterLevel + C.cruiseY; P.heading = 0; P.speed = C.speed; P.g.visible = true;
         }
-        out.waited = +(w / 60).toFixed(1);
-        const v = out.visit = { frames: 0, heard: 0, gaps: 0, firstGap: null, swept: 0, hash: 0, states: [], stopF: 0, menu: null, banged: false, back: false, max: 0 };
+        return { forced, waited: +(w / 60).toFixed(1) };
+      };`;
+  const seaVisit = async (who) => {
+    const { page: sp } = await newPage(820, 1180);
+    const r = await sp.evaluate(new Function("who", `return (async () => {
+      const W = window.__lp; W.noRender = true; W.api.skipScreens();
+      try { await W.audio.unlock(); } catch (e) {}
+      ${SEA_STAGE}
+      const live = L.audio.ctxState() === "running";
+      const setToneReal = window.setTone; let stamp = -1, hot = -1;
+      window.setTone = function (n, t, f, g) { if (n === "seaPlane") { stamp = frameCount; if (g > 0) hot = frameCount; } return setToneReal.apply(this, arguments); };
+      const out = { who, live, forced: false };
+      try {
+        stage(who);
+        out.kind = vehKind();
+        const wob = wobFor(who);
+        Object.assign(out, visitIn(who, wob));
+        const v = out.visit = { frames: 0, heard: 0, gaps: 0, firstGap: null, swept: 0, hash: 0, states: [], stopF: 0, menu: null, banged: false, back: false, max: 0, far: 0 };
         const s0 = swept();
         const one = (stick) => {
           if (stick) L.api.setStick(stick[0], stick[1]); else L.api.clearStick();
@@ -618,15 +645,15 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
           const g = eng();
           v.hash = (v.hash * 31 + Math.round(g * 1e5)) >>> 0;
           v.max = Math.max(v.max, g);
+          v.far = Math.max(v.far, Math.hypot(st.x - C.x, st.z - C.touchZ));
           if (v.states[v.states.length - 1] !== P.state) v.states.push(P.state);
           if (g > 0) { v.heard++; if (stamp !== frameCount && v.gaps++ === 0) v.firstGap = { f: v.frames, g, state: P.state, ex: st.exploding, menu: menuOpen() }; }
-          if (st.speed < 0.5) v.stopF++;
+          if (Math.abs(st.speed) < 0.5) v.stopF++;
         };
-        const wob = (i) => [0.55 + 0.25 * Math.sin(i / 40), 0];
         const flying = () => P.state !== "away";
         let i = 0;
         for (let k = 0; k < 60 * 6 && flying(); k++) one(wob(i++));
-        for (let k = 0; k < 60 * 7 && flying(); k++) one(null);                       // a stop: the finger off
+        if (who !== "plane") for (let k = 0; k < 60 * 7 && flying(); k++) one(null);   // a stop: the finger off
         for (let k = 0; k < 60 * 3 && flying(); k++) one(wob(i++));
         if (flying()) {                                                                // the menu by touch, a second, put away
           L.api.clearStick(); press(el.menuBtn);
@@ -635,7 +662,7 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
           closeScreens();
         }
         for (let k = 0; k < 60 * 3 && flying(); k++) one(wob(i++));
-        if (flying()) {                                                                // a bang: into the nearest solid that blocks a boat
+        if (who === "speedboat" && flying()) {                                         // a bang: into the nearest solid that blocks a boat
           let best = null, bd = Infinity; const cls = vehSolidClass();
           L.forEachSolid(b => {
             if (b.o3 || b.cap || b.ramp || b.toy || b.moving || b.car !== undefined || b.park) return;
@@ -647,12 +674,13 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
           for (let k = 0; k < 60 * 4 && flying(); k++) { one([0, 0]); if (st.exploding) v.banged = true; else if (v.banged) v.back = true; }
         }
         for (let k = 0; k < 60 * 90 && flying(); k++) one(wob(i++));
-        v.swept = swept() - s0; v.away = !flying();
+        v.swept = swept() - s0; v.away = !flying(); v.far = +v.far.toFixed(0); v.kindEnd = vehKind();
         // the leftover: 20 s on from the plane going away
         const l = out.left = { atAway: +eng().toFixed(4), zeroAt: -1, max: 0, hot: false, still: true };
         const f0 = frameCount;
         for (let k = 0; k < 60 * 20; k++) {
-          L.api.setStick(0.6, 0); L.update(1 / 60);
+          if (who === "plane") L.api.setStick(...wob(i++)); else L.api.setStick(0.6, 0);
+          L.update(1 / 60);
           const g = eng();
           if (l.zeroAt < 0 && g === 0) l.zeroAt = k + 1;
           if (l.zeroAt >= 0) l.max = Math.max(l.max, g);
@@ -660,27 +688,120 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
         }
         l.max = +l.max.toFixed(4); l.hot = hot > f0; l.kind = vehKind();
         l.near = +Math.hypot(st.x - SE.plane.x, st.z - SE.plane.touchZ).toFixed(0);
+        l.inRange = Math.hypot(st.x - HB.cx, st.z + 6800) < SE.range;
       } finally {
         window.setTone = setToneReal;
         L.api.clearStick(); closeScreens();
         L.api.setVehicle("prop"); L.api.spawnAt(0, 0); closeScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
       }
       return out;
-    });
+    })();`), who);
     await sp.close();
-    const lb = [], vb = [], v = r.visit || {}, l = r.left || {};
-    if (!r.live) vb.push("no running audio context");
-    if (r.boat !== "boat" || !v.away || !(v.max > 0.01) || !["inbound", "taxi", "turn", "takeoff"].every(s => (v.states || []).includes(s))) vb.push(`not a whole visit heard from the boat (${JSON.stringify({ boat: r.boat, states: v.states, max: v.max, away: v.away })})`);
-    if (!(v.stopF > 60) || !v.menu || !v.menu.opened || !v.menu.held || !v.banged || !v.back) vb.push(`not the visit it says (${JSON.stringify({ stopF: v.stopF, menu: v.menu, banged: v.banged, back: v.back })})`);
-    if (v.swept !== 0) vb.push(`swept ${v.swept} times while the plane was flying`);
-    if (v.gaps) vb.push(`heard but not written on ${v.gaps} frames of the visit (first ${JSON.stringify(v.firstGap)})`);
-    if (!(l.atAway > 0)) lb.push(`the engine not up as the plane went away (${l.atAway}): nothing to leave`);
-    if (!(l.zeroAt >= 1 && l.zeroAt <= 6)) lb.push(`the engine of the plane gone away not at 0 within 0.1 s (first 0 at frame ${l.zeroAt}; it held ${l.atAway})`);
-    if (l.max > 0 || l.hot) lb.push(`the engine back above 0 in the 20 s after (${l.max}, written hot ${l.hot})`);
-    if (!l.still || l.kind !== "boat") lb.push(`not 20 s of sailing on with the plane away (${JSON.stringify(l)})`);
-    check("engines: tone ownership (B5) -- the SEAPLANE's engine, heard from the speedboat: once the plane has taken off and gone away (no longer drawn, its writer no longer run), its engine is at 0 within 0.1 s and stays 0 for the 20 s after -- it used to hang at its last level until the next one came in",
-      lb.length === 0 && r.live, JSON.stringify({ bad: lb, left: l, forced: r.forced, waited: r.waited }));
-    check("engines: tone ownership (B5), the seaplane where it STAYS -- its whole visit (in, the splash, taxi, turn, take-off) heard from the speedboat with a wobbling finger, a stop, the menu opened by touch and put away, and a bang: every frame its engine is heard it was written that frame, and nothing is swept while it flies (portrait)",
-      vb.length === 0, JSON.stringify({ bad: vb, visit: `${v.heard}/${v.frames} heard, ${v.gaps} unwritten, states ${(v.states || []).join(">")}, stopped ${v.stopF}f, menu ${JSON.stringify(v.menu)}, bang ${v.banged}/${v.back}, swept ${v.swept}, max ${+(v.max || 0).toFixed(4)}, trace ${v.hash} (printed, not compared)`, forced: r.forced, waited: r.waited }));
+    return r;
+  };
+  {
+    const SAY = { speedboat: "the speedboat", yacht: "the yacht at her berth", plane: "the prop circling overhead" };
+    for (const who of ["speedboat", "yacht", "plane"]) {
+      const r = await seaVisit(who);
+      const lb = [], vb = [], v = r.visit || {}, l = r.left || {};
+      const kind = { speedboat: "boat", yacht: "yacht", plane: "plane" }[who];
+      if (!r.live) vb.push("no running audio context");
+      if (r.kind !== kind || v.kindEnd !== kind || !v.away || !(v.max > 0.01) || !["inbound", "taxi", "turn", "takeoff"].every(s => (v.states || []).includes(s))) vb.push(`not a whole visit heard from ${SAY[who]} (${JSON.stringify({ kind: r.kind, end: v.kindEnd, states: v.states, max: v.max, away: v.away })})`);
+      if (!v.menu || !v.menu.opened || !v.menu.held) vb.push(`not the menu opened by touch with the world held (${JSON.stringify(v.menu)})`);
+      if (who === "speedboat" && !(v.stopF > 60)) vb.push(`no stop with the finger off (${v.stopF} frames)`);
+      if (who === "speedboat" && (!v.banged || !v.back)) vb.push(`not the bang it says (${JSON.stringify({ banged: v.banged, back: v.back })})`);
+      if (v.swept !== 0) vb.push(`swept ${v.swept} times while the plane was flying`);
+      if (v.gaps) vb.push(`heard but not written on ${v.gaps} frames of the visit (first ${JSON.stringify(v.firstGap)})`);
+      if (!(l.atAway > 0)) lb.push(`the engine not up as the plane went away (${l.atAway}): nothing to leave`);
+      if (!(l.zeroAt >= 1 && l.zeroAt <= 6)) lb.push(`the engine of the plane gone away not written to 0 within 0.1 s (first 0 at frame ${l.zeroAt}; it held ${l.atAway})`);
+      if (l.max > 0 || l.hot) lb.push(`the engine written above 0 again in the 20 s after (${l.max}, written hot ${l.hot})`);
+      if (!l.still || l.kind !== kind || !l.inRange) lb.push(`not 20 s of going on in the harbour's range with the plane away (${JSON.stringify(l)})`);
+      const detail = (bad) => JSON.stringify({ bad, visit: `${v.heard}/${v.frames} heard, ${v.gaps} unwritten, states ${(v.states || []).join(">")}, stopped ${v.stopF}f, menu ${JSON.stringify(v.menu)}, bang ${v.banged}/${v.back}, swept ${v.swept}, max ${+(v.max || 0).toFixed(4)}, ${v.far} m out at most, trace ${v.hash} (printed, not compared)`, left: l, forced: r.forced, waited: r.waited });
+      if (who === "speedboat") {
+        check("engines: tone ownership (B5) -- the SEAPLANE's engine, heard from the speedboat: once the plane has taken off and gone away (no longer drawn, its writer no longer run), its engine is written to 0 within 0.1 s and written no higher for the 20 s after -- it used to hang at its last level until the next one came in",
+          lb.length === 0 && r.live, detail(lb));
+        check("engines: tone ownership (B5), the seaplane where it STAYS -- its whole visit (in, the splash, taxi, turn, take-off) heard from the speedboat with a wobbling finger, a stop, the menu opened by touch and put away, and a bang: every frame its engine is heard it was written that frame, and nothing is swept while it flies (portrait)",
+          vb.length === 0, detail(vb));
+      } else {
+        check(`engines: tone ownership (B5, Q-29) -- the SEAPLANE's engine heard from ${SAY[who]}: its whole visit with ${who === "plane" ? "a held, wobbling bank" : "a wobbling finger and 7 s with the finger off (she coasts)"} and the menu by touch, every frame heard was written that frame and nothing swept while it flies; once it has gone away its engine is written to 0 within 0.1 s and no higher for 20 s (portrait)`,
+          vb.length === 0 && lb.length === 0 && r.live, detail(vb.concat(lb)));
+      }
+    }
+  }
+  // ---- (v226, Q-29) the two ways through update() that skip the seaplane's writer, mid-visit
+  {
+    const { page: kp } = await newPage(820, 1180);
+    const k = await kp.evaluate(new Function(`return (async () => {
+      const W = window.__lp; W.noRender = true; W.api.skipScreens();
+      try { await W.audio.unlock(); } catch (e) {}
+      ${SEA_STAGE}
+      const live = L.audio.ctxState() === "running";
+      // who wrote the seaplane's engine this frame: its writer (seaPlane(), or seaHideAll's silence), or the sweep
+      let usF = -1, inSea = "", writes = [];
+      const real = { setTone: window.setTone, updateSetpieces: window.updateSetpieces, seaPlane: window.seaPlane, seaHideAll: window.seaHideAll };
+      window.setTone = function (n, t, f, g) { if (n === "seaPlane") writes.push({ f: frameCount, g, by: toneSweeping ? "sweep" : inSea || "other" }); return real.setTone.apply(this, arguments); };
+      window.updateSetpieces = function () { usF = frameCount; return real.updateSetpieces.apply(this, arguments); };
+      window.seaPlane = function () { inSea = "seaPlane"; try { return real.seaPlane.apply(this, arguments); } finally { inSea = ""; } };
+      window.seaHideAll = function () { inSea = "seaHideAll"; try { return real.seaHideAll.apply(this, arguments); } finally { inSea = ""; } };
+      const out = { live };
+      // one path: mid-visit and heard, then off through it, then the first frame updateSetpieces runs again
+      const through = (who, name, begin, inIt, end) => {
+        const r = out[name] = { who };
+        stage(who); const wob = wobFor(who); let i = 0;
+        Object.assign(r, visitIn(who, wob));
+        const toTaxi = () => { for (let n = 0; n < 60 * 30 && !(P.state === "taxi" && eng() > 0.005); n++) { L.api.setStick(...wob(i++)); L.update(1 / 60); } };
+        toTaxi();
+        if (P.state !== "taxi") {   // a visit already past its taxi (the path before left it there): a fresh one, forced
+          r.forcedAgain = P.state;
+          P.state = "inbound"; P.t = 0; P.x = C.x; P.z = C.touchZ - C.runIn; P.y = L.TUNE.waterLevel + C.cruiseY; P.heading = 0; P.speed = C.speed; P.g.visible = true;
+          toTaxi();
+        }
+        r.before = { state: P.state, eng: +eng().toFixed(4), kind: vehKind() };
+        L.api.clearStick();
+        r.began = begin();
+        writes = []; const f0 = frameCount; let n = 0, zeroAt = -1, ran = 0;
+        for (; n < 60 * 40 && inIt(); n++) {
+          usF = -1; L.update(1 / 60);
+          if (usF === frameCount) ran++;
+          if (zeroAt < 0 && eng() === 0) zeroAt = n + 1;
+        }
+        const under = writes.filter(w => w.f > f0);
+        r.under = { frames: n, ran, zeroAt, hot: under.filter(w => w.g > 0).length, sweeps: under.filter(w => w.by === "sweep").length, state: P.state };
+        end();
+        // the first frame updateSetpieces runs again
+        let m = 0; for (; m < 60 * 5; m++) { usF = -1; writes = []; L.update(1 / 60); if (usF === frameCount) break; }
+        const near = Math.max(0, 1 - Math.hypot(st.x - P.x, st.z - P.z) / 1600), inRange = Math.hypot(st.x - HB.cx, st.z + 6800) < SE.range;
+        r.first = { after: m + 1, by: writes.filter(w => w.f === frameCount).map(w => w.by + ":" + (+w.g.toFixed(4))), eng: +eng().toFixed(4), state: P.state, inRange, near: +near.toFixed(3), kind: vehKind(), cards: menuOpen() };
+        closeScreens();
+      };
+      try {
+        through("speedboat", "ejectBoat", () => { press(el.ejectBtn); return !!eject.active; }, () => eject.active, () => {});
+        through("plane", "ejectPlane", () => { press(el.ejectBtn); return !!eject.active; }, () => eject.active, () => {});
+        let dadF = 0;
+        through("speedboat", "dad", () => { L.dadEnter("canyon"); return dadHere(); }, () => dadHere() && dadF++ < 60 * 3, () => { L.dadExit(); });
+      } finally {
+        Object.assign(window, real);
+        L.api.clearStick(); closeScreens(); for (let i = 0; i < 60 * 30 && eject.active; i++) L.update(1 / 60);
+        if (typeof dadHere === "function" && dadHere()) L.dadExit();
+        closeScreens(); L.api.setVehicle("prop"); L.api.spawnAt(0, 0); closeScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
+      }
+      return out;
+    })();`));
+    await kp.close();
+    const kb = [];
+    if (!k.live) kb.push("no running audio context");
+    for (const name of ["ejectBoat", "ejectPlane", "dad"]) {
+      const r = k[name] || {}, u = r.under || {}, f = r.first || {};
+      if (!r.before || r.before.state !== "taxi" || !(r.before.eng > 0) || !r.began) { kb.push(`${name}: not begun mid-visit with the engine heard (${JSON.stringify({ before: r.before, began: r.began })})`); continue; }
+      if (u.ran !== 0 || !(u.frames > 30)) kb.push(`${name}: updateSetpieces ran ${u.ran} times over ${u.frames} frames of it -- not the path that skips the writer`);
+      if (!(u.zeroAt >= 1 && u.zeroAt <= 6) || u.hot) kb.push(`${name}: the engine not written to 0 within 0.1 s, or written up, while its writer is skipped (${JSON.stringify(u)})`);
+      if (!(f.after >= 1) || !f.by.some(b => /^(seaPlane|seaHideAll):/.test(b))) kb.push(`${name}: on the first frame updateSetpieces ran again its writer did not write the engine (${JSON.stringify(f)})`);
+      const want = f.inRange && f.near > 0 && f.state !== "away";
+      if (want && !(f.eng > 0)) kb.push(`${name}: within earshot of the plane still visiting, the engine not back on that first frame (${JSON.stringify(f)})`);
+      if (!want && f.eng > 0) kb.push(`${name}: the engine up with no plane in earshot (${JSON.stringify(f)})`);
+    }
+    if (!(k.ejectBoat && k.ejectBoat.first && k.ejectBoat.first.near > 0) || !(k.dad && k.dad.first && k.dad.first.near > 0)) kb.push(`not back within earshot after the boat's eject and dad mode, so "back up" is not measured (${JSON.stringify({ ejectBoat: k.ejectBoat && k.ejectBoat.first, dad: k.dad && k.dad.first })})`);
+    check("engines: tone ownership (B5, Q-29) -- the SEAPLANE's engine where update() skips its writer mid-visit: an eject from the speedboat and from the prop overhead (the canopy returns before updateSetpieces), and dad mode entered from the boat: written to 0 within 0.1 s and never up while it is skipped, and on the first frame updateSetpieces runs again its own writer writes it -- back up wherever he is in earshot of the plane (portrait)",
+      kb.length === 0, JSON.stringify({ bad: kb, ejectBoat: k.ejectBoat, ejectPlane: k.ejectPlane, dad: k.dad }));
   }
 };

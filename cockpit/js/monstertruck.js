@@ -292,7 +292,7 @@ function mtReset() {
   mtToStart(); mtPlace();
   mtruck.reticle.visible = true;
   setTone("mtRoar", "sawtooth", MTRUCK.roarHz, 0);
-  if (el.bigNum.classList.contains("sky") && mtruck.counting) { countdownClear(); el.bigNum.classList.remove("sky"); }
+  if (el.bigNum.classList.contains("sky") && mtruck.counting && countdownClear("monsterTruck")) el.bigNum.classList.remove("sky");
   mtruck.counting = false;
 }
 function mtHear() { return clamp(1 - Math.hypot(state.x - mtruck.x, state.y - mtruck.y, state.z - mtruck.z) / MTRUCK.hearR, 0, 1); }
@@ -380,16 +380,18 @@ function updateMonsterTruck(dt) {
     roar = 0.12;            // idling
   } else if (ph === "count") {
     if (mtBusy()) {
-      countdownClear(); el.bigNum.classList.remove("sky"); mtruck.counting = false;
+      if (countdownClear("monsterTruck")) el.bigNum.classList.remove("sky");
+      mtruck.counting = false;
       mtruck.phase = "armed"; flags.mtStandDowns = (flags.mtStandDowns || 0) + 1;
     } else {
       mtruck.t -= dt;
-      el.bigNum.classList.add("sky");
-      countdownTo(mtruck.t, T.count);
+      if (!countdownBlocked("monsterTruck")) el.bigNum.classList.add("sky");
+      countdownTo(mtruck.t, T.count, "monsterTruck");
       roar = 0.3 + 0.5 * (1 - mtruck.t / T.count);           // revving
       mtruck.bounce = Math.sin(mtruck.clock * 30) * 0.08 * (1 - mtruck.t / T.count);
       if (mtruck.t <= 0) {
-        countdownClear(); el.bigNum.classList.remove("sky"); mtruck.counting = false;
+        if (countdownClear("monsterTruck")) el.bigNum.classList.remove("sky");
+        mtruck.counting = false;
         mtruck.phase = "run"; mtruck.v = 0; mtruck.bounce = 0;
         flags.mtRuns = (flags.mtRuns || 0) + 1;
         for (let i = 0; i < 8; i++) mtPuff(mtruck.x - Math.sin(mtruck.heading) * 6, mtruck.groundY + 1, mtruck.z - Math.cos(mtruck.heading) * 6,

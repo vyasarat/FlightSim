@@ -1440,9 +1440,11 @@ function sourceInventory() {
   for (const f of fs.readdirSync(dir).filter(f => f.endsWith(".js"))) {
     const src = fs.readFileSync(path.join(dir, f), "utf8");
     for (const m of src.matchAll(/setTone\("([A-Za-z0-9_]+)"/g)) tones.add(m[1]);
-    // a writer calls countdownTo / setBigNum (their own definitions are not calls)
-    const calls = src.replace(/function (setBigNum|countdownTo|countdownClear)\([^)]*\)\s*\{[^\n]*/g, "");
-    if (/\b(countdownTo|setBigNum)\(/.test(calls)) writers.add(f);
+    // a writer calls countdownTo / setBigNum / numShow (their own definitions are not calls; v226: numShow is the
+    // owned digit the lock and the race write,
+    // and spCountStep, the shared count step the barge's numeral goes through)
+    const calls = src.replace(/function (setBigNum|countdownTo|countdownClear|numShow|spCountStep)\([^)]*\)\s*\{[^\n]*/g, "");
+    if (/\b(countdownTo|setBigNum|numShow|spCountStep)\(/.test(calls)) writers.add(f);
   }
   return { tones: [...tones].sort(), writers: [...writers].sort() };
 }
