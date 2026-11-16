@@ -162,7 +162,7 @@ const VEHICLE_TONES = [
 //   body           offRocket   -       -          off the Moon, Mars or the station: rk.onBody cleared (v222, Q-18)
 //   race           -           first   unwind     out of a race, its track picker shut
 //   demo           -           first   -          out of a demolition's count
-//   police         -           first   -          out of a police pull-over
+//   police         -           first   unwind     out of a police pull-over, or a chase (the menu: v223, Q-21)
 //   events         -           last    -          last flight's event goes, a new one is drawn (DRAWS from the stream)
 //   towerCatch     -           last    -          the tower catch re-armed
 //   carrier        -           last    -          the carrier re-armed
@@ -183,6 +183,11 @@ const VEHICLE_TONES = [
 // vehicle card's place runs it: the menu does not (opened on the Moon he is still on it until he picks), a fresh
 // start does not need to (a non-rocket only comes from applyVehicle, which has cleared it; the rocket's own pad
 // clears it inline, as before), and dad mode enters through applyVehicle.
+//
+// (v223) `police` is the first row run at one more place: the menu. Behind the cards nothing drives a chase (updatePolice
+// runs from updateHighway, after the picker's hold), so a chase the menu was opened on stayed on with its siren held at
+// its last gain and the engine ducked under it, for as long as he sat on the cards. Every way off the cards was a start,
+// which ended it already (`police` at start): now the menu ends it, as the start would. A bang still never does.
 //
 // Not yet (B4's next steps, one row per release): a place running a row it does not run today.
 // The order each place runs its rows in is pinned by leave_matrix_checks ("leave order: ..."); gate 20 holds the
@@ -233,6 +238,7 @@ const LEAVE = {
   demo:          () => { if (typeof demoStandDown === "function") demoStandDown(); },   // (v213) ... and out of a demolition's count
   // (v214) ... and out of a police pull-over: its cars eased toward him with no limit on the step,
   // so from a relaunch they crossed the country (or the sea) in two seconds to finish the 3-2-1
+  // (v223, Q-21) ... and the menu ends a chase: behind the cards nothing drives it, and its siren held
   police:        () => { if (typeof policeStop === "function") policeStop(false); },
   // last flight's event goes away and a new one is drawn for this stack (it DRAWS from the random stream:
   // where it runs among the other draws is what every seeded check after it sees)
@@ -263,7 +269,7 @@ const LEAVE_AT = {
     last:  ["events", "towerCatch", "carrier", "heli"],                 // after the rings are placed
   },
   picker: {    // openPickerAnywhere(), the menu button
-    unwind: ["throttle", "keys", "finger", "stick", "pieces", "rover", "astro", "recovery", "heli", "cannon", "horn", "race"],
+    unwind: ["throttle", "keys", "finger", "stick", "pieces", "rover", "astro", "recovery", "heli", "cannon", "horn", "race", "police"],
   },
 };
 // One step of one place's leaving, its rows in its own order.
