@@ -211,15 +211,19 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
     L.api.teleportAirborne(3000, 0, 250, 0);
     const px = T.x - 600, pz = T.z - 800;
     const hold = () => { st.phase = "AIRBORNE"; st.exploding = false; st.x = px; st.y = 220; st.z = pz; st.heading = Math.atan2(-(T.x - px), -(T.z - pz)); st.pitch = 0; st.bank = 0; st.speed = st.vp.cruiseSpeed; };
-    L.sledForce();
-    const c0 = L.flags.fbCountdowns || 0;
+    // (v228) the other count is the monster truck's, 0.7 km from here: the sled (4.4 km off) is out of its drawn
+    // distance from the barge, and since v228 a count out of sight stands down (spCountStep's `away`) -- it was
+    // over before the barge could be asked to wait for it
+    L.mtReset(); L.mtForce();
+    const c0 = L.flags.fbCountdowns || 0, r0 = L.flags.mtRuns || 0;
     let during = 0, after = null;
     for (let i = 0; i < 60 * 8; i++) {
       hold(); L.update(1 / 60);
-      if (L.sled.phase === "count" && (L.flags.fbCountdowns || 0) > c0) during++;
-      if (after === null && L.sled.phase !== "count" && (L.flags.fbCountdowns || 0) > c0) after = Math.round(i / 6) / 10;
+      if (L.mtruck.phase === "count" && (L.flags.fbCountdowns || 0) > c0) during++;
+      if (after === null && L.mtruck.phase !== "count" && (L.flags.fbCountdowns || 0) > c0) after = Math.round(i / 6) / 10;
     }
-    out.wait = { during, after };
+    out.wait = { during, after, otherRan: (L.flags.mtRuns || 0) - r0 };
+    L.mtReset();
     // the picker mid-count
     L.fbReset(); if (L.sledReset) L.sledReset();
     L.fbForce();
@@ -251,7 +255,7 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
   check(`fireworks barge: while it counts, the rocket sled and the launch pad are told to wait`,
     share.others.barge === "count" && share.others.sledBusy && share.others.lsBusy, share.others);
   check(`fireworks barge: pointed at, it waits while another set-piece's numeral is up, and goes once it is down`,
-    share.wait.during === 0 && share.wait.after !== null, share.wait);
+    share.wait.during === 0 && share.wait.after !== null && share.wait.otherRan === 1, share.wait);
   check(`fireworks barge: the picker opened mid-count stands it down and the numeral goes with it`,
     share.picker.up && share.picker.menu && share.picker.standDowns === 1 && !share.picker.numOn && !share.picker.sky && share.picker.phase === "armed", share.picker);
 
@@ -484,53 +488,100 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
     !rule.err && rule.a === 3 && rule.aTicks === 1 && rule.b === 0 && rule.bTicks === 0 && rule.textB === "3" && rule.bBlocked && !rule.aBlocked && rule.bClear === false && rule.textAfterBClear === "3" &&
       rule.bShow === false && rule.textAfterBShow === "3" && rule.aClear === true && rule.downA && rule.b2 === 2 && rule.textB2 === "2" && rule.downAll && rule.bareDown && rule.fbUp && rule.afterStart === "-" && rule.refused >= 3,
     JSON.stringify(rule));
-  // h. (v227) a point-at count does not follow him away: the barge and the monster truck counting, in the prop (by
-  // touch, portrait) -- the go arrow (skipToLanding in flight), or the eject (its fresh start on the runway). Within
-  // two frames the numeral is down and stays down, no payoff goes off out of sight, and the set-piece is armed: flown
-  // back at, it counts again.
+  // h. (v227) a point-at count does not follow him away: the barge, the monster truck and (v228) the rocket sled
+  // counting, in the prop (by touch, portrait) -- the go arrow (skipToLanding in flight), or the eject (its fresh start
+  // on the runway); (v228) in the helicopter (hovering at it, staged) by the go arrow and the eject. In the car nothing
+  // takes him away: it has no go arrow (btnSkipShows: it is never AIRBORNE) and its eject keeps his place on the road --
+  // so there (a held finger, by touch) the count is judged to run on through the eject and go off, uncut. Within two frames the numeral is down and stays down, no payoff goes off out
+  // of sight, the stand-down is the one for being out of sight (`countAway`: 0 before the press, at least 1 after it),
+  // and the set-piece is armed: come back at, it counts again.
   const awayRuns = {};
-  for (const piece of ["barge", "truck"]) for (const how of ["skip", "eject"]) {
-    awayRuns[piece + "/" + how] = await numIn(`
+  const AWAY_CASES = [];
+  for (const piece of ["barge", "truck", "sled"]) {
+    AWAY_CASES.push([piece, "plane", "skip"], [piece, "plane", "eject"], [piece, "car", "eject"], [piece, "heli", "skip"]);
+    if (piece === "barge") AWAY_CASES.push([piece, "heli", "eject"]);
+  }
+  for (const [piece, veh, how] of AWAY_CASES) {
+    awayRuns[piece + "/" + veh + "/" + how] = await numIn(`
       const f0 = Object.assign({}, L.flags);
-      const B = arg.piece === "barge";
-      const P = B ? { x: FBARGE.x, z: FBARGE.z } : mtLanding();
-      const ph = () => B ? fbarge.phase : mtruck.phase, payoff = B ? "fbShows" : "mtRuns", counts = B ? "fbCountdowns" : "mtCountdowns";
+      const PC = arg.piece, B = PC === "barge", T = PC === "truck";
+      const P = B ? { x: FBARGE.x, z: FBARGE.z } : T ? mtLanding() : sledWallWorld();
+      const ph = () => B ? fbarge.phase : T ? mtruck.phase : sled.phase;
+      const payoff = B ? "fbShows" : T ? "mtRuns" : "sledRuns", counts = B ? "fbCountdowns" : T ? "mtCountdowns" : "sledCountdowns";
+      const owner = B ? "fireworksBarge" : T ? "monsterTruck" : "rocketSled";
+      const cvs = L.renderer.domElement;
+      const fire = (type, x, y) => cvs.dispatchEvent(new PointerEvent(type, { pointerId: 41, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true, clientX: x, clientY: y }));
       const ax = P.x - 600, az = P.z + 700, hdg = Math.atan2(-(P.x - ax), -(P.z - az));
       const fly = () => { L.api.clearStick(); st.y = Math.max(st.y, L.terrainEff(st.x, st.z) + 150); st.pitch = 0; };
-      planeAt(ax, az, 200, hdg);
+      const hover = () => { st.phase = "AIRBORNE"; st.x = ax; st.y = L.terrainEff(ax, az) + 120; st.z = az; heli.vx = heli.vz = heli.vy = 0; heli.altitude = st.y; heli.target = null; st.heading = hdg; };
+      // the motorway north of it, dd m from it, him on it facing its way, stopped (as l's roadNear)
+      const roadNear = (dd) => {
+        let best = null;
+        for (let s = 0; s < highway.length; s += 20) { const q = hwySampleAt(s); const e = Math.hypot(q.x - P.x, q.z - P.z); if (q.z > P.z && Math.abs(e - dd) < 150 && (!best || Math.abs(e - dd) < Math.abs(best.e - dd))) best = { s, e, q }; }
+        const q = best.q; st.x = q.x - q.fz * 3; st.z = q.z + q.fx * 3; st.y = q.y;
+        const dir = ((P.x - st.x) * q.fx + (P.z - st.z) * q.fz) >= 0 ? 1 : -1;
+        st.heading = Math.atan2(-q.fx * dir, -q.fz * dir); st.speed = 0;
+      };
+      const dd = B ? 700 : 900;
+      const setUp = () => {
+        if (arg.veh === "plane") { planeAt(ax, az, 200, hdg); return fly; }
+        if (arg.veh === "car") { L.api.setVehicle("car"); L.api.spawnAt(0, 0); step(10); roadNear(dd); fire("pointerdown", 410, 800); return null; }
+        // (from California the sled is beside the go arrow's own destination: there it would not take him away)
+        L.api.setVehicle("helicopter"); if (PC === "sled") L.api.spawnAt(1, 1); else L.api.spawnAt(0, 0); step(10); hover(); return () => { if (ph() !== "count") hover(); };
+      };
+      let each = setUp();
       let at = -1;
-      step(60 * 8, (i) => { fly(); if (ph() === "count" && bn.classList.contains("on")) { at = i; return false; } });
-      step(20, fly);
-      out.at = at; out.before = bn.textContent; out.held = countdownHeldBy(B ? "fireworksBarge" : "monsterTruck");
+      step(60 * 20, (i) => { if (each) each(); if (ph() === "count" && bn.classList.contains("on")) { at = i; return false; } });
+      step(20, each);
+      out.at = at; out.before = bn.textContent; out.held = countdownHeldBy(owner);
+      if (arg.veh === "car") out.skipShown = !el.skipBtn.classList.contains("hidden");
       const btn = arg.how === "skip" ? el.skipBtn : el.ejectBtn;
       out.btn = !btn.classList.contains("hidden");
       const r0 = d("repositioned", f0);
+      out.awayBefore = d("countAway", f0);
+      if (arg.veh === "car") fire("pointerup", 410, 800);
       press(btn);
-      if (arg.how === "eject") { for (let i = 0; i < 60 * 40 && d("repositioned", f0) === r0; i++) L.update(1 / 60); out.restarted = d("repositioned", f0) > r0; out.ejectActive = eject.active; }
+      // the car's eject keeps his place on the road (eject.js: surface progress is preserved): he is back by his car, in
+      // sight, so it is NOT a take-away -- the count runs on and goes off, with no stand-down (judged below)
+      if (arg.how === "eject" && arg.veh !== "car") { for (let i = 0; i < 60 * 40 && d("repositioned", f0) === r0; i++) L.update(1 / 60); out.restarted = d("repositioned", f0) > r0; out.ejectActive = eject.active; }
       const n0 = tr.frames.length;
+      // (the whole world waits while he is under the canopy -- update() returns early for the rescue -- so the car's
+      // count picks up again once he is back by his car)
+      if (arg.veh === "car") { let k = 0; for (; k < 60 * 60 && (k < 2 || eject.active); k++) { L.update(1 / 60); snap(); } out.rescueF = k; }
       step(60 * 12, () => { L.api.clearStick(); });
+      if (arg.veh === "car") { out.carDist = Math.round(Math.hypot(st.x - P.x, st.z - P.z)); out.carPay = d(payoff, f0); out.carAway = d("countAway", f0); out.carStand = d(B ? "fbStandDowns" : T ? "mtStandDowns" : "sledStandDowns", f0); out.ejectActive = eject.active; out.ph = ph(); out.seen = seen(n0).slice(0, 160); out.ejPhase = eject.phase; } else {
       const after = tr.frames.slice(n0);
       out.firstDown = after.findIndex(f => f.k[0] === "-"); out.upAfter = after.filter(f => f.k[0] !== "-").length;
       out.seen = seen(n0).slice(0, 160); out.dist = Math.round(Math.hypot(st.x - P.x, st.z - P.z));
       out.payoff = d(payoff, f0); out.phase = ph(); out.away = d("countAway", f0);
-      // back: flown at it again
-      planeAt(ax, az, 200, hdg);
+      // back: come at it again
+      each = setUp();
       let again = -1;
-      step(60 * 8, (i) => { fly(); if (ph() === "count" && bn.classList.contains("on")) { again = i; return false; } });
+      step(60 * 20, (i) => { if (each) each(); if (ph() === "count" && bn.classList.contains("on")) { again = i; return false; } });
+      if (arg.veh === "car") fire("pointerup", 410, 800);
       out.again = again; out.counts = d(counts, f0);
-      L.fbReset(); L.mtReset();
-    `, { piece, how });
+      }
+      L.api.clearStick(); L.fbReset(); L.mtReset(); L.sledReset();
+    `, { piece, veh, how });
   }
   const awayBad = [];
   for (const [k, r] of Object.entries(awayRuns)) {
+    if (k.includes("/car/")) {
+      if (r.err || !(r.at >= 0) || !r.btn || !r.held) { awayBad.push(`${k}: not counting by touch with the eject there (${JSON.stringify(r)})`); continue; }
+      if (r.skipShown) awayBad.push(`${k}: a go arrow in the car`);
+      if (!(r.carDist < 2262) || r.carPay !== 1 || r.carAway !== 0 || r.carStand !== 0) awayBad.push(`${k}: the car's eject is not a take-away -- he stays in sight and the count should run on and go off (${r.carDist} m, ${r.carPay} payoffs, countAway ${r.carAway}, ${r.carStand} stand-downs)`);
+      continue;
+    }
     if (r.err || !(r.at >= 0) || !r.btn || !r.held || (k.endsWith("eject") && !r.restarted)) { awayBad.push(`${k}: not counting by touch with its button there, or no fresh start (${JSON.stringify(r)})`); continue; }
     if (!(r.dist > 2400)) awayBad.push(`${k}: not taken away (${r.dist} m)`);
     if (r.firstDown < 0 || r.firstDown > 1 || r.upAfter > 1) awayBad.push(`${k}: its numeral followed him (${r.seen})`);
     if (r.payoff !== 0) awayBad.push(`${k}: its payoff went off out of sight (${r.payoff})`);
+    if (r.awayBefore !== 0 || !(r.away >= 1)) awayBad.push(`${k}: not stood down for being out of sight (countAway ${r.awayBefore} before the press, ${r.away} after)`);
+    if (r.skipShown) awayBad.push(`${k}: a go arrow in the car`);
     if (r.phase !== "armed" || !(r.again >= 0) || r.counts !== 2) awayBad.push(`${k}: not armed again when he came back (phase ${r.phase}, counted again at ${r.again}, ${r.counts} counts)`);
   }
-  check("numeral (v227): a point-at count does not follow him away -- the fireworks barge and the monster truck counting, the prop by touch (portrait), then the go arrow or the eject's fresh start: the numeral down within two frames and down for the 12 s after, no show and no run out of sight, and flown back at, it counts again (armed)",
-    awayBad.length === 0, JSON.stringify({ bad: awayBad, runs: Object.fromEntries(Object.entries(awayRuns).map(([k, r]) => [k, { at: r.at, dist: r.dist, firstDown: r.firstDown, upAfter: r.upAfter, payoff: r.payoff, again: r.again, away: r.away, seen: (r.seen || "").slice(0, 60), err: r.err }])) }));
+  check("numeral (v227): a point-at count does not follow him away -- the fireworks barge, the monster truck and (v228) the rocket sled counting, the prop by touch (portrait) then the go arrow or the eject's fresh start, (v228) the helicopter's go arrow and eject: the numeral down within two frames and down for the 12 s after, no show and no run out of sight, stood down for being out of sight (countAway), and come back at, it counts again (armed); in the car (no go arrow) the eject keeps him in sight and the count runs on and goes off",
+    awayBad.length === 0, JSON.stringify({ bad: awayBad, runs: Object.fromEntries(Object.entries(awayRuns).map(([k, r]) => [k, { at: r.at, dist: r.dist, firstDown: r.firstDown, upAfter: r.upAfter, payoff: r.payoff, again: r.again, away: [r.awayBefore, r.away], seen: (r.seen || "").slice(0, 60), err: r.err }])) }));
   // i. (v227, Q-30 d) the kept missile (demo.want) dropped when he goes: Q-7's flight (the prop, portrait), the barge
   // counting and his missile from its button landing in the block, kept -- then the go arrow (by touch: its drop is
   // the out-of-sight one, updateDemolition) or a relaunch (the picker and a fresh start, as audit_hud's __relaunch:
@@ -584,6 +635,145 @@ module.exports = async function fireworksBargeChecks({ newPage, check }) {
     !keptLs.err && keptLs.lsUp && keptLs.keptAt >= 0 && keptLs.dmAt >= keptLs.lsEnd && keptLs.lsEnd > keptLs.keptAt && keptLs.maxTicks === 1 && keptLs.demolitions === 1 && keptLs.folded >= 7 &&
       /3x(59|60|61) 2x(59|60|61) 1x(59|60|61)/.test(keptLs.seen.replace(/\^/g, "")),
     JSON.stringify(keptLs));
+  // m. (v228, Q-31 b) A COUNT HE IS WATCHING IS NEVER CUT -- the standing proof under spCountStep's `away`: every
+  // vehicle that can set off the barge, the truck or the sled, at its TOP speed step (pressed, by touch), comes at it
+  // and sees a whole count and its payoff with no stand-down at all, `countAway` 0. The cars on the motorway both
+  // ways, a held finger (by touch), the Corvette also with its booster held (a drag up, by touch); the prop and the
+  // fighter flown at it (the plane's height held, as h); the helicopter at its top step flown to it (its target
+  // staged). The other point-at set-pieces are kept from arming (STAGED: their aims return false), so the one count
+  // is this one's, from its own arm range -- a later move of drawFog, armR, carArmR, carView or carsAt that cuts a
+  // watched count goes red here. And the one path that cut one by touch, unstaged (v228's finding): southbound at
+  // the bottom step through the launch pad's 5-4-3-2-1, then the booster -- at 128 m/s the truck armed 2.3 km from
+  // a truck drawn to 2.26, and started and stood down every other frame for 0.6 s.
+  const STAND = `
+    const cvs = L.renderer.domElement;
+    const fire = (type, x, y) => cvs.dispatchEvent(new PointerEvent(type, { pointerId: 41, pointerType: "touch", isPrimary: true, bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    const OWN = { barge: "fireworksBarge", truck: "monsterTruck", sled: "rocketSled" };
+    const AIMS = { barge: "fbAimed", truck: "mtAimed", sled: "sledAimed", pad: "lsAimed" };
+    const real = Object.fromEntries(Object.values(AIMS).map(n => [n, window[n]]));
+    const quiet = (piece) => { for (const [k, n] of Object.entries(AIMS)) window[n] = k === piece ? real[n] : () => false; };
+    const loud = () => { for (const n of Object.values(AIMS)) window[n] = real[n]; };
+    const resetAll = () => { if (police.active) policeStop(false); fbReset(); mtReset(); sledReset(); lsReset(); countdownEndAll(); el.bigNum.classList.remove("sky"); };
+    const tgt = (piece) => piece === "barge" ? { x: FBARGE.x, z: FBARGE.z } : piece === "truck" ? mtLanding() : sledWallWorld();
+    const FL = { barge: ["fbCountdowns", "fbStandDowns", "fbShows"], truck: ["mtCountdowns", "mtStandDowns", "mtRuns"], sled: ["sledCountdowns", "sledStandDowns", "sledRuns"] };
+    const phaseOf = (piece) => piece === "barge" ? fbarge.phase : piece === "truck" ? mtruck.phase : sled.phase;
+    const topStep = (btn) => { for (let i = 0; i < 8; i++) { press(btn); L.update(1 / 60); } return st.speedStep; };
+    // one run: drive or fly at it until its payoff (or 150 s), the numeral traced
+    const watch = (piece, frames, each) => {
+      const F = FL[piece], f0 = Object.assign({}, L.flags);
+      let payAt = -1, vmax = 0; const own = [];
+      step(frames, (i) => {
+        if (each) each(i); vmax = Math.max(vmax, Math.abs(st.speed));
+        if (countdownHeldBy(OWN[piece])) own.push(bn.textContent + (bn.classList.contains("sky") ? "^" : ""));
+        if (payAt < 0 && d(F[2], f0) > 0) payAt = i; if (payAt >= 0 && i > payAt + 30) return false; if (st.exploding) return false;
+      });
+      const runs = []; for (const k of own) { if (runs.length && runs[runs.length - 1][0] === k) runs[runs.length - 1][1]++; else runs.push([k, 1]); }
+      return { counts: d(F[0], f0), standDowns: d(F[1], f0), pay: d(F[2], f0), away: d("countAway", f0), refused: d("numRefused", f0), vmax: Math.round(vmax), bang: st.exploding,
+               digits: runs.map(r => r[0] + "x" + r[1]).join(" "), step: st.speedStep, pol: police.active ? police.state : "" };
+    };
+    // the car on the motorway, 3.2 km short of it along the road, travelling +s (dir 1) or -s, a held finger
+    const carRun = (piece, dir, opts) => {
+      resetAll(); if (!opts.loud) quiet(piece); else loud();
+      const P = tgt(piece), s0 = hwyNearest(P.x, P.z).s, s = clamp(s0 - dir * 3200, 50, highway.length - 50);
+      const q = hwySampleAt(s), off = dir * (HW.medianW / 2 + HW.laneW * 0.5);
+      st.x = q.x - q.fz * off; st.z = q.z + q.fx * off; st.y = q.y; st.speed = 0;
+      st.heading = dir > 0 ? Math.atan2(-q.fx, -q.fz) : Math.atan2(q.fx, q.fz);      // forward is (-sin h, -cos h)
+      L.api.clearStick(); topStep(opts.slow ? el.slowBtn : el.fastBtn);
+      fire("pointerdown", 410, 800); L.update(1 / 60);
+      const up = () => { fire("pointermove", 410, 650); L.update(1 / 60); fire("pointermove", 410, 500); };
+      if (opts.boost) up();
+      let lit = !!opts.boost, other = false;
+      const r = watch(piece, 60 * 150, () => {
+        if (bigNumShown && bigNumOwner && bigNumOwner !== OWN[piece]) other = true;
+        if (opts.late && !lit && other && !bigNumShown) { up(); lit = true; }
+      });
+      fire("pointerup", 410, 500); L.api.clearStick(); loud();
+      return Object.assign(r, { boost: lit, cv: typeof cv !== "undefined" && cv.on });
+    };
+    // the plane flown at it from 3 km, at its top step, its height held
+    const planeRun = (piece, key) => {
+      resetAll(); quiet(piece);
+      const P = tgt(piece), a = Math.atan2(P.x - 300, P.z - 9000), ax = P.x - Math.sin(a) * 3000, az = P.z - Math.cos(a) * 3000;
+      L.api.setVehicle(key); L.api.teleportAirborne(1200, 0, 320, 0);
+      st.x = ax; st.z = az; st.y = L.terrainEff(ax, az) + 200; st.heading = Math.atan2(-(P.x - ax), -(P.z - az)); st.pitch = 0; st.bank = 0; L.api.clearStick();
+      const fly = () => { L.api.clearStick(); st.y = Math.max(st.y, L.terrainEff(st.x, st.z) + 150); st.pitch = 0; };
+      fly(); L.update(1 / 60); topStep(el.fastBtn);
+      const r = watch(piece, 60 * 90, fly); loud(); return r;
+    };
+    // the helicopter at its top step, its target the thing (staged), from 3 km
+    const heliRun = (piece) => {
+      resetAll(); quiet(piece);
+      L.api.setVehicle("helicopter"); L.api.spawnAt(0, 0); step(10);
+      const P = tgt(piece), a = Math.atan2(P.x - 300, P.z - 9000), ax = P.x - Math.sin(a) * 3000, az = P.z - Math.cos(a) * 3000;
+      st.phase = "AIRBORNE"; st.x = ax; st.z = az; st.y = L.terrainEff(ax, az) + 120; heli.altitude = st.y; heli.vx = heli.vz = heli.vy = 0; heli.vertical = 0;
+      st.heading = Math.atan2(-(P.x - ax), -(P.z - az));
+      for (let i = 0; i < 8; i++) { press(el.speedBtn); L.update(1 / 60); if (st.speedStep === L.spdStepsFor(L.spdKey()).length - 1) break; }
+      heli.target = { x: P.x + Math.sin(a) * 2000, y: st.y, z: P.z + Math.cos(a) * 2000 };
+      const r = watch(piece, 60 * 90, () => { heli.vertical = 0; }); loud(); return r;
+    };`;
+  const standRuns = {};
+  const standOne = async (key, body) => {
+    const r = await numIn(`${STAND}
+      for (const piece of ["barge", "truck", "sled"]) { ${body} }
+      L.api.clearStick();`);
+    if (r.err) standRuns[key + " (page)"] = { err: r.err };
+    for (const [k, v] of Object.entries(r)) if (k !== "err") standRuns[key + " " + k] = v;
+  };
+  for (const veh of ["car", "cybertruck", "corvette"]) {
+    await standOne(veh, `L.api.setVehicle("${veh}"); L.api.spawnAt(0, 0); step(10);
+      for (const dir of [1, -1]) out[piece + (dir > 0 ? " +s" : " -s")] = carRun(piece, dir, {});
+      ${veh === "corvette" ? `for (const dir of [1, -1]) out[piece + (dir > 0 ? " +s" : " -s") + " booster"] = carRun(piece, dir, { boost: true });` : ""}`);
+  }
+  // the unstaged path (v228's finding): the bottom step through the pad's count, then the booster
+  {
+    const r = await numIn(`${STAND}
+      L.api.setVehicle("corvette"); L.api.spawnAt(0, 0); step(10);
+      out["truck -s slow, then the booster (unstaged)"] = carRun("truck", -1, { loud: true, slow: true, late: true });`);
+    for (const [k, v] of Object.entries(r)) standRuns["corvette " + k] = v;
+  }
+  for (const key of ["prop", "fighter"]) await standOne(key, `out[piece] = planeRun(piece, "${key}");`);
+  await standOne("helicopter", `out[piece] = heliRun(piece);`);
+  const standBad = [];
+  for (const [k, r] of Object.entries(standRuns)) {
+    if (r.err) { standBad.push(`${k}: ${r.err}`); continue; }
+    if (r.away !== 0) standBad.push(`${k}: ${r.away} stand-downs for being out of sight (countAway) -- a count he was coming at, cut`);
+    if (r.counts < 1 || r.pay < 1) { standBad.push(`${k}: no whole count and payoff (${r.counts} counts, ${r.pay} payoffs, ${r.vmax} m/s, step ${r.step})`); continue; }
+    if (r.standDowns !== 0 || r.counts !== 1) standBad.push(`${k}: ${r.counts} counts with ${r.standDowns} stand-downs before its one payoff (police: ${r.pol})`);
+    if (!/^3\^x(5[89]|6[01]) 2\^x(59|60|61) 1\^x(59|60|61)$/.test(r.digits)) standBad.push(`${k}: its 3-2-1 not a second a digit up in the sky (${r.digits})`);
+    if (r.bang) standBad.push(`${k}: a bang`);
+  }
+  check("numeral (v228, Q-31 b): a count he is coming at is never cut -- the barge, the truck and the sled, each by the SUV, the Cybertruck and the Corvette at the top step both ways on the motorway (a held finger, by touch), the Corvette also with its booster held, the prop, the fighter and the helicopter at their top steps flown at it, the others kept from arming (staged): one whole 3-2-1 and its payoff, no stand-down, countAway 0; and by touch, unstaged, the bottom step through the launch pad's count and then the booster southbound at the truck, the same",
+    standBad.length === 0, JSON.stringify({ bad: standBad, runs: standRuns }));
+  // n. (v228, Q-31 d) a missile still in FLIGHT toward the block when the go arrow takes him away (demoInSight's
+  // other case): the prop between the barge and the block, nose at the block, its missile from its button; the go
+  // arrow pressed (by touch) a frame or so before the missile reaches the block. At the far airport the block never
+  // counts or folds, no numeral. And without the press, the same missile sets the block off (it was going in).
+  const flightRun = async (go) => numIn(`
+    const f0 = Object.assign({}, L.flags);
+    const fly = () => { L.api.clearStick(); st.y = Math.max(st.y, L.terrainEff(st.x, st.z) + 70); st.pitch = 0; };
+    const ux = FBARGE.x - demo.x, uz = FBARGE.z - demo.z, u = Math.hypot(ux, uz);
+    const sx = demo.x + ux / u * 700, sz = demo.z + uz / u * 700;
+    planeAt(sx, sz, 80, Math.atan2(-(demo.x - sx), -(demo.z - sz)));
+    fly(); step(2, fly);
+    out.free = !bn.classList.contains("on") && demo.phase === "armed" && !demo.want;
+    let fired = -1, goAt = -1;
+    const near = () => { let best = 1e9, vm = 0; for (const m of missiles) { if (!m.alive) continue; vm = Math.max(vm, Math.hypot(m.vx, m.vz)); for (const t of demo.towers) { const w = demoTowerWorld(t); best = Math.min(best, Math.hypot(m.x - w.x, m.z - w.z) - DEMO.hitR); } } return { best, vm }; };
+    step(60 * 10, (i) => {
+      if (fired < 0 && Math.hypot(demo.x - st.x, demo.z - st.z) < 450) { press(el.missileBtn); fired = i; }
+      if (fired >= 0 && goAt < 0 && arg) { const n = near(); if (n.vm > 0 && n.best > 0 && n.best < n.vm * 1.5 / 60) { out.btn = !el.skipBtn.classList.contains("hidden"); out.gap = Math.round(n.best); press(el.skipBtn); goAt = i; out.distAt = Math.round(Math.hypot(demo.x - st.x, demo.z - st.z)); return; } }
+      if (goAt >= 0) { L.api.clearStick(); return; }
+      if (!arg && demo.phase === "charging") return false;
+      fly();
+    });
+    out.fired = fired; out.goAt = goAt; out.seen = seen(); out.dist = Math.round(Math.hypot(demo.x - st.x, demo.z - st.z));
+    Object.assign(out, { demolitions: d("demolitions", f0), folded: d("demoTowersFolded", f0), phase: demo.phase, want: demo.want, missiles: d("missiles", f0) });
+  `, go);
+  const inFlight = { control: await flightRun(false), go: await flightRun(true) };
+  const ifc = inFlight.control, ifg = inFlight.go;
+  check("numeral (v228, Q-31 d): a missile still in flight toward the demolition block when the go arrow takes him away (by touch, the prop) -- at the far airport the block never counts or folds and no numeral shows; without the press the same missile sets the block off",
+    !ifc.err && !ifg.err && ifc.free && ifg.free && ifc.fired >= 0 && ifc.demolitions === 1 && ifg.fired >= 0 && ifg.goAt > ifg.fired && ifg.btn && ifg.dist > 2400 &&
+      ifg.demolitions === 0 && ifg.folded === 0 && ifg.phase === "armed" && /^-x\d+$/.test(ifg.seen),
+    JSON.stringify(inFlight));
   // l. (v227, Q-30 b) a race asked for while a point-at count is up on the motorway (by touch, portrait): the race
   // button's own picker stands it down (menuOpen) before the card is tapped, so the grid's 3-2-1 is the race's own
   // under its lamps -- the barge, the truck, the launch pad and the sled, each counting as he taps the button.

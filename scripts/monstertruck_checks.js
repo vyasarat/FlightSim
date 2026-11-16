@@ -261,14 +261,53 @@ module.exports = async function monsterTruckChecks({ newPage, check }) {
     out.police = { standDowns: (L.flags.mtStandDowns || 0) - s1, phase: M.phase, numOn: bn.classList.contains("on") };
     // and it waits for another's count
     window.__mtResetAll();
-    L.sledForce(); L.update(1 / 60);
-    out.waits = L.spCountBusy("monsterTruck");
+    // (v228) the other count is the barge's, in sight of here (the sled, 3.4 km off, is out of its drawn distance,
+    // and a count out of sight stands down since v228: spCountStep's `away`)
+    L.fbForce(); L.update(1 / 60);
+    out.waits = L.spCountBusy("monsterTruck") && L.fbarge.phase === "count";
+    L.fbReset();
     window.__mtResetAll();
     return out;
   });
   check(`monster truck: while it counts the others wait; it waits for theirs; the picker and a pull-over stand it down (the pull-over's own numeral takes over)`,
     share.busy.sled && share.busy.ls && share.busy.fb && share.waits && share.picker.standDowns === 1 && !share.picker.numOn && share.picker.phase === "armed" &&
     share.police.standDowns === 1 && share.police.phase === "armed", share);
+
+  // ---- 6b. (v228, Q-31 e) the rev through its count, pinned (it moved on to spCountStep in v227): the roar's level
+  // rises across the 3-2-1 from 0.3 to 0.8 of its full (0.3 + 0.5 x the count run), frame by frame, never falling, and
+  // the truck's bounce grows with it -- inside 0.08 x the count run, and bigger in its last second than in its first.
+  // STAGED: him held on the motorway in sight of it and the count forced, so the level is the count's alone.
+  const rev = await page.evaluate(() => {
+    const L = window.__lp, st = L.state, M = L.mtruck, T = L.TUNE.monsterTruck, out = { frames: [] };
+    window.__mtResetAll();
+    L.api.setVehicle("car"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+    const Lnd = L.mtLanding(), q = L.hwySampleAt(L.hwyNearest(300, Lnd.z + 450).s), off = L.HW.medianW / 2 + L.HW.laneW * 0.5;
+    const hold = () => { st.x = q.x - q.fz * off; st.z = q.z + q.fx * off; st.y = q.y; st.speed = 0; st.heading = Math.atan2(-q.fx, -q.fz); };
+    const st0 = window.setTone; let gain = null;
+    window.setTone = function (name, type, freq, g) { if (name === "mtRoar") gain = g; return st0.apply(this, arguments); };
+    try {
+      hold(); L.update(1 / 60);
+      L.mtForce();
+      for (let i = 0; i < 60 * 4 && M.phase === "count"; i++) {
+        hold(); gain = null; L.update(1 / 60);
+        if (M.phase !== "count") break;
+        const hear = mtHear();
+        out.frames.push({ k: gain !== null && hear > 0 ? gain / (T.roar * hear) : null, b: M.bounce, run: 1 - M.t / T.count });
+      }
+      out.after = M.phase;
+    } finally { window.setTone = st0; window.__mtResetAll(); }
+    return out;
+  });
+  {
+    const f = rev.frames, k = f.map(x => x.k), n = f.length, third = Math.floor(n / 3);
+    const env = f.every(x => Math.abs(x.b) <= 0.08 * x.run + 1e-9);
+    const first = Math.max(...f.slice(0, third).map(x => Math.abs(x.b))), last = Math.max(...f.slice(n - third).map(x => Math.abs(x.b)));
+    const rising = k.every((v, i) => v !== null && (i === 0 || v >= k[i - 1] - 1e-9));
+    const shape = f.every(x => Math.abs(x.k - (0.3 + 0.5 * x.run)) < 1e-6);
+    check(`monster truck: its rev through the 3-2-1 (staged) -- the roar rises frame by frame from ${n ? k[0].toFixed(3) : "?"} to ${n ? k[n - 1].toFixed(3) : "?"} of its full (0.3 + 0.5 x the count run), never falling, and the bounce grows with it (inside 0.08 x the run; ${first.toFixed(3)} in the first second, ${last.toFixed(3)} in the last)`,
+      n >= 170 && n <= 181 && rising && shape && k[0] < 0.32 && k[n - 1] > 0.78 && env && last > first * 2 && rev.after === "run",
+      JSON.stringify({ n, k0: k[0], kN: k[n - 1], rising, shape, env, first, last, after: rev.after }));
+  }
 
   // ---- 7. the frame
   const cost = await page.evaluate(() => {

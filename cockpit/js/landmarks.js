@@ -1307,11 +1307,14 @@ function shootTrainCar(i, hx, hy, hz) {
 }
 
 let cullTimer = 0;
+// The route landmarks are drawn within this, squared (about 1.45 fog distances): the cull's one radius, and what
+// the demolition asks for "in sight" every frame (setpieces.js demoInSight) -- one number, not two copies of it.
+function lmCullR2() { return TUNE.fogFar * TUNE.fogFar * 2.1; }
 function cullLandmarks(dt, px, pz) {
   cullTimer -= dt;
   if (cullTimer > 0) return;
   cullTimer = 0.35;
-  const maxD2 = TUNE.fogFar * TUNE.fogFar * 2.1;
+  const maxD2 = lmCullR2();
   for (const L of ROUTE_LANDMARKS) {
     const dx = L.x - px, dz = L.z - pz;
     L.g.visible = !L.g.userData.dayOff && dx * dx + dz * dz < maxD2;   // (`dayOff`: a street race's stands, up on race day only -- race.js)

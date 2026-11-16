@@ -308,6 +308,8 @@ function mtToLanding() {
   const tRun = d <= dAcc ? Math.sqrt(2 * d / T.accel) : tAcc + (d - dAcc) / T.topSpeed;
   return T.count + tRun + T.airT;
 }
+// It is drawn (the arena and the truck), within drawFog of the TRUCK: what its count's `away` asks (spCountStep)
+function mtDrawn() { return Math.hypot(state.x - mtruck.x, state.z - mtruck.z) < TUNE.fogFar * MTRUCK.drawFog; }
 function mtLanding() { const p = mtAt(MTRUCK.carsAt); return { x: p.x, y: mtruck.groundY + 3, z: p.z }; }
 function mtAimed() {
   if (state.exploding || eject.active || mtBusy() || spCountBusy("monsterTruck")) return false;
@@ -339,7 +341,10 @@ function mtAimed() {
     // nearer the middle but smaller. Armed the first moment it is landBearing.
     if (along <= T.innerR) return false;
     // and never from anywhere but near it: a radius, as every point-at set-piece has
-    if (d > T.carArmR) return false;
+    // (v228, Q-31) ... and never before the truck is drawn: carArmR is from the LANDING, the truck stands carsAt
+    // beyond it coming south, and at the booster's 128 m/s it armed 2.3 km from a truck drawn to 2.26 -- the count
+    // started and stood down (`away`, its drawn distance) every other frame for 0.6 s. Armed, it is in sight.
+    if (d > T.carArmR || !mtDrawn()) return false;
     return Math.atan2(across, along) / DEG >= bear;
   }
   if (d > T.armR || dh < T.innerR) return false;
@@ -366,7 +371,7 @@ function updateMonsterTruck(dt) {
   if (!mtruck.truck) return;
   const T = MTRUCK;
   mtruck.clock += dt;
-  const near = Math.hypot(state.x - mtruck.x, state.z - mtruck.z) < TUNE.fogFar * T.drawFog;
+  const near = mtDrawn();
   mtruck.g.visible = near; mtruck.truck.visible = near;
   mtruck.reticle.visible = near && mtruck.phase === "armed";
   if (mtruck.reticle.visible) {

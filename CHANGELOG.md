@@ -10,6 +10,25 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v228 — the rocket sled's count, too
+
+The rocket sled's 3-2-1 now runs through the same shared step as the barge's and the truck's, and like them it
+stands down when he is taken out of sight of it mid-count (the go arrow, an eject's fresh start): the number goes,
+the lamps go dark, the sled does not run off where nobody sees it, and it counts again when he comes back. Pointed
+at, it is unchanged: traced frame by frame through the sled's, the sled ride's, the truck's, the race's and the
+crane's checks, its digits, lamps and ticks are the same as before wherever he stays (the only differences are
+where a check had set it counting while he was kilometres away, and those checks now stand him in sight of it).
+Driving it found one real edge: in the Corvette at the bottom step through the launch pad's countdown and then
+the booster held southbound, the monster truck armed at 128 m/s 2.3 km from a truck drawn only to 2.26 km, and
+for 0.6 s it started and stood down every other frame -- nothing showed on the screen (no digit, no tick), and its
+3-2-1 then began once the truck came into view. The truck now arms only once it is drawn, so it starts its count
+once, where that 3-2-1 began. The rest is checks: every
+car at its top step (and the Corvette's booster), the prop, the fighter and the helicopter, coming at the barge,
+the truck and the sled, now see one whole 3-2-1 and its payoff with no stand-down, so a later change that cut a
+count he is watching goes red; taken away by the helicopter's go arrow or eject, a count is checked to go, and
+the car's eject (which leaves him by his car) is checked to leave it counting and going off; a missile still flying at the demolition when he presses the go arrow never sets it off at the far
+airport; and the truck's rev rising through its count is pinned.
+
 ## v227 — a countdown does not follow him away
 
 When the fireworks barge or the giant monster truck had started its 3-2-1 and he pressed the go arrow, or

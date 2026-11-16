@@ -38,7 +38,9 @@
 //     capsule follows it down the rail.
 //   * It shares the one big numeral and never fights for it: it does not start
 //     while any other countdown is showing, and stands down for a police
-//     pull-over or the picker.
+//     pull-over or the picker. (v228, B6) It owns the numeral while it counts
+//     ("rocketSled"), its count is setpieces.js spCountStep, and taken out of
+//     its drawn distance mid-count it stands down, as the barge and the truck do.
 //   * Its own random stream, its own puff pool, the bricks one instanced draw.
 //   * v144: he can RIDE it (sledride.js, the sled card). While he does, it is
 //     the same set-piece run for him: his go starts it instead of his pointing
@@ -579,20 +581,22 @@ function updateRocketSled(dt) {
   if (ph === "armed") {
     if (sled.ridden ? srGo() : sledAimed()) sledStart();   // riding it, only his go starts it
   } else if (ph === "count") {
-    if (sledBusy()) {
-      if (countdownClear("rocketSled")) el.bigNum.classList.remove("sky");
+    // (v228, B6) the count is the shared step's, on the numeral it owns (setpieces.js spCountStep): the sled is the
+    // third set-piece moved on to it, the same steps in the same order it ran here by hand -- and, as the barge and
+    // the truck, it stands down out of sight (`near`, its drawn distance): taken away mid-count its lamps and its
+    // run went on where nobody saw them. The lamps read the numeral it shows: none (refused, or the run-out frame)
+    // is dark, as before.
+    const k = spCountStep("rocketSled", sled, dt, T.count, sledBusy(), !near);
+    if (k === "stood") {
       sled.counting = false;
       sledLamps(-1); setTone("sledRoar", "sawtooth", T.roarHz, 0);
       sled.phase = "armed";
       flags.sledStandDowns = (flags.sledStandDowns || 0) + 1;
     } else {
-      sled.t -= dt;
-      if (!countdownBlocked("rocketSled")) el.bigNum.classList.add("sky");
-      const n = countdownTo(sled.t, T.count, "rocketSled");
+      const n = k === "go" ? 0 : k;
       sledLamps(n === 3 ? 0 : n === 2 ? 1 : n === 1 ? 1 : -1);
       setTone("sledRoar", "sawtooth", T.roarHz, T.roar * 0.3 * sledHear(sled.x, sled.y, sled.z) * (1 - sled.t / T.count));
-      if (sled.t <= 0) {
-        if (countdownClear("rocketSled")) el.bigNum.classList.remove("sky");
+      if (k === "go") {
         sled.counting = false;
         sledLamps(2);
         sled.phase = "run"; sled.t = 0; sled.v = 0;

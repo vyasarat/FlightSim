@@ -294,7 +294,7 @@ function demoReset() {
 function demoInSight() {
   if (!demo.g || !demo.g.visible) return false;
   const dx = demo.x - state.x, dz = demo.z - state.z;
-  return dx * dx + dz * dz < TUNE.fogFar * TUNE.fogFar * 2.1;
+  return dx * dx + dz * dz < lmCullR2();             // (v228) the cull's own radius, by name (landmarks.js)
 }
 function updateDemolition(dt) {
   if (!demoInSight()) {
