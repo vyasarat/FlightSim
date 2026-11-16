@@ -10,6 +10,21 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v224 — the tyres stop when nothing is driving them
+
+The car's tyre noise is now a sound that only plays while the car is actually driving it. Every frame the
+car rolls, it says how loud its tyres are. On any frame nothing says so, the sound fades to silence the way
+it always fades when he stops. Before this, a race started at speed could keep the car's tyre noise droning
+under the whole race, because the race drives the car itself and never touched that sound. The checks
+show it now goes quiet the moment the race starts and comes back when he leaves the race and drives on.
+At his own pace (the track picker up for half a second) the tyres were already going quiet behind the
+picker, so he probably never heard the drone. Only a race started on the exact frame of the button did.
+A minute of ordinary driving in each of the three cars sounds exactly as before: wobbling, lifting his
+finger, stopping, turning in the city and crashing. This is the first sound with an owner. More can follow
+one at a time. The police checks also got wider: opening the menu ends a chase during the pull-over's
+3-2-1, while he is in pieces, after a real red light and in the city, with the police cars gone and the
+siren silent behind the cards.
+
 ## v223 — the police siren stops when he opens the menu
 
 If the police were chasing him and he tapped the menu button, the siren kept wailing behind the vehicle

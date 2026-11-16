@@ -238,8 +238,9 @@ function plLamps() {
 // ---------------------------------------------------------------------------
 function updatePolice(dt) {
   if (!police.built) return;
-  // A crash ends it too -- he explodes, reassembles free, and they are gone.
-  // That is a third way out and it costs him nothing either.
+  // Out of the car, it ends: he is in something they do not chase (policeHolds).
+  // A crash NEVER ends it -- in pieces they hold station, sirens on, and pick it
+  // straight up when he is back on the road (the `state.exploding` branch below).
   if (police.active && !policeHolds()) { policeStop(false); return; }
   if (!police.active) { plSiren(0); if (typeof engDuck === "function") engDuck(1); return; }
 

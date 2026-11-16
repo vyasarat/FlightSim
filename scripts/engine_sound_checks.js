@@ -270,4 +270,145 @@ module.exports = async function engineSoundChecks({ newPage, check }) {
     holdBad.length === 0 && backBad.length === 0, backBad.length ? backBad.join("; ") : holdRes.map(rowSay).join(" | "));
   check("engines: nothing is put back that is no longer his -- a vehicle picked behind the cards, the same one started afresh, or a voice its owner moved while they were up (the dive levelled out) stays silent after they close; portrait and landscape (Q-3, round 2)",
     holdBad.length === 0 && goneBad.length === 0, goneBad.length ? goneBad.join("; ") : holdRes.map(R => R.vp + " " + JSON.stringify(R.gone)).join(" | "));
+
+  // ---- (v224, B5) TONE OWNERSHIP: the tyres (carTyre, the first tone owned per frame, audio.js TONES_OWNED).
+  // Its one writer is updateCar, and a race never runs it (vehicles.js `race`): started from a car at speed, the
+  // tyres held their last gain for the whole race (Q-16). Now a tone owned per frame that nobody wrote this frame is
+  // swept to zero at the end of it (AUDIO_TAILS.sweep). Portrait, in the SUV, the Cybertruck and the Corvette:
+  //   the race, by touch: the race button, the track picker up half a second (his own pace), a track card -- and
+  //     the race button and a card on ONE frame, as the leaving matrix starts it (the picker's hold never runs: no
+  //     frame passes behind the cards). The tyres' gain is 0 within 0.1 s of the race starting and stays 0 through
+  //     the grid and 20 s of racing (unless the race writes them: it does not, so any write is red too); off the
+  //     race by its exit button and driving again, they are back within 3 s.
+  //   the stay: a minute of ordinary driving -- the motorway with a wobbling finger and short lifts, a stop with the
+  //     finger off, a city street with full turns held at its junctions, and a bang -- the sweep never fires, and
+  //     every frame the tyres are heard they were written that frame, but the car's one frame in pieces (the bang's
+  //     way through update(), which never sweeps): the gain trace is the writer's alone (its hash in the detail is
+  //     the base tree's, the same stream).
+  //   Measured on the v223 tree (v224's survey): at his pace the picker's hold already quiets the tyres before the
+  //     card (v217), so the half-second race was clean there; only the one-frame start held them (Q-16 as found).
+  {
+    const { page: tp } = await newPage(820, 1180);
+    const res = await tp.evaluate(async () => {
+      const L = window.__lp, st = L.state;
+      L.noRender = true; L.api.skipScreens();
+      try { await L.audio.unlock(); } catch (e) {}
+      const live = L.audio.ctxState() === "running";
+      const press = (e) => e && e.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 7, clientX: 0, clientY: 0 }));
+      const SCREENS = ["screenVehicle", "screenDir", "screenDest", "screenRace", "screenGlobe"];
+      const closeScreens = () => { for (const id of SCREENS) { const e = document.getElementById(id); if (e) e.classList.add("hiddenS"); } };
+      const setToneReal = window.setTone; let stamp = -1, hotWrites = 0;
+      window.setTone = function (n, t, f, g) { if (n === "carTyre") { stamp = frameCount; if (g > 0) hotWrites++; } return setToneReal.apply(this, arguments); };
+      const tyre = () => tones.carTyre ? Math.max(0, tones.carTyre.last) : 0;
+      const swept = () => L.flags.tonesSwept || 0;
+      const step = (n, fn) => { for (let i = 0; i < n; i++) { if (fn) fn(i); L.update(1 / 60); } };
+      const finger = (n) => step(n, () => L.api.setStick(0, 0));
+      const card = () => [...document.querySelectorAll(".trackCard")].find(c => c.dataset.track !== "back");
+      const out = { live, race: {}, stay: {} };
+      try {
+        for (const v of ["car", "cybertruck", "corvette"]) {
+          for (const how of ["picker", "oneFrame"]) {
+            L.api.clearStick(); closeScreens(); if (L.raceOn()) L.raceReset();
+            L.api.setVehicle(v); L.api.spawnAt(0, 0); closeScreens(); step(10); finger(60 * 6);
+            const r = out.race[v + " " + how] = { before: +tyre().toFixed(4), shows: L.raceBtnShows() };
+            L.api.clearStick(); press(el.raceBtn);
+            r.picker = !el.screenRace.classList.contains("hiddenS");
+            if (how === "picker") step(30);
+            press(card());
+            r.on = L.raceOn();
+            const h0 = hotWrites;
+            let f = 0, zeroAt = -1, maxAfter = 0, raceF = 0;
+            for (; f < 60 * 40 && raceF < 60 * 20; f++) {
+              L.api.setStick(0, 0); L.update(1 / 60);
+              const g = tyre();
+              if (zeroAt < 0 && g === 0) zeroAt = f + 1;
+              if (zeroAt >= 0) maxAfter = Math.max(maxAfter, g);
+              if (L.race.phase === "race") raceF++;
+            }
+            Object.assign(r, { zeroAt, maxAfter: +maxAfter.toFixed(4), raceF, raceWrites: hotWrites - h0, still: L.raceOn() });
+            L.api.clearStick(); press(el.raceExitBtn); r.off = !L.raceOn();
+            closeScreens();
+            let back = -1;
+            for (let i = 0; i < 60 * 3 && back < 0; i++) { L.api.setStick(0, 0); L.update(1 / 60); if (tyre() > 0) back = i + 1; }
+            r.back = back; r.kind = vehKind();
+          }
+          // the stay: a minute of ordinary driving
+          {
+            L.api.clearStick(); closeScreens(); if (L.raceOn()) L.raceReset();
+            L.api.setVehicle(v); L.api.spawnAt(0, 0); closeScreens(); step(10);
+            const s = out.stay[v] = { frames: 0, heard: 0, gaps: 0, firstGap: null, bangGaps: 0, stopF: 0, turned: 0, banged: false, back: false };
+            const s0 = swept(); let hash = 0;
+            const one = (stick) => {
+              if (stick) L.api.setStick(stick[0], stick[1]); else L.api.clearStick();
+              // a frame that starts in pieces runs the bang's way through update(), which has no audio tail and so no
+              // sweep (AUDIO_TAILS): the car's one frame in pieces, on which nothing writes the tyres, is counted apart
+              const inPieces = st.exploding;
+              L.update(1 / 60); s.frames++;
+              const g = tyre();
+              hash = (hash * 31 + Math.round(g * 1e5)) >>> 0;
+              if (g > 0) { s.heard++; if (stamp !== frameCount) { if (inPieces) s.bangGaps++; else if (s.gaps++ === 0) s.firstGap = { f: s.frames, g, k: vehKind(), ex: st.exploding, menu: menuOpen() }; } }
+              if (st.speed === 0) s.stopF++;
+            };
+            // 25 s on the motorway: a wobbling finger, a lift of a fifth of a second every seven, and at 15 s a stop
+            for (let i = 0; i < 60 * 25; i++) {
+              const lift = i % 420 > 408 || (i >= 60 * 15 && i < 60 * 20);
+              one(lift ? null : [Math.sin(i / 37) * 0.25, 0]);
+            }
+            // 25 s on a New York street: full right held through four junctions' approaches, straight on between
+            {
+              const C = L.streets.cities.ny, road = C.roads.filter(q => q.kind === "grid" && q.len > 90).sort((a, b) => b.len - a.len)[2], q = {};
+              L.stPointAt(road, 10, 1, road.lo, q);
+              st.x = q.x; st.z = q.z; st.heading = Math.atan2(-q.fx, -q.fz); st.y = L.stSurfaceAt(q.x, q.z) ?? L.terrainEff(q.x, q.z); st.speed = 10;
+              L.car.yield = 1; L.car.steer = 0; L.car.crashCool = 0; L.stPlan.road = road; L.stPlan.dir = 1; L.stPlan.turn = null; L.stTrail.pts.length = 0; L.stTrail.lastX = null;
+              const full = 0.9 * L.CAR.dragRangeX * innerWidth / (L.TUNE.dragRangeX * Math.min(innerWidth, innerHeight));
+              for (let k = 0; k < 4; k++) {
+                const h0 = st.heading;
+                for (let i = 0; i < 60 * 4; i++) one([full, 0]);
+                if (Math.abs(Math.atan2(Math.sin(st.heading - h0), Math.cos(st.heading - h0))) > 1.0) s.turned++;
+                for (let i = 0; i < 60 * 2.25; i++) one([0, 0]);
+              }
+            }
+            // and a bang: at speed into the nearest solid that blocks a car, then 10 s more driving
+            {
+              let best = null, bd = Infinity; const cls = vehSolidClass();
+              L.forEachSolid(b => {
+                if (b.o3 || b.cap || b.ramp || b.toy || b.moving || b.car !== undefined || b.park) return;
+                if (!L.solidBlocks(b, cls) || (b.mesh && b.mesh.visible === false) || L.isSolidHidden(b)) return;
+                if (!(b.hw > 3 && b.hd > 3 && b.y1 - b.y0 > 6)) return;
+                const d = Math.hypot(b.x - st.x, b.z - st.z); if (d < bd) { bd = d; best = b; }
+              }, st.x, st.z, 2000);
+              if (best) { st.x = best.x; st.z = best.z + best.hd - 1; st.y = Math.max(best.y0, L.terrainEff(st.x, st.z)); st.heading = 0; st.speed = 30; }
+              for (let i = 0; i < 60 * 10; i++) { one([0, 0]); if (st.exploding) s.banged = true; else if (s.banged) s.back = true; }
+            }
+            s.swept = swept() - s0; s.hash = hash;
+          }
+        }
+      } finally {
+        window.setTone = setToneReal;
+        L.api.clearStick(); closeScreens(); if (L.raceOn()) L.raceReset();
+        L.api.setVehicle("prop"); L.api.spawnAt(0, 0); closeScreens(); step(10);
+      }
+      return out;
+    });
+    const rb = [], sb = [];
+    if (!res.live) rb.push("no running audio context");
+    for (const [id, r] of Object.entries(res.race)) {
+      if (!(r.before > 0) || !r.shows || !r.picker || !r.on) rb.push(`${id}: not at speed with the tyres up and a race started by its button (${JSON.stringify({ before: r.before, shows: r.shows, picker: r.picker, on: r.on })})`);
+      if (!(r.zeroAt >= 1 && r.zeroAt <= 6)) rb.push(`${id}: the tyres not at 0 within 0.1 s of the race (first 0 at frame ${r.zeroAt})`);
+      if (r.maxAfter > 0) rb.push(`${id}: the tyres back up in the race (${r.maxAfter})`);
+      if (r.raceWrites) rb.push(`${id}: the race wrote the tyres ${r.raceWrites} times`);
+      if (!(r.raceF >= 60 * 20) || !r.still) rb.push(`${id}: not 20 s of racing (${r.raceF} frames, still on ${r.still})`);
+      if (!r.off || !(r.back > 0)) rb.push(`${id}: off the race (${r.off}) the tyres not back within 3 s of driving (${r.back}, in ${r.kind})`);
+    }
+    for (const [v, s] of Object.entries(res.stay)) {
+      if (s.swept !== 0) sb.push(`${v}: swept ${s.swept} times in ordinary driving`);
+      if (s.gaps) sb.push(`${v}: heard but not written on ${s.gaps} frames (first ${JSON.stringify(s.firstGap)})`);
+      if (!(s.heard > s.frames * 0.5) || !(s.stopF > 60) || s.turned < 2 || !s.banged || !s.back) sb.push(`${v}: not the drive it says (${JSON.stringify({ frames: s.frames, heard: s.heard, stopF: s.stopF, turned: s.turned, banged: s.banged, back: s.back })})`);
+    }
+    check("engines: tone ownership (B5, Q-16) -- in the SUV, the Cybertruck and the Corvette at speed, portrait, a race started by its button (the track picker up half a second, or a card on the button's own frame) takes the tyres to 0 within 0.1 s and they stay 0 through the grid and 20 s of racing (the race never writes them); off it by its exit, driving again, they are back within 3 s",
+      rb.length === 0, { bad: rb, race: Object.fromEntries(Object.entries(res.race).map(([k, r]) => [k, `${r.before} -> 0 @${r.zeroAt}f, max after ${r.maxAfter}, back @${r.back}f`])) });
+    check("engines: tone ownership (B5), where it STAYS -- a minute of ordinary driving in each car (a wobbling finger with short lifts, a stop, full turns held in a city, a bang) never sweeps the tyres, and every frame they are heard they were written that frame, but the bang's own frame in pieces, where nothing sweeps (portrait)",
+      sb.length === 0, { bad: sb, stay: Object.fromEntries(Object.entries(res.stay).map(([k, s]) => [k, `${s.heard}/${s.frames} heard, ${s.bangGaps} in pieces unwritten (no sweep there), stopped ${s.stopF}f, ${s.turned} turns, bang ${s.banged}/${s.back}, swept ${s.swept}, trace ${s.hash}`])) });
+    await tp.close();
+  }
 };

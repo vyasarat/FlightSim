@@ -301,8 +301,34 @@ const tones = {};
 // dad mode's engines, the race's crowd, droning on in his game. So a silence is written straight
 // into the gain, which needs no running clock.
 function audioHush(g) { g.gain.cancelScheduledValues(0); g.gain.value = 0; }
+// (v224, B5) TONE OWNERSHIP. Every setTone stamps the frame it was written on (frameCount, the game's own counter,
+// never the wall clock) -- unless it is the picker's hold or the sweep writing it (audioHolding, toneSweeping):
+// those are not its owner. A tone named in TONES_OWNED is owned PER FRAME: its one writer writes it on every frame he should hear it,
+// so on a frame it was not written nobody wants it, and the frame's audio tail (audioFrame, AUDIO_TAILS.sweep)
+// sends it to zero through setTone's own 0.08 s ramp -- the same silence its writer would have written, so no click.
+// One tone per release (QUEUE B5). Each one's writer is surveyed first: it must write every frame it is audible.
+//   carTyre (v224, Q-16)  updateCar (car.js) writes it on every frame it runs -- the bang and the toy track at 0,
+//                         else from his speed -- and nothing else does above zero. A race (rcUpdate) never runs it, and
+//                         the tyres held their last gain under the whole race.
+const TONES_OWNED = ["carTyre"];
+const toneStamp = {};
+// frameCount is input.js's (it loads after this file), and a tone written while the page loads -- applyVehicle's
+// silences, before input.js has run -- is written before frame 0: that read would be its temporal dead zone
+function toneFrameNow() { try { return frameCount; } catch (e) { return -1; } }
+let toneSweeping = false;
+function audioSweepOwned() {
+  toneSweeping = true;   // the sweep is not the tone's owner: no stamp. Its write IS a write to the hold (audioHeldWrote):
+  for (const n of TONES_OWNED) {   // a swept tone is forgotten, never put back by audioHoldResume
+    const t = tones[n];
+    if (!t || !(t.last > 0) || toneStamp[n] === frameCount) continue;
+    setTone(n, t.o.type, t.o.frequency.value, 0);
+    flags.tonesSwept = (flags.tonesSwept || 0) + 1;
+  }
+  toneSweeping = false;
+}
 function setTone(name, type, freq, gain) {
   audioHeldWrote("tone:" + name);
+  if (!audioHolding && !toneSweeping) toneStamp[name] = toneFrameNow();
   if (!audioCtx || audioCtx.state !== "running") {
     const t = tones[name];
     if (t && gain <= 0 && t.last !== 0) { audioHush(t.g); t.last = 0; }
@@ -631,10 +657,22 @@ function updateAmbientAudio(dt) {
 //          frame tail puts back what nothing has written since (audioHoldResume)
 // The bang branch has no audio tail of its own (HUD-7: the engine is not moved
 // there) -- it is not a row here until that is fixed.
+//   (v224, B5) `sweep`: the tones owned per frame (TONES_OWNED) that nobody wrote this frame go to zero, LAST in
+// the tail -- after the hold's resume, so what the resume puts back is the owner's arguments, and a tone its
+// owner did not write is swept even so. Per way through update():
+//   frame  yes: every writer has run (the vehicle's update, the world's, the hold's resume); nothing after
+//          audioFrame in update() writes an owned tone (the controls and HUD, the fx, the explosion's free pieces)
+//   eject  yes: under the canopy nothing drives what he left (ejectStart silenced every tone already)
+//   hold   no: behind the picker the hold owns his motion voices (audioHoldStill quiets and remembers them; a
+//          sweep there would only repeat it)
+//   bang   no tail at all, so no sweep: in pieces nothing of his vehicle is written and its voices go on as they
+//          were (HUD-7's family, a change of its own). A car is in pieces for ONE frame (carCrash's explodeTimer 0:
+//          the next frame reassembles him) and its tyres are written again the frame after; v224's survey measured
+//          that one unwritten frame per bang and nothing else. The fixed-wing wall-bang frame, the same: no sweep.
 const AUDIO_TAILS = {
-  frame: { bed: true,  horn: true,  still: false, resume: true },
-  eject: { bed: false, horn: true,  still: false, resume: false },
-  hold:  { bed: true,  horn: false, still: true,  resume: false },
+  frame: { bed: true,  horn: true,  still: false, resume: true,  sweep: true },
+  eject: { bed: false, horn: true,  still: false, resume: false, sweep: true },
+  hold:  { bed: true,  horn: false, still: true,  resume: false, sweep: false },
 };
 // (v217, Q-3) Behind the picker nothing he is in moves (flight.js, v212's hold), and a vehicle's motion voices
 // are written only by its own update, which the hold does not run: the dive whistle, the tyres, the hull, the
@@ -686,7 +724,9 @@ function audioHoldResume() {
   const A = audioHeld;
   audioHeld = null;
   if (!A || (typeof vehKind === "function" && vehKind() !== A.kind)) return;
+  audioHolding = true;   // (v224) a voice put back is not its owner writing it: no stamp, so an owned tone is still swept
   for (const k in A.v) A.v[k]();
+  audioHolding = false;
 }
 function audioHoldForget() { audioHeld = null; }
 function audioFrame(dt, tail) {
@@ -696,6 +736,7 @@ function audioFrame(dt, tail) {
   if (T.horn) carUpdateHorn(dt);   // the horn's TONES; whether its button exists is the table's (buttons.js)
   engUpdate(engineLevelNow(), dt);
   if (T.resume && audioHeld) audioHoldResume();
+  if (T.sweep) audioSweepOwned();
 }
 
 // ---- layered events --------------------------------------------------------
