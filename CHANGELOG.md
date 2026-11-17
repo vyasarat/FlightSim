@@ -10,6 +10,23 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v231 (2026-11-16): London's rivals take the bend they are in
+
+In the London race the other cars now pick the inside of the corner they are actually going round. Until now
+they read the corner from about 100 m further up the road (two parts of the race shared one answer about where
+a car is -- QUEUE Q-1): on the straight before a bend a rival already drifted to that bend's inside, and in a bend
+it often aimed for the next one instead. Measured by putting one rival at every 4 m of the lap alone: before the
+fix 67 of the 223 straight places before a bend sent it across early and 81 of the 86 places in a bend aimed
+wrong; now none. His own car is untouched (only the rivals' steering read the wrong answer). The other five
+tracks race exactly as before (the 240 pinned races there finish to the hundredth the same); all 48 pinned
+London races moved, and with the noisy hand he now wins 18 of 24 there instead of 16 -- inside the balance we
+keep, so London's rivals were not retuned. With that hand he came last once in 144 races (London), where before
+he never did. At the snow tunnel, the cutting's snow walls in front of each portal were drawn as half of each
+strip (Q-2, the same shared answer): now whole, a little more snow wall beside the road going in and coming out.
+And the race pin is stricter (Q-37): recording a new pin no longer counts as a pass until a second run has
+reproduced it, six pinned races are raced again on fresh pages every sweep and must finish the same, and the
+check that he can come last now says it is the weak hand that holds it (Q-36 is the parent's question).
+
 ## Harness: the race pin (2026-11-16, no game change, no version)
 
 How the race is tested, not the race (QUEUE C1). `scripts/race_sweep.js` now races 288 whole seeded races

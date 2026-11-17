@@ -37,6 +37,7 @@
 const RCI = TUNE.race.items;
 const rcItV = new THREE.Vector3(), rcItM = new THREE.Matrix4(), rcItQ = new THREE.Quaternion(), rcItS = new THREE.Vector3(), rcItC = new THREE.Color();
 const rcItP = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
+const rcItQOK = rcAtQ(), rcItQHw = rcAtQ(), rcItQBoost = rcAtQ();   // (C2: rcAt's scratch, one per call site)
 const RCI_MAXROWS = 12;
 const RCI_COLS = [0xffd23e, 0x5ff1ff, 0x36c46a, 0xe0483e, 0xff7a1a, 0x2b6fd1];   // (the palette's brightest: a box steps through them)
 
@@ -111,8 +112,8 @@ function rcItMergeGeos(list) {
 function rcItOK(T, s) {
   const L = T.len;
   if (s < RCI.clearGrid || s > L - RCI.clearGrid) return false;
-  if (rcAt(s).dune) return false;
-  if (rcAt(s).hw < rcW() / 2 - 0.5) return false;          // (v193) not in a loop or the funnel into it: the boxes stand across the whole road
+  if (rcAt(s, rcItQOK).dune) return false;
+  if (rcAt(s, rcItQHw).hw < rcW() / 2 - 0.5) return false;          // (v193) not in a loop or the funnel into it: the boxes stand across the whole road
   for (const p of race.pads) { const d = Math.abs(((p.s - s) % L + L * 1.5) % L - L / 2); if (d < RCI.clearPad) return false; }
   for (const sc of T.sc || []) {
     const a = sc.sa + sc.gore - sc.hold - RCI.clearSc, b = Math.max(sc.sb, sc.sa + sc.gore) + RCI.clearSc;
@@ -327,7 +328,7 @@ function rcItAfter(dt, going) {
       if (late || (ahead && rcGap(ahead.s, r.s) > 0 && rcGap(ahead.s, r.s) < RCI.ai.ballSee)) rcItUse(r);
     } else if (r.item === "oil") {
       if (late || race.racers.some(o => o !== r && rcGap(r.s, o.s) > 0 && rcGap(r.s, o.s) < RCI.ai.oilSee)) rcItUse(r);
-    } else if (r.item === "boost") { if (late || Math.abs(rcAt(r.s).kh) < 0.002) rcItUse(r); }
+    } else if (r.item === "boost") { if (late || Math.abs(rcAt(r.s, rcItQBoost).kh) < 0.002) rcItUse(r); }
     else rcItUse(r);
   }
   // balls

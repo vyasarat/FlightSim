@@ -47,6 +47,7 @@
 // ---------------------------------------------------------------------------
 const RCE = TUNE.race.events;
 const rceP = { x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 0, tz: -1, lx: -1, ly: 0, lz: 0, kh: 0 };
+const rceQOn = rcAtQ(), rceQRing = rcAtQ(), rceQStreak = rcAtQ();   // (C2: rcAt's scratch, one per call site)
 const rceV = new THREE.Vector3();
 const rce = { venues: {}, cur: null, quiet: false };
 
@@ -132,7 +133,7 @@ function rceSign(p, q, col, k) {
 }
 // rcPoint and rcAt on a given track, not the one in use
 function rcPointOn(T, s, lat, out) { const t0 = race.track; race.track = T; try { return rcPoint(s, lat, out); } finally { race.track = t0; } }
-function rcAtOn(T, s) { const t0 = race.track; race.track = T; try { const q = rcAt(s); return { tx: q.tx, tz: q.tz, gy: q.gy, x: q.x, z: q.z, lx: q.lx, lz: q.lz }; } finally { race.track = t0; } }
+function rcAtOn(T, s) { const t0 = race.track; race.track = T; try { const q = rcAt(s, rceQOn); return { tx: q.tx, tz: q.tz, gy: q.gy, x: q.x, z: q.z, lx: q.lx, lz: q.lz }; } finally { race.track = t0; } }
 
 function rceBuildTrain(T, R) {
   const C = RCE.train, P = TUNE.palette, g = new THREE.Group();
@@ -693,7 +694,7 @@ function rceRings(B, dt, going) {
   for (const q of B.rings) {
     q.lat = clamp(q.lat0 + Math.sin(B.t * K.sway + q.phase) * K.swayA, -K.latMax, K.latMax);
     rcPoint(q.m, q.lat, rceP);
-    const a = rcAt(q.m);
+    const a = rcAt(q.m, rceQRing);
     q.ring.position.set(rceP.x, rceP.y + K.up, rceP.z);
     q.ring.rotation.set(0, Math.atan2(a.tx, a.tz), B.t * K.spin);      // (facing down the road, spinning in its own plane)
     // a new lap: everyone may go through it again
@@ -799,7 +800,7 @@ function rceWindUpdate(B, dt, going) {
     s.lat += s.v * dt;
     if (Math.abs(s.lat) > H + 14 && Math.sign(s.lat) === s.dir) { s.on = false; continue; }
     rcPoint(s.s, s.lat, rceP);
-    const a = rcAt(s.s);
+    const a = rcAt(s.s, rceQStreak);
     rceM.makeRotationY(Math.atan2(a.tx, a.tz) + Math.PI / 2);               // (lying across the road, the way it blows)
     rceM.setPosition(rceP.x, rceP.y + s.y, rceP.z);
     B.mesh.setMatrixAt(n++, rceM);

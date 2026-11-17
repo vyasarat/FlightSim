@@ -93,7 +93,7 @@ async function oneRace(page, veh, seed, opts) {
       }
       // the drag that would put him there: drag right moves him right (-left)
       let bank = Math.abs(want - him.lat) < 0.8 ? 0 : Math.max(-1, Math.min(1, -(want - him.lat) * H.gain));
-      if (opts.hand === "hug") { const q = L.rcAt(him.s + 40); if (Math.abs(q.kh) > 0.002) hugSide = Math.sign(q.kh); bank = -hugSide; }
+      if (opts.hand === "hug") { const q = L.rcAt(him.s + 40, {}); if (Math.abs(q.kh) > 0.002) hugSide = Math.sign(q.kh); bank = -hugSide; }
       else if (sc && scGo && !him.path && ((sc.sa + sc.gore - him.s) % R.track.len + R.track.len) % R.track.len < sc.hold + 8) bank = -sc.side;   // (going for a shortcut: the full steer, held through its approach -- the turn rule)
       wob1 += dt * (2 + rnd() * 3); wob2 += dt * (2 + rnd() * 3);
       bank += Math.sin(wob1) * 0.15;
