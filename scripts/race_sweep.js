@@ -290,6 +290,7 @@ if (require.main === module) {
       fs.writeFileSync(path.join(ROOT, "evidence", "race-sweep.json"), JSON.stringify(receipt, null, 1));
     }
     console.log(`\nrace sweep: ${update ? "RECORDED (not a pass: a compare run must reproduce it)" : ok ? "PASSED" : "FAILED"} -- ${pass} passed, ${fail} failed, ${minutes} min${writeReceipt ? `; ${update ? "a recorded" : "the"} receipt in evidence/race-sweep.json` : " (no receipt: " + (pinOnly ? "the pin only" : "not this repo's cockpit/") + ")"}${same ? "" : "; the race's files changed while it ran"}`);
-    process.exit(ok ? 0 : 1);
+    // (Q-38 b) a record run exits non-zero as well: it judged nothing, so nothing that reads its exit may take it for a pass
+    process.exit(ok && !update ? 0 : 1);
   })().catch(e => { console.error(e); process.exit(1); });
 }

@@ -565,6 +565,11 @@ function modelsPreload() {
         modelState[key] = "failed";
         console.warn("models: could not prepare", key, e && e.message);
       }
+      // (C3, Q-10, v232) and a race's rival in this car, made before it landed, is swapped for it (race.js) -- outside
+      // the try above, so a fault in the race's swap can never mark a good body "failed"; it is a page error instead
+      if (modelState[key] === "ready" && typeof rcBodyLanded === "function") {
+        try { rcBodyLanded(key); } catch (e) { console.error("race: could not swap in the body of", key, e && e.message); }
+      }
     }, undefined, (err) => {
       modelState[key] = "failed";
       console.warn("models: could not load", cfg.file, err && err.message);

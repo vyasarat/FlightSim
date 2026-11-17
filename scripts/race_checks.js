@@ -58,23 +58,48 @@ module.exports = async function raceChecks({ newPage, check }) {
     if (w === 820) {
       const src = await page.evaluate(async () => {
         const html = await (await fetch("index.html")).text(), files = [...html.matchAll(/<script src="(js\/[^"]+\.js)"/g)].map(m => m[1]);
-        const calls = [], bare = [];
+        // (Q-38 a) it reads the scratch's NAME, not a comma: every call's second argument must be a scratch made
+        // by rcAtQ() at load -- a bare identifier declared `X = rcAtQ()`, or `Q.<key>` of rcTnQ -- and each scratch
+        // is used at ONE call site; an object literal, an expression or a call spanning lines is not a scratch
+        const calls = [], bad = [], made = new Set(), tnKeys = new Set(), loose = [], use = {};
+        const ID = /^[A-Za-z_$][\w$]*$/;
         for (const f of files) {
           const lines = (await (await fetch(f)).text()).split("\n");
           lines.forEach((line, i) => {
-            const code = line.replace(/\/\/.*$/, "");
+            const code = line.replace(/\/\/.*$/, ""), at = `${f}:${i + 1}`;
+            // where the scratches are made: only on a top-level `const` line, so once, at load
+            if (/(?<![\w$.])rcAtQ\(\)/.test(code) && !/function\s+rcAtQ\(/.test(code)) {
+              if (!/^const\s/.test(code)) loose.push(at);
+              for (const m of code.matchAll(/([A-Za-z_$][\w$]*)\s*=\s*rcAtQ\(\)/g)) made.add(m[1]);
+              if (/^const\s+rcTnQ\s*=/.test(code)) for (const m of code.matchAll(/([A-Za-z_$][\w$]*)\s*:\s*rcAtQ\(\)/g)) tnKeys.add(m[1]);
+            }
             for (const m of code.matchAll(/(?<![\w$.])rcAt\(/g)) {
               if (/function\s+$/.test(code.slice(0, m.index))) continue;
-              let depth = 1, j = m.index + m[0].length, top = 0;
-              for (; j < code.length && depth > 0; j++) { const c = code[j]; if ("([{".includes(c)) depth++; else if (")]}".includes(c)) depth--; else if (c === "," && depth === 1) top++; }
-              calls.push(`${f}:${i + 1}`); if (top < 1) bare.push(`${f}:${i + 1}`);
+              let depth = 1, j = m.index + m[0].length, comma = -1;
+              for (; j < code.length && depth > 0; j++) { const c = code[j]; if ("([{".includes(c)) depth++; else if (")]}".includes(c)) depth--; else if (c === "," && depth === 1 && comma < 0) comma = j; }
+              const arg = comma < 0 || depth > 0 ? null : code.slice(comma + 1, j - 1).trim();
+              calls.push({ at, arg });
             }
           });
         }
-        return { calls: calls.length, bare, shared: typeof rcAtOut !== "undefined" };
+        for (const c of calls) {
+          const tn = c.arg && /^Q\.([A-Za-z_$][\w$]*)$/.exec(c.arg);
+          const ok = !!c.arg && (tn ? tnKeys.has(tn[1]) : ID.test(c.arg) && made.has(c.arg));
+          if (!ok) bad.push(`${c.at} (${c.arg === null ? "no scratch" : c.arg})`);
+          if (c.arg) (use[c.arg] = use[c.arg] || []).push(c.at);
+        }
+        const shared = Object.entries(use).filter(([k, v]) => v.length > 1).map(([k, v]) => `${k} at ${v.join(" & ")}`);
+        // (Q-38 d) the tunnel's held answer: rcBuildTunnel asks rcAt(sM, Q.mid) once and reads all it needs from it on
+        // that same line -- Q.mid is at one site (above), so nothing can write it between the answer and the read
+        const rs = (await (await fetch("js/race.js")).text()).split("\n"), t0 = rs.findIndex(l => /^function rcBuildTunnel\(/.test(l));
+        let t1 = t0 + 1; while (t1 < rs.length && !/^}/.test(rs[t1])) t1++;
+        const q0Lines = rs.slice(t0, t1).map((l, k) => [t0 + k + 1, l.replace(/\/\/.*$/, "")]).filter(([n, l]) => /(?<![\w$.])q0(?![\w$])/.test(l)).map(([n]) => n);
+        return { calls: calls.length, scratches: made.size + tnKeys.size, bad, shared, loose, sharedOut: typeof rcAtOut !== "undefined", tunnelQ0: { found: t0 >= 0, lines: q0Lines } };
       });
-      check(`race (C2): every rcAt call in the game passes its own scratch -- ${src.calls} calls, ${src.bare.length} without an out${src.bare.length ? " (" + src.bare.join(", ") + ")" : ""}; and no shared answer object is left (rcAtOut)`,
-        src.calls > 20 && src.bare.length === 0 && !src.shared, J(src));
+      check(`race (C2, Q-38 d): the tunnel's held answer (rcBuildTunnel's q0 from Q.mid) is read only on the line that asks for it (${src.tunnelQ0.lines.length} line), so no other call can write it while it is held`,
+        src.tunnelQ0.found && src.tunnelQ0.lines.length === 1, J(src.tunnelQ0));
+      check(`race (C2, Q-38 a): every rcAt call in the game names its own scratch -- ${src.calls} calls, each's second argument a scratch made once at load by rcAtQ() (${src.scratches} made, all on top-level const lines${src.loose.length ? "; made elsewhere: " + src.loose.join(", ") : ""}); ${src.bad.length} not a made scratch${src.bad.length ? " (" + src.bad.join(", ") + ")" : ""}; ${src.shared.length} used at more than one call site${src.shared.length ? " (" + src.shared.join("; ") + ")" : ""}; and no shared answer object is left (rcAtOut)`,
+        src.calls > 20 && src.bad.length === 0 && src.shared.length === 0 && src.loose.length === 0 && !src.sharedOut, J(src));
     }
 
     if (w === 820) {
@@ -621,6 +646,72 @@ module.exports = async function raceChecks({ newPage, check }) {
       const bad = Object.entries(dl).filter(([, r]) => r.door.some((d, i) => d.z < 1 && d.y >= 0 && d.y < r.shelf[i].y - 2));
       check(`race: from the driving seat the doors stand below the dash line as he sees it, landscape and portrait -- door top ${Object.values(dl)[0].doorTop} m; ${Object.entries(dl).map(([v, r]) => `${v}: doors at y ${r.door.map(d => d.y).join("/")}, the dash's far edge at ${r.shelf.map(d => d.y).join("/")}`).join("; ")}`,
         bad.length === 0, J(dl));
+      // (v232) ... and asked of what is DRAWN, not of one corner: the corner above is the door's far end, which lands
+      // under the shelf's far edge, while the stretch of door beside the dash stood 0.2 m over the shelf and filled the
+      // bottom left of the landscape windscreen (the render-critic's block). Every 20 px of the seat view, in every car
+      // with a cabin (the SUV, the Cybertruck, the Corvette), iPad and phone, landscape and portrait, in a race and
+      // driving the world: no cabin surface but the wheel and the screen is seen standing over the dash line (its point
+      // more than 6 cm over the shelf's top, and under the roof furniture -- the header, the mirrors)
+      const sc = {};
+      for (const [vw, vh] of [[1180, 820], [820, 1180], [844, 390], [390, 844]]) {
+        await page.setViewportSize({ width: vw, height: vh });
+        sc[`${vw}x${vh}`] = await page.evaluate(() => {
+          const L = window.__lp, S = L.state, K = L.CAR.cabin, T3 = window.THREE, out = [];
+          // (the camera's aspect follows the window by its resize event, which may not have run yet: run it, and say what it was)
+          const before = +L.camera.aspect.toFixed(2); window.dispatchEvent(new Event("resize"));
+          for (const veh of ["car", "cybertruck", "corvette"]) for (const inRace of [true, false]) {
+            L.api.setVehicle(veh); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
+            L.api.setView(false); if (inRace) L.rcStartRace("oval", 3);
+            for (let i = 0; i < 60 * (inRace ? 6 : 2); i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+            L.scene.updateMatrixWorld(true); L.camera.updateMatrixWorld(true);
+            const cab = L.car.cabin, skip = new Set();
+            for (const o of [L.car.cabinWheel, L.car.screen]) if (o) o.traverse(q => skip.add(q));
+            const rc = new T3.Raycaster(), inv = new T3.Matrix4().copy(cab.matrixWorld).invert(), standing = [];
+            let rays = 0;
+            if (cab.visible) for (let y = 10; y < innerHeight; y += 20) for (let x = 10; x < innerWidth; x += 20) {
+              rc.setFromCamera(new T3.Vector2(x / innerWidth * 2 - 1, 1 - y / innerHeight * 2), L.camera);
+              // (the cabin stands round his eye: nothing of the world is ever between them, so it is asked alone)
+              const hit = rc.intersectObject(cab, true).find(hh => { for (let q = hh.object; q; q = q.parent) if (!q.visible) return false; const m = hh.object.material; return !(m && (m.visible === false || m.transparent || m.blending === T3.AdditiveBlending)); });
+              if (!hit || skip.has(hit.object)) continue;
+              rays++;
+              const lp = hit.point.clone().applyMatrix4(inv);
+              if (lp.y > K.dashTop + 0.06 && lp.y < K.dashTop + 0.6) standing.push([x, y, +lp.x.toFixed(2), +lp.y.toFixed(2), +lp.z.toFixed(2)]);
+            }
+            out.push({ veh, inRace, cabin: cab.visible, rays, standing: standing.length, at: standing.slice(0, 3), aspect: +L.camera.aspect.toFixed(2), win: +(innerWidth / innerHeight).toFixed(2), before });
+            S.touching = false; L.raceReset(); L.api.setView(true); for (let i = 0; i < 3; i++) L.update(1 / 60);
+          }
+          return out;
+        });
+      }
+      await page.setViewportSize({ width: w, height: h });
+      const rows = Object.entries(sc).flatMap(([v, rs]) => rs.map(r => ({ v, ...r })));
+      check(`race (v232): from the driving seat nothing of the cabin is drawn standing over the dash line -- every 20 px, SUV, Cybertruck and Corvette, in a race and in the world, ${Object.keys(sc).join(", ")}: ${rows.filter(r => r.standing).map(r => `${r.v} ${r.veh}${r.inRace ? " race" : ""} ${r.standing}`).join(", ") || "none"} of ${rows.reduce((a, r) => a + r.rays, 0)} cabin points`,
+        rows.length === 24 && rows.every(r => r.cabin && r.rays > 100 && r.standing === 0 && r.aspect === r.win), J(rows.filter(r => r.standing || !r.cabin || r.rays <= 100 || r.aspect !== r.win)));
+    }
+    // ---- (Q-38 d) RACING MAKES NO SCRATCH: over seconds of racing on two tracks (the snow's tunnel, London's bends),
+    // as a delta from the moment the green goes, rcAtQ is never called and rcAt is handed only a few objects, the same
+    // ones over and over -- a per-frame literal would hand it thousands. Last on its page (a race moves race.seedN).
+    if (w === 820) {
+      const za = await page.evaluate(() => {
+        const L = window.__lp, S = L.state, R = L.race, out = {};
+        const q0 = window.rcAtQ, a0 = window.rcAt;
+        for (const id of ["snow", "london"]) {
+          L.api.setVehicle("car"); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
+          L.rcStartRace(id, 11);
+          while (R.phase !== "race" && R.t < 30) { S.touching = true; L.update(1 / 60); }
+          let made = 0, calls = 0; const outs = new Set();
+          window.rcAtQ = function () { made++; return q0.apply(this, arguments); };
+          window.rcAt = function (s, o) { calls++; outs.add(o); return a0.call(this, s, o); };
+          try { for (let i = 0; i < 60 * 12; i++) { S.touching = true; S.ctrlBank = Math.sin(i / 50) * 0.5; S.ctrlPitch = 0; L.update(1 / 60); } }
+          finally { window.rcAtQ = q0; window.rcAt = a0; }
+          out[id] = { phase: R.phase, made, calls, objects: outs.size, sawFresh: [...outs].some(o => !o || typeof o !== "object") };
+          L.raceReset(); for (let i = 0; i < 5; i++) L.update(1 / 60);
+        }
+        return out;
+      });
+      const rows = Object.values(za);
+      check(`race (Q-38 d): 12 s of racing makes no rcAt scratch -- ${Object.entries(za).map(([k, r]) => `${k}: rcAtQ called ${r.made}x, rcAt ${r.calls} calls into ${r.objects} objects`).join("; ")}`,
+        rows.length === 2 && rows.every(r => r.phase === "race" && r.made === 0 && r.calls > 1000 && r.objects > 3 && r.objects <= 40 && !r.sawFresh), J(za));
     }
   }
 };
