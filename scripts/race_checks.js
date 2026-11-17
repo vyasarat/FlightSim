@@ -663,6 +663,8 @@ module.exports = async function raceChecks({ newPage, check }) {
             L.api.setVehicle(veh); L.api.spawnAt(0, 0); L.api.skipScreens(); for (let i = 0; i < 10; i++) L.update(1 / 60);
             L.api.setView(false); if (inRace) L.rcStartRace("oval", 3);
             for (let i = 0; i < 60 * (inRace ? 6 : 2); i++) { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60); }
+            // (Q-39 b) an in-race row is judged only if the race really is on and under way (past its grid), and a world row only if no race is on
+            const racing = L.raceOn(), phase = L.race.phase;
             L.scene.updateMatrixWorld(true); L.camera.updateMatrixWorld(true);
             const cab = L.car.cabin, skip = new Set();
             for (const o of [L.car.cabinWheel, L.car.screen]) if (o) o.traverse(q => skip.add(q));
@@ -677,16 +679,20 @@ module.exports = async function raceChecks({ newPage, check }) {
               const lp = hit.point.clone().applyMatrix4(inv);
               if (lp.y > K.dashTop + 0.06 && lp.y < K.dashTop + 0.6) standing.push([x, y, +lp.x.toFixed(2), +lp.y.toFixed(2), +lp.z.toFixed(2)]);
             }
-            out.push({ veh, inRace, cabin: cab.visible, rays, standing: standing.length, at: standing.slice(0, 3), aspect: +L.camera.aspect.toFixed(2), win: +(innerWidth / innerHeight).toFixed(2), before });
+            out.push({ veh, inRace, racing, phase, cabin: cab.visible, rays, standing: standing.length, at: standing.slice(0, 3), aspect: +L.camera.aspect.toFixed(2), win: +(innerWidth / innerHeight).toFixed(2), before });
             S.touching = false; L.raceReset(); L.api.setView(true); for (let i = 0; i < 3; i++) L.update(1 / 60);
           }
           return out;
         });
       }
       await page.setViewportSize({ width: w, height: h });
+      // (Q-39 c) and the camera follows the restored window now, not on a resize event that may not yet have run:
+      // the next measure on this page would read the scan's last viewport's aspect
+      await page.evaluate(() => window.dispatchEvent(new Event("resize")));
       const rows = Object.entries(sc).flatMap(([v, rs]) => rs.map(r => ({ v, ...r })));
       check(`race (v232): from the driving seat nothing of the cabin is drawn standing over the dash line -- every 20 px, SUV, Cybertruck and Corvette, in a race and in the world, ${Object.keys(sc).join(", ")}: ${rows.filter(r => r.standing).map(r => `${r.v} ${r.veh}${r.inRace ? " race" : ""} ${r.standing}`).join(", ") || "none"} of ${rows.reduce((a, r) => a + r.rays, 0)} cabin points`,
-        rows.length === 24 && rows.every(r => r.cabin && r.rays > 100 && r.standing === 0 && r.aspect === r.win), J(rows.filter(r => r.standing || !r.cabin || r.rays <= 100 || r.aspect !== r.win)));
+        rows.length === 24 && rows.every(r => r.cabin && r.rays > 100 && r.standing === 0 && r.aspect === r.win && (r.inRace ? r.racing && r.phase === "race" : !r.racing)),
+        J(rows.filter(r => r.standing || !r.cabin || r.rays <= 100 || r.aspect !== r.win || (r.inRace ? !r.racing || r.phase !== "race" : r.racing))));
     }
     // ---- (Q-38 d) RACING MAKES NO SCRATCH: over seconds of racing on two tracks (the snow's tunnel, London's bends),
     // as a delta from the moment the green goes, rcAtQ is never called and rcAt is handed only a few objects, the same

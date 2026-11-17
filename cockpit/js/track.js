@@ -12,8 +12,9 @@
 // -> a booster -> FORK B (the safe span, or the gap jump under an amber ring)
 // -> over the sofa -> the spiral climb round the lamp -> a booster -> FORK C
 // (v140, three ways: straight on, held left a loop, held right the middle
-// jump) -> a drop and a booster -> FORK D (straight on, held left a tall loop,
-// held right the big jump) -> a booster -> the triple loop -> the ski-jump
+// jump) -> a drop and a booster -> FORK D (straight on two boosters and THE
+// GIANT LOOP -- v233: green, 48 m tall, taller than the tower --, held left a
+// tall loop, held right the big jump) -> a booster -> the triple loop -> the ski-jump
 // into the giant padded net, which bounces him back to the top of the tower.
 // Then again. A sign over the track before every fork that goes somewhere
 // draws the ride each way (a loop, a jump, a corkscrew): he sees it coming.
@@ -32,7 +33,9 @@
 //   - HE CANNOT FALL OFF, except in two places: short of the landing at the gap
 //     jump, or out of a loop he came into too slowly (the track can push him
 //     round a loop, never pull him). Then he peels off, tumbles, goes bang --
-//     a machine, a toy car -- and comes back just before that section, free.
+//     a machine, a toy car -- and comes back just before that section, free:
+//     at the start of the drop or the run of rollers that feeds it (two boosters
+//     end to end are one run), so he has the speed to go again.
 //     Falling out of the loop is the best part; it costs nothing.
 //   - THE WAY OFF is an exit lane off the start deck, under a gantry with the
 //     motorway's icon: a full steer held right through the deck takes it, like
@@ -160,7 +163,7 @@ function tkLay(frame, sections, id) {
     const Lf = new THREE.Vector3().crossVectors(U, F).normalize();       // left
     const W = (a) => new THREE.Vector3().copy(P).addScaledVector(Lf, a[0]).addScaledVector(U, a[1]).addScaledVector(F, a[2]);
     const Wv = (a) => new THREE.Vector3().addScaledVector(Lf, a[0]).addScaledVector(U, a[1]).addScaledVector(F, a[2]).normalize();
-    const world = pts.map(q => ({ p: W(q.p), up: Wv(q.up), sec: si, type: sec.type, cap: sec.capV || 0 }));
+    const world = pts.map(q => ({ p: W(q.p), up: Wv(q.up), sec: si, type: sec.type, cap: sec.capV || 0, col: sec.color || null }));
     if (pts.gap) gaps.push(raw.length);  // the index where the void begins
     for (let i = raw.length ? 1 : 0; i < world.length; i++) raw.push(world[i]);
     // the end frame: the exact tangent, from the section's own curve
@@ -199,7 +202,7 @@ function tkResample(pts, id) {
     const t = clamp((s - cum[j]) / ((cum[j + 1] - cum[j]) || 1), 0, 1);
     const p = pts[j].p.clone().lerp(pts[j + 1].p, t), up = pts[j].up.clone().lerp(pts[j + 1].up, t);
     const src = pts[t < 0.5 ? j : j + 1];
-    S.push({ x: p.x, y: p.y, z: p.z, ux: up.x, uy: up.y, uz: up.z, s, type: src.type, sec: src.sec, cap: src.cap || 0 });
+    S.push({ x: p.x, y: p.y, z: p.z, ux: up.x, uy: up.y, uz: up.z, s, type: src.type, sec: src.sec, cap: src.cap || 0, col: src.col || null });
   }
   // tangents, orthonormal up (N), left (B), curvature toward N
   for (let k = 0; k < n; k++) {
@@ -293,7 +296,17 @@ function tkBuild() {
 function tkFirst() { return trk.order[0]; }
 
 // ---- the look -----------------------------------------------------------------
-// One orange channel swept along every segment (one draw call), blue connector
+// A builder run on its own random stream: three.js draws four Math.random()s for the
+// id of every object it makes, and the harness seeds Math.random -- an object more at
+// load would move every seeded thing after it. Nothing is drawn from the page's stream.
+let tkQuietSeed = 0x3c51a7d9;
+function tkQuiet(fn) {
+  const R = Math.random;
+  Math.random = () => { tkQuietSeed = (tkQuietSeed * 1664525 + 1013904223) >>> 0; return tkQuietSeed / 4294967296; };
+  try { return fn(); } finally { Math.random = R; }
+}
+// One orange channel swept along every segment (one draw call; a section of
+// another colour, the giant green loop, is one more), blue connector
 // clips every few metres and blue legs down to the sand (instanced), the tower,
 // the booster rollers, the ring over the gap, the net, and the props.
 function tkFrameAt(q) {
@@ -306,38 +319,61 @@ function tkBuildMeshes() {
   const g = new THREE.Group();
   // the channel's cross-section, (left, up), a closed U
   const prof = [[-W - wt, -T], [-W - wt, WH], [-W, WH], [-W, 0], [W, 0], [W, WH], [W + wt, WH], [W + wt, -T]];
-  const pos = [], idx = [];
+  // v233: a section may be another colour of TUNE.palette (`color`: the giant loop is
+  // green) -- its stretch of channel is a mesh of its own, the orange one is unchanged
+  const geos = {};
+  const geoOf = col => geos[col || ""] || (geos[col || ""] = { pos: [], idx: [] });
   for (const seg of trk.order) {
     const S = seg.S, step = 2, rings = [];
     for (let k = 0; k < S.length; k += step) rings.push(S[k]);
     if (rings[rings.length - 1] !== S[S.length - 1]) rings.push(S[S.length - 1]);
-    const base = pos.length / 3;
-    for (const q of rings) {
-      const L = tkFrameAt(q);
-      for (const [a, b] of prof) pos.push(q.x - L[0] * a + q.nx * b, q.y - L[1] * a + q.ny * b, q.z - L[2] * a + q.nz * b);
+    // runs of one colour; a run ends on the first ring of the next, so the channel is whole
+    const runs = [];
+    for (let r = 0; r < rings.length; r++) {
+      const run = runs[runs.length - 1];
+      if (!run || rings[r].col !== run.col) { if (run) run.rings.push(rings[r]); runs.push({ col: rings[r].col, rings: [rings[r]] }); }
+      else run.rings.push(rings[r]);
     }
-    const np = prof.length;
-    for (let r = 0; r < rings.length - 1; r++) {
-      for (let e = 0; e < np; e++) {
-        const a = base + r * np + e, b = base + r * np + (e + 1) % np, c = a + np, d = b + np;
-        idx.push(a, c, b, b, c, d);
+    if (runs.length > 1 && runs[runs.length - 1].rings.length === 1) runs.pop();
+    runs.forEach((run, ri) => {
+      const { pos, idx } = geoOf(run.col), rr = run.rings;
+      const base = pos.length / 3;
+      for (const q of rr) {
+        const L = tkFrameAt(q);
+        for (const [a, b] of prof) pos.push(q.x - L[0] * a + q.nx * b, q.y - L[1] * a + q.ny * b, q.z - L[2] * a + q.nz * b);
       }
-    }
-    // end caps
-    for (const r of [0, rings.length - 1]) {
-      const o = base + r * np;
-      idx.push(o, o + 1, o + 2, o, o + 2, o + 3, o, o + 3, o + 7, o + 3, o + 4, o + 7, o + 4, o + 6, o + 7, o + 4, o + 5, o + 6);
-    }
+      const np = prof.length;
+      for (let r = 0; r < rr.length - 1; r++) {
+        for (let e = 0; e < np; e++) {
+          const a = base + r * np + e, b = base + r * np + (e + 1) % np, c = a + np, d = b + np;
+          idx.push(a, c, b, b, c, d);
+        }
+      }
+      // end caps, at the segment's own two ends only
+      for (const r of [ri === 0 ? 0 : -1, ri === runs.length - 1 ? rr.length - 1 : -1]) {
+        if (r < 0) continue;
+        const o = base + r * np;
+        idx.push(o, o + 1, o + 2, o, o + 2, o + 3, o, o + 3, o + 7, o + 3, o + 4, o + 7, o + 4, o + 6, o + 7, o + 4, o + 5, o + 6);
+      }
+    });
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  const orange = new THREE.MeshLambertMaterial({ color: C.fire, side: THREE.DoubleSide });
-  const channel = new THREE.Mesh(geo, orange);
-  channel.castShadow = true; channel.receiveShadow = true;
-  g.add(channel);
+  const sweep = (G, color) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(G.pos, 3));
+    geo.setIndex(G.idx);
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
+    return m;
+  };
+  const channel = sweep(geoOf(null), C.fire), orange = channel.material;
   trk.channel = channel;
+  // the other colours: three.js draws Math.random for every object it makes, so they
+  // are made on a stream of their own (tkQuiet) and the page's stream sees nothing of them
+  trk.channels = {};
+  for (const col of Object.keys(geos)) if (col) trk.channels[col] = tkQuiet(() => sweep(geos[col], C[col]));
 
   // connector clips and legs
   const blue = new THREE.MeshLambertMaterial({ color: C.blue });
@@ -715,8 +751,9 @@ function tkRetryFor(segId, s) {
     for (let k = Math.min(seg.S.length - 1, Math.floor(at / TK.ds)); k >= 0; k--) {
       const t = seg.S[k].type;
       if (t === "drop" || t === "booster") {
-        // the start of that section
-        let j = k; while (j > 0 && seg.S[j - 1].type === t && seg.S[j - 1].sec === seg.S[k].sec) j--;
+        // the start of that section -- of the whole run of them, if two lie end to end
+        // (v233: the giant loop's feeder is two runs of rollers; he needs both)
+        let j = k; while (j > 0 && seg.S[j - 1].type === t) j--;
         return { seg: id, s: Math.max(0, seg.S[j].s - 2) };
       }
     }

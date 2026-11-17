@@ -19,6 +19,55 @@
 // ---------------------------------------------------------------------------
 const { makeHand, mulberry } = require("./noisy_drive.js");
 
+// (v233) his speed arriving at each section of the track on v232 -- before the giant loop was laid --
+// lap by lap, from the deck with a held finger, at every speed step, hands-off (0), held right (R) and
+// held left (L), as the steps run below measures it now (V233_ARRIVALS=1 prints the table it measured)
+// (v233) how long he sees both panels of each fork's sign whole, in one go, before passing under it, on v232
+// (seconds; track_checks' sight check measures it the same way; V233_SIGHT=1 prints the table it measured)
+const V232_SIGHT = {
+  "820x1180": {
+    "chase:0": {"main0":0,"main1":4.3,"main2":3.85,"main3":2.75},
+    "chase:1": {"main0":0,"main1":3.78,"main2":3.38,"main3":2.73},
+    "chase:2": {"main0":0.08,"main1":3.15,"main2":3.03,"main3":2.5},
+    "chase:3": {"main0":0.2,"main1":2.38,"main2":2.48,"main3":2.2},
+    "chase:4": {"main0":0.18,"main1":1.88,"main2":2.03,"main3":2.75},
+    "seat:0": {"main0":0,"main1":3.65,"main2":3.62,"main3":2.3},
+    "seat:1": {"main0":0,"main1":3.2,"main2":3.07,"main3":2.25},
+    "seat:2": {"main0":0,"main1":2.65,"main2":2.68,"main3":2.05},
+    "seat:3": {"main0":0,"main1":1.98,"main2":2.18,"main3":1.77},
+    "seat:4": {"main0":0,"main1":1.58,"main2":1.78,"main3":1.5},
+  },
+  "1180x820": {
+    "chase:0": {"main0":0.68,"main1":4.98,"main2":4.73,"main3":2.75},
+    "chase:1": {"main0":0.65,"main1":4.4,"main2":4.03,"main3":2.73},
+    "chase:2": {"main0":0.55,"main1":3.67,"main2":3.55,"main3":2.5},
+    "chase:3": {"main0":0.45,"main1":2.77,"main2":2.83,"main3":2.2},
+    "chase:4": {"main0":0.37,"main1":2.2,"main2":2.32,"main3":2.75},
+    "seat:0": {"main0":0,"main1":4.28,"main2":4.43,"main3":2.3},
+    "seat:1": {"main0":0,"main1":3.78,"main2":3.68,"main3":2.25},
+    "seat:2": {"main0":0,"main1":3.12,"main2":3.17,"main3":2.05},
+    "seat:3": {"main0":0,"main1":2.33,"main2":2.52,"main3":1.77},
+    "seat:4": {"main0":0,"main1":1.87,"main2":2.05,"main3":1.5},
+  },
+};
+const V232_ARRIVALS = {
+  "10": {"main0|loop#0":34.16,"A:in":29.38,"main1|booster#0":21.13,"B:in":37.58,"main2|hump#0":28.08,"main2|spiral#0":25.36,"main2|booster#0":18.67,"C:in":32.07,"main3|drop#0":23.6,"D:in":33.95,"main4|loop#0":38.7,"main4|loop#2":31.87,"main4|ski#0":28.57,"ski:lip":23.79},
+  "20": {"main0|loop#0":37.49,"A:in":32.54,"main1|booster#0":25.98,"B:in":43.05,"main2|hump#0":32.54,"main2|spiral#0":29.6,"main2|booster#0":22.97,"C:in":34.37,"main3|drop#0":27.04,"D:in":38.31,"main4|loop#0":43.72,"main4|loop#2":35.92,"main4|ski#0":32.36,"ski:lip":26.56},
+  "30": {"main0|loop#0":43.47,"A:in":39.26,"main1|booster#0":35.17,"B:in":48.51,"main2|hump#0":38.12,"main2|spiral#0":37.22,"main2|booster#0":32.4,"C:in":39.66,"main3|drop#0":35.66,"D:in":43.42,"main4|loop#0":49.21,"main4|loop#2":41.41,"main4|ski#0":39,"ski:lip":29.15},
+  "40": {"main0|loop#0":49.94,"A:in":47.7,"main1|booster#0":44.82,"B:in":55.29,"main2|hump#0":47.07,"main2|spiral#0":46.43,"main2|booster#0":42.37,"C:in":48.46,"main3|drop#0":45.34,"D:in":50.8,"main4|loop#0":56.22,"main4|loop#2":49.86,"main4|ski#0":48.06,"ski:lip":30.41},
+  "00": {"main0|loop#0":33.23,"A:in":28.43,"main1|booster#0":17.42,"B:in":37.35,"main2|hump#0":27.88,"main2|spiral#0":24.39,"main2|booster#0":14.14,"C:in":30.32,"main3|drop#0":22.14,"D:in":33.84,"main4|loop#0":38.72,"main4|loop#2":31.9,"main4|ski#0":28.41,"ski:lip":23.68},
+  "0R": {"main0|loop#0":33.23,"A:in":28.43,"A_stunt|corkscrew#0":26.96,"main1|booster#0":17.01,"B:in":37.39,"B_stunt|kicker#0":35.56,"main2|hump#0":28.37,"main2|spiral#0":24.83,"main2|booster#0":14.16,"C:in":30.35,"C_jump|kicker#0":39.31,"main3|drop#0":27.39,"D:in":33.66,"D_jump|kicker#0":39.43,"main4|loop#0":38.54,"main4|loop#2":31.74,"main4|ski#0":28.28,"ski:lip":23.48},
+  "0L": {"main0|loop#0":33.23,"A:in":28.43,"main1|booster#0":17.42,"B:in":37.35,"main2|hump#0":27.88,"main2|spiral#0":24.39,"main2|booster#0":14.14,"C:in":30.32,"C_loop|loop#0":38.22,"main3|drop#0":30.56,"D:in":33.85,"D_loop|loop#0":39.48,"main4|loop#0":38.63,"main4|loop#2":31.81,"main4|ski#0":28.33,"ski:lip":23.6},
+  "1R": {"main0|loop#0":34.16,"A:in":29.38,"A_stunt|corkscrew#0":27.87,"main1|booster#0":21.09,"B:in":37.54,"B_stunt|kicker#0":35.68,"main2|hump#0":28.54,"main2|spiral#0":25.6,"main2|booster#0":18.69,"C:in":32.09,"C_jump|kicker#0":39.25,"main3|drop#0":27.34,"D:in":33.63,"D_jump|kicker#0":39.44,"main4|loop#0":38.5,"main4|loop#2":31.71,"main4|ski#0":28.47,"ski:lip":23.73},
+  "1L": {"main0|loop#0":34.16,"A:in":29.38,"main1|booster#0":21.13,"B:in":37.58,"main2|hump#0":28.08,"main2|spiral#0":25.36,"main2|booster#0":18.67,"C:in":32.07,"C_loop|loop#0":39.34,"main3|drop#0":31.49,"D:in":33.71,"D_loop|loop#0":39.33,"main4|loop#0":38.55,"main4|loop#2":31.74,"main4|ski#0":28.48,"ski:lip":23.76},
+  "2R": {"main0|loop#0":37.49,"A:in":32.54,"A_stunt|corkscrew#0":30.95,"main1|booster#0":26,"B:in":43.07,"B_stunt|kicker#0":41,"main2|hump#0":32.55,"main2|spiral#0":29.61,"main2|booster#0":22.98,"C:in":34.37,"C_jump|kicker#0":43.13,"main3|drop#0":28.4,"D:in":39.04,"D_jump|kicker#0":46.27,"main4|loop#0":43.66,"main4|loop#2":35.86,"main4|ski#0":32.32,"ski:lip":26.54},
+  "2L": {"main0|loop#0":37.49,"A:in":32.54,"main1|booster#0":25.98,"B:in":43.05,"main2|hump#0":32.54,"main2|spiral#0":29.6,"main2|booster#0":22.97,"C:in":34.37,"C_loop|loop#0":40.57,"main3|drop#0":32.49,"D:in":39.77,"D_loop|loop#0":44.53,"main4|loop#0":45.32,"main4|loop#2":37.23,"main4|ski#0":33.32,"ski:lip":26.56},
+  "3R": {"main0|loop#0":43.47,"A:in":39.26,"A_stunt|corkscrew#0":38.13,"main1|booster#0":35.2,"B:in":48.53,"B_stunt|kicker#0":46.32,"main2|hump#0":35.66,"main2|spiral#0":36.24,"main2|booster#0":32.22,"C:in":39.82,"C_jump|kicker#0":47.66,"main3|drop#0":32.97,"D:in":42.62,"D_jump|kicker#0":51.05,"main4|loop#0":47.77,"main4|loop#2":40.8,"main4|ski#0":38.7,"ski:lip":28.89},
+  "3L": {"main0|loop#0":43.47,"A:in":39.26,"main1|booster#0":35.17,"B:in":48.51,"main2|hump#0":38.12,"main2|spiral#0":37.22,"main2|booster#0":32.4,"C:in":39.66,"C_loop|loop#0":46.08,"main3|drop#0":38.52,"D:in":44.43,"D_loop|loop#0":48.61,"main4|loop#0":51.02,"main4|loop#2":42.4,"main4|ski#0":39.48,"ski:lip":29.12},
+  "4R": {"main0|loop#0":49.94,"A:in":47.7,"A_stunt|corkscrew#0":46.96,"main1|booster#0":44.85,"B:in":55.31,"B_stunt|kicker#0":53.09,"main2|hump#0":40.8,"main2|spiral#0":43.69,"main2|booster#0":41.75,"C:in":48.4,"C_jump|kicker#0":54.65,"main3|drop#0":37.47,"D:in":49.13,"D_jump|kicker#0":56.9,"main4|loop#0":52.66,"main4|loop#2":48.7,"main4|ski#0":47.46,"ski:lip":30.4},
+  "4L": {"main0|loop#0":49.94,"A:in":47.7,"main1|booster#0":44.82,"B:in":55.29,"main2|hump#0":47.07,"main2|spiral#0":46.43,"main2|booster#0":42.37,"C:in":48.46,"C_loop|loop#0":53.98,"main3|drop#0":47.91,"D:in":51.44,"D_loop|loop#0":56.02,"main4|loop#0":57.7,"main4|loop#2":50.42,"main4|ski#0":48.33,"ski:lip":30.54},
+};
+
 // in the page: helpers every check shares
 function install() {
   const L = window.__lp, st = L.state, T = L.trk;
@@ -51,6 +100,30 @@ function install() {
       const S = T.segs[segId].S; let n = 0;
       for (let k = 0; k < S.length; k++) if (S[k].type === type && (k === 0 || S[k - 1].type !== type)) { if (n++ === (which || 0)) return S[k].s; }
       return null;
+    },
+    // (v233) on to the start deck in this car (the SUV, the Cybertruck or the Corvette: every car that can board)
+    boardAs(veh) {
+      L.trackReset(); L.api.setVehicle(veh); L.api.spawnAt(0, 0);
+      for (let i = 0; i < 10; i++) L.update(1 / 60);
+      const p = L.tkLiftPad();
+      st.x = p.x; st.z = p.z; st.y = L.terrainEff(p.x, p.z); st.speed = 0; st.exploding = false;
+      L.api.clearStick();
+      for (let i = 0; i < 60 * 6 && (!T.on || T.lift); i++) L.update(1 / 60);
+      return T.on && !T.lift && L.vehKind() === veh;
+    },
+    // (v233) the giant loop, read off the table and the laid track: where it starts and ends on its
+    // segment, the start of the run of rollers that feeds it, its radius and its step sideways; null
+    // if there is none (v232)
+    giant() {
+      const def = L.TK.segments.find(d => d.sections.some(x => x.type === "loop" && x.color));
+      if (!def) return null;
+      const si = def.sections.findIndex(x => x.type === "loop" && x.color), sec = def.sections[si], S = T.segs[def.id].S;
+      const ks = S.filter(q => q.sec === si);
+      let k = S.indexOf(ks[0]) - 1;
+      while (k > 0 && S[k - 1].type === "booster") k--;
+      const e = ks[0];
+      return { seg: def.id, si, R: sec.radius, off: sec.offset, color: sec.color, s0: ks[0].s, s1: ks[ks.length - 1].s, feed: S[k].type === "booster" ? S[k].s : null,
+               entry: { x: e.x, y: e.y, z: e.z, tx: e.tx, ty: e.ty, tz: e.tz, lx: e.ny * e.tz - e.nz * e.ty, lz: e.nx * e.ty - e.ny * e.tx } };
     },
     endOf(segId, type, which) {
       const S = T.segs[segId].S; let n = 0;
@@ -297,15 +370,30 @@ module.exports = async function trackChecks({ newPage, check }) {
     tk.at("deck", 0, 0); tk.frame();
     out.pair = vis("slowBtn") && vis("fastBtn") && L.BUTTONS.slowBtn.slot === "topRight3" && L.BUTTONS.fastBtn.slot === "topRight2";
     const n = L.spdStepsFor("car").length;
+    // (v233) and his speed ARRIVING at each section, by name (segment|type#nth of that type on it; a fork's
+    // branch is its fork's "in"), and leaving the ski-jump's lip: what the existing track gives him, lap by lap
+    const name = {}, branchOf = {};
+    for (const d of L.TK.segments) { const c = {}; name[d.id] = d.sections.map(x => x.type + "#" + (c[x.type] = (c[x.type] === undefined ? 0 : c[x.type] + 1))); }
+    for (const d of L.TK.segments) if (d.fork) for (const w of ["safe", "stunt", "left"]) if (d.fork[w]) branchOf[d.fork[w]] = d.fork[w].split("_")[0];
+    out.arr = {};
     for (let k = 0; k < n; k++) for (const steer of [0, 1, -1]) {
       st.speedStep = k;
       tk.at("deck", 0, 0);
-      const f0 = tk.flags(), r0 = f0.runs;
-      let f = 0;
-      for (; f < 60 * 200; f++) { tk.finger(true, T.seg === "deck" ? 0 : steer); tk.frame(); if (tk.flags().runs > r0) break; }
+      const f0 = tk.flags(), r0 = f0.runs, arr = {};
+      let f = 0, last = null;
+      for (; f < 60 * 200; f++) {
+        tk.finger(true, T.seg === "deck" ? 0 : steer); tk.frame();
+        if (tk.flags().runs > r0) break;
+        if (T.air && T.air.kind === "ski" && !("ski:lip" in arr)) arr["ski:lip"] = +Math.hypot(T.air.vx, T.air.vy, T.air.vz).toFixed(2);
+        if (T.air || T.bounce || T.bang || T.lift) continue;
+        const def = T.segs[T.seg].def, q = L.tkAt(T.segs[T.seg], T.s), key = def.id + "|" + name[def.id][q.sec];
+        if (key !== last && !(key in arr)) { arr[key] = +T.v.toFixed(2); if (branchOf[def.id] && q.sec === 0 && T.s < 3) arr[branchOf[def.id] + ":in"] = arr[key]; }
+        last = key;
+      }
       tk.finger(false);
-      const f1 = tk.flags();
-      out.ways[k + (steer > 0 ? "R" : steer < 0 ? "L" : "0")] = { secs: +(f / 60).toFixed(1), net: f1.net - f0.net, crashes: f1.crashes - f0.crashes, peels: f1.peels - f0.peels, gaps: f1.gaps - f0.gaps };
+      const f1 = tk.flags(), way = k + (steer > 0 ? "R" : steer < 0 ? "L" : "0");
+      out.ways[way] = { secs: +(f / 60).toFixed(1), net: f1.net - f0.net, crashes: f1.crashes - f0.crashes, peels: f1.peels - f0.peels, gaps: f1.gaps - f0.gaps };
+      out.arr[way] = arr;
     }
     st.speedStep = L.spdStepsFor("car").indexOf(1);
     return out;
@@ -315,6 +403,372 @@ module.exports = async function trackChecks({ newPage, check }) {
     steps.pair && sw["0" + "0"].secs >= sw[(ks.length / 3 - 1) + "0"].secs * 1.33, JSON.stringify({ pair: steps.pair, slow: sw["00"], fast: sw[(ks.length / 3 - 1) + "0"] }));
   check("track: at EVERY speed step, hands-off, held right and held left, the whole run into the net with no bang and no fall (every jump landed: the kickers cap his speed)",
     ks.every(k => sw[k].net === 1 && sw[k].crashes === 0 && sw[k].peels === 0 && sw[k].gaps === (k.endsWith("R") ? 3 : 0)), JSON.stringify(sw));
+
+  // ---- (v233) THE GIANT LOOP: green, 48 m tall, on fork D's straight-on way, fed by two runs of rollers end
+  // to end. Asked of where he really is: his height over the loop's entry, which way up his car is drawn (the
+  // model's own up), and where he comes out (stepped `offset` to his left, running the way he went in), in
+  // every car that can board, at every speed step
+  if (process.env.V233_ARRIVALS) console.log("V233_ARRIVALS " + JSON.stringify(steps.arr));
+  {
+    // everything he reaches before the giant loop -- and every section on the held-left and held-right ways,
+    // which never meet it -- is v232's to a frame; only hands-off, after it (the triple loop and the ski-jump),
+    // may differ: by the rollers that feed it, within 2.5 m/s, and off the ski-jump's lip within 0.3
+    const KEYS = ["main0|loop#0", "A:in", "A_stunt|corkscrew#0", "main1|booster#0", "B:in", "B_stunt|kicker#0", "main2|hump#0", "main2|spiral#0", "main2|booster#0",
+      "C:in", "C_loop|loop#0", "C_jump|kicker#0", "main3|drop#0", "D:in", "D_loop|loop#0", "D_jump|kicker#0", "main4|loop#0", "main4|loop#2", "main4|ski#0", "ski:lip"];
+    const AFTER = { "main4|loop#0": 2.5, "main4|loop#2": 2.5, "main4|ski#0": 2.5, "ski:lip": 0.3 };
+    const rows = [];
+    for (const [way, was] of Object.entries(V232_ARRIVALS)) {
+      const now = steps.arr[way] || {};
+      for (const k of KEYS) if (k in was) {
+        const after = way.endsWith("0") && k in AFTER;
+        rows.push({ way, k, was: was[k], now: now[k], d: now[k] === undefined ? null : +(now[k] - was[k]).toFixed(2), tol: after ? AFTER[k] : 0.1, after });
+      }
+    }
+    const off = rows.filter(r => r.d === null || Math.abs(r.d) > r.tol);
+    const worst = (b) => rows.filter(r => r.after === b && r.d !== null).reduce((m, r) => Math.abs(r.d) > Math.abs(m.d) ? r : m, { d: 0 });
+    check(`track (v233): his speed arriving at every section is v232's to a frame (0.1 m/s) up to fork D and on every held-left and held-right way (worst ${JSON.stringify(worst(false))}); hands-off after the giant loop, at the triple loop and the ski-jump, within 2.5 m/s, off the lip within 0.3 (worst ${JSON.stringify(worst(true))}), at all ${Object.keys(V232_ARRIVALS).length} steps and hands`,
+      rows.length >= 15 * 14 && off.length === 0, JSON.stringify(off.slice(0, 8)));
+  }
+  const giant = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, out = { runs: [] };
+    const G0 = tk.giant();
+    if (!G0) return { missing: true };
+    const n = L.spdStepsFor("car").length;
+    // one ride: from (seg, s, v), finger held hands-off, until he is off the loop's segment or 40 s
+    const ride = (s, v) => {
+      const G = tk.giant(), E = G.entry, f0 = tk.flags();
+      tk.at(G.seg, s, v);
+      let top = -1e9, atTop = null, out1 = null, f = 0, inLoop = false;
+      for (; f < 60 * 40 && T.seg === G.seg && !T.air && !T.bang; f++) {
+        tk.finger(true, 0); tk.frame();
+        if (T.seg !== G.seg) break;
+        const q = L.tkAt(T.segs[T.seg], T.s);
+        if (q.sec === G.si) {
+          inLoop = true;
+          const h = L.state.y - E.y;
+          if (h > top) { top = h; const m = L.vehicleModel, up = new THREE.Vector3(0, 1, 0).applyQuaternion(m.quaternion); atTop = { h: +h.toFixed(1), N: +L.tkPose.N.y.toFixed(2), model: +up.y.toFixed(2), v: +T.v.toFixed(1) }; }
+        } else if (inLoop && !out1 && T.s > G.s1 + 0.5) {
+          const dx = L.state.x - E.x, dz = L.state.z - E.z;
+          out1 = { lat: +(dx * E.lx + dz * E.lz).toFixed(2), dy: +(L.state.y - E.y).toFixed(2), dot: +(L.tkPose.T.x * E.tx + L.tkPose.T.y * E.ty + L.tkPose.T.z * E.tz).toFixed(4), v: +T.v.toFixed(1) };
+        }
+      }
+      tk.finger(false);
+      const f1 = tk.flags();
+      return { top: atTop, out: out1, next: T.seg, secs: +(f / 60).toFixed(1), peels: f1.peels - f0.peels, crashes: f1.crashes - f0.crashes };
+    };
+    for (const veh of ["car", "cybertruck", "corvette"]) {
+      out.boarded = (out.boarded || 0) + (tk.boardAs(veh) ? 1 : 0);
+      L.api.setView(true);
+      const k0 = st.speedStep;              // the step is each vehicle's own (speed.js): put back each one's
+      for (let k = 0; k < n; k++) {
+        st.speedStep = k;
+        const G = tk.giant();
+        // from a standing start at the start of its rollers, and arriving at lap speed off the spiral
+        out.runs.push({ veh, k, from: "feed", ...(G.feed === null ? { noRollers: true } : ride(G.feed, 0)) });
+        out.runs.push({ veh, k, from: "lap", ...ride(L.trk.segs[G.seg].S.find(q => q.type === "booster").s - 12, 22) });
+      }
+      st.speedStep = k0;
+    }
+    out.G = { R: G0.R, off: G0.off, color: G0.color, next: T.segs[G0.seg].next, drawn: !!(T.channels && T.channels[G0.color] && T.channels[G0.color].visible !== false) };
+    return out;
+  });
+  {
+    const G = giant.G || {}, bad = (giant.runs || []).filter(r => !(r.top && r.top.h >= 2 * G.R - 1.5 && r.top.N < -0.95 && r.top.model < -0.9 &&
+      r.out && Math.abs(r.out.lat - G.off) < 0.6 && Math.abs(r.out.dy) < 0.6 && r.out.dot > 0.999 && r.next === giant.G.next && r.peels === 0 && r.crashes === 0));
+    check(`track (v233): a held finger takes the SUV, the Cybertruck and the Corvette round the giant ${G.color} loop at every speed step -- from a standing start at its rollers and at lap speed: ${G.R ? 2 * G.R : "?"} m up and upside down at its top (the car drawn upside down), out the far side ${G.off} m to his left running the way he went in, and on to what follows it (${G.next}), no fall, no bang`,
+      !giant.missing && giant.boarded === 3 && giant.runs.length === 30 && G.drawn && bad.length === 0,
+      JSON.stringify(giant.missing ? giant : { bad: bad.slice(0, 4), slowestTop: giant.runs.reduce((m, r) => r.top && r.top.v < m.v ? { v: r.top.v, veh: r.veh, k: r.k, from: r.from } : m, { v: 1e9 }) }));
+  }
+
+  // ---- (v233) too slow into the giant loop: he peels off, goes bang, comes back at the START of the rollers
+  // that feed it -- both runs, or from the second alone he would only fall out again -- with nothing taken,
+  // and from there a held finger (the slowest step) takes him round
+  const giantPeel = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, out = {};
+    if (!tk.giant()) return { missing: true };
+    for (const veh of ["car", "cybertruck", "corvette"]) {
+      tk.boardAs(veh); L.api.setView(true);
+      const G = tk.giant(), k0 = st.speedStep, f0 = tk.flags();
+      // fast enough to climb past where the loop must pull (slower, he only rolls back down), too slow to go round
+      tk.at(G.seg, G.s0 + 1, Math.sqrt(3.8 * 9.8 * G.R));
+      tk.finger(false);
+      let fell = false, bang = false, back = null;
+      for (let i = 0; i < 60 * 12; i++) {
+        const o = tk.frame();
+        if (o.air) fell = true;
+        if (o.bang) bang = true;
+        if (bang && !o.bang && back === null) { back = { seg: o.seg, s: +o.s.toFixed(1), v: +o.v.toFixed(1) }; break; }
+      }
+      const kept = { step: st.speedStep === k0, veh: L.vehKind() === veh, on: T.on, runs: tk.flags().runs === f0.runs };
+      st.speedStep = 0;
+      tk.finger(true, 0);
+      let made = false, topN = 1;
+      for (let i = 0; i < 60 * 30 && !made; i++) {
+        const o = tk.frame();
+        if (o.seg === G.seg && L.tkAt(T.segs[o.seg], o.s).sec === G.si) topN = Math.min(topN, L.tkPose.N.y);
+        if ((o.seg === G.seg && o.s > G.s1 + 5) || T.cameFrom[o.seg] === G.seg) made = !o.bang && !o.air;
+      }
+      tk.finger(false); st.speedStep = k0;
+      const f1 = tk.flags();
+      out[veh] = { seg: G.seg, fell, bang, back, feed: G.feed === null ? null : +G.feed.toFixed(1), loopAt: +G.s0.toFixed(1), kept, made, topN: +topN.toFixed(2), peels: f1.peels - f0.peels, reass: f1.reass - f0.reass };
+    }
+    return out;
+  });
+  check("track (v233): into the giant loop too slowly he peels off, tumbles and goes bang -- and comes back at the start of the rollers that feed it (both runs, on its own branch: he need not choose it again), his car, his speed step and the track all his, and with a held finger at the slowest step goes round, in every car",
+    !giantPeel.missing && Object.values(giantPeel).length === 3 && Object.values(giantPeel).every(r => r.fell && r.bang && r.peels === 1 && r.reass === 1 && r.back && r.back.seg === r.seg && r.feed !== null && r.back.s <= r.feed + 0.5 && r.back.s >= r.feed - 3 &&
+      r.kept.step && r.kept.veh && r.kept.on && r.kept.runs && r.made && r.topN < -0.95), JSON.stringify(giantPeel));
+
+  // ---- (v233) finger off on the way in: on the climb he rolls back and is never stuck -- the finger down
+  // again takes him round; and lifted on the rollers at a standstill, the rollers alone take him round
+  const giantRoll = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, out = {};
+    const G = tk.giant();
+    if (!G || G.feed === null) return { missing: !G, noRollers: !!G };
+    const past = o => (o.seg === G.seg && o.s > G.s1 + 5) || T.cameFrom[o.seg] === G.seg;
+    for (const veh of ["car", "cybertruck", "corvette"]) {
+      tk.boardAs(veh); L.api.setView(true);
+      const k0 = st.speedStep;
+      for (const k of [0, L.spdStepsFor("car").length - 1]) {      // the slowest step and the fastest
+        st.speedStep = k;
+        const f0 = tk.flags();
+        tk.at(G.seg, G.s0 + 3, 12);
+        tk.finger(false);
+        let back = false, low = 1e9;
+        for (let i = 0; i < 60 * 12; i++) { const o = tk.frame(); if (o.v < -0.5) back = true; if (o.seg === G.seg) low = Math.min(low, o.s); }
+        tk.finger(true, 0);
+        let through = false, f = 0;
+        for (; f < 60 * 40 && !through; f++) { const o = tk.frame(); if (past(o)) through = !o.bang && !o.air; }
+        tk.finger(false);
+        const f1 = tk.flags();
+        // and hands off the screen altogether, at a standstill on the start of its rollers
+        tk.at(G.seg, G.feed, 0);
+        let alone = false;
+        for (let i = 0; i < 60 * 20 && !alone; i++) { const o = tk.frame(); if (past(o)) alone = !o.bang && !o.air; }
+        const f2 = tk.flags();
+        out[veh + ":" + k] = { back, rolledTo: +(low - G.s0).toFixed(1), through, secs: +(f / 60).toFixed(1), rollersAlone: alone,
+                               peels: f2.peels - f0.peels, crashes: f2.crashes - f0.crashes };
+      }
+      st.speedStep = k0;
+    }
+    return out;
+  });
+  check("track (v233): a finger off on the climb into the giant loop -- he rolls back down and is never stuck: the finger down again takes him round; and lifted at a standstill on its rollers, the rollers alone take him round -- no fall, no bang, in every car at the slowest and the fastest step",
+    !giantRoll.missing && !giantRoll.noRollers && Object.keys(giantRoll).length === 6 && Object.values(giantRoll).every(r => r.back && r.rolledTo < 0 && r.through && r.rollersAlone && r.peels === 0 && r.crashes === 0), JSON.stringify(giantRoll));
+
+  // ---- (v233) the giant loop and its S cross nothing: no road (the motorway, every spur and exit, the track's
+  // own exit lane and road back), runway, solid or other piece of track within a channel's reach, no leg of it
+  // through track or solid, and all of it inside the corridor the streamed scenery keeps off
+  const giantClear = await page.evaluate(() => {
+    const tk = window.__tk, L = window.__lp, T = L.trk, TK = L.TK, HW = L.HW;
+    const G = tk.giant();
+    if (!G) return { missing: true };
+    const S = T.segs[G.seg].S, mine = S.filter(q => q.sec >= G.si - 1 && q.sec <= G.si + 3);   // its new rollers, the loop, its straight, its S
+    const reach = TK.width / 2 + TK.wallT, out = { n: mine.length };
+    // the motorway and every road off it (exits, spurs, the track's own road back): flat distance
+    let road = 1e9, roadAt = null;
+    for (const q of mine) {
+      const h = L.hwyNearest(q.x, q.z); const d = Math.abs(h.lateral) - (HW.medianW / 2 + HW.laneW * 3);
+      if (d < road) { road = d; roadAt = "motorway"; }
+      for (const ex of L.highway.exits.concat(T.back ? [T.back] : [])) for (const p of ex.spur || []) { const dd = Math.hypot(p.x - q.x, p.z - q.z); if (dd < road) { road = dd; roadAt = ex.to || ex.icon || "spur"; } }
+    }
+    out.road = { min: +road.toFixed(1), at: roadAt };
+    out.runway = Math.min(...L.AIRPORTS.map(a => Math.min(...mine.map(q => Math.hypot(q.x - (a.cx || 0), q.z - a.cz))) - L.TUNE.runwayLength / 2));
+    // every other piece of track, the exit lane among them
+    let tr = 1e9, trAt = null;
+    const ends = [S[0], S[S.length - 1]];
+    for (const p of T.order) for (let k = 0; k < p.S.length; k += 2) {
+      const o = p.S[k];
+      for (let j = 0; j < mine.length; j += 2) {
+        if (p.id === G.seg && Math.abs(o.s - mine[j].s) < 40) continue;      // the channel it runs on (its own entry and exit ARE asked: they pass 10 m apart)
+        if (ends.some(E => Math.hypot(o.x - E.x, o.y - E.y, o.z - E.z) < 40 && Math.hypot(mine[j].x - E.x, mine[j].y - E.y, mine[j].z - E.z) < 40)) continue;   // where branches meet it, at either end
+        const d = Math.hypot(o.x - mine[j].x, o.y - mine[j].y, o.z - mine[j].z);
+        if (d < tr) { tr = d; trAt = p.id + "@" + Math.round(o.s) + " / @" + Math.round(mine[j].s); }
+      }
+    }
+    out.track = { min: +tr.toFixed(1), at: trAt, need: TK.width + 2 * TK.wallT + 0.5 };
+    // what stands over the track, all 48 m of it: the rings over the jumps and the signs' gantries
+    // (a ring is a torus: asked of its tube, not its box -- the big jump's ring reaches over the straight-on way
+    // 14 m up, as it did on v232; every sign's posts, beam and panels by their own boxes)
+    const over = [], P = new THREE.Vector3(), inv = new THREE.Matrix4();
+    let ringMin = 1e9;
+    for (const r of T.rings || []) {
+      r.updateMatrixWorld(true); inv.copy(r.matrixWorld).invert();
+      const R = r.geometry.parameters.radius, tube = r.geometry.parameters.tube;
+      for (const q of mine) { P.set(q.x, q.y, q.z).applyMatrix4(inv); ringMin = Math.min(ringMin, Math.hypot(Math.hypot(P.x, P.y) - R, P.z) - tube); }
+    }
+    if (ringMin < reach + TK.wallH + 0.5) over.push("ring");
+    for (const sg of T.signs || []) sg.g.traverse(o => { if (!o.isMesh) return;
+      const box = new THREE.Box3().setFromObject(o).expandByScalar(reach + 0.5);
+      if (mine.some(q => box.containsPoint(P.set(q.x, q.y, q.z)))) over.push("sign@" + sg.seg); });
+    out.over = [...new Set(over)]; out.ringClear = +ringMin.toFixed(1);
+    // the registry: nothing solid within the channel's reach of it
+    const solids = [];
+    for (const q of mine) L.forEachSolid(b => { if (L.solidTest(b, q.x, q.y, q.z, reach)) solids.push(L.solidKind ? L.solidKind(b) : b.kind); });
+    out.solids = [...new Set(solids)];
+    // its legs: none through another piece of track or a solid
+    const legs = T.legs.filter(l => mine.some(q => Math.hypot(q.x - l.x, q.z - l.z) < 0.01));
+    let legBad = [];
+    for (const l of legs) {
+      for (const p of T.order) for (const o of p.S) if (Math.hypot(o.x - l.x, o.z - l.z) < TK.width / 2 + TK.wallT + 1.1 && o.y < l.y1 - 1 && o.y > l.y0 && !(p.id === G.seg && Math.abs(o.y - l.y1) < 3)) { legBad.push(p.id + "@" + Math.round(o.s)); break; }
+      for (let y = l.y0 + 1; y < l.y1 - 1; y += 3) L.forEachSolid(b => { if (L.solidTest(b, l.x, y, l.z, 1.1)) legBad.push("solid"); });
+    }
+    out.legs = { n: legs.length, bad: [...new Set(legBad)].slice(0, 5) };
+    // the corridor the scenery keeps off: every metre of it claimed
+    out.corridor = +Math.max(...mine.map(q => L.hwyCorridorDist(q.x, q.z))).toFixed(1);
+    out.ground = +Math.min(...mine.filter(q => q.ny > 0.5).map(q => q.y - TK.deckT - Math.max(L.terrainEff(q.x, q.z), L.TUNE.waterLevel))).toFixed(1);
+    return out;
+  });
+  check("track (v233): the giant loop, its rollers and its S cross nothing -- no road, spur or the track's own exit lane and road back near it, no runway, nothing solid within its walls, no other piece of track within a channel's width (the tall loop and the big jump beside it), no ring or sign gantry over its 48 m, none of its legs through track or solid, and all of it in the corridor the scenery keeps off",
+    !giantClear.missing && giantClear.n > 300 && giantClear.road.min > 60 && giantClear.runway > 300 && giantClear.track.min >= giantClear.track.need && giantClear.solids.length === 0 && giantClear.over.length === 0 &&
+    giantClear.legs.n > 0 && giantClear.legs.bad.length === 0 && giantClear.corridor < 9 && giantClear.ground > 0.5, JSON.stringify(giantClear));
+
+  // ---- (v233) the cameras ride the giant loop as they ride the first: portrait and landscape, from behind
+  // and from his seat, every frame round it -- from behind, his car on the screen with nothing of the track
+  // between, and the track 20 m ahead of him on the screen; from the seat, the track 10 m ahead on the screen
+  // and in sight (20 m round the first loop's 15 m radius turns him 76 degrees: that track is overhead, out of the windscreen).
+  // The first loop is held to the same, so the bar is the one the track already met.
+  const cams = {};
+  for (const [vw, vh] of [[820, 1180], [1180, 820]]) {
+    await page.setViewportSize({ width: vw, height: vh });
+    cams[`${vw}x${vh}`] = await page.evaluate(() => {
+      window.dispatchEvent(new Event("resize"));
+      const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, cam = L.camera, out = {};
+      const G = tk.giant();
+      if (!G || G.feed === null) return { missing: true };
+      tk.boardAs("car");
+      const k0 = st.speedStep; st.speedStep = L.spdStepsFor("car").indexOf(1);
+      const first = { seg: "main0", si: T.segs.main0.S.find(q => q.type === "loop").sec, feed: tk.sOf("main0", "booster") };
+      const meshes = [T.channel].concat(Object.values(T.channels || {}));
+      const rc = new THREE.Raycaster(), P = new THREE.Vector3(), D = new THREE.Vector3();
+      const onScreen = v => { P.copy(v).project(cam); return Math.abs(P.x) < 0.95 && Math.abs(P.y) < 0.95 && P.z < 1; };
+      const seen = (v, slack) => { D.copy(v).sub(cam.position); const d = D.length(); rc.set(cam.position, D.normalize()); rc.far = d; const h = rc.intersectObjects(meshes, false)[0]; return !h || h.distance > d - slack; };
+      for (const [name, L0] of [["first", first], ["giant", { seg: G.seg, si: G.si, feed: G.feed }]]) for (const chase of [true, false]) {
+        L.api.setView(chase);
+        tk.at(L0.seg, L0.feed, 0);
+        const r = { frames: 0, carOff: 0, carHidden: 0, aheadOff: 0, aheadHidden: 0, aspect: +cam.aspect.toFixed(2), win: +(innerWidth / innerHeight).toFixed(2), worst: null };
+        for (let f = 0; f < 60 * 20; f++) {
+          tk.finger(true, 0); tk.frame();
+          if (T.seg !== L0.seg || T.air || T.bang) { if (r.frames) break; continue; }
+          const q = L.tkAt(T.segs[T.seg], T.s);
+          if (q.sec !== L0.si) { if (r.frames) break; continue; }
+          cam.updateMatrixWorld(true);
+          r.frames++;
+          const car = new THREE.Vector3(L.tkPose.x + L.tkPose.N.x, L.tkPose.y + L.tkPose.N.y, L.tkPose.z + L.tkPose.N.z);
+          const a = L.tkStep(T.seg, T.s, chase ? 20 : 10), qa = L.tkAt(T.segs[a.seg], a.s), ahead = new THREE.Vector3(qa.x + qa.nx * 0.5, qa.y + qa.ny * 0.5, qa.z + qa.nz * 0.5);
+          const fail = [];
+          if (chase) { if (!onScreen(car)) { r.carOff++; fail.push("carOff"); } else if (!seen(car, 2)) { r.carHidden++; fail.push("carHidden"); } }
+          if (!onScreen(ahead)) { r.aheadOff++; fail.push("aheadOff"); } else if (!seen(ahead, 2.5)) { r.aheadHidden++; fail.push("aheadHidden"); }
+          if (fail.length && !r.worst) r.worst = { s: +T.s.toFixed(0), up: +L.tkPose.N.y.toFixed(2), fail };
+        }
+        out[name + (chase ? ":chase" : ":seat")] = r;
+      }
+      tk.finger(false); st.speedStep = k0; L.api.setView(true);
+      return out;
+    });
+  }
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  {
+    const rows = Object.entries(cams).flatMap(([v, o]) => o.missing ? [{ v, missing: true }] : Object.entries(o).map(([k, r]) => ({ v, k, ...r })));
+    const bad = rows.filter(r => r.missing || r.frames < 60 || r.carOff || r.carHidden || r.aheadOff || r.aheadHidden || r.aspect !== r.win);
+    check(`track (v233): round the giant loop, portrait and landscape, the chase camera keeps his car on the screen with no track between them and the track ahead in view, and from his seat the track 10 m ahead is in view -- every frame, as round the first loop (${rows.map(r => `${r.v} ${r.k} ${r.frames}`).join(", ")} frames)`,
+      rows.length === 8 && bad.length === 0, JSON.stringify(bad));
+  }
+
+  // ---- (v233) THE SIGNS STAY READABLE: for every fork's sign, the longest he sees BOTH its panels whole --
+  // every corner and the middle of each on the screen, with nothing in front (the track, its legs and clips,
+  // the gantries, the props, his own car or cabin) -- in one go before he passes under it, riding a lap
+  // hands-off with a held finger, from behind and from his seat, portrait and landscape, at every speed step;
+  // against v232's (V232_SIGHT, measured the same way; V233_SIGHT=1 prints the table). Round 2 put the giant
+  // loop in front of fork C's sign and cut 2.1-2.4 s to 0.4-0.6 s: this is the check that says so. And after
+  // the giant loop there is nothing to read: no sign stands between it and the net.
+  const sight = {};
+  for (const [vw, vh] of [[820, 1180], [1180, 820]]) {
+    await page.setViewportSize({ width: vw, height: vh });
+    sight[`${vw}x${vh}`] = await page.evaluate(() => {
+      window.dispatchEvent(new Event("resize"));
+      const tk = window.__tk, L = window.__lp, st = L.state, T = L.trk, cam = L.camera, out = {};
+      tk.boardAs("car");
+      const k0 = st.speedStep;
+      const carMeshes = new Set(); for (const c of T.cars) c.mesh.traverse(o => carMeshes.add(o));
+      const channels = [T.channel].concat(Object.values(T.channels || {}));
+      // per sign: what can stand in front of it -- the channels' triangles within 300 m cut into 25 m cells (so a
+      // ray tests a few small meshes, not the whole track), and every other thing of the track
+      const prep = T.signs.map(sg => {
+        const cells = {}, cx = sg.g.position.x, cz = sg.g.position.z;
+        for (const m of channels) {
+          const p = m.geometry.attributes.position.array, ix = m.geometry.index.array;
+          for (let i = 0; i < ix.length; i += 3) {
+            const a = ix[i] * 3, b = ix[i + 1] * 3, c = ix[i + 2] * 3, x = (p[a] + p[b] + p[c]) / 3, z = (p[a + 2] + p[b + 2] + p[c + 2]) / 3;
+            if (Math.hypot(x - cx, z - cz) > 300) continue;
+            const key = Math.floor(x / 25) + "," + Math.floor(z / 25);
+            (cells[key] || (cells[key] = [])).push(p[a], p[a + 1], p[a + 2], p[b], p[b + 1], p[b + 2], p[c], p[c + 1], p[c + 2]);
+          }
+        }
+        const occ = Object.values(cells).map(P => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.computeBoundingSphere();
+          const mm = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); mm.updateMatrixWorld(true); return mm; });
+        for (const ch of T.g.children) if (!channels.includes(ch) && ch !== sg.g && !carMeshes.has(ch)) occ.push(ch);
+        const pts = sg.panels.map(p => { const g = p.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox;
+          return { mesh: p.mesh, loc: [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]].map(([u, v]) => new THREE.Vector3(u * b.max.x * 0.95, v * b.max.y * 0.95, b.max.z + 0.02)) }; });
+        return { sg, occ, pts };
+      });
+      const rc = new THREE.Raycaster(), V = new THREE.Vector3(), N = new THREE.Vector3(), D = new THREE.Vector3();
+      const clear = (P, extra) => {
+        P.sg.g.updateMatrixWorld(true);
+        for (const p of P.pts) for (const lp of p.loc) {
+          V.copy(lp).applyMatrix4(p.mesh.matrixWorld);
+          N.copy(V).project(cam);
+          if (!(Math.abs(N.x) <= 1 && Math.abs(N.y) <= 1 && N.z < 1 && N.z > -1)) return false;
+          D.copy(V).sub(cam.position); const d = D.length(); rc.set(cam.position, D.normalize()); rc.far = d - 0.3;
+          if (rc.intersectObjects(P.occ.concat(extra), true).some(x => { for (let q = x.object; q; q = q.parent) if (!q.visible) return false; return true; })) return false;
+        }
+        return true;
+      };
+      for (const chase of [true, false]) for (let k = 0; k < L.spdStepsFor("car").length; k++) {
+        st.speedStep = k; L.api.setView(chase);
+        tk.at("deck", 0, 0);
+        const r0 = tk.flags().runs, run = {}, best = {};
+        for (let f = 0; f < 60 * 200; f++) {
+          tk.finger(true, 0); tk.frame();
+          if (tk.flags().runs > r0) break;
+          if (T.air || T.bounce || T.bang || T.lift) continue;
+          cam.updateMatrixWorld(true);
+          const extra = chase ? [L.vehicleModel] : [L.car.cabin];
+          for (const P of prep) {
+            const id = P.sg.seg;
+            if (T.seg !== id || id in best) continue;
+            if (T.s >= P.sg.s) { best[id] = +(run[id] || 0).toFixed(2); continue; }          // passing under it: the run he had
+            if (P.sg.s - T.s > 200) continue;
+            if (clear(P, extra)) { run[id] = (run[id] || 0) + 1 / 60; } else if (run[id]) { best["last:" + id] = run[id]; run[id] = 0; }
+          }
+        }
+        tk.finger(false);
+        // the run that was going when he passed under it, or the last one he had before it
+        for (const P of prep) { const id = P.sg.seg; if (!best[id] && best["last:" + id]) best[id] = +best["last:" + id].toFixed(2); delete best["last:" + id]; }
+        out[(chase ? "chase" : "seat") + ":" + k] = best;
+      }
+      st.speedStep = k0; L.api.setView(true);
+      // nothing to read after the giant loop: no sign on the way from it to the net
+      const G = tk.giant(); let after = G && T.signs.some(sg => sg.seg === G.seg && sg.s > G.s1) ? [G.seg] : [], id = G ? T.segs[G.seg].next : null;
+      for (let n = 0; id && n < 20; n++) { if (T.signs.some(sg => sg.seg === id)) after.push(id); id = T.segs[id].next; }
+      out.signsAfterGiant = G ? after : null;
+      return out;
+    });
+  }
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  if (process.env.V233_SIGHT) console.log("V233_SIGHT " + JSON.stringify(sight));
+  {
+    const rows = [];
+    for (const [vp, o] of Object.entries(V232_SIGHT)) for (const [view, signs] of Object.entries(o)) for (const [id, was] of Object.entries(signs)) {
+      const now = sight[vp] && sight[vp][view] ? sight[vp][view][id] : undefined;
+      rows.push({ vp, view, id, was, now, d: now === undefined ? null : +(now - was).toFixed(2) });
+    }
+    const bad = rows.filter(r => r.d === null || r.d < -0.1);
+    const after = Object.values(sight).map(o => o.signsAfterGiant);
+    check(`track (v233): every fork's sign is as readable as on v232 -- both panels whole and in sight, in one go before he passes under it, from behind and from his seat, portrait and landscape, every speed step, no less than v232's less 0.1 s (${rows.length} cases; shortest now ${Math.min(...rows.map(r => r.now === undefined ? 0 : r.now))} s); and after the giant loop no sign to read`,
+      rows.length >= 4 * 2 * 2 * 5 && bad.length === 0 && after.every(a => Array.isArray(a) && a.length === 0), JSON.stringify({ bad: bad.slice(0, 8), after }));
+  }
 
   // ---- 4b'''. the forks he can see coming: a sign over the stem before every
   // fork that goes somewhere, the ride that way drawn on it; and every branch
