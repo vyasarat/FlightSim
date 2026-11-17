@@ -10,6 +10,33 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v232 (2026-11-16): the rivals wear their own cars from the first race
+
+When the game had only just been opened and he went straight into a race, the cars from the game he races
+against -- the SUV, the Cybertruck, the Corvette -- could be grey stand-in saloons, because their models were
+still downloading when the grid was laid; and they then stayed grey for every race until the game was opened
+again (QUEUE Q-10: race.js kept the first body it made for each rival, stand-in or not). Now each one is swapped
+for its real car the moment its download lands -- in the race he is in, on the podium, and in every race after.
+Nothing waits for them: a race still starts at once, and if a model never arrives it is raced on its stand-in to
+the finish. The swap is drawing only: a rival keeps the size it started the race with, his own car is untouched,
+the races finish exactly as before (all 288 pinned races finish to the hundredth the same: 0 flipped, 0 drifted) and the game's random stream is the
+same. Checked by holding the three downloads back on a fresh load: grey at the grid, each real once it lands
+(mid-race, on the podium, in the next race), and a race with the downloads failed still runs to its podium.
+And four review notes on v231 (Q-38): the check that every track lookup has its own scratch now reads each one
+by name (shown red with two lookups sharing one, and with a throwaway one), a check that 12 s of racing makes
+none, the London rivals' line staged off the middle of the road too, and a record run of the race pin now exits
+as a failure. The snow tunnel's now-whole cutting walls were looked at from every chase camera: driven through from 160 m
+before it to 200 m after it in all four cars, down the middle and along either barrier, no frame has any of them
+between the camera and his car, and the frames (both portals, his seat, landscape, the monster truck) read as before.
+And from his seat with the iPad on its side, the dark slab at the bottom left of the windscreen is gone (the
+render-critic's find, there since v195): the inside of the driver's door beside the dashboard stood 20 cm above it,
+and the wide landscape view looked straight down on it. The door ahead of his eye now stops level with the dashboard
+(behind his eye, where no view reaches, it keeps its height; the two armrests were taken out to keep the build the same
+size -- in landscape a corner of the left one showed at the very bottom left, part of the same dark slab, and is gone with it). The same in the SUV, the Cybertruck and the Corvette, in a race and on the road;
+portrait is unchanged. A rival whose real body lands while it stands on the podium is now fitted to its step at its
+own size (it had been fitted by the stand-in's), and a model that downloads fine can no longer be marked broken by
+a fault in the swap.
+
 ## v231 (2026-11-16): London's rivals take the bend they are in
 
 In the London race the other cars now pick the inside of the corner they are actually going round. Until now

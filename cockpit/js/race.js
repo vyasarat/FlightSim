@@ -1233,6 +1233,16 @@ function rcRoster(mine) {
 function rcMeshFor(key) {
   const kept = (race.meshes || (race.meshes = {}))[key];
   if (kept) { scene.add(kept); kept.visible = true; return kept; }
+  const m = rcBuildBody(key);
+  scene.add(m);
+  race.meshes[key] = m;
+  return m;
+}
+// A rival's body, made once and kept (race.meshes): a car of the game's is its own model -- or, until that model's
+// download has landed, a grey sedan stand-in (`rcStandIn`), which rcBodyLanded swaps out the moment it lands.
+// Built on its own stream (vkQuiet with no draws, vkSeed put back): making it at load, at a grid or mid-race moves
+// nothing of the page's seeded stream.
+function rcBuildBody(key) {
   const seed0 = vkSeed;
   const m = vkQuiet(0, () => {
     let m = null;
@@ -1242,7 +1252,7 @@ function rcMeshFor(key) {
       im.userData.vkRoll = new Float32Array(3);
       im.userData.tint = key === "taxi" ? 0xffd23e : RC.hatchColour;
       const grp = new THREE.Group(); grp.add(im); grp.userData.vk = im; m = grp;
-    } else m = modelInstance(key) || (() => { const im = vkMesh("sedan", 0, 1); im.userData.vkRoll = new Float32Array(3); im.userData.tint = 0x8a93a0; const grp = new THREE.Group(); grp.add(im); grp.userData.vk = im; return grp; })();
+    } else m = modelInstance(key) || (() => { const im = vkMesh("sedan", 0, 1); im.userData.vkRoll = new Float32Array(3); im.userData.tint = 0x8a93a0; const grp = new THREE.Group(); grp.add(im); grp.userData.vk = im; grp.userData.rcStandIn = true; return grp; })();
     castsShadow(m);
     m.traverse(o => { o.userData.noSolid = true; });
     m.userData.rcRacer = true;
@@ -1251,13 +1261,36 @@ function rcMeshFor(key) {
     m.userData.rcLift = m.userData.vk ? 0 : -rcBox.min.y;
     m.userData.rcLen = m.userData.vk ? (key === "taxi" || key === "hatch" ? 7.6 : 7.6) : rcBox.max.z - rcBox.min.z;
     m.userData.rcWid = m.userData.vk ? 3.4 : rcBox.max.x - rcBox.min.x;
-    scene.add(m);
     return m;
   });
   vkSeed = seed0;
-  race.meshes[key] = m;
   return m;
 }
+// (C3, Q-10) A RIVAL'S BODY LANDING LATE. models.js calls this whenever a download lands. If a stand-in was made
+// for that car (the first race of a cold load started before it), the real body takes its place in the kept set --
+// so every later race and podium has it -- and, in a race or on its podium now, on the track under the racer that
+// wore the stand-in, drawn where it was and as it was (hidden stays hidden). Drawing only: the racer's size, which
+// the shoves read, stays what its race started with; the next grid measures the real body. Never waited for --
+// a body that never lands leaves the stand-in racing, and nothing is held.
+function rcBodyLanded(key) {
+  const old = race.meshes && race.meshes[key];
+  if (!old || !old.userData.rcStandIn || !modelPrototype(key)) return;
+  const m = rcBuildBody(key);
+  if (m.userData.rcStandIn) return;
+  race.meshes[key] = m;
+  for (const r of race.racers) {
+    if (r.isHim || r.mesh !== old) continue;
+    rcUnscale(old);
+    m.visible = old.visible;
+    scene.add(m);
+    r.mesh = m;
+    rcPose(r);
+  }
+  scene.remove(old);
+  old.traverse(o => { if (o.isInstancedMesh) { o.geometry.dispose(); o.dispose(); } });   // (its own geometry; the kit's material is shared)
+}
+// a rival's length as its body gives it (the shoves' at the grid, the podium step's fit)
+function rcBodyLen(m) { return Math.max(5, Math.min(13, m.userData.rcLen || 7.6)); }
 function rcMakeRacer(key, isHim, i) {
   const r = { key, isHim, i, s: 0, lat: 0, v: 0, latV: 0, burstT: 0, burstCool: 0, padT: 0, boosting: false,
               done: false, finishT: 0, place: 0, lapsDone: 0, skill: 1, line: 0, lineT: 0, aim: null, mesh: null,
@@ -1267,7 +1300,7 @@ function rcMakeRacer(key, isHim, i) {
     r.len = state.vp.monster ? 12 : 7.6; r.wid = state.vp.monster ? 5.8 : 3.4;
   } else {
     r.mesh = rcMeshFor(key);
-    r.len = Math.max(5, Math.min(13, r.mesh.userData.rcLen || 7.6));
+    r.len = rcBodyLen(r.mesh);
     r.wid = Math.max(2.5, Math.min(6, r.mesh.userData.rcWid || 3.4));
     rcSkillFor(r, i);
     r.lineT = rcRnd() * 10;
@@ -2268,7 +2301,10 @@ function rcPose(r) {
   if (!m) return;
   if (race.phase === "podium" && r.podPose) {
     // on a step, every car fits its step: the giant on silver dwarfed the winner on gold
-    const k = Math.min(1, RC.podium.w * RC.podium.fit / r.len);
+    // (v232) fitted by the body DRAWN: a rival whose real body landed after its grid races on at the stand-in's size
+    // (r.len0), but stands on its step at its own (rcBodyLen) -- in a warm race the two are one number
+    const len = r.isHim || !r.len0 ? r.len : r.len * rcBodyLen(m) / r.len0;
+    const k = Math.min(1, RC.podium.w * RC.podium.fit / len);
     if (!m.userData.rcS0) m.userData.rcS0 = m.scale.clone();
     m.scale.copy(m.userData.rcS0).multiplyScalar(k);
     m.position.set(r.podPose.x, r.podPose.y + ((m.userData.rcLift || 0) + (r.isHim ? rcHimLift() : 0)) * k, r.podPose.z);

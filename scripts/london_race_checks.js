@@ -115,26 +115,34 @@ module.exports = async function londonRaceChecks({ newPage, check }) {
     L.noRender = true; L.api.setVehicle("car"); L.rcStartRace("london", 4);
     const T = R.track, r = R.racers.find(x => !x.isHim), others = R.racers.filter(x => x !== r);
     const pads = R.pads, sc = T.sc, item = r.item; R.pads = []; T.sc = [];
-    const q = {}, qa = {}, sgn = x => Math.abs(x) < 1e-6 ? 0 : Math.sign(x);
-    const rows = { left: { n: 0, bad: 0 }, right: { n: 0, bad: 0 }, inBend: { n: 0, bad: 0 }, straight: { n: 0, bad: 0 } }, bad = [];
-    for (let s = 0; s < T.len; s += 4) {
-      for (const o of others) { o.s = s + T.len / 2; o.lat = 0; }
-      Object.assign(r, { s, lat: 0, latV: 0, line: 0, v: L.RC.v * 0.9, path: null, air: false, spinT: 0, done: false, item: "staged", aiBurst: 99, wantBurst: false, burstT: 0, padT: 0, glideHold: 0, aim: null, scFor: null, boxFor: null });
-      // (the wander, sin(lineT * wander[0] + i), at a zero after rcAI's own lineT += dt)
-      r.lineT = (Math.PI * (Math.ceil((r.i + 1) / Math.PI) + 2) - r.i) / A.wander[0] - dt;
-      const kh = L.rcAt(s, q).kh, own = Math.abs(kh) > 0.002 ? Math.sign(kh) : 0;
-      // the bend ahead, if it is straight here: the next curvature within 130 m
-      let ahead = 0; if (!own) for (let d = 2; d <= 130 && !ahead; d += 2) { const k2 = L.rcAt(s + d, qa).kh; if (Math.abs(k2) > 0.002) ahead = Math.sign(k2); }
-      L.rcAI(r, dt, true);
-      const went = sgn(r.latV), row = own ? rows.inBend : ahead > 0 ? rows.left : ahead < 0 ? rows.right : rows.straight;
-      row.n++; if (went !== own) { row.bad++; if (bad.length < 8) bad.push({ s, own, ahead, went, latV: +r.latV.toFixed(3) }); }
+    const q = {}, qa = {}, sgn = x => Math.abs(x) < 1e-6 ? 0 : Math.sign(x), cases = {};
+    // (Q-38 c) twice: on the middle, and off it -- its own line and its place 12% of the width to the left, inside
+    // the inside line's reach (0.3 of the width) so either bend's inside is still a way across from there
+    for (const [name, off] of [["middle", 0], ["off", 0.12 * (T.width || L.RC.width)]]) {
+      const rows = { left: { n: 0, bad: 0 }, right: { n: 0, bad: 0 }, inBend: { n: 0, bad: 0 }, straight: { n: 0, bad: 0 } }, bad = [];
+      for (let s = 0; s < T.len; s += 4) {
+        for (const o of others) { o.s = s + T.len / 2; o.lat = 0; }
+        Object.assign(r, { s, lat: off, latV: 0, line: off, v: L.RC.v * 0.9, path: null, air: false, spinT: 0, done: false, item: "staged", aiBurst: 99, wantBurst: false, burstT: 0, padT: 0, glideHold: 0, aim: null, scFor: null, boxFor: null });
+        // (the wander, sin(lineT * wander[0] + i), at a zero after rcAI's own lineT += dt)
+        r.lineT = (Math.PI * (Math.ceil((r.i + 1) / Math.PI) + 2) - r.i) / A.wander[0] - dt;
+        const kh = L.rcAt(s, q).kh, own = Math.abs(kh) > 0.002 ? Math.sign(kh) : 0;
+        // the bend ahead, if it is straight here: the next curvature within 130 m
+        let ahead = 0; if (!own) for (let d = 2; d <= 130 && !ahead; d += 2) { const k2 = L.rcAt(s + d, qa).kh; if (Math.abs(k2) > 0.002) ahead = Math.sign(k2); }
+        L.rcAI(r, dt, true);
+        const went = sgn(r.latV), row = own ? rows.inBend : ahead > 0 ? rows.left : ahead < 0 ? rows.right : rows.straight;
+        row.n++; if (went !== own) { row.bad++; if (bad.length < 8) bad.push({ s, own, ahead, went, latV: +r.latV.toFixed(3) }); }
+      }
+      cases[name] = { off: +off.toFixed(2), rows, bad };
     }
     R.pads = pads; T.sc = sc; r.item = item;
     L.raceExit(); for (let f = 0; f < 30; f++) L.update(1 / 60);
-    return { rows, bad, inside: A.inside };
+    return { cases, inside: A.inside };
   });
-  const rw = ins.rows;
-  check(`london race (C2, Q-1): a rival's inside line is for the bend it is IN -- staged at every 4 m, alone, one rcAI step: on a straight before a left bend ${rw.left.n - rw.left.bad}/${rw.left.n} and before a right bend ${rw.right.n - rw.right.bad}/${rw.right.n} keep their line; in a bend ${rw.inBend.n - rw.inBend.bad}/${rw.inBend.n} start for its inside; on a straight with no bend near ${rw.straight.n - rw.straight.bad}/${rw.straight.n} keep it`,
-    rw.left.n > 10 && rw.right.n > 10 && rw.inBend.n > 50 && rw.left.bad + rw.right.bad + rw.inBend.bad + rw.straight.bad === 0, JSON.stringify(ins));
+  const STRAIGHT_MIN = 600;   // (Q-38 c) a floor on the straight row: 1278 places measured (v232), so a staging that stops reaching it is red
+  for (const [name, c] of Object.entries(ins.cases)) {
+    const rw = c.rows;
+    check(`london race (C2, Q-1${name === "off" ? ", Q-38 c" : ""}): a rival's inside line is for the bend it is IN -- staged at every 4 m, alone, one rcAI step, ${name === "middle" ? "on its line in the middle" : `on its line ${c.off} m off the middle`}: on a straight before a left bend ${rw.left.n - rw.left.bad}/${rw.left.n} and before a right bend ${rw.right.n - rw.right.bad}/${rw.right.n} keep their line; in a bend ${rw.inBend.n - rw.inBend.bad}/${rw.inBend.n} start for its inside; on a straight with no bend near ${rw.straight.n - rw.straight.bad}/${rw.straight.n} keep it`,
+      rw.left.n > 10 && rw.right.n > 10 && rw.inBend.n > 50 && rw.straight.n > STRAIGHT_MIN && (name === "middle" || c.off > 0.5) && rw.left.bad + rw.right.bad + rw.inBend.bad + rw.straight.bad === 0, JSON.stringify(c));
+  }
   await page.close();
 };

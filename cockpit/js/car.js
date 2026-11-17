@@ -248,10 +248,15 @@ function carBuildCabin() {
   const shell = [
     // door cards, tops well below his eye: at 2.2 m they were level with it, and in a landscape seat the
     // stretch of door ahead of him stood up as a flat black slab across the left of the windscreen (v195)
-    { w: 0.13, h: 0.70, d: 3.2, x: -HALF, y: 1.62, z: -0.10 },
-    { w: 0.13, h: 0.70, d: 3.2, x:  HALF, y: 1.62, z: -0.10 },
-    { w: 0.24, h: 0.11, d: 1.2, x: -HALF + 0.15, y: 1.92, z: -0.35 }, // armrests
-    { w: 0.24, h: 0.11, d: 1.2, x:  HALF - 0.15, y: 1.92, z: -0.35 },
+    // (v232) and ahead of his eye no higher than the dash shelf: the wide landscape view looks down the inside of
+    // the door beside the dash, and a top 0.2 m over the shelf stood there as a dark slab inside the windscreen,
+    // bottom left (race_checks l scans what is drawn). Behind his eye, out of every view, it keeps its height.
+    { w: 0.13, h: TOP + 0.055 - 1.27, d: 1.5, x: -HALF, y: (TOP + 0.055 + 1.27) / 2, z: -0.95 },
+    { w: 0.13, h: TOP + 0.055 - 1.27, d: 1.5, x:  HALF, y: (TOP + 0.055 + 1.27) / 2, z: -0.95 },
+    { w: 0.13, h: 0.70, d: 1.7, x: -HALF, y: 1.62, z: 0.65 },
+    { w: 0.13, h: 0.70, d: 1.7, x:  HALF, y: 1.62, z: 0.65 },
+    // (the two armrests are gone, to pay for the two door pieces: beside and behind his eye no view ever drew them,
+    // and every box here is a geometry three.js draws Math.random for -- the same count keeps the seeded stream)
     { w: 0.84, h: 0.55, d: 2.0, x: 0, y: 1.35, z: 0.00 },             // centre console
     { w: 1.10, h: 0.20, d: 1.05, x: 0.88, y: 1.28, z: -0.15 },        // the empty seat beside him
     { w: 1.10, h: 1.10, d: 0.18, x: 0.88, y: 1.88, z: 0.40, rx: -0.16 },
