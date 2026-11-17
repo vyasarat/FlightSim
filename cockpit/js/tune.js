@@ -1229,8 +1229,21 @@ const TUNE = {
         { type: "straight", len: 120 },                        // the sign, then fork D
       ] },
       // FORK D: the big ones. Held left: a tall loop. Held right: the big jump.
+      // Straight on (v233): the giant green loop.
       { id: "D_safe", from: "main3", merge: "main4", sections: [
-        { type: "straight", len: 300 },
+        // v233: THE GIANT LOOP on the straight-on way, green and 48 m tall (taller than the
+        // tower; the tall loop held left is 36). Fed by two runs of rollers end to end (one
+        // run: he comes back at its start, on this branch, if he falls out), stepping
+        // `offset` left -- away from the big jump's ring, 9 m short of the tall loop's lane --
+        // then an S back on to the line. 300 m along like every fork D branch, so it ends
+        // exactly where the straight did. After it there is no sign to read: the triple loop.
+        { type: "straight", len: 64 },
+        { type: "booster", len: 22 },
+        { type: "booster", len: 14 },
+        { type: "loop", radius: 24, offset: 9, color: "green" },
+        { type: "straight", len: 6 },
+        { type: "sbend", len: 36, shift: -9 },
+        { type: "straight", len: 158 },
       ] },
       { id: "D_loop", from: "main3", merge: "main4", sections: [
         { type: "sbend", len: 45, shift: 18 },

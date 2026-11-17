@@ -16,6 +16,11 @@
 //   jumpB / jumpC / jumpD   in the air over the small, middle and big jumps
 //   loopC / loopD           upside down in the two new loops
 //   air2                    the new forks from a helicopter
+//   v233, the giant green loop on fork D's straight-on way (PORTRAIT=1 as he holds it; the seat at the top in landscape too):
+//   giant-in        on its rollers, the loop ahead (chase)
+//   giant-top-chase / giant-top-seat   upside down at its top
+//   giant-out       out of it and into its S, back on to the line for the triple loop
+//   air3            the whole track from the north-east, the giant loop in front (render on v232 too, to compare)
 //   node scripts/track_renders.js [root] [views...]    -> evidence/track/
 const path = require("path"), fs = require("fs");
 const { launch, openGame, serve } = require("./art_rig.js");
@@ -36,7 +41,16 @@ async function render(root, views) {
       const S = T.order.flatMap(p => p.S);
       let cx = 0, cz = 0; for (const q of S) { cx += q.x; cz += q.z; } cx /= S.length; cz /= S.length;
       let hold = () => {};
-      if (v === "air2") {
+      if (v === "air3") {
+        // the whole run from the north-east, high over the tower: the giant loop (v233) after the lamp in the
+        // foreground left, the forks and the triple loop going away -- anchored on the lamp's rollers, so v232 frames the same
+        L.api.setVehicle("helicopter"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
+        const a = T.segs.main2.S.find(q => q.type === "booster");
+        const P = [a.x + 420, T.g0 + 240, a.z + 360], tx = (a.x + cx) / 2, tz = (a.z + cz) / 2;
+        hold = () => { st.phase = "AIRBORNE"; st.x = P[0]; st.y = P[1]; st.z = P[2]; heli.vx = heli.vz = heli.vy = 0; heli.altitude = P[1]; heli.target = null;
+                       st.heading = Math.atan2(-(tx - P[0]), -(tz - P[2])); };
+        L.api.setView(true);
+      } else if (v === "air2") {
         L.api.setVehicle("helicopter"); L.api.spawnAt(0, 0); for (let i = 0; i < 10; i++) L.update(1 / 60);
         const a = T.segs.main3.S[0], b = T.segs.main4.S[0], mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
         const P = [mx + 260, Math.max(a.y, b.y) + 170, mz + 200];
@@ -70,6 +84,12 @@ async function render(root, views) {
         if (v.startsWith("signC") || v.startsWith("signD")) { seg = v.startsWith("signC") ? "main2" : "main3"; const sg = T.segs[seg], sign = T.signs.find(k => k.seg === seg); s = sign.s - 70; vel = 0; }
         if (v === "loopC") { seg = "C_loop"; s = topOf("C_loop", 1) - 2; vel = 17; }
         if (v === "loopD") { seg = "D_loop"; s = topOf("D_loop", 1) - 2; vel = 19; }
+        if (v.startsWith("giant")) {
+          seg = T.order.find(p => p.S.some(q => q.col)).id; const ks = T.segs[seg].S.filter(q => q.type === "loop" && q.col), s0 = ks[0].s, s1 = ks[ks.length - 1].s;
+          if (v === "giant-in") { s = s0 - 24; vel = 30; }
+          else if (v.startsWith("giant-top")) { s = ks.reduce((m, q) => q.y > m.y ? q : m).s - 2; vel = 22; }
+          else if (v === "giant-out") { s = s1 + 12; vel = 30; }
+        }
         if (v.startsWith("jump")) {
           // run it for real off the kicker, and hold the frame high over the gap
           const id = v === "jumpB" ? "B_stunt:0" : v === "jumpC" ? "C_jump:0" : "D_jump:0";

@@ -255,8 +255,9 @@ function carBuildCabin() {
     { w: 0.13, h: TOP + 0.055 - 1.27, d: 1.5, x:  HALF, y: (TOP + 0.055 + 1.27) / 2, z: -0.95 },
     { w: 0.13, h: 0.70, d: 1.7, x: -HALF, y: 1.62, z: 0.65 },
     { w: 0.13, h: 0.70, d: 1.7, x:  HALF, y: 1.62, z: 0.65 },
-    // (the two armrests are gone, to pay for the two door pieces: beside and behind his eye no view ever drew them,
-    // and every box here is a geometry three.js draws Math.random for -- the same count keeps the seeded stream)
+    // (the two armrests are gone, to pay for the two door pieces. The portrait seat never drew them, but the
+    // landscape seat did -- up to v231 they were part of the dark slab over the dash line, at 39-53 of race_checks'
+    // scan points; every box here is a geometry three.js draws Math.random for -- the same count keeps the seeded stream)
     { w: 0.84, h: 0.55, d: 2.0, x: 0, y: 1.35, z: 0.00 },             // centre console
     { w: 1.10, h: 0.20, d: 1.05, x: 0.88, y: 1.28, z: -0.15 },        // the empty seat beside him
     { w: 1.10, h: 1.10, d: 0.18, x: 0.88, y: 1.88, z: 0.40, rx: -0.16 },

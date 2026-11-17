@@ -10,6 +10,28 @@ gitignored `evidence/` folder; committing them is what took `.git` past 100 MB.
 
 ---
 
+## v233 (2026-11-17): the toy track's giant green loop
+
+The giant toy track has another loop, and it is the biggest thing on it: a green loop 48 m tall -- taller than the
+launch tower, and a head taller than the tall loop beside it -- on the way he goes straight on at the last fork, the one
+he takes with his finger simply held, so he meets it every lap he does not choose a ride. Two runs of spinning rollers
+throw him into it, he goes round upside down, comes out a step to the side and an S puts him back on the line, and
+after it there is nothing to read: the triple loop and the net. (It first stood straight after the lamp, but there it
+hid the next fork's sign: he would have seen both of the sign's pictures for half a second instead of two. A new check
+now measures every sign's time in sight, from behind him and from his seat, upright and sideways, at every speed: all
+are as they were.) Like every loop, it pushes him round and never pulls: come in too slowly and he falls out, tumbles,
+goes bang and comes back at the start of its rollers, still on the straight-on way, and the rollers alone -- finger on or
+off, at any speed step -- throw him fast enough to go round. Riding in, lifting his finger for up to 5 s anywhere from the
+rollers to 30 m up the climb, he went round every time (180 tries: three cars, slowest and fastest step, five places, six lift lengths); only put on its climb slowly and lifting for 2-3
+seconds at the fastest step does he fall, from 32-40 m up (21 of 72 tries), as he falls from 20-25 m out of the first loop. Everything else is
+where it was: his speed arriving at every section before it, and on the held-left and held-right ways, is unchanged to
+the frame; hands-off, he reaches the triple loop up to 2.1 m/s faster at the middle speed steps (the rollers), the ski-jump
+within 1 m/s, and leaves its lip within 0.13 m/s. A lap straight on takes 2-4 seconds longer. The other toy cars go round it
+too, upside down, and one he closes on in it gets out of his way. The new loop is drawn as one more piece of track in
+one more colour (one more draw call), built so the game's random stream is untouched. And three small review notes (Q-39
+b, c, g): the seat-view cabin scan now checks that its race rows really were racing, puts the window's shape back
+properly when it finishes, and a wrong comment about the car's armrests is corrected.
+
 ## v232 (2026-11-16): the rivals wear their own cars from the first race
 
 When the game had only just been opened and he went straight into a race, the cars from the game he races
