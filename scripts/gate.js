@@ -675,19 +675,31 @@ if (fs.existsSync(path.join(ROOT, "scripts", "stream_compare.js"))) {
 // track is scripts/race_sweep.js. When the race's content (its files, TUNE.race) differs from
 // the base, the change is not done until the sweep has passed on exactly what is on disk.
 if (fs.existsSync(path.join(ROOT, "scripts", "race_sweep.js"))) {
-  const { raceHash } = require("./race_sweep.js");
+  const { raceHash, receiptVerdict } = require("./race_sweep.js");
   const readAt = f => { try { return fs.readFileSync(path.join(ROOT, f), "utf8"); } catch (e) { return null; } };
   // (the rule's own proof: an edit inside TUNE.race, or to any file it lists, changes the hash)
   const tune = readAt("cockpit/js/tune.js") || "";
   if (["race", "car", "solid"].some(k => raceHash(f => f === "cockpit/js/tune.js" ? tune.replace(new RegExp(`^  ${k}: \\{`, "m"), `  ${k}: { /*x*/`) : readAt(f)) === raceHash(readAt)) ||
       ["race.js", "terrain.js", "london.js", "streets.js"].some(n => raceHash(f => f === `cockpit/js/${n}` ? readAt(f) + "//x" : readAt(f)) === raceHash(readAt)) ||
-      raceHash(f => f === "cockpit/js/tune.js" ? tune.replace(/^(  track: \{[\s\S]*?\n    ds: )/m, "$1-") : readAt(f)) === raceHash(readAt))   // (C1: the ground, London, the streets, TUNE.track.ds)
-    fail("race-sweep", "scripts/race_sweep.js's hash no longer sees an edit to TUNE.race/car/solid, TUNE.track.ds, or race.js, terrain.js, london.js, streets.js -- the sweep rule would never fire");
+      raceHash(f => f === "cockpit/js/tune.js" ? tune.replace(/^(  track: \{[\s\S]*?\n    ds: )/m, "$1-") : readAt(f)) === raceHash(readAt) ||   // (C1: the ground, London, the streets, TUNE.track.ds)
+      raceHash(f => f === "scripts/race_pin.json" ? (readAt(f) || "") + " " : readAt(f)) === raceHash(readAt))   // (Q-37 d: the pin itself)
+    fail("race-sweep", "scripts/race_sweep.js's hash no longer sees an edit to TUNE.race/car/solid, TUNE.track.ds, race.js, terrain.js, london.js, streets.js or scripts/race_pin.json -- the sweep rule would never fire");
+  // (Q-37 a) the receipt's verdict, on made-up receipts: a RECORD run's stands for nothing, only a compare run that reproduced it
+  {
+    const ok = { hash: "h", ok: true, recorded: false, pin: { flips: 0, drifts: 0, recorded: false } };
+    const cases = [[ok, null], [Object.assign({}, ok, { recorded: true }), "recorded"], [Object.assign({}, ok, { pin: { flips: 0, drifts: 0, recorded: true } }), "recorded"],
+      [Object.assign({}, ok, { ok: false }), "failed"], [Object.assign({}, ok, { pin: { flips: 2, drifts: 0 } }), "unreproduced"], [Object.assign({}, ok, { pin: { flips: 0, drifts: 1 } }), "unreproduced"],
+      [Object.assign({}, ok, { hash: "g" }), "stale"], [null, "stale"]];
+    for (const [r, want] of cases) if (receiptVerdict(r, "h") !== want) fail("race-sweep", `race_sweep.js receiptVerdict(${JSON.stringify(r)}) is ${receiptVerdict(r, "h")}, not ${want} -- a record run, a failed or a flipped sweep could stand as a pass`);
+  }
   const now = raceHash(readAt), was = raceHash(f => git("show", `${base}:${f}`));
   if (now !== was) {
     let r = null; try { r = JSON.parse(readAt("evidence/race-sweep.json")); } catch (e) {}
-    if (!r || r.hash !== now) fail("race-sweep", `the race or a car in it changed (race.js, track.js, car.js and the bodies, solids.js, the ground under it -- terrain.js, london.js, streets.js --, TUNE.race/car/solid/models or TUNE.track.ds, its checks or its pin) and has not been swept as it stands -- run node scripts/race_sweep.js (every car on every track and the race pin, about 30 min)`);
-    else if (!r.ok) fail("race-sweep", `the race sweep FAILED on this content (${r.fail} failed) -- evidence/race-sweep.json`);
+    const v = receiptVerdict(r, now);
+    if (v === "stale") fail("race-sweep", `the race or a car in it changed (race.js, track.js, car.js and the bodies, solids.js, the ground under it -- terrain.js, london.js, streets.js --, TUNE.race/car/solid/models or TUNE.track.ds, its checks or its pin) and has not been swept as it stands -- run node scripts/race_sweep.js (every car on every track and the race pin, about 30 min)`);
+    else if (v === "recorded") fail("race-sweep", `the race pin was recorded, not yet reproduced: an UPDATE_RACE_PIN=1 run judges nothing -- run node scripts/race_sweep.js (a compare run: 0 flipped, 0 drifted against the pin it wrote)`);
+    else if (v === "failed") fail("race-sweep", `the race sweep FAILED on this content (${r.fail} failed) -- evidence/race-sweep.json`);
+    else if (v) fail("race-sweep", `the race sweep's receipt shows the pin moved (${r.pin ? r.pin.flips + " flipped, " + r.pin.drifts + " drifted" : "no pin"}) -- evidence/race-sweep.json`);
   }
 }
 

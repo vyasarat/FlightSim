@@ -65,10 +65,10 @@ module.exports = async function londonRaceChecks({ newPage, check }) {
       shipTo = Math.min(shipTo, (TB.z - (S2.z + S2.dir * H.len / 2)) * S2.dir); }
     out.during = { on: L.raceOn(), shown: v.venue.visible, flags: v.flagsG.visible, wall: wallAt(), tbMaxOpen: maxOpen, shipTo: Math.round(shipTo), traffic, gear: gear() };
     // the bends: each racer's speed, to the flag, through the tight City corners, against what the bend allows
-    const A = T.def.bendA, worst = [];
+    const A = T.def.bendA, worst = [], q1 = {};
     for (let f = 0; f < 60 * 400 && R.phase === "race"; f++) {
       hold(); L.update(1 / 60);
-      for (const r of R.racers) { const kh = Math.abs(L.rcAt(r.s).kh); if (kh > 0.05) worst.push(r.v / Math.sqrt(A / kh)); }
+      for (const r of R.racers) { const kh = Math.abs(L.rcAt(r.s, q1).kh); if (kh > 0.05) worst.push(r.v / Math.sqrt(A / kh)); }
     }
     out.bends = { samples: worst.length, worstOver: worst.length ? +Math.max(...worst).toFixed(2) : null };
     st.touching = false;
@@ -102,5 +102,39 @@ module.exports = async function londonRaceChecks({ newPage, check }) {
     JSON.stringify({ before: o.before.traffic, during: o.during, after: o.after, between: o.between }));
   check(`london race: every racer, him included, is held to the speed each street corner allows (${o.bends.samples} samples in the tight corners, worst ${o.bends.worstOver} of the bend's speed)`,
     o.bends.samples > 100 && o.bends.worstOver < 1.15, JSON.stringify(o.bends));
+
+  // (C2, Q-1) A RIVAL'S INSIDE LINE IS FOR WHERE IT IS. rcAI aims for the inside of the bend it is IN; the speed cap
+  // before it (rcBendCap) looks up to its braking distance ahead. Before v231 both read one shared rcAt answer, so
+  // on London (the one track with a bend cap) the line came from the curvature ~100 m ahead: on a straight before a
+  // bend a rival already hugged that bend's inside. STAGED, one rival at a time at every 4 m of the lap, alone (the
+  // field half a lap off), no pad, shortcut or box to go for, its wander at a zero, on its own line in the middle:
+  // one rcAI step, and the way it starts across must be the inside of the curvature at its OWN place -- none where
+  // that is straight -- before left bends and right bends both.
+  const ins = await page.evaluate(() => {
+    const L = window.__lp, R = L.race, A = L.RC.ai, dt = 1 / 60;
+    L.noRender = true; L.api.setVehicle("car"); L.rcStartRace("london", 4);
+    const T = R.track, r = R.racers.find(x => !x.isHim), others = R.racers.filter(x => x !== r);
+    const pads = R.pads, sc = T.sc, item = r.item; R.pads = []; T.sc = [];
+    const q = {}, qa = {}, sgn = x => Math.abs(x) < 1e-6 ? 0 : Math.sign(x);
+    const rows = { left: { n: 0, bad: 0 }, right: { n: 0, bad: 0 }, inBend: { n: 0, bad: 0 }, straight: { n: 0, bad: 0 } }, bad = [];
+    for (let s = 0; s < T.len; s += 4) {
+      for (const o of others) { o.s = s + T.len / 2; o.lat = 0; }
+      Object.assign(r, { s, lat: 0, latV: 0, line: 0, v: L.RC.v * 0.9, path: null, air: false, spinT: 0, done: false, item: "staged", aiBurst: 99, wantBurst: false, burstT: 0, padT: 0, glideHold: 0, aim: null, scFor: null, boxFor: null });
+      // (the wander, sin(lineT * wander[0] + i), at a zero after rcAI's own lineT += dt)
+      r.lineT = (Math.PI * (Math.ceil((r.i + 1) / Math.PI) + 2) - r.i) / A.wander[0] - dt;
+      const kh = L.rcAt(s, q).kh, own = Math.abs(kh) > 0.002 ? Math.sign(kh) : 0;
+      // the bend ahead, if it is straight here: the next curvature within 130 m
+      let ahead = 0; if (!own) for (let d = 2; d <= 130 && !ahead; d += 2) { const k2 = L.rcAt(s + d, qa).kh; if (Math.abs(k2) > 0.002) ahead = Math.sign(k2); }
+      L.rcAI(r, dt, true);
+      const went = sgn(r.latV), row = own ? rows.inBend : ahead > 0 ? rows.left : ahead < 0 ? rows.right : rows.straight;
+      row.n++; if (went !== own) { row.bad++; if (bad.length < 8) bad.push({ s, own, ahead, went, latV: +r.latV.toFixed(3) }); }
+    }
+    R.pads = pads; T.sc = sc; r.item = item;
+    L.raceExit(); for (let f = 0; f < 30; f++) L.update(1 / 60);
+    return { rows, bad, inside: A.inside };
+  });
+  const rw = ins.rows;
+  check(`london race (C2, Q-1): a rival's inside line is for the bend it is IN -- staged at every 4 m, alone, one rcAI step: on a straight before a left bend ${rw.left.n - rw.left.bad}/${rw.left.n} and before a right bend ${rw.right.n - rw.right.bad}/${rw.right.n} keep their line; in a bend ${rw.inBend.n - rw.inBend.bad}/${rw.inBend.n} start for its inside; on a straight with no bend near ${rw.straight.n - rw.straight.bad}/${rw.straight.n} keep it`,
+    rw.left.n > 10 && rw.right.n > 10 && rw.inBend.n > 50 && rw.left.bad + rw.right.bad + rw.inBend.bad + rw.straight.bad === 0, JSON.stringify(ins));
   await page.close();
 };

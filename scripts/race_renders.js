@@ -242,7 +242,7 @@ async function render(root, views) {
           }
           window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
           const p = L.rcPoint(him.s, him.lat, {});
-          return Object.assign(note, { k, ny: +p.ny.toFixed(2), loop: p.loop, hw: +L.rcAt(him.s).hw.toFixed(1) });
+          return Object.assign(note, { k, ny: +p.ny.toFixed(2), loop: p.loop, hw: +L.rcAt(him.s, {}).hw.toFixed(1) });
         }
         if (k === "stunt" || k === "stuntAir") {
           const ki = T.def.sections.findIndex(sc => sc.jump && sc.jump.stunt), from = T.S.find(q => q.sec === ki).s, J = T.def.sections[ki].jump;
@@ -418,7 +418,7 @@ async function render(root, views) {
           window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; put(); };
           note.rMax = +rMax.toFixed(2); note.capPx = Math.round(L.RC.spray.maxPx * L.renderer.getDrawingBufferSize(new C.Vector2()).y);
         }
-        note.sf = L.rcAt(him.s).sf; note.speed = +him.v.toFixed(1); note.alive = rcPuffs ? Array.from(rcPuffs.life).filter(x => x > 0).length : 0;
+        note.sf = L.rcAt(him.s, {}).sf; note.speed = +him.v.toFixed(1); note.alive = rcPuffs ? Array.from(rcPuffs.life).filter(x => x > 0).length : 0;
         note.ahead = others.map(r => [r.key, +(r.s - him.s).toFixed(1), +r.lat.toFixed(1)]);
         return note;
       }
@@ -433,7 +433,7 @@ async function render(root, views) {
         for (const r of R.racers) if (!r.isHim) { r.s = him.s + 25 + r.i * 9; r.v = L.RC.v; r.lat = (r.i % 2 ? -1 : 1) * 6; }
         go(90, 0, 0);
         window.__hold = () => { S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; };
-        note.sf = L.rcAt(him.s).sf; note.speed = +him.v.toFixed(1);
+        note.sf = L.rcAt(him.s, {}).sf; note.speed = +him.v.toFixed(1);
         return note;
       }
       if (v.startsWith("countSeat:")) {

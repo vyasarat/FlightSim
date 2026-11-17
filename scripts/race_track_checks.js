@@ -188,7 +188,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
             S.touching = true; S.ctrlBank = 0; S.ctrlPitch = 0; L.update(1 / 60);
             o.padT = 0; o.burstT = 0;
           }
-          out[veh][kind] = { want: +v0.toFixed(2), him: +him.v.toFixed(2), them: +o.v.toFixed(2), on: L.rcAt(him.s).sf };
+          out[veh][kind] = { want: +v0.toFixed(2), him: +him.v.toFixed(2), them: +o.v.toFixed(2), on: L.rcAt(him.s, {}).sf };
           L.raceReset();
         }
       }
@@ -264,7 +264,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
               if (mode === "held") { if (him.path || him.s >= nose - sc.hold - 10) bank = -sc.side; else want = sc.side * (RC.width / 2 - 2); }
               if (mode === "edge") { if (him.s < nose - sc.hold - 30) want = sc.side * (RC.width / 2 - 1); else bank = 0; }
               if (mode === "light") bank = him.path ? 0 : -sc.side * 0.5;
-              if (mode === "inside" && !him.path) { const q = L.rcAt(him.s); if (Math.abs(q.kh) > 0.002 && him.s > nose + 2) want = Math.sign(q.kh) * 9; }
+              if (mode === "inside" && !him.path) { const q = L.rcAt(him.s, {}); if (Math.abs(q.kh) > 0.002 && him.s > nose + 2) want = Math.sign(q.kh) * 9; }
               const err = want - him.lat;
               if (bank === null) bank = mode === "middle" ? 0 : Math.abs(err) < 0.5 ? 0 : Math.max(-1, Math.min(1, -err * 0.4));
               // (the lift: 300 ms off the glass half-way through the approach, then the finger lands at
@@ -489,6 +489,38 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
       check(`race ${id}: the tunnel is a tunnel -- roofed ${o.roof} along it, the mountain solid beside it ${o.side}, the road in front of each portal open (${o.frontOpen}); the mountain's solid under what is drawn at ${o.surface.n} points (${o.surface.invisible} invisible, ${o.surface.farUnder} more than the allowed gap under it, worst ${o.surface.worstGap} m); no pad aimed at under its lowered camera (${o.padsUnder.join(",") || "none"}); through it the chase camera stays inside the lining with his car in sight (${cs.map(([k, v]) => `${k}: ${v.outside} of ${v.frames} frames outside, ${v.hidden} hidden`).join("; ")})`,
         o.roof.split("/")[0] === o.roof.split("/")[1] && o.side.split("/")[0] === o.side.split("/")[1] && o.frontOpen === "6/6" && o.padsUnder.length === 0 &&
         o.surface.n > 50 && o.surface.invisible === 0 && o.surface.farUnder === 0 && cs.every(([k, v]) => v.frames > 100 && v.outside === 0 && v.hidden === 0), J(o));
+
+      // ---- o2. (C2, Q-2) THE CUTTING'S WALLS ARE WALLS: in front of each portal the cutting's two sides are the mountain's
+      // skirt, from the ground up to the mountain's edge, a strip of quads along the track. Before v231 the two ends of
+      // each quad, g0 and g1, were one shared rcAt answer: every quad's first triangle had no length along the track (a
+      // sliver at one place) and only its second was drawn. Measured off the mountain as drawn: every skirt triangle
+      // (all three corners on a cutting's side, past a portal) spans a step along the track, and the walls cover the
+      // ground they stand on, portal to apron's end, on both sides of both ends.
+      const sk = await page.evaluate((id) => {
+        const L = window.__lp, C = L.RC.tunnel, V = L.race.venues[id].venue, T = L.race.venues[id].track, tn = T.tunnels[0];
+        const mt = V.getObjectByName("rcMountain"); if (!mt) return { none: true };
+        mt.updateMatrixWorld(true);
+        const t0 = L.race.track; L.race.track = T; const q0 = Object.assign({}, L.rcAt((tn.sA + tn.sB) / 2, {})); L.race.track = t0;
+        const Lh = (tn.sB - tn.sA) / 2, cut = tn.half + 3, Uo = Lh + C.apron;          // (race.js rcBuildTunnel: the cutting is the lining's half-width and 3 m)
+        const P = mt.geometry.attributes.position, v3 = new THREE.Vector3(), uv = [];
+        for (let i = 0; i < P.count; i++) { v3.fromBufferAttribute(P, i).applyMatrix4(mt.matrixWorld); const dx = v3.x - q0.x, dz = v3.z - q0.z; uv.push([dx * q0.tx + dz * q0.tz, dx * q0.lx + dz * q0.lz, v3.y]); }
+        const ends = {}, slivers = []; let tris = 0;
+        for (let t = 0; t < P.count; t += 3) {
+          const c = [uv[t], uv[t + 1], uv[t + 2]], sd = Math.sign(c[0][1]);
+          if (!c.every(p => Math.abs(p[1] - sd * cut) < 0.05 && Math.abs(p[0]) > Lh - 0.05)) continue;
+          tris++;
+          const us = c.map(p => p[0]), du = Math.max(...us) - Math.min(...us), key = (us[0] > 0 ? "far" : "near") + (sd > 0 ? "L" : "R");
+          if (du < 0.01) { if (slivers.length < 6) slivers.push({ key, u: +us[0].toFixed(1) }); continue; }
+          const e = ends[key] || (ends[key] = { tris: 0, lo: Infinity, hi: -Infinity });
+          e.tris++; e.lo = Math.min(e.lo, ...us.map(Math.abs)); e.hi = Math.max(e.hi, ...us.map(Math.abs));
+        }
+        let nSliver = 0; for (let t = 0; t < P.count; t += 3) { const c = [uv[t], uv[t + 1], uv[t + 2]], sd = Math.sign(c[0][1]); if (c.every(p => Math.abs(p[1] - sd * cut) < 0.05 && Math.abs(p[0]) > Lh - 0.05) && Math.max(...c.map(p => p[0])) - Math.min(...c.map(p => p[0])) < 0.01) nSliver++; }
+        for (const e of Object.values(ends)) { e.lo = +e.lo.toFixed(1); e.hi = +e.hi.toFixed(1); }
+        return { tris, slivers: nSliver, sample: slivers, ends, Lh: +Lh.toFixed(1), Uo: +Uo.toFixed(1) };
+      }, id);
+      const ek = ["nearL", "nearR", "farL", "farR"];
+      check(`race ${id} (C2, Q-2): the cutting's walls in front of each portal are whole -- ${sk.tris} skirt triangles, ${sk.slivers} with no length along the track; each side of each end spans the portal (${sk.Lh} m) to the apron's end (${sk.Uo} m): ${ek.map(k => sk.ends && sk.ends[k] ? `${k} ${sk.ends[k].lo}-${sk.ends[k].hi} m` : `${k} none`).join(", ")}`,
+        !sk.none && sk.tris > 8 && sk.slivers === 0 && ek.every(k => sk.ends[k] && sk.ends[k].lo <= sk.Lh + 0.05 && sk.ends[k].hi >= sk.Uo - 0.05), J(sk));
     }
 
     // ---- p. (v174) THE FROZEN LAKE: the crossing's middle is the bed's (to a metre), the deck over
@@ -721,7 +753,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           for (let i = 0; i < 60 * 6; i++) {
             const P = L.rcPuffs, life0 = P ? Array.from(P.life) : [];   // (v181: the race's own puffs)
             S.touching = true; S.ctrlBank = 0; L.update(1 / 60);
-            if (L.rcAt(him.s).sf !== "splash") continue;
+            if (L.rcAt(him.s, {}).sf !== "splash") continue;
             onSplash++; if (P) for (let k = 0; k < P.n; k++) if (P.life[k] > life0[k] + 1e-6) born++;   // (a puff born this frame: its life put back up)
             // (chase: his car; from his seat, where he looks -- the road 30 m ahead on his line)
             if (chase) { const m = him.mesh || L.vehicleModel; m.updateMatrixWorld(true); tgt.setFromMatrixPosition(m.matrixWorld); tgt.y += 0.8; }
@@ -963,7 +995,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           for (let f = 0; f < 60 * 300; f++) {
             let bank;
             if (mode === "line") {
-              const q = L.rcAt(him.s + 40), side = Math.abs(q.kh) > 0.002 ? Math.sign(q.kh) : 0, err = side * R.track.width * 0.3 - (him.path ? 99 : him.lat);   // (v200: the track's own width)
+              const q = L.rcAt(him.s + 40, {}), side = Math.abs(q.kh) > 0.002 ? Math.sign(q.kh) : 0, err = side * R.track.width * 0.3 - (him.path ? 99 : him.lat);   // (v200: the track's own width)
               bank = Math.abs(err) < 0.3 ? 0 : Math.max(-1, Math.min(1, -err * 0.4));
             } else bank = mode === "heldR" ? 1 : -1;
             // (again: on the left barrier half a lap, then a second of full right, then full left again)
@@ -1069,7 +1101,7 @@ module.exports = async function raceTrackChecks({ newPage, check, full }) {
           // events keep their own clocks and throw theirs far off: the harbour's, 4.7 km from the dunes)
           L.wakePuffList.forEach((p, j) => { if (p.life > l0[j] + 1e-6 && R.racers.some(r => Math.hypot(r.mesh.position.x - p.mesh.position.x, r.mesh.position.z - p.mesh.position.z) < 30)) { worldBorn++; if (worldAt.length < 6) worldAt.push([Math.round(p.mesh.position.x), Math.round(p.mesh.position.y), Math.round(p.mesh.position.z)]); } });
         }
-        const here = L.rcAt(him.s).sf;
+        const here = L.rcAt(him.s, {}).sf;
         // (the spray: the race's own pool if there is one, else the world's -- so the check reads on v180 too)
         const P = L.rcPuffs, sprayObjs = P ? [P.pts] : L.wakePuffList.map(p => p.mesh);
         const was = sprayObjs.map(o => o.visible);

@@ -48,7 +48,7 @@ module.exports = async function raceItemChecks({ newPage, check }) {
       for (let k = 0; k < ss.length; k++) gapMax = Math.max(gapMax, ((ss[(k + 1) % ss.length] - ss[k]) % len + len) % len || len);
       const bad = [];
       for (const r of rows) {
-        const q = L.rcAt(r.s);
+        const q = L.rcAt(r.s, {});
         if (q.dune) bad.push(Math.round(r.s) + ":dune");
         if (r.s < I.clearGrid || r.s > len - I.clearGrid) bad.push(Math.round(r.s) + ":grid");
         for (const p of R.pads) if (Math.abs(((p.s - r.s) % len + len * 1.5) % len - len / 2) < I.clearPad) bad.push(Math.round(r.s) + ":pad");
@@ -296,7 +296,7 @@ module.exports = async function raceItemChecks({ newPage, check }) {
       st.touching = true; L.update(1 / 60);
       if (!P) continue;
       for (let k = 0; k < P.n; k++) if (P.life[k] > life0[k] + 1e-6 && P.col[k * 3] > 0.99 && P.col[k * 3 + 2] < 0.2) {   // (born this frame, flame-coloured)
-        const q = L.rcAt(him.s); hs.push(P.pos[k * 3 + 1] - q.gy);
+        const q = L.rcAt(him.s, {}); hs.push(P.pos[k * 3 + 1] - q.gy);
       }
     }
     st.touching = false; L.raceReset(); L.api.setVehicle("car"); L.api.spawnAt(0, 0);

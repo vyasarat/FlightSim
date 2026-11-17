@@ -16,6 +16,10 @@
 // Anything that moves -- a place, the order, a time to the hundredth -- is a FAIL naming the
 // race and before -> after: a refactor flips zero. A behaviour change (C2) re-pins, on purpose:
 //   UPDATE_RACE_PIN=1 node scripts/race_sweep.js      (never hand-edit race_pin.json)
+// (Q-37 a) and a record run judges nothing: its receipt says `recorded` and the gate refuses it ("recorded, not yet
+// reproduced") until a plain compare run -- the full sweep -- has raced the new pin again, 0 flipped and 0 drifted.
+// (Q-37 c) Every run also races DET.n pinned races again on fresh pages in another order: they must finish exactly
+// as they did (a race is a function of its seed and its hand, standing, not only measured once).
 // and THE BAND, on the pinned noisy-hand races: on every track, and over all of them, he wins
 // sometimes and loses sometimes (the parent's v164 exception: a real order, he can come last --
 // and a four-year-old must also be able to win). BAND is a test bound, not a TUNE number.
@@ -83,6 +87,17 @@ const PIN = { cars: ["car", "cybertruck", "corvette", "monster"], hands: ["noisy
 const BAND = { track: [0.15, 0.85], car: [0.15, 0.85], all: [0.3, 0.8] };
 const BAND_KNOWN = {};
 const raceKey = (track, veh, hand, seed) => `${track}/${veh}/${hand}/${seed}`;
+// (Q-37 c) the determinism sample: DET.n of the pinned races, one a track (the first DET.n tracks), the cars, hands
+// and seeds turned through, `k` its place in the pin's own job order (the sample runs in the reverse of it)
+const DET = { n: 6, pages: 2 };
+function detSample(tracks) {
+  const per = PIN.cars.length * PIN.hands.length * PIN.seeds.length, list = [];
+  for (let i = 0; i < Math.min(DET.n, tracks.length); i++) {
+    const c = i % PIN.cars.length, h = i % PIN.hands.length, d = (i * 5 + 2) % PIN.seeds.length;
+    list.push({ track: tracks[i], veh: PIN.cars[c], hand: PIN.hands[h], seed: PIN.seeds[d], k: i * per + (c * PIN.hands.length + h) * PIN.seeds.length + d });
+  }
+  return list;
+}
 
 // the pinned races, raced on `pages` pages of one browser on `root`
 async function racePin(root, pages, log) {
@@ -91,15 +106,16 @@ async function racePin(root, pages, log) {
   const port = +(process.env.PORT || 8233), srv = serve(root, port), browser = await launch();
   const checks = [];
   try {
-    const ps = [];
-    for (let i = 0; i < pages; i++) {
+    const open = async () => {
       const errors = [], page = await openGame(browser, port, { width: 820, height: 1180, errors });
       await page.waitForFunction(() => window.__lp && window.__lp.race && window.__lp.race.built, null, { timeout: 120000 });
       // (Q-10) every body still on its way lands (or fails) before the first grid: a race on sedans is another race
       await page.waitForFunction(() => Object.values(modelState).every(s => s !== "loading"), null, { timeout: 120000 });
       const m = await page.evaluate(() => ({ state: Object.assign({}, modelState), tracks: window.__lp.RC.tracks.map(t => t.id), roster: window.__lp.RC.roster }));
-      ps.push({ page, errors, m });
-    }
+      return { page, errors, m };
+    };
+    const ps = [];
+    for (let i = 0; i < pages; i++) ps.push(await open());
     const tracks = ps[0].m.tracks, want = ps[0].m.roster.filter(k => k in ps[0].m.state);
     const bodies = ps.map(p => want.filter(k => p.m.state[k] !== "ready"));
     checks.push([`race pin: every rival's body landed before the first grid on all ${pages} pages (${want.join(", ")} ready)`, bodies.every(b => !b.length), JSON.stringify(bodies)]);
@@ -116,9 +132,26 @@ async function racePin(root, pages, log) {
         log(`${raceKey(track, veh, hand, seed)} place ${r.place} time ${r.time} bangs ${r.bangs} stuck ${r.stuck}`);
       }
     }));
-    const errs = ps.flatMap(p => p.errors);
-    checks.push([`race pin: no page error in ${jobs.length} races`, errs.length === 0, JSON.stringify(errs.slice(0, 5))]);
-    return { tracks, out, checks, jobs };
+    // (Q-37 c) DETERMINISM, standing: a few of those races again, on FRESH pages (none of the pin's), in the
+    // reverse of the order the pin ran them, each first or after another sample race instead of after its
+    // page's run -- every one must finish exactly as it did (place, time, the whole order)
+    const td = Date.now(), sample = detSample(tracks).sort((a, b) => b.k - a.k), dp = [];
+    for (let i = 0; i < DET.pages; i++) dp.push(await open());
+    const again = {};
+    await Promise.all(dp.map(async (p, j) => {
+      for (let k = j; k < sample.length; k += dp.length) {
+        const { track, veh, hand, seed } = sample[k];
+        await p.page.evaluate(() => { const L = window.__lp; L.raceReset(); L.spdReset(); });
+        again[raceKey(track, veh, hand, seed)] = await oneRace(p.page, veh, seed, { track, taps: true, hand: hand === "weak" ? "weak" : undefined });
+      }
+    }));
+    const detMin = +((Date.now() - td) / 60000).toFixed(2);
+    const moved = sample.map(j => raceKey(j.track, j.veh, j.hand, j.seed)).filter(k => JSON.stringify(pinOf(again[k])) !== JSON.stringify(pinOf(out[k])));
+    checks.push([`race pin: determinism -- ${sample.length} pinned races (${sample.map(j => raceKey(j.track, j.veh, j.hand, j.seed)).join(", ")}) raced again on ${dp.length} fresh pages in another order finish exactly as they did (${detMin} min)`,
+      moved.length === 0, JSON.stringify(moved.map(k => [k, pinOf(out[k]), pinOf(again[k])]))]);
+    const errs = ps.concat(dp).flatMap(p => p.errors);
+    checks.push([`race pin: no page error in ${jobs.length + sample.length} races`, errs.length === 0, JSON.stringify(errs.slice(0, 5))]);
+    return { tracks, out, checks, jobs, detMin };
   } finally { await browser.close(); srv.close(); }
 }
 
@@ -174,13 +207,23 @@ function judgeBand(rt, tracks) {
   // and in every car, over every track (a car's six races a track are too few to judge alone: printed, not judged)
   for (const v of PIN.cars) { const c = N.all.cars[v], w = c.wins / Math.max(1, c.n), [lo, hi] = BAND.car;
     lines.push([`race band ${v}: the noisy hand wins ${c.wins}/${c.n} (${w.toFixed(2)}) over every track, inside ${lo}-${hi}`, w >= lo && w <= hi]); }
-  // he can come last (v164): somewhere, in some hand
-  const lastAll = rt.noisy.all.last + rt.weak.all.last;
-  lines.push([`race band: he can come last -- ${lastAll} last places in ${rt.noisy.all.n + rt.weak.all.n} pinned races (noisy ${rt.noisy.all.last}, weak ${rt.weak.all.last})`, lastAll > 0]);
+  // he can come last (v164) -- held by the WEAK hand only (Q-37 b): the noisy hand's last places are printed, not judged.
+  // Whether the noisy hand should ever come last is the parent's question (Q-36), not this check's
+  lines.push([`race band: the weak hand comes last somewhere -- ${rt.weak.all.last} of ${rt.weak.all.n} pinned weak-hand races (the noisy hand: last ${rt.noisy.all.last} of ${rt.noisy.all.n}, printed, not judged -- Q-36, the parent's question)`, rt.weak.all.last > 0]);
   return lines;
 }
 
-module.exports = { RACE_FILES, TUNE_BLOCKS, TUNE_KEYS, tuneBlock, tuneKey, raceHash, PIN, BAND, BAND_KNOWN, judgePin, rates };
+// (Q-37 a) what the gate makes of a receipt: null when it stands for `hash` (the content on disk), else why not. A RECORD
+// run (UPDATE_RACE_PIN=1) never judged anything -- it wrote the pin it raced -- so its receipt says `recorded` and stands
+// for nothing: only a compare run after it that reproduced that pin, 0 flipped and 0 drifted, is a pass
+function receiptVerdict(r, hash) {
+  if (!r || r.hash !== hash) return "stale";
+  if (r.recorded || (r.pin && r.pin.recorded)) return "recorded";
+  if (!r.ok) return "failed";
+  if (!r.pin || r.pin.flips !== 0 || r.pin.drifts !== 0) return "unreproduced";
+  return null;
+}
+module.exports = { RACE_FILES, TUNE_BLOCKS, TUNE_KEYS, tuneBlock, tuneKey, raceHash, PIN, BAND, BAND_KNOWN, DET, detSample, judgePin, rates, receiptVerdict };
 
 if (require.main === module) {
   (async () => {
@@ -238,12 +281,15 @@ if (require.main === module) {
     const same = raceHash(readNoPin) === hash0;                     // (nothing edited while it ran)
     const ok = mod.status === 0 && fail === 0 && pass > 0 && same;
     const minutes = +((Date.now() - t0) / 60000).toFixed(1);
-    if (isRepo && !pinOnly) {
-      const receipt = { hash: raceHash(read), ok, pass, fail, minutes, at: new Date().toISOString(),
-        pin: { races: keys.length, flips, drifts, recorded: update, minutes: pinMin, win: Object.fromEntries(P.tracks.concat(["all"]).map(t => [t, rt.noisy[t].win])) } };
+    // (Q-37 a) a RECORD run always writes its receipt, pin-only or not -- `recorded`, never ok: it judged nothing, and it
+    // replaces whatever receipt stood before it. Only a full compare run of this repo writes an ok one.
+    const writeReceipt = isRepo && (update || !pinOnly);
+    if (writeReceipt) {
+      const receipt = { hash: raceHash(read), ok: ok && !update, recorded: update, pass, fail, minutes, at: new Date().toISOString(),
+        pin: { races: keys.length, flips, drifts, recorded: update, minutes: pinMin, detMin: P.detMin, win: Object.fromEntries(P.tracks.concat(["all"]).map(t => [t, rt.noisy[t].win])) } };
       fs.writeFileSync(path.join(ROOT, "evidence", "race-sweep.json"), JSON.stringify(receipt, null, 1));
     }
-    console.log(`\nrace sweep: ${ok ? "PASSED" : "FAILED"} -- ${pass} passed, ${fail} failed, ${minutes} min${isRepo && !pinOnly ? "; receipt in evidence/race-sweep.json" : " (no receipt: " + (pinOnly ? "the pin only" : "not this repo's cockpit/") + ")"}${same ? "" : "; the race's files changed while it ran"}`);
+    console.log(`\nrace sweep: ${update ? "RECORDED (not a pass: a compare run must reproduce it)" : ok ? "PASSED" : "FAILED"} -- ${pass} passed, ${fail} failed, ${minutes} min${writeReceipt ? `; ${update ? "a recorded" : "the"} receipt in evidence/race-sweep.json` : " (no receipt: " + (pinOnly ? "the pin only" : "not this repo's cockpit/") + ")"}${same ? "" : "; the race's files changed while it ran"}`);
     process.exit(ok ? 0 : 1);
   })().catch(e => { console.error(e); process.exit(1); });
 }

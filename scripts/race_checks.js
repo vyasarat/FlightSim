@@ -52,6 +52,31 @@ module.exports = async function raceChecks({ newPage, check }) {
     const tap = await tapper(page);
     await page.waitForFunction(() => window.__lp && window.__lp.race && window.__lp.race.built, null, { timeout: 60000 }).catch(() => {});
 
+    // ---- (C2) rcAt ANSWERS INTO THE CALLER'S OWN SCRATCH: every call in the game's scripts (as served: a mutant copy's
+    // own) passes its `out` -- before v231 it answered in one shared object, and a caller holding one answer while asking
+    // for another read the second in both (Q-1: London's rivals' inside line; Q-2: the tunnel's skirt)
+    if (w === 820) {
+      const src = await page.evaluate(async () => {
+        const html = await (await fetch("index.html")).text(), files = [...html.matchAll(/<script src="(js\/[^"]+\.js)"/g)].map(m => m[1]);
+        const calls = [], bare = [];
+        for (const f of files) {
+          const lines = (await (await fetch(f)).text()).split("\n");
+          lines.forEach((line, i) => {
+            const code = line.replace(/\/\/.*$/, "");
+            for (const m of code.matchAll(/(?<![\w$.])rcAt\(/g)) {
+              if (/function\s+$/.test(code.slice(0, m.index))) continue;
+              let depth = 1, j = m.index + m[0].length, top = 0;
+              for (; j < code.length && depth > 0; j++) { const c = code[j]; if ("([{".includes(c)) depth++; else if (")]}".includes(c)) depth--; else if (c === "," && depth === 1) top++; }
+              calls.push(`${f}:${i + 1}`); if (top < 1) bare.push(`${f}:${i + 1}`);
+            }
+          });
+        }
+        return { calls: calls.length, bare, shared: typeof rcAtOut !== "undefined" };
+      });
+      check(`race (C2): every rcAt call in the game passes its own scratch -- ${src.calls} calls, ${src.bare.length} without an out${src.bare.length ? " (" + src.bare.join(", ") + ")" : ""}; and no shared answer object is left (rcAtOut)`,
+        src.calls > 20 && src.bare.length === 0 && !src.shared, J(src));
+    }
+
     if (w === 820) {
     // ---- e4 (first, on a fresh page: what the earlier tests leave behind on the Corvette
     // hid the fault). his car on the deck: the lowest point of the body he can SEE, in every car
